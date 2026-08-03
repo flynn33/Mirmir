@@ -8,7 +8,7 @@ usage() {
 
 script_directory="${0:A:h}"
 repository_root="${script_directory:h:h}"
-contract_source="${script_directory}/cpu-metal-parity-contract-v1.json"
+contract_source="${script_directory}/cpu-metal-parity-contract-v2.json"
 capture_source="${script_directory}/ParityQualificationCaptureTests.swift"
 evaluator_source="${script_directory}/cpu_metal_parity_v4.py"
 runner_source="${0:A}"
@@ -92,11 +92,11 @@ candidate_revision="$(
 
 sealed_tools="${output_directory}/sealed-tools"
 mkdir -p -- "${sealed_tools}"
-cp -- "${contract_source}" "${sealed_tools}/cpu-metal-parity-contract-v1.json"
+cp -- "${contract_source}" "${sealed_tools}/cpu-metal-parity-contract-v2.json"
 cp -- "${capture_source}" "${sealed_tools}/ParityQualificationCaptureTests.swift"
 cp -- "${evaluator_source}" "${sealed_tools}/cpu_metal_parity_v4.py"
 cp -- "${runner_source}" "${sealed_tools}/run_cpu_metal_parity_v4.sh"
-contract="${sealed_tools}/cpu-metal-parity-contract-v1.json"
+contract="${sealed_tools}/cpu-metal-parity-contract-v2.json"
 capture="${sealed_tools}/ParityQualificationCaptureTests.swift"
 evaluator="${sealed_tools}/cpu_metal_parity_v4.py"
 runner="${sealed_tools}/run_cpu_metal_parity_v4.sh"
@@ -117,7 +117,7 @@ PY
 
 if (( smoke_mode == 0 )); then
     for bound_path in \
-        script/v4/cpu-metal-parity-contract-v1.json \
+        script/v4/cpu-metal-parity-contract-v2.json \
         script/v4/ParityQualificationCaptureTests.swift \
         script/v4/cpu_metal_parity_v4.py \
         script/v4/run_cpu_metal_parity_v4.sh; do

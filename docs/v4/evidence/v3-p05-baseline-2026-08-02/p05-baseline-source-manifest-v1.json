@@ -1,0 +1,3186 @@
+{
+  "artifactSetSHA256": "2be9242f605fc3a37ffc011c50d7a1baa7806933e418c9466d4b35f452806648",
+  "fileCount": 397,
+  "files": [
+    {
+      "byteCount": 34,
+      "gitMode": "100644",
+      "gitObjectID": "1d892d42adfa1767624f1cdcd05fafec4488ca70",
+      "gitObjectType": "blob",
+      "path": ".gitattributes",
+      "sha256": "dbd0799f22d68d8a55f05838770f816762ceecba595ba6a6f44fc25dc14fcb04"
+    },
+    {
+      "byteCount": 6771,
+      "gitMode": "100644",
+      "gitObjectID": "492dba65b7bde74cfd5ced97379c6c13aed207b5",
+      "gitObjectType": "blob",
+      "path": ".github/workflows/block-attribution-trailers.yml",
+      "sha256": "672bb976fe6eeea9bc7277faa7b0426fea939b28b6aea09cc4d78f678ada2954"
+    },
+    {
+      "byteCount": 3584,
+      "gitMode": "100644",
+      "gitObjectID": "f0e02f32d0d4fa75b7f1efb5ecfba99a2e57e1f5",
+      "gitObjectType": "blob",
+      "path": ".github/workflows/update-pr-version.yml",
+      "sha256": "8c7e6014b6d8305fd391a2d6eb8ed2cda725f016ad475145b3aa4ac9f8eeef24"
+    },
+    {
+      "byteCount": 466,
+      "gitMode": "100644",
+      "gitObjectID": "cc90e45d2736237fe7725e76afb4a09fbb2fee03",
+      "gitObjectType": "blob",
+      "path": ".github/workflows/version-check.yml",
+      "sha256": "54d0f870c0358f8a9e6c6f06de4acbbf625d6c64a239fd39155f4503b11e79eb"
+    },
+    {
+      "byteCount": 525,
+      "gitMode": "100644",
+      "gitObjectID": "a52709fe89ffba2aa93cf0a73cf153386e3c2877",
+      "gitObjectType": "blob",
+      "path": ".gitignore",
+      "sha256": "396ad6deeedaaad83587349f16eb53227c71fd0459406c6531aec9d1b3f2ad4d"
+    },
+    {
+      "byteCount": 2956,
+      "gitMode": "100644",
+      "gitObjectID": "1cdedb15591fba573a19477e15201c955b601e21",
+      "gitObjectType": "blob",
+      "path": "CHANGELOG.md",
+      "sha256": "e13d702dceffe17c8b4e0d154105bae98fe27918baa660996e4cc87ad774bcb8"
+    },
+    {
+      "byteCount": 31644,
+      "gitMode": "100644",
+      "gitObjectID": "b966fa8a3b1eed1f0c8a1ea838a987b45fae73f9",
+      "gitObjectType": "blob",
+      "path": "DETERMINISTIC_ENGINE_V4_ROADMAP.md",
+      "sha256": "90c9c16681e0af2f0cc0147bc013af1d8013690817e9e61ffd28decab86d36be"
+    },
+    {
+      "byteCount": 52625,
+      "gitMode": "100644",
+      "gitObjectID": "73698002c212c0d81262d3b1b3c9b329ad55c36c",
+      "gitObjectType": "blob",
+      "path": "Mirmir.xcodeproj/project.pbxproj",
+      "sha256": "d9bab9125ecdc45f4de7110efe3e8190719e704b08d1e7dbf1f3329ff9fa2438"
+    },
+    {
+      "byteCount": 126,
+      "gitMode": "100644",
+      "gitObjectID": "a3e16f99b800e4f2068afe98c3daa4ba6576f6dc",
+      "gitObjectType": "blob",
+      "path": "Mirmir.xcodeproj/project.xcworkspace/contents.xcworkspacedata",
+      "sha256": "79cb519c69ef2339f1f8032447321a5d1c10c4e70b0f0ec8db4e85bb67014930"
+    },
+    {
+      "byteCount": 3574,
+      "gitMode": "100644",
+      "gitObjectID": "d9b576c36740843ef0bc3e0bed4c26da86a88ad2",
+      "gitObjectType": "blob",
+      "path": "Mirmir.xcodeproj/xcshareddata/xcschemes/Mirmir.xcscheme",
+      "sha256": "8e1912dae62a74a3739fea99eb35512aefdd592fc3bae91bf714c680aae0b91b"
+    },
+    {
+      "byteCount": 745,
+      "gitMode": "100644",
+      "gitObjectID": "ff1b950c7573ce2ab12cc630050725101a7aafa2",
+      "gitObjectType": "blob",
+      "path": "Mirmir/App/ContentView.swift",
+      "sha256": "bb128302df6587aa9269c10150cb8c88acc66384f9262bc50e56df237da7e1b4"
+    },
+    {
+      "byteCount": 649,
+      "gitMode": "100644",
+      "gitObjectID": "221bdf2c161fdc445bc7b56e2f62ad6629a69a46",
+      "gitObjectType": "blob",
+      "path": "Mirmir/App/MirmirApp.swift",
+      "sha256": "c2bba444d09362e6028194d0c5f87425062ced23eb897f423a4cdaf2a9ae6c47"
+    },
+    {
+      "byteCount": 8960,
+      "gitMode": "100644",
+      "gitObjectID": "b29e8e49c92acb36804889448bbdc26d1a49c0d1",
+      "gitObjectType": "blob",
+      "path": "Mirmir/App/MirmirAppBootstrap.swift",
+      "sha256": "a0c9f17e09863c92048b1715b8b3d21815a1804370ffb771039ddcc51a6bf70a"
+    },
+    {
+      "byteCount": 457,
+      "gitMode": "100644",
+      "gitObjectID": "583901e3139df3b5b88b47ab9dcedc205cc6c6b0",
+      "gitObjectType": "blob",
+      "path": "Mirmir/App/MirmirDeploymentMode.swift",
+      "sha256": "f23b6d6d47531340dd9f23cdf0d4b424af6364bc0b0c94f01cbfe63783d98e55"
+    },
+    {
+      "byteCount": 2997,
+      "gitMode": "100644",
+      "gitObjectID": "e0980cdd8faa20267f8e14531ee6b0db5adead03",
+      "gitObjectType": "blob",
+      "path": "Mirmir/App/MirmirDeveloperRootView.swift",
+      "sha256": "6af7afbf0e0243cf8aa9aa02031bd36c1365a3f452f5c3422fd2312a48637ff5"
+    },
+    {
+      "byteCount": 1456,
+      "gitMode": "100644",
+      "gitObjectID": "15725db17bb655496183a0f9440f38b8ff2c7e9d",
+      "gitObjectType": "blob",
+      "path": "Mirmir/App/MirmirModuleRegistry.swift",
+      "sha256": "28632c1eec0177313eef1e7bfdbd0f8e4e88b3bb84d091967a17007f6882cf63"
+    },
+    {
+      "byteCount": 2503,
+      "gitMode": "100644",
+      "gitObjectID": "d955d93098d4a8dfab0311c3f2db13471d8ef2d0",
+      "gitObjectType": "blob",
+      "path": "Mirmir/App/MirmirProductionRootView.swift",
+      "sha256": "78cc2510104f4079d32bb6d2e769ac8ddfbd6a1b34abefa2c6ee80cd23ec2094"
+    },
+    {
+      "byteCount": 44431,
+      "gitMode": "100644",
+      "gitObjectID": "dd968430a24484073dca9774a462e256aa7e3fa1",
+      "gitObjectType": "blob",
+      "path": "Mirmir/App/MirmirUpscaleWorkspace.swift",
+      "sha256": "088740c625d3573046386162623fd97a3a63c0c8acf4eb65b939bad1c424b652"
+    },
+    {
+      "byteCount": 29041,
+      "gitMode": "100644",
+      "gitObjectID": "93f085c4d5dfce7b01886d0e26d82933ad885863",
+      "gitObjectType": "blob",
+      "path": "Mirmir/App/MirmirViewModel.swift",
+      "sha256": "e57494fc477c7466f22460557b42d0ad31e9eb297d81633c03db0274b69ecfc9"
+    },
+    {
+      "byteCount": 46124,
+      "gitMode": "100644",
+      "gitObjectID": "530ff3b5a0622b86a73a70290ff7e65c05658c45",
+      "gitObjectType": "blob",
+      "path": "Mirmir/App/MirmirWorkspaceRootView.swift",
+      "sha256": "885a257e46eb9b11d27dfb136084b0e42a2d416b64893b775798ec4228aa5b8c"
+    },
+    {
+      "byteCount": 24600,
+      "gitMode": "100644",
+      "gitObjectID": "c9d265bebe8f951f1446cd44e4a37f69e97a22a4",
+      "gitObjectType": "blob",
+      "path": "Mirmir/App/MirmirWorkspaceSupport.swift",
+      "sha256": "710bd822390a94c3bb91c99210b6547b19acafd33617641d222ad7ff5048edf9"
+    },
+    {
+      "byteCount": 529,
+      "gitMode": "100644",
+      "gitObjectID": "11650f11df34697b6420b6c70b30ab993ff35e34",
+      "gitObjectType": "blob",
+      "path": "Mirmir/App/RootView.swift",
+      "sha256": "23f2dc5bf35aa6d5091155d72531c2db30f4a476684555676e0ff3f594dcfef9"
+    },
+    {
+      "byteCount": 1327,
+      "gitMode": "100644",
+      "gitObjectID": "7ae447c1c9e630905a1eac9d85097a8ddcfee5eb",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Assets.xcassets/AppIcon.appiconset/Contents.json",
+      "sha256": "2a3f446aa133cc41a9bd765205dcf717b192378f77ee19913781fad0fe5aef36"
+    },
+    {
+      "byteCount": 9500,
+      "gitMode": "100644",
+      "gitObjectID": "9ebb76c5ba02ab8c528b1357ac48c1b4babd1ad0",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128.png",
+      "sha256": "8a868485083b8fc871b09aa7e37cca456a751eb7aed9460892320f97d39e38dc"
+    },
+    {
+      "byteCount": 23163,
+      "gitMode": "100644",
+      "gitObjectID": "1ca6c9d72adf8f3e059f541204d338ffb0582f99",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png",
+      "sha256": "2b56ae1e29a83aab35f950cfba8be60b24e48f2e407c93466172972f69db2db2"
+    },
+    {
+      "byteCount": 570,
+      "gitMode": "100644",
+      "gitObjectID": "0d83a1b313dda84d22ac5aeeda1b0a87aecf834a",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_16x16.png",
+      "sha256": "3af5ce9ee10af00b2568d33c1a5c081d064d3c7fce54294532683fe8397c06af"
+    },
+    {
+      "byteCount": 1569,
+      "gitMode": "100644",
+      "gitObjectID": "70ebfb3a5e955a5a02d4dcf2e4c7ba47d15766f5",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_16x16@2x.png",
+      "sha256": "caad41ec6038136a2d79c5c81bec844e55eb7e6151b0b8d6eb760657f6e52a52"
+    },
+    {
+      "byteCount": 23163,
+      "gitMode": "100644",
+      "gitObjectID": "1ca6c9d72adf8f3e059f541204d338ffb0582f99",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_256x256.png",
+      "sha256": "2b56ae1e29a83aab35f950cfba8be60b24e48f2e407c93466172972f69db2db2"
+    },
+    {
+      "byteCount": 55888,
+      "gitMode": "100644",
+      "gitObjectID": "a5924341c10a1a2f359e1b7bd94c15b55a2a4e39",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_256x256@2x.png",
+      "sha256": "b3fd5523282dde97b76c42323dcd585af1439761eea0dda5cffd850e1a7d235d"
+    },
+    {
+      "byteCount": 1569,
+      "gitMode": "100644",
+      "gitObjectID": "70ebfb3a5e955a5a02d4dcf2e4c7ba47d15766f5",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_32x32.png",
+      "sha256": "caad41ec6038136a2d79c5c81bec844e55eb7e6151b0b8d6eb760657f6e52a52"
+    },
+    {
+      "byteCount": 3891,
+      "gitMode": "100644",
+      "gitObjectID": "0d69cc6e251d8630127238ce0da583293344cad1",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_32x32@2x.png",
+      "sha256": "7fa9fd6c5f02feb68eeae8c6e498fb56c8d312ba32d6ac69c82a3df31188748d"
+    },
+    {
+      "byteCount": 55888,
+      "gitMode": "100644",
+      "gitObjectID": "a5924341c10a1a2f359e1b7bd94c15b55a2a4e39",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_512x512.png",
+      "sha256": "b3fd5523282dde97b76c42323dcd585af1439761eea0dda5cffd850e1a7d235d"
+    },
+    {
+      "byteCount": 125205,
+      "gitMode": "100644",
+      "gitObjectID": "155883d79d4d3d8c4283704c020c665dceacfd0f",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_512x512@2x.png",
+      "sha256": "a174681fe805e1d4394af06225aaceba4f620e548ba5ad18041bc8e74dd28612"
+    },
+    {
+      "byteCount": 60,
+      "gitMode": "100644",
+      "gitObjectID": "74d6a722cf39b2dd5bef11f166e6ac9b99568a01",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Assets.xcassets/Contents.json",
+      "sha256": "f5fb0e1f3a8142892ed092efb5955c1c2cc537003a89ad7bbdb9dade7fe8985f"
+    },
+    {
+      "byteCount": 287,
+      "gitMode": "100644",
+      "gitObjectID": "a1931697214cefca77c9cda9867e7c0961ba2e9f",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Assets.xcassets/MirmirBrandIcon.imageset/Contents.json",
+      "sha256": "2789b6a9f072d87be18d873f026f9c8ea72998095b150f5fd89d3bc60bb6f31b"
+    },
+    {
+      "byteCount": 23163,
+      "gitMode": "100644",
+      "gitObjectID": "1ca6c9d72adf8f3e059f541204d338ffb0582f99",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Assets.xcassets/MirmirBrandIcon.imageset/mirmir_brand_icon.png",
+      "sha256": "2b56ae1e29a83aab35f950cfba8be60b24e48f2e407c93466172972f69db2db2"
+    },
+    {
+      "byteCount": 55888,
+      "gitMode": "100644",
+      "gitObjectID": "a5924341c10a1a2f359e1b7bd94c15b55a2a4e39",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Assets.xcassets/MirmirBrandIcon.imageset/mirmir_brand_icon@2x.png",
+      "sha256": "b3fd5523282dde97b76c42323dcd585af1439761eea0dda5cffd850e1a7d235d"
+    },
+    {
+      "byteCount": 243,
+      "gitMode": "100644",
+      "gitObjectID": "3f61c7a3fc753dd633efc7b145265ba9c4a31d2c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Domain/AppState.swift",
+      "sha256": "696b17fe7cafddf748715cc4c22015098bc46ee65abd9230f5d15b289fb23dce"
+    },
+    {
+      "byteCount": 3700,
+      "gitMode": "100644",
+      "gitObjectID": "e4e9a8804456bf7c4850b79e8d9815bf8db7361d",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Domain/BackendAvailability.swift",
+      "sha256": "92cc9d935236ab5ba916b147ff531dbc2b6a3e00cf7690a1a9be6f95f16ff0a2"
+    },
+    {
+      "byteCount": 6500,
+      "gitMode": "100644",
+      "gitObjectID": "30b79d1a37d062140d99ab828ad3db876001cfbe",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Domain/BackendDescriptor.swift",
+      "sha256": "a6e1e80f4b261444253bd63ae6d1d0b409de1ae909661adb52a6dbbec37a40ff"
+    },
+    {
+      "byteCount": 470,
+      "gitMode": "100644",
+      "gitObjectID": "092b2990f06d8807ac1343666490d92eb3916726",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Domain/OutputSettings.swift",
+      "sha256": "590196d0699f77901a249fee02fc0a8d8dc07c48d19739fc5a5e39a721fbefd4"
+    },
+    {
+      "byteCount": 565,
+      "gitMode": "100644",
+      "gitObjectID": "2344118f0d72682f1bf9a1377f37bb953655841e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Domain/UpscaleBackendID.swift",
+      "sha256": "7c61f03c3d1ebf931681b23abcb1448d86f1d664b5925c95f3e14d750aa1cc2f"
+    },
+    {
+      "byteCount": 650,
+      "gitMode": "100644",
+      "gitObjectID": "1b02026bdf2e5a72c72ec5ac3b33233b4ed66a4f",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Domain/UpscaleProgress.swift",
+      "sha256": "037b5a89c7a422d82ae6b936794d0ee1cf82ccf05d05c2df140839e1be94a1c4"
+    },
+    {
+      "byteCount": 388,
+      "gitMode": "100644",
+      "gitObjectID": "02278f5af91809ea95bac257cf0aac2477f9e65a",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Domain/UpscaleRequest.swift",
+      "sha256": "6ae9c2f6842e56db8d986f1df9d7013da89c2f712eed832a2f4f7332ec9f85e4"
+    },
+    {
+      "byteCount": 549,
+      "gitMode": "100644",
+      "gitObjectID": "4a519b7ea2610e6bf6cb4ed6fcaa6dcdfa226675",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Domain/UpscaleResult.swift",
+      "sha256": "e6f23cfbcaf02ee999143f31f95fe40f4978e542de19fe47b2320a9e133cc658"
+    },
+    {
+      "byteCount": 1126,
+      "gitMode": "100644",
+      "gitObjectID": "c7a873a6dd7608912de93c3ecf28d93ad7859268",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Domain/VideoColorInfo.swift",
+      "sha256": "97d93d7882876c0b0777f580b1b378e67d01f5d171d1daf6a2517e7092a9c4d5"
+    },
+    {
+      "byteCount": 1480,
+      "gitMode": "100644",
+      "gitObjectID": "edc5387aae999a3399bb2c07f43e7091e676e2a5",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Domain/VideoGeometry.swift",
+      "sha256": "865e112e8c004851e633dd0dd9c79d6e9afc7858509059d0d3ec3aaa93761d7d"
+    },
+    {
+      "byteCount": 875,
+      "gitMode": "100644",
+      "gitObjectID": "68f274ad9c93dfb0b6148405a4b05fff66f4c477",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Domain/VideoInfo.swift",
+      "sha256": "a755281fd6576ec2d812c590e140c4801f6adbb165f8fb8da421de41eb25b505"
+    },
+    {
+      "byteCount": 1237,
+      "gitMode": "100644",
+      "gitObjectID": "f8d5f552bcc25e18db92ef420dab2e029dc1291e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Info.plist",
+      "sha256": "6f8ea7fcb648580619cf882d4350b5496dc5504d5cd60bff4401c1096009417f"
+    },
+    {
+      "byteCount": 2682,
+      "gitMode": "100644",
+      "gitObjectID": "171f4f160b843c383f14c7c4ca342b5db42df69f",
+      "gitObjectType": "blob",
+      "path": "Mirmir/MediaIO/AtomicOutputFile.swift",
+      "sha256": "28dd18bae13f6de86e3f17d6602fa338bfcea66fb7fddff5ff2230585dda205e"
+    },
+    {
+      "byteCount": 4615,
+      "gitMode": "100644",
+      "gitObjectID": "dfdf28f9ffd762ab6f60a52d99a89344cb0f2d86",
+      "gitObjectType": "blob",
+      "path": "Mirmir/MediaIO/OutputMediaValidator.swift",
+      "sha256": "2094a881a58bae4bc2eee9486fe03ddb273c0801e54d1f53b6ea10b9a6a652f7"
+    },
+    {
+      "byteCount": 13869,
+      "gitMode": "100644",
+      "gitObjectID": "1ab0e09670b4fefc3df1e4a7e0f87f64bb99a9be",
+      "gitObjectType": "blob",
+      "path": "Mirmir/MediaIO/VideoProbe.swift",
+      "sha256": "c149a2ad572abc2c1d22eda2dfe76d66cdfe4d8c13e1c7d466a0b3f2f64e9a00"
+    },
+    {
+      "byteCount": 25319,
+      "gitMode": "100644",
+      "gitObjectID": "49f7d4616569ada06370be26969cfa6846979783",
+      "gitObjectType": "blob",
+      "path": "Mirmir/MediaIO/VideoProcessingSession.swift",
+      "sha256": "f89d5602952aaa5eff8307893e688050d0f716c3286965d4bed4b58c50c91b12"
+    },
+    {
+      "byteCount": 323,
+      "gitMode": "100644",
+      "gitObjectID": "6d968edb4f8cd6ec865ba1cc4f804c71ef522b3e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Mirmir.entitlements",
+      "sha256": "782208d5e5bd4c9243a913b92a781e652e3deffb3425345d4f154c3c13ed4f24"
+    },
+    {
+      "byteCount": 2670,
+      "gitMode": "100644",
+      "gitObjectID": "fa2b1fb073be23c5ac9ef7b389c52ca995b08939",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Diagnostics/MirmirDiagnosticConfiguration.swift",
+      "sha256": "286e51311f18ce325c7bc21f8b811410d755a5e7c9374e5861bcffc754dc7db8"
+    },
+    {
+      "byteCount": 10744,
+      "gitMode": "100644",
+      "gitObjectID": "646c183418e05a03bfe152a9b4584c2d3e833c67",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Diagnostics/MirmirDiagnosticExport.swift",
+      "sha256": "bb1246420b242aa35dbce2f564d96c22033c5e1be40bd8ac3cdee32ba559bb2a"
+    },
+    {
+      "byteCount": 6472,
+      "gitMode": "100644",
+      "gitObjectID": "8f1b961085ac61b05ac37d532c82ca371412b628",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Diagnostics/MirmirDiagnosticFileSystem.swift",
+      "sha256": "132f803311ee2d0b1d5fa3569fa5b1887390721063410a7da527881ed762e502"
+    },
+    {
+      "byteCount": 3736,
+      "gitMode": "100644",
+      "gitObjectID": "39df0883f60d397500a2ac68d2ece01fd14e5a5e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Diagnostics/MirmirDiagnosticJournalModels.swift",
+      "sha256": "789183f8122628d753486d5abb32b5fa10bc979c7f0baf5faf4a0d431577ca46"
+    },
+    {
+      "byteCount": 15830,
+      "gitMode": "100644",
+      "gitObjectID": "349fb2639fd3af21711c64612fe978d20b7d2c4e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Diagnostics/MirmirDiagnosticRecord.swift",
+      "sha256": "fc1efd599eea922aabd2f023e024249ed5902bfcf0d8ef2ffecf97e70cac3088"
+    },
+    {
+      "byteCount": 59321,
+      "gitMode": "100644",
+      "gitObjectID": "17731ebe8d6e249f1526af9ed7ceb0315e225033",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Diagnostics/MirmirDiagnosticStore+Logging.swift",
+      "sha256": "ecc3a1e49940956ad6ab75279bd44200eea70c911f87ae09ff68972585b801ab"
+    },
+    {
+      "byteCount": 15784,
+      "gitMode": "100644",
+      "gitObjectID": "6ae25346b9b471667d6b04e9ce61e2773b98329e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Diagnostics/MirmirDiagnosticStore+Persistence.swift",
+      "sha256": "459a164f83ef9af67f6d241d5a58645471ba56020b2491eaad025c8c71447adc"
+    },
+    {
+      "byteCount": 12775,
+      "gitMode": "100644",
+      "gitObjectID": "0fca016b40c20c4e6cd246e17dbc7162905e0bba",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Diagnostics/MirmirDiagnosticStore.swift",
+      "sha256": "7f446eb39c4eaacbe9b01b0a1b7b5dacf22813fb9840203310969998e2ecc657"
+    },
+    {
+      "byteCount": 14989,
+      "gitMode": "100644",
+      "gitObjectID": "197331a07823d58dd4ee41acc34c5e34a3aa7e00",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Diagnostics/MirmirDiagnosticValues.swift",
+      "sha256": "36230bc598a70b26261f42014294e2a8479548329888be7254af996dfe144e3f"
+    },
+    {
+      "byteCount": 60886,
+      "gitMode": "100644",
+      "gitObjectID": "154f65c55d28d364cd1c2a0fa552b414d5ad1d96",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/AVFoundationMediaPipeline.swift",
+      "sha256": "32722fa1a414618fd34cf249908ac9cc4092783dbc5420978afba0ade597850d"
+    },
+    {
+      "byteCount": 22719,
+      "gitMode": "100644",
+      "gitObjectID": "2e37e8a3d840196268f4a77d46bc5ac2cfb9e92b",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/AVFoundationMediaSessionConfiguration.swift",
+      "sha256": "ebdad0f866dbfcbbd4ee3cf9c5fdf4d3642749251357d6effbd24a314077cd14"
+    },
+    {
+      "byteCount": 56538,
+      "gitMode": "100644",
+      "gitObjectID": "d3630624334c457bfff55f64c74852acb4aaae90",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/AVFoundationMediaSessionFinalization.swift",
+      "sha256": "1aafafeb4637153689fc5302cf6ce89440cc1b54bfaa059c3b091fca458ad7fa"
+    },
+    {
+      "byteCount": 30357,
+      "gitMode": "100644",
+      "gitObjectID": "66f2eb299ca587155f5707bffb510f6f11a72471",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/AtomicMediaOutput.swift",
+      "sha256": "002205042f36748050ddbd6db5dce751db5cfa99cec00635c7578048757b8203"
+    },
+    {
+      "byteCount": 7572,
+      "gitMode": "100644",
+      "gitObjectID": "745c6c1c3fc2096c70a2ba663f41ad2bc11e4d2d",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/AtomicMediaVerifiedTemporaryFile.swift",
+      "sha256": "91158e38dc6c0fb6cf11bd6a6f86f68cfd0ded084938497ff20db223c0f931a0"
+    },
+    {
+      "byteCount": 10970,
+      "gitMode": "100644",
+      "gitObjectID": "d43756fd9af769f5697ca49f9004e8bd6710ae01",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/HEVCFormatIdentityReader.swift",
+      "sha256": "ecab2049826b22d2ddbce5ebc7b8c4e7defc03bad342d8a090bd9b3c17477905"
+    },
+    {
+      "byteCount": 48405,
+      "gitMode": "100644",
+      "gitObjectID": "423538d10e37feea5f3231cef061784e870c2997",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/LocalAtomicMediaFileSystem.swift",
+      "sha256": "ca55abc8675c49c1f35f442401170013e0317d5fd1c57099479a976169eeeb3e"
+    },
+    {
+      "byteCount": 18420,
+      "gitMode": "100644",
+      "gitObjectID": "0269a0ef642127e37bae842c8996bdfb891af159",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/MediaPipelineService.swift",
+      "sha256": "432c2acd3b017b7cdf95c0885f1f53149399eaadff65b00023777f5fe07ce0a5"
+    },
+    {
+      "byteCount": 628,
+      "gitMode": "100644",
+      "gitObjectID": "686e95fbcbe223aa0163091092e849eb5e0b4f13",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/MediaPipelineServiceModule.swift",
+      "sha256": "d1e0f94cacfd4eaaf5c3f32df3e04cca8d1625d2ead934f2d2c354748c042b49"
+    },
+    {
+      "byteCount": 58615,
+      "gitMode": "100644",
+      "gitObjectID": "4c1a255cc9b2dc163495cc954fe334cb27db7b28",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+      "sha256": "f90b90b208701c40cef2110178769b1cb55b096934b5ab3070748571cc71e4e3"
+    },
+    {
+      "byteCount": 4761,
+      "gitMode": "100644",
+      "gitObjectID": "03cc355d2fb973dccea3f2be4a7d396c3bdb755c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/MediaVideoScanStructure.swift",
+      "sha256": "548282d512e431cc5b510525bad8ad3e1dc83846db303854af897c0ce81bdf5a"
+    },
+    {
+      "byteCount": 109594,
+      "gitMode": "100644",
+      "gitObjectID": "0b7359deeb2a86769bec33d0ae3b0577d09b5010",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/MirmirTimedMetadataMigration.swift",
+      "sha256": "2418fc192109127b15c6ecb79910d312489312acb14e1b40ecd58634fee024c0"
+    },
+    {
+      "byteCount": 6628,
+      "gitMode": "100644",
+      "gitObjectID": "4a15ed6d274e4b95b1cea9311d5f6dea9974d714",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/MirmirTimedMetadataPolicy.swift",
+      "sha256": "2fc9c18f57b1b484d465be459b6a59f1c2cdb4b2172cd72938b21b1f4e8c31de"
+    },
+    {
+      "byteCount": 34240,
+      "gitMode": "100644",
+      "gitObjectID": "87d24b8fada2c79d6bf96ecd7faedda97ab4734e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/OutputMediaAACIdentityReader.swift",
+      "sha256": "c624fc31d60acfcf8b5639d5dd7fb1b3dc4867453aba52973fb6914de26c31c6"
+    },
+    {
+      "byteCount": 19420,
+      "gitMode": "100644",
+      "gitObjectID": "a56bc0c20fdbfda49aa69a7fb9c8efed5e3a809a",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/OutputMediaAppleLosslessIdentityReader.swift",
+      "sha256": "63ffa6983ddd29ac0e53bd82d0cd4fe6e3ec9dd8130cd19d321c62e04dbd2f0b"
+    },
+    {
+      "byteCount": 124055,
+      "gitMode": "100644",
+      "gitObjectID": "d033f221c9819c7e2c4e4d6ecf11a7c1ab20a99d",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/OutputMediaIdentityVerification.swift",
+      "sha256": "afccbf2ea43fb8ed18840cc35532324d5f1e2f94d8dd7ac3d9dfb13ade877a6f"
+    },
+    {
+      "byteCount": 38892,
+      "gitMode": "100644",
+      "gitObjectID": "648e616fe4a187ab74aae6d0fca7a6a40eb880b2",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/OutputMediaLinearPCMIdentityReader.swift",
+      "sha256": "369b699807a31772fbad24deb01dc6bf8f8631dbc2e25253db782a4187ca3e24"
+    },
+    {
+      "byteCount": 21741,
+      "gitMode": "100644",
+      "gitObjectID": "f16972716f3d287cf4450981ec67ea2c36f5024e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/OutputMediaVerificationTypes.swift",
+      "sha256": "68aae7ccc3d2d129fafb6ab1458714b60bee4a434cd9af5354b01c7370ff1ba5"
+    },
+    {
+      "byteCount": 62546,
+      "gitMode": "100644",
+      "gitObjectID": "6bf7896b440aeff8d442260f26dbbcba0c1f097d",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/OutputMediaVerifier.swift",
+      "sha256": "8349318abf97b795343e7afe93a713fc9e79a55570b21b588ed3820553771da4"
+    },
+    {
+      "byteCount": 9870,
+      "gitMode": "100644",
+      "gitObjectID": "537b2fbdaaf46c91c2b2ecd9ec009fcf62bb3f48",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/PixelBufferBridge.swift",
+      "sha256": "88bee2b3d8dfd9d6b26853a823b338826d7aad3e113e134f21cacf5e01e6fedd"
+    },
+    {
+      "byteCount": 83448,
+      "gitMode": "100644",
+      "gitObjectID": "4375d3b8aa83dbdc03216488da0a6f3e97b14f6a",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MediaPipeline/R12ChunkCheckpointLedger.swift",
+      "sha256": "660f10bf3eb52485ef8b0c7dabb9c946e2675e2b3a6a0174a072ae4574868db0"
+    },
+    {
+      "byteCount": 1826,
+      "gitMode": "100644",
+      "gitObjectID": "a8d23d19da9749bf3651db8566fbc281989f5f79",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MetalRendering/DefaultMetalRenderingService.swift",
+      "sha256": "071df2ca2d98a61996ee3eb68545db337bce1f3336f08cfe7852426a7215b6c0"
+    },
+    {
+      "byteCount": 8611,
+      "gitMode": "100644",
+      "gitObjectID": "100ea36afbe9e404d696a22437f61820ff840c7b",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MetalRendering/MetalCommandBufferCompletionBridge.swift",
+      "sha256": "3eeae3457a141eac5b1141bbd8de87d4c0b1aad887b3bda45cde9876b7f36010"
+    },
+    {
+      "byteCount": 1289,
+      "gitMode": "100644",
+      "gitObjectID": "1422c048345648215cb83e98b525181527172ae3",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MetalRendering/MetalRenderingService.swift",
+      "sha256": "19b57f05a92b25d16fa812ac3f5f385743687a3473bbd357240c92714845633e"
+    },
+    {
+      "byteCount": 635,
+      "gitMode": "100644",
+      "gitObjectID": "2636b4e4aed3f6eed21db397004aff20f97385f4",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/MetalRendering/MetalRenderingServiceModule.swift",
+      "sha256": "849585c2441119359675cb3591ce08f7109768bdccf036a863d6e214136bf4bd"
+    },
+    {
+      "byteCount": 12567,
+      "gitMode": "100644",
+      "gitObjectID": "15e62cd62b6a9dc041531746dfc9996133e1c60d",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/ModelAssets/DefaultModelAssetsService+Operations.swift",
+      "sha256": "d8398d311a3ac7d98cc31d5eca22638ad95a9ac1dfd381a496da54a2cd62a904"
+    },
+    {
+      "byteCount": 7904,
+      "gitMode": "100644",
+      "gitObjectID": "fe256bd7d08811e3ef74fafac6633922795d1f89",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/ModelAssets/DefaultModelAssetsService.swift",
+      "sha256": "c282999afe40235d4332e61fd814f52190fee5f77487ae4c6fc4486d1f244c86"
+    },
+    {
+      "byteCount": 3758,
+      "gitMode": "100644",
+      "gitObjectID": "e273c28d42b8508b1db9b835d74d285b8c4f1aff",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/ModelAssets/ModelAssetsService.swift",
+      "sha256": "24221e0d33ef00816396403e11247d9f8885c7c7789043cb671a9ea75c48ded6"
+    },
+    {
+      "byteCount": 626,
+      "gitMode": "100644",
+      "gitObjectID": "64ec779de5206c3e3c2ad3e9067551b87cb6609e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/ModelAssets/ModelAssetsServiceModule.swift",
+      "sha256": "45f49b731fa0228d33eddfd985a0f187ac0a229589e982d3cc9f8c1e6a972461"
+    },
+    {
+      "byteCount": 527,
+      "gitMode": "100644",
+      "gitObjectID": "85187c52e39bf397c1461420b7368c3d6aa3f940",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/ModelAssets/NotRequiredModelAssetsService.swift",
+      "sha256": "82d9bd1aa4b4afe9b054744cc1d0e8c5f47fbc234c5475ccc543e83bce45b320"
+    },
+    {
+      "byteCount": 17427,
+      "gitMode": "100644",
+      "gitObjectID": "1fa56f2a8788843cdea84406f12d88d69f9e6f23",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/ModelAssets/R08CoreAIAnalysisContracts.swift",
+      "sha256": "4fa95dbc9fe3e18dde0f1c8d99f09a32cfc3ea27e91d88f0295210772abb155f"
+    },
+    {
+      "byteCount": 11815,
+      "gitMode": "100644",
+      "gitObjectID": "6a7c985b0523d14936151af4843f55331bab1bd5",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/ModelAssets/R08CoreAIAnalysisHeads.swift",
+      "sha256": "10ba36c9efd886a8205a6e8077346e1d22d472aefc2685e99c4fd22c88dd3ac2"
+    },
+    {
+      "byteCount": 17266,
+      "gitMode": "100644",
+      "gitObjectID": "07364c152fa1dd3ea6a6618a0289de729db857b1",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/ModelAssets/R08DeterministicAnalysisService.swift",
+      "sha256": "1d6a393d003f0e8b4db875959c0fdd09de6c0b08b995be416e8a878f27ed504b"
+    },
+    {
+      "byteCount": 10507,
+      "gitMode": "100644",
+      "gitObjectID": "f6b59f192b7c789fb2a14e40057766cb8467f1cb",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/ModelAssets/R09CoreAIResidualContracts.swift",
+      "sha256": "396dbb41981e401624fbf63367f62e6410ea4717c4a72878bdf4fc11e2b22ee6"
+    },
+    {
+      "byteCount": 19853,
+      "gitMode": "100644",
+      "gitObjectID": "bdce7c5d32e08dc61376a1dbecf08ee3ba8d6c8b",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/ModelAssets/R09DeterministicResidualService.swift",
+      "sha256": "f3dba587195bb0a117eea08b20afc7f27bff6337f23fe9895da370b157cd5ef5"
+    },
+    {
+      "byteCount": 11742,
+      "gitMode": "100644",
+      "gitObjectID": "47fca7cb570d3bfb56215b3d20bc16e0c527d5b8",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/ModelAssets/R09ResidualIdentityContracts.swift",
+      "sha256": "3c2623ed1ea937a4b094df3174cd5542c19fc07fdf81c0b0aff63172dc39e077"
+    },
+    {
+      "byteCount": 13810,
+      "gitMode": "100644",
+      "gitObjectID": "6aeb4473c9ca4b9d84aebd649df88c0da9be2fdb",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/ModelAssets/R09ResidualNumericContracts.swift",
+      "sha256": "4d0a1d8ef1c31cdda44986936d288d34e2a1a5113e4c7b62f0f02184cf349aa8"
+    },
+    {
+      "byteCount": 4185,
+      "gitMode": "100644",
+      "gitObjectID": "076f6285219fd07b3b6c19464adc9afc4ad1c561",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/ModelAssets/R09ResidualServiceContracts.swift",
+      "sha256": "18f3b7bc22bc1efae56dcd5fe84bca08ec061df997fb2bb08719e18d926e5da0"
+    },
+    {
+      "byteCount": 5501,
+      "gitMode": "100644",
+      "gitObjectID": "8b24bac4d460302e26e907a85f7fe4af56b9927e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/ModelAssets/R09ResidualValidation.swift",
+      "sha256": "bc553accef5f5a9a21a1843b223108ef1e58c9525e63ffa42d4379fd21f801a7"
+    },
+    {
+      "byteCount": 671,
+      "gitMode": "100644",
+      "gitObjectID": "e5a0c9f3c7d25bf84510d78ebe19bb9989176519",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/ModelAssets/RoadmapTransitionModelAssetsService.swift",
+      "sha256": "d5a471c4311091060ed7a8c254b6cde89080e7b55ffecc6a60f78c8ca4e7ea3c"
+    },
+    {
+      "byteCount": 7287,
+      "gitMode": "100644",
+      "gitObjectID": "dc7c0d43a4c25345d5902d5c22793a02403f19ea",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/ModelAssets/VTModelStager.swift",
+      "sha256": "9eb8dcdb3806e2a466e5811b99176b6c133e6e16a745cde9c2f5c5ae2516a280"
+    },
+    {
+      "byteCount": 19180,
+      "gitMode": "100644",
+      "gitObjectID": "2c9fdaa3f207a189989d4130c9d3c3d2f92bcb65",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Release/MirmirPendingWorkQueue.swift",
+      "sha256": "808d57c8b3ab70714fe448aa31395e49e30d48739696100f957209311375fe7a"
+    },
+    {
+      "byteCount": 15768,
+      "gitMode": "100644",
+      "gitObjectID": "a11d81ff9fa8ef3670dbfd859db2f93b2c758d86",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Release/MirmirPendingWorkQueueModels.swift",
+      "sha256": "5819ed73e3cbece8373c48fc00a1d34b10285e26f00c06e9da65dee6139fe3da"
+    },
+    {
+      "byteCount": 8756,
+      "gitMode": "100644",
+      "gitObjectID": "092c05f2a21c0fabf071df622c19e754570da394",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Release/MirmirPendingWorkQueueValidation.swift",
+      "sha256": "3bd0b639d7dca5ec42d6e354744f717703d24170a87e966181430be62e5bf741"
+    },
+    {
+      "byteCount": 45941,
+      "gitMode": "100644",
+      "gitObjectID": "ab3c53b40575e39c7b59fa5237203c51a8b3e0d6",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Release/MirmirWorkHistoryStore.swift",
+      "sha256": "36444c51f67043c0127010b910df5f1dee54cddc6a27f8b1a7900ea92a9e9f4a"
+    },
+    {
+      "byteCount": 14389,
+      "gitMode": "100644",
+      "gitObjectID": "62774f4d38e91368c7a70a27046ad399bb26224f",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Release/R13CacheLocation.swift",
+      "sha256": "17eced8b14f30d2c708c93915de5e6ffb31d5e1fae5cf6571947408201aac93a"
+    },
+    {
+      "byteCount": 1062,
+      "gitMode": "100644",
+      "gitObjectID": "1c243bdc56e99293835d028f8c457a2070be23c8",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Release/R13FaultInjection.swift",
+      "sha256": "0aa6021e1c395fc37e21c2cd5f6b0c462156520948e01b6d88dc5a6779bebf28"
+    },
+    {
+      "byteCount": 25725,
+      "gitMode": "100644",
+      "gitObjectID": "192a6a02e1d50c5182131a49ab7b01f4d44245b2",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Release/R13RecoverableJobs.swift",
+      "sha256": "7164df05e9fc95b678a7183788bf04d12b1e5a02883b6d3f3ecb9acd472046f5"
+    },
+    {
+      "byteCount": 10599,
+      "gitMode": "100644",
+      "gitObjectID": "8f160cfb994d44d6260546a954c29f4efc2bef64",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Release/R13ReleaseDiagnostics.swift",
+      "sha256": "15c99b2f2bd75fa3abe51c0e7db6e552a6f8befec076ad0601422a2da147f3dd"
+    },
+    {
+      "byteCount": 20750,
+      "gitMode": "100644",
+      "gitObjectID": "45e9a340d0180bf863f16895287425bd7560c4af",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Release/R13ReleaseEnvironment.swift",
+      "sha256": "10a28ec893637c382fc0ebf54b86e02e143106cd2fc439c2b691f5f8d1ddc4a0"
+    },
+    {
+      "byteCount": 9487,
+      "gitMode": "100644",
+      "gitObjectID": "1612ec051609d88f3587a70843ed6c95e9453e43",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Release/R13ReleaseHardeningAttempt.swift",
+      "sha256": "7119551d753453212859a315fdf1a5edbb8615b1600c0f0739a0aa0cd341b01f"
+    },
+    {
+      "byteCount": 18052,
+      "gitMode": "100644",
+      "gitObjectID": "41bedd524ada5ac7fad79da2fa7e6eb53815300b",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Release/R13ReleaseHardeningCalculations.swift",
+      "sha256": "bfd2aaf1d3aec4f6d917c7addb399ed83f0302cab75e6f94138f700fe16dc888"
+    },
+    {
+      "byteCount": 11836,
+      "gitMode": "100644",
+      "gitObjectID": "2f4e65cda338d06d02a1a744d1ef323bf74011f6",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Release/R13ReleaseHardeningDiagnostics.swift",
+      "sha256": "75ac72aa9ba41aeef95d6ef292498fa33a182d1b9a080765a8a235aa3f293ef3"
+    },
+    {
+      "byteCount": 2673,
+      "gitMode": "100644",
+      "gitObjectID": "33bbd37336ba1f4280b5ed5ca43423261988c92e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Release/R13ReleaseHardeningRuntime+Production.swift",
+      "sha256": "c8216b9380ce60ec6e0942a74a358941033e8fc911d56856a8904f0bb55f6adb"
+    },
+    {
+      "byteCount": 21759,
+      "gitMode": "100644",
+      "gitObjectID": "25c8cfbd1406238856bf75e16fa1b975bf06e010",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Release/R13ReleaseHardeningRuntime.swift",
+      "sha256": "1f7e6955a1071ec64693571578b4c5a257e2d0d172047cecaa30981da1921253"
+    },
+    {
+      "byteCount": 59597,
+      "gitMode": "100644",
+      "gitObjectID": "53b1c9a5eccd348bac299a61d52fc2bb2c9833f8",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Release/R13ReleaseIdentity.swift",
+      "sha256": "27c43f570fd0132d715790d44ea70a0234bee16fd4e9613cf0e6e5c25b928cd8"
+    },
+    {
+      "byteCount": 17238,
+      "gitMode": "100644",
+      "gitObjectID": "8a67e2c6b1cf4a9382e83620ca33270659d0ad13",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Release/R13ResourceGovernance.swift",
+      "sha256": "3a4d863ec279c991a15802eace76cebec0d1e1227df9142b5f5fa2c03e415e9d"
+    },
+    {
+      "byteCount": 2342,
+      "gitMode": "100644",
+      "gitObjectID": "f076107ff4996ebd2b500f51faf01c77199bd4df",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Release/R13ResourceGovernanceValidation.swift",
+      "sha256": "e6d6d2748d5b4cb7669adaf03cc8a25efc5876e14295a691720f3e2887257565"
+    },
+    {
+      "byteCount": 16129,
+      "gitMode": "100644",
+      "gitObjectID": "d37d90bc0d75d1d285fa565bb508f1bc8130df13",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Release/R13SourceSnapshot.swift",
+      "sha256": "3d38271383bd88770350d2e1e4c6dd52440a067a57ec17ff9227261c52abf4fc"
+    },
+    {
+      "byteCount": 3905,
+      "gitMode": "100644",
+      "gitObjectID": "eaad0dea50fab4f673844e59b887aeff74f01ab9",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Telemetry/ASHTelemetryCatalog.swift",
+      "sha256": "df9ebbc927474e1ab12c2136fb34e743f02e779f7e2f3b5318af1023639cfff1"
+    },
+    {
+      "byteCount": 6674,
+      "gitMode": "100644",
+      "gitObjectID": "b75246fb2180297c2911b0fdf92a3e60bf45570d",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Telemetry/ASHTelemetryModels.swift",
+      "sha256": "210fda0f7371098d4dd174f78ec05ac857eaab7ba56e32a1294e7730e943e5fe"
+    },
+    {
+      "byteCount": 24272,
+      "gitMode": "100644",
+      "gitObjectID": "11946b52e250cb8d8e0a1d32f7d169b2362233d8",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/Telemetry/ASHTelemetryRecorder.swift",
+      "sha256": "41335fa8306a9e79f865657e8daf5ab8a582e86f878789a320776f2cdeb33c09"
+    },
+    {
+      "byteCount": 2923,
+      "gitMode": "100644",
+      "gitObjectID": "16e252ddd765ad9729b2e58f7a28d7e0c3d34b3a",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/MirmirCompletedPlaybackTypes.swift",
+      "sha256": "c2dd9d48da5c5f36579426af7de6958f30729511498d0aeea38f52026d67a185"
+    },
+    {
+      "byteCount": 21018,
+      "gitMode": "100644",
+      "gitObjectID": "ee7c0dde1430f4dffebeba564523a7ef7eaed03f",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/MirmirPreferencesStore.swift",
+      "sha256": "531493926572599be65e8396d4e002792a823f8c2078008ede2733b945d83e31"
+    },
+    {
+      "byteCount": 12495,
+      "gitMode": "100644",
+      "gitObjectID": "d0c7660c9e7ce8153b7ca9ac1378a755e60c989a",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/MirmirReleasePresentation.swift",
+      "sha256": "224eace7ea4364b860a73d22f07c5fc12d3197d8f09e448eb813eb23db5a3ff4"
+    },
+    {
+      "byteCount": 17120,
+      "gitMode": "100644",
+      "gitObjectID": "a73dca9847a6dba66edb63c4354a45e894affa6b",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/MirmirSynchronizedPlaybackController.swift",
+      "sha256": "ee5dbc97b0a7733a83efedbe1e0f4371bbff3635ded2fe2e6da438238c340c87"
+    },
+    {
+      "byteCount": 4615,
+      "gitMode": "100644",
+      "gitObjectID": "6fda0cdecdefc7df1202c118d96138ce44f21dbe",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/MirmirSynchronizedPlaybackTimeline.swift",
+      "sha256": "6f979501e94f3492fdbd8c47cd0b838cc1793948fb615d6f7557a59ae9296875"
+    },
+    {
+      "byteCount": 1877,
+      "gitMode": "100644",
+      "gitObjectID": "48f6972def12859942e4c4505373766c4c8d711c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/MirmirUIConstants.swift",
+      "sha256": "42d1f0352d8a63e8ef2fbf6837f33c8276b7fd5ace3675d5b95a839ee0366fb5"
+    },
+    {
+      "byteCount": 436,
+      "gitMode": "100644",
+      "gitObjectID": "f72605081d515e6ebd98483513297c6ad2074f46",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/MirmirUIModule.swift",
+      "sha256": "38e426b4558308755b207af6f76ebbb2b0f8ef44847cbcdf07b3f59b362fe555"
+    },
+    {
+      "byteCount": 11018,
+      "gitMode": "100644",
+      "gitObjectID": "c26c5590bd2d2ddadc41624a9e7cd4eb806d97e5",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/MirmirViewModel+CacheLocation.swift",
+      "sha256": "8fb4ba83c76293e63c4c38ee5a700ddbf0ecc3555e9fe7e08a0a1b27d86956b2"
+    },
+    {
+      "byteCount": 1242,
+      "gitMode": "100644",
+      "gitObjectID": "da523a516c520d8e3b6510e7159aca54ee9e741e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/MirmirViewModel+R13Diagnostics.swift",
+      "sha256": "948c698035317a5952c513fb1bec69345c18369a3c750b773aa33900d03a8968"
+    },
+    {
+      "byteCount": 5412,
+      "gitMode": "100644",
+      "gitObjectID": "331455bf3a9b52f6e398f15106029fd1f1c23737",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/MirmirViewModel+R13Errors.swift",
+      "sha256": "afea88264324e0ec72794a6a000c0d4d0f49a8eedc2a91128b21566c6b708015"
+    },
+    {
+      "byteCount": 17845,
+      "gitMode": "100644",
+      "gitObjectID": "85f7678cb31fba41c4e53c9aee5b72071958661c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/MirmirViewModel+R13Recovery.swift",
+      "sha256": "abad8e893b49cd8b4db70ad5261b68bd9d709f1e82170e74452ba9fb0f7b5c7d"
+    },
+    {
+      "byteCount": 176214,
+      "gitMode": "100644",
+      "gitObjectID": "7380b0fa85ea2c44d36290bde32b9d9947d967ab",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/MirmirViewModel.swift",
+      "sha256": "a5c9e1ae4acc29f7bf2156ca3dfdcf55694dfdfc20cd660677c0e195e00087ac"
+    },
+    {
+      "byteCount": 5615,
+      "gitMode": "100644",
+      "gitObjectID": "a91b59db3241b8a8af62624e352fd17406e5cca4",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/Theme/MirmirTheme.swift",
+      "sha256": "9a20dcd76a9dfe189a9763722388cae98817d472378402dc8035b7a6785c4185"
+    },
+    {
+      "byteCount": 9664,
+      "gitMode": "100644",
+      "gitObjectID": "7741d29b466c5f07222febd53076f487f7f429ae",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/Views/MirmirCompletedComparisonPlaybackView.swift",
+      "sha256": "178f4040aa986817729b1768bd12d9080b17fdd2ae6703a4827862ca40a60f3e"
+    },
+    {
+      "byteCount": 186,
+      "gitMode": "100644",
+      "gitObjectID": "72ac38d8af234c6039b76161cda5c2ce77348ec8",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/Views/MirmirRootView.swift",
+      "sha256": "3295c8d363d4d556e406986f2fd0cb615a564e8d350ee1e45845fd9648a8df4e"
+    },
+    {
+      "byteCount": 34270,
+      "gitMode": "100644",
+      "gitObjectID": "f59745125328d66a6774af62775ca5beeedfb270",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/Views/MirmirSettingsViews.swift",
+      "sha256": "3af130ed5705f1f8353fb190b5b853f8bcbda0291fee1c1809928dd48b45d009"
+    },
+    {
+      "byteCount": 6396,
+      "gitMode": "100644",
+      "gitObjectID": "346d308e337dde9de7dd608a052073ebdc58705d",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/Views/MirmirStatusStripView.swift",
+      "sha256": "1e828472e6197ca387bfcdae840710fe654bcc3d6579e57ee8ff8c1dccabc685"
+    },
+    {
+      "byteCount": 43501,
+      "gitMode": "100644",
+      "gitObjectID": "514c48fd8abd5b8aaa559b056821679e898f1e1c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/Views/MirmirUpscaleWorkspaceView.swift",
+      "sha256": "a7cb037c3253c1cf803650bf6b574a63f9f89f13a7bfdba6f2b2c17e91eb44e0"
+    },
+    {
+      "byteCount": 10062,
+      "gitMode": "100644",
+      "gitObjectID": "9b91ed19b219416f21abbf6151ccb5596763266a",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/Views/MirmirWorkflowViews.swift",
+      "sha256": "073c7de4e53b55f3fefef0b7fc5a05b9e6f09d9288844ee2ae48ec346daaa211"
+    },
+    {
+      "byteCount": 6249,
+      "gitMode": "100644",
+      "gitObjectID": "3cf60bc4a363cbbc608d9af1ffa52e2ea31dd488",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/Views/MirmirWorkspaceComponents.swift",
+      "sha256": "87fb292a74e66df0dc8ece7850ded40d07c2f6aa337452bc612158b9d42f6393"
+    },
+    {
+      "byteCount": 56620,
+      "gitMode": "100644",
+      "gitObjectID": "df0547ed40dce886f54a64862b22fe6c49fe25b8",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/Views/MirmirWorkspaceScreens.swift",
+      "sha256": "126819d32a791a3d89fd29c828ab152c39be10977ac6ddf6b38a582d17f5e07d"
+    },
+    {
+      "byteCount": 3096,
+      "gitMode": "100644",
+      "gitObjectID": "4d8043acdc3d9d450feeaf06bdc4c65372ea145b",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/Views/ProgressPanelView.swift",
+      "sha256": "babdcaaf1cafe411fa87ecdc36765882f74fee2d7c937ca655fb24209953ec52"
+    },
+    {
+      "byteCount": 14138,
+      "gitMode": "100644",
+      "gitObjectID": "dc8036a91572a48d32a210cf1d0ddc3345a0eecc",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/Views/R13UpscaleActionPanel.swift",
+      "sha256": "6e32093379964bb71c3733db5870406102c97603afdcdb3615b1b20c8f7a7583"
+    },
+    {
+      "byteCount": 7218,
+      "gitMode": "100644",
+      "gitObjectID": "d20038022e36f43968366d94f8cadb46e9a7260b",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/Views/UpscaleControlsView.swift",
+      "sha256": "7a44a913204dd4a3f9ef3c17d3b2dbc0bdf13c6cd8947367081b940b6447fb44"
+    },
+    {
+      "byteCount": 5003,
+      "gitMode": "100644",
+      "gitObjectID": "b865193c85caf715a161b5def4e667743d93a55a",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UI/Views/VideoSelectionView.swift",
+      "sha256": "e0a52fc6461a572fcc07a67053b796fc826ba648a0548aab9406f3e91f515b8c"
+    },
+    {
+      "byteCount": 8484,
+      "gitMode": "100644",
+      "gitObjectID": "68662cde35c3c00d30befcf836c8c09916ab06d9",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHAnalysisGridV2.swift",
+      "sha256": "a096811f092647e3ed93583c3898aea48770506098a141a6819dae144e2fe3b4"
+    },
+    {
+      "byteCount": 18672,
+      "gitMode": "100644",
+      "gitObjectID": "bd69051d556926ef1eb0e8b6cfa328d7fabb26ca",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHAssets.swift",
+      "sha256": "a02dc1d6dfe363106664fa231368b53f98372a85b7525e6ae7b915e79f91c6c3"
+    },
+    {
+      "byteCount": 3432,
+      "gitMode": "100644",
+      "gitObjectID": "b9708d986f05646748712120ed6cb78c828b14c7",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHBranchTree.swift",
+      "sha256": "4abef6ac2a00ff265a6ee5cd96518cf501ce899e48308fe98935fd007d4d8a8a"
+    },
+    {
+      "byteCount": 4286,
+      "gitMode": "100644",
+      "gitObjectID": "c10a06acc2f19f917e25dfe24e8fc41bef699c33",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHChromaSitingV2.swift",
+      "sha256": "2aa6db9b62723184536d19c1d629c341d94d39aad299834d778b90f8ad335b54"
+    },
+    {
+      "byteCount": 4621,
+      "gitMode": "100644",
+      "gitObjectID": "0da64f4078c6a4315437b505c0a3ff4d71e01b02",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift",
+      "sha256": "e893e66b1e2c71d9ab864ed4765cd275472308dfeefce45e023aa35190de8ab1"
+    },
+    {
+      "byteCount": 1133,
+      "gitMode": "100644",
+      "gitObjectID": "05a9e1235c6c2302c14e5dec109290bf90654d5f",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCodePlaneNormalizerV2.swift",
+      "sha256": "bb9ffd5e836a45dc65d9ebca829510a58c6a19277c4e7b3bf38c4ebdd2799e62"
+    },
+    {
+      "byteCount": 7843,
+      "gitMode": "100644",
+      "gitObjectID": "36f81b293ac1bac0a28243e6898ecb161abe99cd",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCoordinateDiagnosticRuntimeV3.swift",
+      "sha256": "2eaf038cc322e5af1e0fe000c4ae344a0f77f6fa04c383c35f683d42e3240ec3"
+    },
+    {
+      "byteCount": 14682,
+      "gitMode": "100644",
+      "gitObjectID": "0795f75992a3fe2ec59fa6f0109b1f6883c8aa64",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCoordinateModelContractV3.swift",
+      "sha256": "0f39e357ee4c520fe389bc9123ea979fb8d9198175bcaf481717e9ed6a452c44"
+    },
+    {
+      "byteCount": 18079,
+      "gitMode": "100644",
+      "gitObjectID": "ca6a56a69cb6c8a24ca8ea572b44a6bb295d5bec",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCoreConformance.swift",
+      "sha256": "0f142ef338137cf15deb416c97413e0d0a21451d433464c8914eed999df62f61"
+    },
+    {
+      "byteCount": 2734,
+      "gitMode": "100644",
+      "gitObjectID": "ed88a5de3afae0942bd768e8c7b71479e1764e6e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift",
+      "sha256": "c91630c31033d4f99b39a1b002319e7d9d947efec54f473c8cbcf9ac5ea6327f"
+    },
+    {
+      "byteCount": 847,
+      "gitMode": "100644",
+      "gitObjectID": "30a19297a690cb6026e647871b1c562e13dbf2e2",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHDevelopmentAssetTypes.swift",
+      "sha256": "889e0aadf6b25cf17459e72293acc3a4b3a6c62906adac7bdac2fca04b66fbd4"
+    },
+    {
+      "byteCount": 2841,
+      "gitMode": "100644",
+      "gitObjectID": "62566345f3ea87b5ce7f8841a06c687c3bec9a4a",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHGenericPhaseCompilerDiagnosticV3.swift",
+      "sha256": "0420d9b1c3f4b3b97a385d211b0e670d1563d4318e7fbb77d78e47065608b588"
+    },
+    {
+      "byteCount": 10316,
+      "gitMode": "100644",
+      "gitObjectID": "96aac06b5bd483bb4eabd19876362d2a3489e586",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHImageFeatures.swift",
+      "sha256": "08b4c4deb27c9284b0f8bd7894b685d504a657ff1e60c74c68eecdf55de7b89f"
+    },
+    {
+      "byteCount": 13308,
+      "gitMode": "100644",
+      "gitObjectID": "5f1475542275bc90e9772f2edafa6f81fb8af1bc",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHImmutableLUTLoaderV2.swift",
+      "sha256": "fd8e0525a963347c5c76fba0078afb79f19dd1be5a2983fe1225f109db6fd06d"
+    },
+    {
+      "byteCount": 12666,
+      "gitMode": "100644",
+      "gitObjectID": "15cc0e0ccd8403976d6d3cc58b66992181c57e11",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHImmutableLUTLoaderV3.swift",
+      "sha256": "d8b494240336cfba2912b8856a31f25e4d30992a4e58eaf26d2d3d6f48a9dcf0"
+    },
+    {
+      "byteCount": 22318,
+      "gitMode": "100644",
+      "gitObjectID": "bfa94d294fc7df6385f39834292b5ccecb77db6c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHImmutableLUTValidationV2.swift",
+      "sha256": "98bbd99e0e8c3ca4aeef15503f5fc542be379e9c0711991dc918c42668e7ba29"
+    },
+    {
+      "byteCount": 25091,
+      "gitMode": "100644",
+      "gitObjectID": "e1aacd1b0ff2137bca9d72439df2bb50e1a06e17",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHImmutableLUTValidationV3.swift",
+      "sha256": "a14da71949540bce25b38673086164c84aeeba8357931008d9c0193c2a212a9b"
+    },
+    {
+      "byteCount": 17489,
+      "gitMode": "100644",
+      "gitObjectID": "3f2a4afbbc313d1c8de9652cff6e7efed9fed513",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTBinaryFormatV2.swift",
+      "sha256": "1218942b2cfd4e1f02d422b4d95d750cb0e06343aa63d6d24965857f43781b65"
+    },
+    {
+      "byteCount": 21850,
+      "gitMode": "100644",
+      "gitObjectID": "7f87424a8004ed20c889d6df51bd7e67ec43dc35",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTBinaryFormatV3.swift",
+      "sha256": "bbf416d19089b55b27a6294c70c7cc506345d4e66c67311199054ccc932cc7f9"
+    },
+    {
+      "byteCount": 1181,
+      "gitMode": "100644",
+      "gitObjectID": "0b0307cf29fc3804c7b346548603b3cd3a632660",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTBinaryValidationSupportV2.swift",
+      "sha256": "8a629944845b4d71cbc94092e76abe7af1b8b93e2f00e036f68c09a23bde1030"
+    },
+    {
+      "byteCount": 1181,
+      "gitMode": "100644",
+      "gitObjectID": "0d7c8824a9c90c68b51969e22e586914b12cde23",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTBinaryValidationSupportV3.swift",
+      "sha256": "4525d1b965d54f9dd7ad3ce867188db03a45c09140a24f42a4a66c8854f7e3ef"
+    },
+    {
+      "byteCount": 10918,
+      "gitMode": "100644",
+      "gitObjectID": "41c8609b0d51989754f6d342a688957b8a9c043e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTCompilerSemanticsV2.swift",
+      "sha256": "cf54a2d2a8ad9f15b2c1d57ee19a6bd42703a98e35924f9e93f05b4809997719"
+    },
+    {
+      "byteCount": 12426,
+      "gitMode": "100644",
+      "gitObjectID": "c0a551df3648f6be195ae4d4ebcd53feae139934",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTCompilerSemanticsV3.swift",
+      "sha256": "8319c139019123773422860d38a7cbabcac6913a3581ad6f06f5936ee8755581"
+    },
+    {
+      "byteCount": 16174,
+      "gitMode": "100644",
+      "gitObjectID": "393b84613ded56dc229815be9cb8778923a4b0c2",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTCompilerV2.swift",
+      "sha256": "95cfa229dd640d7599d62e1801930fe72ed35c80844f1e3340f5a35ae65530c3"
+    },
+    {
+      "byteCount": 17722,
+      "gitMode": "100644",
+      "gitObjectID": "b2e21c46f672141b0b47ee58dae2b92392722aa8",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTCompilerV3.swift",
+      "sha256": "7aa2d8c2e0aeef6cc5179ccefc952f5af29c77a79aac557c5d629cc8270d93fe"
+    },
+    {
+      "byteCount": 15593,
+      "gitMode": "100644",
+      "gitObjectID": "93384615cf224a61ef6c8c697389933a0ff4235c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTLockedConfigurationJSONV2.swift",
+      "sha256": "673a8aac7a5f75d107998d33bbeb278b239827296ca5ad8e206ba3cecf57d73f"
+    },
+    {
+      "byteCount": 16104,
+      "gitMode": "100644",
+      "gitObjectID": "0cafb70c1900dd700b5716aa9a4ae44a95ec4508",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTLockedConfigurationJSONV3.swift",
+      "sha256": "01625785447176da6d9a5eedb47803e4fe82d2bc686a8a57c6bee049d49d154d"
+    },
+    {
+      "byteCount": 16793,
+      "gitMode": "100644",
+      "gitObjectID": "fb79e2e27a46f814d956a4c710605053016421d2",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTTypesV2.swift",
+      "sha256": "cf6f3007a8647a93ae6756f0101e590c7f7cabe914482710b8369acee28d8a64"
+    },
+    {
+      "byteCount": 18124,
+      "gitMode": "100644",
+      "gitObjectID": "62dc7e41987723368dce65dc084149cf78001fe1",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTTypesV3.swift",
+      "sha256": "3951c1de2243b75696e9ce7758d19b387dbeac651c19da23049cf4ec56f82cf8"
+    },
+    {
+      "byteCount": 6881,
+      "gitMode": "100644",
+      "gitObjectID": "9cc1eb4e8fde977f3fd0b4a361c65ac8954dd356",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedArtifactStoreV3.swift",
+      "sha256": "9e22dbcc72c73bdcaea4243596332a9ea600f218fd24082201602a1a6d19cbff"
+    },
+    {
+      "byteCount": 5674,
+      "gitMode": "100644",
+      "gitObjectID": "4a4e599be0f63f82d27756baf5e6a6569add4f76",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedCandidateLUTManifestV1.swift",
+      "sha256": "d64b5f60109132fbf724c3953ddd738c7c13c0a3b3dabf92075a25e061ede756"
+    },
+    {
+      "byteCount": 17310,
+      "gitMode": "100644",
+      "gitObjectID": "5b441fe76fa8abe8ac419e73880ec7284eded908",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedControlResamplerV2.swift",
+      "sha256": "6da560eeab4af1deba2ecde38df27cd28f7205f99e063081017beda71ff18b6b"
+    },
+    {
+      "byteCount": 18917,
+      "gitMode": "100644",
+      "gitObjectID": "d54f5c3b98f2cfb87ca9d2800f7f31a2b9105b3c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedControlRuntimeV2.swift",
+      "sha256": "1fc9f8a1d4062be9a437002419ecaa14a5ee9e06951772ba870b4c4c699a19be"
+    },
+    {
+      "byteCount": 8733,
+      "gitMode": "100644",
+      "gitObjectID": "18b2f252c69b27c478eece935796138505a89de0",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedControlRuntimeV3.swift",
+      "sha256": "14da51573775eb9c0b633b24f387101d3ff9f28847adee552dae1de3e46118cc"
+    },
+    {
+      "byteCount": 16851,
+      "gitMode": "100644",
+      "gitObjectID": "8750d79662e003c91c32b3f7177325ed72aed8f0",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedFramePipelineV3.swift",
+      "sha256": "fe4225da03f0d48a8c6c3a150cf5b1457c84306dde68ad0b3159738705621ca8"
+    },
+    {
+      "byteCount": 12062,
+      "gitMode": "100644",
+      "gitObjectID": "85dfdd5b09e307e5184b1d9a354a2be1ad0243c2",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedLUTManifestRouteV2.swift",
+      "sha256": "e56cc92b0244da6e4c860f980f72e4239c85ec0d43513d2e14bfa080e0a5d179"
+    },
+    {
+      "byteCount": 25455,
+      "gitMode": "100644",
+      "gitObjectID": "9bdddb3f08b363cc0372d29c883070cc65b54970",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedNonASHOutputCacheV2.swift",
+      "sha256": "9aab7124d1e0cc8ff3283f35e073bd41981a03b783446d4d18d959ad7aaca9aa"
+    },
+    {
+      "byteCount": 11542,
+      "gitMode": "100644",
+      "gitObjectID": "ce1f12a91da8891fb30a019ed6c5586b38516277",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedOperatorBankV2.swift",
+      "sha256": "095237fddbfc2afed8d07c0bd336fdad7e0ffaa6ffe9f2a566252c58e8bebd8f"
+    },
+    {
+      "byteCount": 8676,
+      "gitMode": "100644",
+      "gitObjectID": "ac3681a10b989b8e42246de31db847e0b96f74cf",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedPlanePolicyDiagnosticV3.swift",
+      "sha256": "6e9a2d30410679d664df1f1fa4f346ecc6ad768e43fc742eebc82097e5badb97"
+    },
+    {
+      "byteCount": 5241,
+      "gitMode": "100644",
+      "gitObjectID": "e9b3bee174a0ec4980320988a42e8107a457b36f",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReferencePipelineV2+DispatchProjection.swift",
+      "sha256": "5c0719030633b09b23d519c4735b754930f2afe22e0c9eb6c2d0089b5b3468b9"
+    },
+    {
+      "byteCount": 9257,
+      "gitMode": "100644",
+      "gitObjectID": "f137b5bc5eef8259ada51198a20a1300cdb0c536",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReferencePipelineV2+NonASHCache.swift",
+      "sha256": "8c9f66150fc64a704d11630fbbc786e0d3adc4faaee7ae8a56e9611edabbf15d"
+    },
+    {
+      "byteCount": 18852,
+      "gitMode": "100644",
+      "gitObjectID": "509c4914295c7a0f4ec05f0a311402a2a7f30159",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReferencePipelineV2.swift",
+      "sha256": "1a1e8d0475ecd0a71d0bfd6414570968b4a9965270c1e76b3b8018120a8240ff"
+    },
+    {
+      "byteCount": 4570,
+      "gitMode": "100644",
+      "gitObjectID": "b8f8e9821f3baa55131b138ce4144dba957f862c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReferenceTypesV2.swift",
+      "sha256": "10e44d507c2791c53e51efd5af35012c45f40fc03677dd3cc1ff5f931b31e7d4"
+    },
+    {
+      "byteCount": 4182,
+      "gitMode": "100644",
+      "gitObjectID": "3ec4ef9040eb105eab3830bcdbf00f00d42d3e5d",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReleaseLUTManifestV2.swift",
+      "sha256": "2791437fb2b6aa63026eee8ea147b575e099d98029dcd326c8f72db38d2b98bc"
+    },
+    {
+      "byteCount": 16372,
+      "gitMode": "100644",
+      "gitObjectID": "360dd7095a15870f8299117b1ebc498139bec92e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReleaseLUTManifestV3.swift",
+      "sha256": "b8270850ac5bc4950de0326ba31b67a367e92750742d4e4682728b895e8b8640"
+    },
+    {
+      "byteCount": 6097,
+      "gitMode": "100644",
+      "gitObjectID": "a0a3203c012b5c9028a6e68c9bbbe807eb3579f3",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedRuntimeTypesV2.swift",
+      "sha256": "cfdcb6d0ae06c670697d7a1c064d801c718ecb64434de9a2953f21e5390feeea"
+    },
+    {
+      "byteCount": 6389,
+      "gitMode": "100644",
+      "gitObjectID": "a2f11a9737a8d3a530af5b689dc16aa155eb01d7",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedRuntimeTypesV3.swift",
+      "sha256": "55e47d2b81235fcf9308c76b7428117c26301f40a295cee36f07fef1fe69986c"
+    },
+    {
+      "byteCount": 13565,
+      "gitMode": "100644",
+      "gitObjectID": "4919069a7c560e394ec6d3ffbfe3a9defe24f1c1",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedRuntimeV2.swift",
+      "sha256": "1e786cf623a3a469a20f7b840470655abad83845e56b79b498096ad3bece35c9"
+    },
+    {
+      "byteCount": 16669,
+      "gitMode": "100644",
+      "gitObjectID": "6ff67fdacf453210688b2f05b316245588a173de",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedRuntimeV3.swift",
+      "sha256": "a6dde3ecbcdacfcd61ea5dc796c842f79ad29d4c43d4a0fdeba0beddd966cfcb"
+    },
+    {
+      "byteCount": 22099,
+      "gitMode": "100644",
+      "gitObjectID": "ea44a1cc608aade34b1f7af3792f17e70a64b0f9",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedSampleRuntimeV2.swift",
+      "sha256": "bc571b4363fbaf9851277d402802b8f373200136dab3820b68217e1aa59d25f8"
+    },
+    {
+      "byteCount": 16006,
+      "gitMode": "100644",
+      "gitObjectID": "8278987336d3bc863fdb31e7f494a1dd66e1c5cd",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedSampleRuntimeV3.swift",
+      "sha256": "be407e9b87e99df800a590656818772d2b5268aac75a5b124fe7d936f907a691"
+    },
+    {
+      "byteCount": 9536,
+      "gitMode": "100644",
+      "gitObjectID": "c77c880143805112d7a7e34a60d9b2ac8a436ebb",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedUpscaleBackendV3.swift",
+      "sha256": "c0f0d7cc093f44cd8e2ce5f6fec1e1e3fabb793659921272bb168bbe94160841"
+    },
+    {
+      "byteCount": 1404,
+      "gitMode": "100644",
+      "gitObjectID": "506f151ad8ba048348e0f4cd6baefa7bc8b96abc",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedVideoMappingV2+ConfigurationValidation.swift",
+      "sha256": "a4720fb09ced6126a33f1e7d6b562a0b1e7fafbafe6f993f5dd0b768a9ec50cc"
+    },
+    {
+      "byteCount": 21888,
+      "gitMode": "100644",
+      "gitObjectID": "82efb108c281543f8d68dac09215262efa84b31a",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedVideoMappingV2.swift",
+      "sha256": "05b507329921d84f68c260638845efce12f87f91d48835efac089eea040fb0d6"
+    },
+    {
+      "byteCount": 1651,
+      "gitMode": "100644",
+      "gitObjectID": "3e441bc3e0a9ef0d5b678ea53f0c1856a4921ee7",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedVideoMappingV2Validation.swift",
+      "sha256": "b7cdff5f73c667c75c64bf9f036da4ed9f1cbe7f01d8885ff633aca4284175cc"
+    },
+    {
+      "byteCount": 10470,
+      "gitMode": "100644",
+      "gitObjectID": "dd18458082115a9e5cc291f5ea15eecbacbc0656",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLumaSpatialOperator.swift",
+      "sha256": "7d7cb0ee3a342da00afd86e89b57e29dd88de40b763c60d24c18045d35e30396"
+    },
+    {
+      "byteCount": 13801,
+      "gitMode": "100644",
+      "gitObjectID": "b83a26bf9f97fb499ca788a21f1d303b6157481b",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalDevelopmentRuntimeV3.swift",
+      "sha256": "37e1fe39976eb4aa0342b44eea9d5498fbb79666d40c5e8d9f3e9e118fc5b0ee"
+    },
+    {
+      "byteCount": 9188,
+      "gitMode": "100644",
+      "gitObjectID": "a3f1c4ad9b6b3364730698aad905010398bfb92f",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalFrameResourceRingV3.swift",
+      "sha256": "909e4606801a7fd7fb49ea7ca0a886ed2b4d99a6a1a51cbab099fff2caa45757"
+    },
+    {
+      "byteCount": 6824,
+      "gitMode": "100644",
+      "gitObjectID": "afca626e4f1189b4c0f266c86d4c74b5dc525f10",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalRuntimeMonitorV3.swift",
+      "sha256": "ac9d036e858742376de49b73b9f0ce47f5ab62e2a829aeca6fea06d6e7d9873f"
+    },
+    {
+      "byteCount": 6880,
+      "gitMode": "100644",
+      "gitObjectID": "becf5ac2766e960180055ab50fd9287ba30cd9ad",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalSpatialFrameEncoderV3.swift",
+      "sha256": "18adb28b3d8e05fe11cdcad83656c9da1e67cb7199c2865088005c9da390d0fb"
+    },
+    {
+      "byteCount": 57235,
+      "gitMode": "100644",
+      "gitObjectID": "e6164fa0da5edfe3e9c9eb7d29d304435a2e1015",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalSpatialKernelsV3.metal",
+      "sha256": "67c5d616eaaf5f52c20b32fce442c9afc9bcdac8e332d11d043e8843e7c2d819"
+    },
+    {
+      "byteCount": 15026,
+      "gitMode": "100644",
+      "gitObjectID": "b672e1283b2df631914494c81f8ceb04688b0b4b",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalSpatialRuntimePreparationV3.swift",
+      "sha256": "ba9d6a1c6d56269385e693062551586e35121e84fee741d24e00873602525d71"
+    },
+    {
+      "byteCount": 15185,
+      "gitMode": "100644",
+      "gitObjectID": "c5f8a14f28e2871517cc91c3886628e0e5ac9065",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalSpatialRuntimeSupportV3.swift",
+      "sha256": "73d87da087ff0b312ddd7824d53662d8197a5f04b8280200fcc44a4382cde050"
+    },
+    {
+      "byteCount": 15977,
+      "gitMode": "100644",
+      "gitObjectID": "c4bebc2cc295d35d28906542aaaa7a862af858e3",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalSpatialRuntimeV3.swift",
+      "sha256": "50b221a8b4bcdc451e9a8c7afa86d0e6e8a68d8f387f703883778944e3629ef0"
+    },
+    {
+      "byteCount": 10942,
+      "gitMode": "100644",
+      "gitObjectID": "1becd42e6a4474f47070ff2865d28dacf2fe0da0",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHNV12FrameCodec.swift",
+      "sha256": "c98cd9911e9a9b59f820d07918bd671a572e8c8ac064aad402bfb54ed0a412ea"
+    },
+    {
+      "byteCount": 27317,
+      "gitMode": "100644",
+      "gitObjectID": "574cd956982aaeb8d6ffddcfb9789b91be6a7664",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHP08DescriptorParityRuntime.swift",
+      "sha256": "5154c2c0bf32fbece1f61e2211ae59eaac1ab860f4bf739725b1422a1b2fdbfc"
+    },
+    {
+      "byteCount": 28215,
+      "gitMode": "100644",
+      "gitObjectID": "b1f330f53149edccce6cb5362a2b3b29c7d168a5",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHP08FixedControlRuntimeV3.swift",
+      "sha256": "cb446ac54d54f25ea4a1bdb70638092633207cc217ab4896045fa605b98f282b"
+    },
+    {
+      "byteCount": 43309,
+      "gitMode": "100644",
+      "gitObjectID": "38863c72b96acdf821423f4fa9acd36c9a636aad",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHP08NativeSupport.swift",
+      "sha256": "74c4f0cf5a0740e9e8f32f466bdd6bebcf2d0bc7adb831fb73b426cba0ebe280"
+    },
+    {
+      "byteCount": 8753,
+      "gitMode": "100644",
+      "gitObjectID": "741e28b371fdc2aefdbd393991a8aba47ba39f09",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHP08PerformanceProfileRuntime.swift",
+      "sha256": "d01e4754d58ecf987988f437de0beea3da2c6c33781b74776a0df5f243c4242f"
+    },
+    {
+      "byteCount": 20184,
+      "gitMode": "100644",
+      "gitObjectID": "b0c168cfda760e0bec34caee875a4ae64c0df01f",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHP08PerformanceRuntime.swift",
+      "sha256": "a84fb273a5889b5bc09738d218c74cdc0a98ffee00b8357a77c35fd4442f0a08"
+    },
+    {
+      "byteCount": 9945,
+      "gitMode": "100644",
+      "gitObjectID": "fbb2fbced287a663f78c43910a896659085f5bab",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHP08ProductionEvidenceRunner.swift",
+      "sha256": "c1f0114448e29bb7dd45fc6816240f3a51be42907064bd60aeec61360a89dc17"
+    },
+    {
+      "byteCount": 4089,
+      "gitMode": "100644",
+      "gitObjectID": "a8748e5de26c1bf4ff7bd61ffa64999f08edaa33",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHP08WriterSession.swift",
+      "sha256": "eb59953edcd1f7ed400efb2f5a5477c210c48e456cae04c3132465ecb3ee0b6c"
+    },
+    {
+      "byteCount": 13584,
+      "gitMode": "100644",
+      "gitObjectID": "0430e638b4b01c5814c2ad0e23da9d4bfbc98f00",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHReconstruction.swift",
+      "sha256": "650cd054504352fa8a206e41feee09108cd424298a9dab1847b6acb65974f504"
+    },
+    {
+      "byteCount": 6043,
+      "gitMode": "100644",
+      "gitObjectID": "8d1ff40f1a9d3224ef9a11ec01f07b8240b15fd8",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHReconstructionHelpers.swift",
+      "sha256": "4ab573145203d9e719184b1f01a4e0215b50c832e8ce0b290105e1c839843320"
+    },
+    {
+      "byteCount": 3322,
+      "gitMode": "100644",
+      "gitObjectID": "ef67cb55aabe50f4962cb02d6bb5ce6c5a85fbe7",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHReferencePipeline.swift",
+      "sha256": "98d05d42ef363ef30e5cd3286301c504624d6ec4b972631420e601d1702d2cb6"
+    },
+    {
+      "byteCount": 10686,
+      "gitMode": "100644",
+      "gitObjectID": "09a7e9aa82df720201159632e642717a8dddf1f5",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHRiskStateDiagnosticV3.swift",
+      "sha256": "3dc736d52d4c80646cad6876926048e605634536de3088ca4f212549908956a9"
+    },
+    {
+      "byteCount": 3395,
+      "gitMode": "100644",
+      "gitObjectID": "96722e152fc376b1fdec3081141ad81b7c13a5af",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHRuntimeConfiguration.swift",
+      "sha256": "b883b53b584ae9dea1e4bb96ab7fb035f178ca62f62bfe9108ea1114729f31da"
+    },
+    {
+      "byteCount": 7763,
+      "gitMode": "100644",
+      "gitObjectID": "676f9b95da80380dc0bba28ea09e69cbb4330b57",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialDispatchV2.swift",
+      "sha256": "9729893251817cb97cb6b60cd5b4ae828fc4599b0e49dd79ab865733b7f8f935"
+    },
+    {
+      "byteCount": 28776,
+      "gitMode": "100644",
+      "gitObjectID": "d138c77803ae85f13243d4f23a00d1f5b6bb8a4c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialOperatorBankV2.swift",
+      "sha256": "b9811a932d05b1b54a8ea91ac0f650bcb0522e27b2a46da1852282d7b5eeeb32"
+    },
+    {
+      "byteCount": 32873,
+      "gitMode": "100644",
+      "gitObjectID": "bcb3908ed0c9ec8db91440d0127cd505df4e114b",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialReferencePipelineV2.swift",
+      "sha256": "e16ea098d75934c6abee3405ffe0f35f29c77e942c34706327dd00f23ccc4d7d"
+    },
+    {
+      "byteCount": 1842,
+      "gitMode": "100644",
+      "gitObjectID": "723b702fb0397ef8f137f352aeb3c2143bb9702f",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialRuntimeConfigurationV2.swift",
+      "sha256": "737fb7a602e7bfa1508f734d0b6bc01a08308ec47c09cea7696d0d892c0eb49e"
+    },
+    {
+      "byteCount": 6556,
+      "gitMode": "100644",
+      "gitObjectID": "fc7c0066c37cad7ed99ba74d4249ce79498cac09",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift",
+      "sha256": "c96f0ef0a1e087cc3c7ac0bf821caa88d72a7e959deabae3749a6f1ad5ebdee2"
+    },
+    {
+      "byteCount": 9297,
+      "gitMode": "100644",
+      "gitObjectID": "3702ea52a000a7c7b426ba71239c61c6412311c3",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHStrictJSONV2.swift",
+      "sha256": "9500e2dd12a03752e429b54b9f7af629b8665c4debe488db5a50d405b4e5fb77"
+    },
+    {
+      "byteCount": 9297,
+      "gitMode": "100644",
+      "gitObjectID": "8a67674d2c334879c1b2adb7932e6025fc678a45",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHStrictJSONV3.swift",
+      "sha256": "f8c4aaa10ef18ca7e5cf2f0b00a57cecbe54cf881c89b21b8b988c02f5a4735a"
+    },
+    {
+      "byteCount": 14939,
+      "gitMode": "100644",
+      "gitObjectID": "2e5543569f778597b8b813d470ee35156e90b9ce",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHTileProcessing.swift",
+      "sha256": "c713629cd438328be81a3313ab965a27f0be8c13b78f06d92e1c44b66fbea152"
+    },
+    {
+      "byteCount": 1728,
+      "gitMode": "100644",
+      "gitObjectID": "53d9931315f23c94978c70bffce467be6ae6da01",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHUpscaleBackend.swift",
+      "sha256": "13c0df71e647f0416980c59986494e39cac429d6a0ee6db42326478ea364c1cb"
+    },
+    {
+      "byteCount": 2707,
+      "gitMode": "100644",
+      "gitObjectID": "d6cbe6b97c475cf94c1e767b92da8794cfc78009",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHUpscaleBackendFactory.swift",
+      "sha256": "e555712e30e934d7041d937895ed675374d947f367fc49ea0a92a48ef6a641de"
+    },
+    {
+      "byteCount": 36222,
+      "gitMode": "100644",
+      "gitObjectID": "de8fdb0381c26eacd4655fe71a827d3c6ce38cd3",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHVideoAnalyzerV2.swift",
+      "sha256": "979caeef41bd281ceb60471b725654a6cc72a32d07371244349a5a3969134197"
+    },
+    {
+      "byteCount": 14003,
+      "gitMode": "100644",
+      "gitObjectID": "938921e87e65ebe86c6a8819f8ebf63efa97fcf0",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHVideoProfileContractV1.swift",
+      "sha256": "25722af98467d2ccad589aaef245bfbf7bc5cbe272bc2c8e783687b1e792c0d3"
+    },
+    {
+      "byteCount": 12317,
+      "gitMode": "100644",
+      "gitObjectID": "1ea5af25f0d557d47223a2af44532ee001863be9",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityCompileProbe.swift",
+      "sha256": "09275bcacf40f3e5289085c6d05927973f95b4c988f48ea186596012c2726fc4"
+    },
+    {
+      "byteCount": 31923,
+      "gitMode": "100644",
+      "gitObjectID": "55d789b2c16fe56b38f9d80ed13c6195275c0f7e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityExecutor.swift",
+      "sha256": "f450e2e7ec9c44fb3c2acba11480d0b0d6d6e734e075fe2581498709c38d5b72"
+    },
+    {
+      "byteCount": 10665,
+      "gitMode": "100644",
+      "gitObjectID": "1c6acfc0fdb21e2b7a70845e029050fa02ce0201",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityFixtureContract.swift",
+      "sha256": "c3dd6f1c6aa16ae809b569ae0b51eb004ea5aa6bd817cecb40f21383e08d87b6"
+    },
+    {
+      "byteCount": 39155,
+      "gitMode": "100644",
+      "gitObjectID": "f98dc28e52e3b061e56af1882897579c86c59300",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityLegacyAdapters.swift",
+      "sha256": "a8138cb8527855b867915c944d858db2b5b6f1b6d40865c36c5a212339887daf"
+    },
+    {
+      "byteCount": 26211,
+      "gitMode": "100644",
+      "gitObjectID": "1bbcec7c4cae4181e9c13c0578012ab3e185d9c0",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityLiveContext.swift",
+      "sha256": "9cfeac36bf16492a9c2c82bae4e6331b46cd6e6d9aed79b31b4006b9b5170b49"
+    },
+    {
+      "byteCount": 4233,
+      "gitMode": "100644",
+      "gitObjectID": "268edd522e48cd29624b57a9af1e9d42605d653c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityLiveErrors.swift",
+      "sha256": "f081e13280a256504e7561a822c655a70f97016c576d77c5d439c4e16a3b77ed"
+    },
+    {
+      "byteCount": 4347,
+      "gitMode": "100644",
+      "gitObjectID": "75cf0288424ced0f7792c33e35e784fc0fa0517e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityLiveProducer.swift",
+      "sha256": "9ac34e6d2c8608f07038ac58c81be56f40f006a41a3e1a12bcad76c85666ec2b"
+    },
+    {
+      "byteCount": 42096,
+      "gitMode": "100644",
+      "gitObjectID": "8049d35a6302c0fc95b35cbc26603bd219e7063f",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityNativeAdapters.swift",
+      "sha256": "c50071ce815955dbe059d91c7ae3ab1c76e96355eadff6721e7750c0ee24f137"
+    },
+    {
+      "byteCount": 13915,
+      "gitMode": "100644",
+      "gitObjectID": "15274a94f5fffe1e93def8f4e1383dcae577a3ed",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityProbe.swift",
+      "sha256": "0e2681079e056a9b5260a2d9069acabb819d3b6704307e691fb1f49923a4c307"
+    },
+    {
+      "byteCount": 15497,
+      "gitMode": "100644",
+      "gitObjectID": "57d396d5fa402c085af097c1a9a7959da763a91f",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityRawReport.swift",
+      "sha256": "1819c1ffb546668911551621fa96fe4037370214ebcbb5a768ff97e41089fc85"
+    },
+    {
+      "byteCount": 17270,
+      "gitMode": "100644",
+      "gitObjectID": "e556f5cd8bce9e5e228b157c52113b58ccfcb067",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityReportModels.swift",
+      "sha256": "1e5c2d749059e31d8c7152b7ccc62de4e5ae74b27f64380a57af743cff9db4aa"
+    },
+    {
+      "byteCount": 4174,
+      "gitMode": "100644",
+      "gitObjectID": "1e755b5448321bcfa97d02d0473fbc1d5659abdc",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityReportWriter.swift",
+      "sha256": "1d134524a4aa50ca4e2d7ce0de1a1333fb261e0da8d37ed3ee9f44aa341011bb"
+    },
+    {
+      "byteCount": 10989,
+      "gitMode": "100644",
+      "gitObjectID": "00190e399b0d35fb73492a2b74327379071b2652",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilitySupportProbe.swift",
+      "sha256": "1728116f364c31bd238602a3f5faac552972895607d236ed757250bd58417bec"
+    },
+    {
+      "byteCount": 28708,
+      "gitMode": "100644",
+      "gitObjectID": "3893c4d7c90137a95b73bb1a6bd3da8b05cc56ad",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityWorker.swift",
+      "sha256": "d4c68b3a5e8a1b1128f963555a594279f1612df8429763624735ff967b07252c"
+    },
+    {
+      "byteCount": 22741,
+      "gitMode": "100644",
+      "gitObjectID": "b6373e507468302668a478485fe2e3df927df6e8",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleContracts.swift",
+      "sha256": "ec9d5097fb457a7ac16fcdeacc03900a58833a7277b0fe0f574604cea7e0abb7"
+    },
+    {
+      "byteCount": 14989,
+      "gitMode": "100644",
+      "gitObjectID": "3be70771bcf40c49376ea87c9ddac4d0e05ee666",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleFIFOSession.swift",
+      "sha256": "d6000c7b5d41f1b666487941cb96e436049e2f3f572c36d881c4be7b6f8ec1c8"
+    },
+    {
+      "byteCount": 10589,
+      "gitMode": "100644",
+      "gitObjectID": "e60615ec64dd861664ae44b28c9a01c994d17a77",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift",
+      "sha256": "75eedec0b0ad0225c12d0fecb704413f685dee40fe572af9d0616cd0eaf600b2"
+    },
+    {
+      "byteCount": 10971,
+      "gitMode": "100644",
+      "gitObjectID": "e5f9ba636087ff67d3d900a27251b8bc855d94f2",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/EnhancementPipelineContracts.swift",
+      "sha256": "b9e2dc8b704c21f4e49ca10d07e73d59c3b468abc670b798980332f724ba1d38"
+    },
+    {
+      "byteCount": 29980,
+      "gitMode": "100644",
+      "gitObjectID": "8cdb425f7c8b0516a553f6e90834b43eb762b5e5",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/LanczosPolishPass.swift",
+      "sha256": "62d8e155f97c9ea44d804f138c625e3c3c0c09549f5fa0870592f18d58765a98"
+    },
+    {
+      "byteCount": 8355,
+      "gitMode": "100644",
+      "gitObjectID": "c3028aecb76f974880f66a5ae980bbe7e306211d",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R03A11ProductAdmission.swift",
+      "sha256": "d11276442cc35577a822abc1517e8f37c91e3a0b14a99e2c8787beef6e602ecf"
+    },
+    {
+      "byteCount": 14276,
+      "gitMode": "100644",
+      "gitObjectID": "7179d4c1cb55ae5e8621ecc702e76d5dc6a40a9a",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R03ASHComparatorScaling.swift",
+      "sha256": "eab50c44ac392a86a49b7e9e07c88dd4cf97258a59e35df2f13ac9003abd0806"
+    },
+    {
+      "byteCount": 21792,
+      "gitMode": "100644",
+      "gitObjectID": "39599e7d3f60a26612acea62911b49b3adc35970",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R03CoreImageScaling.swift",
+      "sha256": "f4494189097fac3d36f2f5d1b822372c854ad9152493c7922436aff2dd66d7ef"
+    },
+    {
+      "byteCount": 19757,
+      "gitMode": "100644",
+      "gitObjectID": "b974036deb455e50cac6541bd193cb2b04aba86d",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R03DeterministicBackend.swift",
+      "sha256": "c81e13050d3d1e68521149662fdc91d5b8f15d4b2b30544de4f499b8c150fbea"
+    },
+    {
+      "byteCount": 10502,
+      "gitMode": "100644",
+      "gitObjectID": "8a6832ef67a1350428fdad2e82ba434621cc12e7",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R03DeterministicBackendCatalog.swift",
+      "sha256": "548267ecb12cef02406fa7944836a945197b3a4ee1c6de35f48b6001d1506dcd"
+    },
+    {
+      "byteCount": 27227,
+      "gitMode": "100644",
+      "gitObjectID": "bbb9d35aae20b5aa9977a2593889be078422ffcf",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R03GuidedSupportStages.swift",
+      "sha256": "69e0006e6af9a9839c5c4b470af352ee8063fd7f370a40900a36fbe25f4afb7e"
+    },
+    {
+      "byteCount": 14091,
+      "gitMode": "100644",
+      "gitObjectID": "140bebaebd392e246a2d99adb71088b18824e7a8",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R03MPSScaling.swift",
+      "sha256": "602564100b36468fda5d3695cbb6cb2e165f86a4a42322ecd539e90a4cc8ce6b"
+    },
+    {
+      "byteCount": 7466,
+      "gitMode": "100644",
+      "gitObjectID": "fe59d74775f582c71c9ea9fca3a6e1a4b952595d",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R03NV12Scaling.swift",
+      "sha256": "f7256175d5775c3c01fc464d3388cc09c913bcfb2c8018aae110f0a10a191b1c"
+    },
+    {
+      "byteCount": 5749,
+      "gitMode": "100644",
+      "gitObjectID": "d6f3c9707bedfcdfa64c08954a467c4733ca73a9",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R03VImageScaling.swift",
+      "sha256": "3987741ed5e360dd88186ff8acf9981e9b08ca3d2d2fde75eeb180b7d30a0431"
+    },
+    {
+      "byteCount": 5933,
+      "gitMode": "100644",
+      "gitObjectID": "d28502ae0ccb9148a72141268fb2cb7c2b35f6da",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R03VTPixelTransferScaling.swift",
+      "sha256": "580629eed395d804cbd3605484a8f155c9ba72341ba91f6be0b833a947a95825"
+    },
+    {
+      "byteCount": 28573,
+      "gitMode": "100644",
+      "gitObjectID": "24f1d39ab0d170cc4b154711049ed8304d5fc82e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R04VideoToolboxContracts.swift",
+      "sha256": "77405bf3005ba428f3f099055cb5f144436738578e9b91391a70079def2e6983"
+    },
+    {
+      "byteCount": 51068,
+      "gitMode": "100644",
+      "gitObjectID": "caa758e2e5d7ef8372c5a5058cbe5c8161b3399f",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R04VideoToolboxSessionAdapter.swift",
+      "sha256": "340dcd5b3c77e7bff7c27b0480f899ac5a9bdbbffa2ed192a1660c2fca6e93de"
+    },
+    {
+      "byteCount": 26087,
+      "gitMode": "100644",
+      "gitObjectID": "21a036c9e113a13721899fcbc7192c677e24f72b",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R05MetalFXColorBridge.swift",
+      "sha256": "ad88dde3f0906c9d88367a5767d77ace0e5b7760b59f938745abe02b5210dabd"
+    },
+    {
+      "byteCount": 22860,
+      "gitMode": "100644",
+      "gitObjectID": "0d8f9e26d2cba97da263592759a9e80a6a8f5c6c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R05MetalFXContracts.swift",
+      "sha256": "e49c0ab06f68d939429009a0380cdbc46bc546e6119dd7137ae22b590a377165"
+    },
+    {
+      "byteCount": 29531,
+      "gitMode": "100644",
+      "gitObjectID": "a5354a6d845d22cec7b78a4d52ad8e194f73f24e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R05MetalFXSpatialBackend.swift",
+      "sha256": "35a14e8209ae9db770f02a733e18bb8e5a9f9712cf777ea4df9548f96db3ea5b"
+    },
+    {
+      "byteCount": 86315,
+      "gitMode": "100644",
+      "gitObjectID": "b1d73206a39672fef1e28275cb5ab23a8629976e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R05MetalFXSpatialDriver.swift",
+      "sha256": "e9604955306f2609a38a8e437ffdd5aee47512ad76665ef4656cc377a318f96e"
+    },
+    {
+      "byteCount": 14455,
+      "gitMode": "100644",
+      "gitObjectID": "40aa2694b675ded2c0f8e035e8994711e1233224",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R06ASHDecisionContext.swift",
+      "sha256": "3ce5e7925b6ed0c76de2bbfa249d5732803e8672100a5e492822586bc1668196"
+    },
+    {
+      "byteCount": 7529,
+      "gitMode": "100644",
+      "gitObjectID": "8fa50dcaff931407f8a67ef27d035c02eb3319bd",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R06ASHMasksAndAblations.swift",
+      "sha256": "274c0ae5fc31eb9f07c1cc345f2ec0174c53b2daf5fc564f4b227ce74f797864"
+    },
+    {
+      "byteCount": 23144,
+      "gitMode": "100644",
+      "gitObjectID": "72e88d668baac8bebd4d1f0f7bad56fc8f7812c6",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R06ASHOrchestrator.swift",
+      "sha256": "8cd125512b56d632db5b77097078a34055dabed4cb392b3a85d351ee67ee16e1"
+    },
+    {
+      "byteCount": 3836,
+      "gitMode": "100644",
+      "gitObjectID": "be700dec68182189c168bdcbfccb26fcb7619553",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R06ASHPolicyCatalog.swift",
+      "sha256": "00ddacea5bcfe1fe87d0af35650f38636e431bdb31c3bef6fe30d802135fe27b"
+    },
+    {
+      "byteCount": 22415,
+      "gitMode": "100644",
+      "gitObjectID": "e424785cad8d35a584d0e470ecacb750109327d8",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R07ArtifactGovernance.swift",
+      "sha256": "3833be74d068abee56175bdcb47dd4dfabd510fb28fd81e4d342ca36388ec65e"
+    },
+    {
+      "byteCount": 11741,
+      "gitMode": "100644",
+      "gitObjectID": "5d5bb0aa664a0fd46d3e33fea5b1656540564ae2",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R07FunctionalCoordinator.swift",
+      "sha256": "cc65a33e78239b65009770bb6c9897e26c2bf30b043c72da59fca7a2cea1efc8"
+    },
+    {
+      "byteCount": 11715,
+      "gitMode": "100644",
+      "gitObjectID": "4746a2b4a53e75ad53c31fcb490b4ed119626dab",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R07FunctionalCoordinatorAnalysis.swift",
+      "sha256": "5a905c8672228f747f2c0efe13aa0e6751c7e6fcf1f458b0e9fc7105a0155723"
+    },
+    {
+      "byteCount": 11793,
+      "gitMode": "100644",
+      "gitObjectID": "805b3d6004c785071ec5c2b922353421125c4b1e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R07FunctionalCoordinatorRuntime.swift",
+      "sha256": "aeb52f8b00da4d8a89f385def9b7e8322ab0709e673fdfacdd16ddf06410df0f"
+    },
+    {
+      "byteCount": 6016,
+      "gitMode": "100644",
+      "gitObjectID": "15efc85bb6a2cc38227fb182c2d5eef9a6d806a9",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R07FunctionalCoordinatorValidation.swift",
+      "sha256": "fb6dfce042d9e1fbb07e7bc782e539be9aead8b3d29ddf548334fbaa1dd68b2f"
+    },
+    {
+      "byteCount": 15741,
+      "gitMode": "100644",
+      "gitObjectID": "32b4732a66869524d08d2f92536aa3a04b019575",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R07FunctionalSupportExecutor.swift",
+      "sha256": "c49ded04b193024d17de8eeff5d31dcddf0642bc0f5575cb3ab20c0dd79cb2ba"
+    },
+    {
+      "byteCount": 9815,
+      "gitMode": "100644",
+      "gitObjectID": "b4c751b46fa2af91feb282221efb956c57ca592e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R07PostflightGovernance.swift",
+      "sha256": "1afc49b6ec8da84e1e16f505893f5e3afd58fc085d8dcd0ab9addcdc72ccf325"
+    },
+    {
+      "byteCount": 10982,
+      "gitMode": "100644",
+      "gitObjectID": "f31d509748ea43e33d0864376821374e0597d287",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R07ProtectedRegionPolicy.swift",
+      "sha256": "19dd0d47fb1b9e18b0e75876caf2fb1e4c9d62469a4cf7efe2f9a57f572f4bed"
+    },
+    {
+      "byteCount": 12357,
+      "gitMode": "100644",
+      "gitObjectID": "553ee5d8edb84a96ccf6a8ffce5575237b4044c5",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R07SupportStagePolicy.swift",
+      "sha256": "1bf962f58eeef5946b0e34a9fd9b127e86f00757f938dbbb3f4103ce6171bc9b"
+    },
+    {
+      "byteCount": 10056,
+      "gitMode": "100644",
+      "gitObjectID": "6dc46723c1ccbda7c70b1596bc846c6eb4ddc2d9",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R07TemporalGovernanceContracts.swift",
+      "sha256": "c55f37225798f8ff0263e3d7065d82778fc9e00527dbc8c41cda25e7a3a0cb60"
+    },
+    {
+      "byteCount": 6676,
+      "gitMode": "100644",
+      "gitObjectID": "0311c2bfc47154c855cff79a99e3a43ddd55a186",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R07TemporalHistory.swift",
+      "sha256": "7d679cd6b8a4d72c97d7abd832600163718c82495d63580d8b13365ef603a9fd"
+    },
+    {
+      "byteCount": 8825,
+      "gitMode": "100644",
+      "gitObjectID": "ffce20d6047a947d9ee62e6be0968651606fab91",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R08ASHAnalysisBridge.swift",
+      "sha256": "7ff54a4f6bad66a0532b670b465bb352bedfb050a84f72bc6b5df84250c312c5"
+    },
+    {
+      "byteCount": 19911,
+      "gitMode": "100644",
+      "gitObjectID": "9567d82f74416f5e51e602d1b60c4cfb0140824c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R09ASHResidualAuthorization.swift",
+      "sha256": "afd8f8a3c07c0a7585e724b87d63553794e4bce00e8d7dafbe43675ed914bff7"
+    },
+    {
+      "byteCount": 3708,
+      "gitMode": "100644",
+      "gitObjectID": "23c647460225e199451c5614548ea233ceda9015",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R09ASHResidualAuthorizationContracts.swift",
+      "sha256": "feb2218d2f62fc26992308e197e4a24a27f9e44747ea429bc0e9f53335797830"
+    },
+    {
+      "byteCount": 20696,
+      "gitMode": "100644",
+      "gitObjectID": "68391a6a35b743f589f3568b4311bb3ea180d069",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R09BoundedResidualStage.swift",
+      "sha256": "699ad59d615706b8e32381b14c23b53d434b1b624a04174e93778186b8012d08"
+    },
+    {
+      "byteCount": 9994,
+      "gitMode": "100644",
+      "gitObjectID": "bef87103851d04096b80928d2e7d795cc43ecb38",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R09NV12PlanarCodec.swift",
+      "sha256": "b3735e3a57f6fb33e1b857dd3f7e2f7d2e7b9e5bdb357ebf99c4acf793a1e1c0"
+    },
+    {
+      "byteCount": 41706,
+      "gitMode": "100644",
+      "gitObjectID": "984d95037fdc290226569f216a6c8d744498293d",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R12MediaFormatContractV2.swift",
+      "sha256": "b10278b76f6dcbea803fe5fcb41b1a45a41df9d958630865dd34caf5bcec4514"
+    },
+    {
+      "byteCount": 41070,
+      "gitMode": "100644",
+      "gitObjectID": "51c4c15f1df27798fc1b654774e9f7e3bbbf2f7c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R12RouteAndHardwareResolver.swift",
+      "sha256": "011b63262becb0d70f12be32f344dd0a89dc71e710afecf3b2dbf35cdfb2f222"
+    },
+    {
+      "byteCount": 29031,
+      "gitMode": "100644",
+      "gitObjectID": "163822e531e105d1896fd5a6a9e64aeaa2bd3913",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13A11ProductSessionFactory.swift",
+      "sha256": "a47cdbbc6a7ac13eb935b29038280a4f0c938899af634f1e63e45b72bed67434"
+    },
+    {
+      "byteCount": 64019,
+      "gitMode": "100644",
+      "gitObjectID": "ee349a63f55626f3409097f6e6e440f43615b8a2",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13AdaptiveASHRoutingScaler.swift",
+      "sha256": "44b5b498d44f772bbd61c6b9d67201af6cc105a2e56e70ec020f3da6988876f5"
+    },
+    {
+      "byteCount": 1123,
+      "gitMode": "100644",
+      "gitObjectID": "1c8f564986038cc8f4f41f198c28935203697ce0",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13ConfigurableCacheUpscalerEngine.swift",
+      "sha256": "36a24cca799da5f3927e035096ef4d4ed69f7e1c7c6866b8fab834ce338db796"
+    },
+    {
+      "byteCount": 22132,
+      "gitMode": "100644",
+      "gitObjectID": "0f580360dae388d6eb33e5793d731cfb04131883",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13FormatPreservingDeinterlacer.swift",
+      "sha256": "8bda484dc4275fbc5b4d41c6d4795f3a7acc79681f6992003430240fc61f1ce7"
+    },
+    {
+      "byteCount": 34835,
+      "gitMode": "100644",
+      "gitObjectID": "6511bf2fa60c37b95d7088e569f4f431b62fa77c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13FormatPreservingEnhancementProcessor.swift",
+      "sha256": "7e4fe956d1095af1f7bba304324ba65a219551cba0b4ea2c548bf5c237049f1d"
+    },
+    {
+      "byteCount": 11729,
+      "gitMode": "100644",
+      "gitObjectID": "e55c8d90ddb0ad330cfeee138f5711883c69ec4e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13FormatPreservingMPSScaling.swift",
+      "sha256": "0c934ebc8b6e35e80cf6f35a6fa3a025618f8dbcb59e67548437bd3e6575c0ab"
+    },
+    {
+      "byteCount": 44528,
+      "gitMode": "100644",
+      "gitObjectID": "3526bdc8ddd77860ffe2c1567dd99d24cf80d676",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13FormatPreservingScaling.swift",
+      "sha256": "4eb5fb1a8e927f378f32799dc43d0468abde00dca7bc4fdb41d8777014058700"
+    },
+    {
+      "byteCount": 59283,
+      "gitMode": "100644",
+      "gitObjectID": "00d563300fad619571958e6219912cb618c2134f",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13FullFrameEnhancementProcessor.swift",
+      "sha256": "4817b5a3ad6a7391247924c3ec9025d9fc4c10cf0333e6fdaed8878e37b7244b"
+    },
+    {
+      "byteCount": 16780,
+      "gitMode": "100644",
+      "gitObjectID": "d6afadb4bfb62ea657210e749bf58b695c11faa7",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13NV12FrameCache.swift",
+      "sha256": "c8e011a179833457d2230b376145b7fd50b7d5e9539d203ba133b3f7d76b1b42"
+    },
+    {
+      "byteCount": 13776,
+      "gitMode": "100644",
+      "gitObjectID": "388d3a01eb17ba00ee02f3ee239a57eb6b8ce565",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13NV12FrameNormalizer.swift",
+      "sha256": "93407f597d5b975a6404b1f7efbe5599a823b31214e543adc8a5cee8759f4c17"
+    },
+    {
+      "byteCount": 15802,
+      "gitMode": "100644",
+      "gitObjectID": "3202b077115ec8e051894e321094e95d4b88964c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13NV12FramePixelBuffer.swift",
+      "sha256": "92ab948c1342e97c688bc3bbc3a2d19f0db94c33339d65a731308d69ff348838"
+    },
+    {
+      "byteCount": 3353,
+      "gitMode": "100644",
+      "gitObjectID": "93eb6eca3ead21c8d6ea427f9faa731a4550a238",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13PixelBufferAccess.swift",
+      "sha256": "443ea4a0428fabdb87182995fdfaa441f36c59fbc6c8c719a5380b4eaf52bcd8"
+    },
+    {
+      "byteCount": 7482,
+      "gitMode": "100644",
+      "gitObjectID": "f53e0cafdafabd0d37663ea645baea6b4e62a37c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13PixelLayout.swift",
+      "sha256": "f3dbdf0950ff0d8e46a18b7895b20c91b48abf370cd2670438199e799a3bdf44"
+    },
+    {
+      "byteCount": 13468,
+      "gitMode": "100644",
+      "gitObjectID": "5a0ce32b3ef946e3a9dc6a89ac9d65bb61919e59",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13PixelLayoutAnalysis.swift",
+      "sha256": "cb93f437a5d2867cf680f9be85a4e0c41ccc12d1bf1a35edc6cff1f4d647b5c2"
+    },
+    {
+      "byteCount": 7841,
+      "gitMode": "100644",
+      "gitObjectID": "c60fcde519a02962dbddf90c1a0f86f7f818fe96",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13PixelLayoutBlend.swift",
+      "sha256": "12757520ba12864cb17f0a967146341cecc6568254f43a552fd6bea6c749a5a2"
+    },
+    {
+      "byteCount": 6947,
+      "gitMode": "100644",
+      "gitObjectID": "d1be70883568d9ed1ad1c599258f669d800b4761",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13PixelLayoutCopyScale.swift",
+      "sha256": "ada9ac0e920a59258461c7e5543bb5f0f215d9df9a164121a6b3c4462ef20359"
+    },
+    {
+      "byteCount": 16067,
+      "gitMode": "100644",
+      "gitObjectID": "133ad7139dab911de81b1fd57bf39b4b57fb4e06",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13PixelLayoutEnhancement.swift",
+      "sha256": "771b900af007c45d90dc610dff68c60e73bb63c6813441ac6f6de00822cfb6d1"
+    },
+    {
+      "byteCount": 11768,
+      "gitMode": "100644",
+      "gitObjectID": "89ccbb06b4e1191ce28d63bbc624e9a5f8117254",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13PixelLayoutRegistry.swift",
+      "sha256": "b0c9e8c8c453093f13eb24043503587c0d05f6d7edd3211c99545933b2d3eaad"
+    },
+    {
+      "byteCount": 6633,
+      "gitMode": "100644",
+      "gitObjectID": "5816393f154968bbbae2d9d33175dcb5b140ca42",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13PixelLayoutVerticalFilter.swift",
+      "sha256": "110bfeb3003a70dddb0bfdf010519ed72b0ed13936857785d4f785e1dc747919"
+    },
+    {
+      "byteCount": 27213,
+      "gitMode": "100644",
+      "gitObjectID": "becc1f27959c5ba62a95086bd2616c2f457e0732",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13ProductASHAnalyzer.swift",
+      "sha256": "0e9dc812174152442a2d197b17e4834d8b227433687711a73b19bbf2ea9dbd17"
+    },
+    {
+      "byteCount": 56194,
+      "gitMode": "100644",
+      "gitObjectID": "4314989cb4abe8e00f15153997f9fb4feb452dc6",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13ProductASHRoutingSession.swift",
+      "sha256": "c32e75e00894f61d66b41fcad75a3873c6e0da20966c3667fd4618417c9883f4"
+    },
+    {
+      "byteCount": 34578,
+      "gitMode": "100644",
+      "gitObjectID": "48b447ba9a60c21970472420552a189324f9c8a0",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13ReleaseFrameProcessing.swift",
+      "sha256": "dc61e9ed9e0325f6646830bd9d32415b13bfbdb8ec741152aaef048bd2e2b773"
+    },
+    {
+      "byteCount": 10405,
+      "gitMode": "100644",
+      "gitObjectID": "ef9c33194d3920d338ac0e66926e761c1924e7ba",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13ReleaseJobContracts.swift",
+      "sha256": "d000e117ce0c50fc40c819a195bb58c208bd685c9e9fbd66ee220af9863a4c6d"
+    },
+    {
+      "byteCount": 1190,
+      "gitMode": "100644",
+      "gitObjectID": "98cbbab2a5f1c75bdc7a6769f56377914e45db53",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13ReleaseTaskStartGate.swift",
+      "sha256": "1b34c09a53a284f4c631d24ba9c64054106caf3da0bf2b5a0ab21b7510656210"
+    },
+    {
+      "byteCount": 3173,
+      "gitMode": "100644",
+      "gitObjectID": "e6e1fb741121948dfa600718a64b5d97c1b75b62",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13ReleaseUpscalerEngineService+Lifecycle.swift",
+      "sha256": "cc4d3ab13e97e76fba4eedb551edcd3569a6765152f2425a9cb326b7ad30e2ef"
+    },
+    {
+      "byteCount": 113123,
+      "gitMode": "100644",
+      "gitObjectID": "92129fc6c860d79db65c24dedbff1421be372df7",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13ReleaseUpscalerEngineService.swift",
+      "sha256": "104f9aa5538698cff07f087e90c90f1892568e32b8a41abed85dc89c215bac7e"
+    },
+    {
+      "byteCount": 36050,
+      "gitMode": "100644",
+      "gitObjectID": "4619f19ec541ff14eff6b48015cea5c7cd6f2955",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13RestartInfrastructure.swift",
+      "sha256": "1ea77f7876548e7b928c1f1513ef7419128d3c5ab67ce435e66a1aa3dff9cfdc"
+    },
+    {
+      "byteCount": 13377,
+      "gitMode": "100644",
+      "gitObjectID": "b61540229b8f5420b3db9bed46c884cf58c0493c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13RestartJobContracts.swift",
+      "sha256": "c88a8ecbe1feced6e108a2d4f60ed66f39327bd6fd90054b6612a4cc627f2791"
+    },
+    {
+      "byteCount": 53089,
+      "gitMode": "100644",
+      "gitObjectID": "a722502c461de62678d3dffad98055b36fec047e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13RestartJobStore.swift",
+      "sha256": "312f9ab9e9353181832e9c9eaa3076227ae791b29f37c112fc6a2ecd721e8e01"
+    },
+    {
+      "byteCount": 11376,
+      "gitMode": "100644",
+      "gitObjectID": "29215b1e3617ab97a909989bc0a6960fea89c3d6",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13SecurityScopedBookmarks.swift",
+      "sha256": "7e4f26454d62ce088f1bafbc667cb7f25e14aa60109605f9e74e3050a77b0788"
+    },
+    {
+      "byteCount": 3794,
+      "gitMode": "100644",
+      "gitObjectID": "f6cab56cb7d7630b9b9c2a3fc884b1a9270f1d11",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13SmoothMotionIntegration.swift",
+      "sha256": "c693290fdead2c75086f39114dfd5e14572b3e6ac38d583047fc9b8008666c95"
+    },
+    {
+      "byteCount": 9595,
+      "gitMode": "100644",
+      "gitObjectID": "25b42890c94a8143e0473acfb1f6c81b13e1bb39",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13StoragePreflight.swift",
+      "sha256": "f9708d53f91a33b0cdf9c409d91ac6ecff2ff35f20656d9391131912c64d0ecf"
+    },
+    {
+      "byteCount": 5961,
+      "gitMode": "100644",
+      "gitObjectID": "066927f237b5cf59dce5c66af32250c900229d21",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/R13TightPixelFrame.swift",
+      "sha256": "90200479734638ec3dd7e553b78d1ffd267967ef46333977f69db99508446543"
+    },
+    {
+      "byteCount": 1882,
+      "gitMode": "100644",
+      "gitObjectID": "88ddecd884cfed0afdada9269016368291455344",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/SmoothMotionConfiguration.swift",
+      "sha256": "a52d23a830eb738d93989a49cbe01c8e2edd80bd989e18e71c9b3a5c7dc9425e"
+    },
+    {
+      "byteCount": 24656,
+      "gitMode": "100644",
+      "gitObjectID": "5bf8cdadb58c4d3ff1d11977c2d1bcee6a37fa87",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/SmoothMotionInterpolation.swift",
+      "sha256": "f6eabd585e0064a07257af835fdf3d793d17289d195b46185f2e9f9adc3c298c"
+    },
+    {
+      "byteCount": 21936,
+      "gitMode": "100644",
+      "gitObjectID": "b185291dec91200a2efdd2434db6c1fce55387d9",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/SmoothMotionMediaSession.swift",
+      "sha256": "001bf0e53a203e847e5fd18f3d07ebb4fd0151cd34402a7938e2820ef22f70b6"
+    },
+    {
+      "byteCount": 4290,
+      "gitMode": "100644",
+      "gitObjectID": "b349d25fa48848b598567093fc5ebedfc2836eb3",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/SmoothMotionTiming.swift",
+      "sha256": "5481d4a25f6b6c57707225e69994891013594d13404762e8308b226e2f9c100e"
+    },
+    {
+      "byteCount": 11262,
+      "gitMode": "100644",
+      "gitObjectID": "296a4224c46f601a75782b48b0b09e2a4763bf6e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/SmoothMotionVideoToolboxInterpolator.swift",
+      "sha256": "12085f5ab848f76785d560c56c3b0c04486a8120d3c46b33a09e0cd393d26d98"
+    },
+    {
+      "byteCount": 756,
+      "gitMode": "100644",
+      "gitObjectID": "72778d32cf1cdbf7a8cd7efe94fa7172b963c76b",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/UnavailableUpscalerEngineService.swift",
+      "sha256": "da4639d8766e678a5731803c90e461b2ed75be1b94985f3ab2410aa7a600602d"
+    },
+    {
+      "byteCount": 10436,
+      "gitMode": "100644",
+      "gitObjectID": "57e838693abe3aefbf16b796d0f7c97e079e528a",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/UpscaleJob.swift",
+      "sha256": "fd9ea953ff60d426348c02cbc19758d492cdebd753a634481b566a0a3f4f89ca"
+    },
+    {
+      "byteCount": 20211,
+      "gitMode": "100644",
+      "gitObjectID": "9a5473f9c8be741a648eb35065181a3f6664f5c6",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/UpscaleMode.swift",
+      "sha256": "a53ae9bf3a29b20dd287648a0403d2bc8e95f5ab564ba67a88bfe2da68e060fe"
+    },
+    {
+      "byteCount": 2456,
+      "gitMode": "100644",
+      "gitObjectID": "8bcbce856f1e58bb627ebed67bf3792a854bc808",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/UpscaleStrategy.swift",
+      "sha256": "a663288afb6964a90ccefb078efcfc058ccfece5157f7a9621fb6e3992132e0a"
+    },
+    {
+      "byteCount": 5245,
+      "gitMode": "100644",
+      "gitObjectID": "b638629920f76af001debc3ef247537cf1dde083",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/UpscalerEngineService.swift",
+      "sha256": "3af98723f993d492eab1e37325ef4c47a143bbe1afca201686f220d9fa03c1b5"
+    },
+    {
+      "byteCount": 633,
+      "gitMode": "100644",
+      "gitObjectID": "e84646790c4098393e79a38af91e612b1cc9d487",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/UpscalerEngineServiceModule.swift",
+      "sha256": "1272eb9439172e4af0d1dfa58696938dae3a21d62f5b22ee1087ea189f644342"
+    },
+    {
+      "byteCount": 127786,
+      "gitMode": "100644",
+      "gitObjectID": "05217b37714b931ae2d10423e54d6d013fd17f6e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Modules/UpscalerEngine/VTSuperResolutionDriver.swift",
+      "sha256": "05eae9ac36d724e81e2b1dff1efca65f41865c2253705d0b79299334c767e655"
+    },
+    {
+      "byteCount": 17970,
+      "gitMode": "100644",
+      "gitObjectID": "84fe7be589e33bf306f750bcd43b01fee0ffc13c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Platform/RuntimeEnvironment.swift",
+      "sha256": "8edc2750a4ca598b3a935c0db59d56c248f1d31dfdc59a0571a26bf1c949a50b"
+    },
+    {
+      "byteCount": 1013,
+      "gitMode": "100644",
+      "gitObjectID": "c0f13da3b1bbeb3acb912ddb0ad5312c2c9873d6",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Platform/SecurityScopedAccess.swift",
+      "sha256": "e3e3a3022bd159e1cb97de22d2ea8979d36c1d8515ee9dd43ad64072accfe1a1"
+    },
+    {
+      "byteCount": 1600,
+      "gitMode": "100644",
+      "gitObjectID": "f19afc57277f542c9b03dabefccec38434c5f50d",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Resources/ASH/ash-asset-manifest.json",
+      "sha256": "64a725bd9118d97ae4f3d7f27cf21eb1676fd394a464d09429daa6d8eee0e6e5"
+    },
+    {
+      "byteCount": 24759,
+      "gitMode": "100644",
+      "gitObjectID": "63a923ac7bb775516e78bc81af9ff8e0db52c0cc",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Resources/ASH/ash-state-reference.csv",
+      "sha256": "20e885ce6f83ca584ec13b53161dd25f5ed2e42baeeb60633b0ce19d2975c310"
+    },
+    {
+      "byteCount": 2274,
+      "gitMode": "100644",
+      "gitObjectID": "80c0643dc02f4be81cde3073cf09e3c47a6dbf78",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Resources/ASH/ash_mapping_v1.json",
+      "sha256": "aef24e8eba2441025e1e440e2791215d32d163e0b7b91d25bb7e9b7018260c79"
+    },
+    {
+      "byteCount": 7078,
+      "gitMode": "100644",
+      "gitObjectID": "dc2d6eb5f1fe884080c7a698f89031b102bd97fc",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Resources/ASH/ash_video_mapping_v2.seed.json",
+      "sha256": "2ebdffa39909012e3284888fd23ede66a68a8a2e270fdfc278b287d109a60e88"
+    },
+    {
+      "byteCount": 55401,
+      "gitMode": "100644",
+      "gitObjectID": "420156b580c2a990f5bc55168ac3cdeb0f9d2774",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Resources/ASH/branch-topology.json",
+      "sha256": "e114168b20ce2842126b949399b07750160fb0acbdf3971a028f5fcc15d3748c"
+    },
+    {
+      "byteCount": 418,
+      "gitMode": "100644",
+      "gitObjectID": "d4a3a4da51c4ea543ce01ea074934f204b6543db",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Resources/ASH/codewords.csv",
+      "sha256": "cccb4077ec79e52d428f4fc41dabb6e91e565c95b7f8cca2d53356e7cd408fe4"
+    },
+    {
+      "byteCount": 62489,
+      "gitMode": "100644",
+      "gitObjectID": "a342eb39a62ff7f50ba6ea11e2d6428e59107620",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Resources/ASH/computational-certificate.json",
+      "sha256": "b0ea48e16ede4d09d8361fcb374c7f3072d9c498685623b9bc747103efb9febf"
+    },
+    {
+      "byteCount": 4299,
+      "gitMode": "100644",
+      "gitObjectID": "d635a38357c56253f3626de9e7f4f640a3b0bed1",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Resources/ASH/operator_bank_v2.seed.json",
+      "sha256": "7909a226c80fae86a4f38a4f0e52bfb99205f47e1dcecb7c121d1eb62801b137"
+    },
+    {
+      "byteCount": 2118,
+      "gitMode": "100644",
+      "gitObjectID": "08efa8286cdedfc8c2967dd22af07455f92c660a",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Resources/Legal/ASH-Model-LICENSE.txt",
+      "sha256": "213910e1405c0866a1200da12f1dcd5a4f41ed3d4a82c9c78acf85e6f5f304a6"
+    },
+    {
+      "byteCount": 196,
+      "gitMode": "100644",
+      "gitObjectID": "83a9ca088be0f1a5546cd70320158b594894d9fa",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Runtime/MirmirModule.swift",
+      "sha256": "7989b2c66b0069e247bfe3dc6602579a903b31c490cc048be038d2f3fd44e7c9"
+    },
+    {
+      "byteCount": 1429,
+      "gitMode": "100644",
+      "gitObjectID": "23d7a2b3a22d5fe8539e51c99eea51f3bcc555c2",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Runtime/MirmirModuleCatalog.swift",
+      "sha256": "e034dba89cd341230bdace1c33af2eb42cf369725eb19a195c824724f605862c"
+    },
+    {
+      "byteCount": 103,
+      "gitMode": "100644",
+      "gitObjectID": "031e867b00b483d5f71623641c2390f76306e3f7",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Runtime/MirmirModuleContext.swift",
+      "sha256": "adbdebff6aeb67400fb7d85507304235f204b42178a463a31fa108da14e152c6"
+    },
+    {
+      "byteCount": 358,
+      "gitMode": "100644",
+      "gitObjectID": "b8a7d916d5517c02b38ccfa8abe4c01b84a97f86",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Runtime/MirmirModuleDescriptor.swift",
+      "sha256": "13f8305afc7f9962ebfcb9546f71b205a7abbb5b38e0d0c0c9fec2fe35222de7"
+    },
+    {
+      "byteCount": 4316,
+      "gitMode": "100644",
+      "gitObjectID": "c3e27ac0ad43534c4abb496e5cfc89cbb036190d",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Runtime/MirmirModuleFactoryRegistry.swift",
+      "sha256": "a2268f2cf90ec8732ae3dd93571c808ff0eed3a1098cea90ad638ecacea43d4b"
+    },
+    {
+      "byteCount": 8126,
+      "gitMode": "100644",
+      "gitObjectID": "1181bc960804dc4c2f7c3f3722eb6d9a9ff8e173",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Runtime/MirmirModuleHost.swift",
+      "sha256": "daa357b251acc2600b124fd5455218e2bae4f31226ceda66d98110e1b15d22f9"
+    },
+    {
+      "byteCount": 1135,
+      "gitMode": "100644",
+      "gitObjectID": "6609ab44d619f48baa0a6bd7fc28f348783207c7",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Runtime/MirmirViewRegistry.swift",
+      "sha256": "32df386f6a1df02454be29546591d10e1164104e1f113cbcfe0aea14cb74f369"
+    },
+    {
+      "byteCount": 538,
+      "gitMode": "100644",
+      "gitObjectID": "7bc33cf51c6ba2d5d9d4aaae11f2e88f1515600e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Support/FourCC.swift",
+      "sha256": "80ace58e607d0fb64f5aff6256a76d4659570df2fbaa5b1c99a77c3b816d688f"
+    },
+    {
+      "byteCount": 224,
+      "gitMode": "100644",
+      "gitObjectID": "276b20ae366e5e535f1563b9e8ffddcf8bd04dbb",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Support/Log.swift",
+      "sha256": "bdf6b3b25cd29a49ef826c5e8f28f178c9f7c4c4f4e5022070388baf7c65e7e5"
+    },
+    {
+      "byteCount": 3821,
+      "gitMode": "100644",
+      "gitObjectID": "1c8ad0f772e27b6ea7bced595838fda5dcd12e3e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Support/MirmirError.swift",
+      "sha256": "e8d15be3173d8de73e6abeb855b495f1d56b434780d851392b82e700670361c3"
+    },
+    {
+      "byteCount": 567,
+      "gitMode": "100644",
+      "gitObjectID": "d394dee92bf8fb985d693273872e832d337df49e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Upscaling/AutomaticBackendSelector.swift",
+      "sha256": "3daa1863f61d1f68980c3bd8bcc7f4473b7811ee81d57c23db563b184cd3ae56"
+    },
+    {
+      "byteCount": 7668,
+      "gitMode": "100644",
+      "gitObjectID": "44fdc7d3f95f26936eb9ed2d6c7b923643ac72a0",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Upscaling/Backends/CoreImageScaler.swift",
+      "sha256": "915fde2fdbae2d64b50d03be6b412bf94cfd2c841a59199d4526a91d0b89b594"
+    },
+    {
+      "byteCount": 7875,
+      "gitMode": "100644",
+      "gitObjectID": "fa63cc36387453f88502e9633b12599eb769e336",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Upscaling/Backends/MPSScaler.swift",
+      "sha256": "4e4fa51a08a2c08004c1377a5cbb2794adfca398503e234f149e468f6d324691"
+    },
+    {
+      "byteCount": 22110,
+      "gitMode": "100644",
+      "gitObjectID": "cde5e6b4751c82996e3481fb36a81f7c4d36dc7f",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Upscaling/Backends/MetalFXScaler.swift",
+      "sha256": "c5d2447e943b790b192648d2d57448a63c336bbbd1a5a0805d50b4e536ea2ecb"
+    },
+    {
+      "byteCount": 7088,
+      "gitMode": "100644",
+      "gitObjectID": "f9b58bfa804fce6130c57626419b0ca95bc1e9f7",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Upscaling/Backends/NV12ScalerSupport.swift",
+      "sha256": "80ae3fb198a31b53d9cf99ce182a6c110a7cf0556a071577dd52021217ad0415"
+    },
+    {
+      "byteCount": 44705,
+      "gitMode": "100644",
+      "gitObjectID": "8b33ac94ea358db445f1fe0e6dbbd02e0f48a734",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Upscaling/Backends/VImageScaler.swift",
+      "sha256": "0262022d76ed11507565c6da37ea6f223c8ccb2f43197a32d2e1ead86147f1b9"
+    },
+    {
+      "byteCount": 15236,
+      "gitMode": "100644",
+      "gitObjectID": "a96ed5a9ef70c65ff1015e2904d12eafeccf9f5b",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Upscaling/Backends/VTHighQualitySuperResolutionScaler.swift",
+      "sha256": "d06ff2c7ed1527f1062d9f2cc66657b6e8c5d346283be88ef87b1f7a47c7e044"
+    },
+    {
+      "byteCount": 10441,
+      "gitMode": "100644",
+      "gitObjectID": "1ca7fc09638e6e70f19f9ae569c4a9678f90622e",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Upscaling/Backends/VTInterpolationSpatialScaler.swift",
+      "sha256": "0aec991bf430e1ea7a88ce1006651d7d258eba01f5875f7d3a75bfba3b6f0c70"
+    },
+    {
+      "byteCount": 7566,
+      "gitMode": "100644",
+      "gitObjectID": "205d55c370eca1c737fbb43eadf6d650da113213",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Upscaling/Backends/VTLowLatencySuperResolutionScaler.swift",
+      "sha256": "b319c6c46a1148855c3cebf0596712b994579f7d2e74c9bd265aa7aa349d35b4"
+    },
+    {
+      "byteCount": 4865,
+      "gitMode": "100644",
+      "gitObjectID": "aa5e539e47536572a4bff1daa507717348a8505c",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Upscaling/Backends/VTPixelTransferScaler.swift",
+      "sha256": "1006170deb9df6353288d09c37e75883214c051d42d3f58e9d34d01a7c71b61b"
+    },
+    {
+      "byteCount": 8163,
+      "gitMode": "100644",
+      "gitObjectID": "09e3f3d4163117dabb9055cc7ca7e588316fdaed",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Upscaling/Deterministic/DeterministicCPUBackend.swift",
+      "sha256": "9cc498b8ca32a443f8744aea6a3784976be377fc2dacaffdf8d2e1277409f676"
+    },
+    {
+      "byteCount": 10584,
+      "gitMode": "100644",
+      "gitObjectID": "7eaaa10c898eeafe0fac6ccacc5eea9498148b1d",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Upscaling/Deterministic/DeterministicMetalBackend.swift",
+      "sha256": "5791c1d2e0c92f3d2962579a5159a20dcb3dc5e594eacc148f9427907e6b087a"
+    },
+    {
+      "byteCount": 4574,
+      "gitMode": "100644",
+      "gitObjectID": "e8c28c3c53dd8fe3946132f3686eb0f0ba7171b2",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Upscaling/Deterministic/DeterministicReferenceSupport.swift",
+      "sha256": "dc64a227cab59f540c5b8cd99539747bed34c6ba19ec8b74f1ce07c6e1f5ce44"
+    },
+    {
+      "byteCount": 3441,
+      "gitMode": "100644",
+      "gitObjectID": "84b832fe7d61cd9a6290ca2af21b6d1e99456547",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Upscaling/FrameUpscaler.swift",
+      "sha256": "e2c4814b38a37c2a18e7377cd9196284a1c13e0c1abf5e2e17fd4f78d518c0d9"
+    },
+    {
+      "byteCount": 9060,
+      "gitMode": "100644",
+      "gitObjectID": "f903975da72d8c15ee53547e846dcac2ecd1c7b3",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Upscaling/UpscaleBackendCatalog.swift",
+      "sha256": "2ef6bf27ca7dac314a25fef255f7a789bd65dd8cd5449e2f379870db88a03b47"
+    },
+    {
+      "byteCount": 6018,
+      "gitMode": "100644",
+      "gitObjectID": "45a96fee6cd26f932caf6ec00fe985f6dfbd3ee4",
+      "gitObjectType": "blob",
+      "path": "Mirmir/Upscaling/UpscaleCoordinator.swift",
+      "sha256": "96d3bc235ab10ecd88c50611d644f8029c537316c3fdd689b88ac94303651704"
+    },
+    {
+      "byteCount": 19388,
+      "gitMode": "100644",
+      "gitObjectID": "6c278d73e5821119da0a031141ccff1458a4252f",
+      "gitObjectType": "blob",
+      "path": "MirmirTests/BackendCatalogTests.swift",
+      "sha256": "f5df5f2933ae1810eb0dd6c160e4b5976f1762dfda3063be5e1d4343d1e5a567"
+    },
+    {
+      "byteCount": 14660,
+      "gitMode": "100644",
+      "gitObjectID": "77a18488872d77e313c68c585231183937b8f62a",
+      "gitObjectType": "blob",
+      "path": "MirmirTests/DeterministicCPUBackendTests.swift",
+      "sha256": "04a360316bf86d603aacc901d37ec3e0d94ee3feae458f8672e4cf72a010dff0"
+    },
+    {
+      "byteCount": 35178,
+      "gitMode": "100644",
+      "gitObjectID": "6558e01cf98ad140ddf230bec44d8cb5c068e358",
+      "gitObjectType": "blob",
+      "path": "MirmirTests/DeterministicMetalBackendTests.swift",
+      "sha256": "316f02a6accc68eb423887df2b14cb1f08f82ba8abfe01c3c5951672e884a497"
+    },
+    {
+      "byteCount": 6333,
+      "gitMode": "100644",
+      "gitObjectID": "fcc79f0bdc7e0504cd61ceea59ed1ea37e64679a",
+      "gitObjectType": "blob",
+      "path": "MirmirTests/MirmirTests.swift",
+      "sha256": "3be6a0d26d71231e1d2d13796d7a67e5772c5929a3e33afc3c336942b5e3a76d"
+    },
+    {
+      "byteCount": 1071,
+      "gitMode": "100644",
+      "gitObjectID": "5d4ca0d1fad15b011334a9af8dd4ec6059ffe956",
+      "gitObjectType": "blob",
+      "path": "MirmirTests/SecurityScopedAccessTests.swift",
+      "sha256": "3fceefe89496f93f7b7ec6dad0a498c48b7611bb6444bf8d28779e58d83e4518"
+    },
+    {
+      "byteCount": 11337,
+      "gitMode": "100644",
+      "gitObjectID": "3d0b04699102ca1203315b4ff92bb107f5388f8d",
+      "gitObjectType": "blob",
+      "path": "MirmirTests/Support/SyntheticNV12PixelBuffer.swift",
+      "sha256": "bee22a079f58573a7c3cb86c1bc65d41217587432b48dc0b1ba42577699ec7cc"
+    },
+    {
+      "byteCount": 55339,
+      "gitMode": "100644",
+      "gitObjectID": "a6422c33efb2b5135ac8768c804132af75cc0bd9",
+      "gitObjectType": "blob",
+      "path": "MirmirTests/VImageScalerTests.swift",
+      "sha256": "21fa4134521c9e1428bb78c7801321273cf291f53dd008b073443e360e88f24c"
+    },
+    {
+      "byteCount": 13565,
+      "gitMode": "100644",
+      "gitObjectID": "497a2b6043281746bb5a9a6b90ce8a6084c5f2f4",
+      "gitObjectType": "blob",
+      "path": "MirmirTests/VideoProbeTests.swift",
+      "sha256": "4340eba385463156933b7e361de00fb4ad47f89ab1b1e8c73ff7236da75677b6"
+    },
+    {
+      "byteCount": 33384,
+      "gitMode": "100644",
+      "gitObjectID": "3d8b6607dcc8c02e5292cf71b5c02d182a2c3d9f",
+      "gitObjectType": "blob",
+      "path": "MirmirTests/VideoProcessingSessionTests.swift",
+      "sha256": "f326fa7d224a9db1438690213ee79f76195ddac947134d51773fac9523b0c147"
+    },
+    {
+      "byteCount": 4552,
+      "gitMode": "100644",
+      "gitObjectID": "37fda571375866dfc8af64c9b2527346c2fe581c",
+      "gitObjectType": "blob",
+      "path": "PRODUCT_SUPPORT.md",
+      "sha256": "374f83a14b958e238ccbb5103c34ce494782ddb991f64317ed4555b83ac56cf3"
+    },
+    {
+      "byteCount": 4100,
+      "gitMode": "100644",
+      "gitObjectID": "80b23f8a82aff6862161916c51f45d756a0e91c8",
+      "gitObjectType": "blob",
+      "path": "README.md",
+      "sha256": "433ff620b723180db73040c2e691f578b7ac74b01946689d3480fed0f41a7316"
+    },
+    {
+      "byteCount": 6,
+      "gitMode": "100644",
+      "gitObjectID": "26aaba0e86632e4d537006e45b0ec918d780b3b4",
+      "gitObjectType": "blob",
+      "path": "VERSION",
+      "sha256": "1e5b51cde515396a9fa762909cf8ca6584ccc564b325d2eebeea76175fe95c4d"
+    },
+    {
+      "byteCount": 9872,
+      "gitMode": "100644",
+      "gitObjectID": "e528c7fbd048446a5db73ff005df759b2309e5d8",
+      "gitObjectType": "blob",
+      "path": "design-qa.md",
+      "sha256": "628b5dcaa2468c3b85e920c283a4405eea576ba8ae90ca6006621dfa44d290ab"
+    },
+    {
+      "byteCount": 1274,
+      "gitMode": "100755",
+      "gitObjectID": "1bc2366c3e33ce809d93b447ca5dcb5fa8c2742c",
+      "gitObjectType": "blob",
+      "path": "script/build_and_run.sh",
+      "sha256": "dfde71b4a6366a95ee94ee326d013475d88ef2ccbe28fd6dbd7a6634c839f4bb"
+    },
+    {
+      "byteCount": 3471,
+      "gitMode": "100755",
+      "gitObjectID": "0ec597372d8f0807791736c4924fa4a42e2afead",
+      "gitObjectType": "blob",
+      "path": "script/test_update_version.py",
+      "sha256": "93d00878b854a96f6f48d4488284f52b31c9eb9d5c6fd45917e8b1f7f5a1473c"
+    },
+    {
+      "byteCount": 6517,
+      "gitMode": "100755",
+      "gitObjectID": "a9b6cf3435c26997f0c98931dd4a4f1a252aaa80",
+      "gitObjectType": "blob",
+      "path": "script/update_version.py",
+      "sha256": "e56dc3c4788fdde2195155fb5fa19706f5f27ccaae808a4fb9fa305923e6b947"
+    },
+    {
+      "byteCount": 21109,
+      "gitMode": "100755",
+      "gitObjectID": "b58ec0d4c071e87f17ed1e4f07ea1d45cb7be4d2",
+      "gitObjectType": "blob",
+      "path": "script/v4/capture_baseline.py",
+      "sha256": "9ed3497962e09c5e40a7639f5e97ad2d36ac40070ec6dca1ef3b1402aedbbecb"
+    },
+    {
+      "byteCount": 2569,
+      "gitMode": "100755",
+      "gitObjectID": "eb14b15ce3665059fb4926fff32449349bb5ac69",
+      "gitObjectType": "blob",
+      "path": "script/v4/finalize_evidence.py",
+      "sha256": "446fb907aadb0ba1848d338ec7b33d24209e191163fa0f186919a6b69614d90c"
+    },
+    {
+      "byteCount": 8375,
+      "gitMode": "100755",
+      "gitObjectID": "c1bb34b592a1f7afd56ab7fd7ad8b65cad0dee41",
+      "gitObjectType": "blob",
+      "path": "script/v4/summarize_time_profile.py",
+      "sha256": "efc8daffc816cd7f321b4a62439cb2f02ebb79af4937eae61fbe4a3e20a58b12"
+    }
+  ],
+  "gitTreeObjectID": "2e064137647f2c3765daafafb3b4922c1bbfa9ae",
+  "schemaVersion": "mirmir-ash-p05-source-manifest-v1",
+  "sourceRevision": "d3a4de55c08391ea8a08c00beb766b5650dc9f58",
+  "sourceTreeIdentitySHA256": "d9b89f1ca31c0d076826651b250459773bea0de11d7b0ffd12ac40451af7b69c"
+}

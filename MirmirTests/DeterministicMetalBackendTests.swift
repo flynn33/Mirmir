@@ -230,7 +230,7 @@ final class DeterministicMetalBackendTests: XCTestCase {
                 CGSize(width: 29, height: 21)
             ] {
                 let sourceInfo = makeSourceInfo(pixelFormat: pixelFormat)
-                for (frameIndex, pattern) in Pattern.allCases.enumerated() {
+                for pattern in Pattern.allCases {
                     let cpu = try await makeCPUBackend().prepare(
                         request: BackendPreparationRequest(
                             source: sourceInfo,
@@ -263,8 +263,11 @@ final class DeterministicMetalBackendTests: XCTestCase {
                     let firstMetalOutput = try makeOutput(target, pixelFormat: pixelFormat)
                     let repeatMetalOutput = try makeOutput(target, pixelFormat: pixelFormat)
                     let timing = FrameTiming(
-                        frameIndex: frameIndex,
-                        presentationTime: CMTime(value: Int64(frameIndex), timescale: 30),
+                        // Each loop iteration prepares a fresh actor. Its first
+                        // input is always stream ordinal zero even though the
+                        // corpus pattern has an outer-loop index.
+                        frameIndex: 0,
+                        presentationTime: .zero,
                         duration: CMTime(value: 1, timescale: 30)
                     )
                     try await cpu.process(

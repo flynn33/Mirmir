@@ -16,7 +16,189 @@ enum FixedPointKernelV4Error: Error, Equatable, Sendable {
     case invalidDestinationLayout(expectedCount: Int, actualCount: Int)
     case overlappingSourceAndDestination
     case executionArithmeticOverflow
+    case invalidExecutionRegion
     case nonCanonicalKernelIR
+}
+
+/// A disjoint rectangular destination region used to perturb execution order
+/// without changing any sample, phase, coefficient, or rounding decision.
+struct FixedPointOutputRegionV4: Codable, Equatable, Hashable, Sendable {
+    let originX: Int
+    let originY: Int
+    let width: Int
+    let height: Int
+
+    var endX: Int { originX + width }
+    var endY: Int { originY + height }
+
+    static func validateExactCoverage(
+        _ regions: [FixedPointOutputRegionV4],
+        targetWidth: Int,
+        targetHeight: Int
+    ) throws {
+        guard targetWidth > 0, targetHeight > 0, !regions.isEmpty else {
+            throw FixedPointKernelV4Error.invalidExecutionRegion
+        }
+        let targetArea = targetWidth.multipliedReportingOverflow(
+            by: targetHeight
+        )
+        guard !targetArea.overflow else {
+            throw FixedPointKernelV4Error.executionArithmeticOverflow
+        }
+        var coveredArea = 0
+        for (index, region) in regions.enumerated() {
+            let endX = region.originX.addingReportingOverflow(region.width)
+            let endY = region.originY.addingReportingOverflow(region.height)
+            let area = region.width.multipliedReportingOverflow(
+                by: region.height
+            )
+            guard region.originX >= 0,
+                  region.originY >= 0,
+                  region.width > 0,
+                  region.height > 0,
+                  !endX.overflow,
+                  !endY.overflow,
+                  endX.partialValue <= targetWidth,
+                  endY.partialValue <= targetHeight,
+                  !area.overflow else {
+                throw FixedPointKernelV4Error.invalidExecutionRegion
+            }
+            let nextCoveredArea = coveredArea.addingReportingOverflow(
+                area.partialValue
+            )
+            guard !nextCoveredArea.overflow else {
+                throw FixedPointKernelV4Error.executionArithmeticOverflow
+            }
+            coveredArea = nextCoveredArea.partialValue
+            for previous in regions[..<index] where overlaps(region, previous) {
+                throw FixedPointKernelV4Error.invalidExecutionRegion
+            }
+        }
+        guard coveredArea == targetArea.partialValue else {
+            throw FixedPointKernelV4Error.invalidExecutionRegion
+        }
+    }
+
+    private static func overlaps(
+        _ left: FixedPointOutputRegionV4,
+        _ right: FixedPointOutputRegionV4
+    ) -> Bool {
+        left.originX < right.endX && right.originX < left.endX
+            && left.originY < right.endY && right.originY < left.endY
+    }
+}
+
+/// Release-compiled execution schedules. Production is deliberately one full
+/// frame; qualification schedules cover the same frame with a 3-by-2 grid in
+/// independent traversal orders.
+enum FixedPointExecutionScheduleV4: String, Codable, Hashable, Sendable {
+    case productionFullFrame = "production-full-frame"
+    case qualificationRowMajor3x2 = "qualification-row-major-3x2"
+    case qualificationReverse3x2 = "qualification-reverse-3x2"
+    case qualificationEvenOdd3x2 = "qualification-even-odd-3x2"
+
+    func regions(
+        targetWidth: Int,
+        targetHeight: Int
+    ) throws -> [FixedPointOutputRegionV4] {
+        guard targetWidth > 0, targetHeight > 0 else {
+            throw FixedPointKernelV4Error.invalidExecutionRegion
+        }
+        let targetArea = targetWidth.multipliedReportingOverflow(
+            by: targetHeight
+        )
+        guard !targetArea.overflow else {
+            throw FixedPointKernelV4Error.executionArithmeticOverflow
+        }
+        if self == .productionFullFrame {
+            return [FixedPointOutputRegionV4(
+                originX: 0,
+                originY: 0,
+                width: targetWidth,
+                height: targetHeight
+            )]
+        }
+
+        let columnCount = min(3, targetWidth)
+        let rowCount = min(2, targetHeight)
+        var rowMajor: [FixedPointOutputRegionV4] = []
+        rowMajor.reserveCapacity(columnCount * rowCount)
+        for row in 0..<rowCount {
+            let originY = try Self.partitionBoundary(
+                index: row,
+                count: rowCount,
+                extent: targetHeight
+            )
+            let endY = try Self.partitionBoundary(
+                index: row + 1,
+                count: rowCount,
+                extent: targetHeight
+            )
+            for column in 0..<columnCount {
+                let originX = try Self.partitionBoundary(
+                    index: column,
+                    count: columnCount,
+                    extent: targetWidth
+                )
+                let endX = try Self.partitionBoundary(
+                    index: column + 1,
+                    count: columnCount,
+                    extent: targetWidth
+                )
+                rowMajor.append(FixedPointOutputRegionV4(
+                    originX: originX,
+                    originY: originY,
+                    width: endX - originX,
+                    height: endY - originY
+                ))
+            }
+        }
+
+        let ordered: [FixedPointOutputRegionV4]
+        switch self {
+        case .productionFullFrame:
+            preconditionFailure("Handled above.")
+        case .qualificationRowMajor3x2:
+            ordered = rowMajor
+        case .qualificationReverse3x2:
+            ordered = Array(rowMajor.reversed())
+        case .qualificationEvenOdd3x2:
+            ordered = rowMajor.indices.filter { $0.isMultiple(of: 2) }.map {
+                rowMajor[$0]
+            } + rowMajor.indices.filter { !$0.isMultiple(of: 2) }.map {
+                rowMajor[$0]
+            }
+        }
+        try FixedPointOutputRegionV4.validateExactCoverage(
+            ordered,
+            targetWidth: targetWidth,
+            targetHeight: targetHeight
+        )
+        return ordered
+    }
+
+    private static func partitionBoundary(
+        index: Int,
+        count: Int,
+        extent: Int
+    ) throws -> Int {
+        guard count > 0, (0...count).contains(index), extent > 0 else {
+            throw FixedPointKernelV4Error.invalidExecutionRegion
+        }
+        let quotient = extent / count
+        let remainder = extent % count
+        let product = index.multipliedReportingOverflow(by: quotient)
+        let remainderProduct = index.multipliedReportingOverflow(by: remainder)
+        let boundary = product.partialValue.addingReportingOverflow(
+            remainderProduct.partialValue / count
+        )
+        guard !product.overflow, !remainderProduct.overflow,
+              !boundary.overflow,
+              boundary.partialValue <= extent else {
+            throw FixedPointKernelV4Error.executionArithmeticOverflow
+        }
+        return boundary.partialValue
+    }
 }
 
 enum FixedPointRoundingRuleV4: String, Codable, Hashable, Sendable {
@@ -597,7 +779,8 @@ enum FixedPointCPUExecutorV4 {
         scalePlan: SpatialScalePlanV4,
         kernelIR: FixedPointKernelIRV4,
         minimumCode: UInt16,
-        maximumCode: UInt16
+        maximumCode: UInt16,
+        executionSchedule: FixedPointExecutionScheduleV4 = .productionFullFrame
     ) throws -> [UInt16] {
         let prepared = try FixedPointPreparedScaleV4(
             scalePlan: scalePlan,
@@ -610,6 +793,7 @@ enum FixedPointCPUExecutorV4 {
             preparedScale: prepared,
             minimumCode: minimumCode,
             maximumCode: maximumCode,
+            executionSchedule: executionSchedule,
             workspace: &workspace
         )
     }
@@ -620,6 +804,7 @@ enum FixedPointCPUExecutorV4 {
         preparedScale: FixedPointPreparedScaleV4,
         minimumCode: UInt16,
         maximumCode: UInt16,
+        executionSchedule: FixedPointExecutionScheduleV4 = .productionFullFrame,
         workspace: inout FixedPointCPUWorkspaceV4
     ) throws -> [UInt16] {
         var output = Array(
@@ -635,6 +820,10 @@ enum FixedPointCPUExecutorV4 {
                     minimumCode: minimumCode,
                     maximumCode: maximumCode,
                     destination: outputBuffer,
+                    executionRegions: try executionSchedule.regions(
+                        targetWidth: preparedScale.targetWidth,
+                        targetHeight: preparedScale.targetHeight
+                    ),
                     workspace: &workspace
                 )
             }
@@ -649,6 +838,7 @@ enum FixedPointCPUExecutorV4 {
         minimumCode: UInt16,
         maximumCode: UInt16,
         destination: UnsafeMutableBufferPointer<UInt16>,
+        executionRegions: [FixedPointOutputRegionV4]? = nil,
         workspace: inout FixedPointCPUWorkspaceV4
     ) throws {
         guard minimumCode <= maximumCode else {
@@ -681,11 +871,23 @@ enum FixedPointCPUExecutorV4 {
             destination: destination,
             requiredDestinationCount: preparedScale.outputSampleCount
         )
+        let regions = executionRegions ?? [FixedPointOutputRegionV4(
+            originX: 0,
+            originY: 0,
+            width: preparedScale.targetWidth,
+            height: preparedScale.targetHeight
+        )]
+        try FixedPointOutputRegionV4.validateExactCoverage(
+            regions,
+            targetWidth: preparedScale.targetWidth,
+            targetHeight: preparedScale.targetHeight
+        )
         try workspace.prepare(targetWidth: preparedScale.targetWidth)
 
         let minimum = Int64(minimumCode)
         let maximum = Int64(maximumCode)
-        for targetY in 0..<preparedScale.targetHeight {
+        for region in regions {
+            for targetY in region.originY..<region.endY {
             let vertical = preparedScale.verticalSamples[targetY]
             let slot0 = horizontalRowSlot(
                 sourceY: vertical.source0,
@@ -724,7 +926,7 @@ enum FixedPointCPUExecutorV4 {
             let row2 = slot2 * preparedScale.targetWidth
             let row3 = slot3 * preparedScale.targetWidth
             let outputRow = targetY * preparedScale.targetWidth
-            for targetX in 0..<preparedScale.targetWidth {
+            for targetX in region.originX..<region.endX {
                 var accumulator = workspace.horizontalRows[row0 + targetX]
                     &* vertical.coefficient0
                 accumulator = accumulator &+ (
@@ -747,6 +949,7 @@ enum FixedPointCPUExecutorV4 {
                     min(maximum, max(minimum, rounded))
                 )
             }
+            }
         }
     }
 
@@ -767,6 +970,7 @@ enum FixedPointCPUExecutorV4 {
         preparedScale: FixedPointPreparedScaleV4,
         minimumCode: UInt16,
         maximumCode: UInt16,
+        executionRegions: [FixedPointOutputRegionV4]? = nil,
         workspace: inout FixedPointCPUWorkspaceV4
     ) throws {
         guard minimumCode <= maximumCode else {
@@ -826,11 +1030,23 @@ enum FixedPointCPUExecutorV4 {
             destinationRowBytes: destinationRowBytes,
             destinationHeight: preparedScale.targetHeight
         )
+        let regions = executionRegions ?? [FixedPointOutputRegionV4(
+            originX: 0,
+            originY: 0,
+            width: preparedScale.targetWidth,
+            height: preparedScale.targetHeight
+        )]
+        try FixedPointOutputRegionV4.validateExactCoverage(
+            regions,
+            targetWidth: preparedScale.targetWidth,
+            targetHeight: preparedScale.targetHeight
+        )
         try workspace.prepare(targetWidth: preparedScale.targetWidth)
 
         let minimum = Int64(minimumCode)
         let maximum = Int64(maximumCode)
-        for targetY in 0..<preparedScale.targetHeight {
+        for region in regions {
+            for targetY in region.originY..<region.endY {
             let vertical = preparedScale.verticalSamples[targetY]
             let slot0 = horizontalRowSlotInterleaved(
                 sourceY: vertical.source0,
@@ -884,7 +1100,7 @@ enum FixedPointCPUExecutorV4 {
             let row1 = slot1 * preparedScale.targetWidth
             let row2 = slot2 * preparedScale.targetWidth
             let row3 = slot3 * preparedScale.targetWidth
-            for targetX in 0..<preparedScale.targetWidth {
+            for targetX in region.originX..<region.endX {
                 var accumulator = workspace.horizontalRows[row0 + targetX]
                     &* vertical.coefficient0
                 accumulator = accumulator &+ (
@@ -914,6 +1130,7 @@ enum FixedPointCPUExecutorV4 {
                     componentIndex: componentIndex,
                     storedCodeShift: storedCodeShift
                 )
+            }
             }
         }
     }

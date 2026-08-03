@@ -2,85 +2,85 @@
   "backends": {
     "mirmirDeterministicCPU": {
       "sampleCount": 10,
-      "sessionMedianMilliseconds": 280.21955490112305,
-      "sessionP95Milliseconds": 283.128297328949,
+      "sessionMedianMilliseconds": 306.45495653152466,
+      "sessionP95Milliseconds": 308.57200026512146,
       "stages": {
         "atomicPublish": {
-          "medianMilliseconds": 0.137063,
-          "p95Milliseconds": 0.144358
+          "medianMilliseconds": 0.1643755,
+          "p95Milliseconds": 0.18176615
         },
         "backendProcessing": {
-          "medianMilliseconds": 260.6994375,
-          "p95Milliseconds": 263.6030875
+          "medianMilliseconds": 283.81489550000003,
+          "p95Milliseconds": 284.5897394
         },
         "destinationAllocation": {
-          "medianMilliseconds": 0.15027000000000001,
-          "p95Milliseconds": 0.1581946
+          "medianMilliseconds": 0.20906249999999998,
+          "p95Milliseconds": 0.28417745
         },
         "outputValidation": {
-          "medianMilliseconds": 2.761396,
-          "p95Milliseconds": 3.0239106
+          "medianMilliseconds": 3.4298539999999997,
+          "p95Milliseconds": 3.6601060999999997
         },
         "readerSample": {
-          "medianMilliseconds": 0.126562,
-          "p95Milliseconds": 0.15237299999999998
+          "medianMilliseconds": 0.166896,
+          "p95Milliseconds": 0.17958575
         },
         "writerAppend": {
-          "medianMilliseconds": 0.10885449999999999,
-          "p95Milliseconds": 0.18195305
+          "medianMilliseconds": 0.256541,
+          "p95Milliseconds": 0.27041075000000003
         },
         "writerBackpressure": {
-          "medianMilliseconds": 0.0014585000000000002,
-          "p95Milliseconds": 0.004597549999999998
+          "medianMilliseconds": 0.00902,
+          "p95Milliseconds": 0.0096186
         },
         "writerFinalize": {
-          "medianMilliseconds": 0.790104,
-          "p95Milliseconds": 0.86897775
+          "medianMilliseconds": 1.151208,
+          "p95Milliseconds": 1.29492745
         }
       },
-      "wallMedianMilliseconds": 282.34995849999996,
-      "wallP95Milliseconds": 285.25972865
+      "wallMedianMilliseconds": 308.9484995,
+      "wallP95Milliseconds": 311.20780405
     },
     "mirmirDeterministicMetal": {
       "sampleCount": 10,
-      "sessionMedianMilliseconds": 43.99353265762329,
-      "sessionP95Milliseconds": 50.2910315990448,
+      "sessionMedianMilliseconds": 43.72906684875488,
+      "sessionP95Milliseconds": 45.11502385139465,
       "stages": {
         "atomicPublish": {
-          "medianMilliseconds": 0.13347900000000001,
-          "p95Milliseconds": 0.14021645
+          "medianMilliseconds": 0.1656875,
+          "p95Milliseconds": 0.18678489999999998
         },
         "backendProcessing": {
-          "medianMilliseconds": 18.8197705,
-          "p95Milliseconds": 26.92153995
+          "medianMilliseconds": 17.237062,
+          "p95Milliseconds": 18.54903865
         },
         "destinationAllocation": {
-          "medianMilliseconds": 0.19152,
-          "p95Milliseconds": 0.21120015
+          "medianMilliseconds": 0.259937,
+          "p95Milliseconds": 0.31085394999999993
         },
         "outputValidation": {
-          "medianMilliseconds": 2.7552295,
-          "p95Milliseconds": 2.99526495
+          "medianMilliseconds": 3.392167,
+          "p95Milliseconds": 3.88483995
         },
         "readerSample": {
-          "medianMilliseconds": 0.136042,
-          "p95Milliseconds": 2.5668136999999955
+          "medianMilliseconds": 0.184626,
+          "p95Milliseconds": 0.20326659999999996
         },
         "writerAppend": {
-          "medianMilliseconds": 0.045104,
-          "p95Milliseconds": 0.05248285
+          "medianMilliseconds": 0.069624,
+          "p95Milliseconds": 0.07728995
         },
         "writerBackpressure": {
-          "medianMilliseconds": 0.002104,
-          "p95Milliseconds": 0.0069373499999999914
+          "medianMilliseconds": 0.004458500000000001,
+          "p95Milliseconds": 0.005750299999999998
         },
         "writerFinalize": {
-          "medianMilliseconds": 0.7526459999999999,
-          "p95Milliseconds": 0.78213125
+          "medianMilliseconds": 1.1864795,
+          "p95Milliseconds": 1.36584185
         }
       },
-      "wallMedianMilliseconds": 79.1843755,
-      "wallP95Milliseconds": 87.9049314
+      "wallMedianMilliseconds": 81.2652295,
+      "wallP95Milliseconds": 82.71509565000001
     }
   },
   "inputByteCount": 1158,

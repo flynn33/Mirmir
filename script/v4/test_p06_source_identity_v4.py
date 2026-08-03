@@ -6,6 +6,7 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+import shutil
 import tempfile
 import unittest
 
@@ -31,16 +32,20 @@ class P06SourceIdentityTests(unittest.TestCase):
         first = source_identity.build_manifest(REPOSITORY, CONTRACT)
         second = source_identity.build_manifest(REPOSITORY, CONTRACT)
         self.assertEqual(first, second)
-        self.assertEqual(first["sourceCount"], 53)
+        expected = sorted(
+            path.relative_to(REPOSITORY).as_posix()
+            for path in (REPOSITORY / "Mirmir").rglob("*")
+            if path.is_file() and path.suffix in {".swift", ".metal"}
+        )
+        self.assertEqual(first["sourceCount"], len(expected))
         self.assertRegex(first["sourceRevision"], r"^[0-9a-f]{64}$")
         paths = [entry["path"] for entry in first["sources"]]
+        self.assertEqual(paths, expected)
         for required in (
-            "Mirmir/Domain/MediaTrackGraphPlannerV4.swift",
-            "Mirmir/MediaIO/AVFoundationTrackGraphAdapterV4.swift",
-            "Mirmir/Modules/UpscalerEngine/AlphaProcessingV4.swift",
-            "Mirmir/Modules/UpscalerEngine/PixelLayoutV4.swift",
-            "Mirmir/Persistence/WorkflowSegmentCheckpointStoreV4.swift",
-            "Mirmir/Upscaling/Deterministic/DeterministicEngineV4Support.swift",
+            "Mirmir/MediaIO/OutputMediaValidator.swift",
+            "Mirmir/MediaIO/VideoProbe.swift",
+            "Mirmir/Upscaling/FrameUpscaler.swift",
+            "Mirmir/Upscaling/UpscaleBackendCatalog.swift",
         ):
             self.assertIn(required, paths)
 
@@ -60,7 +65,7 @@ class P06SourceIdentityTests(unittest.TestCase):
         self.assertEqual(normalized_zero, normalized_configured)
         self.assertEqual(assignments_zero, assignments_configured)
 
-    def test_new_unlisted_v4_source_fails_the_closed_inventory(self) -> None:
+    def test_new_unlisted_shipping_source_fails_the_closed_inventory(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             repository = Path(temporary)
             root = repository / "Sources"
@@ -79,7 +84,6 @@ static let builderSourceSHA256 = try! ASHSHA256V4(String(repeating: "0", count: 
                 "coverage": {
                     "roots": ["Sources"],
                     "fileExtensions": [".swift"],
-                    "fileNameToken": "V4",
                 },
                 "requiredAdditionalSources": [],
                 "normalizedDeploymentTrustRoot": {
@@ -95,7 +99,7 @@ static let builderSourceSHA256 = try! ASHSHA256V4(String(repeating: "0", count: 
             contract_path = repository / "contract.json"
             write_json(contract_path, contract)
             source_identity.build_manifest(repository, contract_path)
-            (root / "NewKernelV4.swift").write_text("let value = 1\n", encoding="utf-8")
+            (root / "NewKernel.swift").write_text("let value = 1\n", encoding="utf-8")
             with self.assertRaisesRegex(source_identity.SourceIdentityError, "source closure mismatch"):
                 source_identity.build_manifest(repository, contract_path)
 
@@ -108,12 +112,47 @@ static let builderSourceSHA256 = try! ASHSHA256V4(String(repeating: "0", count: 
                 )
             )
             verified = source_identity.validate_manifest(manifest_path, REPOSITORY, CONTRACT)
-            self.assertEqual(verified["sourceCount"], 53)
+            self.assertEqual(
+                verified["sourceCount"],
+                len(source_identity.build_manifest(REPOSITORY, CONTRACT)["sources"]),
+            )
             document = json.loads(manifest_path.read_text())
             document["sourceRevision"] = "0" * 64
             manifest_path.write_bytes(source_identity.canonical_bytes(document))
             with self.assertRaisesRegex(source_identity.SourceIdentityError, "does not reproduce"):
                 source_identity.validate_manifest(manifest_path, REPOSITORY, CONTRACT)
+
+    def test_shipping_entry_point_mutations_change_identity_and_stale_manifest_fails(
+        self,
+    ) -> None:
+        targets = (
+            "Mirmir/Upscaling/FrameUpscaler.swift",
+            "Mirmir/MediaIO/OutputMediaValidator.swift",
+            "Mirmir/MediaIO/VideoProbe.swift",
+            "Mirmir/Upscaling/UpscaleBackendCatalog.swift",
+        )
+        with tempfile.TemporaryDirectory(prefix="mirmir-p06-source-closure-") as temporary:
+            repository = Path(temporary)
+            shutil.copytree(REPOSITORY / "Mirmir", repository / "Mirmir")
+            baseline = source_identity.build_manifest(repository, CONTRACT)
+            manifest_path = repository / "production-source-manifest.json"
+            manifest_path.write_bytes(source_identity.canonical_bytes(baseline))
+            for relative in targets:
+                with self.subTest(relative=relative):
+                    path = repository / relative
+                    original = path.read_bytes()
+                    path.write_bytes(original + b"\n// source-identity mutation\n")
+                    changed = source_identity.build_manifest(repository, CONTRACT)
+                    self.assertNotEqual(
+                        changed["sourceRevision"], baseline["sourceRevision"]
+                    )
+                    with self.assertRaisesRegex(
+                        source_identity.SourceIdentityError, "does not reproduce"
+                    ):
+                        source_identity.validate_manifest(
+                            manifest_path, repository, CONTRACT
+                        )
+                    path.write_bytes(original)
 
 
 if __name__ == "__main__":

@@ -8,16 +8,16 @@
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 0,
-      "sessionMilliseconds" : 281.5619707107544,
+      "sessionMilliseconds" : 305.8520555496216,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.138667,
-        "backendProcessing" : 261.959499,
-        "destinationAllocation" : 0.150041,
-        "outputValidation" : 2.821084,
-        "readerSample" : 0.123542,
-        "writerAppend" : 0.105249,
-        "writerBackpressure" : 0.001417,
-        "writerFinalize" : 0.834292
+        "atomicPublish" : 0.170083,
+        "backendProcessing" : 283.588166,
+        "destinationAllocation" : 0.200083,
+        "outputValidation" : 3.509083,
+        "readerSample" : 0.171125,
+        "writerAppend" : 0.257875,
+        "writerBackpressure" : 0.007333,
+        "writerFinalize" : 1.116209
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -29,23 +29,23 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 283.782292
+      "wallMilliseconds" : 308.392708
     },
     {
       "backendID" : "mirmirDeterministicCPU",
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 1,
-      "sessionMilliseconds" : 277.57298946380615,
+      "sessionMilliseconds" : 304.2459487915039,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.1345,
-        "backendProcessing" : 258.489792,
-        "destinationAllocation" : 0.151708,
-        "outputValidation" : 2.735333,
-        "readerSample" : 0.125625,
-        "writerAppend" : 0.102374,
-        "writerBackpressure" : 0.000916,
-        "writerFinalize" : 0.786042
+        "atomicPublish" : 0.157167,
+        "backendProcessing" : 281.738334,
+        "destinationAllocation" : 0.195792,
+        "outputValidation" : 3.206959,
+        "readerSample" : 0.163832,
+        "writerAppend" : 0.238084,
+        "writerBackpressure" : 0.007833,
+        "writerFinalize" : 1.125375
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -57,23 +57,23 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 279.739584
+      "wallMilliseconds" : 306.856792
     },
     {
       "backendID" : "mirmirDeterministicCPU",
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 2,
-      "sessionMilliseconds" : 279.62005138397217,
+      "sessionMilliseconds" : 303.7710189819336,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.138084,
-        "backendProcessing" : 260.245208,
-        "destinationAllocation" : 0.146708,
-        "outputValidation" : 2.752792,
-        "readerSample" : 0.122792,
-        "writerAppend" : 0.099584,
-        "writerBackpressure" : 0.001249,
-        "writerFinalize" : 0.778166
+        "atomicPublish" : 0.145583,
+        "backendProcessing" : 280.938041,
+        "destinationAllocation" : 0.204958,
+        "outputValidation" : 3.329041,
+        "readerSample" : 0.165209,
+        "writerAppend" : 0.252584,
+        "writerBackpressure" : 0.007542,
+        "writerFinalize" : 1.28725
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -85,23 +85,23 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 281.735125
+      "wallMilliseconds" : 306.406541
     },
     {
       "backendID" : "mirmirDeterministicCPU",
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 3,
-      "sessionMilliseconds" : 278.628945350647,
+      "sessionMilliseconds" : 305.9709072113037,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.128167,
-        "backendProcessing" : 259.335418,
-        "destinationAllocation" : 0.142834,
-        "outputValidation" : 2.754417,
-        "readerSample" : 0.126083,
-        "writerAppend" : 0.111501,
-        "writerBackpressure" : 0.0015,
-        "writerFinalize" : 0.778375
+        "atomicPublish" : 0.150917,
+        "backendProcessing" : 283.109584,
+        "destinationAllocation" : 0.216708,
+        "outputValidation" : 3.344792,
+        "readerSample" : 0.175667,
+        "writerAppend" : 0.255207,
+        "writerBackpressure" : 0.008541,
+        "writerFinalize" : 0.994875
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -113,23 +113,23 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 280.790042
+      "wallMilliseconds" : 308.364875
     },
     {
       "backendID" : "mirmirDeterministicCPU",
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 4,
-      "sessionMilliseconds" : 277.33099460601807,
+      "sessionMilliseconds" : 307.06799030303955,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.133167,
-        "backendProcessing" : 258.154416,
-        "destinationAllocation" : 0.150499,
-        "outputValidation" : 2.726209,
-        "readerSample" : 0.125208,
-        "writerAppend" : 0.106208,
-        "writerBackpressure" : 0.001375,
-        "writerFinalize" : 0.757084
+        "atomicPublish" : 0.173792,
+        "backendProcessing" : 284.041625,
+        "destinationAllocation" : 0.269625,
+        "outputValidation" : 3.574833,
+        "readerSample" : 0.168583,
+        "writerAppend" : 0.25175,
+        "writerBackpressure" : 0.009084,
+        "writerFinalize" : 0.925958
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -141,23 +141,23 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 279.464667
+      "wallMilliseconds" : 309.5395
     },
     {
       "backendID" : "mirmirDeterministicCPU",
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 5,
-      "sessionMilliseconds" : 282.70697593688965,
+      "sessionMilliseconds" : 305.6429624557495,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.139333,
-        "backendProcessing" : 263.51275,
-        "destinationAllocation" : 0.130292,
-        "outputValidation" : 2.695667,
-        "readerSample" : 0.127041,
-        "writerAppend" : 0.103834,
-        "writerBackpressure" : 0.001124,
-        "writerFinalize" : 0.761959
+        "atomicPublish" : 0.158333,
+        "backendProcessing" : 282.796167,
+        "destinationAllocation" : 0.203667,
+        "outputValidation" : 3.413166,
+        "readerSample" : 0.158625,
+        "writerAppend" : 0.238916,
+        "writerBackpressure" : 0.009041,
+        "writerFinalize" : 0.952875
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -169,23 +169,23 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 284.781458
+      "wallMilliseconds" : 308.158875
     },
     {
       "backendID" : "mirmirDeterministicCPU",
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 6,
-      "sessionMilliseconds" : 283.47301483154297,
+      "sessionMilliseconds" : 306.9390058517456,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.136042,
-        "backendProcessing" : 263.677,
-        "destinationAllocation" : 0.154459,
-        "outputValidation" : 2.988,
-        "readerSample" : 0.157791,
-        "writerAppend" : 0.185459,
-        "writerBackpressure" : 0.00375,
-        "writerFinalize" : 0.848834
+        "atomicPublish" : 0.186416,
+        "backendProcessing" : 284.551125,
+        "destinationAllocation" : 0.203666,
+        "outputValidation" : 3.511458,
+        "readerSample" : 0.163959,
+        "writerAppend" : 0.266584,
+        "writerBackpressure" : 0.009458,
+        "writerFinalize" : 1.177041
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -197,23 +197,23 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 285.651041
+      "wallMilliseconds" : 309.504291
     },
     {
       "backendID" : "mirmirDeterministicCPU",
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 7,
-      "sessionMilliseconds" : 278.3989906311035,
+      "sessionMilliseconds" : 309.02695655822754,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.145708,
-        "backendProcessing" : 258.170166,
-        "destinationAllocation" : 0.150917,
-        "outputValidation" : 3.053292,
-        "readerSample" : 0.129834,
-        "writerAppend" : 0.121709,
-        "writerBackpressure" : 0.002418,
-        "writerFinalize" : 0.885459
+        "atomicPublish" : 0.176083,
+        "backendProcessing" : 284.621333,
+        "destinationAllocation" : 0.213292,
+        "outputValidation" : 3.729875,
+        "readerSample" : 0.164291,
+        "writerAppend" : 0.267042,
+        "writerBackpressure" : 0.00975,
+        "writerFinalize" : 1.301209
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -225,23 +225,23 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 280.620542
+      "wallMilliseconds" : 311.719792
     },
     {
       "backendID" : "mirmirDeterministicCPU",
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 8,
-      "sessionMilliseconds" : 282.0349931716919,
+      "sessionMilliseconds" : 308.01594257354736,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.142708,
-        "backendProcessing" : 261.837917,
-        "destinationAllocation" : 0.161251,
-        "outputValidation" : 2.979292,
-        "readerSample" : 0.145751,
-        "writerAppend" : 0.177668,
-        "writerBackpressure" : 0.005291,
-        "writerFinalize" : 0.846416
+        "atomicPublish" : 0.160209,
+        "backendProcessing" : 284.472083,
+        "destinationAllocation" : 0.296084,
+        "outputValidation" : 3.2815,
+        "readerSample" : 0.174251,
+        "writerAppend" : 0.268417,
+        "writerBackpressure" : 0.009083,
+        "writerFinalize" : 1.226292
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -253,23 +253,23 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 284.3175
+      "wallMilliseconds" : 310.582041
     },
     {
       "backendID" : "mirmirDeterministicCPU",
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 9,
-      "sessionMilliseconds" : 280.8190584182739,
+      "sessionMilliseconds" : 307.34503269195557,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.135584,
-        "backendProcessing" : 261.153667,
-        "destinationAllocation" : 0.128832,
-        "outputValidation" : 2.768375,
-        "readerSample" : 0.144832,
-        "writerAppend" : 0.112333,
-        "writerBackpressure" : 0.0015,
-        "writerFinalize" : 0.794166
+        "atomicPublish" : 0.168542,
+        "backendProcessing" : 284.361376,
+        "destinationAllocation" : 0.213167,
+        "outputValidation" : 3.446542,
+        "readerSample" : 0.182792,
+        "writerAppend" : 0.272042,
+        "writerBackpressure" : 0.008999,
+        "writerFinalize" : 1.193542
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -281,23 +281,23 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 282.964792
+      "wallMilliseconds" : 309.872708
     },
     {
       "backendID" : "mirmirDeterministicMetal",
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 0,
-      "sessionMilliseconds" : 49.30698871612549,
+      "sessionMilliseconds" : 45.05503177642822,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.132083,
-        "backendProcessing" : 26.980584,
-        "destinationAllocation" : 0.208916,
-        "outputValidation" : 2.787,
-        "readerSample" : 0.157333,
-        "writerAppend" : 0.046458,
-        "writerBackpressure" : 0.002208,
-        "writerFinalize" : 0.768542
+        "atomicPublish" : 0.184333,
+        "backendProcessing" : 18.517665,
+        "destinationAllocation" : 0.278542,
+        "outputValidation" : 3.936459,
+        "readerSample" : 0.192084,
+        "writerAppend" : 0.073875,
+        "writerBackpressure" : 0.004499,
+        "writerFinalize" : 1.201292
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -309,23 +309,23 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 82.962292
+      "wallMilliseconds" : 82.394125
     },
     {
       "backendID" : "mirmirDeterministicMetal",
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 1,
-      "sessionMilliseconds" : 49.34394359588623,
+      "sessionMilliseconds" : 42.33598709106445,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.123209,
-        "backendProcessing" : 26.849375,
-        "destinationAllocation" : 0.20025,
-        "outputValidation" : 2.800583,
-        "readerSample" : 0.134584,
-        "writerAppend" : 0.054583,
-        "writerBackpressure" : 0.002125,
-        "writerFinalize" : 0.78275
+        "atomicPublish" : 0.152667,
+        "backendProcessing" : 15.879375,
+        "destinationAllocation" : 0.228041,
+        "outputValidation" : 3.2475,
+        "readerSample" : 0.173874,
+        "writerAppend" : 0.058834,
+        "writerBackpressure" : 0.003292,
+        "writerFinalize" : 1.328625
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -337,23 +337,23 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 83.085333
+      "wallMilliseconds" : 81.499625
     },
     {
       "backendID" : "mirmirDeterministicMetal",
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 2,
-      "sessionMilliseconds" : 38.94400596618652,
+      "sessionMilliseconds" : 42.733073234558105,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.123792,
-        "backendProcessing" : 14.300292,
-        "destinationAllocation" : 0.189957,
-        "outputValidation" : 2.90275,
-        "readerSample" : 0.134875,
-        "writerAppend" : 0.042126,
-        "writerBackpressure" : 0.002583,
-        "writerFinalize" : 0.781375
+        "atomicPublish" : 0.155583,
+        "backendProcessing" : 15.315166,
+        "destinationAllocation" : 0.258666,
+        "outputValidation" : 3.332958,
+        "readerSample" : 0.182459,
+        "writerAppend" : 0.070999,
+        "writerBackpressure" : 0.004791,
+        "writerFinalize" : 1.396292
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -365,23 +365,23 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 72.777375
+      "wallMilliseconds" : 80.449417
     },
     {
       "backendID" : "mirmirDeterministicMetal",
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 3,
-      "sessionMilliseconds" : 51.065921783447266,
+      "sessionMilliseconds" : 43.88701915740967,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.138167,
-        "backendProcessing" : 23.318083,
-        "destinationAllocation" : 0.21225,
-        "outputValidation" : 2.885333,
-        "readerSample" : 4.538207,
-        "writerAppend" : 0.043792,
-        "writerBackpressure" : 0.001666,
-        "writerFinalize" : 0.73675
+        "atomicPublish" : 0.188791,
+        "backendProcessing" : 16.545375,
+        "destinationAllocation" : 0.266625,
+        "outputValidation" : 3.591208,
+        "readerSample" : 0.186793,
+        "writerAppend" : 0.061666,
+        "writerBackpressure" : 0.003125,
+        "writerFinalize" : 1.219083
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -393,23 +393,23 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 87.222542
+      "wallMilliseconds" : 80.844416
     },
     {
       "backendID" : "mirmirDeterministicMetal",
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 4,
-      "sessionMilliseconds" : 40.10498523712158,
+      "sessionMilliseconds" : 44.775962829589844,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.141791,
-        "backendProcessing" : 14.321458,
-        "destinationAllocation" : 0.193083,
-        "outputValidation" : 3.070959,
-        "readerSample" : 0.137209,
-        "writerAppend" : 0.046833,
-        "writerBackpressure" : 0.002083,
-        "writerFinalize" : 0.774875
+        "atomicPublish" : 0.172625,
+        "backendProcessing" : 18.574708,
+        "destinationAllocation" : 0.337291,
+        "outputValidation" : 3.284625,
+        "readerSample" : 0.212416,
+        "writerAppend" : 0.080084,
+        "writerBackpressure" : 0.004834,
+        "writerFinalize" : 1.089333
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -421,23 +421,23 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 77.016542
+      "wallMilliseconds" : 82.198458
     },
     {
       "backendID" : "mirmirDeterministicMetal",
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 5,
-      "sessionMilliseconds" : 48.24197292327881,
+      "sessionMilliseconds" : 45.16410827636719,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.134875,
-        "backendProcessing" : 24.359208,
-        "destinationAllocation" : 0.18475,
-        "outputValidation" : 2.648792,
-        "readerSample" : 0.138333,
-        "writerAppend" : 0.049916,
-        "writerBackpressure" : 0.001666,
-        "writerFinalize" : 0.728333
+        "atomicPublish" : 0.17025,
+        "backendProcessing" : 17.839751,
+        "destinationAllocation" : 0.243709,
+        "outputValidation" : 3.597791,
+        "readerSample" : 0.180626,
+        "writerAppend" : 0.069749,
+        "writerBackpressure" : 0.004458,
+        "writerFinalize" : 1.138292
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -449,23 +449,23 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 88.46325
+      "wallMilliseconds" : 82.977708
     },
     {
       "backendID" : "mirmirDeterministicMetal",
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 6,
-      "sessionMilliseconds" : 37.86897659301758,
+      "sessionMilliseconds" : 44.3800687789917,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.127,
-        "backendProcessing" : 13.448208,
-        "destinationAllocation" : 0.175085,
-        "outputValidation" : 2.675916,
-        "readerSample" : 0.118668,
-        "writerAppend" : 0.04125,
-        "writerBackpressure" : 0.001376,
-        "writerFinalize" : 0.71
+        "atomicPublish" : 0.172042,
+        "backendProcessing" : 17.431957,
+        "destinationAllocation" : 0.268125,
+        "outputValidation" : 3.82175,
+        "readerSample" : 0.188251,
+        "writerAppend" : 0.066792,
+        "writerBackpressure" : 0.00425,
+        "writerFinalize" : 1.241042
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -477,23 +477,23 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 71.27575
+      "wallMilliseconds" : 81.757208
     },
     {
       "backendID" : "mirmirDeterministicMetal",
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 7,
-      "sessionMilliseconds" : 37.56594657897949,
+      "sessionMilliseconds" : 42.440056800842285,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.138292,
-        "backendProcessing" : 14.087292,
-        "destinationAllocation" : 0.185584,
-        "outputValidation" : 2.657667,
-        "readerSample" : 0.126001,
-        "writerAppend" : 0.043585,
-        "writerBackpressure" : 0.001625,
-        "writerFinalize" : 0.736333
+        "atomicPublish" : 0.161125,
+        "backendProcessing" : 17.042167,
+        "destinationAllocation" : 0.221583,
+        "outputValidation" : 3.422667,
+        "readerSample" : 0.163374,
+        "writerAppend" : 0.069499,
+        "writerBackpressure" : 0.0065,
+        "writerFinalize" : 1.171667
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -505,23 +505,23 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 71.123791
+      "wallMilliseconds" : 79.62325
     },
     {
       "backendID" : "mirmirDeterministicMetal",
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 8,
-      "sessionMilliseconds" : 47.882080078125,
+      "sessionMilliseconds" : 43.5711145401001,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.129958,
-        "backendProcessing" : 26.293374,
-        "destinationAllocation" : 0.209917,
-        "outputValidation" : 2.664583,
-        "readerSample" : 0.144793,
-        "writerAppend" : 0.046416,
-        "writerBackpressure" : 0.0105,
-        "writerFinalize" : 0.713583
+        "atomicPublish" : 0.150167,
+        "backendProcessing" : 17.801833,
+        "destinationAllocation" : 0.261208,
+        "outputValidation" : 3.361667,
+        "readerSample" : 0.190042,
+        "writerAppend" : 0.070125,
+        "writerBackpressure" : 0.004459,
+        "writerFinalize" : 1.148583
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -533,23 +533,23 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 81.352209
+      "wallMilliseconds" : 81.030834
     },
     {
       "backendID" : "mirmirDeterministicMetal",
       "outputByteCount" : 1198,
       "processedFrameCount" : 3,
       "sampleIndex" : 9,
-      "sessionMilliseconds" : 38.34700584411621,
+      "sessionMilliseconds" : 41.78297519683838,
       "stageMilliseconds" : {
-        "atomicPublish" : 0.135208,
-        "backendProcessing" : 13.904001,
-        "destinationAllocation" : 0.188251,
-        "outputValidation" : 2.723459,
-        "readerSample" : 0.122166,
-        "writerAppend" : 0.041666,
-        "writerBackpressure" : 0.002375,
-        "writerFinalize" : 0.769166
+        "atomicPublish" : 0.157916,
+        "backendProcessing" : 16.520166,
+        "destinationAllocation" : 0.245209,
+        "outputValidation" : 3.298209,
+        "readerSample" : 0.163249,
+        "writerAppend" : 0.062126,
+        "writerBackpressure" : 0.003917,
+        "writerFinalize" : 0.87375
       },
       "stageSampleCounts" : {
         "atomicPublish" : 1,
@@ -561,7 +561,7 @@
         "writerBackpressure" : 3,
         "writerFinalize" : 1
       },
-      "wallMilliseconds" : 71.931208
+      "wallMilliseconds" : 79.377959
     }
   ],
   "sampleCount" : 10,

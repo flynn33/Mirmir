@@ -4,9 +4,10 @@ import Foundation
 import XCTest
 @testable import Mirmir
 
-/// This file is injected into an ephemeral copy of the test project by
-/// `run_quality_gate_v4.sh`. It is intentionally absent from the shipping app
-/// and test target so calibration controls cannot enter the release runtime.
+/// This candidate-only file is injected into an ephemeral copy of the test
+/// project by `run_quality_gate_v4.sh`. P05 is captured by a separate test
+/// executable built from the frozen pre-v4 archive; this file must never
+/// instantiate or time a P05 implementation from the candidate source tree.
 @available(macOS 15.4, *)
 final class ASHV4QualityGateCaptureTests: XCTestCase {
     // The runner replaces only these sentinels in its ephemeral source copy.
@@ -60,7 +61,6 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
         let sourceTreeIdentitySHA256: String
         let candidateBackendID: String
         let candidateImplementationVersion: String
-        let baselineImplementationVersion: String
         let runtimeManifestSHA256: String
         let runtimeSourceRevision: String
         let productionRuntimeLocked: Bool
@@ -70,7 +70,6 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
     }
 
     private enum Variant: String, CaseIterable {
-        case baselineP05 = "baseline_p05"
         case candidateV4 = "candidate_v4"
         case uniformPriors = "uniform_priors"
         case randomizedStateMessage = "randomized_state_message"
@@ -622,12 +621,6 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
             guard let first = cases.first else { continue }
             XCTAssertEqual(cases.map(\.frameIndex), Array(0..<cases.count))
             let storage = try storage(first.pixelFormat)
-            let p05 = ASHDeterministicUpscaleBackend(
-                route: .direct2x,
-                runtimeConfiguration: .developmentP05,
-                operatorParameters: .p05DevelopmentOnly,
-                stateInputEnabled: true
-            )
             let configuration = DeterministicPreparedConfigurationV4(
                 backendID: .mirmirDeterministicCPU,
                 executionBackend: .cpu,
@@ -703,30 +696,6 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
                 )
                 var outputs: [String: String] = [:]
                 var milliseconds: [String: Double] = [:]
-
-                let baselineOutput = try makeBuffer(
-                    width: record.targetWidth,
-                    height: record.targetHeight,
-                    storage: storage
-                )
-                milliseconds[Variant.baselineP05.rawValue] = try await measured {
-                    let completion = try await p05.process(
-                        source: source,
-                        into: baselineOutput,
-                        context: ASHUpscaleFrameContext(
-                            frameIndex: record.frameIndex,
-                            presentationTimestampValue: Int64(record.frameIndex),
-                            presentationTimestampTimescale: 30
-                        )
-                    )
-                    completion.finishAfterAppend()
-                }
-                outputs[Variant.baselineP05.rawValue] = try writeOutput(
-                    baselineOutput,
-                    record: record,
-                    variant: .baselineP05,
-                    output: output
-                )
 
                 let candidateOutput = try makeBuffer(
                     width: record.targetWidth,
@@ -805,7 +774,7 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
         }
         XCTAssertTrue(fullMirrorIdentityPass)
         let manifest = CaptureManifest(
-            schemaVersion: "mirmir-ash-v4-quality-capture-v1",
+            schemaVersion: "mirmir-ash-v4-quality-candidate-capture-v1",
             contractSHA256: expectedContract,
             corpusManifestSHA256: ASHSHA256V4(rawData: corpusData).rawValue,
             sourceCommit: setting(
@@ -820,7 +789,6 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
             ),
             candidateBackendID: "mirmir_deterministic_cpu",
             candidateImplementationVersion: ASHRuntimeManifestV4.runtimeIdentity,
-            baselineImplementationVersion: "ash-p05-cpu-reference-preview",
             runtimeManifestSHA256: runtime.manifestSHA256.rawValue,
             runtimeSourceRevision: runtime.manifest.provenance.sourceRevision,
             productionRuntimeLocked: productionRuntimeLocked,
@@ -831,7 +799,7 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         try encoder.encode(manifest).write(
-            to: output.appendingPathComponent("capture-manifest.json"),
+            to: output.appendingPathComponent("candidate-capture-manifest.json"),
             options: .atomic
         )
     }
@@ -849,7 +817,6 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
             storage: storage,
             bytes: Data(contentsOf: corpusRoot.appendingPathComponent(first.sourceFile))
         )
-        let p05 = ASHDeterministicUpscaleBackend(route: .direct2x)
         let candidate = try PreparedDeterministicV4Upscaler(
             configuration: DeterministicPreparedConfigurationV4(
                 backendID: .mirmirDeterministicCPU,
@@ -864,17 +831,6 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
             runtime: runtime
         )
         for index in 0..<count {
-            let p05Output = try makeBuffer(
-                width: first.targetWidth,
-                height: first.targetHeight,
-                storage: storage
-            )
-            let completion = try await p05.process(
-                source: source,
-                into: p05Output,
-                context: ASHUpscaleFrameContext(frameIndex: index)
-            )
-            completion.finishAfterAppend()
             let candidateOutput = try makeBuffer(
                 width: first.targetWidth,
                 height: first.targetHeight,

@@ -20,6 +20,8 @@ from typing import Any, Iterable
 
 import numpy as np
 
+import p05_baseline_v4 as p05
+
 
 SCHEMA_CORPUS = "mirmir-ash-v4-quality-corpus-v1"
 SCHEMA_CAPTURE = "mirmir-ash-v4-quality-capture-v1"
@@ -32,6 +34,16 @@ VARIANTS = (
     "temporal_hysteresis_off",
     "motion_history_off",
 )
+CANDIDATE_VARIANTS = VARIANTS[1:]
+
+
+def require_frozen_p05_identity(
+    contract: dict[str, Any], observed: Any
+) -> dict[str, Any]:
+    try:
+        return p05.require_observed_identity(contract, observed)
+    except ValueError as error:
+        raise SystemExit(f"frozen P05 identity failure: {error}") from error
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -56,11 +68,27 @@ def sha256(path: Path) -> str:
 
 
 def checked_relative(root: Path, relative: str) -> Path:
-    path = (root / relative).resolve()
+    root = root.resolve()
+    if not isinstance(relative, str) or "\\" in relative:
+        raise ValueError(f"artifact path is not canonical: {relative}")
+    pure = Path(relative)
+    if (
+        pure.is_absolute()
+        or pure.as_posix() != relative
+        or any(part in {"", ".", ".."} for part in pure.parts)
+    ):
+        raise ValueError(f"artifact escapes root: {relative}")
+    candidate = root / pure
+    path = candidate.resolve()
     try:
-        path.relative_to(root.resolve())
+        path.relative_to(root)
     except ValueError as error:
         raise ValueError(f"artifact escapes root: {relative}") from error
+    current = candidate
+    while current != root:
+        if current.is_symlink():
+            raise ValueError(f"artifact path contains a symbolic link: {relative}")
+        current = current.parent
     return path
 
 
@@ -662,6 +690,12 @@ def output_set_identity(capture_root: Path, capture: dict[str, Any], variant: st
 def validate_artifacts(root: Path, artifacts: list[dict[str, Any]]) -> None:
     declared = set()
     for artifact in artifacts:
+        if not isinstance(artifact, dict) or set(artifact) != {
+            "path",
+            "byteCount",
+            "sha256",
+        }:
+            raise ValueError("artifact descriptor field set differs")
         path = checked_relative(root, artifact["path"])
         if artifact["path"] in declared:
             raise ValueError(f"duplicate artifact: {artifact['path']}")
@@ -674,58 +708,180 @@ def validate_artifacts(root: Path, artifacts: list[dict[str, Any]]) -> None:
             raise ValueError(f"artifact hash mismatch: {artifact['path']}")
 
 
-def evaluate(contract_path: Path, corpus_path: Path, capture_path: Path, output: Path) -> int:
+def merge_captures(
+    contract_path: Path,
+    corpus_path: Path,
+    p05_capture_path: Path,
+    candidate_capture_path: Path,
+    output: Path,
+) -> int:
+    """Join independently built P05 and candidate lanes without executing P05.
+
+    The frozen identity is checked before any case or artifact data is read, so
+    a candidate-tree P05 capture cannot be relabeled and merged.
+    """
+
     contract_path = contract_path.resolve()
     corpus_path = corpus_path.resolve()
-    capture_path = capture_path.resolve()
+    p05_capture_path = p05_capture_path.resolve()
+    candidate_capture_path = candidate_capture_path.resolve()
     contract = json.loads(contract_path.read_text())
-    corpus = json.loads(corpus_path.read_text())
-    capture_data = json.loads(capture_path.read_text())
-    if corpus.get("schemaVersion") != SCHEMA_CORPUS:
-        raise SystemExit("unsupported corpus manifest")
-    if capture_data.get("schemaVersion") != SCHEMA_CAPTURE:
-        raise SystemExit("unsupported capture manifest")
+    p05_capture = json.loads(p05_capture_path.read_text())
+    candidate = json.loads(candidate_capture_path.read_text())
+    baseline_identity = require_frozen_p05_identity(
+        contract, p05_capture.get("baselineIdentity")
+    )
+    if p05_capture.get("schemaVersion") != "mirmir-ash-v4-quality-p05-capture-v1":
+        raise SystemExit("unsupported frozen P05 capture manifest")
+    if candidate.get("schemaVersion") != "mirmir-ash-v4-quality-candidate-capture-v1":
+        raise SystemExit("unsupported candidate quality capture manifest")
     contract_hash = sha256(contract_path)
     corpus_hash = sha256(corpus_path)
-    if corpus.get("contractSHA256") != contract_hash:
-        raise SystemExit("corpus contract identity mismatch")
-    if capture_data.get("contractSHA256") != contract_hash:
-        raise SystemExit("capture contract identity mismatch")
-    if capture_data.get("corpusManifestSHA256") != corpus_hash:
-        raise SystemExit("capture corpus identity mismatch")
-    corpus_root = corpus_path.parent
-    capture_root = capture_path.parent
-    validate_artifacts(corpus_root, corpus["artifacts"])
-    computed_corpus_set = artifact_set_sha((a["path"], a["sha256"]) for a in corpus["artifacts"])
-    if computed_corpus_set != corpus.get("artifactSetSHA256"):
-        raise SystemExit("corpus artifact-set identity mismatch")
+    for label, capture in (("P05", p05_capture), ("candidate", candidate)):
+        if capture.get("contractSHA256") != contract_hash:
+            raise SystemExit(f"{label} capture contract identity mismatch")
+        if capture.get("corpusManifestSHA256") != corpus_hash:
+            raise SystemExit(f"{label} capture corpus identity mismatch")
 
-    expected_ids = [case["id"] for case in corpus["cases"]]
-    captured_ids = [case["id"] for case in capture_data["cases"]]
-    if len(expected_ids) != len(set(expected_ids)) or set(expected_ids) != set(captured_ids):
+    baseline_cases = p05_capture.get("cases")
+    candidate_cases = candidate.get("cases")
+    if not isinstance(baseline_cases, list) or not isinstance(candidate_cases, list):
+        raise SystemExit("quality capture case arrays are absent")
+    baseline_by_id = {
+        item.get("id"): item for item in baseline_cases if isinstance(item, dict)
+    }
+    candidate_by_id = {
+        item.get("id"): item for item in candidate_cases if isinstance(item, dict)
+    }
+    if (
+        len(baseline_by_id) != len(baseline_cases)
+        or len(candidate_by_id) != len(candidate_cases)
+        or set(baseline_by_id) != set(candidate_by_id)
+        or any(not isinstance(case_id, str) for case_id in baseline_by_id)
+    ):
+        raise SystemExit("P05 and candidate capture case sets differ")
+
+    merged_cases: list[dict[str, Any]] = []
+    for case_id in sorted(baseline_by_id):
+        baseline = baseline_by_id[case_id]
+        observed = candidate_by_id[case_id]
+        if set(baseline) != {"id", "output", "milliseconds"}:
+            raise SystemExit(f"P05 capture case field set differs: {case_id}")
+        if set(observed) != {"id", "outputs", "milliseconds"}:
+            raise SystemExit(f"candidate capture case field set differs: {case_id}")
+        outputs = observed["outputs"]
+        milliseconds = observed["milliseconds"]
+        if not isinstance(outputs, dict) or set(outputs) != set(CANDIDATE_VARIANTS):
+            raise SystemExit(f"candidate capture variant set differs: {case_id}")
+        if not isinstance(milliseconds, dict) or set(milliseconds) != set(CANDIDATE_VARIANTS):
+            raise SystemExit(f"candidate timing variant set differs: {case_id}")
+        merged_cases.append(
+            {
+                "id": case_id,
+                "outputs": {"baseline_p05": baseline["output"], **outputs},
+                "milliseconds": {
+                    "baseline_p05": baseline["milliseconds"],
+                    **milliseconds,
+                },
+            }
+        )
+
+    candidate_fields = {
+        "contractSHA256",
+        "corpusManifestSHA256",
+        "sourceCommit",
+        "sourceTreeIdentitySHA256",
+        "candidateBackendID",
+        "candidateImplementationVersion",
+        "runtimeManifestSHA256",
+        "runtimeSourceRevision",
+        "productionRuntimeLocked",
+        "fullMirrorIdentityPass",
+        "warmupCount",
+    }
+    if set(candidate) != candidate_fields | {"schemaVersion", "cases"}:
+        raise SystemExit("candidate capture manifest field set differs")
+    merged = {
+        "schemaVersion": SCHEMA_CAPTURE,
+        **{key: candidate[key] for key in sorted(candidate_fields)},
+        "baselineIdentity": baseline_identity,
+        "baselineImplementationVersion": baseline_identity[
+            "implementationVersion"
+        ],
+        "baselineWarmupCount": p05_capture.get("warmupCount"),
+        "cases": merged_cases,
+    }
+    write_json(output.resolve(), merged)
+    print(output.resolve())
+    return 0
+
+
+def replay_raw_components(
+    contract: dict[str, Any],
+    corpus: dict[str, Any],
+    corpus_root: Path,
+    capture: dict[str, Any],
+    capture_root: Path,
+) -> tuple[
+    list[dict[str, Any]],
+    dict[str, dict[str, dict[str, float]]],
+    dict[str, list[str]],
+]:
+    """Recompute every per-clip component from reference and output planes."""
+
+    corpus_cases = corpus.get("cases")
+    capture_cases = capture.get("cases")
+    if not isinstance(corpus_cases, list) or not isinstance(capture_cases, list):
+        raise SystemExit("quality raw case arrays are absent")
+    expected_ids = [case.get("id") for case in corpus_cases if isinstance(case, dict)]
+    captured_ids = [case.get("id") for case in capture_cases if isinstance(case, dict)]
+    if (
+        len(expected_ids) != len(corpus_cases)
+        or len(captured_ids) != len(capture_cases)
+        or any(not isinstance(case_id, str) for case_id in expected_ids + captured_ids)
+        or len(expected_ids) != len(set(expected_ids))
+        or len(captured_ids) != len(set(captured_ids))
+        or set(expected_ids) != set(captured_ids)
+    ):
         raise SystemExit("capture case set differs from corpus case set")
-    capture_by_id = {case["id"]: case for case in capture_data["cases"]}
-    required_variants = set(VARIANTS)
-    for case in corpus["cases"]:
+    capture_by_id = {case["id"]: case for case in capture_cases}
+    for case in corpus_cases:
         record = capture_by_id[case["id"]]
-        if set(record.get("outputs", {})) != required_variants:
+        if set(record) != {"id", "outputs", "milliseconds"}:
+            raise SystemExit(f"capture case field set differs: {case['id']}")
+        if set(record.get("outputs", {})) != set(VARIANTS):
             raise SystemExit(f"variant set mismatch for {case['id']}")
-        for relative in record["outputs"].values():
+        if set(record.get("milliseconds", {})) != set(VARIANTS):
+            raise SystemExit(f"timing variant set mismatch for {case['id']}")
+        for variant, relative in record["outputs"].items():
             path = checked_relative(capture_root, relative)
             expected_bytes = int(case["targetWidth"]) * int(case["targetHeight"]) * 3 // 2
-            if not path.is_file() or path.stat().st_size != expected_bytes:
+            if path.is_symlink() or not path.is_file() or path.stat().st_size != expected_bytes:
                 raise SystemExit(f"output artifact mismatch: {relative}")
+            milliseconds = record["milliseconds"][variant]
+            if (
+                not isinstance(milliseconds, (int, float))
+                or not math.isfinite(float(milliseconds))
+                or milliseconds < 0
+            ):
+                raise SystemExit(f"invalid capture timing: {case['id']} {variant}")
 
     cohorts_required = contract["cohortConstraints"]["contentCohorts"]
     cases_by_clip: dict[str, list[dict[str, Any]]] = {}
-    clips_by_cohort: dict[str, list[str]] = {cohort: [] for cohort in cohorts_required}
-    for case in corpus["cases"]:
+    clips_by_cohort: dict[str, list[str]] = {
+        cohort: [] for cohort in cohorts_required
+    }
+    for case in corpus_cases:
         cases_by_clip.setdefault(case["clipID"], []).append(case)
     for clip_id, cases in cases_by_clip.items():
         cohorts = {case["cohort"] for case in cases}
         formats = {case["pixelFormat"] for case in cases}
         frame_indices = sorted(int(case["frameIndex"]) for case in cases)
-        if len(cohorts) != 1 or len(formats) != 1 or frame_indices != list(range(len(cases))):
+        if (
+            len(cohorts) != 1
+            or len(formats) != 1
+            or frame_indices != list(range(len(cases)))
+        ):
             raise SystemExit(f"invalid clip manifest: {clip_id}")
         cohort = next(iter(cohorts))
         if cohort not in clips_by_cohort:
@@ -741,22 +897,35 @@ def evaluate(contract_path: Path, corpus_path: Path, capture_path: Path, output:
             raise SystemExit(f"cohort has a short clip: {cohort}")
 
     metrics: dict[str, dict[str, dict[str, float]]] = {}
-    per_clip_report: list[dict[str, Any]] = []
+    per_clip: list[dict[str, Any]] = []
     for clip_id in sorted(cases_by_clip):
-        cases = sorted(cases_by_clip[clip_id], key=lambda item: int(item["frameIndex"]))
-        reference_frames = [load_plane_pair(corpus_root, case, "referenceFile") for case in cases]
-        variant_frames: dict[str, list[tuple[np.ndarray, np.ndarray]]] = {
+        cases = sorted(
+            cases_by_clip[clip_id], key=lambda item: int(item["frameIndex"])
+        )
+        reference_frames = [
+            load_plane_pair(corpus_root, case, "referenceFile") for case in cases
+        ]
+        variant_frames = {
             variant: [
-                load_plane_pair(capture_root, {**case, "output": capture_by_id[case["id"]]["outputs"][variant]}, "output")
+                load_plane_pair(
+                    capture_root,
+                    {
+                        **case,
+                        "output": capture_by_id[case["id"]]["outputs"][variant],
+                    },
+                    "output",
+                )
                 for case in cases
             ]
             for variant in VARIANTS
         }
         metrics[clip_id] = {
-            variant: component_errors(reference_frames, frames, cases[0]["pixelFormat"])
+            variant: component_errors(
+                reference_frames, frames, cases[0]["pixelFormat"]
+            )
             for variant, frames in variant_frames.items()
         }
-        per_clip_report.append(
+        per_clip.append(
             {
                 "clipID": clip_id,
                 "cohort": cases[0]["cohort"],
@@ -765,6 +934,49 @@ def evaluate(contract_path: Path, corpus_path: Path, capture_path: Path, output:
                 "components": metrics[clip_id],
             }
         )
+    return per_clip, metrics, clips_by_cohort
+
+
+def evaluate(contract_path: Path, corpus_path: Path, capture_path: Path, output: Path) -> int:
+    contract_path = contract_path.resolve()
+    corpus_path = corpus_path.resolve()
+    capture_path = capture_path.resolve()
+    contract = json.loads(contract_path.read_text())
+    corpus = json.loads(corpus_path.read_text())
+    capture_data = json.loads(capture_path.read_text())
+    if corpus.get("schemaVersion") != SCHEMA_CORPUS:
+        raise SystemExit("unsupported corpus manifest")
+    if capture_data.get("schemaVersion") != SCHEMA_CAPTURE:
+        raise SystemExit("unsupported capture manifest")
+    # This must precede all artifact reads and metric evaluation. A P05 lane
+    # built from, or relabeled by, the candidate tree is not scoreable.
+    baseline_identity = require_frozen_p05_identity(
+        contract, capture_data.get("baselineIdentity")
+    )
+    if (
+        capture_data.get("baselineImplementationVersion")
+        != baseline_identity["implementationVersion"]
+    ):
+        raise SystemExit("capture P05 implementation identity mismatch")
+    contract_hash = sha256(contract_path)
+    corpus_hash = sha256(corpus_path)
+    if corpus.get("contractSHA256") != contract_hash:
+        raise SystemExit("corpus contract identity mismatch")
+    if capture_data.get("contractSHA256") != contract_hash:
+        raise SystemExit("capture contract identity mismatch")
+    if capture_data.get("corpusManifestSHA256") != corpus_hash:
+        raise SystemExit("capture corpus identity mismatch")
+    corpus_root = corpus_path.parent
+    capture_root = capture_path.parent
+    validate_artifacts(corpus_root, corpus["artifacts"])
+    computed_corpus_set = artifact_set_sha((a["path"], a["sha256"]) for a in corpus["artifacts"])
+    if computed_corpus_set != corpus.get("artifactSetSHA256"):
+        raise SystemExit("corpus artifact-set identity mismatch")
+
+    per_clip_report, metrics, clips_by_cohort = replay_raw_components(
+        contract, corpus, corpus_root, capture_data, capture_root
+    )
+    cohorts_required = contract["cohortConstraints"]["contentCohorts"]
 
     weights = {item["id"]: float(item["weight"]) for item in contract["components"]}
     if not math.isclose(sum(weights.values()), 1.0, rel_tol=0, abs_tol=1e-15):
@@ -903,6 +1115,7 @@ def evaluate(contract_path: Path, corpus_path: Path, capture_path: Path, output:
             "candidateBackendID": capture_data["candidateBackendID"],
             "candidateImplementationVersion": capture_data["candidateImplementationVersion"],
             "baselineImplementationVersion": capture_data["baselineImplementationVersion"],
+            "baselineIdentity": baseline_identity,
             "productionRuntimeLocked": capture_data["productionRuntimeLocked"],
             "fullMirrorIdentityPass": capture_data["fullMirrorIdentityPass"],
         },
@@ -923,6 +1136,137 @@ def evaluate(contract_path: Path, corpus_path: Path, capture_path: Path, output:
     write_json(output.resolve(), report)
     print(output.resolve())
     return 0
+
+
+def replay_sealed_evidence(
+    report_path: Path,
+    contract_path: Path,
+    contract: dict[str, Any],
+    identities: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Validate the recursive seal, then replay metrics from every raw plane."""
+
+    evidence_root = report_path.parent.resolve()
+    evidence_manifest = evidence_root / "artifact-manifest.json"
+    if not evidence_manifest.is_file() or evidence_manifest.is_symlink():
+        raise SystemExit("quality evidence seal is absent")
+    evidence_document = json.loads(evidence_manifest.read_text())
+    if evidence_document.get("schemaVersion") != "mirmir-ash-v4-quality-evidence-manifest-v1":
+        raise SystemExit("unsupported evidence manifest")
+    artifacts = evidence_document.get("artifacts")
+    if not isinstance(artifacts, list) or not artifacts:
+        raise SystemExit("quality evidence seal is empty")
+    paths = [item.get("path") if isinstance(item, dict) else None for item in artifacts]
+    if any(not isinstance(path, str) for path in paths) or paths != sorted(paths):
+        raise SystemExit("quality evidence seal paths are invalid or unsorted")
+    if len(paths) != len(set(paths)) or "artifact-manifest.json" in paths:
+        raise SystemExit("quality evidence seal repeats or self-seals an artifact")
+    validate_artifacts(evidence_root, artifacts)
+    # M7 wraps this self-contained quality evidence directory in its own
+    # release-suite seal.  The inner quality seal cannot include that outer
+    # manifest without creating a hash cycle, so admit only this exact
+    # integration envelope while continuing to reject every other unsealed
+    # file (including similarly named files in subdirectories).
+    release_envelope = evidence_root / "sealed-manifest.json"
+    actual_files: set[str] = set()
+    for path in evidence_root.rglob("*"):
+        if path.is_symlink():
+            raise SystemExit(f"quality evidence contains a symbolic link: {path}")
+        if path.is_file() and path not in {evidence_manifest, release_envelope}:
+            actual_files.add(path.relative_to(evidence_root).as_posix())
+    if actual_files != set(paths):
+        missing = sorted(set(paths) - actual_files)
+        unsealed = sorted(actual_files - set(paths))
+        raise SystemExit(
+            f"quality evidence sealed file set mismatch; missing={missing}, unsealed={unsealed}"
+        )
+
+    corpus_manifest = evidence_root / "corpus-manifest.json"
+    capture_manifest = evidence_root / "capture-manifest.json"
+    required_sealed = {
+        report_path.resolve(),
+        corpus_manifest.resolve(),
+        capture_manifest.resolve(),
+        contract_path.resolve(),
+    }
+    sealed_paths = {
+        checked_relative(evidence_root, relative).resolve() for relative in paths
+    }
+    if not required_sealed.issubset(sealed_paths):
+        raise SystemExit("quality evidence seal omits a required identity artifact")
+
+    if not corpus_manifest.is_file() or corpus_manifest.is_symlink():
+        raise SystemExit("corpus manifest is absent from quality evidence")
+    corpus = json.loads(corpus_manifest.read_text())
+    if corpus.get("schemaVersion") != SCHEMA_CORPUS:
+        raise SystemExit("unsupported sealed corpus manifest")
+    if sha256(corpus_manifest) != identities["corpusManifestSHA256"]:
+        raise SystemExit("corpus manifest identity mismatch")
+    corpus_artifacts = corpus.get("artifacts")
+    if not isinstance(corpus_artifacts, list) or not corpus_artifacts:
+        raise SystemExit("corpus artifacts are absent")
+    validate_artifacts(evidence_root, corpus_artifacts)
+    computed_corpus_set = artifact_set_sha(
+        (artifact["path"], artifact["sha256"]) for artifact in corpus_artifacts
+    )
+    if corpus.get("artifactSetSHA256") != computed_corpus_set:
+        raise SystemExit("corpus artifact-set identity mismatch")
+    if identities["corpusArtifactSetSHA256"] != computed_corpus_set:
+        raise SystemExit("report corpus artifact-set identity mismatch")
+    if corpus.get("contractSHA256") != identities["contractSHA256"]:
+        raise SystemExit("corpus contract identity mismatch")
+
+    if not capture_manifest.is_file() or capture_manifest.is_symlink():
+        raise SystemExit("capture manifest is absent from quality evidence")
+    capture = json.loads(capture_manifest.read_text())
+    if capture.get("schemaVersion") != SCHEMA_CAPTURE:
+        raise SystemExit("unsupported sealed capture manifest")
+    expected_capture_identities = {
+        "contractSHA256": identities["contractSHA256"],
+        "corpusManifestSHA256": identities["corpusManifestSHA256"],
+        "runtimeManifestSHA256": identities["runtimeManifestSHA256"],
+        "runtimeSourceRevision": identities["runtimeSourceRevision"],
+        "sourceCommit": identities["sourceCommit"],
+        "sourceTreeIdentitySHA256": identities["sourceTreeIdentitySHA256"],
+    }
+    for key, value in expected_capture_identities.items():
+        if capture.get(key) != value:
+            raise SystemExit(f"capture manifest identity mismatch: {key}")
+    baseline_identity = require_frozen_p05_identity(
+        contract, capture.get("baselineIdentity")
+    )
+    if capture.get("baselineImplementationVersion") != baseline_identity[
+        "implementationVersion"
+    ]:
+        raise SystemExit("sealed capture P05 implementation identity mismatch")
+
+    capture_cases = capture.get("cases")
+    if not isinstance(capture_cases, list) or not capture_cases:
+        raise SystemExit("capture cases are absent")
+    output_entries: dict[str, list[tuple[str, str]]] = {
+        variant: [] for variant in VARIANTS
+    }
+    for case_index, case in enumerate(capture_cases):
+        if not isinstance(case, dict):
+            raise SystemExit(f"invalid capture case: {case_index}")
+        outputs = case.get("outputs")
+        if not isinstance(outputs, dict) or set(outputs) != set(VARIANTS):
+            raise SystemExit(f"capture output variants differ: {case_index}")
+        for variant, relative in outputs.items():
+            output_path = checked_relative(evidence_root, relative)
+            if not output_path.is_file() or output_path.is_symlink():
+                raise SystemExit(f"missing capture output artifact: {relative}")
+            output_entries[variant].append((relative, sha256(output_path)))
+    computed_output_sets = {
+        variant: artifact_set_sha(entries)
+        for variant, entries in output_entries.items()
+    }
+    if identities["outputSetSHA256"] != computed_output_sets:
+        raise SystemExit("capture output artifact-set identity mismatch")
+
+    return replay_raw_components(
+        contract, corpus, evidence_root, capture, evidence_root
+    )[0]
 
 
 def verify_report(report_path: Path, contract_path: Path | None = None) -> int:
@@ -954,10 +1298,11 @@ def verify_report(report_path: Path, contract_path: Path | None = None) -> int:
         if not report["corpus"]["releaseEligible"] or not report["runtime"]["productionRuntimeLocked"]:
             raise SystemExit("ineligible evidence was promoted to a release pass")
 
-    def require_hex(value: Any, length: int, label: str) -> None:
+    def require_hex(value: Any, lengths: int | tuple[int, ...], label: str) -> None:
+        admitted_lengths = (lengths,) if isinstance(lengths, int) else lengths
         if (
             not isinstance(value, str)
-            or len(value) != length
+            or len(value) not in admitted_lengths
             or any(character not in "0123456789abcdef" for character in value)
         ):
             raise SystemExit(f"invalid identity: {label}")
@@ -968,7 +1313,9 @@ def verify_report(report_path: Path, contract_path: Path | None = None) -> int:
                 raise SystemExit("invalid output-set identities")
             for variant, identity in value.items():
                 require_hex(identity, 64, f"outputSetSHA256.{variant}")
-        elif key in {"runtimeSourceRevision", "sourceCommit"}:
+        elif key == "runtimeSourceRevision":
+            require_hex(value, (40, 64), key)
+        elif key == "sourceCommit":
             require_hex(value, 40, key)
         else:
             require_hex(value, 64, key)
@@ -977,10 +1324,22 @@ def verify_report(report_path: Path, contract_path: Path | None = None) -> int:
     contract_path = (
         contract_path.resolve()
         if contract_path is not None
-        else tool_path.with_name("quality-gate-contract-v1.json")
+        else report_path.parent.resolve() / "quality-gate-contract-v1.json"
     )
     capture_source = tool_path.with_name("QualityGateCaptureTests.swift")
-    if not contract_path.is_file() or not capture_source.is_file():
+    p05_capture_source = tool_path.with_name("P05QualityBaselineCaptureTests.swift")
+    p05_source_manifest = tool_path.with_name("p05-baseline-source-manifest-v1.json")
+    p05_identity_tool = tool_path.with_name("p05_baseline_v4.py")
+    if not all(
+        path.is_file() and not path.is_symlink()
+        for path in (
+            contract_path,
+            capture_source,
+            p05_capture_source,
+            p05_source_manifest,
+            p05_identity_tool,
+        )
+    ):
         raise SystemExit("quality verifier sources are incomplete")
     contract = json.loads(contract_path.read_text())
     if report.get("contract") != contract or identities["contractSHA256"] != sha256(contract_path):
@@ -1001,6 +1360,30 @@ def verify_report(report_path: Path, contract_path: Path | None = None) -> int:
         raise SystemExit("crop-rule identity mismatch")
     if identities["metricModelSHA256"] != metric_model_identity:
         raise SystemExit("metric-model identity mismatch")
+
+    expected_p05 = p05.frozen_identity(contract)
+    if sha256(p05_capture_source) != expected_p05["captureSourceSHA256"]:
+        raise SystemExit("frozen P05 capture-source identity mismatch")
+    if sha256(p05_source_manifest) != expected_p05["sourceManifestSHA256"]:
+        raise SystemExit("frozen P05 source-manifest identity mismatch")
+    runtime = report.get("runtime")
+    if not isinstance(runtime, dict):
+        raise SystemExit("quality runtime identity is absent")
+    observed_p05 = require_frozen_p05_identity(
+        contract, runtime.get("baselineIdentity")
+    )
+    if runtime.get("baselineImplementationVersion") != observed_p05[
+        "implementationVersion"
+    ]:
+        raise SystemExit("report P05 implementation identity mismatch")
+
+    # Replay every component from the recursively sealed reference, P05,
+    # candidate, and ablation planes before trusting perClip or aggregates.
+    replayed_per_clip = replay_sealed_evidence(
+        report_path.resolve(), contract_path, contract, identities
+    )
+    if report.get("perClip") != replayed_per_clip:
+        raise SystemExit("perClip metrics differ from sealed raw-plane replay")
 
     def require_equal(actual: Any, expected: Any, label: str) -> None:
         if isinstance(expected, dict):
@@ -1170,48 +1553,6 @@ def verify_report(report_path: Path, contract_path: Path | None = None) -> int:
     if report.get("timingDiagnostic", {}).get("releasePerformanceGateEligible") is not False:
         raise SystemExit("diagnostic timing was promoted to release evidence")
 
-    corpus_manifest = report_path.parent / "corpus-manifest.json"
-    if corpus_manifest.is_file():
-        manifest = json.loads(corpus_manifest.read_text())
-        if sha256(corpus_manifest) != identities["corpusManifestSHA256"]:
-            raise SystemExit("corpus manifest identity mismatch")
-        if manifest.get("artifactSetSHA256") != identities["corpusArtifactSetSHA256"]:
-            raise SystemExit("corpus artifact-set identity mismatch")
-        if manifest.get("contractSHA256") != identities["contractSHA256"]:
-            raise SystemExit("corpus contract identity mismatch")
-
-    capture_manifest = report_path.parent / "capture-manifest.json"
-    if capture_manifest.is_file():
-        manifest = json.loads(capture_manifest.read_text())
-        expected_capture_identities = {
-            "contractSHA256": identities["contractSHA256"],
-            "corpusManifestSHA256": identities["corpusManifestSHA256"],
-            "runtimeManifestSHA256": identities["runtimeManifestSHA256"],
-            "runtimeSourceRevision": identities["runtimeSourceRevision"],
-            "sourceCommit": identities["sourceCommit"],
-            "sourceTreeIdentitySHA256": identities["sourceTreeIdentitySHA256"],
-        }
-        for key, value in expected_capture_identities.items():
-            if manifest.get(key) != value:
-                raise SystemExit(f"capture manifest identity mismatch: {key}")
-
-    evidence_manifest = report_path.parent / "artifact-manifest.json"
-    if evidence_manifest.is_file():
-        manifest = json.loads(evidence_manifest.read_text())
-        if manifest.get("schemaVersion") != "mirmir-ash-v4-quality-evidence-manifest-v1":
-            raise SystemExit("unsupported evidence manifest")
-        expected_artifacts = {
-            "capture-manifest.json",
-            "corpus-manifest.json",
-            "quality-gate-contract-v1.json",
-            "quality-gate-report.json",
-            "xcodebuild.log",
-        }
-        artifacts = manifest.get("artifacts")
-        if not isinstance(artifacts, list) or {item.get("path") for item in artifacts} != expected_artifacts:
-            raise SystemExit("evidence artifact set mismatch")
-        validate_artifacts(report_path.parent, artifacts)
-
     print(report_path.resolve())
     return 0
 
@@ -1227,6 +1568,12 @@ def parse_arguments() -> argparse.Namespace:
     evaluate_parser.add_argument("--corpus", required=True, type=Path)
     evaluate_parser.add_argument("--capture", required=True, type=Path)
     evaluate_parser.add_argument("--output", required=True, type=Path)
+    merge = subparsers.add_parser("merge")
+    merge.add_argument("--contract", required=True, type=Path)
+    merge.add_argument("--corpus", required=True, type=Path)
+    merge.add_argument("--p05-capture", required=True, type=Path)
+    merge.add_argument("--candidate-capture", required=True, type=Path)
+    merge.add_argument("--output", required=True, type=Path)
     verify = subparsers.add_parser("verify")
     verify.add_argument("--report", required=True, type=Path)
     verify.add_argument("--contract", type=Path)
@@ -1240,6 +1587,14 @@ def main() -> int:
     if arguments.command == "evaluate":
         return evaluate(
             arguments.contract, arguments.corpus, arguments.capture, arguments.output
+        )
+    if arguments.command == "merge":
+        return merge_captures(
+            arguments.contract,
+            arguments.corpus,
+            arguments.p05_capture,
+            arguments.candidate_capture,
+            arguments.output,
         )
     if arguments.command == "verify":
         return verify_report(arguments.report, arguments.contract)

@@ -190,13 +190,28 @@ PY
 inject_capture_source "$work_directory/baseline-project"
 inject_capture_source "$work_directory/candidate-project"
 
-tree_identity() {
-    local revision="$1"
-    local tree
-    tree="$(git -C "$repository_root" rev-parse "${revision}^{tree}")"
-    python3 - "$tree" <<'PY'
-import hashlib,sys
-print(hashlib.sha256(b"mirmir-v4-git-tree-v1\0" + sys.argv[1].encode()).hexdigest())
+source_tree_identity() {
+    local repository="$1"
+    local revision="$2"
+    python3 - "$repository" "$revision" <<'PY'
+import hashlib
+import subprocess
+import sys
+
+repository, revision = sys.argv[1:]
+process = subprocess.run(
+    ["git", "ls-tree", "-r", "-z", "--full-tree", revision],
+    cwd=repository,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+    check=False,
+)
+if process.returncode != 0:
+    raise SystemExit(
+        "cannot resolve source tree: "
+        + process.stderr.decode("utf-8", errors="replace").strip()
+    )
+print(hashlib.sha256(b"mirmir-source-tree-v1\0" + process.stdout).hexdigest())
 PY
 }
 
@@ -206,7 +221,7 @@ make_source_identity() {
     local project_root="$3"
     local destination="$4"
     local tree_sha256
-    tree_sha256="$(tree_identity "$revision")"
+    tree_sha256="$(source_tree_identity "$repository_root" "$revision")"
     python3 - "$variant" "$revision" "$tree_sha256" "$project_root" "$contract" "$destination" <<'PY'
 import hashlib,json,pathlib,re,sys
 
@@ -443,7 +458,7 @@ run_capture() {
     local source_identity_sha256
     source_identity_sha256="$(shasum -a 256 "$capture_directory/source-identity.json" | awk '{print $1}')"
     local source_tree_sha256
-    source_tree_sha256="$(tree_identity "$revision")"
+    source_tree_sha256="$(source_tree_identity "$repository_root" "$revision")"
     python3 - \
         "$project_root/script/v4/PerformanceGateCaptureTests.swift" \
         "$capture_directory" \

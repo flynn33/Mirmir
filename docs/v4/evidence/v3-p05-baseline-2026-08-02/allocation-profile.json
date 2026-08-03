@@ -9,25 +9,25 @@
         "positiveSampleCount": 1
       },
       "mallocSizeInUseBytes": {
-        "maximumBytes": 81664,
-        "medianBytes": 0.0,
-        "minimumBytes": -16,
-        "positiveBytesTotal": 99312,
-        "positiveSampleCount": 19
+        "maximumBytes": 81392,
+        "medianBytes": 32.0,
+        "minimumBytes": -672,
+        "positiveBytesTotal": 133824,
+        "positiveSampleCount": 24
       },
       "physicalFootprintBytes": {
-        "maximumBytes": 770048,
+        "maximumBytes": 49176,
         "medianBytes": 0.0,
-        "minimumBytes": 0,
-        "positiveBytesTotal": 868352,
-        "positiveSampleCount": 3
+        "minimumBytes": -16384,
+        "positiveBytesTotal": 147480,
+        "positiveSampleCount": 4
       },
       "residentBytes": {
-        "maximumBytes": 770048,
+        "maximumBytes": 98304,
         "medianBytes": 0.0,
         "minimumBytes": 0,
-        "positiveBytesTotal": 901120,
-        "positiveSampleCount": 2
+        "positiveBytesTotal": 163840,
+        "positiveSampleCount": 3
       }
     },
     "metal": {
@@ -39,25 +39,25 @@
         "positiveSampleCount": 0
       },
       "mallocSizeInUseBytes": {
-        "maximumBytes": 17008,
-        "medianBytes": 0.0,
-        "minimumBytes": -80,
-        "positiveBytesTotal": 17552,
-        "positiveSampleCount": 7
+        "maximumBytes": 480,
+        "medianBytes": -160.0,
+        "minimumBytes": -400,
+        "positiveBytesTotal": 912,
+        "positiveSampleCount": 10
       },
       "physicalFootprintBytes": {
-        "maximumBytes": 16384,
+        "maximumBytes": 0,
         "medianBytes": 0.0,
         "minimumBytes": 0,
-        "positiveBytesTotal": 16384,
-        "positiveSampleCount": 1
+        "positiveBytesTotal": 0,
+        "positiveSampleCount": 0
       },
       "residentBytes": {
         "maximumBytes": 16384,
         "medianBytes": 0.0,
         "minimumBytes": 0,
-        "positiveBytesTotal": 32768,
-        "positiveSampleCount": 2
+        "positiveBytesTotal": 16384,
+        "positiveSampleCount": 1
       }
     }
   },
@@ -72,39 +72,39 @@
           "positiveSampleCount": 0
         },
         "mallocSizeInUseBytes": {
-          "maximumBytes": 81664,
+          "maximumBytes": 81392,
           "medianBytes": 24.0,
           "minimumBytes": 0,
-          "positiveBytesTotal": 81952,
+          "positiveBytesTotal": 81680,
           "positiveSampleCount": 6
         },
         "physicalFootprintBytes": {
-          "maximumBytes": 81920,
+          "maximumBytes": 49152,
           "medianBytes": 0.0,
           "minimumBytes": 0,
-          "positiveBytesTotal": 81920,
+          "positiveBytesTotal": 49152,
           "positiveSampleCount": 1
         },
         "residentBytes": {
-          "maximumBytes": 131072,
+          "maximumBytes": 98304,
           "medianBytes": 0.0,
           "minimumBytes": 0,
-          "positiveBytesTotal": 131072,
+          "positiveBytesTotal": 98304,
           "positiveSampleCount": 1
         }
       },
       "id": "420f-direct_2x-radial_detail",
       "memoryAfterSamples": {
-        "mallocSizeAllocatedBytes": 46137344,
-        "mallocSizeInUseBytes": 15003776,
-        "physicalFootprintBytes": 132547496,
-        "residentBytes": 120848384
+        "mallocSizeAllocatedBytes": 75497472,
+        "mallocSizeInUseBytes": 15291648,
+        "physicalFootprintBytes": 134792104,
+        "residentBytes": 123060224
       },
       "memoryBeforeWarmups": {
-        "mallocSizeAllocatedBytes": 46137344,
-        "mallocSizeInUseBytes": 14889808,
-        "physicalFootprintBytes": 132449192,
-        "residentBytes": 120700928
+        "mallocSizeAllocatedBytes": 75497472,
+        "mallocSizeInUseBytes": 15198192,
+        "physicalFootprintBytes": 134742952,
+        "residentBytes": 122961920
       },
       "metal": {
         "mallocSizeAllocatedBytes": {
@@ -115,25 +115,100 @@
           "positiveSampleCount": 0
         },
         "mallocSizeInUseBytes": {
-          "maximumBytes": 17008,
-          "medianBytes": 0.0,
-          "minimumBytes": -80,
-          "positiveBytesTotal": 17056,
-          "positiveSampleCount": 2
+          "maximumBytes": 0,
+          "medianBytes": -192.0,
+          "minimumBytes": -272,
+          "positiveBytesTotal": 0,
+          "positiveSampleCount": 0
         },
         "physicalFootprintBytes": {
-          "maximumBytes": 16384,
+          "maximumBytes": 0,
           "medianBytes": 0.0,
           "minimumBytes": 0,
-          "positiveBytesTotal": 16384,
-          "positiveSampleCount": 1
+          "positiveBytesTotal": 0,
+          "positiveSampleCount": 0
         },
         "residentBytes": {
-          "maximumBytes": 16384,
+          "maximumBytes": 0,
           "medianBytes": 0.0,
           "minimumBytes": 0,
-          "positiveBytesTotal": 16384,
-          "positiveSampleCount": 1
+          "positiveBytesTotal": 0,
+          "positiveSampleCount": 0
+        }
+      }
+    },
+    {
+      "cpu": {
+        "mallocSizeAllocatedBytes": {
+          "maximumBytes": 0,
+          "medianBytes": 0.0,
+          "minimumBytes": 0,
+          "positiveBytesTotal": 0,
+          "positiveSampleCount": 0
+        },
+        "mallocSizeInUseBytes": {
+          "maximumBytes": 336,
+          "medianBytes": 40.0,
+          "minimumBytes": 0,
+          "positiveBytesTotal": 992,
+          "positiveSampleCount": 6
+        },
+        "physicalFootprintBytes": {
+          "maximumBytes": 0,
+          "medianBytes": 0.0,
+          "minimumBytes": -16384,
+          "positiveBytesTotal": 0,
+          "positiveSampleCount": 0
+        },
+        "residentBytes": {
+          "maximumBytes": 0,
+          "medianBytes": 0.0,
+          "minimumBytes": 0,
+          "positiveBytesTotal": 0,
+          "positiveSampleCount": 0
+        }
+      },
+      "id": "420f-direct_3_over_2-radial_detail",
+      "memoryAfterSamples": {
+        "mallocSizeAllocatedBytes": 75497472,
+        "mallocSizeInUseBytes": 15596752,
+        "physicalFootprintBytes": 135545768,
+        "residentBytes": 123781120
+      },
+      "memoryBeforeWarmups": {
+        "mallocSizeAllocatedBytes": 75497472,
+        "mallocSizeInUseBytes": 15582720,
+        "physicalFootprintBytes": 135562152,
+        "residentBytes": 123781120
+      },
+      "metal": {
+        "mallocSizeAllocatedBytes": {
+          "maximumBytes": 0,
+          "medianBytes": 0.0,
+          "minimumBytes": 0,
+          "positiveBytesTotal": 0,
+          "positiveSampleCount": 0
+        },
+        "mallocSizeInUseBytes": {
+          "maximumBytes": 480,
+          "medianBytes": -176.0,
+          "minimumBytes": -272,
+          "positiveBytesTotal": 608,
+          "positiveSampleCount": 4
+        },
+        "physicalFootprintBytes": {
+          "maximumBytes": 0,
+          "medianBytes": 0.0,
+          "minimumBytes": 0,
+          "positiveBytesTotal": 0,
+          "positiveSampleCount": 0
+        },
+        "residentBytes": {
+          "maximumBytes": 0,
+          "medianBytes": 0.0,
+          "minimumBytes": 0,
+          "positiveBytesTotal": 0,
+          "positiveSampleCount": 0
         }
       }
     },
@@ -147,114 +222,39 @@
           "positiveSampleCount": 1
         },
         "mallocSizeInUseBytes": {
-          "maximumBytes": 64,
-          "medianBytes": 0.0,
-          "minimumBytes": 0,
-          "positiveBytesTotal": 160,
-          "positiveSampleCount": 4
+          "maximumBytes": 16720,
+          "medianBytes": 208.0,
+          "minimumBytes": -672,
+          "positiveBytesTotal": 18128,
+          "positiveSampleCount": 6
         },
         "physicalFootprintBytes": {
-          "maximumBytes": 770048,
+          "maximumBytes": 49176,
           "medianBytes": 0.0,
           "minimumBytes": 0,
-          "positiveBytesTotal": 770048,
-          "positiveSampleCount": 1
+          "positiveBytesTotal": 65560,
+          "positiveSampleCount": 2
         },
         "residentBytes": {
-          "maximumBytes": 770048,
+          "maximumBytes": 32768,
           "medianBytes": 0.0,
           "minimumBytes": 0,
-          "positiveBytesTotal": 770048,
+          "positiveBytesTotal": 32768,
           "positiveSampleCount": 1
-        }
-      },
-      "id": "420f-direct_3_over_2-radial_detail",
-      "memoryAfterSamples": {
-        "mallocSizeAllocatedBytes": 50331648,
-        "mallocSizeInUseBytes": 15312048,
-        "physicalFootprintBytes": 133677992,
-        "residentBytes": 121929728
-      },
-      "memoryBeforeWarmups": {
-        "mallocSizeAllocatedBytes": 46137344,
-        "mallocSizeInUseBytes": 15297456,
-        "physicalFootprintBytes": 132907944,
-        "residentBytes": 121159680
-      },
-      "metal": {
-        "mallocSizeAllocatedBytes": {
-          "maximumBytes": 0,
-          "medianBytes": 0.0,
-          "minimumBytes": 0,
-          "positiveBytesTotal": 0,
-          "positiveSampleCount": 0
-        },
-        "mallocSizeInUseBytes": {
-          "maximumBytes": 128,
-          "medianBytes": 0.0,
-          "minimumBytes": -64,
-          "positiveBytesTotal": 304,
-          "positiveSampleCount": 3
-        },
-        "physicalFootprintBytes": {
-          "maximumBytes": 0,
-          "medianBytes": 0.0,
-          "minimumBytes": 0,
-          "positiveBytesTotal": 0,
-          "positiveSampleCount": 0
-        },
-        "residentBytes": {
-          "maximumBytes": 0,
-          "medianBytes": 0.0,
-          "minimumBytes": 0,
-          "positiveBytesTotal": 0,
-          "positiveSampleCount": 0
-        }
-      }
-    },
-    {
-      "cpu": {
-        "mallocSizeAllocatedBytes": {
-          "maximumBytes": 0,
-          "medianBytes": 0.0,
-          "minimumBytes": 0,
-          "positiveBytesTotal": 0,
-          "positiveSampleCount": 0
-        },
-        "mallocSizeInUseBytes": {
-          "maximumBytes": 16768,
-          "medianBytes": 0.0,
-          "minimumBytes": -16,
-          "positiveBytesTotal": 16912,
-          "positiveSampleCount": 4
-        },
-        "physicalFootprintBytes": {
-          "maximumBytes": 16384,
-          "medianBytes": 0.0,
-          "minimumBytes": 0,
-          "positiveBytesTotal": 16384,
-          "positiveSampleCount": 1
-        },
-        "residentBytes": {
-          "maximumBytes": 0,
-          "medianBytes": 0.0,
-          "minimumBytes": 0,
-          "positiveBytesTotal": 0,
-          "positiveSampleCount": 0
         }
       },
       "id": "420v-direct_2x-radial_detail",
       "memoryAfterSamples": {
-        "mallocSizeAllocatedBytes": 46137344,
-        "mallocSizeInUseBytes": 14821824,
-        "physicalFootprintBytes": 129123240,
-        "residentBytes": 117342208
+        "mallocSizeAllocatedBytes": 75497472,
+        "mallocSizeInUseBytes": 14920992,
+        "physicalFootprintBytes": 130630568,
+        "residentBytes": 118816768
       },
       "memoryBeforeWarmups": {
-        "mallocSizeAllocatedBytes": 46137344,
-        "mallocSizeInUseBytes": 14783744,
-        "physicalFootprintBytes": 129090472,
-        "residentBytes": 117309440
+        "mallocSizeAllocatedBytes": 71303168,
+        "mallocSizeInUseBytes": 14890960,
+        "physicalFootprintBytes": 130515856,
+        "residentBytes": 118718464
       },
       "metal": {
         "mallocSizeAllocatedBytes": {
@@ -265,10 +265,10 @@
           "positiveSampleCount": 0
         },
         "mallocSizeInUseBytes": {
-          "maximumBytes": 128,
-          "medianBytes": 0.0,
-          "minimumBytes": -80,
-          "positiveBytesTotal": 192,
+          "maximumBytes": 64,
+          "medianBytes": -184.0,
+          "minimumBytes": -400,
+          "positiveBytesTotal": 80,
           "positiveSampleCount": 2
         },
         "physicalFootprintBytes": {
@@ -297,39 +297,39 @@
           "positiveSampleCount": 0
         },
         "mallocSizeInUseBytes": {
-          "maximumBytes": 128,
-          "medianBytes": 8.0,
+          "maximumBytes": 32672,
+          "medianBytes": 24.0,
           "minimumBytes": 0,
-          "positiveBytesTotal": 288,
-          "positiveSampleCount": 5
+          "positiveBytesTotal": 33024,
+          "positiveSampleCount": 6
         },
         "physicalFootprintBytes": {
-          "maximumBytes": 0,
+          "maximumBytes": 32768,
           "medianBytes": 0.0,
           "minimumBytes": 0,
-          "positiveBytesTotal": 0,
-          "positiveSampleCount": 0
+          "positiveBytesTotal": 32768,
+          "positiveSampleCount": 1
         },
         "residentBytes": {
-          "maximumBytes": 0,
+          "maximumBytes": 32768,
           "medianBytes": 0.0,
           "minimumBytes": 0,
-          "positiveBytesTotal": 0,
-          "positiveSampleCount": 0
+          "positiveBytesTotal": 32768,
+          "positiveSampleCount": 1
         }
       },
       "id": "420v-direct_3_over_2-radial_detail",
       "memoryAfterSamples": {
-        "mallocSizeAllocatedBytes": 46137344,
-        "mallocSizeInUseBytes": 15192976,
-        "physicalFootprintBytes": 132744104,
-        "residentBytes": 120946688
+        "mallocSizeAllocatedBytes": 75497472,
+        "mallocSizeInUseBytes": 15437552,
+        "physicalFootprintBytes": 134972328,
+        "residentBytes": 123142144
       },
       "memoryBeforeWarmups": {
-        "mallocSizeAllocatedBytes": 46137344,
-        "mallocSizeInUseBytes": 15146320,
-        "physicalFootprintBytes": 132711336,
-        "residentBytes": 120913920
+        "mallocSizeAllocatedBytes": 75497472,
+        "mallocSizeInUseBytes": 15391376,
+        "physicalFootprintBytes": 134939560,
+        "residentBytes": 123109376
       },
       "metal": {
         "mallocSizeAllocatedBytes": {
@@ -340,11 +340,11 @@
           "positiveSampleCount": 0
         },
         "mallocSizeInUseBytes": {
-          "maximumBytes": 0,
+          "maximumBytes": 80,
           "medianBytes": 0.0,
-          "minimumBytes": -64,
-          "positiveBytesTotal": 0,
-          "positiveSampleCount": 0
+          "minimumBytes": -192,
+          "positiveBytesTotal": 224,
+          "positiveSampleCount": 4
         },
         "physicalFootprintBytes": {
           "maximumBytes": 0,

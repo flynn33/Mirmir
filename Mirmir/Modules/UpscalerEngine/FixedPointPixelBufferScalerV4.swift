@@ -44,17 +44,20 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
         let layout: PixelPlaneLayoutV4
         let preparedScale: FixedPointPreparedScaleV4
         var cpuWorkspace: FixedPointCPUWorkspaceV4
+        let executionRegions: [FixedPointOutputRegionV4]
         let metalExecutions: [FixedPointMetalPreparedExecutionV4]
 
         init(
             layout: PixelPlaneLayoutV4,
             preparedScale: FixedPointPreparedScaleV4,
             cpuWorkspace: FixedPointCPUWorkspaceV4,
+            executionRegions: [FixedPointOutputRegionV4],
             metalExecutions: [FixedPointMetalPreparedExecutionV4]
         ) {
             self.layout = layout
             self.preparedScale = preparedScale
             self.cpuWorkspace = cpuWorkspace
+            self.executionRegions = executionRegions
             self.metalExecutions = metalExecutions
         }
     }
@@ -81,6 +84,7 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
         targetWidth: Int,
         targetHeight: Int,
         borderRule: SpatialBorderRuleV4 = .clamp,
+        executionSchedule: FixedPointExecutionScheduleV4 = .productionFullFrame,
         metalDevice: MTLDevice? = nil,
         metalLibrary: MTLLibrary? = nil
     ) throws {
@@ -126,6 +130,10 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
                 scalePlan: plan,
                 kernelIR: kernelIR
             )
+            let executionRegions = try executionSchedule.regions(
+                targetWidth: targetPlaneWidth,
+                targetHeight: targetPlaneHeight
+            )
             var workspace = FixedPointCPUWorkspaceV4()
             if backend == .cpu {
                 try workspace.prepare(targetWidth: plan.targetWidth)
@@ -142,7 +150,8 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
                             scalePlan: plan,
                             kernelIR: kernelIR,
                             minimumCode: bounds.minimum,
-                            maximumCode: bounds.maximum
+                            maximumCode: bounds.maximum,
+                            executionRegions: executionRegions
                         )
                     )
                 }
@@ -153,6 +162,7 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
                     layout: plane,
                     preparedScale: preparedScale,
                     cpuWorkspace: workspace,
+                    executionRegions: executionRegions,
                     metalExecutions: planeMetalExecutions
                 )
             )
@@ -492,6 +502,7 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
                     preparedScale: prepared.preparedScale,
                     minimumCode: bounds.minimum,
                     maximumCode: bounds.maximum,
+                    executionRegions: prepared.executionRegions,
                     workspace: &prepared.cpuWorkspace
                 )
             }

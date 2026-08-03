@@ -4,9 +4,12 @@
 from __future__ import annotations
 
 import copy
+import contextlib
 import importlib.util
+import io
 import json
 from pathlib import Path
+import shutil
 import tempfile
 import unittest
 
@@ -34,6 +37,14 @@ SUPPORT_FIXTURE_SPEC = importlib.util.spec_from_file_location(
 assert SUPPORT_FIXTURE_SPEC is not None and SUPPORT_FIXTURE_SPEC.loader is not None
 support_fixture_module = importlib.util.module_from_spec(SUPPORT_FIXTURE_SPEC)
 SUPPORT_FIXTURE_SPEC.loader.exec_module(support_fixture_module)
+
+PARITY_FIXTURE_SPEC = importlib.util.spec_from_file_location(
+    "cpu_metal_parity_fixture_for_release_tests",
+    SCRIPT_DIRECTORY / "test_cpu_metal_parity_v4.py",
+)
+assert PARITY_FIXTURE_SPEC is not None and PARITY_FIXTURE_SPEC.loader is not None
+parity_fixture_module = importlib.util.module_from_spec(PARITY_FIXTURE_SPEC)
+PARITY_FIXTURE_SPEC.loader.exec_module(parity_fixture_module)
 
 
 def identity(label: str) -> str:
@@ -169,11 +180,17 @@ class EvidenceFixture:
         runtime_path: Path,
         release_path: Path | None,
         extra_bindings: list[tuple[str, Path]],
+        existing_report_path: Path | None = None,
     ) -> None:
-        role_dir = report_path = self.root / role
+        role_dir = self.root / role
         role_dir.mkdir(parents=True, exist_ok=True)
-        report_path = role_dir / "report.json"
-        write_json(report_path, report)
+        if existing_report_path is None:
+            report_path = role_dir / "report.json"
+            write_json(report_path, report)
+        else:
+            report_path = existing_report_path
+            if json.loads(report_path.read_text()) != report:
+                raise AssertionError("existing evidence report differs")
         bindings = [
             {
                 "jsonPointer": pointer,
@@ -227,206 +244,142 @@ class EvidenceFixture:
     def _build_quality(self) -> None:
         role = "quality"
         role_dir = self.root / role
-        components = [
-            ("luma_multiscale_structural_error", 0.35),
-            ("chroma_multiscale_structural_error", 0.15),
-            ("perceptual_feature_distance", 0.20),
-            ("motion_compensated_temporal_flicker_error", 0.20),
-            ("edge_displacement_ringing_overshoot_error", 0.10),
-        ]
-        cohorts = [
-            "natural_detail",
-            "text_graphics",
-            "animation",
-            "faces",
-            "low_light_noise",
-            "high_motion",
-            "scene_cuts",
-        ]
-        quality_contract = {
-            "schemaVersion": "mirmir-ash-v4-quality-gate-contract-v1",
-            "components": [
-                {"id": component, "weight": weight, "crop": "locked"}
-                for component, weight in components
-            ],
-            "cohortConstraints": {
-                "contentCohorts": cohorts,
-                "minimumFramesPerClip": 6,
-                "minimumClipsPerCohort": 4,
-                "lumaStructuralMaximumCandidateToBaselineRatio": 1.01,
-                "temporalStructuralMaximumCandidateToBaselineRatio": 1.0,
-                "temporalNonRegressionCohorts": ["high_motion", "scene_cuts"],
-            },
-            "bootstrap": {
-                "replicateCount": 10000,
-                "seedUnsignedDecimal": 1095977012,
-            },
-        }
+        quality_gate = qualification.quality_replay
+        quality_contract = copy.deepcopy(
+            json.loads(
+                (SCRIPT_DIRECTORY / "quality-gate-contract-v1.json").read_text()
+            )
+        )
+        # Keep the release contract's 10,000 bootstrap replicates while making
+        # the unit-test corpus small enough for repeated fail-closed cases.
+        quality_contract["cohortConstraints"]["minimumClipsPerCohort"] = 1
+        quality_contract["cohortConstraints"]["minimumFramesPerClip"] = 2
+        quality_contract["corpusConstruction"][
+            "syntheticDiagnosticClipCountPerCohort"
+        ] = 1
+        quality_contract["corpusConstruction"][
+            "syntheticDiagnosticFramesPerClip"
+        ] = 2
         contract_path, runtime_path, _ = self._write_bound_files(role_dir, role, quality_contract)
+
+        copied_sources = (
+            "quality_gate_v4.py",
+            "QualityGateCaptureTests.swift",
+            "p05_baseline_v4.py",
+            "P05QualityBaselineCaptureTests.swift",
+            "p05-baseline-source-manifest-v1.json",
+        )
+        for filename in copied_sources:
+            shutil.copy2(SCRIPT_DIRECTORY / filename, role_dir / filename)
         metric_path = role_dir / "quality_gate_v4.py"
         capture_source_path = role_dir / "QualityGateCaptureTests.swift"
-        metric_path.write_text("# locked metric tool\n", encoding="utf-8")
-        capture_source_path.write_text("// locked capture source\n", encoding="utf-8")
-        corpus_artifact = role_dir / "natural-source-frame.bin"
-        corpus_artifact.write_bytes(b"natural-source-frame")
-        corpus_entries = [(corpus_artifact.name, qualification.sha256(corpus_artifact))]
-        corpus_set = qualification.artifact_set_sha(corpus_entries)
-        corpus_manifest = {
-            "schemaVersion": "mirmir-ash-v4-quality-corpus-v1",
-            "corpusKind": "locked_natural",
-            "releaseEligible": True,
-            "artifactSetSHA256": corpus_set,
-            "artifacts": [descriptor(corpus_artifact, role_dir)],
-        }
+
+        corpus_stage = role_dir / "corpus-stage"
+        with contextlib.redirect_stdout(io.StringIO()):
+            quality_gate.generate_corpus(contract_path, corpus_stage)
+        shutil.move(str(corpus_stage / "artifacts"), str(role_dir / "artifacts"))
+        shutil.move(
+            str(corpus_stage / "corpus-manifest.json"),
+            str(role_dir / "corpus-manifest.json"),
+        )
+        corpus_stage.rmdir()
         corpus_path = role_dir / "corpus-manifest.json"
+        corpus_manifest = json.loads(corpus_path.read_text())
+        # This is a release-eligible fixture for verifier tests, not claimed
+        # project evidence.  Its raw planes still pass the production replay.
+        corpus_manifest["corpusKind"] = "locked_natural"
+        corpus_manifest["releaseEligible"] = True
         write_json(corpus_path, corpus_manifest)
-        output_paths: dict[str, Path] = {}
-        for variant in qualification.QUALITY_VARIANTS:
-            path = role_dir / "artifacts" / f"{variant}.nv12"
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(variant.encode("utf-8"))
-            output_paths[variant] = path
-        per_clip = []
+
         capture_cases = []
-        clips_by_cohort: dict[str, list[str]] = {cohort: [] for cohort in cohorts}
-        metrics: dict[str, dict[str, dict[str, float]]] = {}
-        component_ids = [component for component, _ in components]
-        for cohort in cohorts:
-            for clip_index in range(4):
-                clip_id = f"{cohort}-c{clip_index:02d}"
-                clips_by_cohort[cohort].append(clip_id)
-                values = {}
-                for variant in qualification.QUALITY_VARIANTS:
-                    ratio = 1.0 if variant == "baseline_p05" else (0.8 if variant == "candidate_v4" else 0.85)
-                    values[variant] = {component: ratio for component in component_ids}
-                metrics[clip_id] = values
-                per_clip.append(
-                    {
-                        "clipID": clip_id,
-                        "cohort": cohort,
-                        "pixelFormat": "420v" if clip_index % 2 == 0 else "420f",
-                        "frameCount": 6,
-                        "components": values,
-                    }
+        for case_index, case in enumerate(corpus_manifest["cases"]):
+            reference_path = role_dir / case["referenceFile"]
+            reference_bytes = reference_path.read_bytes()
+            shift = 1 + case_index % 3
+            baseline_bytes = reference_bytes[-shift:] + reference_bytes[:-shift]
+            outputs: dict[str, str] = {}
+            milliseconds: dict[str, float] = {}
+            for variant_index, variant in enumerate(quality_gate.VARIANTS):
+                relative = f"artifacts/{case['id']}-{variant}.nv12"
+                output_path = role_dir / relative
+                output_path.write_bytes(
+                    reference_bytes if variant == "candidate_v4" else baseline_bytes
                 )
-                for frame in range(6):
-                    capture_cases.append(
-                        {
-                            "id": f"{clip_id}-f{frame:02d}",
-                            "outputs": {
-                                variant: path.relative_to(role_dir).as_posix()
-                                for variant, path in output_paths.items()
-                            },
-                        }
-                    )
-        weights = dict(components)
-        summaries: dict[str, object] = {}
-        for variant in qualification.QUALITY_VARIANTS:
-            aggregate, by_cohort, error, quality_index = qualification.quality_aggregate(
-                metrics, clips_by_cohort, variant, weights
+                outputs[variant] = relative
+                milliseconds[variant] = float(variant_index + 1)
+            capture_cases.append(
+                {
+                    "id": case["id"],
+                    "outputs": outputs,
+                    "milliseconds": milliseconds,
+                }
             )
-            summaries[variant] = {
-                "normalizedComponents": aggregate,
-                "normalizedComponentsByCohort": by_cohort,
-                "weightedError": error,
-                "qualityIndex": quality_index,
-            }
-        candidate_summary = summaries["candidate_v4"]
-        assert isinstance(candidate_summary, dict)
-        candidate_summary["pairedBootstrap95PercentCI"] = {
-            "lower": candidate_summary["qualityIndex"],
-            "upper": candidate_summary["qualityIndex"],
-            "replicateCount": 10000,
-            "lowerOrderStatisticIndex": 250,
-        }
-        contract_sha = qualification.sha256(contract_path)
-        corpus_sha = qualification.sha256(corpus_path)
-        output_sets = {
-            variant: qualification.artifact_set_sha(
-                [
-                    (path.relative_to(role_dir).as_posix(), qualification.sha256(path))
-                    for _ in capture_cases
-                ]
-            )
-            for variant, path in output_paths.items()
-        }
-        report = {
-            "schemaVersion": self.contract["evidenceSchemas"][role],
-            "contract": quality_contract,
-            "identities": {
-                "contractSHA256": contract_sha,
-                "metricToolSHA256": qualification.sha256(metric_path),
-                "captureTestSourceSHA256": qualification.sha256(capture_source_path),
-                "corpusManifestSHA256": corpus_sha,
-                "corpusArtifactSetSHA256": corpus_set,
-                "runtimeManifestSHA256": self.candidate["runtimeManifestSHA256"],
-                "runtimeSourceRevision": self.candidate["runtimeSourceRevision"],
-                "sourceCommit": self.candidate["sourceCommit"],
-                "sourceTreeIdentitySHA256": self.candidate["sourceTreeIdentitySHA256"],
-                "cropRuleSHA256": qualification.sha256_bytes(
-                    qualification.canonical_bytes(
-                        [{item["id"]: item["crop"]} for item in quality_contract["components"]]
-                    )
-                ),
-                "metricModelSHA256": qualification.sha256_bytes(
-                    b"mirmir-analytic-quality-model-v1\0"
-                    + qualification.canonical_bytes(quality_contract["components"])
-                    + bytes.fromhex(qualification.sha256(metric_path))
-                ),
-                "outputSetSHA256": output_sets,
-            },
-            "runtime": {
-                "candidateBackendID": self.contract["quality"]["requiredBackendID"],
-                "candidateImplementationVersion": self.contract["quality"]["requiredCandidateImplementationVersion"],
-                "productionRuntimeLocked": True,
-                "fullMirrorIdentityPass": True,
-            },
-            "corpus": {
-                "corpusID": "locked-natural-test-v1",
-                "corpusKind": "locked_natural",
-                "releaseEligible": True,
-                "clipCount": len(per_clip),
-                "caseCount": len(capture_cases),
-                "cohorts": cohorts,
-            },
-            "quality": {
-                "summaries": summaries,
-                "gates": {
-                    "identityPass": True,
-                    "naturalCorpusEligibilityPass": True,
-                    "productionRuntimeLockPass": True,
-                    "requiredAblationsPresentPass": True,
-                    "qualityPointEstimatePass": True,
-                    "qualityLowerConfidenceBoundPass": True,
-                    "allCohortLumaNonRegressionPass": True,
-                    "temporalCohortNonRegressionPass": True,
-                    "candidateBackendIdentityPass": True,
-                    "fullMirrorIdentityPass": True,
-                    "releaseQualityGatePass": True,
-                },
-            },
-            "perClip": per_clip,
-            "timingDiagnostic": {"releasePerformanceGateEligible": False},
-        }
-        report_path = role_dir / "report.json"
+
+        contract_sha = quality_gate.sha256(contract_path)
+        corpus_sha = quality_gate.sha256(corpus_path)
+        baseline_identity = quality_gate.p05.frozen_identity(quality_contract)
         capture_manifest = {
-            "schemaVersion": "mirmir-ash-v4-quality-capture-v1",
+            "schemaVersion": quality_gate.SCHEMA_CAPTURE,
             "contractSHA256": contract_sha,
             "corpusManifestSHA256": corpus_sha,
             "runtimeManifestSHA256": self.candidate["runtimeManifestSHA256"],
             "runtimeSourceRevision": self.candidate["runtimeSourceRevision"],
             "sourceCommit": self.candidate["sourceCommit"],
             "sourceTreeIdentitySHA256": self.candidate["sourceTreeIdentitySHA256"],
+            "candidateBackendID": self.contract["quality"]["requiredBackendID"],
+            "candidateImplementationVersion": self.contract["quality"][
+                "requiredCandidateImplementationVersion"
+            ],
+            "productionRuntimeLocked": True,
+            "fullMirrorIdentityPass": True,
+            "warmupCount": 1,
+            "baselineIdentity": baseline_identity,
+            "baselineImplementationVersion": baseline_identity[
+                "implementationVersion"
+            ],
+            "baselineWarmupCount": 1,
             "cases": capture_cases,
         }
-        write_json(role_dir / "capture-manifest.json", capture_manifest)
+        capture_path = role_dir / "capture-manifest.json"
+        write_json(capture_path, capture_manifest)
+        report_path = role_dir / "report.json"
+        with contextlib.redirect_stdout(io.StringIO()):
+            quality_gate.evaluate(contract_path, corpus_path, capture_path, report_path)
+        report = json.loads(report_path.read_text())
+        self._write_quality_evidence_manifest()
         bindings = [
             ("/identities/contractSHA256", contract_path),
             ("/identities/metricToolSHA256", metric_path),
             ("/identities/captureTestSourceSHA256", capture_source_path),
             ("/identities/corpusManifestSHA256", corpus_path),
         ]
-        self._seal_and_add(role, report, contract_path, runtime_path, None, bindings)
+        self._seal_and_add(
+            role,
+            report,
+            contract_path,
+            runtime_path,
+            None,
+            bindings,
+            existing_report_path=report_path,
+        )
+
+    def _write_quality_evidence_manifest(self) -> None:
+        role_dir = self.root / "quality"
+        manifest_path = role_dir / "artifact-manifest.json"
+        artifacts = [
+            descriptor(path, role_dir)
+            for path in sorted(role_dir.rglob("*"))
+            if path.is_file()
+            and path != manifest_path
+            and path != role_dir / "sealed-manifest.json"
+        ]
+        write_json(
+            manifest_path,
+            {
+                "schemaVersion": "mirmir-ash-v4-quality-evidence-manifest-v1",
+                "artifacts": artifacts,
+            },
+        )
 
     def _base(self, role: str, contract_sha: str) -> dict[str, object]:
         return {
@@ -1575,6 +1528,37 @@ class EvidenceFixture:
             ]
         )
 
+    def _build_parity_actual(self, role_dir: Path) -> None:
+        parity_root = role_dir / "parity-evidence"
+        fixture = parity_fixture_module.ParityEvidenceFixture(
+            parity_root,
+            candidate=self.candidate,
+            production_runtime=True,
+        )
+        report_path, _ = fixture.publish()
+        report = parity_fixture_module.parity.load_json(report_path)
+        runtime_path = role_dir / "runtime-manifest.json"
+        release_path = role_dir / "Release.xcconfig"
+        runtime_path.write_bytes(self.runtime_bytes)
+        release_path.write_bytes(self.release_bytes)
+        self.parity_fixture = fixture
+        self._seal_and_add(
+            "cpu_metal_parity",
+            report,
+            fixture.contract_path,
+            runtime_path,
+            release_path,
+            [
+                (
+                    "/identities/captureSourceSHA256",
+                    fixture.capture_source,
+                ),
+                ("/identities/evaluatorSHA256", fixture.evaluator),
+                ("/identities/runnerSHA256", fixture.runner),
+            ],
+            existing_report_path=report_path,
+        )
+
     def _build_common_reports(self) -> None:
         for role in self.contract["requiredEvidenceRoles"]:
             if role == "quality":
@@ -1586,6 +1570,9 @@ class EvidenceFixture:
                 self._build_support_actual()
                 continue
             role_dir = self.root / role
+            if role == "cpu_metal_parity":
+                self._build_parity_actual(role_dir)
+                continue
             if role == "media_preservation":
                 suite_contract = {"schemaVersion": qualification.SCHEMA_CONTRACT}
             elif role == "recovery":
@@ -1745,52 +1732,6 @@ class EvidenceFixture:
                             "approvedTemporalHistoryBudgetBytes": 100,
                         },
                         "releasePerformanceGatePass": True,
-                    }
-                )
-            elif role == "cpu_metal_parity":
-                capture_source = role_dir / "parity-capture.swift"
-                evaluator_source = role_dir / "parity-evaluator.py"
-                runner_source = role_dir / "parity-runner.sh"
-                capture_source.write_bytes(b"// locked CPU/Metal parity capture\n")
-                evaluator_source.write_bytes(b"# locked byte-exact parity evaluator\n")
-                runner_source.write_bytes(b"#!/bin/sh\n# locked parity runner\n")
-                extra_bindings.extend(
-                    [
-                        ("/identities/captureSourceSHA256", capture_source),
-                        ("/identities/evaluatorSHA256", evaluator_source),
-                        ("/identities/runnerSHA256", runner_source),
-                    ]
-                )
-                visible = role_dir / "visible.bin"
-                visible_metal = role_dir / "visible-metal.bin"
-                attachments = role_dir / "attachments.json"
-                attachments_metal = role_dir / "attachments-metal.json"
-                visible.write_bytes(b"exact-visible-planes")
-                visible_metal.write_bytes(visible.read_bytes())
-                write_json(attachments, {"range": "video", "siting": "left"})
-                attachments_metal.write_bytes(attachments.read_bytes())
-                report.update(
-                    {
-                        "identities": {
-                            "captureSourceSHA256": qualification.sha256(capture_source),
-                            "evaluatorSHA256": qualification.sha256(evaluator_source),
-                            "runnerSHA256": qualification.sha256(runner_source),
-                        },
-                        "comparison": "exact_visible_plane_and_attachment_bytes",
-                        "cases": [
-                            {
-                                "id": "all-required-parity-coverage",
-                                "coverage": self.contract["parityCoverage"],
-                                "cpuVisibleArtifact": descriptor(visible, self.root),
-                                "metalVisibleArtifact": descriptor(visible_metal, self.root),
-                                "cpuAttachmentsArtifact": descriptor(attachments, self.root),
-                                "metalAttachmentsArtifact": descriptor(attachments_metal, self.root),
-                                "repeatRunIdentityPass": True,
-                                "crossProcessIdentityPass": True,
-                                "tileScheduleIdentityPass": True,
-                            }
-                        ],
-                        "byteParityGatePass": True,
                     }
                 )
             elif role == "media_preservation":
@@ -2009,6 +1950,9 @@ class EvidenceFixture:
                 qualification.canonical_bytes(unsigned) + b"\n"
             )
         write_json(report_path, report)
+        if role == "quality":
+            self.reseal_quality_evidence()
+            return
         entry["byteCount"] = report_path.stat().st_size
         entry["sha256"] = qualification.sha256(report_path)
         sealed_descriptor = entry["sealedManifest"]
@@ -2168,6 +2112,21 @@ class EvidenceFixture:
         entry["sealedManifest"].update(descriptor(sealed_path, self.root))
         self.save_index()
 
+    def reseal_parity_evidence(self) -> None:
+        parity_root = self.parity_fixture.root
+        manifest_path = parity_root / "artifact-manifest.json"
+        parity_fixture_module.parity.write_json(
+            manifest_path,
+            parity_fixture_module.parity.make_root_manifest(
+                parity_root, manifest_path
+            ),
+        )
+        self.reseal_role("cpu_metal_parity")
+
+    def reseal_quality_evidence(self) -> None:
+        self._write_quality_evidence_manifest()
+        self.reseal_role("quality")
+
 
 class ReleaseQualificationV4Tests(unittest.TestCase):
     def setUp(self) -> None:
@@ -2303,7 +2262,10 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
                 {"luma_multiscale_structural_error": 1.7}
             ),
         )
-        with self.assertRaisesRegex(qualification.QualificationError, "does not match recomputed"):
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "perClip metrics differ from sealed raw-plane replay",
+        ):
             self.evaluate()
 
     def testPerformanceScopeAndConfidenceGateFailClosed(self) -> None:
@@ -2351,6 +2313,54 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
         )
         with self.assertRaisesRegex(qualification.QualificationError, "unconsentedDropCount"):
             self.evaluate()
+
+    def testParityV2ScheduleTamperIsCaughtByIndependentNestedReplay(self) -> None:
+        definition = self.fixture.parity_fixture.contract["cases"][0]
+        case_id = definition["id"]
+        relative = self.fixture.parity_fixture.artifact_relative(
+            case_id,
+            "cpu",
+            "schedule-reverse",
+            "visible",
+        )
+        self.fixture.parity_fixture.replace_and_rebind(
+            self.fixture.parity_fixture.capture_a,
+            {relative: b"resealed-schedule-dependent-output"},
+        )
+        self.fixture.reseal_parity_evidence()
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "nested parity replay failed:.*schedule reverse.*visible",
+        ):
+            self.evaluate()
+
+    def testParityV2CoverageCannotBeWeakenedInReportOrReleaseContract(self) -> None:
+        self.fixture.mutate_report(
+            "cpu_metal_parity",
+            lambda report: report["coverage"].pop(),
+        )
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "report coverage is incomplete",
+        ):
+            self.evaluate()
+
+        second_root = self.root / "weakened-contract"
+        self.fixture = EvidenceFixture(second_root)
+        self.root = second_root
+        weakened = copy.deepcopy(self.fixture.contract)
+        weakened["parityCoverage"].pop()
+        weakened_path = self.root / "weakened-release-contract.json"
+        write_json(weakened_path, weakened)
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "release contract parity coverage is weakened",
+        ):
+            qualification.evaluate_candidate(
+                self.fixture.index_path,
+                self.root,
+                weakened_path,
+            )
 
     def testPreservationNestedVerifierIsIndependentlyRecomputed(self) -> None:
         verifier_path = (

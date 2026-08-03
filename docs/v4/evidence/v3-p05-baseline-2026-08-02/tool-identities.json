@@ -1,0 +1,50 @@
+{
+  "artifactSetSHA256": "4bd54a3b8db75ad6ec67918c91bcce54d25d35ea1dc61a9dd940be7e3615d55b",
+  "hostToolSetSHA256": "5e55403e29a491cb0f1d85135d627dc1336826f0e6d7716693c6d0f68793df54",
+  "hostTools": {
+    "git": {
+      "byteCount": 118640,
+      "path": "/usr/bin/git",
+      "sha256": "44a68ddc1983d6cff3fd35ba3f9ba5f82004216f1dcde69892b3d1b06e408698"
+    },
+    "numpyModule": {
+      "byteCount": 21817,
+      "path": "/Users/jimdaley/Library/Python/3.9/lib/python/site-packages/numpy/__init__.py",
+      "sha256": "c09e25b58f6b2f8e2cb3c158168f902d447f8171e5ea6513c0aca41ecbda7c2b"
+    },
+    "python": {
+      "byteCount": 102352,
+      "path": "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/bin/python3.9",
+      "sha256": "8e598855de9a6648bc670d5fe7a3a653f1fa967b74373ed7c4ca16fbc40c0de1"
+    },
+    "tar": {
+      "byteCount": 274448,
+      "path": "/usr/bin/bsdtar",
+      "sha256": "bc069dd7ef2ecea4c27ff9daa97f4ba4c5a1a41938bad8050e96bce5daa64346"
+    },
+    "xcodebuild": {
+      "byteCount": 135200,
+      "path": "/usr/bin/xcodebuild",
+      "sha256": "0b621959d22a5887087178e9488d291fd17c02d2317ee05c2d1c87430cfdc988"
+    }
+  },
+  "numpyVersion": "2.0.2",
+  "schemaVersion": "mirmir-v4-p05-tool-identities-v1",
+  "sealedTools": {
+    "captureTool": {
+      "byteCount": 48611,
+      "path": "capture_baseline.py",
+      "sha256": "ebdaf57629eda3622eaee0da62e88142aabf720a8f0cba7ae1758c80afcbf4f3"
+    },
+    "identityTool": {
+      "byteCount": 11337,
+      "path": "p05_baseline_v4.py",
+      "sha256": "d79eff3f6bd7057460546b910cfa7654c9e846d4ff524e7b4ce78be78f6c929f"
+    },
+    "sourceManifest": {
+      "byteCount": 126437,
+      "path": "p05-baseline-source-manifest-v1.json",
+      "sha256": "880609bc2b4460814c63f2963042bee4fdb562eaa0b6376f84eb6aeb6a73ee69"
+    }
+  }
+}

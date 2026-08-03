@@ -1,0 +1,42 @@
+{
+  "applicationExecutable": {
+    "byteCount": 4395672,
+    "path": "Mirmir.app/Contents/MacOS/Mirmir",
+    "sha256": "eec8a8789d141d4dcf078d70b9bf2de42e7f257baf3538f650715dd7c27b035d"
+  },
+  "captureExecutable": {
+    "byteCount": 1410024,
+    "path": "Mirmir.app/Contents/PlugIns/MirmirTests.xctest/Contents/MacOS/MirmirTests",
+    "sha256": "ca93afeae55cef4968e6ac6c344a002566ad413a7f346cae2309bd599fb45c88"
+  },
+  "commandTemplate": [
+    "xcodebuild",
+    "-project",
+    "Mirmir.xcodeproj",
+    "-scheme",
+    "Mirmir",
+    "-configuration",
+    "Release",
+    "-destination",
+    "platform=macOS",
+    "-derivedDataPath",
+    "<DERIVED_DATA>",
+    "-parallel-testing-enabled",
+    "NO",
+    "test",
+    "-only-testing:MirmirTests/DeterministicMetalBackendTests/testCaptureV3BaselineWhenRequested",
+    "-only-testing:MirmirTests/VideoProcessingSessionTests/testCaptureV3EndToEndBaselineWhenRequested",
+    "CODE_SIGNING_ALLOWED=NO",
+    "ENABLE_TESTABILITY=YES",
+    "ONLY_ACTIVE_ARCH=YES",
+    "MIRMIR_V4_BASELINE_DIR=<OUTPUT>",
+    "MIRMIR_V4_WARMUP_COUNT=5",
+    "MIRMIR_V4_SAMPLE_COUNT=10"
+  ],
+  "configuration": "Release",
+  "schemaVersion": "mirmir-v4-p05-build-identity-v1",
+  "sourceManifestSHA256": "880609bc2b4460814c63f2963042bee4fdb562eaa0b6376f84eb6aeb6a73ee69",
+  "sourceRevision": "d3a4de55c08391ea8a08c00beb766b5650dc9f58",
+  "sourceTreeIdentitySHA256": "d9b89f1ca31c0d076826651b250459773bea0de11d7b0ffd12ac40451af7b69c",
+  "workingDirectory": "clean-git-archive"
+}

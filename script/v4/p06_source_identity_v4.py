@@ -137,10 +137,9 @@ def load_contract(path: Path, repository: Path) -> tuple[dict[str, Any], str]:
     require(contract.get("schemaVersion") == CONTRACT_SCHEMA, "source provenance contract schema mismatch")
     require(contract.get("identityDomain") == "ash-p06-production-source-v1", "source identity domain mismatch")
     coverage = require_mapping(contract["coverage"], "contract.coverage")
-    require_exact_keys(coverage, ("roots", "fileExtensions", "fileNameToken"), "contract.coverage")
+    require_exact_keys(coverage, ("roots", "fileExtensions"), "contract.coverage")
     roots = require_list(coverage["roots"], "contract.coverage.roots")
     extensions = require_list(coverage["fileExtensions"], "contract.coverage.fileExtensions")
-    token = require_string(coverage["fileNameToken"], "contract.coverage.fileNameToken")
     require(roots == sorted(set(roots)) and roots, "coverage roots must be nonempty, unique, and sorted")
     require(extensions == sorted(set(extensions)) and extensions, "coverage extensions must be nonempty, unique, and sorted")
     for index, root in enumerate(roots):
@@ -160,12 +159,12 @@ def load_contract(path: Path, repository: Path) -> tuple[dict[str, Any], str]:
     discovered: set[str] = set(additional)
     for root in roots:
         for candidate in (repository / root).rglob("*"):
-            if (
-                candidate.is_file()
-                and not candidate.is_symlink()
-                and candidate.suffix in extensions
-                and token in candidate.name
-            ):
+            if candidate.suffix in extensions and candidate.is_symlink():
+                raise SourceIdentityError(
+                    "shipping source closure contains a symbolic link: "
+                    + candidate.relative_to(repository).as_posix()
+                )
+            if candidate.is_file() and candidate.suffix in extensions:
                 discovered.add(candidate.relative_to(repository).as_posix())
     require(
         sources == sorted(discovered),

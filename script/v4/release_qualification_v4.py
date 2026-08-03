@@ -50,6 +50,40 @@ RECOVERY_SCENARIO_SCHEMA = "mirmir-v4-recovery-scenario-evidence-v1"
 RECOVERY_SEMANTIC_SCHEMA = "mirmir-v4-recovery-semantic-output-v1"
 RECOVERY_SUITE_MANIFEST_SCHEMA = "mirmir-v4-recovery-evidence-manifest-v1"
 RECOVERY_TRANSCRIPT_SCHEMA = "mirmir-v4-recovery-fault-transcript-v1"
+PARITY_REPORT_SCHEMA = "mirmir-ash-v4-cpu-metal-parity-report-v2"
+PARITY_COMPARISON = (
+    "exact_visible_plane_attachment_timeline_checkpoint_and_resume_bytes"
+)
+PARITY_REQUIRED_COVERAGE = (
+    "nv12_video_range",
+    "nv12_full_range",
+    "p010_video_range",
+    "p010_full_range",
+    "alpha_straight",
+    "alpha_premultiplied",
+    "hdr_attachment_semantics",
+    "odd_legal_dimensions",
+    "stride_padding_adversary",
+    "arbitrary_rational_phase",
+    "temporal_history",
+    "temporal_reset",
+    "scene_cut",
+    "interlaced_tff",
+    "interlaced_bff",
+    "double_rate_field_timing",
+    "combing_reconstruction",
+    "telecine_3_2",
+    "cadence_transition",
+    "dominance_transition",
+    "interlaced_scene_cut",
+    "checkpoint_resume",
+    "exact_timing_semantics",
+    "exact_attachment_semantics",
+    "progressive_attachment_normalization",
+    "repeat_execution",
+    "cross_process",
+    "tile_schedule",
+)
 
 SUPPORT_REPLAY_SPEC = importlib.util.spec_from_file_location(
     "support_matrix_v4_for_release_qualification",
@@ -59,6 +93,34 @@ if SUPPORT_REPLAY_SPEC is None or SUPPORT_REPLAY_SPEC.loader is None:
     raise RuntimeError("support-matrix replay evaluator cannot be loaded")
 support_replay = importlib.util.module_from_spec(SUPPORT_REPLAY_SPEC)
 SUPPORT_REPLAY_SPEC.loader.exec_module(support_replay)
+
+PARITY_REPLAY_SPEC = importlib.util.spec_from_file_location(
+    "cpu_metal_parity_v4_for_release_qualification",
+    SCRIPT_DIRECTORY / "cpu_metal_parity_v4.py",
+)
+if PARITY_REPLAY_SPEC is None or PARITY_REPLAY_SPEC.loader is None:
+    raise RuntimeError("CPU/Metal parity replay evaluator cannot be loaded")
+parity_replay = importlib.util.module_from_spec(PARITY_REPLAY_SPEC)
+PARITY_REPLAY_SPEC.loader.exec_module(parity_replay)
+
+P05_REPLAY_SPEC = importlib.util.spec_from_file_location(
+    "p05_baseline_v4",
+    SCRIPT_DIRECTORY / "p05_baseline_v4.py",
+)
+if P05_REPLAY_SPEC is None or P05_REPLAY_SPEC.loader is None:
+    raise RuntimeError("P05 baseline identity evaluator cannot be loaded")
+p05_replay = importlib.util.module_from_spec(P05_REPLAY_SPEC)
+sys.modules["p05_baseline_v4"] = p05_replay
+P05_REPLAY_SPEC.loader.exec_module(p05_replay)
+
+QUALITY_REPLAY_SPEC = importlib.util.spec_from_file_location(
+    "quality_gate_v4_for_release_qualification",
+    SCRIPT_DIRECTORY / "quality_gate_v4.py",
+)
+if QUALITY_REPLAY_SPEC is None or QUALITY_REPLAY_SPEC.loader is None:
+    raise RuntimeError("quality raw-plane replay evaluator cannot be loaded")
+quality_replay = importlib.util.module_from_spec(QUALITY_REPLAY_SPEC)
+QUALITY_REPLAY_SPEC.loader.exec_module(quality_replay)
 
 
 class QualificationError(ValueError):
@@ -583,6 +645,15 @@ def validate_quality(
     )
     if embedded != load_json(quality_contract_path):
         raise QualificationError("quality embedded contract differs from its bound contract file")
+    report_path = checked_path(
+        evidence_root, entry["path"], "quality report path"
+    )
+    try:
+        quality_replay.verify_report(report_path, quality_contract_path)
+    except (SystemExit, ValueError) as error:
+        raise QualificationError(
+            f"quality raw-plane replay failed: {error}"
+        ) from error
     components = require_list(embedded.get("components"), "quality.contract.components")
     weights: dict[str, float] = {}
     for index, item in enumerate(components):
@@ -594,7 +665,9 @@ def validate_quality(
     if not math.isclose(math.fsum(weights.values()), 1.0, rel_tol=0, abs_tol=1e-15):
         raise QualificationError("quality component weights do not sum to one")
     expected_crop_identity = sha256_bytes(
-        canonical_bytes([{item["id"]: item["crop"]} for item in components])
+        quality_replay.canonical_bytes(
+            [{item["id"]: item["crop"]} for item in components]
+        )
     )
     if identities["cropRuleSHA256"] != expected_crop_identity:
         raise QualificationError("quality crop-rule identity mismatch")
@@ -603,7 +676,7 @@ def validate_quality(
     )
     metric_model_identity = sha256_bytes(
         b"mirmir-analytic-quality-model-v1\0"
-        + canonical_bytes(components)
+        + quality_replay.canonical_bytes(components)
         + bytes.fromhex(metric_tool_binding["sha256"])
     )
     if identities["metricModelSHA256"] != metric_model_identity:
@@ -781,7 +854,6 @@ def validate_quality(
         raise QualificationError("quality corpus artifact-set identity mismatch")
     if identities.get("corpusArtifactSetSHA256") != computed_corpus_set:
         raise QualificationError("quality report corpus artifact-set identity mismatch")
-    report_path = checked_path(evidence_root, entry["path"], "quality report path")
     capture_path = report_path.parent / "capture-manifest.json"
     if not capture_path.is_file() or capture_path.resolve() not in sealed_paths:
         raise QualificationError("quality capture manifest is absent from the sealed suite")
@@ -1452,22 +1524,124 @@ def validate_parity(
     sealed_paths: set[Path],
 ) -> dict[str, Any]:
     label = "cpu_metal_parity"
-    validate_common_report(report, candidate, contract["evidenceSchemas"][label], contract_sha, label)
-    identities = require_mapping(report.get("identities"), "parity.identities")
+    validate_common_report(
+        report,
+        candidate,
+        contract["evidenceSchemas"][label],
+        contract_sha,
+        label,
+    )
+    require_exact_keys(
+        report,
+        {
+            "schemaVersion",
+            "contractSHA256",
+            "candidate",
+            "releaseEligible",
+            "identities",
+            "comparison",
+            "coverage",
+            "cases",
+            "byteParityGatePass",
+        },
+        "parity report",
+    )
+    if contract["evidenceSchemas"][label] != PARITY_REPORT_SCHEMA:
+        raise QualificationError("release contract does not require parity-v2")
+    if tuple(contract["parityCoverage"]) != PARITY_REQUIRED_COVERAGE:
+        raise QualificationError("release contract parity coverage is weakened or reordered")
+    lane_contract_sha = require_hex(
+        contract.get("parityLaneContractSHA256"),
+        64,
+        "parityLaneContractSHA256",
+    )
+    if lane_contract_sha != contract_sha:
+        raise QualificationError("parity lane contract identity is not release-locked")
+    locked_sources = require_mapping(
+        contract.get("parityLockedSources"), "parityLockedSources"
+    )
     parity_identity_keys = {
         "captureSourceSHA256",
         "evaluatorSHA256",
         "runnerSHA256",
     }
+    require_exact_keys(locked_sources, parity_identity_keys, "parityLockedSources")
+    for key in parity_identity_keys:
+        require_hex(locked_sources[key], 64, f"parityLockedSources.{key}")
+    local_sources = {
+        "captureSourceSHA256": SCRIPT_DIRECTORY
+        / "ParityQualificationCaptureTests.swift",
+        "evaluatorSHA256": SCRIPT_DIRECTORY / "cpu_metal_parity_v4.py",
+        "runnerSHA256": SCRIPT_DIRECTORY / "run_cpu_metal_parity_v4.sh",
+    }
+    for key, path in local_sources.items():
+        if sha256(path) != locked_sources[key]:
+            raise QualificationError(f"release-locked parity source is stale: {key}")
+    identities = require_mapping(report.get("identities"), "parity.identities")
     require_exact_keys(identities, parity_identity_keys, "parity.identities")
     for key in parity_identity_keys:
         require_hex(identities[key], 64, f"parity.identities.{key}")
-    if report.get("comparison") != "exact_visible_plane_and_attachment_bytes":
-        raise QualificationError("parity comparison is not byte exact")
+        if identities[key] != locked_sources[key]:
+            raise QualificationError(f"parity source differs from release lock: {key}")
+    if report.get("comparison") != PARITY_COMPARISON:
+        raise QualificationError("parity comparison omits required v2 semantics")
+    report_coverage = require_list(report.get("coverage"), "parity.coverage")
+    if tuple(report_coverage) != PARITY_REQUIRED_COVERAGE:
+        raise QualificationError("parity report coverage is incomplete or reordered")
+
+    report_path = checked_path(evidence_root, entry["path"], "parity report path")
+    if report_path not in sealed_paths:
+        raise QualificationError("parity report is outside the sealed evidence suite")
+    if report_path.name != "cpu-metal-parity-report.json":
+        raise QualificationError("parity report does not use the locked runner layout")
+    parity_root = report_path.parent.resolve()
+
+    def bound_path(pointer: str, expected_name: str) -> Path:
+        matches = [
+            require_mapping(item, "parity identity binding")
+            for item in require_list(
+                entry["identityBindings"], "parity.identityBindings"
+            )
+            if isinstance(item, dict) and item.get("jsonPointer") == pointer
+        ]
+        if len(matches) != 1:
+            raise QualificationError(f"parity binding is missing or repeated: {pointer}")
+        path, _ = validate_artifact(
+            evidence_root,
+            matches[0],
+            f"parity binding {pointer}",
+            allowed_extra_keys={"jsonPointer"},
+        )
+        if path not in sealed_paths or path.name != expected_name:
+            raise QualificationError(f"parity binding layout differs: {pointer}")
+        try:
+            path.relative_to(parity_root)
+        except ValueError as error:
+            raise QualificationError(
+                f"parity binding lies outside the nested parity suite: {pointer}"
+            ) from error
+        return path
+
+    lane_contract_path = bound_path(
+        "/contractSHA256", "cpu-metal-parity-contract-v2.json"
+    )
+    capture_source_path = bound_path(
+        "/identities/captureSourceSHA256",
+        "ParityQualificationCaptureTests.swift",
+    )
+    evaluator_path = bound_path(
+        "/identities/evaluatorSHA256", "cpu_metal_parity_v4.py"
+    )
+    runner_path = bound_path(
+        "/identities/runnerSHA256", "run_cpu_metal_parity_v4.sh"
+    )
+    if sha256(lane_contract_path) != lane_contract_sha:
+        raise QualificationError("nested parity contract differs from release lock")
+
     cases = require_list(report.get("cases"), "parity.cases")
-    required = set(contract["parityCoverage"])
+    required = set(PARITY_REQUIRED_COVERAGE)
     covered: set[str] = set()
-    identities: set[str] = set()
+    case_ids: set[str] = set()
     for index, item in enumerate(cases):
         case = require_mapping(item, f"parity.cases[{index}]")
         require_exact_keys(
@@ -1477,55 +1651,111 @@ def validate_parity(
                 "coverage",
                 "cpuVisibleArtifact",
                 "metalVisibleArtifact",
-                "cpuAttachmentsArtifact",
-                "metalAttachmentsArtifact",
+                "cpuSemanticsArtifact",
+                "metalSemanticsArtifact",
+                "cpuCheckpointSetArtifact",
+                "metalCheckpointSetArtifact",
+                "cpuResumeSetArtifact",
+                "metalResumeSetArtifact",
                 "repeatRunIdentityPass",
                 "crossProcessIdentityPass",
                 "tileScheduleIdentityPass",
+                "checkpointResumeIdentityPass",
+                "timingAndAttachmentSemanticsPass",
             },
             f"parity.cases[{index}]",
         )
         identifier = require_string(case["id"], f"parity case[{index}].id")
-        if identifier in identities:
+        if identifier in case_ids:
             raise QualificationError(f"parity repeats case: {identifier}")
-        identities.add(identifier)
-        coverage = set(require_list(case["coverage"], f"parity {identifier}.coverage"))
-        if not coverage or not coverage.issubset(required):
+        case_ids.add(identifier)
+        coverage_values = require_list(
+            case["coverage"], f"parity {identifier}.coverage"
+        )
+        coverage = set(coverage_values)
+        if (
+            not coverage
+            or len(coverage) != len(coverage_values)
+            or not coverage.issubset(required)
+        ):
             raise QualificationError(f"parity case has unexpected/empty coverage: {identifier}")
         covered.update(coverage)
-        cpu_path, cpu = validate_sealed_artifact(
-            evidence_root, case["cpuVisibleArtifact"], sealed_paths, f"parity {identifier}.cpuVisibleArtifact"
-        )
-        metal_path, metal = validate_sealed_artifact(
-            evidence_root, case["metalVisibleArtifact"], sealed_paths, f"parity {identifier}.metalVisibleArtifact"
-        )
-        cpu_attachment_path, cpu_attachments = validate_sealed_artifact(
-            evidence_root,
-            case["cpuAttachmentsArtifact"],
-            sealed_paths,
-            f"parity {identifier}.cpuAttachmentsArtifact",
-        )
-        metal_attachment_path, metal_attachments = validate_sealed_artifact(
-            evidence_root,
-            case["metalAttachmentsArtifact"],
-            sealed_paths,
-            f"parity {identifier}.metalAttachmentsArtifact",
-        )
-        if (
-            cpu_path == metal_path
-            or cpu_attachment_path == metal_attachment_path
-            or cpu != metal
-            or cpu_path.stat().st_size != metal_path.stat().st_size
-            or cpu_attachments != metal_attachments
-            or cpu_attachment_path.stat().st_size != metal_attachment_path.stat().st_size
+        for artifact_kind in (
+            "Visible",
+            "Semantics",
+            "CheckpointSet",
+            "ResumeSet",
         ):
-            raise QualificationError(f"CPU/Metal parity mismatch: {identifier}")
-        for key in ("repeatRunIdentityPass", "crossProcessIdentityPass", "tileScheduleIdentityPass"):
+            cpu_key = f"cpu{artifact_kind}Artifact"
+            metal_key = f"metal{artifact_kind}Artifact"
+            cpu_path, cpu_identity = validate_sealed_artifact(
+                parity_root,
+                case[cpu_key],
+                sealed_paths,
+                f"parity {identifier}.{cpu_key}",
+            )
+            metal_path, metal_identity = validate_sealed_artifact(
+                parity_root,
+                case[metal_key],
+                sealed_paths,
+                f"parity {identifier}.{metal_key}",
+            )
+            if (
+                cpu_path == metal_path
+                or cpu_identity != metal_identity
+                or cpu_path.stat().st_size != metal_path.stat().st_size
+            ):
+                raise QualificationError(
+                    f"CPU/Metal parity mismatch: {identifier}/{artifact_kind}"
+                )
+        for key in (
+            "repeatRunIdentityPass",
+            "crossProcessIdentityPass",
+            "tileScheduleIdentityPass",
+            "checkpointResumeIdentityPass",
+            "timingAndAttachmentSemanticsPass",
+        ):
             require_bool(case[key], f"parity {identifier}.{key}", True)
     if covered != required:
         raise QualificationError(f"parity coverage mismatch; missing={sorted(required-covered)}")
     require_bool(report.get("byteParityGatePass"), "parity.byteParityGatePass", True)
-    return {"caseCount": len(cases), "coverage": sorted(covered), "maximumByteDifference": 0}
+
+    candidate_path = parity_root / "candidate-identity.json"
+    capture_a = parity_root / "capture-a"
+    capture_b = parity_root / "capture-b"
+    manifest_path = parity_root / "artifact-manifest.json"
+    for path, path_label in (
+        (candidate_path, "candidate identity"),
+        (manifest_path, "root manifest"),
+    ):
+        if not path.is_file() or path.is_symlink() or path.resolve() not in sealed_paths:
+            raise QualificationError(f"nested parity {path_label} is missing or unsealed")
+    for path, path_label in ((capture_a, "capture-a"), (capture_b, "capture-b")):
+        if not path.is_dir() or path.is_symlink():
+            raise QualificationError(f"nested parity {path_label} is missing or symbolic")
+    try:
+        parity_replay.verify_root_manifest(parity_root, manifest_path)
+        replayed = parity_replay.evaluate(
+            lane_contract_path,
+            capture_a,
+            capture_b,
+            candidate_path,
+            capture_source_path,
+            evaluator_path,
+            runner_path,
+            parity_root,
+            allow_fixture_runtime=False,
+        )
+    except parity_replay.ParityEvidenceError as error:
+        raise QualificationError(f"nested parity replay failed: {error}") from error
+    if canonical_bytes(replayed) != canonical_bytes(report):
+        raise QualificationError("parity report differs from independent nested replay")
+    return {
+        "caseCount": len(cases),
+        "coverage": list(PARITY_REQUIRED_COVERAGE),
+        "maximumByteDifference": 0,
+        "nestedReplayPass": True,
+    }
 
 
 def media_fraction(value: Any, label: str) -> Fraction:

@@ -1,5 +1,8 @@
 # Deterministic engine v4 CPU/Metal parity qualification
 
+> Superseded by `CPU_METAL_PARITY_QUALIFICATION_V2.md`. This file describes
+> the original visible-plane/attachment gate and is retained for history.
+
 `script/v4/run_cpu_metal_parity_v4.sh` is the fail-closed M7 qualification for
 byte-identical CPU and Metal output. It archives one committed candidate,
 injects the locked capture test only into that ephemeral checkout, builds and

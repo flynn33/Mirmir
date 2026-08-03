@@ -18,6 +18,13 @@ enum FixedPointMetalExecutorV4Error: Error, Equatable, Sendable {
     case invalidComponentTransfer
 }
 
+struct FixedPointMetalDispatchBindingV4: Equatable, Hashable, Sendable {
+    let region: FixedPointOutputRegionV4
+    let horizontalPositionOffset: Int
+    let verticalPositionOffset: Int
+    let outputOffset: Int
+}
+
 /// Synchronous binding between one prepared planar Metal execution and one
 /// component inside caller-locked interleaved CV planes. The binding itself is
 /// temporary; all full-plane GPU storage remains owned by the prepared
@@ -158,6 +165,7 @@ final class FixedPointMetalPreparedExecutionV4: @unchecked Sendable {
     private let targetHeight: Int
     private let sourceByteCount: Int
     private let outputByteCount: Int
+    private let executionBindings: [FixedPointMetalDispatchBindingV4]
     fileprivate let commandQueue: MTLCommandQueue
     private let pipeline: MTLComputePipelineState
     private let sourceBuffer: MTLBuffer
@@ -179,6 +187,7 @@ final class FixedPointMetalPreparedExecutionV4: @unchecked Sendable {
         outputSampleCount: Int,
         sourceByteCount: Int,
         outputByteCount: Int,
+        executionBindings: [FixedPointMetalDispatchBindingV4],
         commandQueue: MTLCommandQueue,
         pipeline: MTLComputePipelineState,
         sourceBuffer: MTLBuffer,
@@ -199,6 +208,7 @@ final class FixedPointMetalPreparedExecutionV4: @unchecked Sendable {
         self.outputSampleCount = outputSampleCount
         self.sourceByteCount = sourceByteCount
         self.outputByteCount = outputByteCount
+        self.executionBindings = executionBindings
         self.commandQueue = commandQueue
         self.pipeline = pipeline
         self.sourceBuffer = sourceBuffer
@@ -312,19 +322,42 @@ final class FixedPointMetalPreparedExecutionV4: @unchecked Sendable {
         }
     }
 
+    var executionRegionsForQualification: [FixedPointOutputRegionV4] {
+        executionBindings.map(\.region)
+    }
+
+    var dispatchBindingsForQualification: [FixedPointMetalDispatchBindingV4] {
+        executionBindings
+    }
+
     fileprivate func encode(into encoder: MTLComputeCommandEncoder) {
         encoder.setComputePipelineState(pipeline)
         encoder.setBuffer(sourceBuffer, offset: 0, index: 0)
-        encoder.setBuffer(horizontalPositionBuffer, offset: 0, index: 1)
-        encoder.setBuffer(verticalPositionBuffer, offset: 0, index: 2)
         encoder.setBuffer(horizontalCoefficientBuffer, offset: 0, index: 3)
         encoder.setBuffer(verticalCoefficientBuffer, offset: 0, index: 4)
-        encoder.setBuffer(outputBuffer, offset: 0, index: 5)
         encoder.setBuffer(uniformBuffer, offset: 0, index: 6)
-        encoder.dispatchThreads(
-            MTLSize(width: targetWidth, height: targetHeight, depth: 1),
-            threadsPerThreadgroup: threadsPerThreadgroup
-        )
+        for binding in executionBindings {
+            let region = binding.region
+            encoder.setBuffer(
+                horizontalPositionBuffer,
+                offset: binding.horizontalPositionOffset,
+                index: 1
+            )
+            encoder.setBuffer(
+                verticalPositionBuffer,
+                offset: binding.verticalPositionOffset,
+                index: 2
+            )
+            encoder.setBuffer(
+                outputBuffer,
+                offset: binding.outputOffset,
+                index: 5
+            )
+            encoder.dispatchThreads(
+                MTLSize(width: region.width, height: region.height, depth: 1),
+                threadsPerThreadgroup: threadsPerThreadgroup
+            )
+        }
     }
 
     fileprivate func makeCommandBuffer() throws -> MTLCommandBuffer {
@@ -579,14 +612,19 @@ final class FixedPointMetalExecutorV4: @unchecked Sendable {
         scalePlan: SpatialScalePlanV4,
         kernelIR: FixedPointKernelIRV4,
         minimumCode: UInt16,
-        maximumCode: UInt16
+        maximumCode: UInt16,
+        executionSchedule: FixedPointExecutionScheduleV4 = .productionFullFrame
     ) async throws -> [UInt16] {
         let prepared = try prepare(
             sourceRowStride: sourceRowStride,
             scalePlan: scalePlan,
             kernelIR: kernelIR,
             minimumCode: minimumCode,
-            maximumCode: maximumCode
+            maximumCode: maximumCode,
+            executionRegions: try executionSchedule.regions(
+                targetWidth: scalePlan.targetWidth,
+                targetHeight: scalePlan.targetHeight
+            )
         )
         return try await prepared.execute(source: source)
     }
@@ -596,7 +634,8 @@ final class FixedPointMetalExecutorV4: @unchecked Sendable {
         scalePlan: SpatialScalePlanV4,
         kernelIR: FixedPointKernelIRV4,
         minimumCode: UInt16,
-        maximumCode: UInt16
+        maximumCode: UInt16,
+        executionRegions: [FixedPointOutputRegionV4]? = nil
     ) throws -> FixedPointMetalPreparedExecutionV4 {
         guard minimumCode <= maximumCode else {
             throw FixedPointKernelV4Error.invalidCodeBounds(
@@ -607,6 +646,18 @@ final class FixedPointMetalExecutorV4: @unchecked Sendable {
         let preparedScale = try FixedPointPreparedScaleV4(
             scalePlan: scalePlan,
             kernelIR: kernelIR
+        )
+        let resolvedExecutionRegions = executionRegions
+            ?? [FixedPointOutputRegionV4(
+                originX: 0,
+                originY: 0,
+                width: scalePlan.targetWidth,
+                height: scalePlan.targetHeight
+            )]
+        try FixedPointOutputRegionV4.validateExactCoverage(
+            resolvedExecutionRegions,
+            targetWidth: scalePlan.targetWidth,
+            targetHeight: scalePlan.targetHeight
         )
         let (sourceSampleCount, sourceCountOverflow) = sourceRowStride
             .multipliedReportingOverflow(by: scalePlan.sourceHeight)
@@ -648,6 +699,21 @@ final class FixedPointMetalExecutorV4: @unchecked Sendable {
         guard !sourceByteCountOverflow, !outputByteCountOverflow else {
             throw FixedPointKernelV4Error.executionArithmeticOverflow
         }
+        let horizontalPositionBytes = horizontalPositions.count
+            .multipliedReportingOverflow(by: MemoryLayout<Position>.stride)
+        let verticalPositionBytes = verticalPositions.count
+            .multipliedReportingOverflow(by: MemoryLayout<Position>.stride)
+        guard !horizontalPositionBytes.overflow,
+              !verticalPositionBytes.overflow else {
+            throw FixedPointKernelV4Error.executionArithmeticOverflow
+        }
+        let executionBindings = try makeDispatchBindings(
+            regions: resolvedExecutionRegions,
+            targetWidth: scalePlan.targetWidth,
+            horizontalPositionByteCount: horizontalPositionBytes.partialValue,
+            verticalPositionByteCount: verticalPositionBytes.partialValue,
+            outputByteCount: outputByteCount
+        )
         let sourceBuffer = try makeEmptyBuffer(
             byteCount: sourceByteCount,
             label: "v4 source"
@@ -707,6 +773,7 @@ final class FixedPointMetalExecutorV4: @unchecked Sendable {
             outputSampleCount: preparedScale.outputSampleCount,
             sourceByteCount: sourceByteCount,
             outputByteCount: outputByteCount,
+            executionBindings: executionBindings,
             commandQueue: commandQueue,
             pipeline: pipeline,
             sourceBuffer: sourceBuffer,
@@ -722,6 +789,82 @@ final class FixedPointMetalExecutorV4: @unchecked Sendable {
                 depth: 1
             )
         )
+    }
+
+    private func makeDispatchBindings(
+        regions: [FixedPointOutputRegionV4],
+        targetWidth: Int,
+        horizontalPositionByteCount: Int,
+        verticalPositionByteCount: Int,
+        outputByteCount: Int
+    ) throws -> [FixedPointMetalDispatchBindingV4] {
+        try regions.map { region in
+            let horizontal = region.originX.multipliedReportingOverflow(
+                by: MemoryLayout<Position>.stride
+            )
+            let vertical = region.originY.multipliedReportingOverflow(
+                by: MemoryLayout<Position>.stride
+            )
+            let outputRow = region.originY.multipliedReportingOverflow(
+                by: targetWidth
+            )
+            let outputSample = outputRow.partialValue.addingReportingOverflow(
+                region.originX
+            )
+            let output = outputSample.partialValue.multipliedReportingOverflow(
+                by: MemoryLayout<UInt16>.stride
+            )
+            let horizontalSpan = region.width.multipliedReportingOverflow(
+                by: MemoryLayout<Position>.stride
+            )
+            let verticalSpan = region.height.multipliedReportingOverflow(
+                by: MemoryLayout<Position>.stride
+            )
+            let horizontalEnd = horizontal.partialValue.addingReportingOverflow(
+                horizontalSpan.partialValue
+            )
+            let verticalEnd = vertical.partialValue.addingReportingOverflow(
+                verticalSpan.partialValue
+            )
+            let finalRow = (region.endY - 1).multipliedReportingOverflow(
+                by: targetWidth
+            )
+            let finalSample = finalRow.partialValue.addingReportingOverflow(
+                region.endX
+            )
+            let outputEnd = finalSample.partialValue.multipliedReportingOverflow(
+                by: MemoryLayout<UInt16>.stride
+            )
+            guard !horizontal.overflow,
+                  !vertical.overflow,
+                  !outputRow.overflow,
+                  !outputSample.overflow,
+                  !output.overflow,
+                  !horizontalSpan.overflow,
+                  !verticalSpan.overflow,
+                  !horizontalEnd.overflow,
+                  !verticalEnd.overflow,
+                  !finalRow.overflow,
+                  !finalSample.overflow,
+                  !outputEnd.overflow,
+                  horizontal.partialValue
+                    .isMultiple(of: MemoryLayout<Position>.alignment),
+                  vertical.partialValue
+                    .isMultiple(of: MemoryLayout<Position>.alignment),
+                  output.partialValue
+                    .isMultiple(of: MemoryLayout<UInt16>.alignment),
+                  horizontalEnd.partialValue <= horizontalPositionByteCount,
+                  verticalEnd.partialValue <= verticalPositionByteCount,
+                  outputEnd.partialValue <= outputByteCount else {
+                throw FixedPointKernelV4Error.invalidExecutionRegion
+            }
+            return FixedPointMetalDispatchBindingV4(
+                region: region,
+                horizontalPositionOffset: horizontal.partialValue,
+                verticalPositionOffset: vertical.partialValue,
+                outputOffset: output.partialValue
+            )
+        }
     }
 
     private func makePositions(

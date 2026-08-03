@@ -8,8 +8,10 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 
 SCRIPT_DIRECTORY = Path(__file__).resolve().parent
@@ -25,6 +27,96 @@ class QualityGateV4Tests(unittest.TestCase):
     def setUp(self) -> None:
         self.contract = SCRIPT_DIRECTORY / "quality-gate-contract-v1.json"
 
+    def sealEvidence(self, root: Path) -> None:
+        seal_path = root / "artifact-manifest.json"
+        if seal_path.exists():
+            seal_path.unlink()
+        sealed = []
+        for path in sorted(root.rglob("*")):
+            if path.is_file() and path.name != "artifact-manifest.json":
+                sealed.append(
+                    {
+                        "path": path.relative_to(root).as_posix(),
+                        "byteCount": path.stat().st_size,
+                        "sha256": quality_gate.sha256(path),
+                    }
+                )
+        quality_gate.write_json(
+            seal_path,
+            {
+                "schemaVersion": "mirmir-ash-v4-quality-evidence-manifest-v1",
+                "artifacts": sealed,
+            },
+        )
+
+    def materializeValidEvidence(self, root: Path) -> tuple[Path, Path]:
+        contract = json.loads(self.contract.read_text())
+        contract["bootstrap"]["replicateCount"] = 32
+        contract["cohortConstraints"]["minimumClipsPerCohort"] = 1
+        contract["cohortConstraints"]["minimumFramesPerClip"] = 2
+        contract["corpusConstruction"]["syntheticDiagnosticClipCountPerCohort"] = 1
+        contract["corpusConstruction"]["syntheticDiagnosticFramesPerClip"] = 2
+        contract_path = root / "quality-gate-contract-v1.json"
+        quality_gate.write_json(contract_path, contract)
+
+        corpus_stage = root / "corpus-stage"
+        with contextlib.redirect_stdout(io.StringIO()):
+            quality_gate.generate_corpus(contract_path, corpus_stage)
+        shutil.move(str(corpus_stage / "artifacts"), str(root / "artifacts"))
+        shutil.move(
+            str(corpus_stage / "corpus-manifest.json"),
+            str(root / "corpus-manifest.json"),
+        )
+        corpus_stage.rmdir()
+        corpus_path = root / "corpus-manifest.json"
+        corpus = json.loads(corpus_path.read_text())
+
+        capture_cases = []
+        for case_index, case in enumerate(corpus["cases"]):
+            reference = root / case["referenceFile"]
+            reference_bytes = reference.read_bytes()
+            shift = 1 + case_index % 3
+            transformed = reference_bytes[-shift:] + reference_bytes[:-shift]
+            outputs = {}
+            milliseconds = {}
+            for variant_index, variant in enumerate(quality_gate.VARIANTS):
+                relative = f"artifacts/{case['id']}-{variant}.nv12"
+                (root / relative).write_bytes(transformed)
+                outputs[variant] = relative
+                milliseconds[variant] = float(variant_index + 1)
+            capture_cases.append(
+                {"id": case["id"], "outputs": outputs, "milliseconds": milliseconds}
+            )
+
+        identity = quality_gate.p05.frozen_identity(contract)
+        capture = {
+            "schemaVersion": quality_gate.SCHEMA_CAPTURE,
+            "contractSHA256": quality_gate.sha256(contract_path),
+            "corpusManifestSHA256": quality_gate.sha256(corpus_path),
+            "sourceCommit": "b" * 40,
+            "sourceTreeIdentitySHA256": "c" * 64,
+            "candidateBackendID": "mirmir_deterministic_cpu",
+            "candidateImplementationVersion": "ash-p06-test",
+            "runtimeManifestSHA256": "d" * 64,
+            "runtimeSourceRevision": "a" * 64,
+            "productionRuntimeLocked": False,
+            "fullMirrorIdentityPass": True,
+            "warmupCount": 1,
+            "baselineIdentity": identity,
+            "baselineImplementationVersion": identity["implementationVersion"],
+            "baselineWarmupCount": 1,
+            "cases": capture_cases,
+        }
+        capture_path = root / "capture-manifest.json"
+        quality_gate.write_json(capture_path, capture)
+        report_path = root / "quality-gate-report.json"
+        with contextlib.redirect_stdout(io.StringIO()):
+            quality_gate.evaluate(
+                contract_path, corpus_path, capture_path, report_path
+            )
+        self.sealEvidence(root)
+        return report_path, contract_path
+
     def testCaptureMirrorIncludesCanonicalMotionAndSpatialPaths(self) -> None:
         source = (SCRIPT_DIRECTORY / "QualityGateCaptureTests.swift").read_text(
             encoding="utf-8"
@@ -33,6 +125,9 @@ class QualityGateV4Tests(unittest.TestCase):
         self.assertIn("ASHSpatialReconstructorV4.reconstruct(", source)
         self.assertIn("uniformSpatialReconstruction(", source)
         self.assertIn("fullMirrorIdentityPass", source)
+        self.assertNotIn("ASHDeterministicUpscaleBackend", source)
+        self.assertNotIn("developmentP05", source)
+        self.assertIn("mirmir-ash-v4-quality-candidate-capture-v1", source)
 
     def testSyntheticCorpusReproducesByteForByte(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ash-quality-test-") as temporary:
@@ -71,6 +166,40 @@ class QualityGateV4Tests(unittest.TestCase):
                 quality_gate.validate_artifacts(corpus, manifest["artifacts"])
             with self.assertRaisesRegex(ValueError, "escapes root"):
                 quality_gate.checked_relative(corpus, "../outside")
+
+    def testMutatedP05IdentityFailsBeforeScoring(self) -> None:
+        contract = json.loads(self.contract.read_text())
+        identity = quality_gate.p05.frozen_identity(contract)
+        identity["executableSHA256"] = "f" * 64
+        with tempfile.TemporaryDirectory(prefix="ash-quality-test-") as temporary:
+            root = Path(temporary)
+            contract_path = root / "contract.json"
+            corpus_path = root / "corpus.json"
+            capture_path = root / "capture.json"
+            quality_gate.write_json(contract_path, contract)
+            quality_gate.write_json(
+                corpus_path, {"schemaVersion": quality_gate.SCHEMA_CORPUS}
+            )
+            quality_gate.write_json(
+                capture_path,
+                {
+                    "schemaVersion": quality_gate.SCHEMA_CAPTURE,
+                    "baselineIdentity": identity,
+                },
+            )
+            with mock.patch.object(
+                quality_gate,
+                "component_errors",
+                side_effect=AssertionError("scoring must not execute"),
+            ) as scoring:
+                with self.assertRaisesRegex(SystemExit, "frozen P05 identity"):
+                    quality_gate.evaluate(
+                        contract_path,
+                        corpus_path,
+                        capture_path,
+                        root / "report.json",
+                    )
+                scoring.assert_not_called()
 
     def testReportCannotPromoteSyntheticOrUnlockedRuntime(self) -> None:
         digest = "0" * 64
@@ -124,142 +253,60 @@ class QualityGateV4Tests(unittest.TestCase):
         generator = quality_gate.SplitMix64(1095977012)
         self.assertEqual([generator.index(7) for _ in range(8)], [4, 2, 0, 6, 2, 5, 5, 5])
 
-    def testVerifierRecomputesSummariesAndRejectsSemanticTamper(self) -> None:
-        contract = json.loads(self.contract.read_text())
-        cohorts = contract["cohortConstraints"]["contentCohorts"]
-        weights = {item["id"]: float(item["weight"]) for item in contract["components"]}
-        per_clip = []
-        metrics = {}
-        clips_by_cohort = {cohort: [] for cohort in cohorts}
-        for cohort in cohorts:
-            for index in range(4):
-                clip_id = f"{cohort}-fixture-{index}"
-                clips_by_cohort[cohort].append(clip_id)
-                components = {
-                    variant: {
-                        component: 1.0 if variant == "baseline_p05" else 0.9
-                        for component in weights
-                    }
-                    for variant in quality_gate.VARIANTS
-                }
-                metrics[clip_id] = components
-                per_clip.append(
-                    {
-                        "clipID": clip_id,
-                        "cohort": cohort,
-                        "pixelFormat": "420v" if index % 2 == 0 else "420f",
-                        "frameCount": 6,
-                        "components": components,
-                    }
-                )
-        summaries = {}
-        for variant in quality_gate.VARIANTS:
-            aggregate, by_cohort, error, quality = quality_gate.aggregate_ratios(
-                metrics, clips_by_cohort, variant, weights
-            )
-            summaries[variant] = {
-                "normalizedComponents": aggregate,
-                "normalizedComponentsByCohort": by_cohort,
-                "weightedError": error,
-                "qualityIndex": quality,
-            }
-        candidate = summaries["candidate_v4"]
-        candidate["pairedBootstrap95PercentCI"] = {
-            "lower": candidate["qualityIndex"],
-            "upper": candidate["qualityIndex"],
-            "replicateCount": 10000,
-            "lowerOrderStatisticIndex": 250,
-        }
-        luma_id = "luma_multiscale_structural_error"
-        temporal_id = "motion_compensated_temporal_flicker_error"
-        luma = {
-            cohort: candidate["normalizedComponentsByCohort"][cohort][luma_id]
-            for cohort in cohorts
-        }
-        temporal = {
-            cohort: candidate["normalizedComponentsByCohort"][cohort][temporal_id]
-            for cohort in contract["cohortConstraints"]["temporalNonRegressionCohorts"]
-        }
-        gates = {
-            "identityPass": True,
-            "naturalCorpusEligibilityPass": False,
-            "productionRuntimeLockPass": False,
-            "requiredAblationsPresentPass": True,
-            "qualityPointEstimatePass": True,
-            "qualityLowerConfidenceBoundPass": True,
-            "allCohortLumaNonRegressionPass": True,
-            "temporalCohortNonRegressionPass": True,
-            "candidateBackendIdentityPass": True,
-            "fullMirrorIdentityPass": True,
-            "releaseQualityGatePass": False,
-        }
-        tool = SCRIPT_DIRECTORY / "quality_gate_v4.py"
-        capture_source = SCRIPT_DIRECTORY / "QualityGateCaptureTests.swift"
-        tool_identity = quality_gate.sha256(tool)
-        crop_identity = quality_gate.sha256_bytes(
-            quality_gate.canonical_bytes(
-                [{item["id"]: item["crop"]} for item in contract["components"]]
-            )
-        )
-        model_identity = quality_gate.sha256_bytes(
-            b"mirmir-analytic-quality-model-v1\0"
-            + quality_gate.canonical_bytes(contract["components"])
-            + bytes.fromhex(tool_identity)
-        )
-        digest = "0" * 64
-        report = {
-            "schemaVersion": quality_gate.SCHEMA_REPORT,
-            "contract": contract,
-            "identities": {
-                "contractSHA256": quality_gate.sha256(self.contract),
-                "metricToolSHA256": tool_identity,
-                "captureTestSourceSHA256": quality_gate.sha256(capture_source),
-                "corpusManifestSHA256": digest,
-                "corpusArtifactSetSHA256": digest,
-                "runtimeManifestSHA256": digest,
-                "runtimeSourceRevision": "a" * 40,
-                "sourceCommit": "b" * 40,
-                "sourceTreeIdentitySHA256": digest,
-                "cropRuleSHA256": crop_identity,
-                "metricModelSHA256": model_identity,
-                "outputSetSHA256": {
-                    variant: digest for variant in quality_gate.VARIANTS
-                },
-            },
-            "corpus": {
-                "corpusID": "semantic-verifier-fixture",
-                "corpusKind": "synthetic_diagnostic",
-                "releaseEligible": False,
-                "limitations": ["test fixture"],
-                "clipCount": 28,
-                "caseCount": 168,
-                "cohorts": cohorts,
-            },
-            "runtime": {
-                "candidateBackendID": "mirmir_deterministic_cpu",
-                "candidateImplementationVersion": "test",
-                "baselineImplementationVersion": "test",
-                "productionRuntimeLocked": False,
-                "fullMirrorIdentityPass": True,
-            },
-            "quality": {
-                "summaries": summaries,
-                "perCohortLumaCandidateToBaselineRatio": luma,
-                "temporalCandidateToBaselineRatio": temporal,
-                "gates": gates,
-            },
-            "timingDiagnostic": {"releasePerformanceGateEligible": False},
-            "perClip": per_clip,
-        }
+    def testVerifierReplaysSealedPlanesAndRejectsMissingEvidence(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ash-quality-test-") as temporary:
-            path = Path(temporary) / "report.json"
-            quality_gate.write_json(path, report)
+            root = Path(temporary)
+            report_path, contract_path = self.materializeValidEvidence(root)
             with contextlib.redirect_stdout(io.StringIO()):
-                quality_gate.verify_report(path)
-            report["quality"]["summaries"]["candidate_v4"]["qualityIndex"] += 1.0
-            quality_gate.write_json(path, report)
-            with self.assertRaisesRegex(SystemExit, "report value mismatch"):
-                quality_gate.verify_report(path)
+                quality_gate.verify_report(report_path, contract_path)
+
+            capture = json.loads((root / "capture-manifest.json").read_text())
+            capture_artifact = root / capture["cases"][0]["outputs"]["candidate_v4"]
+            capture_bytes = capture_artifact.read_bytes()
+            capture_artifact.unlink()
+            with self.assertRaisesRegex(ValueError, "missing artifact"):
+                quality_gate.verify_report(report_path, contract_path)
+            capture_artifact.write_bytes(capture_bytes)
+
+            seal_path = root / "artifact-manifest.json"
+            seal_bytes = seal_path.read_bytes()
+            seal_path.unlink()
+            with self.assertRaisesRegex(SystemExit, "evidence seal is absent"):
+                quality_gate.verify_report(report_path, contract_path)
+            seal_path.write_bytes(seal_bytes)
+
+    def testFullyResealedForgedPerClipMetricFailsRawReplay(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ash-quality-test-") as temporary:
+            root = Path(temporary)
+            report_path, contract_path = self.materializeValidEvidence(root)
+            report = json.loads(report_path.read_text())
+            report["perClip"][0]["components"]["candidate_v4"][
+                "luma_multiscale_structural_error"
+            ] += 0.125
+            quality_gate.write_json(report_path, report)
+            self.sealEvidence(root)
+            with self.assertRaisesRegex(
+                SystemExit, "perClip metrics differ from sealed raw-plane replay"
+            ):
+                quality_gate.verify_report(report_path, contract_path)
+
+    def testOuterReleaseEnvelopeDoesNotWeakenRecursiveSeal(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ash-quality-test-") as temporary:
+            root = Path(temporary)
+            report_path, contract_path = self.materializeValidEvidence(root)
+            quality_gate.write_json(
+                root / "sealed-manifest.json",
+                {
+                    "schemaVersion": "mirmir-test-sealed-evidence-v1",
+                    "artifacts": [],
+                },
+            )
+            with contextlib.redirect_stdout(io.StringIO()):
+                quality_gate.verify_report(report_path, contract_path)
+
+            (root / "unrelated-unsealed.bin").write_bytes(b"unsealed")
+            with self.assertRaisesRegex(SystemExit, "sealed file set mismatch"):
+                quality_gate.verify_report(report_path, contract_path)
 
 
 if __name__ == "__main__":

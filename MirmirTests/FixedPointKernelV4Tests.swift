@@ -2,6 +2,200 @@ import XCTest
 @testable import Mirmir
 
 final class FixedPointKernelV4Tests: XCTestCase {
+    func testQualificationSchedulesHaveExactDisjointCoverageAndStableOrder()
+        throws {
+        let rowMajor = try FixedPointExecutionScheduleV4
+            .qualificationRowMajor3x2.regions(
+                targetWidth: 11,
+                targetHeight: 7
+            )
+        XCTAssertEqual(rowMajor, [
+            FixedPointOutputRegionV4(originX: 0, originY: 0, width: 3, height: 3),
+            FixedPointOutputRegionV4(originX: 3, originY: 0, width: 4, height: 3),
+            FixedPointOutputRegionV4(originX: 7, originY: 0, width: 4, height: 3),
+            FixedPointOutputRegionV4(originX: 0, originY: 3, width: 3, height: 4),
+            FixedPointOutputRegionV4(originX: 3, originY: 3, width: 4, height: 4),
+            FixedPointOutputRegionV4(originX: 7, originY: 3, width: 4, height: 4)
+        ])
+        XCTAssertEqual(
+            try FixedPointExecutionScheduleV4.qualificationReverse3x2.regions(
+                targetWidth: 11,
+                targetHeight: 7
+            ),
+            Array(rowMajor.reversed())
+        )
+        XCTAssertEqual(
+            try FixedPointExecutionScheduleV4.qualificationEvenOdd3x2.regions(
+                targetWidth: 11,
+                targetHeight: 7
+            ),
+            [rowMajor[0], rowMajor[2], rowMajor[4],
+             rowMajor[1], rowMajor[3], rowMajor[5]]
+        )
+        XCTAssertEqual(
+            try FixedPointExecutionScheduleV4.productionFullFrame.regions(
+                targetWidth: 11,
+                targetHeight: 7
+            ),
+            [FixedPointOutputRegionV4(
+                originX: 0,
+                originY: 0,
+                width: 11,
+                height: 7
+            )]
+        )
+        for schedule in [
+            FixedPointExecutionScheduleV4.productionFullFrame,
+            .qualificationRowMajor3x2,
+            .qualificationReverse3x2,
+            .qualificationEvenOdd3x2
+        ] {
+            let regions = try schedule.regions(targetWidth: 11, targetHeight: 7)
+            XCTAssertNoThrow(try FixedPointOutputRegionV4.validateExactCoverage(
+                regions,
+                targetWidth: 11,
+                targetHeight: 7
+            ))
+            XCTAssertEqual(
+                try schedule.regions(targetWidth: 1, targetHeight: 1),
+                [FixedPointOutputRegionV4(
+                    originX: 0,
+                    originY: 0,
+                    width: 1,
+                    height: 1
+                )]
+            )
+        }
+    }
+
+    func testQualificationScheduleArithmeticOverflowThrowsWithoutTrapping() {
+        for schedule in [
+            FixedPointExecutionScheduleV4.productionFullFrame,
+            .qualificationRowMajor3x2,
+            .qualificationReverse3x2,
+            .qualificationEvenOdd3x2
+        ] {
+            XCTAssertThrowsError(try schedule.regions(
+                targetWidth: Int.max,
+                targetHeight: 2
+            )) { error in
+                XCTAssertEqual(
+                    error as? FixedPointKernelV4Error,
+                    .executionArithmeticOverflow
+                )
+            }
+        }
+    }
+
+    func testMalformedExecutionRegionsAreRejectedBeforeDestinationMutation()
+        throws {
+        let plan = try SpatialScalePlanV4(
+            sourceWidth: 3,
+            sourceHeight: 3,
+            targetWidth: 5,
+            targetHeight: 5
+        )
+        let prepared = try FixedPointPreparedScaleV4(
+            scalePlan: plan,
+            kernelIR: FixedPointKernelIRV4(scalePlan: plan)
+        )
+        let source = Array(repeating: UInt16(90), count: 9)
+        let malformed = [
+            [FixedPointOutputRegionV4(
+                originX: 0,
+                originY: 0,
+                width: 4,
+                height: 5
+            )],
+            [
+                FixedPointOutputRegionV4(
+                    originX: 0,
+                    originY: 0,
+                    width: 3,
+                    height: 5
+                ),
+                FixedPointOutputRegionV4(
+                    originX: 2,
+                    originY: 0,
+                    width: 3,
+                    height: 5
+                )
+            ],
+            [FixedPointOutputRegionV4(
+                originX: Int.max,
+                originY: 0,
+                width: 1,
+                height: 5
+            )]
+        ]
+        for regions in malformed {
+            var destination = Array(repeating: UInt16(0xA5A5), count: 25)
+            var workspace = FixedPointCPUWorkspaceV4()
+            XCTAssertThrowsError(try source.withUnsafeBufferPointer { source in
+                try destination.withUnsafeMutableBufferPointer { destination in
+                    try FixedPointCPUExecutorV4.execute(
+                        source: source,
+                        sourceRowStride: 3,
+                        preparedScale: prepared,
+                        minimumCode: 0,
+                        maximumCode: 255,
+                        destination: destination,
+                        executionRegions: regions,
+                        workspace: &workspace
+                    )
+                }
+            }) { error in
+                XCTAssertEqual(
+                    error as? FixedPointKernelV4Error,
+                    .invalidExecutionRegion
+                )
+            }
+            XCTAssertEqual(
+                destination,
+                Array(repeating: UInt16(0xA5A5), count: 25)
+            )
+        }
+    }
+
+    func testCPUQualificationScheduleOrderPreservesEveryPixelAndCacheReuse()
+        throws {
+        let plan = try SpatialScalePlanV4(
+            sourceWidth: 7,
+            sourceHeight: 5,
+            targetWidth: 13,
+            targetHeight: 9,
+            borderRule: .reflect101
+        )
+        let ir = try FixedPointKernelIRV4(scalePlan: plan)
+        let source: [UInt16] = (0..<35).map { index in
+            UInt16((index * 73 + 19) % 1_024)
+        }
+        let expected = try FixedPointCPUExecutorV4.execute(
+            source: source,
+            sourceRowStride: 7,
+            scalePlan: plan,
+            kernelIR: ir,
+            minimumCode: 64,
+            maximumCode: 940
+        )
+        for schedule in [
+            FixedPointExecutionScheduleV4.qualificationRowMajor3x2,
+            .qualificationReverse3x2,
+            .qualificationEvenOdd3x2
+        ] {
+            let actual = try FixedPointCPUExecutorV4.execute(
+                source: source,
+                sourceRowStride: 7,
+                scalePlan: plan,
+                kernelIR: ir,
+                minimumCode: 64,
+                maximumCode: 940,
+                executionSchedule: schedule
+            )
+            XCTAssertEqual(actual, expected, schedule.rawValue)
+        }
+    }
+
     func testEveryGeneratedKernelIsOrderedNormalizedAndDeterministic() throws {
         let plan = try SpatialScalePlanV4(
             sourceWidth: 37,

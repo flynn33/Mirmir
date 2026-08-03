@@ -7,11 +7,14 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import re
+import shutil
 import tempfile
 import unittest
 
 
 SCRIPT_DIRECTORY = Path(__file__).resolve().parent
+REPOSITORY = SCRIPT_DIRECTORY.parent.parent
 SPEC = importlib.util.spec_from_file_location(
     "repository_identity_v4",
     SCRIPT_DIRECTORY / "repository_identity_v4.py",
@@ -116,6 +119,72 @@ class RepositoryIdentityTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(identity.RepositoryIdentityError, "safe relative path"):
                 identity.verify_evidence_manifest(manifest)
+
+    def testShippingEntryPointMutationsInvalidateCheckedInP06Runtime(self) -> None:
+        targets = (
+            "Mirmir/Upscaling/FrameUpscaler.swift",
+            "Mirmir/MediaIO/OutputMediaValidator.swift",
+            "Mirmir/MediaIO/VideoProbe.swift",
+            "Mirmir/Upscaling/UpscaleBackendCatalog.swift",
+        )
+        with tempfile.TemporaryDirectory(prefix="mirmir-p06-runtime-identity-") as temporary:
+            repository = Path(temporary)
+            shutil.copytree(REPOSITORY / "Mirmir", repository / "Mirmir")
+            scripts = repository / "script/v4"
+            scripts.mkdir(parents=True)
+            shutil.copyfile(
+                SCRIPT_DIRECTORY / "p06-source-provenance-v1.json",
+                scripts / "p06-source-provenance-v1.json",
+            )
+            source_revision = identity.source_identity_module().build_manifest(
+                repository,
+                scripts / "p06-source-provenance-v1.json",
+            )["sourceRevision"]
+            runtime_manifest_path = (
+                repository / "Mirmir/Resources/ASH-P06.bundle/runtime-manifest.json"
+            )
+            runtime_manifest = json.loads(runtime_manifest_path.read_text())
+            runtime_manifest["provenance"]["sourceRevision"] = source_revision
+            runtime_manifest_path.write_bytes(identity.canonical_bytes(runtime_manifest))
+            runtime_manifest_identity = identity.manifest_identity(runtime_manifest)
+            trust_path = (
+                repository
+                / "Mirmir/Upscaling/Deterministic/DeterministicEngineV4Support.swift"
+            )
+            trust = trust_path.read_text()
+            replacements = {
+                "manifestSHA256": runtime_manifest_identity,
+                "sourceRevision": source_revision,
+            }
+            for name, value in replacements.items():
+                if name == "sourceRevision":
+                    pattern = re.compile(
+                        r'(static let sourceRevision\s*=\s*)"[0-9a-f]{40,64}"',
+                        re.MULTILINE,
+                    )
+                    replacement = lambda match, value=value: match.group(1) + f'"{value}"'
+                else:
+                    pattern = re.compile(
+                        rf'(static let {name}\s*=\s*try!\s*ASHSHA256V4\(\s*)'
+                        r'"[0-9a-f]{64}"',
+                        re.MULTILINE,
+                    )
+                    replacement = lambda match, value=value: match.group(1) + f'"{value}"'
+                trust, count = pattern.subn(replacement, trust)
+                self.assertEqual(count, 1)
+            trust_path.write_text(trust)
+            identity.verify_runtime_bundle(repository)
+            for relative in targets:
+                with self.subTest(relative=relative):
+                    path = repository / relative
+                    original = path.read_bytes()
+                    path.write_bytes(original + b"\n// stale-P06 mutation\n")
+                    with self.assertRaisesRegex(
+                        identity.RepositoryIdentityError,
+                        "runtime source revision does not match production source closure",
+                    ):
+                        identity.verify_runtime_bundle(repository)
+                    path.write_bytes(original)
 
 
 def sha256(path: Path) -> str:

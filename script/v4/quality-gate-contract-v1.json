@@ -107,6 +107,17 @@
     "syntheticDiagnosticReleaseEligible": false,
     "transferAndMatrix": "BT.709"
   },
+  "frozenP05Baseline": {
+    "captureExecutableSHA256": "e278969c586a6cfb5fc5b973438f06141ab4ff05e3f2f37356013105a38decbc",
+    "captureSourceSHA256": "cc5a1e1ebb44e58d26399b23c054700357b8c668de9a8ce9c00dfe8f49583621",
+    "executableSHA256": "8a59608e68579bd33bbe8a18f5b2c0243beb24cbbf4e594eec18acd62015ce5f",
+    "implementationVersion": "ash-p05-cpu-reference-preview",
+    "schemaVersion": "mirmir-ash-v4-p05-baseline-identity-v1",
+    "sourceManifestPath": "script/v4/p05-baseline-source-manifest-v1.json",
+    "sourceManifestSHA256": "880609bc2b4460814c63f2963042bee4fdb562eaa0b6376f84eb6aeb6a73ee69",
+    "sourceRevision": "d3a4de55c08391ea8a08c00beb766b5650dc9f58",
+    "sourceTreeIdentitySHA256": "d9b89f1ca31c0d076826651b250459773bea0de11d7b0ffd12ac40451af7b69c"
+  },
   "identityPolicy": {
     "hash": "sha256",
     "hashesRequired": [
@@ -116,6 +127,8 @@
       "corpus_manifest",
       "corpus_artifact_set",
       "baseline_output_set",
+      "baseline_source_manifest",
+      "baseline_executable",
       "candidate_output_set",
       "each_ablation_output_set",
       "runtime_manifest",

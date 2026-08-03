@@ -5,6 +5,104 @@ import XCTest
 @testable import Mirmir
 
 final class FixedPointPixelBufferScalerV4Tests: XCTestCase {
+    func testEveryExecutionScheduleMatchesProductionForOddNV12AndP010()
+        async throws {
+        var backends = [FixedPointExecutionBackendV4.cpu]
+        if MTLCreateSystemDefaultDevice() != nil {
+            backends.append(.metal)
+        }
+        for storage in [
+            PixelStorageV4.nv12VideoRange8Bit,
+            .nv12FullRange8Bit,
+            .p010VideoRange10Bit,
+            .p010FullRange10Bit
+        ] {
+            let source = try makeBuffer(storage: storage, width: 7, height: 5)
+            try fill(source, storage: storage)
+            let reference = try makeBuffer(
+                storage: storage,
+                width: 13,
+                height: 9
+            )
+            let production = try FixedPointPixelBufferScalerV4(
+                backend: .cpu,
+                storage: storage,
+                sourceWidth: 7,
+                sourceHeight: 5,
+                targetWidth: 13,
+                targetHeight: 9,
+                borderRule: .reflect101
+            )
+            try await production.process(source: source, destination: reference)
+            let expected = try visibleSignalCodes(reference, storage: storage)
+
+            for backend in backends {
+                for schedule in [
+                    FixedPointExecutionScheduleV4.qualificationRowMajor3x2,
+                    .qualificationReverse3x2,
+                    .qualificationEvenOdd3x2
+                ] {
+                    let destination = try makeBuffer(
+                        storage: storage,
+                        width: 13,
+                        height: 9
+                    )
+                    let scaler = try FixedPointPixelBufferScalerV4(
+                        backend: backend,
+                        storage: storage,
+                        sourceWidth: 7,
+                        sourceHeight: 5,
+                        targetWidth: 13,
+                        targetHeight: 9,
+                        borderRule: .reflect101,
+                        executionSchedule: schedule
+                    )
+                    try await scaler.process(
+                        source: source,
+                        destination: destination
+                    )
+                    XCTAssertEqual(
+                        try visibleSignalCodes(destination, storage: storage),
+                        expected,
+                        "\(storage.rawValue)/\(backend.rawValue)/\(schedule.rawValue)"
+                    )
+                }
+            }
+        }
+    }
+
+    func testCancelledQualificationScheduleLeavesDestinationUnchanged()
+        async throws {
+        let storage = PixelStorageV4.p010FullRange10Bit
+        let source = try makeBuffer(storage: storage, width: 7, height: 5)
+        let destination = try makeBuffer(storage: storage, width: 13, height: 9)
+        try fill(source, storage: storage)
+        try fillAllPlaneBytes(destination, value: 0xA5)
+        let before = try allPlaneBytes(destination)
+        let scaler = try FixedPointPixelBufferScalerV4(
+            backend: .cpu,
+            storage: storage,
+            sourceWidth: 7,
+            sourceHeight: 5,
+            targetWidth: 13,
+            targetHeight: 9,
+            executionSchedule: .qualificationReverse3x2
+        )
+        let task = Task {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            try await scaler.process(source: source, destination: destination)
+        }
+        task.cancel()
+        do {
+            try await task.value
+            XCTFail("Expected cancellation.")
+        } catch is CancellationError {
+            // Expected.
+        }
+        XCTAssertEqual(try allPlaneBytes(destination), before)
+        XCTAssertEqual(scaler.hotPathDiagnostics().completedFrameCount, 0)
+    }
+
     func testCPUHotPathPreparesOnceAndReusesBoundedWorkspacesAcrossFrames()
         async throws {
         let storage = PixelStorageV4.p010FullRange10Bit

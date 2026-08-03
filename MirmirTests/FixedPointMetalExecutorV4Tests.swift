@@ -3,6 +3,114 @@ import XCTest
 @testable import Mirmir
 
 final class FixedPointMetalExecutorV4Tests: XCTestCase {
+    func testMetalQualificationDispatchBindingsAreAlignedInRangeAndExact()
+        async throws {
+        guard MTLCreateSystemDefaultDevice() != nil else {
+            throw XCTSkip("Metal is unavailable on this host.")
+        }
+        let plan = try SpatialScalePlanV4(
+            sourceWidth: 7,
+            sourceHeight: 5,
+            targetWidth: 13,
+            targetHeight: 9,
+            borderRule: .reflect101
+        )
+        let ir = try FixedPointKernelIRV4(scalePlan: plan)
+        let metal = try FixedPointMetalExecutorV4()
+        let source: [UInt16] = (0..<35).map { index in
+            UInt16((index * 137 + 31) % 1_024)
+        }
+        let expected = try FixedPointCPUExecutorV4.execute(
+            source: source,
+            sourceRowStride: 7,
+            scalePlan: plan,
+            kernelIR: ir,
+            minimumCode: 64,
+            maximumCode: 940
+        )
+        for schedule in [
+            FixedPointExecutionScheduleV4.qualificationRowMajor3x2,
+            .qualificationReverse3x2,
+            .qualificationEvenOdd3x2
+        ] {
+            let regions = try schedule.regions(
+                targetWidth: plan.targetWidth,
+                targetHeight: plan.targetHeight
+            )
+            let prepared = try metal.prepare(
+                sourceRowStride: 7,
+                scalePlan: plan,
+                kernelIR: ir,
+                minimumCode: 64,
+                maximumCode: 940,
+                executionRegions: regions
+            )
+            XCTAssertEqual(prepared.executionRegionsForQualification, regions)
+            for binding in prepared.dispatchBindingsForQualification {
+                XCTAssertTrue(binding.horizontalPositionOffset.isMultiple(of: 8))
+                XCTAssertTrue(binding.verticalPositionOffset.isMultiple(of: 8))
+                XCTAssertTrue(binding.outputOffset.isMultiple(of: 2))
+                XCTAssertLessThan(binding.horizontalPositionOffset, 13 * 8)
+                XCTAssertLessThan(binding.verticalPositionOffset, 9 * 8)
+                XCTAssertLessThan(binding.outputOffset, 13 * 9 * 2)
+                XCTAssertEqual(
+                    binding.horizontalPositionOffset,
+                    binding.region.originX * 8
+                )
+                XCTAssertEqual(
+                    binding.verticalPositionOffset,
+                    binding.region.originY * 8
+                )
+                XCTAssertEqual(
+                    binding.outputOffset,
+                    (binding.region.originY * 13 + binding.region.originX) * 2
+                )
+            }
+            let actual = try await prepared.execute(source: source)
+            XCTAssertEqual(actual, expected, schedule.rawValue)
+        }
+    }
+
+    func testMetalRejectsMalformedScheduleBeforeRetainedInputMutation() throws {
+        guard MTLCreateSystemDefaultDevice() != nil else {
+            throw XCTSkip("Metal is unavailable on this host.")
+        }
+        let plan = try SpatialScalePlanV4(
+            sourceWidth: 3,
+            sourceHeight: 3,
+            targetWidth: 5,
+            targetHeight: 5
+        )
+        let metal = try FixedPointMetalExecutorV4()
+        let prepared = try metal.prepare(
+            sourceRowStride: 3,
+            scalePlan: plan,
+            kernelIR: FixedPointKernelIRV4(scalePlan: plan),
+            minimumCode: 0,
+            maximumCode: 255
+        )
+        let before = prepared.retainedSourceBytesForQualification()
+        XCTAssertThrowsError(try metal.prepare(
+            sourceRowStride: 3,
+            scalePlan: plan,
+            kernelIR: FixedPointKernelIRV4(scalePlan: plan),
+            minimumCode: 0,
+            maximumCode: 255,
+            executionRegions: [FixedPointOutputRegionV4(
+                originX: 0,
+                originY: 0,
+                width: 4,
+                height: 5
+            )]
+        )) { error in
+            XCTAssertEqual(
+                error as? FixedPointKernelV4Error,
+                .invalidExecutionRegion
+            )
+        }
+        XCTAssertEqual(prepared.retainedSourceBytesForQualification(), before)
+    }
+
     func testCPUAndMetalAreByteIdenticalAcrossArbitraryScaleMatrix() async throws {
         guard MTLCreateSystemDefaultDevice() != nil else {
             throw XCTSkip("Metal is unavailable on this host.")

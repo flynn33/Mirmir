@@ -465,15 +465,18 @@ final class Alpha4444FixedPointScalerV4: @unchecked Sendable {
     let plan: Alpha4444ScalePlanV4
 
     private let metalExecutor: FixedPointMetalExecutorV4?
+    private let executionSchedule: FixedPointExecutionScheduleV4
 
     init(
         backend: Alpha4444ExecutionBackendV4,
         plan: Alpha4444ScalePlanV4,
+        executionSchedule: FixedPointExecutionScheduleV4 = .productionFullFrame,
         metalDevice: MTLDevice? = nil,
         metalLibrary: MTLLibrary? = nil
     ) throws {
         self.backend = backend
         self.plan = plan
+        self.executionSchedule = executionSchedule
         switch backend {
         case .cpu:
             self.metalExecutor = nil
@@ -504,6 +507,7 @@ final class Alpha4444FixedPointScalerV4: @unchecked Sendable {
         targetWidth: Int,
         targetHeight: Int,
         borderRule: SpatialBorderRuleV4 = .clamp,
+        executionSchedule: FixedPointExecutionScheduleV4 = .productionFullFrame,
         metalDevice: MTLDevice? = nil,
         metalLibrary: MTLLibrary? = nil
     ) throws {
@@ -520,6 +524,7 @@ final class Alpha4444FixedPointScalerV4: @unchecked Sendable {
                 targetHeight: targetHeight,
                 borderRule: borderRule
             ),
+            executionSchedule: executionSchedule,
             metalDevice: metalDevice,
             metalLibrary: metalLibrary
         )
@@ -582,7 +587,8 @@ final class Alpha4444FixedPointScalerV4: @unchecked Sendable {
                 scalePlan: plan.spatialPlan,
                 kernelIR: plan.kernelIR,
                 minimumCode: 0,
-                maximumCode: plan.fullScale
+                maximumCode: plan.fullScale,
+                executionSchedule: executionSchedule
             )
         case .metal:
             guard let metalExecutor else {
@@ -594,7 +600,8 @@ final class Alpha4444FixedPointScalerV4: @unchecked Sendable {
                 scalePlan: plan.spatialPlan,
                 kernelIR: plan.kernelIR,
                 minimumCode: 0,
-                maximumCode: plan.fullScale
+                maximumCode: plan.fullScale,
+                executionSchedule: executionSchedule
             )
         }
     }

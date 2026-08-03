@@ -1,46 +1,46 @@
 {
   "aggregate": {
-    "cpuMedianMilliseconds": 8.3390625,
-    "cpuP95Milliseconds": 12.66410205,
+    "cpuMedianMilliseconds": 9.6627495,
+    "cpuP95Milliseconds": 12.29978545,
     "cpuSampleCount": 40,
-    "metalMedianMilliseconds": 2.0679795,
-    "metalP95Milliseconds": 6.769186049999999,
+    "metalMedianMilliseconds": 2.6531244999999997,
+    "metalP95Milliseconds": 6.737472599999999,
     "metalSampleCount": 40
   },
   "cases": [
     {
-      "cpuMedianMilliseconds": 10.3829375,
-      "cpuP95Milliseconds": 10.4807147,
+      "cpuMedianMilliseconds": 12.085729,
+      "cpuP95Milliseconds": 12.58277255,
       "id": "420f-direct_2x-radial_detail",
-      "metalMedianMilliseconds": 2.0948124999999997,
-      "metalP95Milliseconds": 6.8410043499999995,
+      "metalMedianMilliseconds": 4.3713750000000005,
+      "metalP95Milliseconds": 7.055029349999999,
       "sampleCount": 10,
       "warmupCount": 5
     },
     {
-      "cpuMedianMilliseconds": 12.4998125,
-      "cpuP95Milliseconds": 12.6807084,
+      "cpuMedianMilliseconds": 11.8409795,
+      "cpuP95Milliseconds": 12.235627299999999,
       "id": "420f-direct_3_over_2-radial_detail",
-      "metalMedianMilliseconds": 4.128958,
-      "metalP95Milliseconds": 6.29383125,
+      "metalMedianMilliseconds": 5.868833,
+      "metalP95Milliseconds": 6.47644825,
       "sampleCount": 10,
       "warmupCount": 5
     },
     {
-      "cpuMedianMilliseconds": 6.112000500000001,
-      "cpuP95Milliseconds": 6.30755015,
+      "cpuMedianMilliseconds": 7.359354,
+      "cpuP95Milliseconds": 7.89434115,
       "id": "420v-direct_2x-radial_detail",
-      "metalMedianMilliseconds": 2.257917,
-      "metalP95Milliseconds": 6.694117,
+      "metalMedianMilliseconds": 2.2346874999999997,
+      "metalP95Milliseconds": 5.134627199999998,
       "sampleCount": 10,
       "warmupCount": 5
     },
     {
-      "cpuMedianMilliseconds": 5.948979,
-      "cpuP95Milliseconds": 6.0299147,
+      "cpuMedianMilliseconds": 7.055583,
+      "cpuP95Milliseconds": 7.27568765,
       "id": "420v-direct_3_over_2-radial_detail",
-      "metalMedianMilliseconds": 1.8918545,
-      "metalP95Milliseconds": 6.09877325,
+      "metalMedianMilliseconds": 1.670229,
+      "metalP95Milliseconds": 6.292945649999999,
       "sampleCount": 10,
       "warmupCount": 5
     }

@@ -449,6 +449,7 @@ actor PreparedDeterministicV4Upscaler:
     init(
         configuration: DeterministicPreparedConfigurationV4,
         runtime: ASHVerifiedRuntimeBundleV4,
+        executionSchedule: FixedPointExecutionScheduleV4 = .productionFullFrame,
         metalDevice: MTLDevice? = nil,
         metalLibrary: MTLLibrary? = nil
     ) throws {
@@ -481,6 +482,7 @@ actor PreparedDeterministicV4Upscaler:
             targetWidth: configuration.targetWidth,
             targetHeight: configuration.targetHeight,
             borderRule: .reflect101,
+            executionSchedule: executionSchedule,
             metalDevice: metalDevice,
             metalLibrary: metalLibrary
         )
@@ -592,6 +594,8 @@ actor PreparedDeterministicV4Upscaler:
                     source: source.value,
                     destination: destinations[0].value,
                     presentationTime: timing.presentationTime,
+                    duration: timing.duration,
+                    sourceField: .progressive,
                     sourceFrameIndex: timing.frameIndex,
                     cadenceID: "progressive",
                     resetTrigger: previousSourceLumaFrame == nil
@@ -974,6 +978,12 @@ actor PreparedDeterministicV4Upscaler:
                 source: temporary,
                 destination: scratchDestinations[outputIndex],
                 presentationTime: presentation,
+                duration: CMTime(
+                    value: outputTiming.durationValue,
+                    timescale: outputTiming.timescale
+                ),
+                sourceField: effectiveDominance.outputOrder[outputIndex] == .top
+                    ? .top : .bottom,
                 sourceFrameIndex: timing.frameIndex,
                 cadenceID: cadenceID,
                 resetTrigger: outputIndex == 0
@@ -1002,7 +1012,11 @@ actor PreparedDeterministicV4Upscaler:
         return outputs.enumerated().map { index, output in
             TemporalOutputFrame(
                 pixelBuffer: destinations[index],
-                presentationTime: output.presentationTime
+                presentationTime: output.presentationTime,
+                duration: output.duration,
+                sourceField: output.sourceField,
+                cadenceID: output.cadenceID,
+                temporalGeneration: output.temporalGeneration
             )
         }
     }
@@ -1351,6 +1365,8 @@ actor PreparedDeterministicV4Upscaler:
         source: CVPixelBuffer,
         destination: CVPixelBuffer,
         presentationTime: CMTime,
+        duration: CMTime,
+        sourceField: TemporalOutputSourceFieldV4,
         sourceFrameIndex: Int,
         cadenceID: String,
         resetTrigger: ASHMeasurementResetTriggerV4?,
@@ -1561,7 +1577,11 @@ actor PreparedDeterministicV4Upscaler:
         lastOutputPresentationTime = exactPTS
         return TemporalOutputFrame(
             pixelBuffer: FramePixelBuffer(destination),
-            presentationTime: presentationTime
+            presentationTime: presentationTime,
+            duration: duration,
+            sourceField: sourceField,
+            cadenceID: cadenceID,
+            temporalGeneration: temporalHistory.generation
         )
     }
 

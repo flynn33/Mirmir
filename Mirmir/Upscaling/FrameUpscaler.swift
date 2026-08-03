@@ -88,9 +88,35 @@ extension PreparedFrameUpscaler {
     }
 }
 
+enum TemporalOutputSourceFieldV4: String, Codable, Equatable, Sendable {
+    case progressive
+    case top
+    case bottom
+}
+
 struct TemporalOutputFrame: Sendable {
     let pixelBuffer: FramePixelBuffer
     let presentationTime: CMTime
+    let duration: CMTime
+    let sourceField: TemporalOutputSourceFieldV4
+    let cadenceID: String
+    let temporalGeneration: UInt64
+
+    init(
+        pixelBuffer: FramePixelBuffer,
+        presentationTime: CMTime,
+        duration: CMTime = .invalid,
+        sourceField: TemporalOutputSourceFieldV4 = .progressive,
+        cadenceID: String = "unspecified",
+        temporalGeneration: UInt64 = 0
+    ) {
+        self.pixelBuffer = pixelBuffer
+        self.presentationTime = presentationTime
+        self.duration = duration
+        self.sourceField = sourceField
+        self.cadenceID = cadenceID
+        self.temporalGeneration = temporalGeneration
+    }
 }
 
 protocol PreparedTemporalFrameUpscaler: PreparedFrameUpscaler {

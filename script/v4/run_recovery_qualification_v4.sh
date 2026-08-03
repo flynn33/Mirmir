@@ -22,6 +22,31 @@ derived_data=""
 keep_work=0
 compile_only=0
 
+source_tree_identity() {
+    local repository="$1"
+    local revision="$2"
+    python3 - "$repository" "$revision" <<'PY'
+import hashlib
+import subprocess
+import sys
+
+repository, revision = sys.argv[1:]
+process = subprocess.run(
+    ["git", "ls-tree", "-r", "-z", "--full-tree", revision],
+    cwd=repository,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.PIPE,
+    check=False,
+)
+if process.returncode != 0:
+    raise SystemExit(
+        "cannot resolve source tree: "
+        + process.stderr.decode("utf-8", errors="replace").strip()
+    )
+print(hashlib.sha256(b"mirmir-source-tree-v1\0" + process.stdout).hexdigest())
+PY
+}
+
 while (( $# > 0 )); do
     case "$1" in
         --output)
@@ -204,15 +229,18 @@ for key,value in observed.items():
         raise SystemExit(f"recovery tool identity mismatch for {key}: {value}")
 PY
 
-tree_id="$(git -C "${repository_root}" rev-parse "${candidate_revision}^{tree}")"
+candidate_source_tree_identity="$(
+    source_tree_identity "${repository_root}" "${candidate_revision}"
+)"
 candidate="${binding_directory}/candidate.json"
 python3 - \
-    "${candidate_source}" "${candidate}" "${candidate_revision}" "${tree_id}" \
+    "${candidate_source}" "${candidate}" "${candidate_revision}" \
+    "${candidate_source_tree_identity}" \
     "${runtime_root}" "${release_configuration}" \
     "${project_root}/Mirmir/Upscaling/Deterministic/DeterministicEngineV4Support.swift" <<'PY'
 import hashlib,json,pathlib,re,sys
 
-source_path,output_path,revision,tree_id,runtime_text,release_text,trust_text = sys.argv[1:]
+source_path,output_path,revision,source_tree_identity,runtime_text,release_text,trust_text = sys.argv[1:]
 document = json.loads(pathlib.Path(source_path).read_text())
 candidate = document.get("candidate", document)
 fields = {
@@ -225,10 +253,7 @@ if not isinstance(candidate, dict) or set(candidate) != fields:
     raise SystemExit("recovery candidate field set differs")
 if candidate.get("sourceCommit") != revision:
     raise SystemExit("recovery candidate source revision differs")
-tree_identity = hashlib.sha256(
-    b"mirmir-v4-git-tree-v1\0" + tree_id.encode("ascii")
-).hexdigest()
-if candidate.get("sourceTreeIdentitySHA256") != tree_identity:
+if candidate.get("sourceTreeIdentitySHA256") != source_tree_identity:
     raise SystemExit("recovery candidate source-tree identity differs")
 if candidate.get("releaseConfigurationSHA256") != hashlib.sha256(
     pathlib.Path(release_text).read_bytes()
