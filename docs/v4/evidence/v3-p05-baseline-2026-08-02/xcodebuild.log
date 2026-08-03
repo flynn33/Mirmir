@@ -1,0 +1,76 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project Mirmir.xcodeproj -scheme Mirmir -configuration Release -destination platform=macOS -derivedDataPath /tmp/mirmir-v4-baseline-release -parallel-testing-enabled NO test "-only-testing:MirmirTests/DeterministicMetalBackendTests/testCaptureV3BaselineWhenRequested" "-only-testing:MirmirTests/VideoProcessingSessionTests/testCaptureV3EndToEndBaselineWhenRequested" CODE_SIGNING_ALLOWED=NO ENABLE_TESTABILITY=YES ONLY_ACTIVE_ARCH=YES MIRMIR_V4_BASELINE_DIR=/Users/jimdaley/GitHub/Mirmir/docs/v4/evidence/v3-p05-baseline-2026-08-02 MIRMIR_V4_WARMUP_COUNT=5 MIRMIR_V4_SAMPLE_COUNT=10
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+    ENABLE_TESTABILITY = YES
+    MIRMIR_V4_BASELINE_DIR = /Users/jimdaley/GitHub/Mirmir/docs/v4/evidence/v3-p05-baseline-2026-08-02
+    MIRMIR_V4_SAMPLE_COUNT = 10
+    MIRMIR_V4_WARMUP_COUNT = 5
+    ONLY_ACTIVE_ARCH = YES
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:macOS, arch:arm64, id:<redacted-device-id>, name:My Mac }
+{ platform:macOS, arch:x86_64, id:<redacted-device-id>, name:My Mac }
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (2 targets)
+    Target 'MirmirTests' in project 'Mirmir'
+        ➜ Explicit dependency on target 'Mirmir' in project 'Mirmir'
+    Target 'Mirmir' in project 'Mirmir' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk /tmp/mirmir-v4-baseline-release/SDKStatCaches.noindex/macosx26.2-25C57-dc75598d0054f22ec865fa860f139d7200fa09913b459cbbc988d1f6730289ae.sdkstatcache
+    cd /Users/jimdaley/GitHub/Mirmir/Mirmir.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk -o /tmp/mirmir-v4-baseline-release/SDKStatCaches.noindex/macosx26.2-25C57-dc75598d0054f22ec865fa860f139d7200fa09913b459cbbc988d1f6730289ae.sdkstatcache
+
+2026-08-02 19:13:28.312840-0500 Mirmir[23002:1293946] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-08-02 19:13:28.312983-0500 Mirmir[23002:1293946] [Application] Error registering app with intents framework: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-08-02 19:13:28.315085-0500 Mirmir[23002:1293952] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-08-02 19:13:28.315100-0500 Mirmir[23002:1293952] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-08-02 19:13:28.317474-0500 Mirmir[23002:1293958] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-08-02 19:13:28.317487-0500 Mirmir[23002:1293958] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-08-02 19:13:28.319780-0500 Mirmir[23002:1293946] [Connection] Will NOT re-try to establish the connection
+2026-08-02 19:13:28.319798-0500 Mirmir[23002:1293952] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-08-02 19:13:28.319805-0500 Mirmir[23002:1293952] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-08-02 19:13:28.333806-0500 Mirmir[23002:1293937] ApplePersistenceIgnoreState: Existing state will not be touched. New state will be written to /var/folders/tz/42vs04ls56q51168sddqb5940000gn/T/com.mirmir.app.savedState
+Test Suite 'Selected tests' started at 2026-08-02 19:13:28.464.
+Test Suite 'MirmirTests.xctest' started at 2026-08-02 19:13:28.464.
+Test Suite 'DeterministicMetalBackendTests' started at 2026-08-02 19:13:28.464.
+Test Case '-[MirmirTests.DeterministicMetalBackendTests testCaptureV3BaselineWhenRequested]' started.
+Test Case '-[MirmirTests.DeterministicMetalBackendTests testCaptureV3BaselineWhenRequested]' passed (1.527 seconds).
+Test Suite 'DeterministicMetalBackendTests' passed at 2026-08-02 19:13:29.992.
+	 Executed 1 test, with 0 failures (0 unexpected) in 1.527 (1.528) seconds
+Test Suite 'VideoProcessingSessionTests' started at 2026-08-02 19:13:29.992.
+Test Case '-[MirmirTests.VideoProcessingSessionTests testCaptureV3EndToEndBaselineWhenRequested]' started.
+2026-08-02 19:13:29.995440-0500 Mirmir[23002:1293952] [] (Fig) signalled err=0 at <>:85
+Test Case '-[MirmirTests.VideoProcessingSessionTests testCaptureV3EndToEndBaselineWhenRequested]' passed (5.591 seconds).
+Test Suite 'VideoProcessingSessionTests' passed at 2026-08-02 19:13:35.584.
+	 Executed 1 test, with 0 failures (0 unexpected) in 5.591 (5.592) seconds
+Test Suite 'MirmirTests.xctest' passed at 2026-08-02 19:13:35.584.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 7.119 (7.120) seconds
+Test Suite 'Selected tests' passed at 2026-08-02 19:13:35.584.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 7.119 (7.120) seconds
+2026-08-02 19:13:35.867 xcodebuild[22983:1293773] [MT] IDETestOperationsObserverDebug: 8.022 elapsed -- Testing started completed.
+2026-08-02 19:13:35.867 xcodebuild[22983:1293773] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-08-02 19:13:35.867 xcodebuild[22983:1293773] [MT] IDETestOperationsObserverDebug: 8.022 sec, +8.022 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/mirmir-v4-baseline-release/Logs/Test/Test-Mirmir-2026.08.02_19-13-27--0500.xcresult
+
+** TEST SUCCEEDED **
+
+Testing started

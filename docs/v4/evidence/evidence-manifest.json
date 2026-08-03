@@ -1,0 +1,1487 @@
+{
+  "artifactCount": 293,
+  "artifacts": [
+    {
+      "byteCount": 3764,
+      "path": "README.md",
+      "sha256": "6a4e69b8abee9ae0cb6ea1e5249ae3526be03e959baba82accf05d58699bf8a3"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-checkerboard-cpu-minus-metal.s16le",
+      "sha256": "976acc3ef47173ccd5ac1e684515ff7d869826be61feecda9637c7697cf537f5"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-checkerboard-cpu-minus-reference.s16le",
+      "sha256": "83a3f8fd9966710f5f0a6d4bdf6d6fbce5d33c9bc8b5354a883764ecd04c0816"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-checkerboard-cpu.bin",
+      "sha256": "0a8a991d92460e303f5ae96c589763db021d88f2c82359668ec211559a372d63"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-checkerboard-metal-minus-reference.s16le",
+      "sha256": "65daf0eafd9214205aa0b7f2496691422ff011c137dcefbc529a2a8a18dac6f6"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-checkerboard-metal.bin",
+      "sha256": "579cddf870163949e2dfd683ec9f0af4e820bd67aaa60be751bc3805700cfea1"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-checkerboard-reference.bin",
+      "sha256": "0ea34da3539b057fc45e523067540f72d58217cbea1bf5fa6291177bcba2edfe"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-checkerboard-source.bin",
+      "sha256": "8434c7691faddb978d67a9922cdbe15bb981854b691a40f42a383250c85a935f"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-constant-cpu-minus-metal.s16le",
+      "sha256": "cfc335996cfae29fdf14fd2db7ea853366d350a5d387aa3c322616e81dacd56b"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-constant-cpu-minus-reference.s16le",
+      "sha256": "cfc335996cfae29fdf14fd2db7ea853366d350a5d387aa3c322616e81dacd56b"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-constant-cpu.bin",
+      "sha256": "e2648013d5058ec5cac072f1aeeeab134977a73a80309ff77e5d837c985ea8d5"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-constant-metal-minus-reference.s16le",
+      "sha256": "cfc335996cfae29fdf14fd2db7ea853366d350a5d387aa3c322616e81dacd56b"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-constant-metal.bin",
+      "sha256": "e2648013d5058ec5cac072f1aeeeab134977a73a80309ff77e5d837c985ea8d5"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-constant-reference.bin",
+      "sha256": "e2648013d5058ec5cac072f1aeeeab134977a73a80309ff77e5d837c985ea8d5"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-constant-source.bin",
+      "sha256": "c5285e69770929d8ff74149fc43728578a904ca65ec881a285c6a3b44f345941"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-diagonal_edge-cpu-minus-metal.s16le",
+      "sha256": "5fbe995bd89d429a44ebd1b490a145b24ac923e41861bbbd9822d443c2ce9627"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-diagonal_edge-cpu-minus-reference.s16le",
+      "sha256": "40abe09e24ce4636a0bd048d24ed35ca0e1cdea79bd16e6d02b2edefb88603c0"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-diagonal_edge-cpu.bin",
+      "sha256": "c19faa16754a348882dc045f1bbb53eaad18167e5105d6a691a1f5561dab0a32"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-diagonal_edge-metal-minus-reference.s16le",
+      "sha256": "2b878aa1424136f7efd8963996370b2506a97d1873702a07f8df97bd79b93b4a"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-diagonal_edge-metal.bin",
+      "sha256": "7136c13e30c4c8623c375f252f18570e199ed95c00daae051143f5e8eb30e28f"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-diagonal_edge-reference.bin",
+      "sha256": "5ed0f191175be7c03e5aac575fdaf59056d1d11a1d9e3d94165a3e1fadb31cb6"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-diagonal_edge-source.bin",
+      "sha256": "4c196bb7b2b8b261b82255c8f7480f8bf27060860232ce70d8158e9b7a7e0d0e"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-horizontal_ramp-cpu-minus-metal.s16le",
+      "sha256": "abac606d2b0be424f72ad60a464990dd8c569d9cc14d8fd3ff7de5c7c07cda29"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-horizontal_ramp-cpu-minus-reference.s16le",
+      "sha256": "959887072144ee19bb179b0bbfc473023d4fd575ae9d66922f6305613cdecbec"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-horizontal_ramp-cpu.bin",
+      "sha256": "c962958701146f89d622c812b6a77e20aded032e1bce8df51120210719584f9f"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-horizontal_ramp-metal-minus-reference.s16le",
+      "sha256": "72e593c5cd26c38ad1f3ed462ec23787259a62b432ea212a456bc7b9ee200067"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-horizontal_ramp-metal.bin",
+      "sha256": "562eb881894d78a32f7cb99ee976176980e355d1be2cd727046cfc009ecc7065"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-horizontal_ramp-reference.bin",
+      "sha256": "8232647a2ad7806388e8d72972231b86df5821251c6082ef0a788fbb31078249"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-horizontal_ramp-source.bin",
+      "sha256": "ed4d00298c83218da251922f47044cf566513423a3827cc9754da0f789edc5c1"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-impulse-cpu-minus-metal.s16le",
+      "sha256": "91ae21fbc87c11fab93f73c332f2c496f0ed44ad2e33473504da043819576196"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-impulse-cpu-minus-reference.s16le",
+      "sha256": "5ae44c24a5dc171f35fe1dec56665b05fc19ec721bc24ce5010497601171bdf5"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-impulse-cpu.bin",
+      "sha256": "dba35c1eac4716b741727d9eeecc2d0826639411d6a5c98d106f46a479a14e9e"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-impulse-metal-minus-reference.s16le",
+      "sha256": "b6a0ee073fd20a3cb0db8afe45f3b038352e79c1c7546d5d84e8db8b5c05575e"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-impulse-metal.bin",
+      "sha256": "c20487935948aaccabfbc070e757e269f2541f3a220711cae515d53e74366cfc"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-impulse-reference.bin",
+      "sha256": "08553ce16c9a05b6d913dc0702deedf6939b093ff95ee8b5b930524049e35b14"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-impulse-source.bin",
+      "sha256": "a4e09e162128e39849ee24235c636eec7cf8e3cacca6add016d55c0222789913"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_0-cpu-minus-metal.s16le",
+      "sha256": "277889d71cf5aa46cc4c0806a19d7d98ea8196e0bf0eafe6afdb14ce26d5f4ac"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_0-cpu-minus-reference.s16le",
+      "sha256": "e2a78a98233fef2ce14d8f3da9acfd379b369d925f8325973031dec36c0ebbdc"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_0-cpu.bin",
+      "sha256": "62b6234417280c18537b65f99de8b34e615d2858a1344f84569cf87f36806f03"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_0-metal-minus-reference.s16le",
+      "sha256": "426e987c6cedb05b9bc1876dbf0ee6dc27540dda55e06d850ac8be4071788227"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_0-metal.bin",
+      "sha256": "add27f2c5b1d7465de051612e7b5b158e12fef8d89ef42fea7601cb3aab158ca"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_0-reference.bin",
+      "sha256": "fd7b099b0eda9b49f61224a44130dce97d94a162e7021b758775240f3ee22645"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_0-source.bin",
+      "sha256": "dbef89de4f8a01e64b7135638d796c541f9def89e085b3474f2a660ea230279e"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_1-cpu-minus-metal.s16le",
+      "sha256": "0fc486ad3ec97e903bbf545f888d16c13443658b5c0d1f388afb6c28d2aa286e"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_1-cpu-minus-reference.s16le",
+      "sha256": "e5068e370e34392a1d7f44dd9d18476c8a45ad1b23c737bb9ea46f0e016123a8"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_1-cpu.bin",
+      "sha256": "873d17828d3f5f2ecbcf055b0bdfe6c00f0b7d38b933d22bc03a80daf59ff6fa"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_1-metal-minus-reference.s16le",
+      "sha256": "bde6a1575035f4ead6b761b4fa2ffaf4e48f904f88c20b1637d6d094f7c2f3dd"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_1-metal.bin",
+      "sha256": "d38e48d966cebb6baad4bf61affa4f3fbfcbb405b5a0c55397bd53370a86f7b4"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_1-reference.bin",
+      "sha256": "b4eeacf3c46b3e3cfcdb39cb14176e710721bfdad5e8b63f0462b6950626733e"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_1-source.bin",
+      "sha256": "142ba0805a2fd0f1501a32decc5d47ea8ff3fd9e437ced2a7aa4376f40a2ec41"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_2-cpu-minus-metal.s16le",
+      "sha256": "a9a444b2a6d4c2d1fb2f432443bf4c7a794f356e5c9a6c1153c72edd3b3a3f6e"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_2-cpu-minus-reference.s16le",
+      "sha256": "67de0987f7b9f6c68b0c4fd22e20b9df4d20fe785063c7d31a9083fe51682742"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_2-cpu.bin",
+      "sha256": "a5289e390615fb67627911f5bfc2f0fce00da1efe5a02384df9359e706d5677c"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_2-metal-minus-reference.s16le",
+      "sha256": "ba492bc240c20e95316444b922ad0a406d186e7f6671677fef688cfaabc30fbf"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_2-metal.bin",
+      "sha256": "09bbb806df5d1a78cade2eefc113d37ec580e06b092d651abafec0eb3154d5ab"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_2-reference.bin",
+      "sha256": "7c0564c7f9c41bf64c9b8e65ca8118fad0a4cffec1785cbe0f745ae8e13ec94f"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_2-source.bin",
+      "sha256": "fd6c0181379904657fd3e7ee9ed9afd697f1ae0890f92f7099c18eb2ff614f9c"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_3-cpu-minus-metal.s16le",
+      "sha256": "b861eaac701b565ba856837422efc362b8bb6b3a62f41c32e9213ca894e77be1"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_3-cpu-minus-reference.s16le",
+      "sha256": "88fbd6c39948887b2a256b8f6572d1b20425cc591c71a0c6be8934c7df49785e"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_3-cpu.bin",
+      "sha256": "854a56da6616a7ac11c8be87deb2c1ad62490d4d4dcdae631c12847f8064fe8e"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_3-metal-minus-reference.s16le",
+      "sha256": "562ff930377ea8954d1c42693febada4b19bd17a01b76acd86a18058e073f9fb"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_3-metal.bin",
+      "sha256": "fd94211efe963e361b74592bf39d94ca8a087b082f29005d6868650654de3697"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_3-reference.bin",
+      "sha256": "f43b187ebe08e06fb0fd720dda71badbca6447b3cf2116e3bdb29553d6f9ded4"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-moving_edge_3-source.bin",
+      "sha256": "2ae797213a3a2229b5cc0b0bdeff5acd289c1ecb82761927cae7b4547ccd058a"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-radial_detail-cpu-minus-metal.s16le",
+      "sha256": "314e68dd401c569b3d5428b84b678d69c189186e7ddd04b81d6b89e5463051ba"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-radial_detail-cpu-minus-reference.s16le",
+      "sha256": "aa620ebb2679de739048974260e0e93beca9e088e899b89d23c2a7e33c88750b"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-radial_detail-cpu.bin",
+      "sha256": "ca0f2fef79eac850bc84e6751d19404b353f3d6d7dc50a561c7597b8e4bfc6a1"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-radial_detail-metal-minus-reference.s16le",
+      "sha256": "1406708a6cad6757c9404ff715be3cb6114043080cabe676f7e093b213841b91"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-radial_detail-metal.bin",
+      "sha256": "35ddfdf80d87a69f0bd4a0d4333d09620dfd6759188f4f4b5de8c95646bc979e"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-radial_detail-reference.bin",
+      "sha256": "aa90a0c0fc62b53320e19d5c8cbcdc9de47a056d07789e879f36ae44f46aa9aa"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_2x-radial_detail-source.bin",
+      "sha256": "87dc513caa392105a02425704e15b9fbd0fa81f92c1a552daa37550822225024"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-checkerboard-cpu-minus-metal.s16le",
+      "sha256": "c1ccf2c3f3600a2d14c56cba288d12dfc819cf2694ea28b641b26007217a9f63"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-checkerboard-cpu-minus-reference.s16le",
+      "sha256": "967a31e90bfad4f458ee2ddd3de07aa1425bff6f7e5130231386fb0419afd0a1"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-checkerboard-cpu.bin",
+      "sha256": "fb2065ec8480d31c93abe2342682b2214d05ab05f429a3e1799e39e0ed41d405"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-checkerboard-metal-minus-reference.s16le",
+      "sha256": "3e135de1f03d135f94083a904b7fb7185b154ff9ee5eaf96ae53a26ec27f0c01"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-checkerboard-metal.bin",
+      "sha256": "b2b99e8f61915f83c4372258fa00867f7c4a3b8c5095371ac9a2dceeecd80e2e"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-checkerboard-reference.bin",
+      "sha256": "71524bc075ab94f1e889ee6f154b2b34774bb8df00b578c49ade17f438f33b59"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-checkerboard-source.bin",
+      "sha256": "8434c7691faddb978d67a9922cdbe15bb981854b691a40f42a383250c85a935f"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-constant-cpu-minus-metal.s16le",
+      "sha256": "94637c6efefbdcc3d3bb74d61732b22250552654c8c11f0fa9c3b3ed11d38373"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-constant-cpu-minus-reference.s16le",
+      "sha256": "94637c6efefbdcc3d3bb74d61732b22250552654c8c11f0fa9c3b3ed11d38373"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-constant-cpu.bin",
+      "sha256": "11338d90691f7ee7d29ee4d6d25a035ecb45253d6685269e9993f70dc92809e6"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-constant-metal-minus-reference.s16le",
+      "sha256": "94637c6efefbdcc3d3bb74d61732b22250552654c8c11f0fa9c3b3ed11d38373"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-constant-metal.bin",
+      "sha256": "11338d90691f7ee7d29ee4d6d25a035ecb45253d6685269e9993f70dc92809e6"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-constant-reference.bin",
+      "sha256": "11338d90691f7ee7d29ee4d6d25a035ecb45253d6685269e9993f70dc92809e6"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-constant-source.bin",
+      "sha256": "c5285e69770929d8ff74149fc43728578a904ca65ec881a285c6a3b44f345941"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-diagonal_edge-cpu-minus-metal.s16le",
+      "sha256": "d85ea83684c43d49a57596520473c5706079e6ed7bfc6dad650d8cf1bdf7ecf1"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-diagonal_edge-cpu-minus-reference.s16le",
+      "sha256": "fa69d1d053525b8297f7046a3a913af0b5aacfd8eb918286e0cc0d50d5b441ba"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-diagonal_edge-cpu.bin",
+      "sha256": "198845aac68b78a9f112e8db68ac2bd0245f717d7e7d60fa377145960dbee65c"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-diagonal_edge-metal-minus-reference.s16le",
+      "sha256": "37049197597798f2c4db3c5901ec2a1fb01033dbf1d3062ccc0623a625864358"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-diagonal_edge-metal.bin",
+      "sha256": "ef425b0fdf2944720b923a4c2d757c2005d39d229b7ad6cf6c31adcf4c3c5746"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-diagonal_edge-reference.bin",
+      "sha256": "e7fadcf958b08212fe9a535862fdb85512b5f3e773723d479de277b143fccdc3"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-diagonal_edge-source.bin",
+      "sha256": "4c196bb7b2b8b261b82255c8f7480f8bf27060860232ce70d8158e9b7a7e0d0e"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-horizontal_ramp-cpu-minus-metal.s16le",
+      "sha256": "dd69a2f8fe4514709e2c5efc92f3c16204ff1472606f5453afc45a8f7abb6ee8"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-horizontal_ramp-cpu-minus-reference.s16le",
+      "sha256": "d9d94aeb4ef4126083489fde4f210f4d8692884ab573a8858732f64454fdcae0"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-horizontal_ramp-cpu.bin",
+      "sha256": "f2533878556af74b998c10abb95ed8d6e92251e3976d1acc3c364de95ce69a47"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-horizontal_ramp-metal-minus-reference.s16le",
+      "sha256": "13f473ae191082579d0b8cda2bb9799fdcad93db958973887b664a7f337af6f2"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-horizontal_ramp-metal.bin",
+      "sha256": "440a2edc9a85bc84c9e7ad3321bebb77f1de51711232de4aa2b5de0b4042b24a"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-horizontal_ramp-reference.bin",
+      "sha256": "439106cd6b82fed3449b0f4e4ad00e52951fdbf8f0b2e6c5125d3a95213a575f"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-horizontal_ramp-source.bin",
+      "sha256": "ed4d00298c83218da251922f47044cf566513423a3827cc9754da0f789edc5c1"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-impulse-cpu-minus-metal.s16le",
+      "sha256": "45b6ca36bd4a748a706f73b3084279260e990dee75235c3ac0bc3be5e62a7c2e"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-impulse-cpu-minus-reference.s16le",
+      "sha256": "80285273158937ac29f4839ec82746f8a71242dc1aaac306b08a07067dc8d728"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-impulse-cpu.bin",
+      "sha256": "167fddf3ee0aa56a06d5d456162afc7145cd9f698655f808eb2b72fa3fef7f2c"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-impulse-metal-minus-reference.s16le",
+      "sha256": "67c5355477cafb9374ab9dc408038acc94b85ade44e873eb9cc532ef371bac30"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-impulse-metal.bin",
+      "sha256": "12f181b4c38842f42dea20339930d448d69ff79d54568ecd4c3f1c93bfb07ae4"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-impulse-reference.bin",
+      "sha256": "c29a95946849e097f12d01615ea8ce9db3f3c8f5bd8607d3295b3415c46b5ca6"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-impulse-source.bin",
+      "sha256": "a4e09e162128e39849ee24235c636eec7cf8e3cacca6add016d55c0222789913"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_0-cpu-minus-metal.s16le",
+      "sha256": "ece9fac4d3fac8638510507caeabe070d9c86cc39d8b18bdd17cac4076a77db6"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_0-cpu-minus-reference.s16le",
+      "sha256": "2fe90a5c59a8490f4334ff0d7bc682406d14bd45b332e73d33ab90d667dfbdd3"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_0-cpu.bin",
+      "sha256": "2cead6e6f1cf130f107d963fc7711ac7ca82c553c6ea8b3b782a6727f9e0a122"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_0-metal-minus-reference.s16le",
+      "sha256": "f68259a8f8d703512744dc5d73145c72bc5fdf1ec776ba4b6a39e9c57d431ddc"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_0-metal.bin",
+      "sha256": "003122077189e775bece503d574a6b34bff0d4470d3d0de2666c236150dddec5"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_0-reference.bin",
+      "sha256": "0158637353fbeacacf8322c2535c0fb3c1e14d35c8b4acdab35209b1c699b5e9"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_0-source.bin",
+      "sha256": "dbef89de4f8a01e64b7135638d796c541f9def89e085b3474f2a660ea230279e"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_1-cpu-minus-metal.s16le",
+      "sha256": "77f55370bdb0ce68f308866665e534d8d4888f63bfe6968a26aa33e1bc5d5ee1"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_1-cpu-minus-reference.s16le",
+      "sha256": "72d994973b3d1e2e4e22c7122833b3728742ef99ee8a31298be8f68e5322e266"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_1-cpu.bin",
+      "sha256": "77e674caa207c039356b17a4ae2bcb197e68a68f803c414f6ff165a4aae609a5"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_1-metal-minus-reference.s16le",
+      "sha256": "7010fd62129f9b2f26097c1b7623efb37f4f75a56ec6b08d16bfa54260150ebc"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_1-metal.bin",
+      "sha256": "bfe31377b558a07bf739340da27eeecf1981ef6651c69a147965b9a5ae53a322"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_1-reference.bin",
+      "sha256": "0e2d6b46149e87f83fd2b7187432aff762516bb3deb1a22c64f1c5cd2293061d"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_1-source.bin",
+      "sha256": "142ba0805a2fd0f1501a32decc5d47ea8ff3fd9e437ced2a7aa4376f40a2ec41"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_2-cpu-minus-metal.s16le",
+      "sha256": "d1e63912f0eb909b711cdd9254370c91f7189c0638dde7ba32341e329a3ff075"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_2-cpu-minus-reference.s16le",
+      "sha256": "6fadf98717db8d3a3cefe0b23df80561616be31712b120afd7e141387a0ecea2"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_2-cpu.bin",
+      "sha256": "237804386f2de2d348e4965c4a0e1151b62592dcb54ce16281408330504a3ff7"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_2-metal-minus-reference.s16le",
+      "sha256": "f71485fd96c44bbcb31b0773f9bd6d47cc8d0f0c6db35192063a479942d2cd99"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_2-metal.bin",
+      "sha256": "6db1f2975b9643277e7cf6c095a6564cfd2ee00bbc12d3d55192ed1b0182cd3c"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_2-reference.bin",
+      "sha256": "ec2868eb307a6d2c03c7660120da67610440a1c49369720d8c1599ba40851b74"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_2-source.bin",
+      "sha256": "fd6c0181379904657fd3e7ee9ed9afd697f1ae0890f92f7099c18eb2ff614f9c"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_3-cpu-minus-metal.s16le",
+      "sha256": "34350a0dcb39094965b2bf855c6bdfebdc7c3de0c2644386b832d0e22e63cb43"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_3-cpu-minus-reference.s16le",
+      "sha256": "ee0bbc79d6986ab0f81fde7b47cc39dad461f47af5ec5b3b1e780eac7db0f277"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_3-cpu.bin",
+      "sha256": "3bdd291647cf9fee7a304ff7d47362715f081dc47d556d510de5becb98ae8192"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_3-metal-minus-reference.s16le",
+      "sha256": "1ae2f139af8bb528b5130ad15ab87a336456e3a0bf70ef4161379d5e434385bc"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_3-metal.bin",
+      "sha256": "3814c2af5ecddebd88b108cb619b623b15567594794c66d90a7560f4ddf31c5f"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_3-reference.bin",
+      "sha256": "1f829a78b1e504028bed46e9dd9d4ce9f8b8ea8d1d5bf44cc1194855d6dce473"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-moving_edge_3-source.bin",
+      "sha256": "2ae797213a3a2229b5cc0b0bdeff5acd289c1ecb82761927cae7b4547ccd058a"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-radial_detail-cpu-minus-metal.s16le",
+      "sha256": "bc8af5d3a8ac303ee5654ce2c311929b94f15c201af15b64c8d002df8a0cee46"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-radial_detail-cpu-minus-reference.s16le",
+      "sha256": "812a954cb1abe7b08ba43b42db54999d9f2fe4bb42c414de19c1d1ce3ac20148"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-radial_detail-cpu.bin",
+      "sha256": "3baa91dd47245687e07c7b4aaa8b214e1055bb1534eb1074f0cf3933cd97ce44"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-radial_detail-metal-minus-reference.s16le",
+      "sha256": "0e46c10b17bf029cb201bf9a505dee22117676328f42c41b71b2a018393b5871"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-radial_detail-metal.bin",
+      "sha256": "b3866430d812ed798a1d683ba4486e884255cc82f437a3c3e85bcbfd4fe8d212"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-radial_detail-reference.bin",
+      "sha256": "508626e1f6864e3eadb5c1995591c3e3c71519fbd92ac9d63acd3e282b670a66"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420f-direct_3_over_2-radial_detail-source.bin",
+      "sha256": "87dc513caa392105a02425704e15b9fbd0fa81f92c1a552daa37550822225024"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-checkerboard-cpu-minus-metal.s16le",
+      "sha256": "7c9fb747674041ff0df83939fbb4b79307c533cb784580f893698ca20898b8f0"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-checkerboard-cpu-minus-reference.s16le",
+      "sha256": "e867ffe96068cfbdc3ab4f864f23cbeafc0b72ce25110b3693291d6663974233"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-checkerboard-cpu.bin",
+      "sha256": "c33b86258d1dacc4d9e2d789688850688976f74bbfd5502f1c8fe937635581ed"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-checkerboard-metal-minus-reference.s16le",
+      "sha256": "7dab2352ed7981907f2cf9c776e218960b40c0004e312605042b9a0bb426177e"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-checkerboard-metal.bin",
+      "sha256": "ca416a69863b92482f02d6c7a4c88276c7516ddad667d14e1ac3d8fa1e4abf61"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-checkerboard-reference.bin",
+      "sha256": "0ea34da3539b057fc45e523067540f72d58217cbea1bf5fa6291177bcba2edfe"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-checkerboard-source.bin",
+      "sha256": "8434c7691faddb978d67a9922cdbe15bb981854b691a40f42a383250c85a935f"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-constant-cpu-minus-metal.s16le",
+      "sha256": "cfc335996cfae29fdf14fd2db7ea853366d350a5d387aa3c322616e81dacd56b"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-constant-cpu-minus-reference.s16le",
+      "sha256": "cfc335996cfae29fdf14fd2db7ea853366d350a5d387aa3c322616e81dacd56b"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-constant-cpu.bin",
+      "sha256": "e2648013d5058ec5cac072f1aeeeab134977a73a80309ff77e5d837c985ea8d5"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-constant-metal-minus-reference.s16le",
+      "sha256": "cfc335996cfae29fdf14fd2db7ea853366d350a5d387aa3c322616e81dacd56b"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-constant-metal.bin",
+      "sha256": "e2648013d5058ec5cac072f1aeeeab134977a73a80309ff77e5d837c985ea8d5"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-constant-reference.bin",
+      "sha256": "e2648013d5058ec5cac072f1aeeeab134977a73a80309ff77e5d837c985ea8d5"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-constant-source.bin",
+      "sha256": "c5285e69770929d8ff74149fc43728578a904ca65ec881a285c6a3b44f345941"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-diagonal_edge-cpu-minus-metal.s16le",
+      "sha256": "716fb70121321ffa533e4c9f4295353cfa9cb8177cee28bcc1e5a46d713ded9c"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-diagonal_edge-cpu-minus-reference.s16le",
+      "sha256": "dfb9571206fc8cb025e6019acd978e975cdc044e523ab6639f2a5c2a55de7afd"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-diagonal_edge-cpu.bin",
+      "sha256": "88598377284760d88836b28be87596b7276356c257bae06715c0318ad25d5941"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-diagonal_edge-metal-minus-reference.s16le",
+      "sha256": "d2ace25dae10f477bddf4ebbd53704d0beb31fab78baebc9cdea174e3a3d8ff2"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-diagonal_edge-metal.bin",
+      "sha256": "8707a11052a89188bc19b6f5b069c70c4f41d6fb299c10939146fff799b935f6"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-diagonal_edge-reference.bin",
+      "sha256": "5ed0f191175be7c03e5aac575fdaf59056d1d11a1d9e3d94165a3e1fadb31cb6"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-diagonal_edge-source.bin",
+      "sha256": "4c196bb7b2b8b261b82255c8f7480f8bf27060860232ce70d8158e9b7a7e0d0e"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-horizontal_ramp-cpu-minus-metal.s16le",
+      "sha256": "691f280862fd2f9b74577a4df621f6018a3ebd0eb44c31a1defd2052baac59bf"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-horizontal_ramp-cpu-minus-reference.s16le",
+      "sha256": "7f4be34c13888deb55c949f193caffb42adbfaebff8c8462a3bd33319d44d51c"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-horizontal_ramp-cpu.bin",
+      "sha256": "326aa8312373a01f6ff654fc9f9bc714584c40d0348768aca4d4f8c37b596544"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-horizontal_ramp-metal-minus-reference.s16le",
+      "sha256": "20bd0282b98042d7a581add729ef0dff65a3f506a5ac813813b49e3098433559"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-horizontal_ramp-metal.bin",
+      "sha256": "c82951222dd4ce3b049d184e79a232a2ea3fdf99939a20b614b8a95bd1188be6"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-horizontal_ramp-reference.bin",
+      "sha256": "8232647a2ad7806388e8d72972231b86df5821251c6082ef0a788fbb31078249"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-horizontal_ramp-source.bin",
+      "sha256": "ed4d00298c83218da251922f47044cf566513423a3827cc9754da0f789edc5c1"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-impulse-cpu-minus-metal.s16le",
+      "sha256": "b6f050f2efcfd13670177c4cbbd6633570d72b20e5e78dae8c77f3fbf309eddc"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-impulse-cpu-minus-reference.s16le",
+      "sha256": "fd2bfe6884f25fc16cc989150b1fad443a8c02b4410108050c9a4dc439143f7a"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-impulse-cpu.bin",
+      "sha256": "87d0c3a7a09cec1cfc02a6c781b5d44cc55aa4c969d2d95ab8380303035cadaa"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-impulse-metal-minus-reference.s16le",
+      "sha256": "9da14a8c8e6eed5ab31fefce057e806ca1f0c0af118909225a7f6b971f7338e5"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-impulse-metal.bin",
+      "sha256": "1bbe780dbcadefda92c35f7324a596f28ec2b982c61ad7012af2089c283ceb7e"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-impulse-reference.bin",
+      "sha256": "08553ce16c9a05b6d913dc0702deedf6939b093ff95ee8b5b930524049e35b14"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-impulse-source.bin",
+      "sha256": "a4e09e162128e39849ee24235c636eec7cf8e3cacca6add016d55c0222789913"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_0-cpu-minus-metal.s16le",
+      "sha256": "993c0a87bf4d58bdd1753db30ccb03c6f710bbc54a55c7af9aaa0625c1efd925"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_0-cpu-minus-reference.s16le",
+      "sha256": "faf329f773f88b943d98a326a3044f17bfe2fdcd4f626b684f26b91588f2d9df"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_0-cpu.bin",
+      "sha256": "8a49c33cfaab536f230bdc7d90a3259edc1a9070e242862ad71f9e3d4fa8ba56"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_0-metal-minus-reference.s16le",
+      "sha256": "c22a7a92ce53eae43613735ce3f934e47f7005a3bc4bd0452a80797c97fa20d4"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_0-metal.bin",
+      "sha256": "0e52815e82d29c6fd146125cb7ac0480755282bf17bdef2b10480ef87191535b"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_0-reference.bin",
+      "sha256": "fd7b099b0eda9b49f61224a44130dce97d94a162e7021b758775240f3ee22645"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_0-source.bin",
+      "sha256": "dbef89de4f8a01e64b7135638d796c541f9def89e085b3474f2a660ea230279e"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_1-cpu-minus-metal.s16le",
+      "sha256": "aa762039e409fa8c519897123629e9bb0d840fae90741ed07e33cccbf980b56c"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_1-cpu-minus-reference.s16le",
+      "sha256": "bd998b2198aac3d8f3e8aeb64cd66fda01a511ac44dbc53a0192eb7eb5566e45"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_1-cpu.bin",
+      "sha256": "735c55b1a2e740cf1002165bbc11736272803dbf5114051ef37344e1c246d9b2"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_1-metal-minus-reference.s16le",
+      "sha256": "9995f1cde92c14e3f1ff3e46e788f488b972e2187f7621610e2ed24d9898aeab"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_1-metal.bin",
+      "sha256": "66bedf7d05161fc67b1b32af3525cd71d4a7099fcb01a713921df4e69aa721cd"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_1-reference.bin",
+      "sha256": "b4eeacf3c46b3e3cfcdb39cb14176e710721bfdad5e8b63f0462b6950626733e"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_1-source.bin",
+      "sha256": "142ba0805a2fd0f1501a32decc5d47ea8ff3fd9e437ced2a7aa4376f40a2ec41"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_2-cpu-minus-metal.s16le",
+      "sha256": "bbb3c060d83808ca969003b5664ed0b21667d2a4a366d6eb91126e99bbcf6c02"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_2-cpu-minus-reference.s16le",
+      "sha256": "e7af4e89669d04880c44e1b2f05238440ec80f32b7a62bd271baf1439a260acc"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_2-cpu.bin",
+      "sha256": "c05b936e0efe6445ffb6dda7cab6a15a64d5324311cd40d24b868e5e7521e972"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_2-metal-minus-reference.s16le",
+      "sha256": "d94c1c4267e1a4188ac2175a6f4352ca22bf860e5dc500a7c88bd80505ca404b"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_2-metal.bin",
+      "sha256": "c301dd31bb82df4b96429f7090d6a4acded9b013824d8fa9264e4bc3353eb01f"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_2-reference.bin",
+      "sha256": "7c0564c7f9c41bf64c9b8e65ca8118fad0a4cffec1785cbe0f745ae8e13ec94f"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_2-source.bin",
+      "sha256": "fd6c0181379904657fd3e7ee9ed9afd697f1ae0890f92f7099c18eb2ff614f9c"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_3-cpu-minus-metal.s16le",
+      "sha256": "dcdb96d1ab6e51aed73ba0f0db4a3e00ee1d81944b5ceba69a118fe878adfe95"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_3-cpu-minus-reference.s16le",
+      "sha256": "4cfe931ffa474a35460f27068037e3ca42d9cac477cbb19a1f258ea28927fa78"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_3-cpu.bin",
+      "sha256": "66c44f41a1658f5fef98c2d1930d06610e2802ca7e60dc7b57e40139a1317a07"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_3-metal-minus-reference.s16le",
+      "sha256": "1ce82e836329059a4c7b6e78a9fbab81fdf8e63056de29f8351a772ddc20e74f"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_3-metal.bin",
+      "sha256": "65d3dce8b5abe38035f7bae13c4922bb156f260d39b021a29a796cd11af1059f"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_3-reference.bin",
+      "sha256": "f43b187ebe08e06fb0fd720dda71badbca6447b3cf2116e3bdb29553d6f9ded4"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-moving_edge_3-source.bin",
+      "sha256": "2ae797213a3a2229b5cc0b0bdeff5acd289c1ecb82761927cae7b4547ccd058a"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-radial_detail-cpu-minus-metal.s16le",
+      "sha256": "5b37c7ab8a9f1ae4c5e85aeaa2599839b171ae26427254de4828e6ba556b8ce0"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-radial_detail-cpu-minus-reference.s16le",
+      "sha256": "f753d88e8650c51c6504a8dfe6f53f7be539304a402e5e5206429c777638c57e"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-radial_detail-cpu.bin",
+      "sha256": "9f92d66307c2891188d5837496a2832a542db918faf7dd24a697c9ac080e399e"
+    },
+    {
+      "byteCount": 2304,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-radial_detail-metal-minus-reference.s16le",
+      "sha256": "a4952ad39b2abccdf089b092f884be7072f326ae133f88bccad97efe0102c127"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-radial_detail-metal.bin",
+      "sha256": "3e3f14a36d5a3dc6602ccb7d58e505dfb01853eb63d91ec06f239bc29e78efff"
+    },
+    {
+      "byteCount": 1152,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-radial_detail-reference.bin",
+      "sha256": "aa90a0c0fc62b53320e19d5c8cbcdc9de47a056d07789e879f36ae44f46aa9aa"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_2x-radial_detail-source.bin",
+      "sha256": "87dc513caa392105a02425704e15b9fbd0fa81f92c1a552daa37550822225024"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-checkerboard-cpu-minus-metal.s16le",
+      "sha256": "fc27ca78ba0233c6f3e98baf1b68d39778bea767552e554e8f82666041fb4a1b"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-checkerboard-cpu-minus-reference.s16le",
+      "sha256": "89ace0c7828a020a316c25bffd8c81c39b1429c0de3644e4136f95e3b1c3fe40"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-checkerboard-cpu.bin",
+      "sha256": "036b4bc7452f976eed84080bfa9ba416cf8b94a488f40c7c222b767477dd6a47"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-checkerboard-metal-minus-reference.s16le",
+      "sha256": "5dfb0678a26ad7684800ece94749bd281fa33c360c63da25f2b9fbe2ee445e50"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-checkerboard-metal.bin",
+      "sha256": "7c909b7461d38cbf0eb4e26e8c5d3ba8661bc28440d5fed6784846a7f68cd624"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-checkerboard-reference.bin",
+      "sha256": "71524bc075ab94f1e889ee6f154b2b34774bb8df00b578c49ade17f438f33b59"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-checkerboard-source.bin",
+      "sha256": "8434c7691faddb978d67a9922cdbe15bb981854b691a40f42a383250c85a935f"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-constant-cpu-minus-metal.s16le",
+      "sha256": "94637c6efefbdcc3d3bb74d61732b22250552654c8c11f0fa9c3b3ed11d38373"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-constant-cpu-minus-reference.s16le",
+      "sha256": "94637c6efefbdcc3d3bb74d61732b22250552654c8c11f0fa9c3b3ed11d38373"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-constant-cpu.bin",
+      "sha256": "11338d90691f7ee7d29ee4d6d25a035ecb45253d6685269e9993f70dc92809e6"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-constant-metal-minus-reference.s16le",
+      "sha256": "94637c6efefbdcc3d3bb74d61732b22250552654c8c11f0fa9c3b3ed11d38373"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-constant-metal.bin",
+      "sha256": "11338d90691f7ee7d29ee4d6d25a035ecb45253d6685269e9993f70dc92809e6"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-constant-reference.bin",
+      "sha256": "11338d90691f7ee7d29ee4d6d25a035ecb45253d6685269e9993f70dc92809e6"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-constant-source.bin",
+      "sha256": "c5285e69770929d8ff74149fc43728578a904ca65ec881a285c6a3b44f345941"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-diagonal_edge-cpu-minus-metal.s16le",
+      "sha256": "6c570884cb68f18604fa2b0edd0a31ad37ff2bbde0ab2aafd466ceda7ffc75c8"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-diagonal_edge-cpu-minus-reference.s16le",
+      "sha256": "e3d1b3de96364c7c8e9464ab01f4b466ed02a98accd78404196ad6eb4e7d4bdb"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-diagonal_edge-cpu.bin",
+      "sha256": "1c8d4ae3ceb749ebc8e77f2612f1430c74cb3f91f8da75f91acbdc63deb1d6fe"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-diagonal_edge-metal-minus-reference.s16le",
+      "sha256": "1ea8a8d20c9f4b97eeb4157a115501619e150feb17d7d9996e7abbdf3212290b"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-diagonal_edge-metal.bin",
+      "sha256": "ee91abc10ec4a6e2b72b8e12430d7b9dc6d44b6e70d74b5b65b4366bba2a9c0c"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-diagonal_edge-reference.bin",
+      "sha256": "e7fadcf958b08212fe9a535862fdb85512b5f3e773723d479de277b143fccdc3"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-diagonal_edge-source.bin",
+      "sha256": "4c196bb7b2b8b261b82255c8f7480f8bf27060860232ce70d8158e9b7a7e0d0e"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-horizontal_ramp-cpu-minus-metal.s16le",
+      "sha256": "dd69a2f8fe4514709e2c5efc92f3c16204ff1472606f5453afc45a8f7abb6ee8"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-horizontal_ramp-cpu-minus-reference.s16le",
+      "sha256": "d9d94aeb4ef4126083489fde4f210f4d8692884ab573a8858732f64454fdcae0"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-horizontal_ramp-cpu.bin",
+      "sha256": "f2533878556af74b998c10abb95ed8d6e92251e3976d1acc3c364de95ce69a47"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-horizontal_ramp-metal-minus-reference.s16le",
+      "sha256": "13f473ae191082579d0b8cda2bb9799fdcad93db958973887b664a7f337af6f2"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-horizontal_ramp-metal.bin",
+      "sha256": "440a2edc9a85bc84c9e7ad3321bebb77f1de51711232de4aa2b5de0b4042b24a"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-horizontal_ramp-reference.bin",
+      "sha256": "439106cd6b82fed3449b0f4e4ad00e52951fdbf8f0b2e6c5125d3a95213a575f"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-horizontal_ramp-source.bin",
+      "sha256": "ed4d00298c83218da251922f47044cf566513423a3827cc9754da0f789edc5c1"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-impulse-cpu-minus-metal.s16le",
+      "sha256": "185bc514ef34872b7c6738f107ee8fafe8f9b8c7bf942b015bd42574d504bd7b"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-impulse-cpu-minus-reference.s16le",
+      "sha256": "575c8c48fa4c7ce9a4bbc3b512d9290467165b98734bff8661ee6cc773ae62c2"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-impulse-cpu.bin",
+      "sha256": "6f76c25aad26630762fc7ebbee70369123741a75be0b438d94c45473a92dcf52"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-impulse-metal-minus-reference.s16le",
+      "sha256": "9778be1d02ecae84963c167a13cee6ede54aa792f36917dd71d75a3306b9c8ec"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-impulse-metal.bin",
+      "sha256": "c0a8bd520631c8a92f2667e0a11f6c299ce6fda7b9757e2c9fc2924378a46d65"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-impulse-reference.bin",
+      "sha256": "c29a95946849e097f12d01615ea8ce9db3f3c8f5bd8607d3295b3415c46b5ca6"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-impulse-source.bin",
+      "sha256": "a4e09e162128e39849ee24235c636eec7cf8e3cacca6add016d55c0222789913"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_0-cpu-minus-metal.s16le",
+      "sha256": "a591034fc2e308d74c5888f37766f5a3d014e58398c05f152ac7a4407d0257b0"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_0-cpu-minus-reference.s16le",
+      "sha256": "7fc4443a584fe74e0309d33184348a8abd1a5f8268f16e3e738ab5f861a534e5"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_0-cpu.bin",
+      "sha256": "3af666d676f8981fa03030423c36088543ff9ab7f5198bfd3042b8398d419997"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_0-metal-minus-reference.s16le",
+      "sha256": "47060690e29922b7edd4ef87117ea5bdc51c75b55a8d1f93eb5bb6ba944290eb"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_0-metal.bin",
+      "sha256": "d2617deee9ab8b75db8c85e9db83a6dc61aa1afc632bfe9a8499028f1d923e7e"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_0-reference.bin",
+      "sha256": "0158637353fbeacacf8322c2535c0fb3c1e14d35c8b4acdab35209b1c699b5e9"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_0-source.bin",
+      "sha256": "dbef89de4f8a01e64b7135638d796c541f9def89e085b3474f2a660ea230279e"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_1-cpu-minus-metal.s16le",
+      "sha256": "6455243dfd9d851135dc4b3f684dfc6ac4ec38a26eeaf43fb3dfcdcda309aa91"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_1-cpu-minus-reference.s16le",
+      "sha256": "aba01ce3999d83a957a855371290d74cf61baa445b1ce9a2abdff4b2723cb882"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_1-cpu.bin",
+      "sha256": "982790b4e72bf36bdf5138fc0dd5cd320544a6d9e25cf8f9b35910404e034513"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_1-metal-minus-reference.s16le",
+      "sha256": "0cdb47879f9f09edf9f3d9b6a18ae46777b350263e78a7ee2ed8e2f161e6a59d"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_1-metal.bin",
+      "sha256": "d5e40b7491674732a8f990ceb27a81a55608ac6cc9e74dcf2c1766bc5cf94537"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_1-reference.bin",
+      "sha256": "0e2d6b46149e87f83fd2b7187432aff762516bb3deb1a22c64f1c5cd2293061d"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_1-source.bin",
+      "sha256": "142ba0805a2fd0f1501a32decc5d47ea8ff3fd9e437ced2a7aa4376f40a2ec41"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_2-cpu-minus-metal.s16le",
+      "sha256": "6994737777a11edea4897d5cb61bf2064791782cd34f220cb21997a1daf3bbb9"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_2-cpu-minus-reference.s16le",
+      "sha256": "feae5681c96f188cf70d3642273582d28ed284b9c34119c3569d550a310f945c"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_2-cpu.bin",
+      "sha256": "eb0861478aed462b9496480c21b2ed0031a591edb69afc1b716d3818590efc47"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_2-metal-minus-reference.s16le",
+      "sha256": "37fc246a243feac2fa4214506d631ec7047d78a8c50f9afdcac64cd511f704bc"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_2-metal.bin",
+      "sha256": "48f7449992c38746991b0df9167c5a1b20ef735b1c5a193ac02d04d6ec4efe2d"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_2-reference.bin",
+      "sha256": "ec2868eb307a6d2c03c7660120da67610440a1c49369720d8c1599ba40851b74"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_2-source.bin",
+      "sha256": "fd6c0181379904657fd3e7ee9ed9afd697f1ae0890f92f7099c18eb2ff614f9c"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_3-cpu-minus-metal.s16le",
+      "sha256": "3aabbdec286821a0c27967a3d9f97c9af78ad7edbaf3601a4235a4811af2f050"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_3-cpu-minus-reference.s16le",
+      "sha256": "3725c2eda70634f03d85af75a7d5ecbd78131d8d9db4a47db9b81a513999b2ba"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_3-cpu.bin",
+      "sha256": "7bec6e801f4fe4ec4bdb4d3dacaa176009748f48d97433c570308ca6f401400a"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_3-metal-minus-reference.s16le",
+      "sha256": "a6ee90eba5f58a43ece51dd09ca60444957dfcab91eb64fa5eb86019215c26c6"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_3-metal.bin",
+      "sha256": "9cd165ea5c3ea06f26dbd31f9e0cd0cd2bf9e4a56292d62f501fc8f2aadbb793"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_3-reference.bin",
+      "sha256": "1f829a78b1e504028bed46e9dd9d4ce9f8b8ea8d1d5bf44cc1194855d6dce473"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-moving_edge_3-source.bin",
+      "sha256": "2ae797213a3a2229b5cc0b0bdeff5acd289c1ecb82761927cae7b4547ccd058a"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-radial_detail-cpu-minus-metal.s16le",
+      "sha256": "3068aba96e141ca38b6697f561d4c092e1f6f5d3fd123f6a42b89a5bd0a2e722"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-radial_detail-cpu-minus-reference.s16le",
+      "sha256": "7b7ea3f500e1f64f19dffb3b503bb705588cdd876ff895e5b9231eab72e9e4a4"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-radial_detail-cpu.bin",
+      "sha256": "d1e9f4ca6de7f6776b06994ecfaa3732f8d34a5511b3c2c8d640e7be35db28ab"
+    },
+    {
+      "byteCount": 1296,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-radial_detail-metal-minus-reference.s16le",
+      "sha256": "d2d82cd6f4320671e86c4c45f5933dbd17a0d694a9d96b62403c3b4b7f3895a6"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-radial_detail-metal.bin",
+      "sha256": "7f8704f4446bde48391d6edb805e3f50791f0d8b15e82479e5c2dac681735f5d"
+    },
+    {
+      "byteCount": 648,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-radial_detail-reference.bin",
+      "sha256": "508626e1f6864e3eadb5c1995591c3e3c71519fbd92ac9d63acd3e282b670a66"
+    },
+    {
+      "byteCount": 288,
+      "path": "v3-p05-baseline-2026-08-02/420v-direct_3_over_2-radial_detail-source.bin",
+      "sha256": "87dc513caa392105a02425704e15b9fbd0fa81f92c1a552daa37550822225024"
+    },
+    {
+      "byteCount": 10555,
+      "path": "v3-p05-baseline-2026-08-02/allocation-profile.json",
+      "sha256": "d8a8f0dd8212d9601323676ec876c4db7277aec0e3ac6fa2cb1460d38d6ec032"
+    },
+    {
+      "byteCount": 53805,
+      "path": "v3-p05-baseline-2026-08-02/capture-manifest.json",
+      "sha256": "902971d4102cd361a4791e275630f518cfbab53293c0c3ceb46d3e103ffe1dbd"
+    },
+    {
+      "byteCount": 42076,
+      "path": "v3-p05-baseline-2026-08-02/difference-maps.json",
+      "sha256": "9c1ed6ee9a7eeaed5c0e28395a367bd8598019af2b58809fa7364a10ba0ef54b"
+    },
+    {
+      "byteCount": 2876,
+      "path": "v3-p05-baseline-2026-08-02/end-to-end-baseline.json",
+      "sha256": "2cd70eaa74f3245c4fa6a8c899391ef843c745fbf3c74dffce76d133b479ded0"
+    },
+    {
+      "byteCount": 1158,
+      "path": "v3-p05-baseline-2026-08-02/end-to-end-input.mov",
+      "sha256": "8049c0bbd4e9e67796cea3e68767208715f4672cbe3e1db0dadc5db51da3eced"
+    },
+    {
+      "byteCount": 17663,
+      "path": "v3-p05-baseline-2026-08-02/end-to-end-results.json",
+      "sha256": "68e3311dc9bdf7ae874f8f851e122e20e86e8a6378d7a226f8ec6f5b0c43015d"
+    },
+    {
+      "byteCount": 45104,
+      "path": "v3-p05-baseline-2026-08-02/engine-results.json",
+      "sha256": "2852efbc144c9bafacd9e699f4383c6db726ea53c7c214f003ee7a398972c4ee"
+    },
+    {
+      "byteCount": 4929,
+      "path": "v3-p05-baseline-2026-08-02/environment.json",
+      "sha256": "15886942d41f061dd99c51a28833fb062bce61d4a1f2f61c02b406a5f3bd0412"
+    },
+    {
+      "byteCount": 1444,
+      "path": "v3-p05-baseline-2026-08-02/performance-baseline.json",
+      "sha256": "144eae7c39c97e37662308dba095786c2bc14c06403825133fed847d1f88ece8"
+    },
+    {
+      "byteCount": 1178,
+      "path": "v3-p05-baseline-2026-08-02/quality-baseline.json",
+      "sha256": "6a019b338fd17ab0299161b0eea9a0493939fe783c2d6bf10ba1cfe51fe84b8e"
+    },
+    {
+      "byteCount": 11311,
+      "path": "v3-p05-baseline-2026-08-02/time-profiler-summary.json",
+      "sha256": "02ffbe43df198b4c9c7de2433edd88fd7ffc2b2a49137bcd37d949a96cdb2b08"
+    },
+    {
+      "byteCount": 7189,
+      "path": "v3-p05-baseline-2026-08-02/xcodebuild.log",
+      "sha256": "3b651563f504375f94fd567e227b0f7f52b04a2ba1c09833ad3fa8dfca513ca1"
+    }
+  ],
+  "schemaVersion": "mirmir-v4-evidence-manifest-v1",
+  "sourceCommit": "d3a4de55c08391ea8a08c00beb766b5650dc9f58",
+  "sourceDescribe": "d3a4de5-dirty",
+  "tools": [
+    {
+      "path": "script/v4/capture_baseline.py",
+      "sha256": "9ed3497962e09c5e40a7639f5e97ad2d36ac40070ec6dca1ef3b1402aedbbecb"
+    },
+    {
+      "path": "script/v4/summarize_time_profile.py",
+      "sha256": "efc8daffc816cd7f321b4a62439cb2f02ebb79af4937eae61fbe4a3e20a58b12"
+    },
+    {
+      "path": "script/v4/finalize_evidence.py",
+      "sha256": "446fb907aadb0ba1848d338ec7b33d24209e191163fa0f186919a6b69614d90c"
+    }
+  ]
+}

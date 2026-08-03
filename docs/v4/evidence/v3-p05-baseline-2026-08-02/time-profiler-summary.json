@@ -1,0 +1,374 @@
+{
+  "categoryInclusiveMilliseconds": {
+    "analysis": 20168.0,
+    "benchmark_harness": 9868.0,
+    "copy_and_allocation": 613.0,
+    "metal_submission": 482.0,
+    "reconstruction": 22468.0,
+    "selection_and_decode": 1952.0
+  },
+  "processInstanceCount": 2,
+  "processName": "Mirmir",
+  "sampleCount": 9724,
+  "sampledCPUMilliseconds": 9724.0,
+  "schemaVersion": "mirmir-v4-time-profile-summary-v1",
+  "sourceTrace": {
+    "byteCount": 52826828,
+    "retention": "Raw system-wide trace retained locally only; summary excludes device identifiers, process identifiers, paths, and unrelated process details.",
+    "treeSHA256": "0c704e8ea11922ee5f32b3f6479e2887202357003b1c768cc0606842abe775e4"
+  },
+  "topAllLeafSymbols": [
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 1327.0,
+      "symbol": "ASHVideoAnalyzerV2CodePlane.luma(x:y:boundary:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 1304.0,
+      "symbol": "ASHVideoAnalyzerV2BoundaryRule.index(_:extent:)"
+    },
+    {
+      "image": "libswiftCore.dylib",
+      "sampledMilliseconds": 1105.0,
+      "symbol": "_stringCompareWithSmolCheck(_:_:expecting:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 602.0,
+      "symbol": "ASHVideoCodeRange8Bit.normalizeLuma(_:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 469.0,
+      "symbol": "DYLD-STUB$$_stringCompareWithSmolCheck(_:_:expecting:)"
+    },
+    {
+      "image": "libswiftCore.dylib",
+      "sampledMilliseconds": 318.0,
+      "symbol": "swift_bridgeObjectRelease"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 312.0,
+      "symbol": "DYLD-STUB$$swift_bridgeObjectRelease"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 306.0,
+      "symbol": "DYLD-STUB$$swift_bridgeObjectRelease_n"
+    },
+    {
+      "image": "libswiftCore.dylib",
+      "sampledMilliseconds": 295.0,
+      "symbol": "swift_bridgeObjectRelease_n"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 284.0,
+      "symbol": "ASHVideoCodeRange8Bit.normalizeChroma(_:)"
+    },
+    {
+      "image": "libsystem_m.dylib",
+      "sampledMilliseconds": 221.0,
+      "symbol": "sin"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 164.0,
+      "symbol": "specialized static ASHSpatialOperatorBankV2.reconstruct(plane:sourceX:sourceY:descriptor:sidecar:boundary:parameters:)"
+    },
+    {
+      "image": "libsystem_m.dylib",
+      "sampledMilliseconds": 140.0,
+      "symbol": "0x19d0dc0f4"
+    },
+    {
+      "image": "libsystem_m.dylib",
+      "sampledMilliseconds": 120.0,
+      "symbol": "pow"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 116.0,
+      "symbol": "static ASHSpatialOperatorBankV2.kernel(_:_:)"
+    },
+    {
+      "image": "libsystem_m.dylib",
+      "sampledMilliseconds": 107.0,
+      "symbol": "0x19d0dbfdc"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 82.0,
+      "symbol": "specialized static ASHVideoAnalyzerV2.scharrGradient(x:y:sample:)"
+    },
+    {
+      "image": "libsystem_malloc.dylib",
+      "sampledMilliseconds": 82.0,
+      "symbol": "_xzm_free"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 70.0,
+      "symbol": "_stringCompare(_:_:expecting:)"
+    },
+    {
+      "image": "libswiftCore.dylib",
+      "sampledMilliseconds": 64.0,
+      "symbol": "swift_release"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 62.0,
+      "symbol": "static ASHSpatialPlaneV2.resolve(_:extent:boundary:)"
+    },
+    {
+      "image": "libsystem_platform.dylib",
+      "sampledMilliseconds": 62.0,
+      "symbol": "_platform_memmove"
+    },
+    {
+      "image": "libsystem_malloc.dylib",
+      "sampledMilliseconds": 59.0,
+      "symbol": "xzm_malloc_zone_size"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 55.0,
+      "symbol": "specialized __RawDictionaryStorage.find<A>(_:hashValue:)"
+    },
+    {
+      "image": "IOKit",
+      "sampledMilliseconds": 46.0,
+      "symbol": "iokit_user_client_trap"
+    },
+    {
+      "image": "libswiftCore.dylib",
+      "sampledMilliseconds": 46.0,
+      "symbol": "Hasher._combine(_:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 41.0,
+      "symbol": "protocol witness for Numeric.magnitude.getter in conformance Double"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 40.0,
+      "symbol": "specialized Array._getElement(_:wasNativeTypeChecked:matchingSubscriptCheck:)"
+    },
+    {
+      "image": "libswiftCore.dylib",
+      "sampledMilliseconds": 40.0,
+      "symbol": "swift_retain"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 34.0,
+      "symbol": "DYLD-STUB$$sin"
+    }
+  ],
+  "topAppInclusiveSymbols": [
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 8639.0,
+      "symbol": "PreparedDeterministicCPUUpscaler.process(source:destination:timing:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 8624.0,
+      "symbol": "specialized ASHDeterministicUpscaleBackend.process(source:into:context:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 8620.0,
+      "symbol": "ASHTelemetryRecording.measure<A>(_:operation:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 8617.0,
+      "symbol": "static ASHSpatialReferencePipelineV2.process(_:telemetry:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 4395.0,
+      "symbol": "static ASHSpatialReferencePipelineV2.analyzeLumaSourceSites(_:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 4395.0,
+      "symbol": "static ASHVideoAnalyzerV2.lumaMeasurements(plane:x:y:boundary:configuration:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 4181.0,
+      "symbol": "ASHVideoAnalyzerV2CodePlane.luma(x:y:boundary:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 4081.0,
+      "symbol": "closure #1 in static ASHVideoAnalyzerV2.lumaMeasurements(plane:x:y:boundary:configuration:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 3070.0,
+      "symbol": "specialized static ASHVideoAnalyzerV2.structureTensor(x:y:sample:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 2326.0,
+      "symbol": "partial apply for closure #2 in static ASHSpatialReferencePipelineV2.process(_:telemetry:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 1304.0,
+      "symbol": "ASHVideoAnalyzerV2BoundaryRule.index(_:extent:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 1129.0,
+      "symbol": "static ASHSpatialOperatorBankV2.evaluateSample(_:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 1068.0,
+      "symbol": "specialized static ASHSpatialOperatorBankV2.reconstruct(plane:sourceX:sourceY:descriptor:sidecar:boundary:parameters:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 1020.0,
+      "symbol": "specialized static ASHVideoAnalyzerV2.scharrGradient(x:y:sample:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 1008.0,
+      "symbol": "closure #2 in static ASHVideoAnalyzerV2.chromaMeasurements(_:lumaConfidence:lumaTangent:boundary:configuration:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 974.0,
+      "symbol": "closure #1 in static ASHVideoAnalyzerV2.chromaMeasurements(_:lumaConfidence:lumaTangent:boundary:configuration:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 773.0,
+      "symbol": "partial apply for closure #6 in static ASHSpatialReferencePipelineV2.process(_:telemetry:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 773.0,
+      "symbol": "static ASHSpatialReferencePipelineV2.reconstruct(plane:route:analyses:dispatches:lumaWidth:lumaHeight:runtimeConfiguration:operatorParameters:chromaSiting:summary:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 649.0,
+      "symbol": "partial apply for closure #5 in static ASHSpatialReferencePipelineV2.process(_:telemetry:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 648.0,
+      "symbol": "static ASHSpatialReferencePipelineV2.makeDispatches(analyses:plane:route:coordinatePolicy:chromaSiting:stateInputEnabled:telemetry:summary:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 605.0,
+      "symbol": "ASHVideoCodeRange8Bit.normalizeLuma(_:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 533.0,
+      "symbol": "static ASHSpatialDevelopmentSelectorV2.dispatch(state:phase:stateInputEnabled:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 469.0,
+      "symbol": "DYLD-STUB$$_stringCompareWithSmolCheck(_:_:expecting:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 431.0,
+      "symbol": "closure #7 in static ASHSpatialReferencePipelineV2.process(_:telemetry:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 431.0,
+      "symbol": "partial apply for closure #7 in static ASHSpatialReferencePipelineV2.process(_:telemetry:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 431.0,
+      "symbol": "partial apply for closure #8 in static ASHSpatialReferencePipelineV2.process(_:telemetry:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 372.0,
+      "symbol": "static ASHSpatialOperatorBankV2.sinc(_:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 353.0,
+      "symbol": "static MirmirApp.$main()"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 312.0,
+      "symbol": "DYLD-STUB$$swift_bridgeObjectRelease"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 306.0,
+      "symbol": "DYLD-STUB$$swift_bridgeObjectRelease_n"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 284.0,
+      "symbol": "ASHVideoCodeRange8Bit.normalizeChroma(_:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 234.0,
+      "symbol": "static ASHMetalDevelopmentRuntimeFactoryV3.makeLUT(route:configuration:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 222.0,
+      "symbol": "static ASHLUTBinaryCodecV3.serialize(route:entries:metadata:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 220.0,
+      "symbol": "static ASHSpatialOperatorBankV2.kernel(_:_:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 207.0,
+      "symbol": "specialized ContiguousArray._reserveCapacityImpl(minimumCapacity:growForAppend:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 196.0,
+      "symbol": "specialized ContiguousArray._createNewBuffer(bufferIsUnique:minimumCapacity:growForAppend:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 165.0,
+      "symbol": "static ASHSpatialDevelopmentSelectorV2.normalizedState(_:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 161.0,
+      "symbol": "static ASHCode.encode(_:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 160.0,
+      "symbol": "specialized static ASHSpatialDevelopmentSelectorV2.normalizedState(_:)"
+    },
+    {
+      "image": "Mirmir",
+      "sampledMilliseconds": 135.0,
+      "symbol": "specialized static ASHCode.encode(_:)"
+    }
+  ]
+}
