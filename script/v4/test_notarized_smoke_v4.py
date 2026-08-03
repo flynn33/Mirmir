@@ -75,6 +75,15 @@ class NotarizedSmokeTests(unittest.TestCase):
         with self.assertRaisesRegex(smoke.NotarizedSmokeError, "non-finite"):
             smoke.load_json_bytes(b'{"a":NaN}', "fixture")
 
+    def test_locked_contract_accepts_both_provider_policies_and_exact_sources(self) -> None:
+        contract, lane_sha, release_sha = smoke.validate_contract(
+            SCRIPT_DIRECTORY / "notarized-smoke-contract-v1.json",
+            SCRIPT_DIRECTORY / "release-qualification-contract-v1.json",
+        )
+        self.assertEqual(set(contract["acceptanceProviders"]), {"notarytool", "xcode_archive"})
+        self.assertEqual(lane_sha, smoke.sha256_file(SCRIPT_DIRECTORY / "notarized-smoke-contract-v1.json"))
+        self.assertEqual(release_sha, smoke.sha256_file(SCRIPT_DIRECTORY / "release-qualification-contract-v1.json"))
+
     def test_process_record_recomputes_invocation_and_outputs(self) -> None:
         record = self.make_record()
         observed = smoke.validate_process_record(
@@ -204,7 +213,7 @@ class NotarizedSmokeTests(unittest.TestCase):
             entitlements["com.apple.security.files.bookmarks.app-scope"] = True
         if get_task_allow:
             entitlements["com.apple.security.get-task-allow"] = True
-        return {
+        records = {
             "code_signature_validation": self.make_external_record("verify", stderr=b"valid on disk\n"),
             "code_signature_display": self.make_external_record("display", stderr=display),
             "code_signature_entitlements": self.make_external_record("entitlements", stdout=plistlib.dumps(entitlements)),
@@ -212,6 +221,14 @@ class NotarizedSmokeTests(unittest.TestCase):
             "submitted_signature_display": self.make_external_record("submitted-display", stderr=display),
             "submitted_signature_requirements": self.make_external_record("submitted-requirements", stdout=requirement),
         }
+        for architecture in ("arm64", "x86_64"):
+            records[f"code_signature_display_{architecture}"] = self.make_external_record(
+                f"display-{architecture}", stderr=display
+            )
+            records[f"submitted_signature_display_{architecture}"] = self.make_external_record(
+                f"submitted-display-{architecture}", stderr=display
+            )
+        return records
 
     def test_codesign_semantics_require_runtime_sandbox_and_developer_id(self) -> None:
         contract = smoke.load_json(SCRIPT_DIRECTORY / "notarized-smoke-contract-v1.json")
@@ -296,6 +313,157 @@ class NotarizedSmokeTests(unittest.TestCase):
                 86_400,
                 self.now,
             )
+
+    def xcode_receipt_fixture(self) -> tuple[dict[str, object], Path, Path, dict[str, object], dict[str, object]]:
+        submission_id = str(uuid.uuid4())
+        uploaded = self.now - timedelta(hours=1)
+        prepared = uploaded - timedelta(seconds=10)
+        completed = uploaded + timedelta(minutes=3)
+        source_archive = self.root / "Mirmir.xcarchive"
+        export_path = self.root / "export"
+        xcodebuild = self.root / "xcodebuild"
+        xcodebuild.write_bytes(b"tool")
+        export_record = self.make_external_record(
+            "xcode-export", stdout=b"** EXPORT SUCCEEDED **\n"
+        )
+        export_record["command"] = [
+            str(xcodebuild), "-exportNotarizedApp", "-archivePath",
+            str(source_archive), "-exportPath", str(export_path),
+        ]
+        info_path = self.root / "Archive-Info.plist"
+        info_path.write_bytes(
+            plistlib.dumps(
+                {
+                    "ArchiveVersion": 2,
+                    "ApplicationProperties": {
+                        "ApplicationPath": "Applications/Mirmir.app",
+                        "CFBundleIdentifier": "com.mirmir.app",
+                        "CFBundleShortVersionString": "1.2.0",
+                        "CFBundleVersion": "2",
+                        "Team": "9AQ2C2838M",
+                    },
+                    "Distributions": [
+                        {
+                            "certificateSHA1": "a" * 40,
+                            "destination": "upload",
+                            "identifier": submission_id.upper(),
+                            "preparationEvent": {
+                                "date": utc(prepared), "state": "success",
+                                "errors": [], "warnings": [],
+                            },
+                            "processingCompletedEvent": {
+                                "date": utc(completed), "state": "success",
+                                "errors": [], "warnings": [],
+                            },
+                            "task": "distribute",
+                            "teamID": "9AQ2C2838M",
+                            "uploadDestination": "Developer ID",
+                            "uploadedBuildNumber": "2",
+                            "uploadEvent": {
+                                "date": utc(uploaded), "state": "success",
+                                "errors": [], "warnings": [],
+                            },
+                        }
+                    ],
+                }
+            )
+        )
+        log_path = self.root / "xcode-notarization-log.json"
+        smoke.write_json(
+            log_path,
+            {
+                "archiveFilename": "Mirmir.zip",
+                "issues": None,
+                "jobId": submission_id,
+                "logFormatVersion": 1,
+                "sha256": "d" * 64,
+                "status": "Accepted",
+                "statusCode": 0,
+                "ticketContents": [],
+                "uploadDate": utc(uploaded),
+            },
+        )
+        submission = {
+            "provider": "xcode_archive",
+            "id": submission_id,
+            "submittedArchiveName": "Mirmir.zip",
+            "sourceArchivePath": str(source_archive),
+            "submissionRelativePath": f"Submissions/{submission_id.upper()}",
+        }
+        candidate = {
+            "bundleIdentifier": "com.mirmir.app",
+            "productVersion": "1.2.0",
+            "productBuild": "2",
+        }
+        return {"xcode_export_notarized_app": export_record}, info_path, log_path, submission, candidate
+
+    def test_xcode_archive_receipt_is_an_explicit_apple_acceptance_provider(self) -> None:
+        records, info_path, log_path, submission, candidate = self.xcode_receipt_fixture()
+        contract = smoke.load_json(SCRIPT_DIRECTORY / "notarized-smoke-contract-v1.json")
+        result = smoke.parse_xcode_archive_evidence(
+            records, info_path, log_path, submission, candidate, contract,
+            86_400, self.now,
+        )
+        self.assertEqual(result["acceptanceProvider"], "xcode_archive")
+        self.assertEqual(result["status"], "Accepted")
+        receipt = plistlib.loads(info_path.read_bytes())
+        receipt["Distributions"][0]["processingCompletedEvent"]["state"] = "failed"
+        info_path.write_bytes(plistlib.dumps(receipt))
+        with self.assertRaisesRegex(smoke.NotarizedSmokeError, "did not succeed"):
+            smoke.parse_xcode_archive_evidence(
+                records, info_path, log_path, submission, candidate, contract,
+                86_400, self.now,
+            )
+
+    def test_apple_ticket_binds_every_architecture_code_directory(self) -> None:
+        hashes = {"arm64": "a" * 40, "x86_64": "b" * 40}
+        rows = []
+        for architecture, cdhash in hashes.items():
+            for path in (
+                "Mirmir.zip/Mirmir.app",
+                "Mirmir.zip/Mirmir.app/Contents/MacOS/Mirmir",
+            ):
+                rows.append(
+                    {
+                        "arch": architecture,
+                        "cdhash": cdhash,
+                        "digestAlgorithm": "SHA-256",
+                        "path": path,
+                    }
+                )
+        notary = {
+            "_log": {"archiveFilename": "Mirmir.zip", "ticketContents": rows}
+        }
+        signing = {"codeDirectoryHashes": hashes}
+        archive = {"topLevelApp": "Mirmir.app", "executableName": "Mirmir"}
+        self.assertEqual(
+            smoke.validate_ticket_code_directories(notary, signing, archive), hashes
+        )
+        rows[0]["cdhash"] = "c" * 40
+        with self.assertRaisesRegex(smoke.NotarizedSmokeError, "CodeDirectory differs"):
+            smoke.validate_ticket_code_directories(notary, signing, archive)
+
+    def test_runner_locates_one_xcode_submission_and_rejects_ambiguity(self) -> None:
+        archive = self.root / "Mirmir.xcarchive"
+        archive.mkdir()
+        (archive / "Info.plist").write_bytes(plistlib.dumps({"ArchiveVersion": 2}))
+        submissions = archive / "Submissions"
+        submissions.mkdir()
+
+        def add_submission() -> str:
+            identifier = str(uuid.uuid4())
+            root = submissions / identifier.upper()
+            root.mkdir()
+            (root / "notarization-log.json").write_text("{}")
+            (root / "Mirmir.app").mkdir()
+            return identifier
+
+        first = add_submission()
+        observed = runner.locate_xcode_submission(archive, first)
+        self.assertEqual(observed[3], first)
+        add_submission()
+        with self.assertRaisesRegex(runner.NotarizedSmokeCaptureError, "exactly one"):
+            runner.locate_xcode_submission(archive, None)
 
     def semantic(self, width: int, height: int) -> dict[str, object]:
         return {

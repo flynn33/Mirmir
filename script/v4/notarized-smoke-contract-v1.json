@@ -3,7 +3,7 @@
     {
       "evidenceKind": "apple_notary_service_acceptance",
       "id": "notarization_ticket_acceptance",
-      "producer": "notarytool"
+      "producer": "apple_notary_service"
     },
     {
       "evidenceKind": "system_gatekeeper_assessment",
@@ -51,6 +51,30 @@
       "producer": "shipping_app"
     }
   ],
+  "acceptanceProviders": {
+    "notarytool": {
+      "requiredArtifacts": [],
+      "requiredCommandRecords": [
+        "notary_info",
+        "notary_log"
+      ],
+      "requiredTools": [
+        "notarytool"
+      ]
+    },
+    "xcode_archive": {
+      "requiredArtifacts": [
+        "xcodeArchiveInfo"
+      ],
+      "requiredCommandRecords": [
+        "xcode_export_notarized_app",
+        "xcode_export_archive"
+      ],
+      "requiredTools": [
+        "xcodebuild"
+      ]
+    }
+  },
   "candidate": {
     "requiredBundleIdentifier": "com.mirmir.app",
     "requiredRuntimeID": "ash-p06-deterministic-v4",
@@ -59,18 +83,22 @@
   "capture": {
     "appInvocationTimeoutSeconds": 900,
     "buildConfiguration": "Release",
-    "evaluatorSHA256": "d561acd0ef789a616308d0ca1afd4ef06441f850dcf44ad2c4ba240e13a0b441",
+    "evaluatorSHA256": "12cae408a52e5dc9b87f1d3afd50f90935c40cd69fa9b066fcf0d4dc2b4c7e30",
     "maximumCaptureAgeSeconds": 3600,
     "maximumNotarySubmissionAgeSeconds": 604800,
     "maximumSandboxEvidenceBytes": 536870912,
     "observerSourcePath": "Mirmir/App/MirmirApp.swift",
-    "observerSourceSHA256": "517e9133a2996039448d4a37a27aaf368a8388f8215985741782b1c316a58a08",
+    "observerSourceSHA256": "1e2da33aeca0faf51e193e112f4828d885a38b1630d9bb5a5c9156eb3776d65c",
     "qualificationNamespace": "MirmirQualificationV4/notarized-smoke",
-    "runnerSHA256": "c6c785d88c076ebc7591f246e95fb37817e5b3e53b9cd023d92ac93fc859dbd8"
+    "runnerSHA256": "ffad88657112d7a39bb259589a66d1cc267c87c3db7e041aa938b20e3880bbce"
   },
   "codeSigning": {
     "forbiddenEntitlement": "com.apple.security.get-task-allow",
     "requiredCertificateClass": "Developer ID Application",
+    "requiredArchitectures": [
+      "arm64",
+      "x86_64"
+    ],
     "requiredEntitlements": [
       "com.apple.security.app-sandbox",
       "com.apple.security.files.bookmarks.app-scope"
@@ -81,15 +109,17 @@
   },
   "releaseQualificationContractPath": "script/v4/release-qualification-contract-v1.json",
   "requiredCommandRecords": [
-    "notary_info",
-    "notary_log",
     "gatekeeper_assessment",
     "stapled_ticket_validation",
     "code_signature_validation",
     "code_signature_display",
+    "code_signature_display_arm64",
+    "code_signature_display_x86_64",
     "code_signature_entitlements",
     "code_signature_requirements",
     "submitted_signature_display",
+    "submitted_signature_display_arm64",
+    "submitted_signature_display_x86_64",
     "submitted_signature_requirements",
     "observer_prepare",
     "observer_recover"

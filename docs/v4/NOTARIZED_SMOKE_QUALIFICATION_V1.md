@@ -1,8 +1,11 @@
 # Notarized application smoke qualification v1
 
 This lane qualifies the exact stapled Mirmir release archive after Apple has
-accepted its retained pre-staple submission. It does not submit an archive for
-notarization and it cannot manufacture an Apple acceptance result.
+accepted it. It does not submit an archive for notarization and it cannot
+manufacture an Apple acceptance result. Two explicit acceptance providers are
+supported: a live `notarytool` replay of a retained pre-staple submission, and
+the accepted Developer ID submission receipt retained by an Xcode
+`.xcarchive`.
 
 The locked contract is
 `script/v4/notarized-smoke-contract-v1.json`. The recorder is
@@ -13,13 +16,43 @@ report.
 
 ## Release inputs
 
+### Xcode archive provider
+
+Use this provider when Xcode performed cloud-managed Developer ID signing and
+notarization and the machine does not have a local Developer ID identity or a
+`notarytool` Keychain profile. Retain the exact `.xcarchive`. It must contain
+exactly one matching `Distributions` receipt and
+`Submissions/<UUID>/notarization-log.json`. The runner invokes the selected
+Xcode's real `xcodebuild -exportNotarizedApp`, records that command, and retains
+the exported app as the submitted-app evidence archive.
+
+```sh
+python3 script/v4/run_notarized_smoke_v4.py \
+  --candidate /absolute/release-candidate.json \
+  --application-archive /absolute/Mirmir-stapled.zip \
+  --xcode-archive /absolute/Mirmir.xcarchive \
+  --release-contract /absolute/script/v4/release-qualification-contract-v1.json \
+  --output /absolute/notarized-smoke
+```
+
+If an archive contains more than one submission, add the exact accepted UUID
+with `--xcode-submission-id`. Ambiguity otherwise fails closed. The evaluator
+requires a successful Developer ID upload and completed Apple processing for
+team `9AQ2C2838M`, with no receipt errors or warnings. It requires Apple's
+ticket-content CodeDirectory hashes to match the exact exported and candidate
+app for both `arm64` and `x86_64`. The log's `sha256` remains the identity of
+Apple's original Xcode transport ZIP; it is never relabeled as the locally
+reconstructed evidence ZIP.
+
+### notarytool provider
+
 Retain both archives during release assembly:
 
 - the exact archive uploaded to Apple, before ticket stapling;
 - the exact stapled archive used by
   `candidate.appBundleSHA256` in the release-candidate evidence.
 
-The runner also requires the accepted notary submission UUID and a
+This provider also requires the accepted notary submission UUID and a
 `notarytool` Keychain profile. The Keychain profile name is recorded as part of
 the command; credentials are not copied into evidence.
 
@@ -59,7 +92,9 @@ root and evaluate it.
 
 The recorder invokes and captures exact executable hashes for:
 
-1. `notarytool info` and `notarytool log` for Apple acceptance;
+1. either `notarytool info` plus `notarytool log`, or the selected Xcode's
+   `xcodebuild -exportNotarizedApp` plus its retained distribution receipt and
+   notarization log, for Apple acceptance;
 2. `spctl --assess` for Gatekeeper acceptance;
 3. `stapler validate` for the attached ticket;
 4. `codesign` verification, signing metadata, entitlements, and designated
@@ -69,10 +104,12 @@ The recorder invokes and captures exact executable hashes for:
 The code-signing gate requires a secure timestamp, Developer ID Application
 certificate, team `9AQ2C2838M`, hardened-runtime flag, app sandbox, and
 application-scoped persistent bookmarks. It rejects
-`com.apple.security.get-task-allow`. The submitted and stapled apps
-must retain the same executable SHA-256, CDHash, designated requirement,
-bundle identity, and embedded P06 runtime identities. The Apple log's archive
-SHA-256 must equal the retained submitted archive.
+`com.apple.security.get-task-allow`. The submitted and stapled apps must retain
+the same executable SHA-256, every required-architecture CDHash, designated
+requirement, bundle identity, and embedded P06 runtime identities. With the
+`notarytool` provider, the Apple log's archive SHA-256 must equal the retained
+submitted archive. With the Xcode provider, every `arm64` and `x86_64` ticket
+CDHash must equal the exported and candidate app CodeDirectory hash.
 
 ## Shipping-app observer
 
@@ -127,8 +164,8 @@ The evaluator does not trust capture booleans. It independently:
 - requires every external command to exit zero within the bounded capture
   interval and parses the semantic acceptance facts from raw output;
 - binds the exact candidate, lane/release contracts, embedded P06 manifest,
-  observer, evaluator, runner, system tools, submitted archive, and shipping
-  executable;
+  observer, evaluator, runner, system tools, acceptance provider and receipt,
+  submitted/exported app archive, and shipping executable;
 - decodes the actual shipping-app stdout markers and requires them to match the
   result files in both copied sandbox trees byte for byte;
 - reopens the phase-one state and independently recomputes the paused and final

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import argparse
 import base64
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import math
@@ -41,6 +41,7 @@ TRANSCRIPT_SCHEMA = "mirmir-ash-v4-notarized-smoke-action-transcript-v1"
 REPLAY_SCHEMA = "mirmir-ash-v4-notarized-smoke-replay-receipt-v1"
 SEALED_SCHEMA = "mirmir-ash-v4-notarized-smoke-sealed-manifest-v1"
 TOOL_SCHEMA = "mirmir-ash-v4-notarized-smoke-tool-identities-v1"
+ACCEPTANCE_PROVIDERS = frozenset({"notarytool", "xcode_archive"})
 TREE_DOMAIN = b"mirmir-notarized-smoke-tree-v1\0"
 MANIFEST_DOMAIN = b"ash-p06-runtime-manifest-v4\0"
 HEX = frozenset("0123456789abcdef")
@@ -412,6 +413,26 @@ def validate_contract(contract_path: Path, release_contract_path: Path) -> tuple
     release_kinds = require_mapping(release_contract.get("notarizedSmokeEvidenceKinds"), "release smoke evidence kinds")
     for item in actions:
         require(release_kinds.get(item["id"]) == item.get("evidenceKind"), f"evidence kind differs for {item['id']}")
+    providers = require_mapping(contract.get("acceptanceProviders"), "contract.acceptanceProviders")
+    require(set(providers) == ACCEPTANCE_PROVIDERS, "contract acceptance-provider set differs")
+    expected_provider_contracts = {
+        "notarytool": {
+            "requiredArtifacts": [],
+            "requiredCommandRecords": ["notary_info", "notary_log"],
+            "requiredTools": ["notarytool"],
+        },
+        "xcode_archive": {
+            "requiredArtifacts": ["xcodeArchiveInfo"],
+            "requiredCommandRecords": ["xcode_export_notarized_app", "xcode_export_archive"],
+            "requiredTools": ["xcodebuild"],
+        },
+    }
+    require(providers == expected_provider_contracts, "contract acceptance-provider policy differs")
+    signing = require_mapping(contract.get("codeSigning"), "contract.codeSigning")
+    require(
+        signing.get("requiredArchitectures") == ["arm64", "x86_64"],
+        "contract code-signing architecture set differs",
+    )
     capture = require_mapping(contract.get("capture"), "contract.capture")
     observer = SCRIPT_DIRECTORY.parent.parent / require_string(capture.get("observerSourcePath"), "capture.observerSourcePath")
     expected_sources = {
@@ -493,7 +514,154 @@ def parse_notary_evidence(
     submitted_at = parse_utc(date_value, "notary submission date")
     age = (capture_finish - submitted_at).total_seconds()
     require(-300 <= age <= maximum_age, "notary acceptance is stale or future-dated")
-    return {"submissionID": submission_id.lower(), "submittedAtUTC": date_value, "archiveSHA256": log_sha, "status": "Accepted", "issueCount": 0}
+    return {
+        "acceptanceProvider": "notarytool",
+        "submissionID": submission_id.lower(),
+        "submittedAtUTC": date_value,
+        "archiveSHA256": log_sha,
+        "status": "Accepted",
+        "issueCount": 0,
+        "_log": log,
+    }
+
+
+def parse_xcode_archive_evidence(
+    records: Mapping[str, Mapping[str, Any]],
+    archive_info_path: Path,
+    notary_log_path: Path,
+    submission: Mapping[str, Any],
+    candidate: Mapping[str, Any],
+    contract: Mapping[str, Any],
+    maximum_age: int,
+    capture_finish: datetime,
+) -> dict[str, Any]:
+    """Validate Apple's acceptance receipt retained inside an Xcode archive."""
+
+    export_record = records["xcode_export_notarized_app"]
+    export_output = output_bytes(export_record).decode("utf-8", errors="replace")
+    require("** EXPORT SUCCEEDED **" in export_output, "Xcode did not report a successful notarized-app export")
+    command = export_record["command"]
+    source_archive = Path(require_string(submission.get("sourceArchivePath"), "notarySubmission.sourceArchivePath"))
+    require(source_archive.is_absolute() and source_archive.suffix == ".xcarchive", "Xcode source archive path is noncanonical")
+    require(
+        len(command) == 6
+        and command[1:] == [
+            "-exportNotarizedApp",
+            "-archivePath",
+            str(source_archive),
+            "-exportPath",
+            command[5],
+        ],
+        "Xcode notarized-app export invocation differs",
+    )
+    require(Path(command[5]).is_absolute(), "Xcode notarized-app export path is not absolute")
+
+    try:
+        archive_info = plistlib.loads(archive_info_path.read_bytes())
+    except (OSError, plistlib.InvalidFileException) as error:
+        raise NotarizedSmokeError("Xcode archive Info.plist is invalid") from error
+    archive_info = require_mapping(archive_info, "Xcode archive Info.plist")
+    require(archive_info.get("ArchiveVersion") == 2, "Xcode archive version differs")
+    properties = require_mapping(archive_info.get("ApplicationProperties"), "Xcode archive application properties")
+    require(properties.get("ApplicationPath") == "Applications/Mirmir.app", "Xcode archive application path differs")
+    require(properties.get("CFBundleIdentifier") == candidate["bundleIdentifier"], "Xcode archive bundle identifier differs")
+    require(properties.get("CFBundleShortVersionString") == candidate["productVersion"], "Xcode archive product version differs")
+    require(str(properties.get("CFBundleVersion")) == candidate["productBuild"], "Xcode archive product build differs")
+    required_team = contract["codeSigning"]["requiredTeamIdentifier"]
+    require(properties.get("Team") == required_team, "Xcode archive team differs")
+
+    submission_id = require_string(submission.get("id"), "notarySubmission.id").lower()
+    try:
+        require(str(uuid.UUID(submission_id)) == submission_id, "Xcode submission ID is noncanonical")
+    except ValueError as error:
+        raise NotarizedSmokeError("Xcode submission ID is not a UUID") from error
+    expected_relative = f"Submissions/{submission_id.upper()}"
+    require(
+        require_string(submission.get("submissionRelativePath"), "notarySubmission.submissionRelativePath").upper()
+        == expected_relative.upper(),
+        "Xcode submission receipt path differs from its UUID",
+    )
+
+    distributions = require_list(archive_info.get("Distributions"), "Xcode archive distributions")
+    matching = [
+        require_mapping(item, "Xcode archive distribution")
+        for item in distributions
+        if str(require_mapping(item, "Xcode archive distribution").get("identifier", "")).lower()
+        == submission_id
+    ]
+    require(len(matching) == 1, "Xcode archive does not contain exactly one matching distribution receipt")
+    distribution = matching[0]
+    require(distribution.get("destination") == "upload", "Xcode distribution destination differs")
+    require(distribution.get("task") == "distribute", "Xcode distribution task differs")
+    require(distribution.get("uploadDestination") == "Developer ID", "Xcode distribution was not submitted for Developer ID")
+    require(distribution.get("teamID") == required_team, "Xcode distribution team differs")
+    require(str(distribution.get("uploadedBuildNumber")) == candidate["productBuild"], "Xcode distribution build differs")
+    require_hex(str(distribution.get("certificateSHA1", "")).lower(), 40, "Xcode distribution certificate SHA-1")
+
+    def successful_event(name: str) -> datetime:
+        event = require_mapping(distribution.get(name), f"Xcode distribution {name}")
+        require(event.get("state") == "success", f"Xcode distribution {name} did not succeed")
+        require(event.get("errors") == [], f"Xcode distribution {name} contains errors")
+        require(event.get("warnings") == [], f"Xcode distribution {name} contains warnings")
+        return parse_utc(event.get("date"), f"Xcode distribution {name}.date")
+
+    prepared_at = successful_event("preparationEvent")
+    uploaded_at = successful_event("uploadEvent")
+    completed_at = successful_event("processingCompletedEvent")
+    require(prepared_at <= uploaded_at <= completed_at, "Xcode distribution event order is invalid")
+    require(completed_at <= capture_finish + timedelta(seconds=300), "Xcode processing completion is future-dated")
+    age = (capture_finish - uploaded_at).total_seconds()
+    require(-300 <= age <= maximum_age, "Xcode notary acceptance is stale or future-dated")
+
+    log = require_mapping(load_json(notary_log_path), "Xcode notarization log")
+    require(log.get("logFormatVersion") == 1, "Xcode notarization log format differs")
+    require(str(log.get("jobId", "")).lower() == submission_id, "Xcode notarization log belongs to another submission")
+    require(str(log.get("status", "")).lower() == "accepted" and log.get("statusCode") == 0, "Xcode notarization log is not accepted")
+    require(log.get("issues") in (None, []), "Xcode notarization log contains issues")
+    log_sha = require_hex(str(log.get("sha256", "")).lower(), 64, "Xcode notarization log archive SHA-256")
+    archive_name = require_string(submission.get("submittedArchiveName"), "notarySubmission.submittedArchiveName")
+    require(log.get("archiveFilename") == archive_name, "Xcode notarization log archive filename mismatch")
+    upload_date = parse_utc(log.get("uploadDate"), "Xcode notarization log uploadDate")
+    require(abs((upload_date - uploaded_at).total_seconds()) <= 5, "Xcode distribution and notarization upload dates differ")
+    return {
+        "acceptanceProvider": "xcode_archive",
+        "submissionID": submission_id,
+        "submittedAtUTC": log["uploadDate"],
+        "archiveSHA256": log_sha,
+        "status": "Accepted",
+        "issueCount": 0,
+        "xcodeProcessingCompletedAtUTC": distribution["processingCompletedEvent"]["date"],
+        "_log": log,
+    }
+
+
+def validate_ticket_code_directories(
+    notary: Mapping[str, Any],
+    signing: Mapping[str, Any],
+    submitted_archive: Mapping[str, Any],
+) -> dict[str, str]:
+    """Bind Apple's ticket contents to every architecture in the exported app."""
+
+    log = require_mapping(notary.get("_log"), "Apple notarization log")
+    rows = require_list(log.get("ticketContents"), "Apple notarization ticket contents")
+    archive_name = require_string(log.get("archiveFilename"), "Apple notarization archive filename")
+    app_path = f"{archive_name}/{submitted_archive['topLevelApp']}"
+    executable_path = f"{app_path}/Contents/MacOS/{submitted_archive['executableName']}"
+    expected_hashes = require_mapping(signing.get("codeDirectoryHashes"), "code-signing architecture hashes")
+    observed: dict[tuple[str, str], str] = {}
+    for index, raw in enumerate(rows):
+        row = require_mapping(raw, f"Apple ticket row[{index}]")
+        arch = require_string(row.get("arch"), f"Apple ticket row[{index}].arch")
+        path = require_string(row.get("path"), f"Apple ticket row[{index}].path")
+        require(row.get("digestAlgorithm") == "SHA-256", f"Apple ticket row[{index}] digest algorithm differs")
+        cdhash = require_hex(str(row.get("cdhash", "")).lower(), (40, 64), f"Apple ticket row[{index}].cdhash")
+        key = (arch, path)
+        require(key not in observed, f"Apple notarization ticket repeats {arch} {path}")
+        observed[key] = cdhash
+    for arch, expected in expected_hashes.items():
+        require(observed.get((arch, app_path)) == expected, f"Apple ticket app CodeDirectory differs for {arch}")
+        require(observed.get((arch, executable_path)) == expected, f"Apple ticket executable CodeDirectory differs for {arch}")
+    return dict(sorted(expected_hashes.items()))
 
 
 def validate_codesign_evidence(records: Mapping[str, Mapping[str, Any]], contract: Mapping[str, Any], candidate: Mapping[str, Any]) -> dict[str, Any]:
@@ -524,7 +692,37 @@ def validate_codesign_evidence(records: Mapping[str, Mapping[str, Any]], contrac
         key = require_string(entitlement, "required code-signing entitlement")
         require(entitlements.get(key) is True, f"required entitlement is absent: {key}")
     require(entitlements.get(signing["forbiddenEntitlement"]) in (None, False), "get-task-allow entitlement is forbidden")
-    return {"cdHash": cdhash.group(1).lower(), "teamIdentifier": required_team, "certificateClass": required_certificate, "hardenedRuntime": True, "secureTimestamp": True, "sandboxed": True, "applicationScopedBookmarks": True, "getTaskAllow": False}
+    architecture_hashes: dict[str, str] = {}
+    for architecture in require_list(signing.get("requiredArchitectures"), "codeSigning.requiredArchitectures"):
+        arch = require_string(architecture, "required code-signing architecture")
+        candidate_record = records[f"code_signature_display_{arch}"]
+        submitted_record = records[f"submitted_signature_display_{arch}"]
+        candidate_output = output_bytes(candidate_record).decode("utf-8", errors="replace")
+        submitted_output = output_bytes(submitted_record).decode("utf-8", errors="replace")
+        for label, output in (("candidate", candidate_output), ("submitted", submitted_output)):
+            require(f"Identifier={candidate['bundleIdentifier']}" in output, f"{label} {arch} codesign identifier mismatch")
+            require(f"TeamIdentifier={required_team}" in output, f"{label} {arch} codesign team mismatch")
+            require(f"Authority={required_certificate}:" in output, f"{label} {arch} Developer ID certificate class is absent")
+            require(re.search(r"flags=0x[0-9a-f]+\([^)]*runtime[^)]*\)", output, re.IGNORECASE) is not None, f"{label} {arch} hardened runtime flag is absent")
+            require("Timestamp=" in output and "Timestamp=none" not in output, f"{label} {arch} secure timestamp is absent")
+        candidate_match = re.search(r"^CDHash=([0-9a-fA-F]+)$", candidate_output, re.MULTILINE)
+        submitted_match = re.search(r"^CDHash=([0-9a-fA-F]+)$", submitted_output, re.MULTILINE)
+        require(candidate_match is not None and submitted_match is not None, f"{arch} CodeDirectory hash is absent")
+        candidate_hash = require_hex(candidate_match.group(1).lower(), (40, 64), f"candidate {arch} CodeDirectory hash")
+        submitted_hash = require_hex(submitted_match.group(1).lower(), (40, 64), f"submitted {arch} CodeDirectory hash")
+        require(candidate_hash == submitted_hash, f"submitted and stapled {arch} CodeDirectory hashes differ")
+        architecture_hashes[arch] = candidate_hash
+    return {
+        "cdHash": cdhash.group(1).lower(),
+        "codeDirectoryHashes": dict(sorted(architecture_hashes.items())),
+        "teamIdentifier": required_team,
+        "certificateClass": required_certificate,
+        "hardenedRuntime": True,
+        "secureTimestamp": True,
+        "sandboxed": True,
+        "applicationScopedBookmarks": True,
+        "getTaskAllow": False,
+    }
 
 
 def validate_system_acceptance(records: Mapping[str, Mapping[str, Any]]) -> dict[str, bool]:
@@ -784,8 +982,24 @@ def validate_capture(capture_path: Path, contract_path: Path, release_contract_p
     maximum_age = require_integer(contract["capture"]["maximumCaptureAgeSeconds"], "maximum capture age", 1)
     require(-300 <= (current - finished).total_seconds() <= maximum_age, "capture is stale or future-dated")
     candidate = validate_candidate(capture["candidate"])
+    submission = require_mapping(capture["notarySubmission"], "notarySubmission")
+    provider = require_string(submission.get("provider"), "notarySubmission.provider")
+    require(provider in ACCEPTANCE_PROVIDERS, "notary acceptance provider is unsupported")
+    if provider == "notarytool":
+        require_exact_keys(submission, {"provider", "id", "submittedArchiveName"}, "notarySubmission")
+    else:
+        require_exact_keys(
+            submission,
+            {"provider", "id", "submittedArchiveName", "sourceArchivePath", "submissionRelativePath"},
+            "notarySubmission",
+        )
     artifacts = require_mapping(capture["artifacts"], "capture.artifacts")
-    artifact_keys = {"candidateJSON", "laneContract", "releaseContract", "observerSource", "evaluator", "runner", "candidateArchive", "submittedArchive", "candidateExecutable", "toolManifest", "notaryLog"}
+    artifact_keys = {
+        "candidateJSON", "laneContract", "releaseContract", "observerSource",
+        "evaluator", "runner", "candidateArchive", "submittedArchive",
+        "candidateExecutable", "toolManifest", "notaryLog",
+        *contract["acceptanceProviders"][provider]["requiredArtifacts"],
+    }
     require_exact_keys(artifacts, artifact_keys, "capture.artifacts")
     paths = {key: validate_artifact(capture_root, artifacts[key], f"capture.artifacts.{key}") for key in artifact_keys}
     require(load_json(paths["candidateJSON"]) == candidate, "captured candidate JSON differs from embedded candidate")
@@ -814,7 +1028,10 @@ def validate_capture(capture_path: Path, contract_path: Path, release_contract_p
     tools = require_mapping(load_json(paths["toolManifest"]), "tool identity manifest")
     require(tools.get("schemaVersion") == TOOL_SCHEMA, "unsupported tool identity manifest")
     tool_rows = require_mapping(tools.get("tools"), "tool identity manifest.tools")
-    required_tools = {"app", "codesign", "ditto", "notarytool", "python3", "spctl", "stapler", "xcrun"}
+    required_tools = {
+        "app", "codesign", "ditto", "python3", "spctl", "stapler", "xcrun",
+        *contract["acceptanceProviders"][provider]["requiredTools"],
+    }
     require(set(tool_rows) == required_tools, "tool identity set is incomplete")
     for name, raw in tool_rows.items():
         row = require_mapping(raw, f"tool {name}")
@@ -825,7 +1042,14 @@ def validate_capture(capture_path: Path, contract_path: Path, release_contract_p
     for name, required_path in contract["tools"].items():
         require(tool_rows[name]["path"] == required_path, f"locked system tool path differs: {name}")
     record_descriptors = require_mapping(capture["commandRecords"], "capture.commandRecords")
-    required_record_ids = require_list(contract["requiredCommandRecords"], "contract.requiredCommandRecords")
+    required_record_ids = [
+        *require_list(contract["requiredCommandRecords"], "contract.requiredCommandRecords"),
+        *require_list(
+            contract["acceptanceProviders"][provider]["requiredCommandRecords"],
+            f"contract.acceptanceProviders.{provider}.requiredCommandRecords",
+        ),
+    ]
+    require(len(required_record_ids) == len(set(required_record_ids)), "capture command contract repeats a record")
     require(set(record_descriptors) == set(required_record_ids), "capture command record set is incomplete")
     records: dict[str, dict[str, Any]] = {}
     command_record_paths: dict[str, Path] = {}
@@ -834,20 +1058,52 @@ def validate_capture(capture_path: Path, contract_path: Path, release_contract_p
         command_record_paths[record_id] = record_path
         records[record_id] = validate_process_record(capture_root, load_json(record_path), record_id, created, finished)
     tool_for_record = {
-        "notary_info": "notarytool", "notary_log": "notarytool",
         "gatekeeper_assessment": "spctl", "stapled_ticket_validation": "stapler",
         "code_signature_validation": "codesign", "code_signature_display": "codesign",
         "code_signature_entitlements": "codesign", "code_signature_requirements": "codesign",
         "submitted_signature_display": "codesign", "submitted_signature_requirements": "codesign",
         "observer_prepare": "app", "observer_recover": "app",
     }
+    for arch in contract["codeSigning"]["requiredArchitectures"]:
+        tool_for_record[f"code_signature_display_{arch}"] = "codesign"
+        tool_for_record[f"submitted_signature_display_{arch}"] = "codesign"
+    if provider == "notarytool":
+        tool_for_record.update({"notary_info": "notarytool", "notary_log": "notarytool"})
+    else:
+        tool_for_record.update({"xcode_export_notarized_app": "xcodebuild", "xcode_export_archive": "ditto"})
     for record_id, tool_name in tool_for_record.items():
         require(records[record_id]["executableSHA256"] == tool_rows[tool_name]["sha256"], f"{record_id} used another executable")
         require(records[record_id]["executablePath"] == tool_rows[tool_name]["path"], f"{record_id} used another executable path")
-    submission = require_mapping(capture["notarySubmission"], "notarySubmission")
-    require_exact_keys(submission, {"id", "submittedArchiveName"}, "notarySubmission")
-    notary = parse_notary_evidence(records, paths["notaryLog"], identities["submittedArchiveSHA256"], submission, contract["capture"]["maximumNotarySubmissionAgeSeconds"], finished)
     signing = validate_codesign_evidence(records, contract, candidate)
+    if provider == "notarytool":
+        notary = parse_notary_evidence(
+            records,
+            paths["notaryLog"],
+            identities["submittedArchiveSHA256"],
+            submission,
+            contract["capture"]["maximumNotarySubmissionAgeSeconds"],
+            finished,
+        )
+    else:
+        notary = parse_xcode_archive_evidence(
+            records,
+            paths["xcodeArchiveInfo"],
+            paths["notaryLog"],
+            submission,
+            candidate,
+            contract,
+            contract["capture"]["maximumNotarySubmissionAgeSeconds"],
+            finished,
+        )
+        archive_command = records["xcode_export_archive"]["command"]
+        require(
+            len(archive_command) == 8
+            and archive_command[1:6] == ["-c", "-k", "--sequesterRsrc", "--rsrc", "--keepParent"]
+            and archive_command[6].endswith(".app")
+            and Path(archive_command[7]).parts[-3:] == ("raw", "archives", paths["submittedArchive"].name),
+            "Xcode exported-app archive invocation differs",
+        )
+    validate_ticket_code_directories(notary, signing, submitted_archive)
     system = validate_system_acceptance(records)
     invocations = require_list(capture["observerInvocations"], "observerInvocations")
     require(len(invocations) == 2, "capture must contain exactly two app invocations")
@@ -868,6 +1124,29 @@ def validate_capture(capture_path: Path, contract_path: Path, release_contract_p
     prepare_facts["observation"] = observations["prepare"]
     recover_facts = validate_recover_observation(observations["recover"], prepare_facts, maximum_tree)
     action_specs = {item["id"]: item for item in contract["actions"]}
+    action_records = {
+        "notarization_ticket_acceptance": tuple(
+            contract["acceptanceProviders"][provider]["requiredCommandRecords"]
+        ),
+        "gatekeeper_assessment": ("gatekeeper_assessment",),
+        "stapled_ticket_validation": ("stapled_ticket_validation",),
+        "code_signature_validation": (
+            "code_signature_validation",
+            "code_signature_display",
+            *(f"code_signature_display_{arch}" for arch in contract["codeSigning"]["requiredArchitectures"]),
+            "code_signature_entitlements",
+            "code_signature_requirements",
+            "submitted_signature_display",
+            *(f"submitted_signature_display_{arch}" for arch in contract["codeSigning"]["requiredArchitectures"]),
+            "submitted_signature_requirements",
+        ),
+        "launch": ("observer_prepare",),
+        "p06_runtime_load": ("observer_prepare",),
+        "media_probe": ("observer_prepare",),
+        "deterministic_process": ("observer_prepare",),
+        "semantic_output_verify": ("observer_recover",),
+        "queue_relaunch_recovery": ("observer_recover",),
+    }
     return {
         "capture": capture,
         "capturePath": capture_path,
@@ -888,23 +1167,10 @@ def validate_capture(capture_path: Path, contract_path: Path, release_contract_p
         "prepare": prepare_facts,
         "recover": recover_facts,
         "actionSpecs": action_specs,
+        "actionRecords": action_records,
         "createdAtUTC": capture["createdAtUTC"],
         "finishedAtUTC": capture["finishedAtUTC"],
     }
-
-
-ACTION_RECORDS = {
-    "notarization_ticket_acceptance": ("notary_info", "notary_log"),
-    "gatekeeper_assessment": ("gatekeeper_assessment",),
-    "stapled_ticket_validation": ("stapled_ticket_validation",),
-    "code_signature_validation": ("code_signature_validation", "code_signature_display", "code_signature_entitlements", "code_signature_requirements", "submitted_signature_display", "submitted_signature_requirements"),
-    "launch": ("observer_prepare",),
-    "p06_runtime_load": ("observer_prepare",),
-    "media_probe": ("observer_prepare",),
-    "deterministic_process": ("observer_prepare",),
-    "semantic_output_verify": ("observer_recover",),
-    "queue_relaunch_recovery": ("observer_recover",),
-}
 
 
 def action_claims(evaluation: Mapping[str, Any], action_id: str) -> dict[str, Any]:
@@ -916,7 +1182,7 @@ def action_claims(evaluation: Mapping[str, Any], action_id: str) -> dict[str, An
         "runtimeManifestSHA256": evaluation["candidate"]["runtimeManifestSHA256"],
     }
     if action_id == "notarization_ticket_acceptance":
-        claims.update(evaluation["notary"])
+        claims.update({key: value for key, value in evaluation["notary"].items() if not key.startswith("_")})
     elif action_id == "gatekeeper_assessment":
         claims.update(evaluation["system"])
     elif action_id == "stapled_ticket_validation":
@@ -940,7 +1206,7 @@ def action_claims(evaluation: Mapping[str, Any], action_id: str) -> dict[str, An
 
 
 def expected_transcript(evaluation: Mapping[str, Any], action_id: str, suite_root: Path) -> dict[str, Any]:
-    record_ids = ACTION_RECORDS[action_id]
+    record_ids = evaluation["actionRecords"][action_id]
     raw_artifacts: list[dict[str, Any]] = []
     for record_id in record_ids:
         raw_artifacts.append(descriptor(evaluation["recordPaths"][record_id], suite_root))
@@ -950,6 +1216,8 @@ def expected_transcript(evaluation: Mapping[str, Any], action_id: str, suite_roo
     if action_id == "notarization_ticket_acceptance":
         raw_artifacts.append(descriptor(evaluation["paths"]["notaryLog"], suite_root))
         raw_artifacts.append(descriptor(evaluation["paths"]["submittedArchive"], suite_root))
+        if evaluation["notary"]["acceptanceProvider"] == "xcode_archive":
+            raw_artifacts.append(descriptor(evaluation["paths"]["xcodeArchiveInfo"], suite_root))
     return {
         "schemaVersion": TRANSCRIPT_SCHEMA,
         "actionID": action_id,
@@ -961,8 +1229,9 @@ def expected_transcript(evaluation: Mapping[str, Any], action_id: str, suite_roo
 
 
 def expected_attestation(evaluation: Mapping[str, Any], action_id: str, transcript_path: Path, suite_root: Path) -> dict[str, Any]:
-    primary = evaluation["records"][ACTION_RECORDS[action_id][0]]
-    records = [evaluation["records"][item] for item in ACTION_RECORDS[action_id]]
+    record_ids = evaluation["actionRecords"][action_id]
+    primary = evaluation["records"][record_ids[0]]
+    records = [evaluation["records"][item] for item in record_ids]
     return {
         "schemaVersion": ATTESTATION_SCHEMA,
         "actionID": action_id,
@@ -982,7 +1251,7 @@ def replay_receipt(evaluation: Mapping[str, Any]) -> dict[str, Any]:
     identity_payload = {
         "candidate": evaluation["candidate"],
         "identities": evaluation["identities"],
-        "notary": evaluation["notary"],
+        "notary": {key: value for key, value in evaluation["notary"].items() if not key.startswith("_")},
         "signing": evaluation["signing"],
         "prepareQueue": evaluation["prepare"]["queue"],
         "recoverQueue": evaluation["recover"]["queue"],

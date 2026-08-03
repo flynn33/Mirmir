@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Capture a notarized Mirmir candidate without submitting it for notarization.
 
-The caller supplies the already-accepted submission ID, its exact pre-staple
-archive, and the exact stapled candidate archive.  This runner records Apple
-and local system decisions, invokes the shipping app binary twice in its
-isolated sandbox qualification mode, and delegates every release claim to the
-independent replay evaluator.
+Apple acceptance is replayed either through an existing notarytool submission
+or through the accepted receipt/export retained by an Xcode archive. This
+runner records Apple and local system decisions, invokes the shipping app
+binary twice in its isolated sandbox qualification mode, and delegates every
+release claim to the independent replay evaluator.
 """
 
 from __future__ import annotations
@@ -274,8 +274,8 @@ def load_candidate(path: Path) -> dict[str, Any]:
 def tool_manifest(
     app: Path,
     contract: Mapping[str, Any],
-    notarytool: Path,
     stapler: Path,
+    provider_tools: Mapping[str, Path],
 ) -> dict[str, Any]:
     fixed = {name: safe_executable(Path(path), name) for name, path in contract["tools"].items()}
     python = safe_executable(Path(sys.executable), "python3")
@@ -283,11 +283,11 @@ def tool_manifest(
         "app": app,
         "codesign": fixed["codesign"],
         "ditto": fixed["ditto"],
-        "notarytool": notarytool,
         "python3": python,
         "spctl": fixed["spctl"],
         "stapler": stapler,
         "xcrun": fixed["xcrun"],
+        **provider_tools,
     }
     return {
         "schemaVersion": evidence.TOOL_SCHEMA,
@@ -296,6 +296,35 @@ def tool_manifest(
             for name, path in sorted(paths.items())
         },
     }
+
+
+def locate_xcode_submission(
+    archive: Path,
+    requested_submission_id: str | None,
+) -> tuple[Path, Path, Path, str]:
+    archive = archive.expanduser().resolve(strict=True)
+    require(archive.is_dir() and not archive.is_symlink() and archive.suffix == ".xcarchive", "Xcode archive is not a safe .xcarchive directory")
+    info_path = archive / "Info.plist"
+    require(info_path.is_file() and not info_path.is_symlink(), "Xcode archive omits Info.plist")
+    submissions_root = archive / "Submissions"
+    require(submissions_root.is_dir() and not submissions_root.is_symlink(), "Xcode archive omits its Submissions directory")
+    rows: list[tuple[Path, Path, str]] = []
+    for child in sorted(submissions_root.iterdir(), key=lambda item: item.name):
+        require(child.is_dir() and not child.is_symlink(), "Xcode Submissions contains an unsafe entry")
+        try:
+            submission_id = str(uuid.UUID(child.name)).lower()
+        except ValueError as error:
+            raise NotarizedSmokeCaptureError("Xcode Submissions contains a non-UUID directory") from error
+        if requested_submission_id is not None and submission_id != str(uuid.UUID(requested_submission_id)).lower():
+            continue
+        log_path = child / "notarization-log.json"
+        app_paths = [item for item in child.iterdir() if item.is_dir() and item.suffix == ".app" and not item.is_symlink()]
+        require(log_path.is_file() and not log_path.is_symlink(), "Xcode submission omits notarization-log.json")
+        require(len(app_paths) == 1, "Xcode submission must contain exactly one application")
+        rows.append((child, log_path, submission_id))
+    require(len(rows) == 1, "Xcode archive must resolve to exactly one notarized submission")
+    submission_root, log_path, submission_id = rows[0]
+    return archive, info_path, log_path, submission_id
 
 
 def capture(arguments: argparse.Namespace) -> Path:
@@ -307,11 +336,25 @@ def capture(arguments: argparse.Namespace) -> Path:
     contract, lane_sha, release_sha = evidence.validate_contract(contract_path, release_contract_path)
     candidate = load_candidate(arguments.candidate)
     candidate_archive = arguments.application_archive.expanduser().resolve(strict=True)
-    submitted_archive = arguments.submitted_archive.expanduser().resolve(strict=True)
     candidate_archive_info = evidence.inspect_application_archive(candidate_archive)
-    submitted_archive_info = evidence.inspect_application_archive(submitted_archive)
     require(candidate_archive_info["archiveSHA256"] == candidate["appBundleSHA256"], "application archive differs from release candidate")
-    require(candidate_archive_info["executableSHA256"] == submitted_archive_info["executableSHA256"], "submitted and stapled executables differ")
+
+    xcode_mode = arguments.xcode_archive is not None
+    if xcode_mode:
+        require(arguments.submitted_archive is None, "--submitted-archive cannot be combined with --xcode-archive")
+        require(arguments.notary_submission_id is None and arguments.notary_keychain_profile is None, "notarytool credentials cannot be combined with --xcode-archive")
+        xcode_archive, xcode_info, xcode_log, submission_id = locate_xcode_submission(
+            arguments.xcode_archive,
+            arguments.xcode_submission_id,
+        )
+        submitted_source: Path | None = None
+    else:
+        require(arguments.submitted_archive is not None, "--submitted-archive is required for the notarytool provider")
+        require(arguments.notary_submission_id is not None and arguments.notary_keychain_profile is not None, "notarytool submission ID and Keychain profile are required")
+        require(arguments.xcode_submission_id is None, "--xcode-submission-id requires --xcode-archive")
+        submitted_source = arguments.submitted_archive.expanduser().resolve(strict=True)
+        submission_id = str(uuid.UUID(arguments.notary_submission_id)).lower()
+        xcode_archive = xcode_info = xcode_log = None
 
     staging = output.parent / f".{output.name}.staging.{uuid.uuid4()}"
     failed = output.parent / f"{output.name}.failed.{uuid.uuid4()}"
@@ -322,7 +365,8 @@ def capture(arguments: argparse.Namespace) -> Path:
     qualification_root: Path | None = None
     completed = False
     try:
-        copied = {
+        submitted_archive_name = "Mirmir-xcode-export.zip" if xcode_mode else submitted_source.name
+        copied: dict[str, Path] = {
             "candidateJSON": capture_root / "bindings" / "candidate.json",
             "laneContract": capture_root / "bindings" / "notarized-smoke-contract-v1.json",
             "releaseContract": capture_root / "bindings" / "release-qualification-contract-v1.json",
@@ -330,11 +374,13 @@ def capture(arguments: argparse.Namespace) -> Path:
             "evaluator": capture_root / "bindings" / "notarized_smoke_v4.py",
             "runner": capture_root / "bindings" / "run_notarized_smoke_v4.py",
             "candidateArchive": capture_root / "archives" / candidate_archive.name,
-            "submittedArchive": capture_root / "archives" / submitted_archive.name,
+            "submittedArchive": capture_root / "archives" / submitted_archive_name,
             "candidateExecutable": capture_root / "bindings" / "Mirmir-executable",
             "toolManifest": capture_root / "bindings" / "tool-identities.json",
             "notaryLog": capture_root / "apple" / "notary-log.json",
         }
+        if xcode_mode:
+            copied["xcodeArchiveInfo"] = capture_root / "apple" / "xcode-archive-Info.plist"
         copy_regular(arguments.candidate, copied["candidateJSON"])
         copy_regular(contract_path, copied["laneContract"])
         copy_regular(release_contract_path, copied["releaseContract"])
@@ -343,21 +389,20 @@ def capture(arguments: argparse.Namespace) -> Path:
         copy_regular(Path(evidence.__file__), copied["evaluator"])
         copy_regular(Path(__file__), copied["runner"])
         copy_regular(candidate_archive, copied["candidateArchive"])
-        copy_regular(submitted_archive, copied["submittedArchive"])
+        if xcode_mode:
+            copy_regular(xcode_info, copied["xcodeArchiveInfo"])
+            copy_regular(xcode_log, copied["notaryLog"])
+        else:
+            copy_regular(submitted_source, copied["submittedArchive"])
 
         fixed_xcrun = safe_executable(Path(contract["tools"]["xcrun"]), "xcrun")
         fixed_ditto = safe_executable(Path(contract["tools"]["ditto"]), "ditto")
-        notarytool = xcrun_find(fixed_xcrun, "notarytool")
         stapler = xcrun_find(fixed_xcrun, "stapler")
         with tempfile.TemporaryDirectory(prefix=".mirmir-v4-notarized-smoke-apps-", dir=output.parent) as extraction_value:
             extraction = Path(extraction_value)
             candidate_app, app_executable, info = extract_archive(fixed_ditto, copied["candidateArchive"], extraction / "candidate")
-            submitted_app, _, _ = extract_archive(fixed_ditto, copied["submittedArchive"], extraction / "submitted")
             require(info.get("CFBundleIdentifier") == candidate["bundleIdentifier"], "extracted app bundle identifier mismatch")
             copy_regular(app_executable, copied["candidateExecutable"])
-            tools = tool_manifest(app_executable, contract, notarytool, stapler)
-            evidence.write_json(copied["toolManifest"], tools)
-
             created = utc_now()
             records: dict[str, Path] = {}
             def invoke(record_id: str, command: Sequence[str], timeout: int = 300, *, environment: Mapping[str, str] | None = None) -> dict[str, Any]:
@@ -365,13 +410,52 @@ def capture(arguments: argparse.Namespace) -> Path:
                 records[record_id] = path
                 return record
 
-            submission_id = str(uuid.UUID(arguments.notary_submission_id)).lower()
-            profile = arguments.notary_keychain_profile
-            invoke("notary_info", [str(notarytool), "info", submission_id, "--keychain-profile", profile, "--output-format", "json"])
-            copied["notaryLog"].parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-            invoke("notary_log", [str(notarytool), "log", submission_id, str(copied["notaryLog"]), "--keychain-profile", profile])
-            require(copied["notaryLog"].is_file() and not copied["notaryLog"].is_symlink(), "notarytool did not publish its JSON log")
-            copied["notaryLog"].chmod(0o600)
+            if xcode_mode:
+                xcodebuild = xcrun_find(fixed_xcrun, "xcodebuild")
+                tools = tool_manifest(app_executable, contract, stapler, {"xcodebuild": xcodebuild})
+                evidence.write_json(copied["toolManifest"], tools)
+                export_root = extraction / "xcode-export"
+                invoke(
+                    "xcode_export_notarized_app",
+                    [str(xcodebuild), "-exportNotarizedApp", "-archivePath", str(xcode_archive), "-exportPath", str(export_root)],
+                )
+                require(evidence.sha256_file(xcode_info) == evidence.sha256_file(copied["xcodeArchiveInfo"]), "Xcode archive receipt changed during export")
+                require(evidence.sha256_file(xcode_log) == evidence.sha256_file(copied["notaryLog"]), "Xcode notarization log changed during export")
+                submitted_app, submitted_executable, _ = validate_extracted_app(export_root)
+                copied["submittedArchive"].parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+                invoke(
+                    "xcode_export_archive",
+                    [str(fixed_ditto), "-c", "-k", "--sequesterRsrc", "--rsrc", "--keepParent", str(submitted_app), str(copied["submittedArchive"])],
+                )
+                require(copied["submittedArchive"].is_file() and not copied["submittedArchive"].is_symlink(), "ditto did not publish the Xcode exported-app archive")
+                copied["submittedArchive"].chmod(0o600)
+                submitted_archive_info = evidence.inspect_application_archive(copied["submittedArchive"])
+                submission_record = {
+                    "provider": "xcode_archive",
+                    "id": submission_id,
+                    "submittedArchiveName": evidence.load_json(copied["notaryLog"])["archiveFilename"],
+                    "sourceArchivePath": str(xcode_archive),
+                    "submissionRelativePath": f"Submissions/{submission_id.upper()}",
+                }
+            else:
+                notarytool = xcrun_find(fixed_xcrun, "notarytool")
+                tools = tool_manifest(app_executable, contract, stapler, {"notarytool": notarytool})
+                evidence.write_json(copied["toolManifest"], tools)
+                submitted_app, submitted_executable, _ = extract_archive(fixed_ditto, copied["submittedArchive"], extraction / "submitted")
+                submitted_archive_info = evidence.inspect_application_archive(copied["submittedArchive"])
+                profile = arguments.notary_keychain_profile
+                invoke("notary_info", [str(notarytool), "info", submission_id, "--keychain-profile", profile, "--output-format", "json"])
+                copied["notaryLog"].parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+                invoke("notary_log", [str(notarytool), "log", submission_id, str(copied["notaryLog"]), "--keychain-profile", profile])
+                require(copied["notaryLog"].is_file() and not copied["notaryLog"].is_symlink(), "notarytool did not publish its JSON log")
+                copied["notaryLog"].chmod(0o600)
+                submission_record = {
+                    "provider": "notarytool",
+                    "id": submission_id,
+                    "submittedArchiveName": submitted_source.name,
+                }
+            require(candidate_archive_info["executableSHA256"] == submitted_archive_info["executableSHA256"], "submitted and stapled executables differ")
+            require(evidence.sha256_file(submitted_executable) == candidate_archive_info["executableSHA256"], "exported app executable differs from candidate")
 
             codesign = tools["tools"]["codesign"]["path"]
             spctl = tools["tools"]["spctl"]["path"]
@@ -379,9 +463,13 @@ def capture(arguments: argparse.Namespace) -> Path:
             invoke("stapled_ticket_validation", [str(stapler), "validate", "-v", str(candidate_app)])
             invoke("code_signature_validation", [codesign, "--verify", "--deep", "--strict", "--verbose=4", str(candidate_app)])
             invoke("code_signature_display", [codesign, "--display", "--verbose=4", str(candidate_app)])
+            for architecture in contract["codeSigning"]["requiredArchitectures"]:
+                invoke(f"code_signature_display_{architecture}", [codesign, "--display", "--verbose=4", "--arch", architecture, str(candidate_app)])
             invoke("code_signature_entitlements", [codesign, "--display", "--entitlements", "-", "--xml", str(candidate_app)])
             invoke("code_signature_requirements", [codesign, "--display", "--requirements", "-", str(candidate_app)])
             invoke("submitted_signature_display", [codesign, "--display", "--verbose=4", str(submitted_app)])
+            for architecture in contract["codeSigning"]["requiredArchitectures"]:
+                invoke(f"submitted_signature_display_{architecture}", [codesign, "--display", "--verbose=4", "--arch", architecture, str(submitted_app)])
             invoke("submitted_signature_requirements", [codesign, "--display", "--requirements", "-", str(submitted_app)])
 
             request_id = str(uuid.uuid4())
@@ -453,7 +541,7 @@ def capture(arguments: argparse.Namespace) -> Path:
                     "candidateArchiveSHA256": evidence.sha256_file(copied["candidateArchive"]),
                     "toolManifestSHA256": evidence.sha256_file(copied["toolManifest"]),
                 },
-                "notarySubmission": {"id": submission_id, "submittedArchiveName": submitted_archive.name},
+                "notarySubmission": submission_record,
                 "artifacts": artifact_descriptors,
                 "commandRecords": record_descriptors,
                 "observerInvocations": [
@@ -504,9 +592,11 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--candidate", type=Path, required=True)
     parser.add_argument("--application-archive", type=Path, required=True, help="exact stapled archive identified by candidate.appBundleSHA256")
-    parser.add_argument("--submitted-archive", type=Path, required=True, help="exact pre-staple archive accepted by Apple")
-    parser.add_argument("--notary-submission-id", required=True)
-    parser.add_argument("--notary-keychain-profile", required=True)
+    parser.add_argument("--submitted-archive", type=Path, help="exact pre-staple archive accepted by Apple (notarytool provider)")
+    parser.add_argument("--notary-submission-id", help="accepted notarytool submission UUID")
+    parser.add_argument("--notary-keychain-profile", help="notarytool Keychain profile")
+    parser.add_argument("--xcode-archive", type=Path, help="Xcode archive containing an accepted Developer ID submission receipt")
+    parser.add_argument("--xcode-submission-id", help="optional submission UUID when the Xcode archive contains more than one submission")
     parser.add_argument("--release-contract", type=Path, required=True)
     parser.add_argument("--contract", type=Path, default=SCRIPT_DIRECTORY / "notarized-smoke-contract-v1.json")
     parser.add_argument("--output", type=Path, required=True)
