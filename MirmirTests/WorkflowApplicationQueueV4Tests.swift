@@ -1,3 +1,5 @@
+import AVFoundation
+import CoreVideo
 import Foundation
 import XCTest
 @testable import Mirmir
@@ -475,6 +477,272 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         let afterRelease = await recorder.waitForCount(1)
         XCTAssertEqual(afterRelease, [waiting.specification.jobID])
     }
+
+    func testPublicationRecoversExclusiveRenameBeforeDurableReceipt()
+        async throws {
+        let context = try await makeTerminalPublicationContext()
+        defer { context.activated.close() }
+        let intent = try await context.queue.prepareApplicationPublication(
+            activated: context.activated,
+            checkpoint: context.checkpoint
+        )
+        let stagingURL = try await context.queue
+            .applicationPublicationStagingURL(
+                intent,
+                activated: context.activated
+            )
+        let expected = Data("new-published-output".utf8)
+        try expected.write(to: stagingURL)
+        _ = try await context.queue.recordApplicationStagedPublication(
+            intent,
+            finalized: WorkflowApplicationFinalizedOutputV4(
+                destinationURL: stagingURL,
+                verification: try publicationVerification()
+            ),
+            activated: context.activated
+        )
+
+        await context.queue
+            .injectProcessTerminationAfterApplicationPublicationRename()
+        do {
+            _ = try await context.queue.publishApplicationStagedOutput(
+                intent,
+                activated: context.activated
+            )
+            XCTFail("Expected the post-rename qualification fault.")
+        } catch let error as WorkflowApplicationQueueErrorV4 {
+            XCTAssertEqual(error, .injectedPublicationTermination)
+        }
+        XCTAssertEqual(try Data(contentsOf: context.outputURL), expected)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stagingURL.path))
+        var state = try await context.queue.applicationPublicationState(
+            jobID: intent.jobID
+        )
+        XCTAssertEqual(state?.stageIsVerified, true)
+        XCTAssertEqual(state?.isPublished, false)
+
+        let recovered = try await context.queue.publishApplicationStagedOutput(
+            intent,
+            activated: context.activated
+        )
+        let replayed = try await context.queue.publishApplicationStagedOutput(
+            intent,
+            activated: context.activated
+        )
+        XCTAssertEqual(recovered, replayed)
+        state = try await context.queue.applicationPublicationState(
+            jobID: intent.jobID
+        )
+        XCTAssertEqual(state?.isPublished, true)
+        XCTAssertEqual(try Data(contentsOf: context.outputURL), expected)
+    }
+
+    func testPublicationRecoversAtomicOverwriteAndRemovesDisplacedFile()
+        async throws {
+        let context = try await makeTerminalPublicationContext()
+        defer { context.activated.close() }
+        let original = Data("original-user-output".utf8)
+        try original.write(to: context.outputURL)
+        let intent = try await context.queue.prepareApplicationPublication(
+            activated: context.activated,
+            checkpoint: context.checkpoint
+        )
+        let stagingURL = try await context.queue
+            .applicationPublicationStagingURL(
+                intent,
+                activated: context.activated
+            )
+        let replacement = Data("replacement-output".utf8)
+        try replacement.write(to: stagingURL)
+        _ = try await context.queue.recordApplicationStagedPublication(
+            intent,
+            finalized: WorkflowApplicationFinalizedOutputV4(
+                destinationURL: stagingURL,
+                verification: try publicationVerification()
+            ),
+            activated: context.activated
+        )
+
+        await context.queue
+            .injectProcessTerminationAfterApplicationPublicationRename()
+        do {
+            _ = try await context.queue.publishApplicationStagedOutput(
+                intent,
+                activated: context.activated
+            )
+            XCTFail("Expected the post-swap qualification fault.")
+        } catch WorkflowApplicationQueueErrorV4
+            .injectedPublicationTermination {
+            // The directory now contains the new final and displaced original.
+        }
+        XCTAssertEqual(try Data(contentsOf: context.outputURL), replacement)
+        XCTAssertEqual(try Data(contentsOf: stagingURL), original)
+
+        _ = try await context.queue.publishApplicationStagedOutput(
+            intent,
+            activated: context.activated
+        )
+        XCTAssertEqual(try Data(contentsOf: context.outputURL), replacement)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stagingURL.path))
+    }
+
+    func testPublicationRejectsTamperedVerifiedStageBeforeFinalRename()
+        async throws {
+        let context = try await makeTerminalPublicationContext()
+        defer { context.activated.close() }
+        let intent = try await context.queue.prepareApplicationPublication(
+            activated: context.activated,
+            checkpoint: context.checkpoint
+        )
+        let stagingURL = try await context.queue
+            .applicationPublicationStagingURL(
+                intent,
+                activated: context.activated
+            )
+        try Data("verified".utf8).write(to: stagingURL)
+        _ = try await context.queue.recordApplicationStagedPublication(
+            intent,
+            finalized: WorkflowApplicationFinalizedOutputV4(
+                destinationURL: stagingURL,
+                verification: try publicationVerification()
+            ),
+            activated: context.activated
+        )
+        try Data("tampered".utf8).write(to: stagingURL, options: .atomic)
+
+        do {
+            _ = try await context.queue.publishApplicationStagedOutput(
+                intent,
+                activated: context.activated
+            )
+            XCTFail("A changed verified stage must not become the final file.")
+        } catch let error as WorkflowApplicationQueueErrorV4 {
+            switch error {
+            case .publicationStageMissing, .publicationStageConflict:
+                break
+            default:
+                XCTFail("Unexpected publication error: \(error)")
+            }
+        }
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: context.outputURL.path)
+        )
+    }
+
+    func testCoordinatorLaunchReconcilesPostRenameProcessTermination()
+        async throws {
+        let context = try await makeTerminalPublicationContext()
+        let jobID = context.activated.specification.jobID
+        let intent = try await context.queue.prepareApplicationPublication(
+            activated: context.activated,
+            checkpoint: context.checkpoint
+        )
+        let stagingURL = try await context.queue
+            .applicationPublicationStagingURL(
+                intent,
+                activated: context.activated
+            )
+        let expected = Data("launch-recovered-output".utf8)
+        try expected.write(to: stagingURL)
+        _ = try await context.queue.recordApplicationStagedPublication(
+            intent,
+            finalized: WorkflowApplicationFinalizedOutputV4(
+                destinationURL: stagingURL,
+                verification: try publicationVerification()
+            ),
+            activated: context.activated
+        )
+        await context.queue
+            .injectProcessTerminationAfterApplicationPublicationRename()
+        do {
+            _ = try await context.queue.publishApplicationStagedOutput(
+                intent,
+                activated: context.activated
+            )
+            XCTFail("Expected publication termination before its receipt.")
+        } catch WorkflowApplicationQueueErrorV4
+            .injectedPublicationTermination {
+            // The new final file is durable and the receipt is intentionally
+            // absent, matching abrupt kernel process termination.
+        }
+        context.activated.close()
+        await context.queue
+            .injectProcessTerminationAfterApplicationLeasePersistence()
+
+        let relaunchedQueue = try makeQueue(
+            fixture: context.fixture,
+            resolver: context.resolver,
+            clock: WorkflowApplicationQueueTestClockV4(50_000_000_000),
+            workerID: "application-worker-publication-relaunch"
+        )
+        let engine = WorkflowApplicationPublicationRecoveryEngineV4(
+            source: workflowApplicationVideoInfo(
+                url: context.fixture.inputURL
+            )
+        )
+        let coordinator = WorkflowApplicationCoordinatorV4(
+            queue: relaunchedQueue,
+            engine: engine
+        )
+        let launch = try await coordinator.launch()
+        XCTAssertEqual(
+            launch.queue.items.first { $0.jobID == jobID }?.lifecycle,
+            .completed
+        )
+        XCTAssertEqual(try Data(contentsOf: context.outputURL), expected)
+        let publication = try await relaunchedQueue
+            .applicationPublicationState(jobID: jobID)
+        XCTAssertEqual(publication?.stageIsVerified, true)
+        XCTAssertEqual(publication?.isPublished, true)
+        let counts = await engine.operationCounts()
+        XCTAssertEqual(counts.revalidations, 1)
+        XCTAssertEqual(counts.inspections, 1)
+        XCTAssertEqual(counts.finalizations, 0)
+    }
+
+    func testPublicationCanonicalRecordTamperingFailsClosed() async throws {
+        let context = try await makeTerminalPublicationContext()
+        defer { context.activated.close() }
+        let intent = try await context.queue.prepareApplicationPublication(
+            activated: context.activated,
+            checkpoint: context.checkpoint
+        )
+        let stagingURL = try await context.queue
+            .applicationPublicationStagingURL(
+                intent,
+                activated: context.activated
+            )
+        try Data("canonical-stage".utf8).write(to: stagingURL)
+        _ = try await context.queue.recordApplicationStagedPublication(
+            intent,
+            finalized: WorkflowApplicationFinalizedOutputV4(
+                destinationURL: stagingURL,
+                verification: try publicationVerification()
+            ),
+            activated: context.activated
+        )
+        let stageDocumentURL = context.fixture.storeURL
+            .appendingPathComponent("jobs", isDirectory: true)
+            .appendingPathComponent(intent.jobID.rawValue, isDirectory: true)
+            .appendingPathComponent(
+                "application-request-v4",
+                isDirectory: true
+            )
+            .appendingPathComponent("publication-v4", isDirectory: true)
+            .appendingPathComponent("publication-stage-v1.json")
+        var tampered = try Data(contentsOf: stageDocumentURL)
+        tampered.append(0x0A)
+        try tampered.write(to: stageDocumentURL, options: .atomic)
+
+        do {
+            _ = try await context.queue.applicationPublicationState(
+                jobID: intent.jobID
+            )
+            XCTFail("Noncanonical publication records must fail closed.")
+        } catch let error as WorkflowApplicationQueueErrorV4 {
+            XCTAssertEqual(error, .publicationDocumentCorrupt(intent.jobID))
+        }
+    }
 }
 
 private extension WorkflowApplicationQueueV4Tests {
@@ -483,6 +751,15 @@ private extension WorkflowApplicationQueueV4Tests {
         let storeURL: URL
         let inputURL: URL
         let outputDirectoryURL: URL
+    }
+
+    struct PublicationContext {
+        let fixture: Fixture
+        let resolver: WorkflowApplicationBookmarkResolverStubV4
+        let queue: WorkflowApplicationQueueV4
+        let activated: WorkflowActivatedUpscaleRequestV4
+        let checkpoint: WorkflowCheckpointDocumentV4
+        let outputURL: URL
     }
 
     func makeFixture() throws -> Fixture {
@@ -572,6 +849,213 @@ private extension WorkflowApplicationQueueV4Tests {
             ),
             resolvedBackendID: .mirmirDeterministicCPU
         )
+    }
+
+    func makeTerminalPublicationContext() async throws -> PublicationContext {
+        let fixture = try makeFixture()
+        let resolver = WorkflowApplicationBookmarkResolverStubV4()
+        let queue = try makeQueue(fixture: fixture, resolver: resolver)
+        let requested = request(fixture: fixture)
+        let binding = try preparedBinding()
+        let enqueued = try await queue.enqueue(
+            request: requested,
+            preparedPlanBinding: binding
+        )
+        let result = try await queue.claimNextApplicationJob(
+            cycleID: WorkflowDispatchCycleIDV4("publication-test-cycle")
+        )
+        guard case .claimed(let dispatch) = result else {
+            throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+        }
+        _ = try await queue.transitionApplicationJob(
+            dispatch,
+            expected: .probing,
+            target: .planned,
+            commandKey: WorkflowRecoveryCommandKeyV4(
+                "publication-test-planned"
+            ),
+            stage: "publication-test-planned",
+            attemptID: nil
+        )
+        let attemptID = try WorkflowAttemptID("publication-test-attempt")
+        _ = try await queue.transitionApplicationJob(
+            dispatch,
+            expected: .planned,
+            target: .running,
+            commandKey: WorkflowRecoveryCommandKeyV4(
+                "publication-test-running"
+            ),
+            stage: "publication-test-running",
+            attemptID: attemptID
+        )
+
+        let segmentURL = fixture.rootURL.appendingPathComponent(
+            "publication-terminal-segment.mov"
+        )
+        try await writePublicationSegment(to: segmentURL)
+        let start = try WorkflowMediaTimeV4(value: 0, timescale: 30)
+        let end = try WorkflowMediaTimeV4(value: 1, timescale: 30)
+        let checkpoint = try await queue.commitApplicationCheckpointBoundary(
+            dispatch: dispatch,
+            specification: enqueued.specification,
+            segment: DeterministicV4MediaSegmentResultV4(
+                segmentURL: segmentURL,
+                startTime: start,
+                endTimeExclusive: end,
+                inputSampleCount: 1,
+                outputSampleCount: 1,
+                lastCompletedInputOrdinal: 0,
+                terminal: true,
+                processingDurationSeconds: 0.01
+            ),
+            outputContractID: binding.outputContractID,
+            previousCheckpoint: nil,
+            trackProgress: [
+                try WorkflowTrackProgressV4(
+                    trackID: "video-primary",
+                    kind: .video,
+                    nextInputSampleIndex: 1,
+                    nextOutputSampleIndex: 1,
+                    lastInputTime: start,
+                    lastOutputTime: start,
+                    isComplete: true
+                )
+            ],
+            temporalCheckpoint: Data("terminal-temporal-state".utf8)
+        ).checkpoint
+        _ = try await queue.transitionApplicationJob(
+            dispatch,
+            expected: .running,
+            target: .verifying,
+            commandKey: WorkflowRecoveryCommandKeyV4(
+                "publication-test-verifying"
+            ),
+            stage: "publication-test-verifying",
+            attemptID: attemptID
+        )
+        _ = try await queue.transitionApplicationJob(
+            dispatch,
+            expected: .verifying,
+            target: .committing,
+            commandKey: WorkflowRecoveryCommandKeyV4(
+                "publication-test-committing"
+            ),
+            stage: "publication-test-committing",
+            attemptID: nil
+        )
+        let activation = await queue.activate(
+            jobID: enqueued.specification.jobID
+        )
+        guard case .active(let activated) = activation else {
+            throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+        }
+        return PublicationContext(
+            fixture: fixture,
+            resolver: resolver,
+            queue: queue,
+            activated: activated,
+            checkpoint: checkpoint,
+            outputURL: requested.outputURL
+        )
+    }
+
+    func publicationVerification()
+        throws -> WorkflowApplicationMigrationVerificationV4
+    {
+        let metadata = try ASHSHA256V4(workflowApplicationDigest(31))
+        let chapters = try ASHSHA256V4(workflowApplicationDigest(32))
+        return try WorkflowApplicationMigrationVerificationV4(
+            sourceGraphSHA256: ASHSHA256V4(workflowApplicationDigest(33)),
+            trackPlanSHA256: ASHSHA256V4(workflowApplicationDigest(34)),
+            blueprintSHA256: ASHSHA256V4(workflowApplicationDigest(35)),
+            sourceAssetMetadataSHA256: metadata,
+            outputAssetMetadataSHA256: metadata,
+            sourceChapterMetadataSHA256: chapters,
+            outputChapterMetadataSHA256: chapters,
+            outputGraphSHA256: ASHSHA256V4(workflowApplicationDigest(36)),
+            semanticReportSHA256: ASHSHA256V4(
+                workflowApplicationDigest(37)
+            ),
+            trackResults: [
+                AVFoundationTrackMigrationTrackResultV4(
+                    trackID: try MediaTrackStableIDV4("video-primary"),
+                    action: .process,
+                    migratedSampleCount: 1,
+                    sourceSampleStreamSHA256: nil,
+                    outputSampleStreamSHA256: nil
+                )
+            ]
+        )
+    }
+
+    func writePublicationSegment(to url: URL) async throws {
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+        let input = AVAssetWriterInput(
+            mediaType: .video,
+            outputSettings: [
+                AVVideoCodecKey: AVVideoCodecType.h264,
+                AVVideoWidthKey: 16,
+                AVVideoHeightKey: 16,
+                AVVideoCompressionPropertiesKey: [
+                    AVVideoMaxKeyFrameIntervalKey: 1,
+                    AVVideoAverageBitRateKey: 100_000,
+                ],
+            ]
+        )
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(
+            assetWriterInput: input,
+            sourcePixelBufferAttributes: [
+                kCVPixelBufferPixelFormatTypeKey as String:
+                    kCVPixelFormatType_32BGRA,
+                kCVPixelBufferWidthKey as String: 16,
+                kCVPixelBufferHeightKey as String: 16,
+            ]
+        )
+        guard writer.canAdd(input) else {
+            throw AVFoundationSegmentV4Error.exportUnavailable
+        }
+        writer.add(input)
+        guard writer.startWriting() else {
+            throw AVFoundationSegmentV4Error.exportFailed(
+                String(describing: writer.error)
+            )
+        }
+        writer.startSession(atSourceTime: .zero)
+        while !input.isReadyForMoreMediaData { await Task.yield() }
+        guard let pool = adaptor.pixelBufferPool else {
+            throw AVFoundationSegmentV4Error.exportUnavailable
+        }
+        var buffer: CVPixelBuffer?
+        guard CVPixelBufferPoolCreatePixelBuffer(
+            kCFAllocatorDefault,
+            pool,
+            &buffer
+        ) == kCVReturnSuccess, let buffer else {
+            throw AVFoundationSegmentV4Error.exportUnavailable
+        }
+        CVPixelBufferLockBaseAddress(buffer, [])
+        if let base = CVPixelBufferGetBaseAddress(buffer) {
+            memset(
+                base,
+                0x5a,
+                CVPixelBufferGetBytesPerRow(buffer)
+                    * CVPixelBufferGetHeight(buffer)
+            )
+        }
+        CVPixelBufferUnlockBaseAddress(buffer, [])
+        guard adaptor.append(buffer, withPresentationTime: .zero) else {
+            throw AVFoundationSegmentV4Error.exportFailed(
+                String(describing: writer.error)
+            )
+        }
+        input.markAsFinished()
+        writer.endSession(atSourceTime: CMTime(value: 1, timescale: 30))
+        await writer.finishWriting()
+        guard writer.status == .completed else {
+            throw AVFoundationSegmentV4Error.exportFailed(
+                String(describing: writer.error)
+            )
+        }
     }
 }
 
@@ -665,9 +1149,11 @@ private actor WorkflowApplicationFailingEngineV4:
         jobID _: WorkflowJobID,
         request _: UpscaleRequest,
         assembledVideoURL _: URL,
+        publicationURL _: URL,
+        migrationTemporaryURL _: URL,
         cancellation _: ProcessingCancellation,
         progress _: @escaping @Sendable (UpscaleProgress) -> Void
-    ) async throws {
+    ) async throws -> WorkflowApplicationFinalizedOutputV4 {
         throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
     }
 
@@ -681,6 +1167,108 @@ private actor WorkflowApplicationFailingEngineV4:
     }
 
     func abandonPrepared(jobID _: WorkflowJobID) async {}
+}
+
+private actor WorkflowApplicationPublicationRecoveryEngineV4:
+    WorkflowApplicationDeterministicExecutingV4
+{
+    struct OperationCounts: Sendable {
+        let revalidations: Int
+        let inspections: Int
+        let finalizations: Int
+    }
+
+    let source: VideoInfo
+    private var revalidationCount = 0
+    private var inspectionCount = 0
+    private var finalizationCount = 0
+
+    init(source: VideoInfo) {
+        self.source = source
+    }
+
+    func prepareSubmission(
+        request _: UpscaleRequest
+    ) async throws -> WorkflowApplicationPreparedSubmissionV4 {
+        throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
+    func revalidateAndPrepare(
+        jobID _: WorkflowJobID,
+        request _: UpscaleRequest,
+        expectedBinding _: WorkflowVerifiedPreparedPlanBindingV4
+    ) async throws -> VideoInfo {
+        revalidationCount += 1
+        return source
+    }
+
+    func processPrepared(
+        jobID _: WorkflowJobID,
+        request _: UpscaleRequest,
+        startingInputFrameIndex _: Int,
+        startTime _: WorkflowMediaTimeV4?,
+        maximumInputFrames _: Int,
+        previousCheckpoint _: WorkflowCheckpointDocumentV4?,
+        cancellation _: ProcessingCancellation,
+        progress _: @escaping @Sendable (UpscaleProgress) -> Void
+    ) async throws -> WorkflowApplicationProcessedSegmentV4 {
+        throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
+    func restorePrepared(
+        jobID _: WorkflowJobID,
+        temporalCheckpoint _: Data,
+        lastCompletedInputOrdinal _: Int64
+    ) async throws {
+        throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
+    func finalizePreparedOutput(
+        jobID _: WorkflowJobID,
+        request _: UpscaleRequest,
+        assembledVideoURL _: URL,
+        publicationURL _: URL,
+        migrationTemporaryURL _: URL,
+        cancellation _: ProcessingCancellation,
+        progress _: @escaping @Sendable (UpscaleProgress) -> Void
+    ) async throws -> WorkflowApplicationFinalizedOutputV4 {
+        finalizationCount += 1
+        throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
+    func inspectCompletion(
+        request: UpscaleRequest,
+        checkpoint _: WorkflowCheckpointDocumentV4,
+        segmentResult _: UpscaleResult?,
+        processingDurationSeconds: TimeInterval
+    ) async throws -> WorkflowApplicationCompletionV4 {
+        inspectionCount += 1
+        let completion = WorkflowApplicationCompletionV4(
+            source: source,
+            result: UpscaleResult(
+                outputURL: request.outputURL,
+                actualBackendID: request.backendID,
+                encodedWidth: request.targetWidth,
+                encodedHeight: request.targetHeight,
+                durationSeconds: source.duration.seconds,
+                outputCodec: request.outputCodec,
+                audioResult: request.preserveAudio ? .preserved : .omitted,
+                processedFrameCount: 1,
+                processingDurationSeconds: processingDurationSeconds
+            )
+        )
+        return completion
+    }
+
+    func abandonPrepared(jobID _: WorkflowJobID) async {}
+
+    func operationCounts() -> OperationCounts {
+        OperationCounts(
+            revalidations: revalidationCount,
+            inspections: inspectionCount,
+            finalizations: finalizationCount
+        )
+    }
 }
 
 private struct WorkflowApplicationQueueTestClockV4: WorkflowWallClockV4 {
@@ -757,6 +1345,38 @@ private final class WorkflowApplicationBookmarkResolverStubV4:
 
 private func workflowApplicationDigest(_ value: Int) -> String {
     String(format: "%064llx", value)
+}
+
+private func workflowApplicationVideoInfo(url: URL) -> VideoInfo {
+    let size = CGSize(width: 16, height: 16)
+    return VideoInfo(
+        url: url,
+        duration: CMTime(value: 1, timescale: 30),
+        geometry: VideoGeometry(
+            encodedSize: size,
+            naturalSize: size,
+            presentationSize: size,
+            displaySize: size,
+            preferredTransform: .identity,
+            cleanAperture: nil,
+            pixelAspectRatio: VideoPixelAspectRatio(
+                horizontalSpacing: 1,
+                verticalSpacing: 1
+            )
+        ),
+        nominalFrameRate: 30,
+        minimumFrameDuration: CMTime(value: 1, timescale: 30),
+        estimatedFrameCount: 1,
+        estimatedDataRate: nil,
+        codecFourCC: kCMVideoCodecType_H264,
+        hasAudio: false,
+        audioTrackCount: 0,
+        videoTrackCount: 1,
+        isReadable: true,
+        isPlayable: true,
+        fileSizeBytes: nil,
+        color: .unknown
+    )
 }
 
 private enum WorkflowApplicationSchemaFixtureErrorV4: Error {

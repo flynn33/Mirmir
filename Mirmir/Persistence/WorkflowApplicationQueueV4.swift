@@ -1,5 +1,6 @@
 import AVFoundation
 import CoreMedia
+import CryptoKit
 import Darwin
 import Foundation
 
@@ -13,10 +14,28 @@ enum WorkflowApplicationPriorityDocumentDigestPurposeV4:
     WorkflowDigestPurpose
 {}
 
+enum WorkflowApplicationPublicationIntentDigestPurposeV4:
+    WorkflowDigestPurpose
+{}
+
+enum WorkflowApplicationPublicationStageDigestPurposeV4:
+    WorkflowDigestPurpose
+{}
+
+enum WorkflowApplicationPublicationReceiptDigestPurposeV4:
+    WorkflowDigestPurpose
+{}
+
 typealias WorkflowApplicationRequestDocumentHashV4 =
     WorkflowDigest<WorkflowApplicationRequestDocumentDigestPurposeV4>
 typealias WorkflowApplicationPriorityDocumentHashV4 =
     WorkflowDigest<WorkflowApplicationPriorityDocumentDigestPurposeV4>
+typealias WorkflowApplicationPublicationIntentHashV4 =
+    WorkflowDigest<WorkflowApplicationPublicationIntentDigestPurposeV4>
+typealias WorkflowApplicationPublicationStageHashV4 =
+    WorkflowDigest<WorkflowApplicationPublicationStageDigestPurposeV4>
+typealias WorkflowApplicationPublicationReceiptHashV4 =
+    WorkflowDigest<WorkflowApplicationPublicationReceiptDigestPurposeV4>
 
 enum WorkflowApplicationRequestEnvelopeSchemaV4 {
     static let legacy: UInt16 = 1
@@ -52,6 +71,19 @@ enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
     case unsafeWorkingArtifact(String)
     case priorityDocumentCorrupt
     case jobNotQueued(WorkflowJobID)
+    case publicationDocumentCorrupt(WorkflowJobID)
+    case publicationDocumentConflict(WorkflowJobID)
+    case publicationBindingMismatch(WorkflowJobID)
+    case publicationStageMissing(WorkflowJobID)
+    case publicationStageConflict(String)
+    case publicationDestinationConflict(String)
+    case publicationVerificationInvalid
+    case publicationFilesystemFailure(
+        operation: String,
+        path: String,
+        code: Int32
+    )
+    case injectedPublicationTermination
 
     var errorDescription: String? {
         switch self {
@@ -97,6 +129,24 @@ enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
             "The durable application queue priority document is noncanonical or hash-invalid."
         case .jobNotQueued(let jobID):
             "The durable workflow job \(jobID) is not currently queued."
+        case .publicationDocumentCorrupt(let jobID):
+            "The durable publication record for \(jobID) is noncanonical or hash-invalid."
+        case .publicationDocumentConflict(let jobID):
+            "A conflicting durable publication record already exists for \(jobID)."
+        case .publicationBindingMismatch(let jobID):
+            "The durable publication record for \(jobID) does not match its request and terminal checkpoint."
+        case .publicationStageMissing(let jobID):
+            "The verified publication stage for \(jobID) is missing."
+        case .publicationStageConflict(let path):
+            "The durable publication stage is unsafe or changed identity: \(path)."
+        case .publicationDestinationConflict(let path):
+            "The final output changed after publication intent was recorded: \(path)."
+        case .publicationVerificationInvalid:
+            "The final media migration verification is incomplete or inconsistent."
+        case let .publicationFilesystemFailure(operation, path, code):
+            "The durable publication operation \(operation) failed for \(path) with errno \(code)."
+        case .injectedPublicationTermination:
+            "A qualification fault terminated publication after the atomic rename."
         }
     }
 }
@@ -150,6 +200,291 @@ private struct WorkflowApplicationPriorityDocumentV4:
         self.bodyHash = bodyHash
         self.body = body
     }
+}
+
+// MARK: - Two-phase output publication
+
+struct WorkflowApplicationMigrationVerificationV4:
+    Codable,
+    Equatable,
+    Sendable
+{
+    static let currentSchemaVersion: UInt16 = 1
+
+    let schemaVersion: UInt16
+    let sourceGraphSHA256: ASHSHA256V4
+    let trackPlanSHA256: ASHSHA256V4
+    let blueprintSHA256: ASHSHA256V4
+    let sourceAssetMetadataSHA256: ASHSHA256V4
+    let outputAssetMetadataSHA256: ASHSHA256V4
+    let sourceChapterMetadataSHA256: ASHSHA256V4
+    let outputChapterMetadataSHA256: ASHSHA256V4
+    let outputGraphSHA256: ASHSHA256V4
+    let semanticReportSHA256: ASHSHA256V4
+    let trackResults: [AVFoundationTrackMigrationTrackResultV4]
+
+    init(
+        sourceGraphSHA256: ASHSHA256V4,
+        trackPlanSHA256: ASHSHA256V4,
+        blueprintSHA256: ASHSHA256V4,
+        sourceAssetMetadataSHA256: ASHSHA256V4,
+        outputAssetMetadataSHA256: ASHSHA256V4,
+        sourceChapterMetadataSHA256: ASHSHA256V4,
+        outputChapterMetadataSHA256: ASHSHA256V4,
+        outputGraphSHA256: ASHSHA256V4,
+        semanticReportSHA256: ASHSHA256V4,
+        trackResults: [AVFoundationTrackMigrationTrackResultV4]
+    ) throws {
+        let sorted = trackResults.sorted { $0.trackID < $1.trackID }
+        guard !sorted.isEmpty,
+              Set(sorted.map(\.trackID)).count == sorted.count,
+              sorted.allSatisfy({ $0.migratedSampleCount >= 0 }) else {
+            throw WorkflowApplicationQueueErrorV4
+                .publicationVerificationInvalid
+        }
+        schemaVersion = Self.currentSchemaVersion
+        self.sourceGraphSHA256 = sourceGraphSHA256
+        self.trackPlanSHA256 = trackPlanSHA256
+        self.blueprintSHA256 = blueprintSHA256
+        self.sourceAssetMetadataSHA256 = sourceAssetMetadataSHA256
+        self.outputAssetMetadataSHA256 = outputAssetMetadataSHA256
+        self.sourceChapterMetadataSHA256 = sourceChapterMetadataSHA256
+        self.outputChapterMetadataSHA256 = outputChapterMetadataSHA256
+        self.outputGraphSHA256 = outputGraphSHA256
+        self.semanticReportSHA256 = semanticReportSHA256
+        self.trackResults = sorted
+    }
+
+    init(_ result: AVFoundationTrackMigrationExecutionResultV4) throws {
+        let outputGraphSHA256 = try result.outputGraph.canonicalSHA256
+        let reportSHA256 = try result.verificationReport.canonicalSHA256
+        guard result.verificationReport.isConformant,
+              result.verificationReport.planSHA256 == result.planSHA256,
+              result.verificationReport.outputGraphSHA256
+                == outputGraphSHA256 else {
+            throw WorkflowApplicationQueueErrorV4
+                .publicationVerificationInvalid
+        }
+        try self.init(
+            sourceGraphSHA256: result.sourceGraphSHA256,
+            trackPlanSHA256: result.planSHA256,
+            blueprintSHA256: result.blueprintSHA256,
+            sourceAssetMetadataSHA256: result.sourceAssetMetadataSHA256,
+            outputAssetMetadataSHA256: result.outputAssetMetadataSHA256,
+            sourceChapterMetadataSHA256: result.sourceChapterMetadataSHA256,
+            outputChapterMetadataSHA256: result.outputChapterMetadataSHA256,
+            outputGraphSHA256: outputGraphSHA256,
+            semanticReportSHA256: reportSHA256,
+            trackResults: result.trackResults
+        )
+    }
+}
+
+struct WorkflowApplicationFinalizedOutputV4: Sendable {
+    let destinationURL: URL
+    let verification: WorkflowApplicationMigrationVerificationV4
+}
+
+private struct WorkflowApplicationPublicationFileV4:
+    Codable,
+    Equatable,
+    Sendable
+{
+    let identity: WorkflowFileIdentityV4
+    let byteCount: UInt64
+    let sha256: ASHSHA256V4
+}
+
+private struct WorkflowApplicationPublicationIntentBodyV4:
+    Codable,
+    Equatable,
+    Sendable
+{
+    static let currentSchemaVersion: UInt16 = 1
+
+    let schemaVersion: UInt16
+    let jobBinding: WorkflowJobBinding
+    let checkpointID: WorkflowCheckpointIDV4
+    let checkpointDocumentHash: WorkflowCheckpointDocumentHashV4
+    let outputContractID: WorkflowOutputContractID
+    let finalFileName: WorkflowOutputFileName
+    let stagingFileName: String
+    let migrationTemporaryFileName: String
+    let overwriteExistingFile: Bool
+    let originalDestination: WorkflowApplicationPublicationFileV4?
+    let createdAt: WorkflowWallClockInstantV4
+
+    init(
+        jobBinding: WorkflowJobBinding,
+        checkpointID: WorkflowCheckpointIDV4,
+        checkpointDocumentHash: WorkflowCheckpointDocumentHashV4,
+        outputContractID: WorkflowOutputContractID,
+        finalFileName: WorkflowOutputFileName,
+        stagingFileName: String,
+        migrationTemporaryFileName: String,
+        overwriteExistingFile: Bool,
+        originalDestination: WorkflowApplicationPublicationFileV4?,
+        createdAt: WorkflowWallClockInstantV4
+    ) {
+        schemaVersion = Self.currentSchemaVersion
+        self.jobBinding = jobBinding
+        self.checkpointID = checkpointID
+        self.checkpointDocumentHash = checkpointDocumentHash
+        self.outputContractID = outputContractID
+        self.finalFileName = finalFileName
+        self.stagingFileName = stagingFileName
+        self.migrationTemporaryFileName = migrationTemporaryFileName
+        self.overwriteExistingFile = overwriteExistingFile
+        self.originalDestination = originalDestination
+        self.createdAt = createdAt
+    }
+}
+
+struct WorkflowApplicationPublicationIntentV4: Codable, Equatable, Sendable {
+    static let currentSchemaVersion: UInt16 = 1
+
+    let schemaVersion: UInt16
+    let bodyHash: WorkflowApplicationPublicationIntentHashV4
+    fileprivate let body: WorkflowApplicationPublicationIntentBodyV4
+
+    fileprivate init(
+        bodyHash: WorkflowApplicationPublicationIntentHashV4,
+        body: WorkflowApplicationPublicationIntentBodyV4
+    ) {
+        schemaVersion = Self.currentSchemaVersion
+        self.bodyHash = bodyHash
+        self.body = body
+    }
+
+    var jobID: WorkflowJobID { body.jobBinding.jobID }
+    var checkpointID: WorkflowCheckpointIDV4 { body.checkpointID }
+}
+
+private struct WorkflowApplicationPublicationStageBodyV4:
+    Codable,
+    Equatable,
+    Sendable
+{
+    static let currentSchemaVersion: UInt16 = 1
+
+    let schemaVersion: UInt16
+    let intentHash: WorkflowApplicationPublicationIntentHashV4
+    let jobBinding: WorkflowJobBinding
+    let stagedFile: WorkflowApplicationPublicationFileV4
+    let migrationVerification: WorkflowApplicationMigrationVerificationV4
+    let verifiedAt: WorkflowWallClockInstantV4
+
+    init(
+        intentHash: WorkflowApplicationPublicationIntentHashV4,
+        jobBinding: WorkflowJobBinding,
+        stagedFile: WorkflowApplicationPublicationFileV4,
+        migrationVerification: WorkflowApplicationMigrationVerificationV4,
+        verifiedAt: WorkflowWallClockInstantV4
+    ) {
+        schemaVersion = Self.currentSchemaVersion
+        self.intentHash = intentHash
+        self.jobBinding = jobBinding
+        self.stagedFile = stagedFile
+        self.migrationVerification = migrationVerification
+        self.verifiedAt = verifiedAt
+    }
+}
+
+struct WorkflowApplicationPublicationStageV4: Codable, Equatable, Sendable {
+    static let currentSchemaVersion: UInt16 = 1
+
+    let schemaVersion: UInt16
+    let bodyHash: WorkflowApplicationPublicationStageHashV4
+    fileprivate let body: WorkflowApplicationPublicationStageBodyV4
+
+    fileprivate init(
+        bodyHash: WorkflowApplicationPublicationStageHashV4,
+        body: WorkflowApplicationPublicationStageBodyV4
+    ) {
+        schemaVersion = Self.currentSchemaVersion
+        self.bodyHash = bodyHash
+        self.body = body
+    }
+}
+
+enum WorkflowApplicationPublicationMethodV4:
+    String,
+    Codable,
+    Equatable,
+    Sendable
+{
+    case exclusiveRename = "exclusive_rename"
+    case atomicSwap = "atomic_swap"
+    case recoveredPublishedFile = "recovered_published_file"
+}
+
+private struct WorkflowApplicationPublicationReceiptBodyV4:
+    Codable,
+    Equatable,
+    Sendable
+{
+    static let currentSchemaVersion: UInt16 = 1
+
+    let schemaVersion: UInt16
+    let stageHash: WorkflowApplicationPublicationStageHashV4
+    let jobBinding: WorkflowJobBinding
+    let finalFile: WorkflowApplicationPublicationFileV4
+    let method: WorkflowApplicationPublicationMethodV4
+    let displacedDestination: WorkflowApplicationPublicationFileV4?
+    let publishedAt: WorkflowWallClockInstantV4
+
+    init(
+        stageHash: WorkflowApplicationPublicationStageHashV4,
+        jobBinding: WorkflowJobBinding,
+        finalFile: WorkflowApplicationPublicationFileV4,
+        method: WorkflowApplicationPublicationMethodV4,
+        displacedDestination: WorkflowApplicationPublicationFileV4?,
+        publishedAt: WorkflowWallClockInstantV4
+    ) {
+        schemaVersion = Self.currentSchemaVersion
+        self.stageHash = stageHash
+        self.jobBinding = jobBinding
+        self.finalFile = finalFile
+        self.method = method
+        self.displacedDestination = displacedDestination
+        self.publishedAt = publishedAt
+    }
+}
+
+struct WorkflowApplicationPublicationReceiptV4:
+    Codable,
+    Equatable,
+    Sendable
+{
+    static let currentSchemaVersion: UInt16 = 1
+
+    let schemaVersion: UInt16
+    let bodyHash: WorkflowApplicationPublicationReceiptHashV4
+    fileprivate let body: WorkflowApplicationPublicationReceiptBodyV4
+
+    fileprivate init(
+        bodyHash: WorkflowApplicationPublicationReceiptHashV4,
+        body: WorkflowApplicationPublicationReceiptBodyV4
+    ) {
+        schemaVersion = Self.currentSchemaVersion
+        self.bodyHash = bodyHash
+        self.body = body
+    }
+}
+
+struct WorkflowApplicationPublicationStateV4: Sendable {
+    let intent: WorkflowApplicationPublicationIntentV4
+    let stage: WorkflowApplicationPublicationStageV4?
+    let receipt: WorkflowApplicationPublicationReceiptV4?
+
+    var stageIsVerified: Bool { stage != nil }
+    var isPublished: Bool { receipt != nil }
+}
+
+struct WorkflowApplicationPublicationRecoveryCandidateV4: Sendable {
+    let jobID: WorkflowJobID
+    let lifecycle: WorkflowJobLifecycle
+    let hasIntent: Bool
 }
 
 private struct WorkflowApplicationPreparedBindingMaterialV4:
@@ -731,10 +1066,15 @@ actor WorkflowApplicationQueueV4 {
 
     private static let maximumRequestDocumentBytes = 1 * 1_024 * 1_024
     private static let maximumPriorityDocumentBytes = 4 * 1_024 * 1_024
+    private static let maximumPublicationDocumentBytes = 16 * 1_024 * 1_024
     private static let maximumTargetDimension = 131_072
     private static let requestDocumentName = "request-v1.json"
     private static let priorityDocumentName = "application-priorities-v1.json"
     private static let priorityLockName = "application-priorities.lock"
+    private static let publicationIntentName = "publication-intent-v1.json"
+    private static let publicationStageName = "publication-stage-v1.json"
+    private static let publicationReceiptName = "publication-receipt-v1.json"
+    private static let publicationLockName = "publication.lock"
 
     private let fileSystem: any WorkflowDurableFileSystem
     private let resolver: any WorkflowSecurityScopedBookmarkResolvingV4
@@ -746,6 +1086,7 @@ actor WorkflowApplicationQueueV4 {
     private let dispatcher: WorkflowQueueDispatcherV4
     private let recoveryPresenter: WorkflowLaunchRecoveryPresenterV4
     private let leaseDuration: WorkflowLeaseIntervalV4
+    private var terminateAfterPublicationRename = false
 
     init(
         trustedRootURL: URL,
@@ -1198,6 +1539,19 @@ struct WorkflowApplicationBoundaryCheckpointV4: Sendable {
 }
 
 extension WorkflowApplicationQueueV4 {
+    /// Qualification boundary representing kernel death after the output
+    /// directory rename is durable but before the publication receipt exists.
+    func injectProcessTerminationAfterApplicationPublicationRename() {
+        terminateAfterPublicationRename = true
+    }
+
+    /// Qualification boundary representing kernel death while a durable job
+    /// owns its dispatcher and coordinator lease descriptors. Canonical lease
+    /// metadata remains on disk for the launch reconciler.
+    func injectProcessTerminationAfterApplicationLeasePersistence() async {
+        await dispatcher.injectProcessTerminationAfterLeasePersistence()
+    }
+
     /// Converts only already-verified deterministic planning facts into the
     /// workflow identifier vocabulary. The queue does not invent a runtime,
     /// plan, media state, or backend choice.
@@ -1647,6 +2001,446 @@ private extension WorkflowApplicationQueueV4 {
         case AVMediaType.timecode.rawValue: .timecode
         case AVMediaType.metadata.rawValue: .timedMetadata
         default: .auxiliary
+        }
+    }
+}
+
+// MARK: - Crash-consistent final publication
+
+extension WorkflowApplicationQueueV4 {
+    func prepareApplicationPublication(
+        activated: WorkflowActivatedUpscaleRequestV4,
+        checkpoint: WorkflowCheckpointDocumentV4
+    ) async throws -> WorkflowApplicationPublicationIntentV4 {
+        try activated.revalidateAll()
+        let specification = activated.specification
+        let jobID = specification.jobID
+        let opened = try await coordinator.open()
+        guard let job = opened.state.job(id: jobID) else {
+            throw WorkflowApplicationQueueErrorV4.jobNotFound(jobID)
+        }
+        guard job.lifecycle == .committing || job.lifecycle == .recovering,
+              job.specification.binding == specification.binding,
+              checkpoint.body.compatibility
+                == WorkflowCheckpointCompatibilityBindingV4(
+                    specification: specification
+                ),
+              checkpoint.body.compatibility.jobBinding
+                == specification.binding,
+              checkpoint.body.trackProgress.contains(where: {
+                  $0.kind == .video && $0.isComplete
+              }),
+              activated.preparedPlanBinding.outputContractID
+                == checkpoint.body.segments.last?.codecSettingsHash,
+              activated.request.outputURL.lastPathComponent
+                == specification.output.fileName.rawValue else {
+            throw WorkflowApplicationQueueErrorV4
+                .publicationBindingMismatch(jobID)
+        }
+        _ = try await verifyApplicationCheckpoint(checkpoint)
+
+        let directory = activated.request.outputURL
+            .deletingLastPathComponent()
+            .standardizedFileURL
+        let token = publicationToken(
+            jobBinding: specification.binding,
+            checkpoint: checkpoint
+        )
+        let stagingName = ".mirmir-publication-\(token).partial.mov"
+        let migrationName = ".mirmir-migration-\(token).partial.mov"
+        guard WorkflowV4Validation.isMirmirPartialFileName(stagingName),
+              WorkflowV4Validation.isMirmirPartialFileName(migrationName)
+        else {
+            throw WorkflowApplicationQueueErrorV4
+                .publicationBindingMismatch(jobID)
+        }
+        let finalURL = activated.request.outputURL.standardizedFileURL
+        let stagingURL = directory.appendingPathComponent(
+            stagingName,
+            isDirectory: false
+        )
+        let migrationURL = directory.appendingPathComponent(
+            migrationName,
+            isDirectory: false
+        )
+        let publicationDirectory = publicationDirectoryURL(jobID: jobID)
+        try fileSystem.ensureDirectory(publicationDirectory)
+
+        let intent = try fileSystem.withExclusiveLock(
+            at: publicationLockURL(jobID: jobID)
+        ) { transaction in
+            if let existing = try loadPublicationState(
+                jobID: jobID,
+                transaction: transaction
+            ) {
+                try verifyPublicationIntent(
+                    existing.intent,
+                    specification: specification,
+                    checkpoint: checkpoint,
+                    activated: activated
+                )
+                return existing.intent
+            }
+
+            let original = try observePublicationFileIfPresent(at: finalURL)
+            guard original == nil || activated.request.overwriteExistingFile else {
+                throw WorkflowApplicationQueueErrorV4
+                    .publicationDestinationConflict(finalURL.path)
+            }
+            guard try observePublicationFileIfPresent(at: stagingURL) == nil else {
+                throw WorkflowApplicationQueueErrorV4
+                    .publicationStageConflict(stagingURL.path)
+            }
+            guard try observePublicationFileIfPresent(at: migrationURL) == nil else {
+                throw WorkflowApplicationQueueErrorV4
+                    .publicationStageConflict(migrationURL.path)
+            }
+            let body = WorkflowApplicationPublicationIntentBodyV4(
+                jobBinding: specification.binding,
+                checkpointID: checkpoint.body.checkpointID,
+                checkpointDocumentHash: checkpoint.bodyHash,
+                outputContractID:
+                    activated.preparedPlanBinding.outputContractID,
+                finalFileName: specification.output.fileName,
+                stagingFileName: stagingName,
+                migrationTemporaryFileName: migrationName,
+                overwriteExistingFile:
+                    activated.request.overwriteExistingFile,
+                originalDestination: original,
+                createdAt: clock.now()
+            )
+            let document = try makePublicationIntent(body)
+            try transaction.writeNewAtomically(
+                codec.canonicalData(document),
+                to: publicationIntentURL(jobID: jobID)
+            )
+            return document
+        }
+        try activated.revalidateAll()
+        return intent
+    }
+
+    func applicationPublicationState(
+        jobID: WorkflowJobID
+    ) throws -> WorkflowApplicationPublicationStateV4? {
+        let directory = publicationDirectoryURL(jobID: jobID)
+        try fileSystem.ensureDirectory(directory)
+        return try fileSystem.withExclusiveLock(
+            at: publicationLockURL(jobID: jobID)
+        ) { transaction in
+            try loadPublicationState(jobID: jobID, transaction: transaction)
+        }
+    }
+
+    func applicationPublicationStagingURL(
+        _ intent: WorkflowApplicationPublicationIntentV4,
+        activated: WorkflowActivatedUpscaleRequestV4
+    ) throws -> URL {
+        try publicationURLs(intent: intent, activated: activated).staging
+    }
+
+    func applicationPublicationMigrationTemporaryURL(
+        _ intent: WorkflowApplicationPublicationIntentV4,
+        activated: WorkflowActivatedUpscaleRequestV4
+    ) throws -> URL {
+        try publicationURLs(intent: intent, activated: activated).migration
+    }
+
+    func discardApplicationUnverifiedPublicationArtifacts(
+        _ intent: WorkflowApplicationPublicationIntentV4,
+        activated: WorkflowActivatedUpscaleRequestV4
+    ) throws {
+        try activated.revalidateAll()
+        let urls = try publicationURLs(intent: intent, activated: activated)
+        try fileSystem.withExclusiveLock(
+            at: publicationLockURL(jobID: intent.jobID)
+        ) { transaction in
+            let state = try requirePublicationState(
+                intent: intent,
+                transaction: transaction
+            )
+            if state.stage == nil {
+                try removePublicationFileIfPresent(at: urls.staging)
+            }
+            try removePublicationFileIfPresent(at: urls.migration)
+        }
+        try activated.revalidateAll()
+    }
+
+    func recordApplicationStagedPublication(
+        _ intent: WorkflowApplicationPublicationIntentV4,
+        finalized: WorkflowApplicationFinalizedOutputV4,
+        activated: WorkflowActivatedUpscaleRequestV4
+    ) throws -> WorkflowApplicationPublicationStageV4 {
+        try activated.revalidateAll()
+        let urls = try publicationURLs(intent: intent, activated: activated)
+        guard finalized.destinationURL.standardizedFileURL == urls.staging else {
+            throw WorkflowApplicationQueueErrorV4
+                .publicationBindingMismatch(intent.jobID)
+        }
+        let result = try fileSystem.withExclusiveLock(
+            at: publicationLockURL(jobID: intent.jobID)
+        ) { transaction in
+            let state = try requirePublicationState(
+                intent: intent,
+                transaction: transaction
+            )
+            if let existing = state.stage {
+                let observed = try observePublicationFile(at: urls.staging)
+                guard observed == existing.body.stagedFile,
+                      existing.body.migrationVerification
+                        == finalized.verification else {
+                    throw WorkflowApplicationQueueErrorV4
+                        .publicationDocumentConflict(intent.jobID)
+                }
+                return existing
+            }
+            guard try observePublicationFileIfPresent(at: urls.migration) == nil
+            else {
+                throw WorkflowApplicationQueueErrorV4
+                    .publicationStageConflict(urls.migration.path)
+            }
+            let observed = try observePublicationFile(at: urls.staging)
+            guard observed.byteCount > 0 else {
+                throw WorkflowApplicationQueueErrorV4
+                    .publicationVerificationInvalid
+            }
+            let body = WorkflowApplicationPublicationStageBodyV4(
+                intentHash: intent.bodyHash,
+                jobBinding: intent.body.jobBinding,
+                stagedFile: observed,
+                migrationVerification: finalized.verification,
+                verifiedAt: clock.now()
+            )
+            let document = try makePublicationStage(body)
+            try transaction.writeNewAtomically(
+                codec.canonicalData(document),
+                to: publicationStageURL(jobID: intent.jobID)
+            )
+            return document
+        }
+        try activated.revalidateAll()
+        return result
+    }
+
+    func publishApplicationStagedOutput(
+        _ intent: WorkflowApplicationPublicationIntentV4,
+        activated: WorkflowActivatedUpscaleRequestV4
+    ) throws -> WorkflowApplicationPublicationReceiptV4 {
+        try activated.revalidateAll()
+        let urls = try publicationURLs(intent: intent, activated: activated)
+        let result = try fileSystem.withExclusiveLock(
+            at: publicationLockURL(jobID: intent.jobID)
+        ) { transaction in
+            let state = try requirePublicationState(
+                intent: intent,
+                transaction: transaction
+            )
+            guard let stage = state.stage else {
+                throw WorkflowApplicationQueueErrorV4
+                    .publicationStageMissing(intent.jobID)
+            }
+            if let receipt = state.receipt {
+                let final = try observePublicationFile(at: urls.final)
+                guard final == receipt.body.finalFile,
+                      final == stage.body.stagedFile else {
+                    throw WorkflowApplicationQueueErrorV4
+                        .publicationDestinationConflict(urls.final.path)
+                }
+                try cleanupDisplacedPublicationFile(
+                    at: urls.staging,
+                    intent: intent,
+                    receipt: receipt
+                )
+                return receipt
+            }
+
+            let staged = try observePublicationFileIfPresent(at: urls.staging)
+            let final = try observePublicationFileIfPresent(at: urls.final)
+            let method: WorkflowApplicationPublicationMethodV4
+            let displaced: WorkflowApplicationPublicationFileV4?
+            var performedRename = false
+
+            if final == stage.body.stagedFile {
+                guard staged == nil
+                        || staged == intent.body.originalDestination else {
+                    throw WorkflowApplicationQueueErrorV4
+                        .publicationStageConflict(urls.staging.path)
+                }
+                method = .recoveredPublishedFile
+                displaced = staged
+            } else {
+                guard staged == stage.body.stagedFile else {
+                    throw WorkflowApplicationQueueErrorV4
+                        .publicationStageMissing(intent.jobID)
+                }
+                if let original = intent.body.originalDestination {
+                    guard intent.body.overwriteExistingFile,
+                          final == original else {
+                        throw WorkflowApplicationQueueErrorV4
+                            .publicationDestinationConflict(urls.final.path)
+                    }
+                    try atomicSwapPublicationFiles(
+                        stagingURL: urls.staging,
+                        finalURL: urls.final
+                    )
+                    let published = try observePublicationFile(at: urls.final)
+                    let displacedObserved = try observePublicationFile(
+                        at: urls.staging
+                    )
+                    guard published == stage.body.stagedFile,
+                          displacedObserved == original else {
+                        try? atomicSwapPublicationFiles(
+                            stagingURL: urls.staging,
+                            finalURL: urls.final
+                        )
+                        throw WorkflowApplicationQueueErrorV4
+                            .publicationDestinationConflict(urls.final.path)
+                    }
+                    method = .atomicSwap
+                    displaced = displacedObserved
+                    performedRename = true
+                } else {
+                    guard final == nil else {
+                        throw WorkflowApplicationQueueErrorV4
+                            .publicationDestinationConflict(urls.final.path)
+                    }
+                    try exclusiveRenamePublicationFile(
+                        stagingURL: urls.staging,
+                        finalURL: urls.final
+                    )
+                    method = .exclusiveRename
+                    displaced = nil
+                    performedRename = true
+                }
+                try synchronizePublicationDirectory(urls.directory)
+            }
+
+            if performedRename && terminateAfterPublicationRename {
+                terminateAfterPublicationRename = false
+                throw WorkflowApplicationQueueErrorV4
+                    .injectedPublicationTermination
+            }
+
+            let published = try observePublicationFile(at: urls.final)
+            guard published == stage.body.stagedFile else {
+                throw WorkflowApplicationQueueErrorV4
+                    .publicationDestinationConflict(urls.final.path)
+            }
+            let body = WorkflowApplicationPublicationReceiptBodyV4(
+                stageHash: stage.bodyHash,
+                jobBinding: intent.body.jobBinding,
+                finalFile: published,
+                method: method,
+                displacedDestination: displaced,
+                publishedAt: clock.now()
+            )
+            let receipt = try makePublicationReceipt(body)
+            try transaction.writeNewAtomically(
+                codec.canonicalData(receipt),
+                to: publicationReceiptURL(jobID: intent.jobID)
+            )
+            try cleanupDisplacedPublicationFile(
+                at: urls.staging,
+                intent: intent,
+                receipt: receipt
+            )
+            return receipt
+        }
+        try activated.revalidateAll()
+        return result
+    }
+
+    func applicationPublicationRecoveryCandidates()
+        async throws -> [WorkflowApplicationPublicationRecoveryCandidateV4]
+    {
+        let state = try await coordinator.open().state
+        return state.jobs.values.sorted {
+            $0.specification.jobID < $1.specification.jobID
+        }.compactMap { job in
+            guard job.lifecycle == .committing
+                    || job.lifecycle == .recovering else {
+                return nil
+            }
+            let hasIntent: Bool
+            do {
+                hasIntent = try applicationPublicationState(
+                    jobID: job.specification.jobID
+                ) != nil
+            } catch {
+                // A corrupt publication document is still a recovery
+                // candidate. Claiming it lets the coordinator contain this
+                // job without preventing unrelated publications from being
+                // reconciled.
+                return WorkflowApplicationPublicationRecoveryCandidateV4(
+                    jobID: job.specification.jobID,
+                    lifecycle: job.lifecycle,
+                    hasIntent: true
+                )
+            }
+            if job.lifecycle == .committing || hasIntent {
+                return WorkflowApplicationPublicationRecoveryCandidateV4(
+                    jobID: job.specification.jobID,
+                    lifecycle: job.lifecycle,
+                    hasIntent: hasIntent
+                )
+            }
+            return nil
+        }
+    }
+
+    func beginApplicationPublicationRecovery(
+        jobID: WorkflowJobID,
+        commandKey: WorkflowRecoveryCommandKeyV4
+    ) async throws -> WorkflowRecoveryClaimResultV4 {
+        try await dispatcher.beginRecovery(
+            jobID: jobID,
+            commandKey: commandKey
+        )
+    }
+
+    func completeApplicationPublicationRecovery(
+        _ dispatch: WorkflowQueueDispatchReceiptV4,
+        target: WorkflowJobLifecycle,
+        commandKey: WorkflowRecoveryCommandKeyV4
+    ) async throws -> WorkflowQueueTransitionReceiptV4 {
+        try await dispatcher.completeRecovery(
+            dispatch,
+            target: target,
+            commandKey: commandKey
+        )
+    }
+
+    func cleanupCompletedApplicationPublications() async throws {
+        let state = try await coordinator.open().state
+        for job in state.jobs.values where job.lifecycle == .completed {
+            let jobID = job.specification.jobID
+            guard let publication = try applicationPublicationState(jobID: jobID),
+                  let receipt = publication.receipt else {
+                continue
+            }
+            let activation = await activate(jobID: jobID)
+            guard case .active(let activated) = activation else { continue }
+            defer { activated.close() }
+            let urls = try publicationURLs(
+                intent: publication.intent,
+                activated: activated
+            )
+            try fileSystem.withExclusiveLock(
+                at: publicationLockURL(jobID: jobID)
+            ) { _ in
+                let final = try observePublicationFile(at: urls.final)
+                guard final == receipt.body.finalFile else {
+                    throw WorkflowApplicationQueueErrorV4
+                        .publicationDestinationConflict(urls.final.path)
+                }
+                try cleanupDisplacedPublicationFile(
+                    at: urls.staging,
+                    intent: publication.intent,
+                    receipt: receipt
+                )
+                try removePublicationFileIfPresent(at: urls.migration)
+            }
         }
     }
 }
@@ -2224,5 +3018,502 @@ private extension WorkflowApplicationQueueV4 {
     func requestLockURL(jobID: WorkflowJobID) -> URL {
         requestDirectoryURL(jobID: jobID)
             .appendingPathComponent("request.lock")
+    }
+
+    struct PublicationURLs {
+        let directory: URL
+        let final: URL
+        let staging: URL
+        let migration: URL
+    }
+
+    func publicationToken(
+        jobBinding: WorkflowJobBinding,
+        checkpoint: WorkflowCheckpointDocumentV4
+    ) -> String {
+        let material = [
+            jobBinding.jobID.rawValue,
+            jobBinding.requestID.rawValue,
+            jobBinding.outputContractID.rawValue,
+            checkpoint.body.checkpointID.rawValue,
+            checkpoint.bodyHash.rawValue,
+        ].joined(separator: "\u{0}")
+        return String(WorkflowV4Validation.domainSeparatedSHA256(
+            domain: "Mirmir.WorkflowApplication.PublicationToken.v1\u{0}",
+            data: Data(material.utf8)
+        ).prefix(40))
+    }
+
+    func publicationURLs(
+        intent: WorkflowApplicationPublicationIntentV4,
+        activated: WorkflowActivatedUpscaleRequestV4
+    ) throws -> PublicationURLs {
+        let body = intent.body
+        let final = activated.request.outputURL.standardizedFileURL
+        let directory = final.deletingLastPathComponent()
+        guard body.jobBinding == activated.specification.binding,
+              body.outputContractID
+                == activated.preparedPlanBinding.outputContractID,
+              body.finalFileName == activated.specification.output.fileName,
+              final.lastPathComponent == body.finalFileName.rawValue,
+              body.overwriteExistingFile
+                == activated.request.overwriteExistingFile,
+              WorkflowV4Validation.isMirmirPartialFileName(
+                  body.stagingFileName
+              ),
+              WorkflowV4Validation.isMirmirPartialFileName(
+                  body.migrationTemporaryFileName
+              ),
+              body.stagingFileName != body.migrationTemporaryFileName else {
+            throw WorkflowApplicationQueueErrorV4
+                .publicationBindingMismatch(intent.jobID)
+        }
+        let staging = directory.appendingPathComponent(
+            body.stagingFileName,
+            isDirectory: false
+        ).standardizedFileURL
+        let migration = directory.appendingPathComponent(
+            body.migrationTemporaryFileName,
+            isDirectory: false
+        ).standardizedFileURL
+        guard staging.deletingLastPathComponent() == directory,
+              migration.deletingLastPathComponent() == directory,
+              staging != final,
+              migration != final else {
+            throw WorkflowApplicationQueueErrorV4
+                .publicationBindingMismatch(intent.jobID)
+        }
+        return PublicationURLs(
+            directory: directory,
+            final: final,
+            staging: staging,
+            migration: migration
+        )
+    }
+
+    func verifyPublicationIntent(
+        _ intent: WorkflowApplicationPublicationIntentV4,
+        specification: WorkflowJobSpecification,
+        checkpoint: WorkflowCheckpointDocumentV4,
+        activated: WorkflowActivatedUpscaleRequestV4
+    ) throws {
+        guard intent.body.jobBinding == specification.binding,
+              intent.body.checkpointID == checkpoint.body.checkpointID,
+              intent.body.checkpointDocumentHash == checkpoint.bodyHash,
+              intent.body.outputContractID == specification.output.contractID,
+              intent.body.finalFileName == specification.output.fileName,
+              intent.body.overwriteExistingFile
+                == activated.request.overwriteExistingFile else {
+            throw WorkflowApplicationQueueErrorV4
+                .publicationBindingMismatch(specification.jobID)
+        }
+        _ = try publicationURLs(intent: intent, activated: activated)
+    }
+
+    func makePublicationIntent(
+        _ body: WorkflowApplicationPublicationIntentBodyV4
+    ) throws -> WorkflowApplicationPublicationIntentV4 {
+        WorkflowApplicationPublicationIntentV4(
+            bodyHash: try WorkflowApplicationPublicationIntentHashV4(
+                WorkflowV4Validation.domainSeparatedSHA256(
+                    domain: "Mirmir.WorkflowApplication.PublicationIntent.v1\u{0}",
+                    data: codec.canonicalData(body)
+                )
+            ),
+            body: body
+        )
+    }
+
+    func makePublicationStage(
+        _ body: WorkflowApplicationPublicationStageBodyV4
+    ) throws -> WorkflowApplicationPublicationStageV4 {
+        WorkflowApplicationPublicationStageV4(
+            bodyHash: try WorkflowApplicationPublicationStageHashV4(
+                WorkflowV4Validation.domainSeparatedSHA256(
+                    domain: "Mirmir.WorkflowApplication.PublicationStage.v1\u{0}",
+                    data: codec.canonicalData(body)
+                )
+            ),
+            body: body
+        )
+    }
+
+    func makePublicationReceipt(
+        _ body: WorkflowApplicationPublicationReceiptBodyV4
+    ) throws -> WorkflowApplicationPublicationReceiptV4 {
+        WorkflowApplicationPublicationReceiptV4(
+            bodyHash: try WorkflowApplicationPublicationReceiptHashV4(
+                WorkflowV4Validation.domainSeparatedSHA256(
+                    domain: "Mirmir.WorkflowApplication.PublicationReceipt.v1\u{0}",
+                    data: codec.canonicalData(body)
+                )
+            ),
+            body: body
+        )
+    }
+
+    func requirePublicationState(
+        intent: WorkflowApplicationPublicationIntentV4,
+        transaction: any WorkflowDurableFileSystem
+    ) throws -> WorkflowApplicationPublicationStateV4 {
+        guard let state = try loadPublicationState(
+            jobID: intent.jobID,
+            transaction: transaction
+        ), state.intent == intent else {
+            throw WorkflowApplicationQueueErrorV4
+                .publicationDocumentConflict(intent.jobID)
+        }
+        return state
+    }
+
+    func loadPublicationState(
+        jobID: WorkflowJobID,
+        transaction: any WorkflowDurableFileSystem
+    ) throws -> WorkflowApplicationPublicationStateV4? {
+        let intentURL = publicationIntentURL(jobID: jobID)
+        let stageURL = publicationStageURL(jobID: jobID)
+        let receiptURL = publicationReceiptURL(jobID: jobID)
+        let intentExists = try transaction.regularFileExists(intentURL)
+        let stageExists = try transaction.regularFileExists(stageURL)
+        let receiptExists = try transaction.regularFileExists(receiptURL)
+        guard intentExists else {
+            guard !stageExists, !receiptExists else {
+                throw WorkflowApplicationQueueErrorV4
+                    .publicationDocumentCorrupt(jobID)
+            }
+            return nil
+        }
+        do {
+            let intent = try codec.decodeCanonical(
+                WorkflowApplicationPublicationIntentV4.self,
+                from: transaction.readRegularFile(
+                    intentURL,
+                    maximumBytes: Self.maximumPublicationDocumentBytes
+                )
+            )
+            guard intent.schemaVersion
+                    == WorkflowApplicationPublicationIntentV4
+                        .currentSchemaVersion,
+                  intent.body.schemaVersion
+                    == WorkflowApplicationPublicationIntentBodyV4
+                        .currentSchemaVersion,
+                  intent.body.jobBinding.jobID == jobID,
+                  intent.body.outputContractID
+                    == intent.body.jobBinding.outputContractID,
+                  intent.body.finalFileName.rawValue
+                    != intent.body.stagingFileName,
+                  intent.body.finalFileName.rawValue
+                    != intent.body.migrationTemporaryFileName,
+                  intent.body.stagingFileName
+                    != intent.body.migrationTemporaryFileName,
+                  WorkflowV4Validation.isMirmirPartialFileName(
+                      intent.body.stagingFileName
+                  ),
+                  WorkflowV4Validation.isMirmirPartialFileName(
+                      intent.body.migrationTemporaryFileName
+                  ),
+                  intent.body.overwriteExistingFile
+                    || intent.body.originalDestination == nil,
+                  try makePublicationIntent(intent.body) == intent else {
+                throw WorkflowApplicationQueueErrorV4
+                    .publicationDocumentCorrupt(jobID)
+            }
+
+            let stage: WorkflowApplicationPublicationStageV4?
+            if stageExists {
+                let decoded = try codec.decodeCanonical(
+                    WorkflowApplicationPublicationStageV4.self,
+                    from: transaction.readRegularFile(
+                        stageURL,
+                        maximumBytes: Self.maximumPublicationDocumentBytes
+                    )
+                )
+                let verification = decoded.body.migrationVerification
+                guard decoded.schemaVersion
+                        == WorkflowApplicationPublicationStageV4
+                            .currentSchemaVersion,
+                      decoded.body.schemaVersion
+                        == WorkflowApplicationPublicationStageBodyV4
+                            .currentSchemaVersion,
+                      decoded.body.intentHash == intent.bodyHash,
+                      decoded.body.jobBinding == intent.body.jobBinding,
+                      verification.schemaVersion
+                        == WorkflowApplicationMigrationVerificationV4
+                            .currentSchemaVersion,
+                      verification.sourceAssetMetadataSHA256
+                        == verification.outputAssetMetadataSHA256,
+                      verification.sourceChapterMetadataSHA256
+                        == verification.outputChapterMetadataSHA256,
+                      decoded.body.stagedFile.byteCount > 0,
+                      !verification.trackResults.isEmpty,
+                      Set(verification.trackResults.map(\.trackID)).count
+                        == verification.trackResults.count,
+                      verification.trackResults.allSatisfy({
+                          $0.migratedSampleCount >= 0
+                      }),
+                      verification.trackResults
+                        == verification.trackResults.sorted(by: {
+                            $0.trackID < $1.trackID
+                        }),
+                      try makePublicationStage(decoded.body) == decoded else {
+                    throw WorkflowApplicationQueueErrorV4
+                        .publicationDocumentCorrupt(jobID)
+                }
+                stage = decoded
+            } else {
+                stage = nil
+            }
+
+            let receipt: WorkflowApplicationPublicationReceiptV4?
+            if receiptExists {
+                guard let stage else {
+                    throw WorkflowApplicationQueueErrorV4
+                        .publicationDocumentCorrupt(jobID)
+                }
+                let decoded = try codec.decodeCanonical(
+                    WorkflowApplicationPublicationReceiptV4.self,
+                    from: transaction.readRegularFile(
+                        receiptURL,
+                        maximumBytes: Self.maximumPublicationDocumentBytes
+                    )
+                )
+                let methodIsValid: Bool
+                switch decoded.body.method {
+                case .exclusiveRename:
+                    methodIsValid = intent.body.originalDestination == nil
+                        && decoded.body.displacedDestination == nil
+                case .atomicSwap:
+                    methodIsValid = intent.body.originalDestination != nil
+                        && decoded.body.displacedDestination
+                            == intent.body.originalDestination
+                case .recoveredPublishedFile:
+                    methodIsValid = decoded.body.displacedDestination == nil
+                        || decoded.body.displacedDestination
+                            == intent.body.originalDestination
+                }
+                guard decoded.schemaVersion
+                        == WorkflowApplicationPublicationReceiptV4
+                            .currentSchemaVersion,
+                      decoded.body.schemaVersion
+                        == WorkflowApplicationPublicationReceiptBodyV4
+                            .currentSchemaVersion,
+                      decoded.body.stageHash == stage.bodyHash,
+                      decoded.body.jobBinding == intent.body.jobBinding,
+                      decoded.body.finalFile == stage.body.stagedFile,
+                      methodIsValid,
+                      try makePublicationReceipt(decoded.body) == decoded else {
+                    throw WorkflowApplicationQueueErrorV4
+                        .publicationDocumentCorrupt(jobID)
+                }
+                receipt = decoded
+            } else {
+                receipt = nil
+            }
+            return WorkflowApplicationPublicationStateV4(
+                intent: intent,
+                stage: stage,
+                receipt: receipt
+            )
+        } catch let error as WorkflowApplicationQueueErrorV4 {
+            throw error
+        } catch {
+            throw WorkflowApplicationQueueErrorV4
+                .publicationDocumentCorrupt(jobID)
+        }
+    }
+
+    func observePublicationFileIfPresent(
+        at url: URL
+    ) throws -> WorkflowApplicationPublicationFileV4? {
+        var metadata = stat()
+        guard lstat(url.path, &metadata) == 0 else {
+            if errno == ENOENT { return nil }
+            throw publicationFilesystemError("lstat", url: url)
+        }
+        return try observePublicationFile(at: url)
+    }
+
+    func observePublicationFile(
+        at url: URL
+    ) throws -> WorkflowApplicationPublicationFileV4 {
+        let descriptor = Darwin.open(
+            url.path,
+            O_RDONLY | O_CLOEXEC | O_NOFOLLOW
+        )
+        guard descriptor >= 0 else {
+            throw publicationFilesystemError("open", url: url)
+        }
+        defer { _ = Darwin.close(descriptor) }
+
+        var before = stat()
+        guard fstat(descriptor, &before) == 0 else {
+            throw publicationFilesystemError("fstat-before", url: url)
+        }
+        guard (before.st_mode & S_IFMT) == S_IFREG,
+              before.st_nlink == 1,
+              before.st_size >= 0 else {
+            throw WorkflowApplicationQueueErrorV4
+                .publicationStageConflict(url.path)
+        }
+        var hasher = SHA256()
+        var buffer = [UInt8](repeating: 0, count: 1_048_576)
+        while true {
+            let count = buffer.withUnsafeMutableBytes { bytes in
+                Darwin.read(descriptor, bytes.baseAddress, bytes.count)
+            }
+            if count == 0 { break }
+            if count < 0 {
+                if errno == EINTR { continue }
+                throw publicationFilesystemError("read", url: url)
+            }
+            hasher.update(data: Data(buffer[..<Int(count)]))
+        }
+        var after = stat()
+        guard fstat(descriptor, &after) == 0 else {
+            throw publicationFilesystemError("fstat-after", url: url)
+        }
+        var pathMetadata = stat()
+        guard lstat(url.path, &pathMetadata) == 0,
+              publicationStatIsStable(before, after),
+              publicationStatIsStable(after, pathMetadata) else {
+            throw WorkflowApplicationQueueErrorV4
+                .publicationStageConflict(url.path)
+        }
+        let digest = hasher.finalize().map {
+            String(format: "%02x", $0)
+        }.joined()
+        return WorkflowApplicationPublicationFileV4(
+            identity: WorkflowFileIdentityV4(
+                device: UInt64(after.st_dev),
+                fileID: UInt64(after.st_ino)
+            ),
+            byteCount: UInt64(after.st_size),
+            sha256: try ASHSHA256V4(digest)
+        )
+    }
+
+    func publicationStatIsStable(_ lhs: stat, _ rhs: stat) -> Bool {
+        lhs.st_dev == rhs.st_dev
+            && lhs.st_ino == rhs.st_ino
+            && lhs.st_mode == rhs.st_mode
+            && lhs.st_nlink == rhs.st_nlink
+            && lhs.st_size == rhs.st_size
+            && lhs.st_mtimespec.tv_sec == rhs.st_mtimespec.tv_sec
+            && lhs.st_mtimespec.tv_nsec == rhs.st_mtimespec.tv_nsec
+            && lhs.st_ctimespec.tv_sec == rhs.st_ctimespec.tv_sec
+            && lhs.st_ctimespec.tv_nsec == rhs.st_ctimespec.tv_nsec
+    }
+
+    func removePublicationFileIfPresent(at url: URL) throws {
+        guard try observePublicationFileIfPresent(at: url) != nil else { return }
+        guard Darwin.unlink(url.path) == 0 else {
+            throw publicationFilesystemError("unlink", url: url)
+        }
+        try synchronizePublicationDirectory(url.deletingLastPathComponent())
+    }
+
+    func cleanupDisplacedPublicationFile(
+        at stagingURL: URL,
+        intent: WorkflowApplicationPublicationIntentV4,
+        receipt: WorkflowApplicationPublicationReceiptV4
+    ) throws {
+        let observed = try observePublicationFileIfPresent(at: stagingURL)
+        if let displaced = receipt.body.displacedDestination {
+            guard observed == nil || observed == displaced,
+                  displaced == intent.body.originalDestination else {
+                throw WorkflowApplicationQueueErrorV4
+                    .publicationStageConflict(stagingURL.path)
+            }
+            if observed != nil {
+                try removePublicationFileIfPresent(at: stagingURL)
+            }
+        } else if observed != nil {
+            throw WorkflowApplicationQueueErrorV4
+                .publicationStageConflict(stagingURL.path)
+        }
+    }
+
+    func exclusiveRenamePublicationFile(
+        stagingURL: URL,
+        finalURL: URL
+    ) throws {
+        guard renameatx_np(
+            AT_FDCWD,
+            stagingURL.path,
+            AT_FDCWD,
+            finalURL.path,
+            UInt32(RENAME_EXCL)
+        ) == 0 else {
+            throw publicationFilesystemError(
+                "rename-exclusive",
+                url: finalURL
+            )
+        }
+    }
+
+    func atomicSwapPublicationFiles(
+        stagingURL: URL,
+        finalURL: URL
+    ) throws {
+        guard renameatx_np(
+            AT_FDCWD,
+            stagingURL.path,
+            AT_FDCWD,
+            finalURL.path,
+            UInt32(RENAME_SWAP)
+        ) == 0 else {
+            throw publicationFilesystemError("rename-swap", url: finalURL)
+        }
+    }
+
+    func synchronizePublicationDirectory(_ directory: URL) throws {
+        let descriptor = Darwin.open(
+            directory.path,
+            O_RDONLY | O_CLOEXEC | O_DIRECTORY
+        )
+        guard descriptor >= 0 else {
+            throw publicationFilesystemError("open-directory", url: directory)
+        }
+        defer { _ = Darwin.close(descriptor) }
+        if fcntl(descriptor, F_FULLFSYNC) == 0 { return }
+        guard fsync(descriptor) == 0 else {
+            throw publicationFilesystemError("fsync-directory", url: directory)
+        }
+    }
+
+    func publicationFilesystemError(
+        _ operation: String,
+        url: URL
+    ) -> WorkflowApplicationQueueErrorV4 {
+        .publicationFilesystemFailure(
+            operation: operation,
+            path: url.path,
+            code: errno
+        )
+    }
+
+    func publicationDirectoryURL(jobID: WorkflowJobID) -> URL {
+        requestDirectoryURL(jobID: jobID)
+            .appendingPathComponent("publication-v4", isDirectory: true)
+    }
+
+    func publicationIntentURL(jobID: WorkflowJobID) -> URL {
+        publicationDirectoryURL(jobID: jobID)
+            .appendingPathComponent(Self.publicationIntentName)
+    }
+
+    func publicationStageURL(jobID: WorkflowJobID) -> URL {
+        publicationDirectoryURL(jobID: jobID)
+            .appendingPathComponent(Self.publicationStageName)
+    }
+
+    func publicationReceiptURL(jobID: WorkflowJobID) -> URL {
+        publicationDirectoryURL(jobID: jobID)
+            .appendingPathComponent(Self.publicationReceiptName)
+    }
+
+    func publicationLockURL(jobID: WorkflowJobID) -> URL {
+        publicationDirectoryURL(jobID: jobID)
+            .appendingPathComponent(Self.publicationLockName)
     }
 }

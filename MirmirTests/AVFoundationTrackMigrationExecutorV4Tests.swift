@@ -260,6 +260,87 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
+    func testMigrationUsesBoundDeterministicTemporaryAndRejectsUnsafePaths()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("deterministic-temp-source.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: false
+        )
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL)
+        )
+        let plan = try MediaTrackGraphPlannerV4.makePlan(source: source)
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+
+        let destinationURL = directory.url("deterministic-temp-output.mov")
+        let temporaryURL = directory.url(
+            ".mirmir-migration-bound.partial.mov"
+        )
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(
+            .init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                temporaryURL: temporaryURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint
+            )
+        )
+        XCTAssertEqual(result.destinationURL, destinationURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: destinationURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: temporaryURL.path))
+
+        await XCTAssertThrowsErrorAsyncV4(
+            try await AVFoundationTrackMigrationExecutorV4().execute(
+                .init(
+                    sourceURL: sourceURL,
+                    destinationURL: directory.url("unsafe-name-output.mov"),
+                    temporaryURL: directory.url("ordinary-temporary.mov"),
+                    sourceGraph: source,
+                    identifiedPlan: plan,
+                    blueprint: blueprint
+                )
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? AVFoundationTrackMigrationExecutorV4Error,
+                .invalidTemporaryDestination
+            )
+        }
+
+        let occupiedURL = directory.url(
+            ".mirmir-migration-occupied.partial.mov"
+        )
+        try Data("not-owned-by-this-execution".utf8).write(to: occupiedURL)
+        await XCTAssertThrowsErrorAsyncV4(
+            try await AVFoundationTrackMigrationExecutorV4().execute(
+                .init(
+                    sourceURL: sourceURL,
+                    destinationURL: directory.url("occupied-temp-output.mov"),
+                    temporaryURL: occupiedURL,
+                    sourceGraph: source,
+                    identifiedPlan: plan,
+                    blueprint: blueprint
+                )
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? AVFoundationTrackMigrationExecutorV4Error,
+                .destinationExists
+            )
+        }
+        XCTAssertEqual(
+            try Data(contentsOf: occupiedURL),
+            Data("not-owned-by-this-execution".utf8)
+        )
+    }
+
     func testPassThroughHDRVideoUsesExactFrameBoundMetadataLossGate()
         async throws {
         let directory = try TrackMigrationFixtureDirectoryV4()

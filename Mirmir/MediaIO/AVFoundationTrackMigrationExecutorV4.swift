@@ -56,6 +56,7 @@ enum AVFoundationTrackMigrationExecutorV4Error: Error, Equatable, Sendable {
     case sourceAndDestinationMustDiffer
     case destinationDirectoryMissing
     case destinationExists
+    case invalidTemporaryDestination
     case unsupportedBlueprintSchema(String)
     case sourcePlanIdentityMismatch
     case blueprintMismatch
@@ -330,6 +331,7 @@ struct AVFoundationNonVideoTrackTranscodeHookV4: @unchecked Sendable {
 struct AVFoundationTrackMigrationExecutionRequestV4: @unchecked Sendable {
     let sourceURL: URL
     let destinationURL: URL
+    let temporaryURL: URL?
     let outputFileType: AVFileType
     let overwriteExistingFile: Bool
     let sourceGraph: MediaTrackGraphV4
@@ -344,6 +346,7 @@ struct AVFoundationTrackMigrationExecutionRequestV4: @unchecked Sendable {
     init(
         sourceURL: URL,
         destinationURL: URL,
+        temporaryURL: URL? = nil,
         outputFileType: AVFileType = .mov,
         overwriteExistingFile: Bool = false,
         sourceGraph: MediaTrackGraphV4,
@@ -358,6 +361,7 @@ struct AVFoundationTrackMigrationExecutionRequestV4: @unchecked Sendable {
     ) {
         self.sourceURL = sourceURL
         self.destinationURL = destinationURL
+        self.temporaryURL = temporaryURL
         self.outputFileType = outputFileType
         self.overwriteExistingFile = overwriteExistingFile
         self.sourceGraph = sourceGraph
@@ -438,6 +442,7 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
 
             let destination = try AtomicMigrationDestinationV4(
                 finalURL: request.destinationURL,
+                temporaryURL: request.temporaryURL,
                 overwriteExistingFile: request.overwriteExistingFile
             )
             defer { destination.discard() }
@@ -3608,6 +3613,7 @@ private final class AtomicMigrationDestinationV4: @unchecked Sendable {
 
     init(
         finalURL: URL,
+        temporaryURL: URL? = nil,
         overwriteExistingFile: Bool,
         fileManager: FileManager = .default
     ) throws {
@@ -3632,9 +3638,27 @@ private final class AtomicMigrationDestinationV4: @unchecked Sendable {
         self.finalURL = finalURL
         self.overwriteExistingFile = overwriteExistingFile
         self.fileManager = fileManager
-        temporaryURL = directory.appendingPathComponent(
-            ".mirmir-track-v4-\(UUID().uuidString).partial.mov"
-        )
+        if let requested = temporaryURL?.standardizedFileURL {
+            guard requested.isFileURL,
+                  requested.deletingLastPathComponent()
+                    == directory.standardizedFileURL,
+                  requested != finalURL.standardizedFileURL,
+                  WorkflowV4Validation.isMirmirPartialFileName(
+                      requested.lastPathComponent
+                  ) else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .invalidTemporaryDestination
+            }
+            guard !fileManager.fileExists(atPath: requested.path) else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .destinationExists
+            }
+            self.temporaryURL = requested
+        } else {
+            self.temporaryURL = directory.appendingPathComponent(
+                ".mirmir-track-v4-\(UUID().uuidString).partial.mov"
+            )
+        }
     }
 
     func publish() throws {

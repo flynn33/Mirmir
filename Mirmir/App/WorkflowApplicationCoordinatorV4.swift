@@ -126,9 +126,11 @@ protocol WorkflowApplicationDeterministicExecutingV4: Sendable {
         jobID: WorkflowJobID,
         request: UpscaleRequest,
         assembledVideoURL: URL,
+        publicationURL: URL,
+        migrationTemporaryURL: URL,
         cancellation: ProcessingCancellation,
         progress: @escaping @Sendable (UpscaleProgress) -> Void
-    ) async throws
+    ) async throws -> WorkflowApplicationFinalizedOutputV4
 
     func inspectCompletion(
         request: UpscaleRequest,
@@ -351,9 +353,11 @@ actor WorkflowDeterministicApplicationEngineV4:
         jobID: WorkflowJobID,
         request: UpscaleRequest,
         assembledVideoURL: URL,
+        publicationURL: URL,
+        migrationTemporaryURL: URL,
         cancellation: ProcessingCancellation,
         progress: @escaping @Sendable (UpscaleProgress) -> Void
-    ) async throws {
+    ) async throws -> WorkflowApplicationFinalizedOutputV4 {
         guard let prepared = preparedByJobID[jobID] else {
             throw WorkflowApplicationControllerErrorV4.noActiveJob
         }
@@ -371,12 +375,13 @@ actor WorkflowDeterministicApplicationEngineV4:
         }
         defer { monitor.cancel() }
         do {
-            _ = try await AVFoundationTrackMigrationExecutorV4().execute(
+            let result = try await AVFoundationTrackMigrationExecutorV4().execute(
                 .init(
                     sourceURL: request.inputURL,
-                    destinationURL: request.outputURL,
+                    destinationURL: publicationURL,
+                    temporaryURL: migrationTemporaryURL,
                     outputFileType: .mov,
-                    overwriteExistingFile: request.overwriteExistingFile,
+                    overwriteExistingFile: false,
                     sourceGraph: prepared.plan.sourceGraph,
                     identifiedPlan: prepared.plan.trackPlan,
                     blueprint: prepared.plan.migrationBlueprint,
@@ -399,6 +404,12 @@ actor WorkflowDeterministicApplicationEngineV4:
                         actualBackendID: prepared.backend.actualBackendID
                     ))
                 }
+            )
+            return WorkflowApplicationFinalizedOutputV4(
+                destinationURL: result.destinationURL,
+                verification: try WorkflowApplicationMigrationVerificationV4(
+                    result
+                )
             )
         } catch AVFoundationTrackMigrationExecutorV4Error.cancelled {
             throw MirmirError.cancelled
@@ -661,6 +672,7 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
     private var active: ActiveExecution?
     private var heartbeatTask: Task<Void, Never>?
     private var drainTask: Task<Void, Never>?
+    private var publicationRecoveryTask: Task<Void, Never>?
     private var observer = WorkflowApplicationObserverV4.none
     private var currentDrainJobID: WorkflowJobID?
     private var completionWaiters: [
@@ -710,10 +722,16 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
     }
 
     func launch() async throws -> WorkflowApplicationLaunchSnapshotV4 {
+        let publicationRecoveryDeferred = try await
+            recoverInterruptedPublications()
         let snapshot = try await queue.launchSnapshot(
             commandKey: try Self.commandKey(stage: "launch-recovery")
         )
+        try await queue.cleanupCompletedApplicationPublications()
         observer.snapshot(snapshot.queue)
+        if publicationRecoveryDeferred {
+            schedulePublicationRecoveryRetry()
+        }
         scheduleDrain()
         return snapshot
     }
@@ -923,6 +941,233 @@ private extension WorkflowApplicationCoordinatorV4 {
     struct ClaimedOutcome: Sendable {
         let jobID: WorkflowJobID
         let outcome: WorkflowApplicationRunOutcomeV4
+    }
+
+    func recoverInterruptedPublications() async throws -> Bool {
+        let candidates = try await queue
+            .applicationPublicationRecoveryCandidates()
+        var deferred = false
+        for candidate in candidates {
+            guard active == nil else {
+                deferred = true
+                continue
+            }
+            let commandKey = try Self.commandKey(
+                stage: "publication-recovery",
+                jobID: candidate.jobID
+            )
+            let claim = try await queue.beginApplicationPublicationRecovery(
+                jobID: candidate.jobID,
+                commandKey: commandKey
+            )
+            let dispatch: WorkflowQueueDispatchReceiptV4
+            switch claim {
+            case .claimed(let receipt):
+                dispatch = receipt
+            case .deferred:
+                deferred = true
+                continue
+            case .terminal, .contained:
+                continue
+            }
+
+            let cancellation = ProcessingCancellation()
+            active = ActiveExecution(
+                dispatch: dispatch,
+                cancellation: cancellation,
+                attemptID: try Self.attemptID(jobID: candidate.jobID),
+                snapshotHandler: observer.snapshot,
+                lifecycle: .recovering,
+                pauseRequested: false,
+                cancelRequested: false,
+                heartbeatFailure: nil
+            )
+            startHeartbeat(jobID: candidate.jobID)
+            await emitSnapshot(to: observer.snapshot)
+            do {
+                let completion = try await recoverInterruptedPublication(
+                    dispatch: dispatch,
+                    cancellation: cancellation
+                )
+                try throwIfActiveControlFailed()
+                _ = try await queue.completeApplicationPublicationRecovery(
+                    dispatch,
+                    target: .completed,
+                    commandKey: commandKey
+                )
+                stopHeartbeat()
+                active = nil
+                await engine.abandonPrepared(jobID: candidate.jobID)
+                observer.execution(
+                    .finished(
+                        jobID: candidate.jobID,
+                        outcome: .completed(completion)
+                    )
+                )
+                await emitSnapshot(to: observer.snapshot)
+            } catch {
+                await terminateActive(
+                    error: error,
+                    containmentRequired: true
+                )
+                observer.execution(
+                    .failed(
+                        jobID: candidate.jobID,
+                        message: error.localizedDescription
+                    )
+                )
+            }
+        }
+        return deferred
+    }
+
+    func recoverInterruptedPublication(
+        dispatch: WorkflowQueueDispatchReceiptV4,
+        cancellation: ProcessingCancellation
+    ) async throws -> WorkflowApplicationCompletionV4 {
+        let jobID = dispatch.claim.jobID
+        let activation = await queue.activate(jobID: jobID)
+        guard case .active(let activated) = activation else {
+            let failure: WorkflowApplicationActivationFailureV4
+            if case .blocked(let blocked) = activation {
+                failure = blocked
+            } else {
+                failure = .jobNotFound
+            }
+            throw WorkflowApplicationControllerErrorV4
+                .activationBlocked(failure)
+        }
+        defer { activated.close() }
+        try activated.revalidateAll()
+        guard let checkpoint = try await queue
+            .compatibleApplicationCheckpoint(
+                jobID: jobID,
+                outputContractID:
+                    activated.preparedPlanBinding.outputContractID
+            ), checkpointIsTerminal(checkpoint) else {
+            throw WorkflowApplicationControllerErrorV4
+                .checkpointMissing(jobID)
+        }
+        _ = try await queue.verifyApplicationCheckpoint(checkpoint)
+        _ = try await engine.revalidateAndPrepare(
+            jobID: jobID,
+            request: activated.request,
+            expectedBinding: activated.preparedPlanBinding
+        )
+        try throwIfActiveControlFailed()
+
+        let intent = try await queue.prepareApplicationPublication(
+            activated: activated,
+            checkpoint: checkpoint
+        )
+        var state = try await queue.applicationPublicationState(jobID: jobID)
+        if state?.stageIsVerified != true {
+            try await queue.discardApplicationUnverifiedPublicationArtifacts(
+                intent,
+                activated: activated
+            )
+            let assembledVideoURL = try await queue
+                .applicationAssembledVideoURL(
+                    jobID: jobID,
+                    checkpointID: checkpoint.body.checkpointID
+                )
+            do {
+                _ = try await queue.assembleApplicationCheckpoint(
+                    checkpoint,
+                    destinationURL: assembledVideoURL,
+                    overwriteExistingFile: false
+                )
+                try throwIfActiveControlFailed()
+                let finalized = try await engine.finalizePreparedOutput(
+                    jobID: jobID,
+                    request: activated.request,
+                    assembledVideoURL: assembledVideoURL,
+                    publicationURL: try await queue
+                        .applicationPublicationStagingURL(
+                            intent,
+                            activated: activated
+                        ),
+                    migrationTemporaryURL: try await queue
+                        .applicationPublicationMigrationTemporaryURL(
+                            intent,
+                            activated: activated
+                        ),
+                    cancellation: cancellation,
+                    progress: { [weak self] progress in
+                        Task {
+                            await self?.forwardProgress(
+                                jobID: jobID,
+                                progress: progress
+                            )
+                        }
+                    }
+                )
+                _ = try await queue.recordApplicationStagedPublication(
+                    intent,
+                    finalized: finalized,
+                    activated: activated
+                )
+                try await queue.removeApplicationWorkingArtifact(
+                    assembledVideoURL
+                )
+            } catch {
+                try? await queue.removeApplicationWorkingArtifact(
+                    assembledVideoURL
+                )
+                throw error
+            }
+            state = try await queue.applicationPublicationState(jobID: jobID)
+        }
+        guard state?.stageIsVerified == true else {
+            throw WorkflowApplicationControllerErrorV4
+                .invalidAssembledOutput("publication stage was not verified")
+        }
+        try throwIfActiveControlFailed()
+        _ = try await queue.publishApplicationStagedOutput(
+            intent,
+            activated: activated
+        )
+        let completion = try await engine.inspectCompletion(
+            request: activated.request,
+            checkpoint: checkpoint,
+            segmentResult: nil,
+            processingDurationSeconds: 0
+        )
+        return completion
+    }
+
+    func schedulePublicationRecoveryRetry() {
+        guard publicationRecoveryTask == nil else { return }
+        publicationRecoveryTask = Task { [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: 1_000_000_000)
+                guard let self else { return }
+                let deferred = try await self.recoverInterruptedPublications()
+                try await self.queue.cleanupCompletedApplicationPublications()
+                let snapshot = try await self.queue.queueSnapshot()
+                await self.forwardSnapshotForLaunch(snapshot)
+                await self.clearPublicationRecoveryTask()
+                if deferred {
+                    await self.schedulePublicationRecoveryRetry()
+                } else {
+                    await self.scheduleDrain()
+                }
+            } catch {
+                guard let self else { return }
+                await self.clearPublicationRecoveryTask()
+                await self.schedulePublicationRecoveryRetry()
+            }
+        }
+    }
+
+    func clearPublicationRecoveryTask() {
+        publicationRecoveryTask = nil
+    }
+
+    func forwardSnapshotForLaunch(
+        _ snapshot: WorkflowApplicationQueueSnapshotV4
+    ) {
+        observer.snapshot(snapshot)
     }
 
     func enqueuePrepared(
@@ -1318,31 +1563,75 @@ private extension WorkflowApplicationCoordinatorV4 {
             request: activated.request,
             phase: .finalizing
         ))
-        let assembledVideoURL = try await queue.applicationAssembledVideoURL(
-            jobID: dispatch.claim.jobID,
-            checkpointID: checkpoint.body.checkpointID
+        let intent = try await queue.prepareApplicationPublication(
+            activated: activated,
+            checkpoint: checkpoint
         )
-        do {
-            _ = try await queue.assembleApplicationCheckpoint(
-                checkpoint,
-                destinationURL: assembledVideoURL,
-                overwriteExistingFile: false
+        var publication = try await queue.applicationPublicationState(
+            jobID: dispatch.claim.jobID
+        )
+        if publication?.stageIsVerified != true {
+            try await queue.discardApplicationUnverifiedPublicationArtifacts(
+                intent,
+                activated: activated
             )
-            guard let cancellation = active?.cancellation else {
-                throw WorkflowApplicationControllerErrorV4.noActiveJob
+            let assembledVideoURL = try await queue
+                .applicationAssembledVideoURL(
+                    jobID: dispatch.claim.jobID,
+                    checkpointID: checkpoint.body.checkpointID
+                )
+            do {
+                _ = try await queue.assembleApplicationCheckpoint(
+                    checkpoint,
+                    destinationURL: assembledVideoURL,
+                    overwriteExistingFile: false
+                )
+                guard let cancellation = active?.cancellation else {
+                    throw WorkflowApplicationControllerErrorV4.noActiveJob
+                }
+                let finalized = try await engine.finalizePreparedOutput(
+                    jobID: dispatch.claim.jobID,
+                    request: activated.request,
+                    assembledVideoURL: assembledVideoURL,
+                    publicationURL: try await queue
+                        .applicationPublicationStagingURL(
+                            intent,
+                            activated: activated
+                        ),
+                    migrationTemporaryURL: try await queue
+                        .applicationPublicationMigrationTemporaryURL(
+                            intent,
+                            activated: activated
+                        ),
+                    cancellation: cancellation,
+                    progress: progress
+                )
+                _ = try await queue.recordApplicationStagedPublication(
+                    intent,
+                    finalized: finalized,
+                    activated: activated
+                )
+                try await queue.removeApplicationWorkingArtifact(
+                    assembledVideoURL
+                )
+            } catch {
+                try? await queue.removeApplicationWorkingArtifact(
+                    assembledVideoURL
+                )
+                throw error
             }
-            try await engine.finalizePreparedOutput(
-                jobID: dispatch.claim.jobID,
-                request: activated.request,
-                assembledVideoURL: assembledVideoURL,
-                cancellation: cancellation,
-                progress: progress
+            publication = try await queue.applicationPublicationState(
+                jobID: dispatch.claim.jobID
             )
-            try await queue.removeApplicationWorkingArtifact(assembledVideoURL)
-        } catch {
-            try? await queue.removeApplicationWorkingArtifact(assembledVideoURL)
-            throw error
         }
+        guard publication?.stageIsVerified == true else {
+            throw WorkflowApplicationControllerErrorV4
+                .invalidAssembledOutput("publication stage was not verified")
+        }
+        _ = try await queue.publishApplicationStagedOutput(
+            intent,
+            activated: activated
+        )
         let completion = try await engine.inspectCompletion(
             request: activated.request,
             checkpoint: checkpoint,
@@ -1402,9 +1691,18 @@ private extension WorkflowApplicationCoordinatorV4 {
         await engine.abandonPrepared(jobID: current.dispatch.claim.jobID)
 
         let target: WorkflowJobLifecycle
-        if current.cancelRequested || error is CancellationError
+        if current.lifecycle == .committing {
+            let publicationExists = (try? await queue
+                .applicationPublicationState(
+                    jobID: current.dispatch.claim.jobID
+                )) != nil
+            // Once an immutable publication intent exists, a commit failure
+            // must remain recoverable. The recovery pass either completes the
+            // verified publication or contains a permanent conflict.
+            target = publicationExists ? .recovering : .contained
+        } else if current.cancelRequested || error is CancellationError
             || (error as? MirmirError) == .cancelled {
-            target = current.lifecycle == .committing ? .failed : .cancelled
+            target = .cancelled
         } else {
             target = containmentRequired ? .contained : .failed
         }
@@ -1428,6 +1726,9 @@ private extension WorkflowApplicationCoordinatorV4 {
         let handler = current.snapshotHandler
         active = nil
         await emitSnapshot(to: handler)
+        if target == .recovering {
+            schedulePublicationRecoveryRetry()
+        }
     }
 
     func throwIfActiveControlFailed() throws {

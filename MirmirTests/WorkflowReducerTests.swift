@@ -52,7 +52,8 @@ final class WorkflowReducerTests: XCTestCase {
             ],
             .recovering: [
                 .queued, .probing, .planned, .running, .paused, .verifying,
-                .committing, .contained, .failed, .safeHalt, .cancelled
+                .committing, .contained, .completed, .failed, .safeHalt,
+                .cancelled
             ],
             .contained: [.failed, .safeHalt, .cancelled],
             .completed: [],

@@ -52,7 +52,8 @@ enum WorkflowJobLifecycle: String, CaseIterable, Codable, Hashable, Sendable {
             [.completed, .recovering, .contained, .failed, .safeHalt]
         case .recovering:
             [.queued, .probing, .planned, .running, .paused, .verifying,
-             .committing, .contained, .failed, .safeHalt, .cancelled]
+             .committing, .contained, .completed, .failed, .safeHalt,
+             .cancelled]
         case .contained:
             [.failed, .safeHalt, .cancelled]
         case .completed, .failed, .safeHalt, .cancelled:
