@@ -153,7 +153,7 @@ private extension UpscaleCoordinator {
                 "Output dimensions must be positive."
             )
         }
-        if request.outputCodec != .proRes4444,
+        if request.outputCodec.requiresEvenEncodedDimensions,
            (!request.targetWidth.isMultiple(of: 2)
             || !request.targetHeight.isMultiple(of: 2)) {
             throw MirmirError.invalidRequest(

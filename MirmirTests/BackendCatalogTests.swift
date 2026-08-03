@@ -575,6 +575,66 @@ final class BackendCatalogTests: XCTestCase {
         XCTAssertEqual(request.preserveAudio, false)
         XCTAssertEqual(request.overwriteExistingFile, false)
     }
+
+    @MainActor
+    func testProRes4444AllowsOddIntegralAlphaGeometryInProductDraft()
+        async throws {
+        let sourceURL = URL(
+            fileURLWithPath: "/tmp/catalog-prores4444-alpha-source.mov"
+        )
+        let source = makeVideoInfo(
+            url: sourceURL,
+            alphaModel: .straight
+        )
+        let generatedAt = WorkflowWallClockInstantV4(
+            nanosecondsSinceUnixEpoch: 44
+        )
+        let controller = CatalogQueueStateControllerV4(
+            queue: WorkflowApplicationQueueSnapshotV4(
+                generatedAt: generatedAt,
+                items: []
+            ),
+            recovery: WorkflowLaunchRecoverySnapshotV4(
+                generatedAt: generatedAt,
+                items: []
+            )
+        )
+        let values = Dictionary(
+            uniqueKeysWithValues: BackendDescriptor.concrete.map {
+                ($0.id, BackendAvailability.available)
+            }
+        )
+        let viewModel = MirmirViewModel(
+            videoProbe: ImmediateCatalogVideoProbe(info: source),
+            backendCatalog: UpscaleBackendCatalog(
+                backends: makeStubBackends(values: values)
+            ),
+            runtimeEnvironment: testEnvironment,
+            workflowController: controller
+        )
+
+        await viewModel.initializeWorkflow()
+        viewModel.selectBackend(.mirmirDeterministicCPU)
+        viewModel.selectVideo(sourceURL)
+        await viewModel.waitForCurrentProbe()
+        viewModel.setTargetWidth(641)
+        viewModel.setTargetHeight(361)
+        await viewModel.waitForBackendAvailability()
+        viewModel.setOutputURL(
+            URL(fileURLWithPath: "/tmp/catalog-prores4444-alpha-output.mov")
+        )
+
+        viewModel.setOutputCodec(.proRes4444)
+        XCTAssertNil(viewModel.startValidationMessage)
+        XCTAssertTrue(viewModel.canStart)
+
+        viewModel.setOutputCodec(.h264)
+        XCTAssertEqual(
+            viewModel.startValidationMessage,
+            "4:2:0 output requires even encoded dimensions."
+        )
+        XCTAssertFalse(viewModel.canStart)
+    }
 }
 
 private let testEnvironment = RuntimeEnvironment(
@@ -811,7 +871,8 @@ private func makeVideoInfo(
     encodedSize: CGSize = CGSize(width: 320, height: 180),
     bitDepth: Int = 8,
     pixelFormat: OSType = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
-    dynamicRange: VideoDynamicRange = .sdr
+    dynamicRange: VideoDynamicRange = .sdr,
+    alphaModel: CanonicalAlphaModelV4 = .none
 ) -> VideoInfo {
     VideoInfo(
         url: url,
@@ -848,7 +909,7 @@ private func makeVideoInfo(
             isFullRange: false,
             fieldCount: 1,
             fieldDetail: nil,
-            alphaModel: .none,
+            alphaModel: alphaModel,
             hasMasteringDisplayMetadata: false,
             hasContentLightLevelMetadata: false,
             dynamicRange: dynamicRange

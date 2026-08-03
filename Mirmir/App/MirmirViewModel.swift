@@ -246,7 +246,9 @@ final class MirmirViewModel {
         guard targetWidth > 0, targetHeight > 0 else {
             return "Enter positive output dimensions."
         }
-        guard targetWidth.isMultiple(of: 2), targetHeight.isMultiple(of: 2) else {
+        guard !outputCodec.requiresEvenEncodedDimensions
+                || (targetWidth.isMultiple(of: 2)
+                    && targetHeight.isMultiple(of: 2)) else {
             return "4:2:0 output requires even encoded dimensions."
         }
         guard outputURL != nil else { return "Choose an output destination folder." }
@@ -1020,8 +1022,9 @@ final class MirmirViewModel {
               outputURL != nil,
               targetWidth > 0,
               targetHeight > 0,
-              targetWidth.isMultiple(of: 2),
-              targetHeight.isMultiple(of: 2),
+              (!outputCodec.requiresEvenEncodedDimensions
+                || (targetWidth.isMultiple(of: 2)
+                    && targetHeight.isMultiple(of: 2))),
               selectedBackendAvailability?.isRunnable == true else {
             return false
         }

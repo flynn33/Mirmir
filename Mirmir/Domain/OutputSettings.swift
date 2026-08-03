@@ -23,4 +23,11 @@ enum OutputCodec: String, CaseIterable, Codable, Sendable {
         case .proRes4444: .proRes4444
         }
     }
+
+    /// Chroma-subsampled delivery formats require an even encoded raster.
+    /// ProRes 4444 carries full-resolution color and alpha components, so the
+    /// deterministic alpha route may preserve any positive integral geometry.
+    var requiresEvenEncodedDimensions: Bool {
+        self != .proRes4444
+    }
 }
