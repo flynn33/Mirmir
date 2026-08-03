@@ -633,6 +633,7 @@ final class DeterministicCPUBackendTests: XCTestCase {
                 isFullRange: fullRange,
                 fieldCount: fieldCount,
                 fieldDetail: fieldDetail,
+                alphaModel: .none,
                 hasMasteringDisplayMetadata: false,
                 hasContentLightLevelMetadata: false,
                 dynamicRange: .sdr

@@ -624,6 +624,158 @@ final class Alpha4444FixedPointScalerV4Tests: XCTestCase {
 }
 
 final class AlphaVideoWriterContractV4Tests: XCTestCase {
+    func testWholeAssetDeterministicRoutePreservesAlphaAndExactGeometry()
+        async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "mirmir-alpha-whole-asset-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+        let sourceURL = root.appendingPathComponent("source.mov")
+        let outputURL = root.appendingPathComponent("output.mov")
+        let runtimeURL = root.appendingPathComponent("runtime.bundle")
+        let sourceGeometry = try RationalPresentationGeometryV4(
+            codedWidth: 16,
+            codedHeight: 16,
+            cleanAperture: CleanApertureV4(
+                width: ExactRationalV4(12),
+                height: ExactRationalV4(12),
+                horizontalOffset: .zero,
+                verticalOffset: .zero
+            ),
+            sampleAspectRatio: SampleAspectRatioV4(
+                horizontalSpacing: 4,
+                verticalSpacing: 3
+            ),
+            preferredTransform: RationalAffineTransformV4(
+                a: .zero,
+                b: .one,
+                c: try ExactRationalV4(-1),
+                d: .zero,
+                tx: try ExactRationalV4(16),
+                ty: .zero
+            )
+        )
+        let sourceContract = try AlphaVideoWriterContractV4(
+            codec: .proRes4444,
+            association: .straight,
+            width: 16,
+            height: 16,
+            inputLayout: .bgra8,
+            sourceGeometry: sourceGeometry
+        )
+        let sourceWriter: AVFoundationAlphaVideoWriterV4
+        do {
+            sourceWriter = try AVFoundationAlphaVideoWriterV4(
+                outputURL: sourceURL,
+                contract: sourceContract
+            )
+        } catch AlphaVideoWriterContractV4Error.writerRejectedOutputSettings {
+            throw XCTSkip("ProRes 4444 encoder is unavailable.")
+        }
+        let sourceBuffer = try makeBuffer(
+            layout: .bgra8,
+            width: 16,
+            height: 16,
+            rowBytes: 16 * 4 + 16,
+            sentinel: 0xA7
+        )
+        try fillSource(sourceBuffer, layout: .bgra8, association: .straight)
+        installAssociation(.straight, on: sourceBuffer)
+        for ordinal in 0..<3 {
+            try await sourceWriter.append(
+                sourceBuffer,
+                presentationTime: CMTime(value: Int64(ordinal), timescale: 30)
+            )
+        }
+        _ = try await sourceWriter.finishAndVerify()
+
+        let source = try await VideoProbe().probe(url: sourceURL)
+        XCTAssertEqual(source.color.alphaModel, .straight)
+        let runtime = try ASHV4SemanticArtifactTestSupport.buildAndLoad(
+            at: runtimeURL
+        )
+        let descriptor = try XCTUnwrap(
+            BackendDescriptor.descriptor(for: .mirmirDeterministicCPU)
+        )
+        let backend = try XCTUnwrap(DeterministicCPUBackend(
+            descriptor: descriptor,
+            runtimeProvider: .fixed(runtime)
+        ))
+        let prepared = try await backend.prepare(
+            request: BackendPreparationRequest(
+                source: source,
+                targetSize: CGSize(width: 24, height: 24)
+            ),
+            environment: .current()
+        )
+        XCTAssertTrue(
+            prepared is PreparedDeterministicAlphaPlanningBackendV4
+        )
+        let result = try await VideoProcessingSession().process(
+            request: UpscaleRequest(
+                inputURL: sourceURL,
+                outputURL: outputURL,
+                backendID: .mirmirDeterministicCPU,
+                targetWidth: 24,
+                targetHeight: 24,
+                outputCodec: .proRes4444,
+                preserveAudio: false,
+                overwriteExistingFile: false
+            ),
+            source: source,
+            preparedBackend: prepared,
+            cancellation: ProcessingCancellation(),
+            progress: { _ in }
+        )
+        XCTAssertEqual(result.outputCodec, .proRes4444)
+        XCTAssertEqual(result.encodedWidth, 24)
+        XCTAssertEqual(result.encodedHeight, 24)
+        XCTAssertEqual(result.processedFrameCount, 3)
+
+        let outputProbe = try await AVCanonicalMediaStateAdapterV4().probe(
+            .init(
+                url: outputURL,
+                bookmarkReference: "alpha-test",
+                bookmarkDocumentSHA256: ASHSHA256V4(
+                    rawData: Data("alpha-test-bookmark".utf8)
+                ),
+                scanDynamicHDRMetadata: true
+            )
+        ).requireAdmittedState()
+        let video = try XCTUnwrap(
+            outputProbe.tracks.first(where: { $0.kind == .video })?.video
+        )
+        XCTAssertEqual(video.encodedRaster, CanonicalRasterV4(
+            width: 24,
+            height: 24
+        ))
+        XCTAssertEqual(video.pixelAspectRatio, try ExactRationalV4(4, 3))
+        XCTAssertEqual(video.pixel.alphaModel, .straight)
+        XCTAssertEqual(
+            video.cleanAperture?.size,
+            CanonicalRationalSizeV4(
+                width: try ExactRationalV4(18),
+                height: try ExactRationalV4(18)
+            )
+        )
+        XCTAssertEqual(
+            video.preferredTransform,
+            CanonicalAffineTransformV4(
+                a: .zero,
+                b: .one,
+                c: try ExactRationalV4(-1),
+                d: .zero,
+                tx: try ExactRationalV4(24),
+                ty: .zero
+            )
+        )
+    }
+
     func testPreparedPremultipliedOutputReopensWithExactProResAlphaBytes()
         async throws {
         let width = 8
@@ -657,7 +809,7 @@ final class AlphaVideoWriterContractV4Tests: XCTestCase {
             delivery = try await DeterministicAlphaVideoDeliveryPlannerV4()
                 .prepare(
                     scalePlan: scalePlan,
-                    executionBackend: .cpu
+                    executionContext: .cpu
                 )
         } catch AlphaVideoWriterContractV4Error.writerRejectedOutputSettings {
             throw XCTSkip("ProRes 4444 encoder is unavailable.")
@@ -823,7 +975,11 @@ final class AlphaVideoWriterContractV4Tests: XCTestCase {
             .proRes4444
         )
         XCTAssertNil(proRes.outputSettings[AVVideoScalingModeKey])
-        XCTAssertNil(proRes.outputSettings[AVVideoColorPropertiesKey])
+        XCTAssertEqual(
+            proRes.outputSettings[AVVideoColorPropertiesKey]
+                as? [String: String],
+            AlphaVideoColorPropertiesV4.sdrBT709.outputSettings
+        )
         let proResCompression = try XCTUnwrap(
             proRes.outputSettings[AVVideoCompressionPropertiesKey]
                 as? [String: Any]

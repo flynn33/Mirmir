@@ -19,11 +19,26 @@ struct DeterministicMetalBackend: UpscaleBackend {
         targetSize: CGSize,
         environment _: RuntimeEnvironment
     ) async -> BackendAvailability {
-        switch validatedConfiguration(source: source, targetSize: targetSize) {
-        case .failure(let reason):
-            return .unavailable(reason: reason)
-        case .success:
-            break
+        if source.color.alphaModel != .none {
+            switch validatedAlphaConfiguration(
+                source: source,
+                targetSize: targetSize
+            ) {
+            case .failure(let reason):
+                return .unavailable(reason: reason)
+            case .success:
+                break
+            }
+        } else {
+            switch validatedConfiguration(
+                source: source,
+                targetSize: targetSize
+            ) {
+            case .failure(let reason):
+                return .unavailable(reason: reason)
+            case .success:
+                break
+            }
         }
         guard let device = MTLCreateSystemDefaultDevice() else {
             return .unavailable(reason: .noMetalDevice)
@@ -51,6 +66,36 @@ struct DeterministicMetalBackend: UpscaleBackend {
         request: BackendPreparationRequest,
         environment _: RuntimeEnvironment
     ) async throws -> any PreparedFrameUpscaler {
+        if request.source.color.alphaModel != .none {
+            let configuration: DeterministicAlphaPreparedConfigurationV4
+            switch validatedAlphaConfiguration(
+                source: request.source,
+                targetSize: request.targetSize
+            ) {
+            case .success(let value): configuration = value
+            case .failure(let reason):
+                throw BackendPreparationError.unavailable(descriptor.id, reason)
+            }
+            guard MTLCreateSystemDefaultDevice() != nil else {
+                throw BackendPreparationError.unavailable(
+                    descriptor.id,
+                    .noMetalDevice
+                )
+            }
+            do {
+                return try PreparedDeterministicAlphaPlanningBackendV4(
+                    configuration: configuration,
+                    runtime: runtimeProvider.load()
+                )
+            } catch {
+                throw BackendPreparationError.unavailable(
+                    descriptor.id,
+                    .deterministicAssetsIncomplete(
+                        details: "the release-qualified P06 Metal runtime could not be prepared: \(error)"
+                    )
+                )
+            }
+        }
         let configuration: DeterministicPreparedConfigurationV4
         switch validatedConfiguration(
             source: request.source,
@@ -95,6 +140,19 @@ struct DeterministicMetalBackend: UpscaleBackend {
         targetSize: CGSize
     ) -> Result<DeterministicPreparedConfigurationV4, BackendUnavailableReason> {
         DeterministicConfigurationValidatorV4.validate(
+            source: source,
+            targetSize: targetSize,
+            backendID: descriptor.id,
+            executionBackend: .metal
+        )
+    }
+
+    private func validatedAlphaConfiguration(
+        source: VideoInfo,
+        targetSize: CGSize
+    ) -> Result<DeterministicAlphaPreparedConfigurationV4,
+        BackendUnavailableReason> {
+        DeterministicAlphaConfigurationValidatorV4.validate(
             source: source,
             targetSize: targetSize,
             backendID: descriptor.id,

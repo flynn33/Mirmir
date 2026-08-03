@@ -52,6 +52,7 @@ final class VideoProcessingSessionTests: XCTestCase {
         defer { fixtures.remove() }
         let inputURL = fixtures.url(for: "v3-end-to-end-input.mov")
         try await VideoProbeFixtureFactory.makeVideo(at: inputURL, transform: .identity)
+        let deterministicCatalog = try deterministicCatalog()
         let archivedInputName = "end-to-end-input.mov"
         let archivedInput = outputDirectory.appendingPathComponent(archivedInputName)
         try FileManager.default.copyItem(at: inputURL, to: archivedInput)
@@ -66,6 +67,7 @@ final class VideoProcessingSessionTests: XCTestCase {
             for iteration in 0..<(warmupCount + sampleCount) {
                 let timingRecorder = BaselineVideoTimingRecorder()
                 let coordinator = UpscaleCoordinator(
+                    backendCatalog: deterministicCatalog,
                     processingSession: VideoProcessingSession(
                         timingHandler: { event in
                             timingRecorder.record(event)
@@ -207,8 +209,11 @@ final class VideoProcessingSessionTests: XCTestCase {
         let inputURL = fixtures.url(for: "deterministic-input.mov")
         let outputURL = fixtures.url(for: "deterministic-output.mov")
         try await VideoProbeFixtureFactory.makeVideo(at: inputURL, transform: .identity)
+        let coordinator = UpscaleCoordinator(
+            backendCatalog: try deterministicCatalog()
+        )
 
-        let result = try await UpscaleCoordinator().process(
+        let result = try await coordinator.process(
             UpscaleRequest(
                 inputURL: inputURL,
                 outputURL: outputURL,
@@ -235,8 +240,11 @@ final class VideoProcessingSessionTests: XCTestCase {
         let inputURL = fixtures.url(for: "deterministic-metal-input.mov")
         let outputURL = fixtures.url(for: "deterministic-metal-output.mov")
         try await VideoProbeFixtureFactory.makeVideo(at: inputURL, transform: .identity)
+        let coordinator = UpscaleCoordinator(
+            backendCatalog: try deterministicCatalog()
+        )
 
-        let result = try await UpscaleCoordinator().process(
+        let result = try await coordinator.process(
             UpscaleRequest(
                 inputURL: inputURL,
                 outputURL: outputURL,
@@ -697,6 +705,27 @@ final class VideoProcessingSessionTests: XCTestCase {
             at: url,
             includingPropertiesForKeys: nil
         ).contains { $0.lastPathComponent.hasPrefix(".mirmir-") }
+    }
+
+    private func deterministicCatalog() throws -> UpscaleBackendCatalog {
+        let runtime = try ASHV4SemanticArtifactTestSupport
+            .executableSystemMetalRuntime()
+        let cpuDescriptor = try XCTUnwrap(
+            BackendDescriptor.descriptor(for: .mirmirDeterministicCPU)
+        )
+        let metalDescriptor = try XCTUnwrap(
+            BackendDescriptor.descriptor(for: .mirmirDeterministicMetal)
+        )
+        return UpscaleBackendCatalog(backends: [
+            try XCTUnwrap(DeterministicCPUBackend(
+                descriptor: cpuDescriptor,
+                runtimeProvider: .fixed(runtime)
+            )),
+            try XCTUnwrap(DeterministicMetalBackend(
+                descriptor: metalDescriptor,
+                runtimeProvider: .fixed(runtime)
+            ))
+        ])
     }
 
     private func decodedPresentationTimes(at url: URL) async throws -> [CMTime] {

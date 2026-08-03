@@ -9,13 +9,21 @@ enum DeterministicV4WholeAssetPlannerError: Error, Equatable, Sendable {
     case canonicalAndTrackGraphInventoriesDiffer
     case canonicalAndTrackGraphKindsDiffer(ordinal: UInt32)
     case unsupportedOutputCodec(OutputCodec)
+    case alphaSourceRequiresProRes4444(OutputCodec)
+    case proRes4444RequiresAlphaSource
+    case preparedAlphaConfigurationMismatch
+    case unsupportedAlphaAssociation(CanonicalAlphaModelV4)
     case unsupportedSourcePixelContract(String)
     case unsupportedSourceColorContract(String)
     case invalidHDRStaticMetadata(String)
-    case dynamicHDRDeinterlacingRequiresRegeneration
     case migrationBlueprintContainsIncompatibility
     case ashAndTrackPlansDisagree(ordinal: UInt32)
     case invalidNominalFrameDuration
+}
+
+enum DeterministicV4VideoDeliveryPlan: Sendable {
+    case opaque(VideoWriterFormatContractV4)
+    case alpha(PreparedAlphaVideoDeliveryV4)
 }
 
 /// All policy and encoder facts needed to execute one deterministic whole-
@@ -29,25 +37,53 @@ struct DeterministicV4PreparedAssetPlan: Sendable {
     let migrationBlueprint: AVFoundationTrackMigrationBlueprintV4
     let primaryCanonicalTrack: CanonicalMediaTrackV4
     let primaryGraphTrack: MediaTrackNodeV4
-    let writerContract: VideoWriterFormatContractV4
+    let videoDelivery: DeterministicV4VideoDeliveryPlan
     let encodedFormatDescriptor: MediaTrackFormatDescriptorV4
     let nominalSourceFrameDuration: ExactRationalV4
 
     func makeProcessingHook(
         backend: any PreparedFrameUpscaler
     ) throws -> AVFoundationVideoTrackProcessingHookV4 {
-        try PreparedFrameUpscalerTrackHookV4.make(
-            trackID: primaryGraphTrack.identity.stableID,
-            preparedBackend: backend,
-            writerOutputSettings: writerContract.outputSettings,
-            declaredOutputFormats: [encodedFormatDescriptor],
-            nominalSourceFrameDuration: nominalSourceFrameDuration,
-            outputPreferredTransform:
-                writerContract.geometry.avPreferredTransform,
-            outputNaturalSize: CGSize(
-                width: writerContract.geometry.codedWidth,
-                height: writerContract.geometry.codedHeight
+        switch videoDelivery {
+        case .opaque(let writerContract):
+            return try PreparedFrameUpscalerTrackHookV4.make(
+                trackID: primaryGraphTrack.identity.stableID,
+                preparedBackend: backend,
+                writerOutputSettings: writerContract.outputSettings,
+                declaredOutputFormats: [encodedFormatDescriptor],
+                nominalSourceFrameDuration: nominalSourceFrameDuration,
+                outputPreferredTransform:
+                    writerContract.geometry.avPreferredTransform,
+                outputNaturalSize: CGSize(
+                    width: writerContract.geometry.codedWidth,
+                    height: writerContract.geometry.codedHeight
+                )
             )
+        case .alpha(let delivery):
+            return try delivery.makeProcessingHook(
+                trackID: primaryGraphTrack.identity.stableID,
+                nominalSourceFrameDuration: nominalSourceFrameDuration,
+                outputPreferredTransform:
+                    delivery.writerContract.geometry.avPreferredTransform,
+                outputNaturalSize: CGSize(
+                    width: delivery.writerContract.geometry.codedWidth,
+                    height: delivery.writerContract.geometry.codedHeight
+                )
+            )
+        }
+    }
+
+    func verifyProcessedOutput(at url: URL) async throws {
+        guard case .alpha(let delivery) = videoDelivery else { return }
+        let videoTracks = sourceGraph.tracks.filter { $0.kind == .video }
+        guard let ordinal = videoTracks.firstIndex(where: {
+            $0.identity.stableID == primaryGraphTrack.identity.stableID
+        }) else {
+            throw DeterministicV4WholeAssetPlannerError.primaryVideoMissing
+        }
+        _ = try await delivery.verifyMigratedOutput(
+            at: url,
+            videoTrackOrdinal: ordinal
         )
     }
 }
@@ -60,19 +96,22 @@ actor DeterministicV4WholeAssetPlanner {
 
     private let canonicalAdapter: AVCanonicalMediaStateAdapterV4
     private let formatCalibrator: AVFoundationVideoFormatCalibratorV4
+    private let alphaDeliveryPlanner: DeterministicAlphaVideoDeliveryPlannerV4
 
     init(
         canonicalAdapter: AVCanonicalMediaStateAdapterV4 = .init(),
-        formatCalibrator: AVFoundationVideoFormatCalibratorV4 = .init()
+        formatCalibrator: AVFoundationVideoFormatCalibratorV4 = .init(),
+        alphaDeliveryPlanner: DeterministicAlphaVideoDeliveryPlannerV4 = .init()
     ) {
         self.canonicalAdapter = canonicalAdapter
         self.formatCalibrator = formatCalibrator
+        self.alphaDeliveryPlanner = alphaDeliveryPlanner
     }
 
     func prepare(
         request: UpscaleRequest,
         source: VideoInfo,
-        backend: any PreparedDeterministicV4PlanningBackend
+        backend: any PreparedDeterministicV4RuntimePlanningBackend
     ) async throws -> DeterministicV4PreparedAssetPlan {
         let bookmarkDocumentSHA256 = ASHSHA256V4(rawData: Data(
             (Self.ephemeralBookmarkReference + "|v1").utf8
@@ -101,16 +140,22 @@ actor DeterministicV4WholeAssetPlanner {
             throw DeterministicV4WholeAssetPlannerError.primaryVideoMissing
         }
 
-        let writerContract = try makeWriterContract(
+        let videoDelivery = try await prepareVideoDelivery(
             request: request,
             video: sourceVideo,
-            storage: backend.deterministicStorage,
+            backend: backend,
             outputFrameCount: (backend as? any PreparedTemporalFrameUpscaler)?
                 .maximumOutputFramesPerInput ?? 1
         )
-        let encodedDescriptor = try await formatCalibrator.formatDescriptor(
-            for: writerContract
-        )
+        let encodedDescriptor: MediaTrackFormatDescriptorV4
+        switch videoDelivery {
+        case .opaque(let contract):
+            encodedDescriptor = try await formatCalibrator.formatDescriptor(
+                for: contract
+            )
+        case .alpha(let delivery):
+            encodedDescriptor = delivery.encodedFormatDescriptor
+        }
         let approvalSHA256 = audioOmissionApproval(
             input: canonicalMedia.input,
             request: request
@@ -120,7 +165,8 @@ actor DeterministicV4WholeAssetPlanner {
             primaryOrdinal: primaryPair.canonical.identity.ordinal,
             request: request,
             backend: backend,
-            writerContract: writerContract,
+            videoDelivery: videoDelivery,
+            encodedDescriptor: encodedDescriptor,
             approvalSHA256: approvalSHA256
         )
         let ashPlan = try await backend.makeASHExecutionPlan(
@@ -163,12 +209,29 @@ actor DeterministicV4WholeAssetPlanner {
             migrationBlueprint: blueprint,
             primaryCanonicalTrack: primaryPair.canonical,
             primaryGraphTrack: primaryPair.graph,
-            writerContract: writerContract,
+            videoDelivery: videoDelivery,
             encodedFormatDescriptor: encodedDescriptor,
             nominalSourceFrameDuration: try nominalFrameDuration(
                 source: source,
                 track: primaryPair.graph
             )
+        )
+    }
+
+    /// Granular production planning surface used by qualification tests and
+    /// by the whole-asset plan. Keeping both callers on this path prevents
+    /// media-policy tests from silently diverging from asset preparation.
+    func prepareVideoDelivery(
+        request: UpscaleRequest,
+        video: CanonicalVideoStateV4,
+        backend: any PreparedDeterministicV4RuntimePlanningBackend,
+        outputFrameCount: Int
+    ) async throws -> DeterministicV4VideoDeliveryPlan {
+        try await makeVideoDelivery(
+            request: request,
+            video: video,
+            backend: backend,
+            outputFrameCount: outputFrameCount
         )
     }
 }
@@ -209,8 +272,9 @@ private extension DeterministicV4WholeAssetPlanner {
         canonicalMedia: CanonicalMediaStateV4,
         primaryOrdinal: UInt32,
         request: UpscaleRequest,
-        backend: any PreparedDeterministicV4PlanningBackend,
-        writerContract: VideoWriterFormatContractV4,
+        backend: any PreparedDeterministicV4RuntimePlanningBackend,
+        videoDelivery: DeterministicV4VideoDeliveryPlan,
+        encodedDescriptor: MediaTrackFormatDescriptorV4,
         approvalSHA256: ASHSHA256V4
     ) throws -> ASHExecutionRequestV4 {
         let directives = try canonicalMedia.tracks
@@ -227,7 +291,8 @@ private extension DeterministicV4WholeAssetPlanner {
                         videoOutput: try videoOutputContract(
                             source: video,
                             request: request,
-                            writerContract: writerContract
+                            videoDelivery: videoDelivery,
+                            encodedDescriptor: encodedDescriptor
                         ),
                         outputCodecID: nil,
                         dropReasonID: nil,
@@ -337,6 +402,114 @@ private extension DeterministicV4WholeAssetPlanner {
         )
     }
 
+    func makeVideoDelivery(
+        request: UpscaleRequest,
+        video: CanonicalVideoStateV4,
+        backend: any PreparedDeterministicV4RuntimePlanningBackend,
+        outputFrameCount: Int
+    ) async throws -> DeterministicV4VideoDeliveryPlan {
+        guard video.pixel.alphaModel != .unknown else {
+            throw DeterministicV4WholeAssetPlannerError
+                .unsupportedAlphaAssociation(.unknown)
+        }
+        if video.pixel.alphaModel == .none {
+            guard request.outputCodec != .proRes4444 else {
+                throw DeterministicV4WholeAssetPlannerError
+                    .proRes4444RequiresAlphaSource
+            }
+            guard let opaque = backend
+                as? any PreparedDeterministicV4PlanningBackend else {
+                throw DeterministicV4WholeAssetPlannerError
+                    .deterministicPlanningBackendRequired
+            }
+            return .opaque(try makeWriterContract(
+                request: request,
+                video: video,
+                storage: opaque.deterministicStorage,
+                outputFrameCount: outputFrameCount
+            ))
+        }
+
+        guard request.outputCodec == .proRes4444 else {
+            throw DeterministicV4WholeAssetPlannerError
+                .alphaSourceRequiresProRes4444(request.outputCodec)
+        }
+        guard video.scan.fieldCount == 1,
+              video.scan.dominance == .none,
+              video.scan.cadence == .progressive else {
+            throw DeterministicV4WholeAssetPlannerError
+                .unsupportedSourcePixelContract(
+                    "packed-alpha field normalization requires a temporal contract"
+                )
+        }
+        guard let sourceWidth = Int(exactly: video.encodedRaster.width),
+              let sourceHeight = Int(exactly: video.encodedRaster.height) else {
+            throw DeterministicV4WholeAssetPlannerError
+                .unsupportedSourcePixelContract(video.pixel.formatID)
+        }
+        let association: AlphaAssociationV4
+        let zeroAlphaPolicy: ZeroAlphaPolicyV4
+        switch video.pixel.alphaModel {
+        case .straight:
+            association = .straight
+            zeroAlphaPolicy = .preserveStraightColor
+        case .premultiplied:
+            association = .premultiplied
+            zeroAlphaPolicy = .rejectNonZeroColor
+        case .none, .unknown:
+            throw DeterministicV4WholeAssetPlannerError
+                .unsupportedAlphaAssociation(video.pixel.alphaModel)
+        }
+        guard video.color.masteringDisplay == nil,
+              video.color.contentLightLevel == nil,
+              video.color.dynamicHDRMetadata.isEmpty else {
+            throw DeterministicV4WholeAssetPlannerError
+                .unsupportedSourceColorContract(
+                    "alpha HDR metadata requires a dedicated ProRes 4444 policy"
+                )
+        }
+        let layout: Alpha4444PackedLayoutV4 = video.pixel.bitDepth <= 8
+            ? .bgra8
+            : .argb16BigEndian
+        let scalePlan = try Alpha4444ScalePlanV4(
+            layout: layout,
+            sourceAssociation: association,
+            destinationAssociation: association,
+            zeroAlphaPolicy: zeroAlphaPolicy,
+            sourceWidth: sourceWidth,
+            sourceHeight: sourceHeight,
+            targetWidth: request.targetWidth,
+            targetHeight: request.targetHeight,
+            borderRule: .reflect101
+        )
+        guard let alphaBackend = backend
+            as? any PreparedDeterministicAlphaRuntimePlanningBackendV4,
+              alphaBackend.alphaConfiguration.layout == layout,
+              alphaBackend.alphaConfiguration.association == association,
+              alphaBackend.alphaConfiguration.sourceWidth == sourceWidth,
+              alphaBackend.alphaConfiguration.sourceHeight == sourceHeight,
+              alphaBackend.alphaConfiguration.targetWidth
+                == request.targetWidth,
+              alphaBackend.alphaConfiguration.targetHeight
+                == request.targetHeight else {
+            throw DeterministicV4WholeAssetPlannerError
+                .preparedAlphaConfigurationMismatch
+        }
+        let executionContext = try await alphaBackend
+            .makeAlphaExecutionContext()
+        return .alpha(try await alphaDeliveryPlanner.prepare(
+            scalePlan: scalePlan,
+            executionContext: executionContext,
+            codec: .proRes4444,
+            sourceGeometry: try sourceGeometry(video),
+            color: AlphaVideoColorPropertiesV4(
+                primaries: video.color.primaries,
+                transferFunction: video.color.transferFunction,
+                matrix: video.color.matrix
+            )
+        ))
+    }
+
     func makeWriterContract(
         request: UpscaleRequest,
         video: CanonicalVideoStateV4,
@@ -350,15 +523,14 @@ private extension DeterministicV4WholeAssetPlanner {
         case .proRes422:
             throw DeterministicV4WholeAssetPlannerError
                 .unsupportedOutputCodec(.proRes422)
+        case .proRes4444:
+            throw DeterministicV4WholeAssetPlannerError
+                .proRes4444RequiresAlphaSource
         }
         try validate(pixel: video.pixel, storage: storage)
         let geometry = try sourceGeometry(video)
         let color = try writerColor(video.color, storage: storage)
         let containsDynamicHDR = !video.color.dynamicHDRMetadata.isEmpty
-        if outputFrameCount > 1, containsDynamicHDR {
-            throw DeterministicV4WholeAssetPlannerError
-                .dynamicHDRDeinterlacingRequiresRegeneration
-        }
         return try VideoWriterFormatContractV4(
             codec: codec,
             storage: storage,
@@ -367,12 +539,14 @@ private extension DeterministicV4WholeAssetPlanner {
             outputWidth: request.targetWidth,
             outputHeight: request.targetHeight,
             frameOperation: outputFrameCount > 1
-                ? .frameRateConversion
+                ? .fieldNormalization
                 : .spatialResampling,
             sourceContainsDynamicHDRMetadata: containsDynamicHDR,
-            dynamicEncodingPolicy: containsDynamicHDR
-                ? .preserveSourceSceneMetadataAcrossSpatialResampling
-                : .absent
+            dynamicEncodingPolicy: !containsDynamicHDR
+                ? .absent
+                : outputFrameCount > 1
+                    ? .replicateSourceSceneMetadataAcrossFieldNormalization
+                    : .preserveSourceSceneMetadataAcrossSpatialResampling
         )
     }
 
@@ -564,8 +738,29 @@ private extension DeterministicV4WholeAssetPlanner {
     func videoOutputContract(
         source: CanonicalVideoStateV4,
         request: UpscaleRequest,
-        writerContract: VideoWriterFormatContractV4
+        videoDelivery: DeterministicV4VideoDeliveryPlan,
+        encodedDescriptor: MediaTrackFormatDescriptorV4
     ) throws -> ASHVideoOutputContractV4 {
+        let raster = CanonicalRasterV4(
+            width: Int64(request.targetWidth),
+            height: Int64(request.targetHeight)
+        )
+        switch videoDelivery {
+        case .alpha(let delivery):
+            let layout = delivery.writerContract.inputLayout
+            return ASHVideoOutputContractV4(
+                raster: raster,
+                codecID: request.outputCodec.rawValue,
+                encodedFormatDescriptor: encodedDescriptor,
+                pixelFormatID: layout.rawValue,
+                bitDepth: UInt8(layout.signalBitDepth),
+                range: .full,
+                chromaSubsampling: .rgb,
+                chromaSiting: .notApplicable,
+                alphaModel: source.pixel.alphaModel,
+                color: source.color
+            )
+        case .opaque(let writerContract):
         let range: CanonicalPixelRangeV4 =
             writerContract.storage.codeRange == .video ? .video : .full
         let color: CanonicalColorStateV4
@@ -585,11 +780,9 @@ private extension DeterministicV4WholeAssetPlanner {
             color = source.color
         }
         return ASHVideoOutputContractV4(
-            raster: CanonicalRasterV4(
-                width: Int64(request.targetWidth),
-                height: Int64(request.targetHeight)
-            ),
+            raster: raster,
             codecID: request.outputCodec.rawValue,
+            encodedFormatDescriptor: encodedDescriptor,
             pixelFormatID: writerContract.storage.rawValue,
             bitDepth: UInt8(writerContract.storage.signalBitDepth),
             range: range,
@@ -598,6 +791,7 @@ private extension DeterministicV4WholeAssetPlanner {
             alphaModel: .none,
             color: color
         )
+        }
     }
 
     func audioOmissionApproval(

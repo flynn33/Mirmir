@@ -44,7 +44,7 @@ struct VideoProcessingSession: Sendable {
         progress: @escaping ProgressHandler
     ) async throws -> UpscaleResult {
         if let deterministicBackend = preparedBackend
-            as? any PreparedDeterministicV4PlanningBackend {
+            as? any PreparedDeterministicV4RuntimePlanningBackend {
             return try await deterministicV4Session.process(
                 request: request,
                 source: source,
@@ -52,6 +52,14 @@ struct VideoProcessingSession: Sendable {
                 cancellation: cancellation,
                 progress: progress
             )
+        }
+        if source.color.alphaModel != .none {
+            throw DeterministicV4WholeAssetPlannerError
+                .alphaSourceRequiresProRes4444(request.outputCodec)
+        }
+        if request.outputCodec == .proRes4444 {
+            throw DeterministicV4WholeAssetPlannerError
+                .proRes4444RequiresAlphaSource
         }
         let startedAt = Date()
         let atomicOutput = try AtomicOutputFile(

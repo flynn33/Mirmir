@@ -402,6 +402,9 @@ enum AVFoundationTrackGraphAdapterV4 {
         isChapter: Bool
     ) -> MediaTrackKindV4 {
         if isChapter { return .chapter }
+        // AVFoundation's public Swift overlay does not currently name the
+        // `auxv` media type even though AVAssetWriter accepts it.
+        if mediaType.rawValue == "auxv" { return .auxiliary }
         switch mediaType {
         case .video:
             return .video
@@ -416,7 +419,10 @@ enum AVFoundationTrackGraphAdapterV4 {
         case .metadata:
             return .timedMetadata
         case .muxed:
-            return .auxiliary
+            // A muxed stream does not identify a writable auxiliary-track
+            // sample contract. Keep it typed as unknown so preservation
+            // planning fails closed instead of relabeling it as `auxv`.
+            return .unknown
         default:
             return .unknown
         }
@@ -510,7 +516,15 @@ enum AVFoundationTrackGraphAdapterV4 {
                 canonicalFingerprint: fingerprint,
                 completeness: canonicalExtensions.complete
                     ? .complete
-                    : .partial
+                    : .partial,
+                videoRaster: videoWidth.flatMap { width in
+                    videoHeight.map { height in
+                        CanonicalRasterV4(
+                            width: Int64(width),
+                            height: Int64(height)
+                        )
+                    }
+                }
             ),
             canonicalExtensions.complete
         )

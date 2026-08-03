@@ -16,6 +16,7 @@ struct VideoColorInfo: Equatable, Sendable {
     let isFullRange: Bool?
     let fieldCount: Int?
     let fieldDetail: String?
+    let alphaModel: CanonicalAlphaModelV4
     let hasMasteringDisplayMetadata: Bool
     let hasContentLightLevelMetadata: Bool
     let dynamicRange: VideoDynamicRange
@@ -29,6 +30,7 @@ struct VideoColorInfo: Equatable, Sendable {
         isFullRange: nil,
         fieldCount: nil,
         fieldDetail: nil,
+        alphaModel: .none,
         hasMasteringDisplayMetadata: false,
         hasContentLightLevelMetadata: false,
         dynamicRange: .unknown

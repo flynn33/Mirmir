@@ -31,6 +31,26 @@ struct DeterministicCPUBackend: UpscaleBackend {
         targetSize: CGSize,
         environment _: RuntimeEnvironment
     ) async -> BackendAvailability {
+        if source.color.alphaModel != .none {
+            switch validatedAlphaConfiguration(
+                source: source,
+                targetSize: targetSize
+            ) {
+            case .failure(let reason):
+                return .unavailable(reason: reason)
+            case .success:
+                do {
+                    let runtime = try runtimeProvider.load()
+                    _ = try runtime.measurementContract()
+                    _ = try runtime.branchProgram()
+                    return .available
+                } catch {
+                    return .unavailable(reason: .deterministicAssetsIncomplete(
+                        details: "P06 verification failed: \(error)"
+                    ))
+                }
+            }
+        }
         switch validatedConfiguration(source: source, targetSize: targetSize) {
         case .failure(let reason):
             return .unavailable(reason: reason)
@@ -52,6 +72,30 @@ struct DeterministicCPUBackend: UpscaleBackend {
         request: BackendPreparationRequest,
         environment _: RuntimeEnvironment
     ) async throws -> any PreparedFrameUpscaler {
+        if request.source.color.alphaModel != .none {
+            let configuration: DeterministicAlphaPreparedConfigurationV4
+            switch validatedAlphaConfiguration(
+                source: request.source,
+                targetSize: request.targetSize
+            ) {
+            case .success(let value): configuration = value
+            case .failure(let reason):
+                throw BackendPreparationError.unavailable(descriptor.id, reason)
+            }
+            do {
+                return try PreparedDeterministicAlphaPlanningBackendV4(
+                    configuration: configuration,
+                    runtime: runtimeProvider.load()
+                )
+            } catch {
+                throw BackendPreparationError.unavailable(
+                    descriptor.id,
+                    .deterministicAssetsIncomplete(
+                        details: "the release-qualified P06 runtime could not be prepared: \(error)"
+                    )
+                )
+            }
+        }
         let configuration: DeterministicPreparedConfigurationV4
         switch validatedConfiguration(
             source: request.source,
@@ -83,6 +127,19 @@ struct DeterministicCPUBackend: UpscaleBackend {
         targetSize: CGSize
     ) -> Result<DeterministicPreparedConfigurationV4, BackendUnavailableReason> {
         DeterministicConfigurationValidatorV4.validate(
+            source: source,
+            targetSize: targetSize,
+            backendID: descriptor.id,
+            executionBackend: .cpu
+        )
+    }
+
+    private func validatedAlphaConfiguration(
+        source: VideoInfo,
+        targetSize: CGSize
+    ) -> Result<DeterministicAlphaPreparedConfigurationV4,
+        BackendUnavailableReason> {
+        DeterministicAlphaConfigurationValidatorV4.validate(
             source: source,
             targetSize: targetSize,
             backendID: descriptor.id,

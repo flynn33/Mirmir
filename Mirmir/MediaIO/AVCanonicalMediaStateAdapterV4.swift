@@ -963,7 +963,9 @@ private extension AVCanonicalMediaStateAdapterV4 {
         root: String,
         observations: inout [CanonicalMediaObservationV4]
     ) -> CanonicalChromaSitingV4 {
-        if subsampling == .rgb || subsampling == .monochrome {
+        if subsampling == .rgb
+            || subsampling == .monochrome
+            || subsampling == .yuv444 {
             return .notApplicable
         }
         let top = extensions[

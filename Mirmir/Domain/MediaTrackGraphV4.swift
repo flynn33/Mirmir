@@ -253,16 +253,20 @@ struct MediaTrackFormatDescriptorV4: Codable, Equatable, Hashable, Sendable {
     let mediaSubtypeID: String
     let canonicalFingerprint: ASHSHA256V4
     let completeness: MediaTrackFormatCompletenessV4
+    let videoRaster: CanonicalRasterV4?
 
     init(
         ordinal: UInt32,
         mediaTypeID: String,
         mediaSubtypeID: String,
         canonicalFingerprint: ASHSHA256V4,
-        completeness: MediaTrackFormatCompletenessV4
+        completeness: MediaTrackFormatCompletenessV4,
+        videoRaster: CanonicalRasterV4? = nil
     ) throws {
         guard MediaTrackGraphLexiconV4.isStableToken(mediaTypeID),
-              MediaTrackGraphLexiconV4.isStableToken(mediaSubtypeID) else {
+              MediaTrackGraphLexiconV4.isStableToken(mediaSubtypeID),
+              (mediaTypeID == "fourcc_76696465") == (videoRaster != nil),
+              videoRaster.map({ $0.width > 0 && $0.height > 0 }) ?? true else {
             throw MediaTrackGraphV4Error.invalidTrack(
                 id: "format_\(ordinal)",
                 reason: "media type and subtype must be stable tokens"
@@ -273,6 +277,7 @@ struct MediaTrackFormatDescriptorV4: Codable, Equatable, Hashable, Sendable {
         self.mediaSubtypeID = mediaSubtypeID
         self.canonicalFingerprint = canonicalFingerprint
         self.completeness = completeness
+        self.videoRaster = videoRaster
     }
 }
 

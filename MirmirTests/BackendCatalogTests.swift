@@ -146,7 +146,8 @@ final class BackendCatalogTests: XCTestCase {
         )
     }
 
-    func testHDRIsUnavailableAcrossEveryEightBitBackendWithoutToneMapping() async {
+    func testHDRAvoidsEveryEightBitBackendAndAdmitsDeterministicP010()
+        async throws {
         let source = makeVideoInfo(
             url: URL(fileURLWithPath: "/tmp/catalog-hdr.mov"),
             bitDepth: 10,
@@ -159,13 +160,49 @@ final class BackendCatalogTests: XCTestCase {
             environment: .current()
         )
 
-        for descriptor in BackendDescriptor.concrete {
+        let deterministicIDs: Set<UpscaleBackendID> = [
+            .mirmirDeterministicCPU,
+            .mirmirDeterministicMetal
+        ]
+        for descriptor in BackendDescriptor.concrete
+            where !deterministicIDs.contains(descriptor.id) {
             XCTAssertEqual(
                 snapshot.entry(for: descriptor.id)?.availability,
                 .unavailable(reason: .hdrPreservationUnavailable),
                 "\(descriptor.title) must not silently convert HDR to SDR."
             )
         }
+        let runtime = try ASHV4SemanticArtifactTestSupport
+            .executableSystemMetalRuntime()
+        let cpuDescriptor = try XCTUnwrap(
+            BackendDescriptor.descriptor(for: .mirmirDeterministicCPU)
+        )
+        let cpu = try XCTUnwrap(DeterministicCPUBackend(
+            descriptor: cpuDescriptor,
+            runtimeProvider: .fixed(runtime)
+        ))
+        let cpuAvailability = await cpu.availability(
+            for: source,
+            targetSize: CGSize(width: 640, height: 360),
+            environment: .current()
+        )
+        XCTAssertEqual(cpuAvailability, .available)
+        let metalDescriptor = try XCTUnwrap(
+            BackendDescriptor.descriptor(for: .mirmirDeterministicMetal)
+        )
+        let metal = try XCTUnwrap(DeterministicMetalBackend(
+            descriptor: metalDescriptor,
+            runtimeProvider: .fixed(runtime)
+        ))
+        let metalAvailability = await metal.availability(
+            for: source,
+            targetSize: CGSize(width: 640, height: 360),
+            environment: .current()
+        )
+        XCTAssertTrue(
+            metalAvailability == .available
+                || metalAvailability == .unavailable(reason: .noMetalDevice)
+        )
         XCTAssertEqual(
             snapshot.entry(for: .automatic)?.availability,
             .unavailable(reason: .noCompatibleAutomaticBackend)
@@ -559,6 +596,7 @@ private func makeVideoInfo(
             isFullRange: false,
             fieldCount: 1,
             fieldDetail: nil,
+            alphaModel: .none,
             hasMasteringDisplayMetadata: false,
             hasContentLightLevelMetadata: false,
             dynamicRange: dynamicRange

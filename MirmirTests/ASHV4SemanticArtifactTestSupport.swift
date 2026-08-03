@@ -13,7 +13,7 @@ struct ASHV4FixtureMetalValidator: ASHMetalLibraryValidatingV4 {
 enum ASHV4SemanticArtifactTestSupport {
     static let sourceRevision = String(repeating: "a", count: 40)
     static let expectedPlanSHA256 =
-        "32b6a21c59f126db7bacbeac1775d8ba9924bce507d7466c8fe8a4d8978ed08d"
+        "a9b7efb59871733716e0e5155ad878a1b8013d979c3cedee9401254fd45d44ef"
     static let builderHash = ASHSHA256V4(
         rawData: Data("ash-p06-builder-source-v1".utf8)
     )
@@ -247,6 +247,19 @@ enum ASHV4SemanticArtifactTestSupport {
                     videoOutput: ASHVideoOutputContractV4(
                         raster: CanonicalRasterV4(width: 1_001, height: 563),
                         codecID: "hevc",
+                        encodedFormatDescriptor: try! MediaTrackFormatDescriptorV4(
+                            ordinal: 0,
+                            mediaTypeID: "fourcc_76696465",
+                            mediaSubtypeID: "fourcc_68766331",
+                            canonicalFingerprint: ASHSHA256V4(
+                                rawData: Data("semantic-hevc-format".utf8)
+                            ),
+                            completeness: .complete,
+                            videoRaster: CanonicalRasterV4(
+                                width: 1_001,
+                                height: 563
+                            )
+                        ),
                         pixelFormatID: "nv12-video-range-8",
                         bitDepth: 8,
                         range: .video,

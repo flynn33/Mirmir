@@ -524,7 +524,7 @@ final class MediaTrackGraphPlannerV4Tests: XCTestCase {
             preferredTrackID: 9
         ))
         _ = try XCTUnwrap(composition.addMutableTrack(
-            withMediaType: .muxed,
+            withMediaType: AVMediaType(rawValue: "auxv"),
             preferredTrackID: 10
         ))
         videoMain.addTrackAssociation(to: chapter, type: .chapterList)
@@ -558,6 +558,24 @@ final class MediaTrackGraphPlannerV4Tests: XCTestCase {
             10
         )
         XCTAssertNoThrow(try graph.validate())
+    }
+
+    func testAVFoundationProbeDoesNotRelabelMuxedTrackAsAuxiliary()
+        async throws {
+        let composition = AVMutableComposition()
+        _ = try XCTUnwrap(composition.addMutableTrack(
+            withMediaType: .muxed,
+            preferredTrackID: 1
+        ))
+
+        let graph = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: composition
+        )
+        XCTAssertEqual(graph.tracks.map(\.kind), [.unknown])
+        XCTAssertTrue(graph.diagnostics.contains { diagnostic in
+            diagnostic.code == .unknownMediaType
+                && diagnostic.path == "tracks.av-track-1.kind"
+        })
     }
 }
 

@@ -25,7 +25,7 @@ struct DeterministicV4MediaProcessingSession: Sendable {
     func process(
         request: UpscaleRequest,
         source: VideoInfo,
-        preparedBackend: any PreparedDeterministicV4PlanningBackend,
+        preparedBackend: any PreparedDeterministicV4RuntimePlanningBackend,
         cancellation: ProcessingCancellation,
         progress: @escaping ProgressHandler
     ) async throws -> UpscaleResult {
@@ -89,6 +89,9 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                 throw MirmirError.cancelled
             }
             try cancellation.check()
+            try await preparedPlan.verifyProcessedOutput(
+                at: request.outputURL
+            )
             progress(event(
                 phase: .validatingOutput,
                 source: source,

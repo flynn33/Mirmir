@@ -367,6 +367,93 @@ final class VideoWriterFormatContractV4Tests: XCTestCase {
         }
     }
 
+    func testWholeAssetPlannerAdmitsInterlacedP010HDRFieldNormalization()
+        async throws {
+        let dynamicMetadata = CanonicalDynamicHDRMetadataV4(
+            ordinal: 0,
+            formatID: "hdr10_plus",
+            payloadSHA256: ASHSHA256V4(
+                rawData: Data("field-normalization-scene-0".utf8)
+            )
+        )
+        let video = CanonicalVideoStateV4(
+            encodedRaster: CanonicalRasterV4(width: 64, height: 48),
+            presentationRaster: CanonicalRasterV4(width: 64, height: 48),
+            preferredTransform: .identity,
+            cleanAperture: nil,
+            pixelAspectRatio: .one,
+            pixel: CanonicalPixelStateV4(
+                formatID: "p010_video_range",
+                bitDepth: 10,
+                range: .video,
+                chromaSubsampling: .yuv420,
+                chromaSiting: .left,
+                alphaModel: .none
+            ),
+            color: CanonicalColorStateV4(
+                primaries:
+                    kCMFormatDescriptionColorPrimaries_ITU_R_2020 as String,
+                transferFunction:
+                    kCMFormatDescriptionTransferFunction_SMPTE_ST_2084_PQ
+                        as String,
+                matrix: kCMFormatDescriptionYCbCrMatrix_ITU_R_2020 as String,
+                masteringDisplay: nil,
+                contentLightLevel: nil,
+                dynamicHDRMetadata: [dynamicMetadata]
+            ),
+            scan: CanonicalScanStateV4(
+                fieldCount: 2,
+                dominance: .topFieldFirst,
+                cadence: .interlaced
+            )
+        )
+        let request = UpscaleRequest(
+            inputURL: temporaryMovieURL(),
+            outputURL: temporaryMovieURL(),
+            backendID: .mirmirDeterministicCPU,
+            targetWidth: 128,
+            targetHeight: 96,
+            outputCodec: .hevc,
+            preserveAudio: true,
+            overwriteExistingFile: false
+        )
+
+        let delivery = try await DeterministicV4WholeAssetPlanner()
+            .prepareVideoDelivery(
+                request: request,
+                video: video,
+                backend: P010PlanningBackendStub(),
+                outputFrameCount: 2
+            )
+        guard case .opaque(let contract) = delivery else {
+            return XCTFail("Expected the opaque P010 writer route")
+        }
+        XCTAssertEqual(contract.codec, .hevc)
+        XCTAssertEqual(contract.storage, .p010VideoRange10Bit)
+        XCTAssertEqual(contract.frameOperation, .fieldNormalization)
+        XCTAssertEqual(
+            contract.dynamicEncodingPolicy,
+            .replicateSourceSceneMetadataAcrossFieldNormalization
+        )
+        XCTAssertTrue(contract.sourceContainsDynamicHDRMetadata)
+        guard case .hdr(let metadata) = contract.color else {
+            return XCTFail("Expected an HDR writer color contract")
+        }
+        XCTAssertEqual(metadata.signal.storage, .p010VideoRange10Bit)
+        XCTAssertEqual(metadata.signal.transferFunction, .pq)
+
+        let compression = try XCTUnwrap(
+            contract.outputSettings[AVVideoCompressionPropertiesKey]
+                as? [String: Any]
+        )
+        XCTAssertEqual(
+            compression[
+                kVTCompressionPropertyKey_PreserveDynamicHDRMetadata as String
+            ] as? Bool,
+            true
+        )
+    }
+
     func testSilentToneMapPrecisionLossAndDynamicMetadataLossFailClosed() throws {
         let geometry = try sourceGeometry(width: 64, height: 48)
         let hdr = try hdrMetadata(transfer: .pq)
@@ -877,5 +964,33 @@ final class VideoWriterFormatContractV4Tests: XCTestCase {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("mirmir-writer-v4-\(UUID().uuidString)")
             .appendingPathExtension("mov")
+    }
+}
+
+private enum P010PlanningBackendStubError: Error {
+    case ashPlanningMustNotRun
+}
+
+private struct P010PlanningBackendStub:
+    PreparedDeterministicV4PlanningBackend {
+    let sourcePixelBufferAttributes = PixelBufferAttributes()
+    let destinationPixelBufferAttributes = PixelBufferAttributes()
+    let actualBackendID = UpscaleBackendID.mirmirDeterministicCPU
+    let deterministicExecutor = ASHExecutorV4.cpuFixedPoint
+    let deterministicStorage = PixelStorageV4.p010VideoRange10Bit
+
+    func process(
+        source: FramePixelBuffer,
+        destination: FramePixelBuffer,
+        timing: FrameTiming
+    ) async throws {}
+
+    func finish() async throws {}
+
+    func makeASHExecutionPlan(
+        media: CanonicalMediaStateV4,
+        request: ASHExecutionRequestV4
+    ) async throws -> ASHIdentifiedExecutionPlanV4 {
+        throw P010PlanningBackendStubError.ashPlanningMustNotRun
     }
 }

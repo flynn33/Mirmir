@@ -31,6 +31,7 @@ enum ASHTrackActionV4: String, Codable, Hashable, Sendable {
 struct ASHVideoOutputContractV4: Codable, Equatable, Hashable, Sendable {
     let raster: CanonicalRasterV4
     let codecID: String
+    let encodedFormatDescriptor: MediaTrackFormatDescriptorV4
     let pixelFormatID: String
     let bitDepth: UInt8
     let range: CanonicalPixelRangeV4
@@ -349,6 +350,17 @@ enum ASHExecutionPlannerV4 {
                   (1...16).contains(output.bitDepth) else {
                 throw ASHExecutionPlanV4Error.invalidUpscale(trackID: trackID)
             }
+            guard output.encodedFormatDescriptor.completeness == .complete,
+                  output.encodedFormatDescriptor.mediaTypeID
+                    == "fourcc_76696465",
+                  output.encodedFormatDescriptor.videoRaster == output.raster,
+                  output.encodedFormatDescriptor.mediaSubtypeID
+                    == encodedMediaSubtypeID(for: output.codecID) else {
+                throw ASHExecutionPlanV4Error.invalidDirective(
+                    trackID: trackID,
+                    reason: "encoded format descriptor disagrees with codec or raster"
+                )
+            }
             let horizontal = try ExactRationalV4(
                 output.raster.width,
                 sourceVideo.encodedRaster.width
@@ -494,5 +506,14 @@ enum ASHExecutionPlannerV4 {
             }
         }
         return try ASHVerificationPlanV4(requirements: requirements.sorted())
+    }
+
+    private static func encodedMediaSubtypeID(for codecID: String) -> String? {
+        switch codecID {
+        case "h264": "fourcc_61766331"
+        case "hevc": "fourcc_68766331"
+        case "proRes4444": "fourcc_61703468"
+        default: nil
+        }
     }
 }

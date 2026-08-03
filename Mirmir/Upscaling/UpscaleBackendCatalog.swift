@@ -190,7 +190,8 @@ actor UpscaleBackendCatalog {
         }
 
         let automaticProposal = automaticSelector.proposedBackend(
-            from: availabilityByID
+            from: availabilityByID,
+            requiresDeterministicAlpha: source.color.alphaModel != .none
         )
         let automaticAvailability: BackendAvailability = automaticProposal == nil
             ? .unavailable(reason: .noCompatibleAutomaticBackend)

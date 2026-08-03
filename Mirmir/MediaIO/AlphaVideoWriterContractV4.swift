@@ -2,6 +2,7 @@ import AVFoundation
 import CoreMedia
 import CoreVideo
 import Foundation
+import Metal
 import VideoToolbox
 
 enum AlphaVideoWriterCodecV4: String, CaseIterable, Codable, Hashable,
@@ -80,6 +81,31 @@ enum AlphaVideoWriterContractV4Error: Error, Equatable, Sendable {
         actual: String
     )
     case encodedProResAlphaDepthMismatch(actual: Int?)
+    case encodedPreferredTransformMismatch(expected: String, actual: String)
+    case cleanApertureCannotBeRepresentedExactly(
+        field: String,
+        value: ExactRationalV4
+    )
+}
+
+struct AlphaVideoColorPropertiesV4: Hashable, Sendable {
+    let primaries: String
+    let transferFunction: String
+    let matrix: String
+
+    static let sdrBT709 = AlphaVideoColorPropertiesV4(
+        primaries: AVVideoColorPrimaries_ITU_R_709_2,
+        transferFunction: AVVideoTransferFunction_ITU_R_709_2,
+        matrix: AVVideoYCbCrMatrix_ITU_R_709_2
+    )
+
+    var outputSettings: [String: String] {
+        [
+            AVVideoColorPrimariesKey: primaries,
+            AVVideoTransferFunctionKey: transferFunction,
+            AVVideoYCbCrMatrixKey: matrix
+        ]
+    }
 }
 
 struct AlphaVideoWriterEndpointV4 {
@@ -99,13 +125,17 @@ struct AlphaVideoWriterContractV4: Hashable, Sendable {
     let width: Int
     let height: Int
     let inputLayout: Alpha4444PackedLayoutV4
+    let geometry: VideoWriterOutputGeometryV4
+    let color: AlphaVideoColorPropertiesV4
 
     init(
         codec: AlphaVideoWriterCodecV4,
         association: AlphaAssociationV4,
         width: Int,
         height: Int,
-        inputLayout: Alpha4444PackedLayoutV4
+        inputLayout: Alpha4444PackedLayoutV4,
+        sourceGeometry: RationalPresentationGeometryV4? = nil,
+        color: AlphaVideoColorPropertiesV4 = .sdrBT709
     ) throws {
         guard width > 0, height > 0 else {
             throw AlphaVideoWriterContractV4Error.nonPositiveDimensions(
@@ -139,6 +169,26 @@ struct AlphaVideoWriterContractV4: Hashable, Sendable {
         self.width = width
         self.height = height
         self.inputLayout = inputLayout
+        let source = try sourceGeometry ?? RationalPresentationGeometryV4(
+            codedWidth: Int64(width),
+            codedHeight: Int64(height),
+            cleanAperture: .fullRaster(
+                width: Int64(width),
+                height: Int64(height)
+            ),
+            sampleAspectRatio: SampleAspectRatioV4(
+                horizontalSpacing: 1,
+                verticalSpacing: 1
+            ),
+            preferredTransform: .identity
+        )
+        self.geometry = try VideoWriterOutputGeometryV4(
+            source: source,
+            codedWidth: width,
+            codedHeight: height
+        )
+        self.color = color
+        try Self.validateExactCleanAperture(self.geometry.cleanAperture)
     }
 
     var outputSettings: [String: Any] {
@@ -146,6 +196,14 @@ struct AlphaVideoWriterContractV4: Hashable, Sendable {
             AVVideoCodecKey: codec.avVideoCodecType,
             AVVideoWidthKey: NSNumber(value: width),
             AVVideoHeightKey: NSNumber(value: height),
+            AVVideoPixelAspectRatioKey: [
+                AVVideoPixelAspectRatioHorizontalSpacingKey:
+                    NSNumber(value: geometry.sampleAspectRatio.horizontalSpacing),
+                AVVideoPixelAspectRatioVerticalSpacingKey:
+                    NSNumber(value: geometry.sampleAspectRatio.verticalSpacing)
+            ],
+            AVVideoCleanApertureKey: cleanApertureSettings,
+            AVVideoColorPropertiesKey: color.outputSettings,
             AVVideoCompressionPropertiesKey: compressionProperties
         ]
     }
@@ -205,6 +263,7 @@ struct AlphaVideoWriterContractV4: Hashable, Sendable {
             mediaType: .video,
             outputSettings: outputSettings
         )
+        input.transform = geometry.avPreferredTransform
         guard writer.canAdd(input) else {
             throw AlphaVideoWriterContractV4Error
                 .writerRejectedInput(codec: codec)
@@ -223,6 +282,7 @@ struct AlphaVideoWriterContractV4: Hashable, Sendable {
             mediaType: .video,
             outputSettings: outputSettings
         )
+        input.transform = geometry.avPreferredTransform
         guard writer.canAdd(input) else {
             throw AlphaVideoWriterContractV4Error
                 .writerRejectedInput(codec: codec)
@@ -344,6 +404,27 @@ struct AlphaVideoWriterContractV4: Hashable, Sendable {
         }
     }
 
+    func validatePreferredTransform(_ actual: CGAffineTransform) throws {
+        let expected = geometry.avPreferredTransform
+        let expectedValues = [
+            expected.a, expected.b, expected.c,
+            expected.d, expected.tx, expected.ty
+        ]
+        let actualValues = [
+            actual.a, actual.b, actual.c,
+            actual.d, actual.tx, actual.ty
+        ]
+        guard expectedValues == actualValues else {
+            throw AlphaVideoWriterContractV4Error
+                .encodedPreferredTransformMismatch(
+                    expected: expectedValues.map(String.init(describing:))
+                        .joined(separator: ","),
+                    actual: actualValues.map(String.init(describing:))
+                        .joined(separator: ",")
+                )
+        }
+    }
+
     private var compressionAlphaMode: CFString {
         switch association {
         case .straight:
@@ -369,6 +450,51 @@ struct AlphaVideoWriterContractV4: Hashable, Sendable {
         case .premultiplied:
             return kCMFormatDescriptionAlphaChannelMode_PremultipliedAlpha
         }
+    }
+
+    private var cleanApertureSettings: [String: Any] {
+        [
+            AVVideoCleanApertureWidthKey:
+                Self.exactNSNumber(geometry.cleanAperture.width),
+            AVVideoCleanApertureHeightKey:
+                Self.exactNSNumber(geometry.cleanAperture.height),
+            AVVideoCleanApertureHorizontalOffsetKey:
+                Self.exactNSNumber(geometry.cleanAperture.horizontalOffset),
+            AVVideoCleanApertureVerticalOffsetKey:
+                Self.exactNSNumber(geometry.cleanAperture.verticalOffset)
+        ]
+    }
+
+    private static func validateExactCleanAperture(
+        _ aperture: CleanApertureV4
+    ) throws {
+        for (field, value) in [
+            ("width", aperture.width),
+            ("height", aperture.height),
+            ("horizontal_offset", aperture.horizontalOffset),
+            ("vertical_offset", aperture.verticalOffset)
+        ] {
+            let denominator = UInt64(value.denominator)
+            let powerOfTwo = denominator != 0
+                && denominator & (denominator - 1) == 0
+            let magnitude = value.numerator.magnitude
+            let significantBits = magnitude == 0 ? 0 : UInt64.bitWidth
+                - magnitude.leadingZeroBitCount
+                - magnitude.trailingZeroBitCount
+            guard powerOfTwo, significantBits <= 53 else {
+                throw AlphaVideoWriterContractV4Error
+                    .cleanApertureCannotBeRepresentedExactly(
+                        field: field,
+                        value: value
+                    )
+            }
+        }
+    }
+
+    private static func exactNSNumber(_ value: ExactRationalV4) -> NSNumber {
+        NSNumber(
+            value: Double(value.numerator) / Double(value.denominator)
+        )
     }
 }
 
@@ -551,6 +677,9 @@ actor AVFoundationAlphaVideoOutputVerifierV4 {
                 .encodedFormatDescriptionMissing
         }
         try contract.validateEncodedFormatDescription(description)
+        try contract.validatePreferredTransform(
+            try await track.load(.preferredTransform)
+        )
         let canonical = try AVFoundationTrackGraphAdapterV4
             .canonicalFormatDescriptor(description)
 
@@ -826,6 +955,9 @@ actor AVFoundationAlphaVideoWriterV4 {
                 .encodedFormatDescriptionMissing
         }
         try contract.validateEncodedFormatDescription(description)
+        try contract.validatePreferredTransform(
+            try await track.load(.preferredTransform)
+        )
         let canonical = try AVFoundationTrackGraphAdapterV4
             .canonicalFormatDescriptor(description)
 
@@ -1083,6 +1215,15 @@ struct PreparedAlphaVideoDeliveryV4: Sendable {
             outputNaturalSize: outputNaturalSize
         )
         let verifier = outputVerifier
+        let sourceAlphaMode: String
+        switch backend.plan.sourceAssociation {
+        case .straight:
+            sourceAlphaMode =
+                kCVImageBufferAlphaChannelMode_StraightAlpha as String
+        case .premultiplied:
+            sourceAlphaMode =
+                kCVImageBufferAlphaChannelMode_PremultipliedAlpha as String
+        }
         return AVFoundationVideoTrackProcessingHookV4(
             trackID: base.trackID,
             readerOutputSettings: base.readerOutputSettings,
@@ -1092,6 +1233,47 @@ struct PreparedAlphaVideoDeliveryV4: Sendable {
             outputNaturalSize: base.outputNaturalSize,
             outputTimingContract: base.outputTimingContract,
             processTemporal: { input in
+                // AVAssetReader does not reliably copy the encoded alpha-mode
+                // extension onto decoded pixel buffers. The immutable source
+                // plan already admitted that association. Bind it only when
+                // absent; a contradictory decoder attachment is retained and
+                // rejected by the packed-alpha scaler.
+                if let pixelBuffer = CMSampleBufferGetImageBuffer(
+                    input.sampleBuffer
+                ) {
+                    if CVBufferCopyAttachment(
+                        pixelBuffer,
+                        kCVImageBufferAlphaChannelModeKey,
+                        nil
+                    ) == nil {
+                        CVBufferSetAttachment(
+                            pixelBuffer,
+                            kCVImageBufferAlphaChannelModeKey,
+                            sourceAlphaMode as CFString,
+                            .shouldNotPropagate
+                        )
+                    }
+                    // These describe the decoded source raster. The immutable
+                    // writer contract has already transformed and locked their
+                    // output equivalents, so they must not be copied through
+                    // the dimension-changing pixel kernel.
+                    CVBufferRemoveAttachment(
+                        pixelBuffer,
+                        kCVImageBufferCleanApertureKey
+                    )
+                    CVBufferRemoveAttachment(
+                        pixelBuffer,
+                        kCVImageBufferPreferredCleanApertureKey
+                    )
+                    CVBufferRemoveAttachment(
+                        pixelBuffer,
+                        kCVImageBufferPixelAspectRatioKey
+                    )
+                    CVBufferRemoveAttachment(
+                        pixelBuffer,
+                        kCVImageBufferDisplayDimensionsKey
+                    )
+                }
                 let outputs = try await base.processTemporal(input)
                 for output in outputs {
                     try await verifier.record(output.sampleBuffer)
@@ -1146,23 +1328,38 @@ actor DeterministicAlphaVideoDeliveryPlannerV4 {
 
     func prepare(
         scalePlan: Alpha4444ScalePlanV4,
-        executionBackend: Alpha4444ExecutionBackendV4,
-        codec: AlphaVideoWriterCodecV4 = .proRes4444
+        executionContext: DeterministicAlphaExecutionContextV4,
+        codec: AlphaVideoWriterCodecV4 = .proRes4444,
+        sourceGeometry: RationalPresentationGeometryV4? = nil,
+        color: AlphaVideoColorPropertiesV4 = .sdrBT709
     ) async throws -> PreparedAlphaVideoDeliveryV4 {
         let writerContract = try AlphaVideoWriterContractV4(
             codec: codec,
             association: scalePlan.destinationAssociation,
             width: scalePlan.targetWidth,
             height: scalePlan.targetHeight,
-            inputLayout: scalePlan.layout
+            inputLayout: scalePlan.layout,
+            sourceGeometry: sourceGeometry,
+            color: color
         )
         let calibration = try await calibrator.calibration(
             for: writerContract
         )
-        let backend = try PreparedAlpha4444UpscalerV4(
-            backend: executionBackend,
-            plan: scalePlan
-        )
+        let backend: PreparedAlpha4444UpscalerV4
+        switch executionContext {
+        case .cpu:
+            backend = try PreparedAlpha4444UpscalerV4(
+                backend: .cpu,
+                plan: scalePlan
+            )
+        case .metal(let device, let library):
+            backend = try PreparedAlpha4444UpscalerV4(
+                backend: .metal,
+                plan: scalePlan,
+                metalDevice: device,
+                metalLibrary: library
+            )
+        }
         let outputVerifier = try AVFoundationAlphaVideoOutputVerifierV4(
             contract: writerContract
         )
@@ -1173,4 +1370,214 @@ actor DeterministicAlphaVideoDeliveryPlannerV4 {
             outputVerifier: outputVerifier
         )
     }
+}
+
+/// Execution resources selected only after the P06 runtime binding has been
+/// verified. The Metal case cannot fall back to the app's default library.
+enum DeterministicAlphaExecutionContextV4: @unchecked Sendable {
+    case cpu
+    case metal(device: MTLDevice, library: MTLLibrary)
+}
+
+struct DeterministicAlphaPreparedConfigurationV4: Sendable {
+    let backendID: UpscaleBackendID
+    let executionBackend: Alpha4444ExecutionBackendV4
+    let layout: Alpha4444PackedLayoutV4
+    let association: AlphaAssociationV4
+    let sourceWidth: Int
+    let sourceHeight: Int
+    let targetWidth: Int
+    let targetHeight: Int
+
+    var sourceAttributes: PixelBufferAttributes {
+        attributes(width: sourceWidth, height: sourceHeight)
+    }
+
+    var destinationAttributes: PixelBufferAttributes {
+        attributes(width: targetWidth, height: targetHeight)
+    }
+
+    private func attributes(width: Int, height: Int) -> PixelBufferAttributes {
+        var values: [String: Any] = [
+            kCVPixelBufferPixelFormatTypeKey as String:
+                NSNumber(value: layout.pixelFormat),
+            kCVPixelBufferWidthKey as String: NSNumber(value: width),
+            kCVPixelBufferHeightKey as String: NSNumber(value: height),
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:]
+        ]
+        if executionBackend == .metal {
+            values[kCVPixelBufferMetalCompatibilityKey as String] = true
+        }
+        return PixelBufferAttributes(values)
+    }
+}
+
+enum DeterministicAlphaConfigurationValidatorV4 {
+    static func validate(
+        source: VideoInfo,
+        targetSize: CGSize,
+        backendID: UpscaleBackendID,
+        executionBackend: Alpha4444ExecutionBackendV4
+    ) -> Result<DeterministicAlphaPreparedConfigurationV4,
+        BackendUnavailableReason> {
+        guard let sourceDimensions = integerDimensions(
+            source.geometry.encodedSize ?? source.naturalSize
+        ) else {
+            return .failure(.unsupportedSourceDimensions(
+                width: 0,
+                height: 0,
+                details: "alpha v4 requires a positive integral encoded raster"
+            ))
+        }
+        guard let targetDimensions = integerDimensions(targetSize) else {
+            return .failure(.unsupportedTargetDimensions(
+                width: 0,
+                height: 0,
+                details: "alpha v4 requires positive integral target dimensions"
+            ))
+        }
+        guard targetDimensions.width >= sourceDimensions.width,
+              targetDimensions.height >= sourceDimensions.height,
+              targetDimensions.width > sourceDimensions.width
+                || targetDimensions.height > sourceDimensions.height else {
+            return .failure(.unsupportedScaleFactor(
+                details: "alpha v4 requires an upscale on at least one axis"
+            ))
+        }
+        let limit = SpatialAxisScalePlanV4.maximumSupportedExtent
+        guard targetDimensions.width <= limit,
+              targetDimensions.height <= limit else {
+            return .failure(.unsupportedTargetDimensions(
+                width: targetDimensions.width,
+                height: targetDimensions.height,
+                details: "alpha v4 supports at most \(limit) samples per axis"
+            ))
+        }
+        let association: AlphaAssociationV4
+        switch source.color.alphaModel {
+        case .straight: association = .straight
+        case .premultiplied: association = .premultiplied
+        case .none, .unknown:
+            return .failure(.unsupportedPixelFormatOrBitDepth(
+                details: "alpha v4 requires an explicit straight or premultiplied association"
+            ))
+        }
+        guard source.color.fieldCount ?? 1 == 1,
+              source.color.fieldDetail == nil else {
+            return .failure(.unsupportedPixelFormatOrBitDepth(
+                details: "packed-alpha field normalization requires a separate temporal contract"
+            ))
+        }
+        let bitDepth = source.color.bitDepth ?? 8
+        guard (1...16).contains(bitDepth) else {
+            return .failure(.unsupportedPixelFormatOrBitDepth(
+                details: "alpha v4 supports component depths from 1 through 16"
+            ))
+        }
+        return .success(DeterministicAlphaPreparedConfigurationV4(
+            backendID: backendID,
+            executionBackend: executionBackend,
+            layout: bitDepth <= 8 ? .bgra8 : .argb16BigEndian,
+            association: association,
+            sourceWidth: sourceDimensions.width,
+            sourceHeight: sourceDimensions.height,
+            targetWidth: targetDimensions.width,
+            targetHeight: targetDimensions.height
+        ))
+    }
+
+    private static func integerDimensions(
+        _ size: CGSize
+    ) -> (width: Int, height: Int)? {
+        guard size.width.isFinite, size.height.isFinite,
+              let width = Int(exactly: size.width),
+              let height = Int(exactly: size.height),
+              width > 0, height > 0 else { return nil }
+        return (width, height)
+    }
+}
+
+protocol PreparedDeterministicAlphaRuntimePlanningBackendV4:
+    PreparedDeterministicV4RuntimePlanningBackend {
+    var alphaConfiguration: DeterministicAlphaPreparedConfigurationV4 { get }
+
+    func makeAlphaExecutionContext() async throws
+        -> DeterministicAlphaExecutionContextV4
+}
+
+/// Runtime-authenticated planning shell used only until the canonical alpha
+/// probe has created the packed-RGBA processor. Calling its pixel processor is
+/// always a contract violation; the whole-asset planner replaces it with the
+/// independently prepared alpha delivery backend before migration begins.
+actor PreparedDeterministicAlphaPlanningBackendV4:
+    PreparedDeterministicAlphaRuntimePlanningBackendV4 {
+    nonisolated let sourcePixelBufferAttributes: PixelBufferAttributes
+    nonisolated let destinationPixelBufferAttributes: PixelBufferAttributes
+    nonisolated let actualBackendID: UpscaleBackendID
+    nonisolated let deterministicExecutor: ASHExecutorV4
+    nonisolated let alphaConfiguration: DeterministicAlphaPreparedConfigurationV4
+
+    private let runtime: ASHVerifiedRuntimeBundleV4
+
+    init(
+        configuration: DeterministicAlphaPreparedConfigurationV4,
+        runtime: ASHVerifiedRuntimeBundleV4
+    ) throws {
+        try runtime.verifyBinding()
+        self.alphaConfiguration = configuration
+        self.runtime = runtime
+        self.sourcePixelBufferAttributes = configuration.sourceAttributes
+        self.destinationPixelBufferAttributes = configuration.destinationAttributes
+        self.actualBackendID = configuration.backendID
+        self.deterministicExecutor = configuration.executionBackend == .cpu
+            ? .cpuFixedPoint
+            : .metalFixedPoint
+    }
+
+    func makeASHExecutionPlan(
+        media: CanonicalMediaStateV4,
+        request: ASHExecutionRequestV4
+    ) throws -> ASHIdentifiedExecutionPlanV4 {
+        try ASHExecutionPlannerV4.makePlan(
+            media: media,
+            request: request,
+            runtime: runtime
+        )
+    }
+
+    func makeAlphaExecutionContext() throws
+        -> DeterministicAlphaExecutionContextV4 {
+        switch alphaConfiguration.executionBackend {
+        case .cpu:
+            return .cpu
+        case .metal:
+            guard let device = MTLCreateSystemDefaultDevice() else {
+                throw FixedPointMetalExecutorV4Error.metalUnavailable
+            }
+            let library = try ASHP06MetalLibraryFactoryV4.makeLibrary(
+                runtime: runtime,
+                device: device
+            )
+            guard library.makeFunction(name: "ashFixedPointScaleV4") != nil else {
+                throw FixedPointMetalExecutorV4Error.functionUnavailable(
+                    "ashFixedPointScaleV4"
+                )
+            }
+            return .metal(device: device, library: library)
+        }
+    }
+
+    func process(
+        source _: FramePixelBuffer,
+        destination _: FramePixelBuffer,
+        timing: FrameTiming
+    ) async throws {
+        throw MirmirError.backendProcessingFailed(
+            backendID: actualBackendID,
+            frameIndex: timing.frameIndex,
+            details: "the alpha planning shell cannot process pixels"
+        )
+    }
+
+    func finish() async throws {}
 }

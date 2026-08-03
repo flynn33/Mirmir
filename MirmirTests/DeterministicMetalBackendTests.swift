@@ -193,6 +193,31 @@ final class DeterministicMetalBackendTests: XCTestCase {
         }
     }
 
+    func testAlphaMetalExecutionUsesTheVerifiedP06Library() async throws {
+        let backend = try makeMetalBackend()
+        let source = makeSourceInfo(
+            pixelFormat: kCVPixelFormatType_32BGRA,
+            alphaModel: .straight
+        )
+        let prepared = try await backend.prepare(
+            request: BackendPreparationRequest(
+                source: source,
+                targetSize: CGSize(width: 24, height: 18)
+            ),
+            environment: deterministicMetalTestEnvironment
+        )
+        let alpha = try XCTUnwrap(
+            prepared as? PreparedDeterministicAlphaPlanningBackendV4
+        )
+
+        switch try await alpha.makeAlphaExecutionContext() {
+        case .cpu:
+            XCTFail("The Metal backend returned a CPU alpha context.")
+        case .metal(_, let library):
+            XCTAssertNotNil(library.makeFunction(name: "ashFixedPointScaleV4"))
+        }
+    }
+
     func testCPUAndMetalAreByteIdenticalAcrossRangesRoutesAndPatterns()
         async throws {
         for pixelFormat in [
@@ -549,7 +574,10 @@ final class DeterministicMetalBackendTests: XCTestCase {
         ))
     }
 
-    private func makeSourceInfo(pixelFormat: OSType) -> VideoInfo {
+    private func makeSourceInfo(
+        pixelFormat: OSType,
+        alphaModel: CanonicalAlphaModelV4 = .none
+    ) -> VideoInfo {
         VideoInfo(
             url: URL(fileURLWithPath: "/tmp/deterministic-metal-source.mov"),
             duration: CMTime(value: 1, timescale: 30),
@@ -586,6 +614,7 @@ final class DeterministicMetalBackendTests: XCTestCase {
                     pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
                 fieldCount: 1,
                 fieldDetail: nil,
+                alphaModel: alphaModel,
                 hasMasteringDisplayMetadata: false,
                 hasContentLightLevelMetadata: false,
                 dynamicRange: .sdr
