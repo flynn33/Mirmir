@@ -329,6 +329,38 @@ def summarize_allocation_pressure(records: list[dict[str, Any]]) -> dict[str, An
         "cpu": {field: [] for field in fields},
         "metal": {field: [] for field in fields},
     }
+    cases: list[dict[str, Any]] = []
+    for record in records:
+        case: dict[str, Any] = {
+            "id": record["id"],
+            "memoryBeforeWarmups": record["memoryBeforeWarmups"],
+            "memoryAfterSamples": record["memoryAfterSamples"],
+        }
+        for backend, key in (
+            ("cpu", "cpuMemoryDeltas"),
+            ("metal", "metalMemoryDeltas"),
+        ):
+            case[backend] = {}
+            for field in fields:
+                values = [int(delta[field]) for delta in record[key]]
+                aggregate[backend][field].extend(values)
+                case[backend][field] = signed_delta_summary(values)
+        cases.append(case)
+    return {
+        "schemaVersion": "mirmir-v4-allocation-profile-v1",
+        "measurement": (
+            "Per-operation deltas from malloc zone and proc_pid_rusage snapshots; "
+            "sampling occurs outside the timed interval."
+        ),
+        "aggregate": {
+            backend: {
+                field: signed_delta_summary(values)
+                for field, values in by_field.items()
+            }
+            for backend, by_field in aggregate.items()
+        },
+        "cases": cases,
+    }
 
 
 def summarize_end_to_end(capture: dict[str, Any]) -> dict[str, Any]:
@@ -364,38 +396,6 @@ def summarize_end_to_end(capture: dict[str, Any]) -> dict[str, Any]:
         "warmupCount": capture["warmupCount"],
         "sampleCount": capture["sampleCount"],
         "backends": backends,
-    }
-    cases: list[dict[str, Any]] = []
-    for record in records:
-        case: dict[str, Any] = {
-            "id": record["id"],
-            "memoryBeforeWarmups": record["memoryBeforeWarmups"],
-            "memoryAfterSamples": record["memoryAfterSamples"],
-        }
-        for backend, key in (
-            ("cpu", "cpuMemoryDeltas"),
-            ("metal", "metalMemoryDeltas"),
-        ):
-            case[backend] = {}
-            for field in fields:
-                values = [int(delta[field]) for delta in record[key]]
-                aggregate[backend][field].extend(values)
-                case[backend][field] = signed_delta_summary(values)
-        cases.append(case)
-    return {
-        "schemaVersion": "mirmir-v4-allocation-profile-v1",
-        "measurement": (
-            "Per-operation deltas from malloc zone and proc_pid_rusage snapshots; "
-            "sampling occurs outside the timed interval."
-        ),
-        "aggregate": {
-            backend: {
-                field: signed_delta_summary(values)
-                for field, values in by_field.items()
-            }
-            for backend, by_field in aggregate.items()
-        },
-        "cases": cases,
     }
 
 
