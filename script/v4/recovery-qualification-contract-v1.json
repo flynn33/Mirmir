@@ -1,0 +1,126 @@
+{
+  "artifactSchemas": {
+    "capture": "mirmir-v4-recovery-capture-v1",
+    "captureManifest": "mirmir-v4-recovery-capture-artifacts-v1",
+    "report": "mirmir-ash-v4-recovery-report-v1",
+    "scenarioEvidence": "mirmir-v4-recovery-scenario-evidence-v1",
+    "semanticManifest": "mirmir-v4-recovery-semantic-output-v1",
+    "suiteManifest": "mirmir-v4-recovery-evidence-manifest-v1",
+    "transcript": "mirmir-v4-recovery-fault-transcript-v1"
+  },
+  "buildConfiguration": "Release",
+  "capture": {
+    "captureSourceSHA256": "18b7976482d1c92f08d545636706da0f4046a093b59170c539f2dc99fdf148d6",
+    "evaluatorSourceSHA256": "82b3baf88378e9970500898474c8ff7feae1ce54795ead6acec65ba734e97808",
+    "runnerSourceSHA256": "3cb48e41efc69f21c3739022708fe0d636126af971971ba320228d0c846030f1"
+  },
+  "hashAlgorithm": "sha256",
+  "scenarios": [
+    {
+      "containedFailureCode": null,
+      "coverageID": "append_only_event_boundary",
+      "id": "append-only-event-boundary",
+      "injectionPoint": "after_append_file_sync_before_return",
+      "outcome": "identical_resumed_output"
+    },
+    {
+      "containedFailureCode": null,
+      "coverageID": "snapshot_publish_boundary",
+      "id": "snapshot-publish-boundary",
+      "injectionPoint": "after_snapshot_rename_before_parent_sync",
+      "outcome": "identical_resumed_output"
+    },
+    {
+      "containedFailureCode": "bookmark_toctou_contained",
+      "coverageID": "bookmark_resolution_and_toctou",
+      "id": "bookmark-resolution-and-toctou",
+      "injectionPoint": "after_bookmark_resolution_before_revalidation",
+      "outcome": "explicit_contained_failure"
+    },
+    {
+      "containedFailureCode": null,
+      "coverageID": "segment_commit_boundary",
+      "id": "segment-commit-boundary",
+      "injectionPoint": "after_segment_artifact_publish_before_checkpoint_commit",
+      "outcome": "identical_resumed_output"
+    },
+    {
+      "containedFailureCode": null,
+      "coverageID": "checkpoint_publish_boundary",
+      "id": "checkpoint-publish-boundary",
+      "injectionPoint": "after_checkpoint_archive_publish_before_head_publish",
+      "outcome": "identical_resumed_output"
+    },
+    {
+      "containedFailureCode": null,
+      "coverageID": "prepared_decision_boundary",
+      "id": "prepared-decision-boundary",
+      "injectionPoint": "after_prepared_recovery_decision_before_lifecycle_transition",
+      "outcome": "identical_resumed_output"
+    },
+    {
+      "containedFailureCode": null,
+      "coverageID": "final_assembly_boundary",
+      "id": "final-assembly-boundary",
+      "injectionPoint": "after_segment_assembly_before_final_mux",
+      "outcome": "identical_resumed_output"
+    },
+    {
+      "containedFailureCode": null,
+      "coverageID": "atomic_output_publish_boundary",
+      "id": "atomic-output-publish-boundary",
+      "injectionPoint": "after_atomic_output_rename_before_completion_event",
+      "outcome": "identical_resumed_output"
+    },
+    {
+      "containedFailureCode": null,
+      "coverageID": "pause_resume",
+      "id": "pause-resume",
+      "injectionPoint": "after_committed_pause_boundary",
+      "outcome": "identical_resumed_output"
+    },
+    {
+      "containedFailureCode": null,
+      "coverageID": "forced_termination_restart",
+      "id": "forced-termination-restart",
+      "injectionPoint": "after_lease_persistence_before_process_death",
+      "outcome": "identical_resumed_output"
+    },
+    {
+      "containedFailureCode": "corrupt_journal_contained",
+      "coverageID": "corrupt_journal",
+      "id": "corrupt-journal",
+      "injectionPoint": "journal_frame_payload_bit_flip",
+      "outcome": "explicit_contained_failure"
+    },
+    {
+      "containedFailureCode": "corrupt_checkpoint_contained",
+      "coverageID": "corrupt_checkpoint",
+      "id": "corrupt-checkpoint",
+      "injectionPoint": "temporal_checkpoint_payload_bit_flip",
+      "outcome": "explicit_contained_failure"
+    },
+    {
+      "containedFailureCode": null,
+      "coverageID": "orphan_partial_reconciliation",
+      "id": "orphan-partial-reconciliation",
+      "injectionPoint": "owned_partial_present_at_launch",
+      "outcome": "identical_resumed_output"
+    },
+    {
+      "containedFailureCode": "unowned_artifact_rejected",
+      "coverageID": "unowned_artifact_rejection",
+      "id": "unowned-artifact-rejection",
+      "injectionPoint": "unowned_partial_present_at_launch",
+      "outcome": "explicit_contained_failure"
+    }
+  ],
+  "schemaVersion": "mirmir-v4-recovery-qualification-contract-v1",
+  "semanticVerification": {
+    "requireByteIdentity": true,
+    "requireDecodedVisiblePixelIdentity": true,
+    "requireExactPresentationTimeline": true,
+    "requireTrackGraphIdentity": true
+  },
+  "suiteID": "deterministic-engine-v4-durable-recovery"
+}
