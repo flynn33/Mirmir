@@ -106,6 +106,17 @@ private struct AVFoundationMetadataFingerprintV4: Codable, Hashable, Sendable {
 }
 
 enum AVFoundationTrackGraphAdapterV4 {
+    /// Produces the same canonical descriptor used by whole-asset probing.
+    /// Processed-track planners use this only after a real encoder calibration
+    /// has produced its final sample description; callers never synthesize a
+    /// fingerprint from requested settings.
+    static func canonicalFormatDescriptor(
+        _ description: CMFormatDescription,
+        ordinal: UInt32 = 0
+    ) throws -> MediaTrackFormatDescriptorV4 {
+        try formatDescriptor(description, ordinal: ordinal).descriptor
+    }
+
     static func probe(asset: AVAsset) async throws -> MediaTrackGraphV4 {
         let assetTracks = try await asset.load(.tracks)
         var trackIDMap: [Int32: MediaTrackStableIDV4] = [:]

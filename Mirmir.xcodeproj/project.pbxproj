@@ -158,6 +158,8 @@
 		B42000000000000000000045 /* VideoWriterFormatContractV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41000000000000000000045 /* VideoWriterFormatContractV4.swift */; };
 		B42000000000000000000046 /* VideoWriterFormatContractV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41000000000000000000046 /* VideoWriterFormatContractV4Tests.swift */; };
 		B42000000000000000000047 /* PreparedFrameUpscalerTrackHookV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41000000000000000000047 /* PreparedFrameUpscalerTrackHookV4.swift */; };
+		B42000000000000000000048 /* AVFoundationVideoFormatCalibratorV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41000000000000000000048 /* AVFoundationVideoFormatCalibratorV4.swift */; };
+		B42000000000000000000049 /* AVFoundationVideoFormatCalibratorV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41000000000000000000049 /* AVFoundationVideoFormatCalibratorV4Tests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -326,6 +328,8 @@
 		B41000000000000000000045 /* VideoWriterFormatContractV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoWriterFormatContractV4.swift; sourceTree = "<group>"; };
 		B41000000000000000000046 /* VideoWriterFormatContractV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoWriterFormatContractV4Tests.swift; sourceTree = "<group>"; };
 		B41000000000000000000047 /* PreparedFrameUpscalerTrackHookV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreparedFrameUpscalerTrackHookV4.swift; sourceTree = "<group>"; };
+		B41000000000000000000048 /* AVFoundationVideoFormatCalibratorV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVFoundationVideoFormatCalibratorV4.swift; sourceTree = "<group>"; };
+		B41000000000000000000049 /* AVFoundationVideoFormatCalibratorV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVFoundationVideoFormatCalibratorV4Tests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -422,6 +426,7 @@
 				B41000000000000000000040 /* AlphaVideoWriterContractV4.swift */,
 				B41000000000000000000045 /* VideoWriterFormatContractV4.swift */,
 				B41000000000000000000047 /* PreparedFrameUpscalerTrackHookV4.swift */,
+				B41000000000000000000048 /* AVFoundationVideoFormatCalibratorV4.swift */,
 			);
 			path = MediaIO;
 			sourceTree = "<group>";
@@ -629,6 +634,7 @@
 					B41000000000000000000041 /* Alpha4444FixedPointScalerV4Tests.swift */,
 					B41000000000000000000044 /* WorkflowDurableCoordinatorV4Tests.swift */,
 					B41000000000000000000046 /* VideoWriterFormatContractV4Tests.swift */,
+					B41000000000000000000049 /* AVFoundationVideoFormatCalibratorV4Tests.swift */,
 					10000000000000000000000D /* Support */,
 				);
 				path = MirmirTests;
@@ -835,10 +841,11 @@
 				B42000000000000000000043 /* WorkflowPartialArtifactReconcilerV4.swift in Sources */,
 				B42000000000000000000045 /* VideoWriterFormatContractV4.swift in Sources */,
 				B42000000000000000000047 /* PreparedFrameUpscalerTrackHookV4.swift in Sources */,
+				B42000000000000000000048 /* AVFoundationVideoFormatCalibratorV4.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-			400000000000000000000004 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (32000000000000000000000E /* MirmirTests.swift in Sources */, 320000000000000000000014 /* VideoProbeTests.swift in Sources */, 320000000000000000000015 /* SecurityScopedAccessTests.swift in Sources */, 32000000000000000000001B /* BackendCatalogTests.swift in Sources */, 32000000000000000000001D /* VImageScalerTests.swift in Sources */, 32000000000000000000001E /* SyntheticNV12PixelBuffer.swift in Sources */, 320000000000000000000026 /* VideoProcessingSessionTests.swift in Sources */, 32000000000000000000003F /* DeterministicCPUBackendTests.swift in Sources */, 32000000000000000000004E /* DeterministicMetalBackendTests.swift in Sources */, B42000000000000000000009 /* ASHCoreV4Tests.swift in Sources */, B4200000000000000000000A /* PixelLayoutV4Tests.swift in Sources */, B4200000000000000000000B /* RationalPresentationGeometryV4Tests.swift in Sources */, B4200000000000000000000C /* AlphaProcessingV4Tests.swift in Sources */, B4200000000000000000000D /* WorkflowReducerTests.swift in Sources */, B42000000000000000000012 /* SpatialScalePlanV4Tests.swift in Sources */, B42000000000000000000013 /* FixedPointKernelV4Tests.swift in Sources */, B42000000000000000000014 /* FixedPointMetalExecutorV4Tests.swift in Sources */, B42000000000000000000019 /* P010BufferAccessV4Tests.swift in Sources */, B4200000000000000000001A /* HDRMetadataV4Tests.swift in Sources */, B4200000000000000000001B /* DeterministicDeinterlacerV4Tests.swift in Sources */, B4200000000000000000001D /* FixedPointPixelBufferScalerV4Tests.swift in Sources */, B42000000000000000000025 /* ASHV4SemanticArtifactTestSupport.swift in Sources */, B42000000000000000000026 /* ASHV4SemanticArtifactTests.swift in Sources */, B42000000000000000000029 /* ASHMeasurementContractV4Tests.swift in Sources */, B4200000000000000000002A /* ASHDepthFourBranchProgramV4Tests.swift in Sources */, B4200000000000000000002E /* WorkflowEventJournalTests.swift in Sources */, B42000000000000000000032 /* MediaTrackGraphV4Tests.swift in Sources */, B42000000000000000000034 /* ASHTemporalReconstructionV4Tests.swift in Sources */, B42000000000000000000037 /* AVCanonicalMediaStateAdapterV4Tests.swift in Sources */, B42000000000000000000039 /* AVFoundationTrackMigrationExecutorV4Tests.swift in Sources */, B4200000000000000000003E /* ASHMeasurementExtractorV4Tests.swift in Sources */, B42000000000000000000041 /* Alpha4444FixedPointScalerV4Tests.swift in Sources */, B42000000000000000000044 /* WorkflowDurableCoordinatorV4Tests.swift in Sources */, B42000000000000000000046 /* VideoWriterFormatContractV4Tests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
+			400000000000000000000004 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (32000000000000000000000E /* MirmirTests.swift in Sources */, 320000000000000000000014 /* VideoProbeTests.swift in Sources */, 320000000000000000000015 /* SecurityScopedAccessTests.swift in Sources */, 32000000000000000000001B /* BackendCatalogTests.swift in Sources */, 32000000000000000000001D /* VImageScalerTests.swift in Sources */, 32000000000000000000001E /* SyntheticNV12PixelBuffer.swift in Sources */, 320000000000000000000026 /* VideoProcessingSessionTests.swift in Sources */, 32000000000000000000003F /* DeterministicCPUBackendTests.swift in Sources */, 32000000000000000000004E /* DeterministicMetalBackendTests.swift in Sources */, B42000000000000000000009 /* ASHCoreV4Tests.swift in Sources */, B4200000000000000000000A /* PixelLayoutV4Tests.swift in Sources */, B4200000000000000000000B /* RationalPresentationGeometryV4Tests.swift in Sources */, B4200000000000000000000C /* AlphaProcessingV4Tests.swift in Sources */, B4200000000000000000000D /* WorkflowReducerTests.swift in Sources */, B42000000000000000000012 /* SpatialScalePlanV4Tests.swift in Sources */, B42000000000000000000013 /* FixedPointKernelV4Tests.swift in Sources */, B42000000000000000000014 /* FixedPointMetalExecutorV4Tests.swift in Sources */, B42000000000000000000019 /* P010BufferAccessV4Tests.swift in Sources */, B4200000000000000000001A /* HDRMetadataV4Tests.swift in Sources */, B4200000000000000000001B /* DeterministicDeinterlacerV4Tests.swift in Sources */, B4200000000000000000001D /* FixedPointPixelBufferScalerV4Tests.swift in Sources */, B42000000000000000000025 /* ASHV4SemanticArtifactTestSupport.swift in Sources */, B42000000000000000000026 /* ASHV4SemanticArtifactTests.swift in Sources */, B42000000000000000000029 /* ASHMeasurementContractV4Tests.swift in Sources */, B4200000000000000000002A /* ASHDepthFourBranchProgramV4Tests.swift in Sources */, B4200000000000000000002E /* WorkflowEventJournalTests.swift in Sources */, B42000000000000000000032 /* MediaTrackGraphV4Tests.swift in Sources */, B42000000000000000000034 /* ASHTemporalReconstructionV4Tests.swift in Sources */, B42000000000000000000037 /* AVCanonicalMediaStateAdapterV4Tests.swift in Sources */, B42000000000000000000039 /* AVFoundationTrackMigrationExecutorV4Tests.swift in Sources */, B4200000000000000000003E /* ASHMeasurementExtractorV4Tests.swift in Sources */, B42000000000000000000041 /* Alpha4444FixedPointScalerV4Tests.swift in Sources */, B42000000000000000000044 /* WorkflowDurableCoordinatorV4Tests.swift in Sources */, B42000000000000000000046 /* VideoWriterFormatContractV4Tests.swift in Sources */, B42000000000000000000049 /* AVFoundationVideoFormatCalibratorV4Tests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
