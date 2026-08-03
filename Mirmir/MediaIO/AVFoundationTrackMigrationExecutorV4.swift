@@ -110,6 +110,7 @@ enum AVFoundationTrackMigrationExecutorV4Error: Error, Equatable, Sendable {
         expected: String,
         actual: String
     )
+    case processedSampleCanonicalStreamMismatch(MediaTrackStableIDV4)
     case processedSamplePresentationRangeUnrepresentable(
         MediaTrackStableIDV4,
         reason: String
@@ -137,6 +138,7 @@ enum AVFoundationTrackMigrationExecutorV4Error: Error, Equatable, Sendable {
     )
     case readerFailed(AVFoundationTrackMigrationFailureV4)
     case writerFailed(AVFoundationTrackMigrationFailureV4)
+    case unexpectedCancellation(AVFoundationTrackMigrationFailureV4)
     case semanticVerificationFailed(MediaTrackSemanticVerificationReportV4)
     case publishFailed(AVFoundationTrackMigrationFailureV4)
 }
@@ -173,6 +175,13 @@ final class AVFoundationTrackMigrationCancellationV4: @unchecked Sendable {
             throw CancellationError()
         }
         try Task.checkCancellation()
+    }
+
+    var cancellationWasRequested: Bool {
+        lock.lock()
+        let cancelled = isCancelled
+        lock.unlock()
+        return cancelled
     }
 }
 
@@ -270,10 +279,20 @@ struct AVFoundationNonVideoSampleV4: @unchecked Sendable {
     let sampleBuffer: CMSampleBuffer
 }
 
+/// The semantic transformation a non-video hook is allowed to perform before
+/// AVFoundation applies the separately declared codec conversion. M5 supports
+/// only identity in the decoded domain: timing, format, and every decoded
+/// payload byte must remain unchanged. A future transform must add a typed case
+/// with its own verifier; it cannot inherit the identity contract implicitly.
+enum AVFoundationNonVideoDecodedTransformV4: String, Codable, Equatable,
+    Hashable, Sendable {
+    case preserveCanonicalSampleStream = "preserve_canonical_sample_stream"
+}
+
 /// A track-bound decode/process/encode contract for audio and other
 /// non-video media. AVFoundation performs the codec conversion described by
-/// the reader and writer settings; the processor may perform an additional
-/// deterministic sample transformation but may not alter sample timing.
+/// the reader and writer settings; the processor may perform only its typed,
+/// verifier-backed decoded transform. M5's sole transform is exact identity.
 struct AVFoundationNonVideoTrackTranscodeHookV4: @unchecked Sendable {
     typealias Processor = @Sendable (
         AVFoundationNonVideoSampleV4
@@ -284,6 +303,7 @@ struct AVFoundationNonVideoTrackTranscodeHookV4: @unchecked Sendable {
     let readerOutputSettings: [String: Any]
     let writerOutputSettings: [String: Any]
     let declaredOutputFormats: [MediaTrackFormatDescriptorV4]
+    let decodedTransform: AVFoundationNonVideoDecodedTransformV4
     let process: Processor
     let finish: Finalizer
 
@@ -292,6 +312,8 @@ struct AVFoundationNonVideoTrackTranscodeHookV4: @unchecked Sendable {
         readerOutputSettings: [String: Any],
         writerOutputSettings: [String: Any],
         declaredOutputFormats: [MediaTrackFormatDescriptorV4],
+        decodedTransform: AVFoundationNonVideoDecodedTransformV4 =
+            .preserveCanonicalSampleStream,
         process: @escaping Processor = { $0 },
         finish: @escaping Finalizer = {}
     ) {
@@ -299,6 +321,7 @@ struct AVFoundationNonVideoTrackTranscodeHookV4: @unchecked Sendable {
         self.readerOutputSettings = readerOutputSettings
         self.writerOutputSettings = writerOutputSettings
         self.declaredOutputFormats = declaredOutputFormats
+        self.decodedTransform = decodedTransform
         self.process = process
         self.finish = finish
     }
@@ -446,8 +469,13 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                     for: sourceAsset,
                     cancellation: cancellation
                 )
-            } catch is CancellationError {
-                throw CancellationError()
+            } catch let error as CancellationError {
+                guard cancellation.cancellationWasRequested
+                        || Task.isCancelled else {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .assetMetadataReadFailed(.init(error))
+                }
+                throw error
             } catch {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .assetMetadataReadFailed(.init(error))
@@ -553,8 +581,13 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                     for: outputAsset,
                     cancellation: cancellation
                 )
-            } catch is CancellationError {
-                throw CancellationError()
+            } catch let error as CancellationError {
+                guard cancellation.cancellationWasRequested
+                        || Task.isCancelled else {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .assetMetadataReadFailed(.init(error))
+                }
+                throw error
             } catch {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .assetMetadataReadFailed(.init(error))
@@ -653,7 +686,12 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                 progress: progress
             )
             return result
-        } catch is CancellationError {
+        } catch let error as CancellationError {
+            guard cancellation.cancellationWasRequested
+                    || Task.isCancelled else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .unexpectedCancellation(.init(error))
+            }
             throw AVFoundationTrackMigrationExecutorV4Error.cancelled
         }
     }
@@ -743,6 +781,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         let verifiesEncodedSampleStream: Bool
         let accumulatesSourceStreamDuringDrain: Bool
         let verifiesDynamicHDRStream: Bool
+        let accumulatesDynamicHDRStreamDuringDrain: Bool
         var isFinished = false
         var sampleCount: Int64 = 0
         var lastOutputPresentationTime: CMTime?
@@ -793,6 +832,11 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         let asset: AVMutableMovie
         let reader: AVAssetReader
         let trackByID: [MediaTrackStableIDV4: AVMutableMovieTrack]
+    }
+
+    struct PassThroughStreamIdentityV4 {
+        let encoded: SampleStreamAccumulatorV4
+        let dynamicHDR: DynamicHDRMetadataStreamAccumulatorV4?
     }
 
     func validate(
@@ -872,6 +916,8 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             AVMediaCharacteristic.audible.rawValue,
             AVMediaCharacteristic.legible.rawValue,
             AVMediaCharacteristic.frameBased.rawValue,
+            AVMediaCharacteristic.usesWideGamutColorSpace.rawValue,
+            AVMediaCharacteristic.containsHDRVideo.rawValue,
             AVMediaCharacteristic.isMainProgramContent.rawValue,
             AVMediaCharacteristic.isAuxiliaryContent.rawValue,
             AVMediaCharacteristic.containsAlphaChannel.rawValue,
@@ -1369,14 +1415,15 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         }
     }
 
-    func encodedStreamIdentity(
+    func passThroughStreamIdentity(
         asset: AVAsset,
         track: AVAssetTrack,
         trackID: MediaTrackStableIDV4,
+        verifiesDynamicHDRStream: Bool,
         cancellation: AVFoundationTrackMigrationCancellationV4,
         totalTrackCount: Int,
         progress: ProgressHandler?
-    ) async throws -> SampleStreamAccumulatorV4 {
+    ) async throws -> PassThroughStreamIdentityV4 {
         try cancellation.check()
         let reader: AVAssetReader
         do {
@@ -1409,11 +1456,15 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 )
         }
         var identity = SampleStreamAccumulatorV4()
+        var dynamicHDR = DynamicHDRMetadataStreamAccumulatorV4()
         var scannedSampleCount: Int64 = 0
         while let sample = output.copyNextSampleBuffer() {
             try cancellation.check()
             do {
                 try identity.append(sample)
+                if verifiesDynamicHDRStream {
+                    try dynamicHDR.append(sample)
+                }
             } catch let error as SampleStreamAccumulatorV4.Error {
                 reader.cancelReading()
                 throw AVFoundationTrackMigrationExecutorV4Error
@@ -1438,7 +1489,10 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     failure: .init(reader.error)
                 )
         }
-        return identity
+        return PassThroughStreamIdentityV4(
+            encoded: identity,
+            dynamicHDR: verifiesDynamicHDRStream ? dynamicHDR : nil
+        )
     }
 
     func preparePipes(
@@ -1519,7 +1573,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             let passThroughFormatContract: PassThroughFormatContract?
             let readsMediaTable = scaledTrackIDs.contains(id)
             let readTrack = mediaTableContext?.trackByID[id] ?? sourceTrack
-            let sourceStreamIdentity: SampleStreamAccumulatorV4?
+            let sourceStreamIdentity: PassThroughStreamIdentityV4?
             switch planned.action {
             case .passThrough:
                 guard [
@@ -1548,17 +1602,19 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     ? mediaTableContext!.reader
                     : reader
                 verifiesEncodedSampleStream = true
+                verifiesDynamicHDRStream = sourceTrack.mediaType == .video
                 sourceStreamIdentity = readsMediaTable
-                    ? try await encodedStreamIdentity(
+                    ? try await passThroughStreamIdentity(
                         asset: sourceAsset,
                         track: sourceTrack,
                         trackID: id,
+                        verifiesDynamicHDRStream:
+                            verifiesDynamicHDRStream,
                         cancellation: cancellation,
                         totalTrackCount: sourceGraph.tracks.count,
                         progress: progress
                     )
                     : nil
-                verifiesDynamicHDRStream = false
                 passThroughFormatContract = try PassThroughFormatContract(
                     descriptions: formatDescriptions
                 )
@@ -1743,11 +1799,16 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     || requiresTranscodeEditRebuild,
                 verifiesEncodedSampleStream: verifiesEncodedSampleStream,
                 accumulatesSourceStreamDuringDrain:
-                    sourceStreamIdentity == nil,
-                verifiesDynamicHDRStream: verifiesDynamicHDRStream
+                    verifiesEncodedSampleStream && sourceStreamIdentity == nil,
+                verifiesDynamicHDRStream: verifiesDynamicHDRStream,
+                accumulatesDynamicHDRStreamDuringDrain:
+                    verifiesDynamicHDRStream && sourceStreamIdentity == nil
             )
             if let sourceStreamIdentity {
-                pipe.sampleStream = sourceStreamIdentity
+                pipe.sampleStream = sourceStreamIdentity.encoded
+                if let dynamicHDR = sourceStreamIdentity.dynamicHDR {
+                    pipe.dynamicHDRStream = dynamicHDR
+                }
             }
             pipes.append(pipe)
         }
@@ -2182,8 +2243,16 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     if let hook = pipes[index].videoHook {
                         do {
                             try await hook.finish()
-                        } catch is CancellationError {
-                            throw CancellationError()
+                        } catch let error as CancellationError {
+                            guard cancellation.cancellationWasRequested
+                                    || Task.isCancelled else {
+                                throw AVFoundationTrackMigrationExecutorV4Error
+                                    .processorFailed(
+                                        trackID: pipes[index].trackID,
+                                        failure: .init(error)
+                                    )
+                            }
+                            throw error
                         } catch {
                             throw AVFoundationTrackMigrationExecutorV4Error
                                 .processorFailed(
@@ -2195,8 +2264,16 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     } else if let hook = pipes[index].nonVideoHook {
                         do {
                             try await hook.finish()
-                        } catch is CancellationError {
-                            throw CancellationError()
+                        } catch let error as CancellationError {
+                            guard cancellation.cancellationWasRequested
+                                    || Task.isCancelled else {
+                                throw AVFoundationTrackMigrationExecutorV4Error
+                                    .processorFailed(
+                                        trackID: pipes[index].trackID,
+                                        failure: .init(error)
+                                    )
+                            }
+                            throw error
                         } catch {
                             throw AVFoundationTrackMigrationExecutorV4Error
                                 .processorFailed(
@@ -2231,8 +2308,16 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                                 sampleBuffer: sourceSample
                             )
                         ).map(\.sampleBuffer)
-                    } catch is CancellationError {
-                        throw CancellationError()
+                    } catch let error as CancellationError {
+                        guard cancellation.cancellationWasRequested
+                                || Task.isCancelled else {
+                            throw AVFoundationTrackMigrationExecutorV4Error
+                                .processorFailed(
+                                    trackID: pipes[index].trackID,
+                                    failure: .init(error)
+                                )
+                        }
+                        throw error
                     } catch {
                         throw AVFoundationTrackMigrationExecutorV4Error
                             .processorFailed(
@@ -2250,6 +2335,11 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                             pipes[index].lastOutputPresentationTime
                     )
                 } else if let hook = pipes[index].nonVideoHook {
+                    let inputCanonicalStreamSHA256 = try
+                        canonicalSampleStreamSHA256(
+                            sourceSample,
+                            trackID: pipes[index].trackID
+                        )
                     let output: CMSampleBuffer
                     do {
                         output = try await hook.process(
@@ -2257,8 +2347,16 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                                 sampleBuffer: sourceSample
                             )
                         ).sampleBuffer
-                    } catch is CancellationError {
-                        throw CancellationError()
+                    } catch let error as CancellationError {
+                        guard cancellation.cancellationWasRequested
+                                || Task.isCancelled else {
+                            throw AVFoundationTrackMigrationExecutorV4Error
+                                .processorFailed(
+                                    trackID: pipes[index].trackID,
+                                    failure: .init(error)
+                                )
+                        }
+                        throw error
                     } catch {
                         throw AVFoundationTrackMigrationExecutorV4Error
                             .processorFailed(
@@ -2270,6 +2368,9 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     try validateNonVideoProcessedSample(
                         source: sourceSample,
                         output: output,
+                        inputCanonicalStreamSHA256:
+                            inputCanonicalStreamSHA256,
+                        decodedTransform: hook.decodedTransform,
                         trackID: pipes[index].trackID,
                         previousPresentationTime:
                             pipes[index].lastOutputPresentationTime
@@ -2309,7 +2410,8 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     }
                 }
                 for outputSample in outputSamples {
-                    if pipes[index].verifiesDynamicHDRStream {
+                    if pipes[index].verifiesDynamicHDRStream,
+                       pipes[index].accumulatesDynamicHDRStreamDuringDrain {
                         try pipes[index].dynamicHDRStream.append(outputSample)
                     }
                     try await waitUntilReady(
@@ -2461,10 +2563,11 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                         actual: encoded.digest
                     )
             }
-            if pipe.verifiesDynamicHDRStream,
-               dynamicHDR != pipe.dynamicHDRStream {
-                throw VideoWriterFormatContractV4Error
-                    .dynamicHDRMetadataMismatch
+            if pipe.verifiesDynamicHDRStream {
+                try Self.verifyDynamicHDRStream(
+                    expected: pipe.dynamicHDRStream,
+                    actual: dynamicHDR
+                )
             }
             if pipe.verifiesEncodedSampleStream {
                 digests[pipe.trackID] = encoded.digest
@@ -2840,6 +2943,8 @@ private extension AVFoundationTrackMigrationExecutorV4 {
     func validateNonVideoProcessedSample(
         source: CMSampleBuffer,
         output: CMSampleBuffer,
+        inputCanonicalStreamSHA256: ASHSHA256V4,
+        decodedTransform: AVFoundationNonVideoDecodedTransformV4,
         trackID: MediaTrackStableIDV4,
         previousPresentationTime: CMTime?
     ) throws {
@@ -2861,6 +2966,16 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     actual: outputType.map(fourCC) ?? "missing"
                 )
         }
+        switch decodedTransform {
+        case .preserveCanonicalSampleStream:
+            guard try canonicalSampleStreamSHA256(
+                output,
+                trackID: trackID
+            ) == inputCanonicalStreamSHA256 else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .processedSampleCanonicalStreamMismatch(trackID)
+            }
+        }
         let presentation = CMSampleBufferGetPresentationTimeStamp(output)
         guard presentation.isNumeric,
               previousPresentationTime.map({
@@ -2869,6 +2984,23 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             throw AVFoundationTrackMigrationExecutorV4Error
                 .processedSampleTimestampsNotStrictlyIncreasing(trackID)
         }
+    }
+
+    func canonicalSampleStreamSHA256(
+        _ sample: CMSampleBuffer,
+        trackID: MediaTrackStableIDV4
+    ) throws -> ASHSHA256V4 {
+        var accumulator = SampleStreamAccumulatorV4()
+        do {
+            try accumulator.append(sample)
+        } catch let error as SampleStreamAccumulatorV4.Error {
+            throw AVFoundationTrackMigrationExecutorV4Error
+                .sampleStreamUnrepresentable(
+                    trackID: trackID,
+                    status: error.status
+                )
+        }
+        return accumulator.digest
     }
 
     /// AVAssetReader can resample a mixed-description PCM track into slightly
@@ -3034,6 +3166,20 @@ private final class AssetWriterBoxV4: @unchecked Sendable {
     }
 }
 
+extension AVFoundationTrackMigrationExecutorV4 {
+    /// Shared by the executable reopen gate and real-sample qualification so
+    /// attachment-loss tests exercise the exact release comparison.
+    static func verifyDynamicHDRStream(
+        expected: DynamicHDRMetadataStreamAccumulatorV4,
+        actual: DynamicHDRMetadataStreamAccumulatorV4
+    ) throws {
+        guard actual == expected else {
+            throw VideoWriterFormatContractV4Error
+                .dynamicHDRMetadataMismatch
+        }
+    }
+}
+
 struct SampleStreamAccumulatorV4 {
     struct Error: Swift.Error {
         let status: Int32
@@ -3179,11 +3325,31 @@ struct SampleStreamAccumulatorV4 {
 }
 
 /// Identity for frame-bound HDR10+ and post-decode metadata. Encoders may emit
-/// samples in decode order and insert empty control buffers, so the manifest
-/// canonicalizes real media frames by exact presentation time before comparing
-/// a metadata value for every frame (including absence).
+/// samples in decode order, so this is a cryptographic multiset rather than an
+/// ordered stream hash. Each canonical record digest is independently expanded
+/// under two domain-separated SHA-256 labels and added modulo 2^256. Equality
+/// binds the record count and both independent 256-bit sums, retaining
+/// duplicate multiplicity while using constant memory for arbitrarily long
+/// assets.
 struct DynamicHDRMetadataStreamAccumulatorV4: Equatable {
-    private var recordDigests: [Data] = []
+    enum Error: Swift.Error {
+        case recordCountOverflow
+    }
+
+    struct RetentionDiagnostic: Equatable, Sendable {
+        let processedRecordCount: UInt64
+        let retainedRecordByteCount: Int
+        let fixedStateByteCount: Int
+    }
+
+    private static let firstMomentDomain =
+        "ash-dynamic-hdr-multiset-v4-first"
+    private static let secondMomentDomain =
+        "ash-dynamic-hdr-multiset-v4-second"
+    private static let digestDomain = "ash-dynamic-hdr-multiset-v4"
+
+    private var firstMoment = ModularUInt256V4.zero
+    private var secondMoment = ModularUInt256V4.zero
     private(set) var sampleCount: UInt64 = 0
 
     mutating func append(_ sample: CMSampleBuffer) throws {
@@ -3208,31 +3374,107 @@ struct DynamicHDRMetadataStreamAccumulatorV4: Equatable {
         } else {
             bytes.append(0)
         }
-        recordDigests.append(Data(SHA256.hash(data: bytes)))
-        sampleCount += 1
+        try appendCanonicalRecord(bytes)
     }
 
     static func == (
         lhs: DynamicHDRMetadataStreamAccumulatorV4,
         rhs: DynamicHDRMetadataStreamAccumulatorV4
     ) -> Bool {
-        lhs.sampleCount == rhs.sampleCount && lhs.digest == rhs.digest
+        lhs.sampleCount == rhs.sampleCount
+            && lhs.firstMoment == rhs.firstMoment
+            && lhs.secondMoment == rhs.secondMoment
     }
 
     var digest: String {
+        var canonical = Data(Self.digestDomain.utf8)
+        canonical.append(0)
+        appendInteger(sampleCount, to: &canonical)
+        canonical.append(firstMoment.bigEndianData)
+        canonical.append(secondMoment.bigEndianData)
         var hasher = SHA256()
-        for record in sortedRecordDigests {
-            hasher.update(data: record)
-        }
+        hasher.update(data: canonical)
         return hasher.finalize().map {
             String(format: "%02x", $0)
         }.joined()
     }
 
-    private var sortedRecordDigests: [Data] {
-        recordDigests.sorted { left, right in
-            left.lexicographicallyPrecedes(right)
+    var retentionDiagnosticForQualification: RetentionDiagnostic {
+        RetentionDiagnostic(
+            processedRecordCount: sampleCount,
+            retainedRecordByteCount: 0,
+            fixedStateByteCount: MemoryLayout<Self>.stride
+        )
+    }
+
+    /// Test-only visibility for exercising the exact production multiset
+    /// update without constructing a million Core Media objects.
+    mutating func appendCanonicalRecordForQualification(
+        _ canonicalRecord: Data
+    ) throws {
+        try appendCanonicalRecord(canonicalRecord)
+    }
+
+    /// Exercises more records than a practical Core Media fixture can create
+    /// while still applying the production state transition once per logical
+    /// record. The contribution is precomputed because every repeated record
+    /// is intentionally identical.
+    mutating func appendRepeatedCanonicalRecordForQualification(
+        _ canonicalRecord: Data,
+        count: Int
+    ) throws {
+        precondition(count >= 0)
+        let contribution = Self.contribution(for: canonicalRecord)
+        for _ in 0..<count {
+            try append(contribution)
         }
+    }
+
+    private mutating func appendCanonicalRecord(
+        _ canonicalRecord: Data
+    ) throws {
+        try append(Self.contribution(for: canonicalRecord))
+    }
+
+    private mutating func append(
+        _ contribution: MultisetContribution
+    ) throws {
+        let nextCount = sampleCount.addingReportingOverflow(1)
+        guard !nextCount.overflow else { throw Error.recordCountOverflow }
+        firstMoment.add(contribution.first)
+        secondMoment.add(contribution.second)
+        sampleCount = nextCount.partialValue
+    }
+
+    private struct MultisetContribution {
+        let first: ModularUInt256V4
+        let second: ModularUInt256V4
+    }
+
+    private static func contribution(
+        for canonicalRecord: Data
+    ) -> MultisetContribution {
+        let recordDigest = Data(SHA256.hash(data: canonicalRecord))
+        return MultisetContribution(
+            first: moment(
+                domain: firstMomentDomain,
+                recordDigest: recordDigest
+            ),
+            second: moment(
+                domain: secondMomentDomain,
+                recordDigest: recordDigest
+            )
+        )
+    }
+
+    private static func moment(
+        domain: String,
+        recordDigest: Data
+    ) -> ModularUInt256V4 {
+        var bytes = Data(domain.utf8)
+        bytes.append(0)
+        bytes.append(recordDigest)
+        return ModularUInt256V4(digest: SHA256.hash(data: bytes))
     }
 
     private func appendTime(_ time: CMTime, to bytes: inout Data) throws {
@@ -3264,6 +3506,90 @@ struct DynamicHDRMetadataStreamAccumulatorV4: Equatable {
         _ value: T,
         to bytes: inout Data
     ) {
+        var bigEndian = value.bigEndian
+        withUnsafeBytes(of: &bigEndian) {
+            bytes.append(contentsOf: $0)
+        }
+    }
+}
+
+/// A fixed-width unsigned integer used only for modular multiset moments.
+/// Limbs are stored least-significant first; overflow is intentionally
+/// discarded to implement addition in Z/(2^256).
+private struct ModularUInt256V4: Equatable {
+    static let zero = ModularUInt256V4(
+        limb0: 0,
+        limb1: 0,
+        limb2: 0,
+        limb3: 0
+    )
+
+    private var limb0: UInt64
+    private var limb1: UInt64
+    private var limb2: UInt64
+    private var limb3: UInt64
+
+    init(digest: SHA256.Digest) {
+        let bytes = Data(digest)
+        limb3 = Self.word(bytes, at: 0)
+        limb2 = Self.word(bytes, at: 8)
+        limb1 = Self.word(bytes, at: 16)
+        limb0 = Self.word(bytes, at: 24)
+    }
+
+    private init(
+        limb0: UInt64,
+        limb1: UInt64,
+        limb2: UInt64,
+        limb3: UInt64
+    ) {
+        self.limb0 = limb0
+        self.limb1 = limb1
+        self.limb2 = limb2
+        self.limb3 = limb3
+    }
+
+    mutating func add(_ other: Self) {
+        let low = limb0.addingReportingOverflow(other.limb0)
+        limb0 = low.partialValue
+        let one = limb1.addingReportingOverflow(other.limb1)
+        let oneCarry = one.partialValue.addingReportingOverflow(
+            low.overflow ? 1 : 0
+        )
+        limb1 = oneCarry.partialValue
+        let carryOne = one.overflow || oneCarry.overflow
+        let two = limb2.addingReportingOverflow(other.limb2)
+        let twoCarry = two.partialValue.addingReportingOverflow(
+            carryOne ? 1 : 0
+        )
+        limb2 = twoCarry.partialValue
+        let carryTwo = two.overflow || twoCarry.overflow
+        let three = limb3.addingReportingOverflow(other.limb3)
+        let threeCarry = three.partialValue.addingReportingOverflow(
+            carryTwo ? 1 : 0
+        )
+        limb3 = threeCarry.partialValue
+    }
+
+    var bigEndianData: Data {
+        var bytes = Data()
+        bytes.reserveCapacity(32)
+        Self.append(limb3, to: &bytes)
+        Self.append(limb2, to: &bytes)
+        Self.append(limb1, to: &bytes)
+        Self.append(limb0, to: &bytes)
+        return bytes
+    }
+
+    private static func word(_ bytes: Data, at offset: Int) -> UInt64 {
+        var value: UInt64 = 0
+        for byte in bytes[offset..<(offset + 8)] {
+            value = (value << 8) | UInt64(byte)
+        }
+        return value
+    }
+
+    private static func append(_ value: UInt64, to bytes: inout Data) {
         var bigEndian = value.bigEndian
         withUnsafeBytes(of: &bigEndian) {
             bytes.append(contentsOf: $0)

@@ -260,6 +260,87 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
+    func testPassThroughHDRVideoUsesExactFrameBoundMetadataLossGate()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("dynamic-hdr-source.mov")
+        let destinationURL = directory.url("dynamic-hdr-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: false
+        )
+
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL)
+        )
+        XCTAssertEqual(source.tracks.filter { $0.kind == .video }.count, 2)
+        let plan = try MediaTrackGraphPlannerV4.makePlan(source: source)
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(
+            .init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint
+            )
+        )
+
+        XCTAssertTrue(result.verificationReport.isConformant)
+        let sourceSample = try await firstEncodedVideoSample(in: sourceURL)
+        XCTAssertNil(
+            try AVFoundationHDRMetadataAdapterV4.probeDynamicMetadata(
+                from: sourceSample
+            )
+        )
+        let metadata = try frameBoundHDRMetadata(seed: 0x20)
+        let expectedSample = try copySampleBufferV4(sourceSample)
+        try AVFoundationHDRMetadataAdapterV4.migrate(
+            metadata,
+            to: expectedSample
+        )
+        XCTAssertEqual(
+            try AVFoundationHDRMetadataAdapterV4.probeDynamicMetadata(
+                from: expectedSample
+            ),
+            metadata
+        )
+        let preservedSample = try copySampleBufferV4(sourceSample)
+        try AVFoundationHDRMetadataAdapterV4.migrate(
+            metadata,
+            to: preservedSample
+        )
+        var expectedStream = DynamicHDRMetadataStreamAccumulatorV4()
+        var preservedStream = DynamicHDRMetadataStreamAccumulatorV4()
+        var strippedStream = DynamicHDRMetadataStreamAccumulatorV4()
+        try expectedStream.append(expectedSample)
+        try preservedStream.append(preservedSample)
+        try strippedStream.append(sourceSample)
+        XCTAssertNoThrow(try AVFoundationTrackMigrationExecutorV4
+            .verifyDynamicHDRStream(
+                expected: expectedStream,
+                actual: preservedStream
+            ))
+        XCTAssertThrowsError(try AVFoundationTrackMigrationExecutorV4
+            .verifyDynamicHDRStream(
+                expected: expectedStream,
+                actual: strippedStream
+            )) { error in
+                XCTAssertEqual(
+                    error as? VideoWriterFormatContractV4Error,
+                    .dynamicHDRMetadataMismatch
+                )
+            }
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: destinationURL.path
+        ))
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
     func testAlternateAudioGroupRoundTripsDefaultSelectionAndStreams()
         async throws {
         let directory = try TrackMigrationFixtureDirectoryV4()
@@ -747,6 +828,89 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
                 && $0.sourceSampleStreamSHA256
                     == $0.outputSampleStreamSHA256
         })
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+    func testAudioHookCannotPublishAByteMutatedDecodedPCMStream()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("audio-payload-mutation-source.mov")
+        let destinationURL = directory.url("audio-payload-mutation-output.mov")
+        let context = try await audioTranscodeContext(sourceURL: sourceURL)
+        let calibratedHook = context.calibration.hook
+        let hook = AVFoundationNonVideoTrackTranscodeHookV4(
+            trackID: context.audio.identity.stableID,
+            readerOutputSettings: calibratedHook.readerOutputSettings,
+            writerOutputSettings: calibratedHook.writerOutputSettings,
+            declaredOutputFormats: calibratedHook.declaredOutputFormats
+        ) { wrapped in
+            AVFoundationNonVideoSampleV4(
+                sampleBuffer: try payloadMutatingCopyV4(
+                    of: wrapped.sampleBuffer
+                )
+            )
+        }
+
+        await XCTAssertThrowsErrorAsyncV4(
+            try await AVFoundationTrackMigrationExecutorV4().execute(.init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: context.source,
+                identifiedPlan: context.plan,
+                blueprint: context.blueprint,
+                nonVideoTranscodeHooks: [hook]
+            ))
+        ) { error in
+            XCTAssertEqual(
+                error as? AVFoundationTrackMigrationExecutorV4Error,
+                .processedSampleCanonicalStreamMismatch(
+                    context.audio.identity.stableID
+                )
+            )
+        }
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: destinationURL.path
+        ))
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+    func testUnrequestedHookCancellationIsReportedAsProcessorFailure()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("false-cancellation-source.mov")
+        let destinationURL = directory.url("false-cancellation-output.mov")
+        let context = try await audioTranscodeContext(sourceURL: sourceURL)
+        let calibratedHook = context.calibration.hook
+        let hook = AVFoundationNonVideoTrackTranscodeHookV4(
+            trackID: context.audio.identity.stableID,
+            readerOutputSettings: calibratedHook.readerOutputSettings,
+            writerOutputSettings: calibratedHook.writerOutputSettings,
+            declaredOutputFormats: calibratedHook.declaredOutputFormats
+        ) { _ in
+            throw CancellationError()
+        }
+
+        await XCTAssertThrowsErrorAsyncV4(
+            try await AVFoundationTrackMigrationExecutorV4().execute(.init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: context.source,
+                identifiedPlan: context.plan,
+                blueprint: context.blueprint,
+                nonVideoTranscodeHooks: [hook]
+            ))
+        ) { error in
+            guard case .processorFailed(let trackID, _) =
+                    error as? AVFoundationTrackMigrationExecutorV4Error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+            XCTAssertEqual(trackID, context.audio.identity.stableID)
+        }
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: destinationURL.path
+        ))
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
@@ -2204,9 +2368,176 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertLessThan(diagnostic.fixedStateByteCount, 4_096)
         XCTAssertEqual(accumulator.digest, accumulator.digest)
     }
+
+    func testDynamicHDRMultisetIsOrderIndependentAndBindsDuplicates()
+        throws {
+        let a = Data("frame-a".utf8)
+        let b = Data("frame-b".utf8)
+        let c = Data("frame-c".utf8)
+        var source = DynamicHDRMetadataStreamAccumulatorV4()
+        var permuted = DynamicHDRMetadataStreamAccumulatorV4()
+        var changedDuplicate = DynamicHDRMetadataStreamAccumulatorV4()
+        var droppedDuplicate = DynamicHDRMetadataStreamAccumulatorV4()
+
+        for record in [a, a, b, c] {
+            try source.appendCanonicalRecordForQualification(record)
+        }
+        for record in [c, a, b, a] {
+            try permuted.appendCanonicalRecordForQualification(record)
+        }
+        for record in [a, b, b, c] {
+            try changedDuplicate.appendCanonicalRecordForQualification(record)
+        }
+        for record in [a, b, c] {
+            try droppedDuplicate.appendCanonicalRecordForQualification(record)
+        }
+
+        XCTAssertEqual(source, permuted)
+        XCTAssertEqual(source.digest, permuted.digest)
+        XCTAssertNotEqual(source, changedDuplicate)
+        XCTAssertNotEqual(source.digest, changedDuplicate.digest)
+        XCTAssertNotEqual(source, droppedDuplicate)
+        XCTAssertNotEqual(source.digest, droppedDuplicate.digest)
+    }
+
+    func testDynamicHDRMultisetRetainsFixedStateBeyondOneMillionRecords()
+        throws {
+        let record = Data("repeated-frame-metadata".utf8)
+        var direct = DynamicHDRMetadataStreamAccumulatorV4()
+        for _ in 0..<3 {
+            try direct.appendCanonicalRecordForQualification(record)
+        }
+        var repeated = DynamicHDRMetadataStreamAccumulatorV4()
+        try repeated.appendRepeatedCanonicalRecordForQualification(
+            record,
+            count: 3
+        )
+        XCTAssertEqual(direct, repeated)
+
+        var accumulator = DynamicHDRMetadataStreamAccumulatorV4()
+        let initial = accumulator.retentionDiagnosticForQualification
+        try accumulator.appendRepeatedCanonicalRecordForQualification(
+            record,
+            count: 1_000_001
+        )
+
+        let diagnostic = accumulator.retentionDiagnosticForQualification
+        XCTAssertEqual(diagnostic.processedRecordCount, 1_000_001)
+        XCTAssertEqual(diagnostic.retainedRecordByteCount, 0)
+        XCTAssertEqual(
+            diagnostic.fixedStateByteCount,
+            initial.fixedStateByteCount
+        )
+        XCTAssertGreaterThan(diagnostic.fixedStateByteCount, 0)
+        XCTAssertLessThan(diagnostic.fixedStateByteCount, 4_096)
+        XCTAssertFalse(accumulator.digest.isEmpty)
+    }
 }
 
 private extension AVFoundationTrackMigrationExecutorV4Tests {
+    struct AudioTranscodeContextV4 {
+        let source: MediaTrackGraphV4
+        let audio: MediaTrackNodeV4
+        let plan: MediaTrackGraphIdentifiedPlanV4
+        let blueprint: AVFoundationTrackMigrationBlueprintV4
+        let calibration: AVFoundationAACCalibrationV4
+    }
+
+    func audioTranscodeContext(
+        sourceURL: URL
+    ) async throws -> AudioTranscodeContextV4 {
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: false
+        )
+        let asset = AVURLAsset(url: sourceURL)
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: asset
+        )
+        let audio = try XCTUnwrap(source.tracks.first { $0.kind == .audio })
+        let sourceTracks = try await asset.loadTracks(withMediaType: .audio)
+        let sourceTrack = try XCTUnwrap(sourceTracks.first)
+        let calibration = try await AVFoundationAACFormatCalibratorV4()
+            .calibrate(
+                asset: asset,
+                track: sourceTrack,
+                trackID: audio.identity.stableID
+            )
+        let basePlan = try MediaTrackGraphPlannerV4.makePlan(
+            source: source,
+            request: .init(trackDirectives: [MediaTrackDirectiveV4(
+                trackID: audio.identity.stableID,
+                action: .transcode,
+                targetFormatDescriptors: [calibration.targetFormat],
+                dropConsent: nil
+            )])
+        )
+        let plan = try basePlan.applyingTranscodePrimingDurations([
+            audio.identity.stableID: calibration.encoderPrimingDuration
+        ])
+        return AudioTranscodeContextV4(
+            source: source,
+            audio: audio,
+            plan: plan,
+            blueprint: try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+                source: source,
+                plan: plan
+            ),
+            calibration: calibration
+        )
+    }
+
+    func firstEncodedVideoSample(
+        in url: URL
+    ) async throws -> CMSampleBuffer {
+        let asset = AVURLAsset(url: url)
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(tracks.first)
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(
+            track: track,
+            outputSettings: nil
+        )
+        guard reader.canAdd(output) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Cannot read dynamic HDR fixture."
+            )
+        }
+        reader.add(output)
+        guard reader.startReading() else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                reader.error?.localizedDescription
+                    ?? "Dynamic HDR reader did not start."
+            )
+        }
+        var firstSample: CMSampleBuffer?
+        while let sample = output.copyNextSampleBuffer() {
+            guard CMSampleBufferGetImageBuffer(sample) != nil
+                    || CMSampleBufferGetTotalSampleSize(sample) > 0 else {
+                continue
+            }
+            if firstSample == nil { firstSample = sample }
+        }
+        guard reader.status == .completed else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                reader.error?.localizedDescription
+                    ?? "Dynamic HDR reader did not finish."
+            )
+        }
+        return try XCTUnwrap(firstSample)
+    }
+
+    func frameBoundHDRMetadata(seed: UInt8) throws -> HDRDynamicMetadataV4 {
+        HDRDynamicMetadataV4(
+            hdr10Plus: try HDR10PlusMetadataV4(
+                ituTT35Payload: Data([0xB5, seed, seed &+ 1])
+            ),
+            postDecodeProcessing: try PostDecodeProcessingMetadataV4(
+                propertyList: ["seed": NSNumber(value: seed)] as NSDictionary
+            )
+        )
+    }
+
     func channelLayoutTag(in data: Data) -> AudioChannelLayoutTag {
         data.withUnsafeBytes {
             $0.loadUnaligned(as: AudioChannelLayoutTag.self)
@@ -4114,6 +4445,115 @@ private enum TrackMigrationFixtureFactoryV4 {
             }
         }
     }
+}
+
+private func copySampleBufferV4(
+    _ source: CMSampleBuffer
+) throws -> CMSampleBuffer {
+    var copy: CMSampleBuffer?
+    let status = CMSampleBufferCreateCopy(
+        allocator: kCFAllocatorDefault,
+        sampleBuffer: source,
+        sampleBufferOut: &copy
+    )
+    guard status == noErr, let copy else {
+        throw TrackMigrationFixtureErrorV4.coreMedia(status)
+    }
+    return copy
+}
+
+private func payloadMutatingCopyV4(
+    of source: CMSampleBuffer
+) throws -> CMSampleBuffer {
+    let sampleCount = CMSampleBufferGetNumSamples(source)
+    guard sampleCount > 0,
+          let format = CMSampleBufferGetFormatDescription(source),
+          let sourceData = CMSampleBufferGetDataBuffer(source) else {
+        throw TrackMigrationFixtureErrorV4.invalidFixture(
+            "Decoded audio sample has no mutable payload contract."
+        )
+    }
+    let totalSize = CMSampleBufferGetTotalSampleSize(source)
+    guard totalSize > 0 else {
+        throw TrackMigrationFixtureErrorV4.invalidFixture(
+            "Decoded audio sample payload is empty."
+        )
+    }
+    var payload = Data(count: totalSize)
+    var status = payload.withUnsafeMutableBytes { destination in
+        CMBlockBufferCopyDataBytes(
+            sourceData,
+            atOffset: 0,
+            dataLength: totalSize,
+            destination: destination.baseAddress!
+        )
+    }
+    guard status == kCMBlockBufferNoErr else {
+        throw TrackMigrationFixtureErrorV4.coreMedia(status)
+    }
+    payload[payload.startIndex] ^= 0xff
+
+    var blockBuffer: CMBlockBuffer?
+    status = CMBlockBufferCreateWithMemoryBlock(
+        allocator: kCFAllocatorDefault,
+        memoryBlock: nil,
+        blockLength: totalSize,
+        blockAllocator: kCFAllocatorDefault,
+        customBlockSource: nil,
+        offsetToData: 0,
+        dataLength: totalSize,
+        flags: 0,
+        blockBufferOut: &blockBuffer
+    )
+    guard status == kCMBlockBufferNoErr, let blockBuffer else {
+        throw TrackMigrationFixtureErrorV4.coreMedia(status)
+    }
+    status = payload.withUnsafeBytes { sourceBytes in
+        CMBlockBufferReplaceDataBytes(
+            with: sourceBytes.baseAddress!,
+            blockBuffer: blockBuffer,
+            offsetIntoDestination: 0,
+            dataLength: totalSize
+        )
+    }
+    guard status == kCMBlockBufferNoErr else {
+        throw TrackMigrationFixtureErrorV4.coreMedia(status)
+    }
+
+    var timings = try (0..<sampleCount).map { index in
+        var timing = CMSampleTimingInfo.invalid
+        let timingStatus = CMSampleBufferGetSampleTimingInfo(
+            source,
+            at: index,
+            timingInfoOut: &timing
+        )
+        guard timingStatus == noErr else {
+            throw TrackMigrationFixtureErrorV4.coreMedia(timingStatus)
+        }
+        return timing
+    }
+    var sampleSizes = (0..<sampleCount).map {
+        CMSampleBufferGetSampleSize(source, at: $0)
+    }
+    var result: CMSampleBuffer?
+    status = CMSampleBufferCreate(
+        allocator: kCFAllocatorDefault,
+        dataBuffer: blockBuffer,
+        dataReady: true,
+        makeDataReadyCallback: nil,
+        refcon: nil,
+        formatDescription: format,
+        sampleCount: sampleCount,
+        sampleTimingEntryCount: timings.count,
+        sampleTimingArray: &timings,
+        sampleSizeEntryCount: sampleSizes.count,
+        sampleSizeArray: &sampleSizes,
+        sampleBufferOut: &result
+    )
+    guard status == noErr, let result else {
+        throw TrackMigrationFixtureErrorV4.coreMedia(status)
+    }
+    return result
 }
 
 private func XCTAssertThrowsErrorAsyncV4<T>(

@@ -1494,10 +1494,19 @@ actor AVFoundationAACFormatCalibratorV4 {
                 targetFormat: target,
                 encoderPrimingDuration: priming
             )
-        } catch is CancellationError {
+        } catch let error as CancellationError {
             activeReader?.cancelReading()
             activeWriter?.cancelWriting()
-            throw CancellationError()
+            do {
+                try checkCancellation(cancellation)
+            } catch is CancellationError {
+                throw error
+            }
+            throw DeterministicV4WholeAssetPlannerError
+                .audioTranscodeCalibrationFailed(
+                    trackID,
+                    reason: "unexpected_cancellation_error"
+                )
         } catch let error as DeterministicV4WholeAssetPlannerError {
             throw error
         } catch {
