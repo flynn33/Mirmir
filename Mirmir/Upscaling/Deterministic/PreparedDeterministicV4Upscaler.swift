@@ -156,11 +156,14 @@ struct ASHPreparedTemporalCheckpointV4: Codable, Equatable, Hashable,
 }
 
 actor PreparedDeterministicV4Upscaler:
-    PreparedCheckpointableTemporalFrameUpscaler {
+    PreparedCheckpointableTemporalFrameUpscaler,
+    PreparedDeterministicV4PlanningBackend {
     nonisolated let sourcePixelBufferAttributes: PixelBufferAttributes
     nonisolated let destinationPixelBufferAttributes: PixelBufferAttributes
     nonisolated let actualBackendID: UpscaleBackendID
     nonisolated let deterministicConfiguration: DeterministicConfiguration
+    nonisolated let deterministicStorage: PixelStorageV4
+    nonisolated let deterministicExecutor: ASHExecutorV4
     nonisolated let maximumOutputFramesPerInput: Int
 
     private let configuration: DeterministicPreparedConfigurationV4
@@ -206,6 +209,10 @@ actor PreparedDeterministicV4Upscaler:
         self.destinationPixelBufferAttributes = configuration
             .destinationAttributes
         self.actualBackendID = configuration.backendID
+        self.deterministicStorage = configuration.storage
+        self.deterministicExecutor = configuration.executionBackend == .cpu
+            ? .cpuFixedPoint
+            : .metalFixedPoint
         self.maximumOutputFramesPerInput = configuration.scanMode
             == .progressive ? 1 : 2
         self.temporalHistory = try ASHTemporalHistoryV4(capacity: 3)
@@ -245,6 +252,17 @@ actor PreparedDeterministicV4Upscaler:
                 .canonicalKernelContractID,
             temporalPolicyID: ASHTemporalBlockMatchingConfigurationV4
                 .canonical.policyID
+        )
+    }
+
+    func makeASHExecutionPlan(
+        media: CanonicalMediaStateV4,
+        request: ASHExecutionRequestV4
+    ) throws -> ASHIdentifiedExecutionPlanV4 {
+        try ASHExecutionPlannerV4.makePlan(
+            media: media,
+            request: request,
+            runtime: runtime
         )
     }
 

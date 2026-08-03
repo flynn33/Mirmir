@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreGraphics
 import CoreMedia
 import Foundation
 
@@ -175,6 +176,8 @@ struct AVFoundationVideoTrackProcessingHookV4: @unchecked Sendable {
     let readerOutputSettings: [String: Any]
     let writerOutputSettings: [String: Any]
     let declaredOutputFormats: [MediaTrackFormatDescriptorV4]
+    let outputPreferredTransform: CGAffineTransform?
+    let outputNaturalSize: CGSize?
     let outputTimingContract: AVFoundationVideoOutputTimingContractV4
     let processTemporal: TemporalProcessor
     let finish: Finalizer
@@ -184,6 +187,8 @@ struct AVFoundationVideoTrackProcessingHookV4: @unchecked Sendable {
         readerOutputSettings: [String: Any],
         writerOutputSettings: [String: Any],
         declaredOutputFormats: [MediaTrackFormatDescriptorV4],
+        outputPreferredTransform: CGAffineTransform? = nil,
+        outputNaturalSize: CGSize? = nil,
         process: @escaping Processor,
         finish: @escaping Finalizer = {}
     ) {
@@ -191,6 +196,8 @@ struct AVFoundationVideoTrackProcessingHookV4: @unchecked Sendable {
         self.readerOutputSettings = readerOutputSettings
         self.writerOutputSettings = writerOutputSettings
         self.declaredOutputFormats = declaredOutputFormats
+        self.outputPreferredTransform = outputPreferredTransform
+        self.outputNaturalSize = outputNaturalSize
         self.outputTimingContract = .preserveSourceSample
         self.processTemporal = { sample in
             [try await process(sample)]
@@ -203,6 +210,8 @@ struct AVFoundationVideoTrackProcessingHookV4: @unchecked Sendable {
         readerOutputSettings: [String: Any],
         writerOutputSettings: [String: Any],
         declaredOutputFormats: [MediaTrackFormatDescriptorV4],
+        outputPreferredTransform: CGAffineTransform? = nil,
+        outputNaturalSize: CGSize? = nil,
         outputTimingContract: AVFoundationVideoOutputTimingContractV4,
         processTemporal: @escaping TemporalProcessor,
         finish: @escaping Finalizer = {}
@@ -211,6 +220,8 @@ struct AVFoundationVideoTrackProcessingHookV4: @unchecked Sendable {
         self.readerOutputSettings = readerOutputSettings
         self.writerOutputSettings = writerOutputSettings
         self.declaredOutputFormats = declaredOutputFormats
+        self.outputPreferredTransform = outputPreferredTransform
+        self.outputNaturalSize = outputNaturalSize
         self.outputTimingContract = outputTimingContract
         self.processTemporal = processTemporal
         self.finish = finish
@@ -790,7 +801,8 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             try await copyTrackProperties(
                 from: sourceTrack,
                 expected: planned.expectedOutput,
-                to: writerInput
+                to: writerInput,
+                processingHook: hook
             )
             guard reader.canAdd(readerOutput) else {
                 throw AVFoundationTrackMigrationExecutorV4Error
@@ -816,15 +828,25 @@ private extension AVFoundationTrackMigrationExecutorV4 {
     func copyTrackProperties(
         from track: AVAssetTrack,
         expected: MediaTrackNodeV4?,
-        to input: AVAssetWriterInput
+        to input: AVAssetWriterInput,
+        processingHook: AVFoundationVideoTrackProcessingHookV4?
     ) async throws {
         guard let expected else { return }
         input.metadata = try await track.load(.metadata)
         input.languageCode = try await track.load(.languageCode)
         input.extendedLanguageTag = try await track.load(.extendedLanguageTag)
         if track.mediaType == .video || track.mediaType == .muxed {
-            input.naturalSize = try await track.load(.naturalSize)
-            input.transform = try await track.load(.preferredTransform)
+            if let naturalSize = processingHook?.outputNaturalSize {
+                input.naturalSize = naturalSize
+            } else {
+                input.naturalSize = try await track.load(.naturalSize)
+            }
+            if let preferredTransform = processingHook?
+                .outputPreferredTransform {
+                input.transform = preferredTransform
+            } else {
+                input.transform = try await track.load(.preferredTransform)
+            }
         }
         if track.mediaType == .audio {
             input.preferredVolume = try await track.load(.preferredVolume)

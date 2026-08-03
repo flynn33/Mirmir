@@ -25,10 +25,15 @@ struct VideoProcessingSession: Sendable {
     typealias TimingHandler = @Sendable (VideoProcessingTimingEvent) -> Void
 
     private let outputValidator = OutputMediaValidator()
+    private let deterministicV4Session: DeterministicV4MediaProcessingSession
     private let timingHandler: TimingHandler?
 
-    init(timingHandler: TimingHandler? = nil) {
+    init(
+        timingHandler: TimingHandler? = nil,
+        deterministicV4Session: DeterministicV4MediaProcessingSession = .init()
+    ) {
         self.timingHandler = timingHandler
+        self.deterministicV4Session = deterministicV4Session
     }
 
     func process(
@@ -38,6 +43,16 @@ struct VideoProcessingSession: Sendable {
         cancellation: ProcessingCancellation,
         progress: @escaping ProgressHandler
     ) async throws -> UpscaleResult {
+        if let deterministicBackend = preparedBackend
+            as? any PreparedDeterministicV4PlanningBackend {
+            return try await deterministicV4Session.process(
+                request: request,
+                source: source,
+                preparedBackend: deterministicBackend,
+                cancellation: cancellation,
+                progress: progress
+            )
+        }
         let startedAt = Date()
         let atomicOutput = try AtomicOutputFile(
             finalURL: request.outputURL,

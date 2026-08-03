@@ -119,6 +119,19 @@ protocol PreparedCheckpointableTemporalFrameUpscaler:
     ) async throws
 }
 
+/// Planning surface implemented only by a prepared deterministic v4 engine.
+/// It exposes immutable execution facts needed by the whole-asset planner and
+/// keeps the verified runtime bundle actor-isolated inside the backend.
+protocol PreparedDeterministicV4PlanningBackend: PreparedFrameUpscaler {
+    var deterministicStorage: PixelStorageV4 { get }
+    var deterministicExecutor: ASHExecutorV4 { get }
+
+    func makeASHExecutionPlan(
+        media: CanonicalMediaStateV4,
+        request: ASHExecutionRequestV4
+    ) async throws -> ASHIdentifiedExecutionPlanV4
+}
+
 enum BackendPreparationError: LocalizedError, Equatable, Sendable {
     case unavailable(UpscaleBackendID, BackendUnavailableReason)
 

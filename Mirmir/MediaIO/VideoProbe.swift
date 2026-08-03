@@ -58,12 +58,9 @@ struct VideoProbe: VideoProbing {
             guard !enabledVideoTracks.isEmpty else {
                 throw MirmirError.noEnabledVideoTrack
             }
-            guard enabledVideoTracks.count == 1 else {
-                throw MirmirError.multipleEnabledVideoTracks(
-                    enabledVideoTracks.count
-                )
-            }
-
+            // Asset track order is the deterministic primary-track rule used
+            // by the v4 whole-asset planner. Alternate enabled video tracks
+            // remain in the media inventory and are migrated unchanged.
             let videoTrack = enabledVideoTracks[0]
             let (
                 naturalSize,

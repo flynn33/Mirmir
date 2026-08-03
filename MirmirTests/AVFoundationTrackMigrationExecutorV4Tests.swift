@@ -6,6 +6,99 @@ import XCTest
 @testable import Mirmir
 
 final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
+    func testDeterministicSessionProcessesPrimaryAndPreservesRichAsset()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("deterministic-rich-source.mov")
+        let destinationURL = directory.url("deterministic-rich-output.mov")
+        let runtimeURL = directory.url("deterministic-p06.bundle")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: false
+        )
+
+        let source = try await VideoProbe().probe(url: sourceURL)
+        XCTAssertEqual(source.videoTrackCount, 2)
+        XCTAssertEqual(source.audioTrackCount, 2)
+        let runtime = try ASHV4SemanticArtifactTestSupport.buildAndLoad(
+            at: runtimeURL
+        )
+        let descriptor = try XCTUnwrap(
+            BackendDescriptor.descriptor(for: .mirmirDeterministicCPU)
+        )
+        let backend = try XCTUnwrap(DeterministicCPUBackend(
+            descriptor: descriptor,
+            runtimeProvider: .fixed(runtime)
+        ))
+        let targetSize = CGSize(width: 96, height: 72)
+        let prepared = try await backend.prepare(
+            request: BackendPreparationRequest(
+                source: source,
+                targetSize: targetSize
+            ),
+            environment: .current()
+        )
+        let result = try await VideoProcessingSession().process(
+            request: UpscaleRequest(
+                inputURL: sourceURL,
+                outputURL: destinationURL,
+                backendID: .mirmirDeterministicCPU,
+                targetWidth: 96,
+                targetHeight: 72,
+                outputCodec: .h264,
+                preserveAudio: true,
+                overwriteExistingFile: false
+            ),
+            source: source,
+            preparedBackend: prepared,
+            cancellation: ProcessingCancellation(),
+            progress: { _ in }
+        )
+
+        XCTAssertEqual(result.encodedWidth, 96)
+        XCTAssertEqual(result.encodedHeight, 72)
+        XCTAssertEqual(result.audioResult, .preserved)
+        XCTAssertEqual(
+            result.processedFrameCount,
+            TrackMigrationFixtureFactoryV4.frameCount
+        )
+        XCTAssertGreaterThan(result.processingDurationSeconds, 0)
+
+        let outputAsset = AVURLAsset(
+            url: destinationURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let outputGraph = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: outputAsset
+        )
+        XCTAssertEqual(outputGraph.tracks.filter { $0.kind == .video }.count, 2)
+        XCTAssertEqual(outputGraph.tracks.filter { $0.kind == .audio }.count, 2)
+        XCTAssertEqual(
+            outputGraph.tracks.filter { $0.kind == .timedMetadata }.count,
+            1
+        )
+        XCTAssertEqual(outputGraph.tracks.filter { $0.kind == .chapter }.count, 1)
+        XCTAssertEqual(outputGraph.tracks.filter { $0.kind == .timecode }.count, 1)
+        XCTAssertEqual(
+            Set(outputGraph.associations.map(\.kind)),
+            Set([.chapterList, .timecode, .metadataReferent])
+        )
+        let outputVideos = try await outputAsset.loadTracks(withMediaType: .video)
+        XCTAssertEqual(outputVideos.count, 2)
+        let primaryOutputSize = try await outputVideos[0].load(.naturalSize)
+        let alternateOutputSize = try await outputVideos[1].load(.naturalSize)
+        XCTAssertEqual(primaryOutputSize, targetSize)
+        XCTAssertEqual(
+            alternateOutputSize,
+            CGSize(
+                width: TrackMigrationFixtureFactoryV4.width,
+                height: TrackMigrationFixtureFactoryV4.height
+            )
+        )
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
     func testExecutableMigrationPreservesEveryEncodedTrackAndVerifiesOutput()
         async throws {
         let directory = try TrackMigrationFixtureDirectoryV4()
@@ -1034,7 +1127,7 @@ private enum TrackMigrationFixtureFactoryV4 {
     static let width = 64
     static let height = 48
     private static let frameRate: CMTimeScale = 30
-    private static let frameCount = 8
+    static let frameCount = 8
 
     private struct VideoLane {
         let input: AVAssetWriterInput
@@ -1347,6 +1440,14 @@ private enum TrackMigrationFixtureFactoryV4 {
             AVVideoCodecKey: AVVideoCodecType.h264,
             AVVideoWidthKey: width,
             AVVideoHeightKey: height,
+            AVVideoColorPropertiesKey: [
+                AVVideoColorPrimariesKey:
+                    AVVideoColorPrimaries_ITU_R_709_2,
+                AVVideoTransferFunctionKey:
+                    AVVideoTransferFunction_ITU_R_709_2,
+                AVVideoYCbCrMatrixKey:
+                    AVVideoYCbCrMatrix_ITU_R_709_2
+            ],
             AVVideoCompressionPropertiesKey: [
                 AVVideoExpectedSourceFrameRateKey: frameRate,
                 AVVideoMaxKeyFrameIntervalKey: frameCount

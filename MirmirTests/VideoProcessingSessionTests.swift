@@ -67,7 +67,9 @@ final class VideoProcessingSessionTests: XCTestCase {
                 let timingRecorder = BaselineVideoTimingRecorder()
                 let coordinator = UpscaleCoordinator(
                     processingSession: VideoProcessingSession(
-                        timingHandler: timingRecorder.record
+                        timingHandler: { event in
+                            timingRecorder.record(event)
+                        }
                     )
                 )
                 let outputURL = fixtures.url(

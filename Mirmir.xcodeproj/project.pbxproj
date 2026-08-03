@@ -163,6 +163,8 @@
 		B4200000000000000000004A /* AVFoundationSegmentAssemblerV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4100000000000000000004A /* AVFoundationSegmentAssemblerV4.swift */; };
 		B4200000000000000000004B /* WorkflowSegmentCheckpointStoreV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4100000000000000000004B /* WorkflowSegmentCheckpointStoreV4.swift */; };
 		B4200000000000000000004C /* WorkflowSegmentCheckpointStoreV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4100000000000000000004C /* WorkflowSegmentCheckpointStoreV4Tests.swift */; };
+		B42000000000000000000060 /* DeterministicV4WholeAssetPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41000000000000000000060 /* DeterministicV4WholeAssetPlanner.swift */; };
+		B42000000000000000000061 /* DeterministicV4MediaProcessingSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41000000000000000000061 /* DeterministicV4MediaProcessingSession.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -336,6 +338,8 @@
 		B4100000000000000000004A /* AVFoundationSegmentAssemblerV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVFoundationSegmentAssemblerV4.swift; sourceTree = "<group>"; };
 		B4100000000000000000004B /* WorkflowSegmentCheckpointStoreV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowSegmentCheckpointStoreV4.swift; sourceTree = "<group>"; };
 		B4100000000000000000004C /* WorkflowSegmentCheckpointStoreV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowSegmentCheckpointStoreV4Tests.swift; sourceTree = "<group>"; };
+		B41000000000000000000060 /* DeterministicV4WholeAssetPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeterministicV4WholeAssetPlanner.swift; sourceTree = "<group>"; };
+		B41000000000000000000061 /* DeterministicV4MediaProcessingSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeterministicV4MediaProcessingSession.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -434,6 +438,8 @@
 				B41000000000000000000047 /* PreparedFrameUpscalerTrackHookV4.swift */,
 				B41000000000000000000048 /* AVFoundationVideoFormatCalibratorV4.swift */,
 				B4100000000000000000004A /* AVFoundationSegmentAssemblerV4.swift */,
+				B41000000000000000000060 /* DeterministicV4WholeAssetPlanner.swift */,
+				B41000000000000000000061 /* DeterministicV4MediaProcessingSession.swift */,
 			);
 			path = MediaIO;
 			sourceTree = "<group>";
@@ -853,6 +859,8 @@
 				B42000000000000000000048 /* AVFoundationVideoFormatCalibratorV4.swift in Sources */,
 				B4200000000000000000004A /* AVFoundationSegmentAssemblerV4.swift in Sources */,
 				B4200000000000000000004B /* WorkflowSegmentCheckpointStoreV4.swift in Sources */,
+				B42000000000000000000060 /* DeterministicV4WholeAssetPlanner.swift in Sources */,
+				B42000000000000000000061 /* DeterministicV4MediaProcessingSession.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

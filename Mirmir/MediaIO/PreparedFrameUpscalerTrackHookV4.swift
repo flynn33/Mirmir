@@ -1,3 +1,4 @@
+import CoreGraphics
 import CoreMedia
 import CoreVideo
 import Foundation
@@ -234,7 +235,9 @@ enum PreparedFrameUpscalerTrackHookV4 {
         preparedBackend: any PreparedFrameUpscaler,
         writerOutputSettings: [String: Any],
         declaredOutputFormats: [MediaTrackFormatDescriptorV4],
-        nominalSourceFrameDuration: ExactRationalV4
+        nominalSourceFrameDuration: ExactRationalV4,
+        outputPreferredTransform: CGAffineTransform? = nil,
+        outputNaturalSize: CGSize? = nil
     ) throws -> AVFoundationVideoTrackProcessingHookV4 {
         let outputCount = (preparedBackend
             as? any PreparedTemporalFrameUpscaler)?
@@ -249,6 +252,8 @@ enum PreparedFrameUpscalerTrackHookV4 {
                 preparedBackend.sourcePixelBufferAttributes.values,
             writerOutputSettings: writerOutputSettings,
             declaredOutputFormats: declaredOutputFormats,
+            outputPreferredTransform: outputPreferredTransform,
+            outputNaturalSize: outputNaturalSize,
             outputTimingContract: .uniformlySubdivideSourceInterval(
                 outputCount: outputCount,
                 invalidSourceDurationFallback: nominalSourceFrameDuration
