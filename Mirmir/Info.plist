@@ -24,6 +24,24 @@
     <string>public.app-category.video</string>
     <key>LSMinimumSystemVersion</key>
     <string>15.4</string>
+    <key>MirmirV4BuildConfiguration</key>
+    <string>$(MIRMIR_V4_BUILD_CONFIGURATION)</string>
+    <key>MirmirV4BuildProvenanceSchema</key>
+    <string>$(MIRMIR_V4_BUILD_PROVENANCE_SCHEMA)</string>
+    <key>MirmirV4ReleaseConfigurationSHA256</key>
+    <string>$(MIRMIR_V4_RELEASE_CONFIGURATION_SHA256)</string>
+    <key>MirmirV4RuntimeArtifactSetSHA256</key>
+    <string>$(MIRMIR_V4_RUNTIME_ARTIFACT_SET_SHA256)</string>
+    <key>MirmirV4RuntimeManifestFileSHA256</key>
+    <string>$(MIRMIR_V4_RUNTIME_MANIFEST_FILE_SHA256)</string>
+    <key>MirmirV4RuntimeManifestSHA256</key>
+    <string>$(MIRMIR_V4_RUNTIME_MANIFEST_SHA256)</string>
+    <key>MirmirV4RuntimeSourceRevision</key>
+    <string>$(MIRMIR_V4_RUNTIME_SOURCE_REVISION)</string>
+    <key>MirmirV4SourceCommit</key>
+    <string>$(MIRMIR_V4_SOURCE_COMMIT)</string>
+    <key>MirmirV4SourceTreeIdentitySHA256</key>
+    <string>$(MIRMIR_V4_SOURCE_TREE_IDENTITY_SHA256)</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSPrincipalClass</key>
