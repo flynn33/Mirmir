@@ -222,6 +222,152 @@ final class ASHTemporalReconstructionV4Tests: XCTestCase {
         XCTAssertEqual(result.historyWeightQ16, 0)
     }
 
+    func testBlockwiseReconstructionKeepsOccludedBlocksSpatial() throws {
+        let spatial = try ASHTemporalPlaneV4(
+            width: 4,
+            height: 2,
+            minimumCode: 64,
+            maximumCode: 940,
+            samples: Array(repeating: 700, count: 8)
+        )
+        let history = try spatial.replacing(
+            samples: Array(repeating: 300, count: 8)
+        )
+        let motion = try makeTwoBlockMotion(
+            aligned: history,
+            firstConfidenceQ16: ASHNormalizedQ16V4.scale,
+            secondConfidenceQ16: ASHNormalizedQ16V4.scale,
+            secondOccluded: true
+        )
+        let state = try ASHState(
+            payloadBits: Array(repeating: 0, count: ASHState.payloadBitCount)
+        )
+        let result = try ASHTemporalReconstructorV4.reconstruct(
+            spatial: spatial,
+            motionAnalysis: motion,
+            sourceState: state,
+            resetReason: nil,
+            program: ASHDepthFourBranchCompilerV4.compileCanonical()
+        )
+
+        XCTAssertTrue(result.output.samples[0..<2].allSatisfy { $0 < 700 })
+        XCTAssertTrue(result.output.samples[4..<6].allSatisfy { $0 < 700 })
+        XCTAssertEqual(Array(result.output.samples[2..<4]), [700, 700])
+        XCTAssertEqual(Array(result.output.samples[6..<8]), [700, 700])
+        XCTAssertEqual(
+            result.historyWeightQ16,
+            ASHTemporalReconstructorV4.maximumHistoryWeightQ16 / 2
+        )
+    }
+
+    func testBlockwiseReconstructionUsesEachVectorsConfidence() throws {
+        let spatial = try ASHTemporalPlaneV4(
+            width: 4,
+            height: 2,
+            minimumCode: 64,
+            maximumCode: 940,
+            samples: Array(repeating: 700, count: 8)
+        )
+        let history = try spatial.replacing(
+            samples: Array(repeating: 300, count: 8)
+        )
+        let motion = try makeTwoBlockMotion(
+            aligned: history,
+            firstConfidenceQ16: ASHNormalizedQ16V4.scale,
+            secondConfidenceQ16: 4_096,
+            secondOccluded: false
+        )
+        let state = try ASHState(
+            payloadBits: Array(repeating: 0, count: ASHState.payloadBitCount)
+        )
+        let result = try ASHTemporalReconstructorV4.reconstruct(
+            spatial: spatial,
+            motionAnalysis: motion,
+            sourceState: state,
+            resetReason: nil,
+            program: ASHDepthFourBranchCompilerV4.compileCanonical()
+        )
+
+        XCTAssertLessThan(result.output.samples[0], result.output.samples[2])
+        XCTAssertLessThan(result.output.samples[2], 700)
+        XCTAssertLessThanOrEqual(
+            result.historyWeightQ16,
+            ASHTemporalReconstructorV4.maximumHistoryWeightQ16
+        )
+    }
+
+    func testASHStateMateriallyConditionsBlockwiseTemporalPixels() throws {
+        let spatial = try ASHTemporalPlaneV4(
+            width: 4,
+            height: 2,
+            minimumCode: 64,
+            maximumCode: 940,
+            samples: Array(repeating: 700, count: 8)
+        )
+        let history = try spatial.replacing(
+            samples: Array(repeating: 300, count: 8)
+        )
+        let motion = try makeTwoBlockMotion(
+            aligned: history,
+            firstConfidenceQ16: 8_192,
+            secondConfidenceQ16: 8_192,
+            secondOccluded: false
+        )
+        let program = try ASHDepthFourBranchCompilerV4.compileCanonical()
+        let states = try (0..<256).map { rawPayload -> ASHState in
+            try ASHState(payloadBits: (0..<8).map {
+                (rawPayload >> (7 - $0)) & 1
+            })
+        }
+        let results = try states.map { state in
+            try ASHTemporalReconstructorV4.reconstruct(
+                spatial: spatial,
+                motionAnalysis: motion,
+                sourceState: state,
+                resetReason: nil,
+                program: program
+            )
+        }
+
+        XCTAssertGreaterThan(Set(results.map(\.historyWeightQ16)).count, 1)
+        XCTAssertGreaterThan(
+            Set(results.map { $0.output.samples[0] }).count,
+            1
+        )
+        XCTAssertTrue(results.allSatisfy { $0.output.samples[0] < 700 })
+    }
+
+    func testBlockwiseResetRemainsExactSpatialIdentity() throws {
+        let spatial = try ASHTemporalPlaneV4(
+            width: 4,
+            height: 2,
+            minimumCode: 64,
+            maximumCode: 940,
+            samples: Array(repeating: 700, count: 8)
+        )
+        let motion = try makeTwoBlockMotion(
+            aligned: spatial,
+            firstConfidenceQ16: ASHNormalizedQ16V4.scale,
+            secondConfidenceQ16: ASHNormalizedQ16V4.scale,
+            secondOccluded: false
+        )
+        let result = try ASHTemporalReconstructorV4.reconstruct(
+            spatial: spatial,
+            motionAnalysis: motion,
+            sourceState: try ASHState(
+                payloadBits: Array(
+                    repeating: 0,
+                    count: ASHState.payloadBitCount
+                )
+            ),
+            resetReason: .discontinuity,
+            program: ASHDepthFourBranchCompilerV4.compileCanonical()
+        )
+
+        XCTAssertEqual(result.output, spatial)
+        XCTAssertEqual(result.historyWeightQ16, 0)
+    }
+
     func testASHStateMateriallyConditionsTemporalPixels() throws {
         let spatial = try ASHTemporalPlaneV4(
             width: 4,
@@ -315,5 +461,55 @@ final class ASHTemporalReconstructionV4Tests: XCTestCase {
         let vertical = y * 61
         let crossTerm = x * y * 3
         return UInt16(64 + ((horizontal + vertical + crossTerm) % 800))
+    }
+
+    private func makeTwoBlockMotion(
+        aligned: ASHTemporalPlaneV4,
+        firstConfidenceQ16: UInt32,
+        secondConfidenceQ16: UInt32,
+        secondOccluded: Bool
+    ) throws -> ASHTemporalMotionAnalysisV4 {
+        let vectors = [
+            ASHTemporalMotionVectorV4(
+                blockIndex: 0,
+                originX: 0,
+                originY: 0,
+                width: 2,
+                height: 2,
+                dx: 0,
+                dy: 0,
+                absoluteDifference: 0,
+                normalizedCostQ16: 0,
+                confidenceQ16: firstConfidenceQ16,
+                occluded: false
+            ),
+            ASHTemporalMotionVectorV4(
+                blockIndex: 1,
+                originX: 2,
+                originY: 0,
+                width: 2,
+                height: 2,
+                dx: 0,
+                dy: 0,
+                absoluteDifference: 0,
+                normalizedCostQ16: 0,
+                confidenceQ16: secondConfidenceQ16,
+                occluded: secondOccluded
+            )
+        ]
+        let analysis = ASHTemporalMotionAnalysisV4(
+            policyID: "ash.test.two-block-motion",
+            currentFrameID: "current",
+            previousFrameID: "previous",
+            sceneDifferenceQ16: 0,
+            sceneCut: false,
+            temporalEvidenceQ16: 0,
+            blockColumns: 2,
+            blockRows: 1,
+            vectors: vectors,
+            alignedPrevious: aligned
+        )
+        try analysis.validate()
+        return analysis
     }
 }

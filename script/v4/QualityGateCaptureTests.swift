@@ -192,10 +192,9 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
 
             var resetReason: ASHTemporalResetReasonV4?
                 = history.frames.isEmpty ? .streamStart : nil
-            var aligned: ASHTemporalPlaneV4?
-            var confidence: UInt32 = 0
+            var motionAnalysis: ASHTemporalMotionAnalysisV4?
             if case .motionHistoryOff = mode {
-                aligned = nil
+                motionAnalysis = nil
             } else if let previous = history.frames.last {
                 let motion = try ASHTemporalMotionAnalyzerV4.analyze(
                     current: frame,
@@ -204,15 +203,7 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
                 if motion.sceneCut {
                     resetReason = .sceneCut
                 } else {
-                    aligned = motion.alignedPrevious
-                    let admitted = motion.vectors.filter { !$0.occluded }
-                    if !admitted.isEmpty {
-                        confidence = UInt32(
-                            admitted.reduce(UInt64(0)) {
-                                $0 + UInt64($1.confidenceQ16)
-                            } / UInt64(admitted.count)
-                        )
-                    }
+                    motionAnalysis = motion
                 }
             }
 
@@ -220,16 +211,14 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
             if case .uniformPriors = mode {
                 reconstructed = try uniformReconstruction(
                     spatial: spatial,
-                    aligned: aligned,
-                    confidenceQ16: confidence,
+                    motionAnalysis: motionAnalysis,
                     resetReason: resetReason
                 )
             } else {
                 reconstructed = try ASHTemporalReconstructorV4.reconstruct(
                     spatial: spatial,
-                    alignedHistory: aligned,
+                    motionAnalysis: motionAnalysis,
                     sourceState: state,
-                    motionConfidenceQ16: confidence,
                     resetReason: resetReason,
                     program: program
                 ).output
@@ -284,17 +273,22 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
 
         private func uniformReconstruction(
             spatial: ASHTemporalPlaneV4,
-            aligned: ASHTemporalPlaneV4?,
-            confidenceQ16: UInt32,
+            motionAnalysis: ASHTemporalMotionAnalysisV4?,
             resetReason: ASHTemporalResetReasonV4?
         ) throws -> ASHTemporalPlaneV4 {
             guard resetReason == nil,
-                  let aligned,
-                  confidenceQ16 > 0 else {
+                  let motionAnalysis else {
+                return spatial
+            }
+            try motionAnalysis.validate()
+            guard !motionAnalysis.sceneCut,
+                  let aligned = motionAnalysis.alignedPrevious else {
                 return spatial
             }
             guard spatial.width == aligned.width,
-                  spatial.height == aligned.height else {
+                  spatial.height == aligned.height,
+                  spatial.minimumCode == aligned.minimumCode,
+                  spatial.maximumCode == aligned.maximumCode else {
                 throw ASHTemporalV4Error.planeGeometryMismatch
             }
             guard let basisIndex = program.operatorManifest.basisIDs
@@ -315,20 +309,37 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
                 numerator: numerator * UInt64(ASHNormalizedQ16V4.scale),
                 denominator: program.baseMassDenominator
             )
-            let historyWeight = try roundedShift(
-                UInt64(ASHTemporalReconstructorV4.maximumHistoryWeightQ16)
-                    * stateWeightQ16 * UInt64(confidenceQ16),
-                bits: 32
-            )
-            guard historyWeight > 0 else { return spatial }
             let scale = UInt64(ASHNormalizedQ16V4.scale)
-            var samples: [UInt16] = []
-            samples.reserveCapacity(spatial.samples.count)
-            for index in spatial.samples.indices {
-                let value = UInt64(spatial.samples[index])
-                    * (scale - historyWeight)
-                    + UInt64(aligned.samples[index]) * historyWeight
-                samples.append(UInt16(try roundedShift(value, bits: 16)))
+            let stateBoostQ16 = try roundedShift(
+                stateWeightQ16,
+                bits: 1
+            )
+            let confidenceGainQ16 = scale + stateBoostQ16
+            var samples = spatial.samples
+            for vector in motionAnalysis.vectors where !vector.occluded {
+                let historyWeight = min(
+                    UInt64(
+                        ASHTemporalReconstructorV4.maximumHistoryWeightQ16
+                    ),
+                    try roundedShift(
+                        UInt64(vector.confidenceQ16) * confidenceGainQ16,
+                        bits: 16
+                    )
+                )
+                guard historyWeight > 0 else { continue }
+                let currentWeight = scale - historyWeight
+                for y in vector.originY..<(vector.originY + vector.height) {
+                    let row = y * spatial.width
+                    for x in vector.originX..<(vector.originX + vector.width) {
+                        let index = row + x
+                        let value = UInt64(spatial.samples[index])
+                            * currentWeight
+                            + UInt64(aligned.samples[index]) * historyWeight
+                        samples[index] = UInt16(
+                            try roundedShift(value, bits: 16)
+                        )
+                    }
+                }
             }
             return try spatial.replacing(samples: samples)
         }

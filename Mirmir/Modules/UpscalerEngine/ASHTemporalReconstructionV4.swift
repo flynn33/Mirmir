@@ -774,7 +774,142 @@ struct ASHTemporalReconstructionResultV4: Equatable, Sendable {
 /// fourth P06 operator control, so changing declared ASH state can change the
 /// emitted pixels. Occlusion and reset paths return spatial pixels exactly.
 enum ASHTemporalReconstructorV4 {
-    static let maximumHistoryWeightQ16: UInt32 = 16_384
+    /// A temporal sample can never outweigh the current spatial result. This
+    /// bound is also what makes a wrong-but-admitted vector decay in one frame
+    /// instead of becoming self-reinforcing history.
+    static let maximumHistoryWeightQ16: UInt32 = 32_768
+
+    /// Applies motion reliability at block granularity. Occluded blocks remain
+    /// byte-for-byte spatial, while every admitted block uses its own confidence
+    /// instead of inheriting the average confidence of unrelated blocks.
+    ///
+    /// Motion confidence supplies unit temporal support. The conditioned ASH
+    /// regularization expectation contributes a bounded half-strength boost.
+    /// This avoids the former triple-product attenuation (maximum * state *
+    /// averaged confidence), which reduced useful support to only a few percent
+    /// and still leaked that support into occluded blocks.
+    static func reconstruct(
+        spatial: ASHTemporalPlaneV4,
+        motionAnalysis: ASHTemporalMotionAnalysisV4?,
+        sourceState: ASHState,
+        resetReason: ASHTemporalResetReasonV4?,
+        program: ASHDepthFourBranchProgramV4
+    ) throws -> ASHTemporalReconstructionResultV4 {
+        guard sourceState.hasValidIntegrity else {
+            throw ASHTemporalV4Error.invalidASHState(sourceState.rawValue)
+        }
+        let conditioned = try program.conditionedWeights(for: sourceState)
+        let stateWeightQ16 = try regularizationExpectationQ16(
+            conditioned: conditioned,
+            program: program
+        )
+        guard resetReason == nil, let motionAnalysis else {
+            return spatialResult(
+                spatial: spatial,
+                sourceState: sourceState,
+                targetMessageRawValue: conditioned.targetMessageRawValue
+            )
+        }
+        try motionAnalysis.validate()
+        guard !motionAnalysis.sceneCut,
+              let history = motionAnalysis.alignedPrevious else {
+            return spatialResult(
+                spatial: spatial,
+                sourceState: sourceState,
+                targetMessageRawValue: conditioned.targetMessageRawValue
+            )
+        }
+        guard spatial.width == history.width,
+              spatial.height == history.height,
+              spatial.minimumCode == history.minimumCode,
+              spatial.maximumCode == history.maximumCode else {
+            throw ASHTemporalV4Error.planeGeometryMismatch
+        }
+        try validateBlockLayout(
+            motionAnalysis.vectors,
+            columns: motionAnalysis.blockColumns,
+            rows: motionAnalysis.blockRows,
+            width: spatial.width,
+            height: spatial.height
+        )
+
+        let scale = UInt64(ASHNormalizedQ16V4.scale)
+        let stateBoostQ16 = try roundedShift(
+            UInt64(stateWeightQ16),
+            fractionalBits: 1
+        )
+        let confidenceGainQ16 = scale + stateBoostQ16
+        var output = spatial.samples
+        var weightedHistorySum: UInt64 = 0
+
+        for vector in motionAnalysis.vectors where !vector.occluded {
+            let unboundedWeight = try roundedShift(
+                UInt64(vector.confidenceQ16) * confidenceGainQ16,
+                fractionalBits: 16
+            )
+            let historyWeight = min(
+                UInt64(Self.maximumHistoryWeightQ16),
+                unboundedWeight
+            )
+            guard historyWeight > 0 else { continue }
+            let currentWeight = scale - historyWeight
+            for y in vector.originY..<(vector.originY + vector.height) {
+                let row = y * spatial.width
+                for x in vector.originX..<(vector.originX + vector.width) {
+                    let index = row + x
+                    let currentTerm = UInt64(spatial.samples[index])
+                        * currentWeight
+                    let historyTerm = UInt64(history.samples[index])
+                        * historyWeight
+                    let sum = currentTerm.addingReportingOverflow(historyTerm)
+                    guard !sum.overflow else {
+                        throw ASHTemporalV4Error.arithmeticOverflow
+                    }
+                    let rounded = try roundedShift(
+                        sum.partialValue,
+                        fractionalBits: 16
+                    )
+                    guard let sample = UInt16(exactly: rounded),
+                          sample >= spatial.minimumCode,
+                          sample <= spatial.maximumCode else {
+                        throw ASHTemporalV4Error.arithmeticOverflow
+                    }
+                    output[index] = sample
+                }
+            }
+            let sampleCount = UInt64(vector.width * vector.height)
+            let weighted = historyWeight.multipliedReportingOverflow(
+                by: sampleCount
+            )
+            let accumulated = weightedHistorySum.addingReportingOverflow(
+                weighted.partialValue
+            )
+            guard !weighted.overflow, !accumulated.overflow else {
+                throw ASHTemporalV4Error.arithmeticOverflow
+            }
+            weightedHistorySum = accumulated.partialValue
+        }
+        guard weightedHistorySum > 0 else {
+            return spatialResult(
+                spatial: spatial,
+                sourceState: sourceState,
+                targetMessageRawValue: conditioned.targetMessageRawValue
+            )
+        }
+        let averageWeight = try divideRoundedTiesToEven(
+            weightedHistorySum,
+            by: UInt64(spatial.samples.count)
+        )
+        guard averageWeight <= UInt64(Self.maximumHistoryWeightQ16) else {
+            throw ASHTemporalV4Error.arithmeticOverflow
+        }
+        return ASHTemporalReconstructionResultV4(
+            output: try spatial.replacing(samples: output),
+            stateRawValue: sourceState.rawValue,
+            targetMessageRawValue: conditioned.targetMessageRawValue,
+            historyWeightQ16: UInt32(averageWeight)
+        )
+    }
 
     static func reconstruct(
         spatial: ASHTemporalPlaneV4,
@@ -791,19 +926,9 @@ enum ASHTemporalReconstructorV4 {
             throw ASHTemporalV4Error.invalidConfiguration
         }
         let conditioned = try program.conditionedWeights(for: sourceState)
-        guard let historyBasisIndex = program.operatorManifest.basisIDs
-            .firstIndex(of: "regularization") else {
-            throw ASHTemporalV4Error.invalidConfiguration
-        }
-        let stateNumerator = conditioned.weightsByMessage.reduce(UInt64(0)) {
-            partial, weight in
-            let coefficient = weight.operatorCoefficients[historyBasisIndex]
-            guard coefficient > 0 else { return partial }
-            return partial + weight.numerator * UInt64(coefficient)
-        }
-        let stateWeightQ16 = try normalizedQ16(
-            numerator: stateNumerator,
-            denominator: conditioned.denominator
+        let stateWeightQ16 = try regularizationExpectationQ16(
+            conditioned: conditioned,
+            program: program
         )
         let historyWeightQ16: UInt32
         if resetReason != nil || alignedHistory == nil {
@@ -856,6 +981,90 @@ enum ASHTemporalReconstructorV4 {
             targetMessageRawValue: conditioned.targetMessageRawValue,
             historyWeightQ16: historyWeightQ16
         )
+    }
+
+    private static func regularizationExpectationQ16(
+        conditioned: ASHStateConditionedMessageWeightsV4,
+        program: ASHDepthFourBranchProgramV4
+    ) throws -> UInt32 {
+        guard let historyBasisIndex = program.operatorManifest.basisIDs
+            .firstIndex(of: "regularization") else {
+            throw ASHTemporalV4Error.invalidConfiguration
+        }
+        let stateNumerator = conditioned.weightsByMessage.reduce(UInt64(0)) {
+            partial, weight in
+            let coefficient = weight.operatorCoefficients[historyBasisIndex]
+            guard coefficient > 0 else { return partial }
+            return partial + weight.numerator * UInt64(coefficient)
+        }
+        return try normalizedQ16(
+            numerator: stateNumerator,
+            denominator: conditioned.denominator
+        )
+    }
+
+    private static func spatialResult(
+        spatial: ASHTemporalPlaneV4,
+        sourceState: ASHState,
+        targetMessageRawValue: UInt8
+    ) -> ASHTemporalReconstructionResultV4 {
+        ASHTemporalReconstructionResultV4(
+            output: spatial,
+            stateRawValue: sourceState.rawValue,
+            targetMessageRawValue: targetMessageRawValue,
+            historyWeightQ16: 0
+        )
+    }
+
+    private static func validateBlockLayout(
+        _ vectors: [ASHTemporalMotionVectorV4],
+        columns: Int,
+        rows: Int,
+        width: Int,
+        height: Int
+    ) throws {
+        guard let first = vectors.first,
+              first.originX == 0,
+              first.originY == 0,
+              first.width > 0,
+              first.height > 0,
+              ceilingDivision(width, first.width) == columns,
+              ceilingDivision(height, first.height) == rows else {
+            throw ASHTemporalV4Error.invalidMotionField
+        }
+        for (index, vector) in vectors.enumerated() {
+            let column = index % columns
+            let row = index / columns
+            let expectedX = column * first.width
+            let expectedY = row * first.height
+            guard vector.originX == expectedX,
+                  vector.originY == expectedY,
+                  vector.width == min(first.width, width - expectedX),
+                  vector.height == min(first.height, height - expectedY) else {
+                throw ASHTemporalV4Error.invalidMotionField
+            }
+        }
+    }
+
+    private static func ceilingDivision(_ value: Int, _ divisor: Int) -> Int {
+        value / divisor + (value % divisor == 0 ? 0 : 1)
+    }
+
+    private static func divideRoundedTiesToEven(
+        _ numerator: UInt64,
+        by denominator: UInt64
+    ) throws -> UInt64 {
+        guard denominator > 0 else {
+            throw ASHTemporalV4Error.arithmeticOverflow
+        }
+        var quotient = numerator / denominator
+        let remainder = numerator % denominator
+        let complement = denominator - remainder
+        if remainder > complement
+            || (remainder == complement && quotient & 1 == 1) {
+            quotient += 1
+        }
+        return quotient
     }
 
     private static func normalizedQ16(

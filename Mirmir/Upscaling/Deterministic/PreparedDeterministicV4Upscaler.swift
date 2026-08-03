@@ -612,8 +612,7 @@ actor PreparedDeterministicV4Upscaler:
         )
 
         var resetReason = resetTrigger.map(temporalResetReason)
-        var aligned: ASHTemporalPlaneV4?
-        var confidence: UInt32 = 0
+        var motionAnalysis: ASHTemporalMotionAnalysisV4?
         let dynamicMetadata = try AVFoundationHDRMetadataAdapterV4
             .probeDynamicMetadata(from: source)
         // Dynamic HDR metadata is frame-bound. Preserve it exactly by using
@@ -630,21 +629,13 @@ actor PreparedDeterministicV4Upscaler:
             if motion.sceneCut {
                 resetReason = .sceneCut
             } else {
-                aligned = motion.alignedPrevious
-                let admitted = motion.vectors.filter { !$0.occluded }
-                if !admitted.isEmpty {
-                    let total = admitted.reduce(UInt64(0)) {
-                        $0 + UInt64($1.confidenceQ16)
-                    }
-                    confidence = UInt32(total / UInt64(admitted.count))
-                }
+                motionAnalysis = motion
             }
         }
         let reconstructed = try ASHTemporalReconstructorV4.reconstruct(
             spatial: spatial,
-            alignedHistory: aligned,
+            motionAnalysis: motionAnalysis,
             sourceState: measurement.projection.state,
-            motionConfidenceQ16: confidence,
             resetReason: resetReason,
             program: branchProgram
         )
