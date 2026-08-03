@@ -370,6 +370,120 @@ final class FixedPointKernelV4Tests: XCTestCase {
         }
     }
 
+    func testInterleavedExecutionRejectsOverlapAndSpanOverflowBeforeAccess()
+        throws {
+        let plan = try SpatialScalePlanV4(
+            sourceWidth: 2,
+            sourceHeight: 2,
+            targetWidth: 2,
+            targetHeight: 2
+        )
+        let prepared = try FixedPointPreparedScaleV4(
+            scalePlan: plan,
+            kernelIR: FixedPointKernelIRV4(scalePlan: plan)
+        )
+        var workspace = FixedPointCPUWorkspaceV4()
+        var storage = Array(repeating: UInt8(17), count: 8)
+        try storage.withUnsafeMutableBytes { bytes in
+            let base = try XCTUnwrap(bytes.baseAddress)
+            XCTAssertThrowsError(try FixedPointCPUExecutorV4
+                .executeInterleavedComponent(
+                    sourceBaseAddress: UnsafeRawPointer(base),
+                    sourceRowBytes: 2,
+                    destinationBaseAddress: base,
+                    destinationRowBytes: 2,
+                    bytesPerComponent: 1,
+                    componentsPerElement: 1,
+                    componentIndex: 0,
+                    storedCodeShift: 0,
+                    preparedScale: prepared,
+                    minimumCode: 0,
+                    maximumCode: 255,
+                    workspace: &workspace
+                )) { error in
+                XCTAssertEqual(
+                    error as? FixedPointKernelV4Error,
+                    .overlappingSourceAndDestination
+                )
+            }
+
+            XCTAssertThrowsError(try FixedPointCPUExecutorV4
+                .executeInterleavedComponent(
+                    sourceBaseAddress: UnsafeRawPointer(base),
+                    sourceRowBytes: Int.max,
+                    destinationBaseAddress: base.advanced(by: 4),
+                    destinationRowBytes: 2,
+                    bytesPerComponent: 1,
+                    componentsPerElement: 1,
+                    componentIndex: 0,
+                    storedCodeShift: 0,
+                    preparedScale: prepared,
+                    minimumCode: 0,
+                    maximumCode: 255,
+                    workspace: &workspace
+                )) { error in
+                XCTAssertEqual(
+                    error as? FixedPointKernelV4Error,
+                    .executionArithmeticOverflow
+                )
+            }
+        }
+    }
+
+    func testOneByteInterleavedExecutionRejectsUnrepresentableStoredCodes()
+        throws {
+        let plan = try SpatialScalePlanV4(
+            sourceWidth: 2,
+            sourceHeight: 2,
+            targetWidth: 2,
+            targetHeight: 2
+        )
+        let prepared = try FixedPointPreparedScaleV4(
+            scalePlan: plan,
+            kernelIR: FixedPointKernelIRV4(scalePlan: plan)
+        )
+        var workspace = FixedPointCPUWorkspaceV4()
+        let source = Array(repeating: UInt8(17), count: 4)
+        var destination = Array(repeating: UInt8(0xA5), count: 4)
+
+        for (maximumCode, storedCodeShift) in [
+            (UInt16(256), 0),
+            (UInt16(255), 1),
+            (UInt16(0), 8)
+        ] {
+            let before = destination
+            try source.withUnsafeBytes { sourceBytes in
+                try destination.withUnsafeMutableBytes { destinationBytes in
+                    XCTAssertThrowsError(try FixedPointCPUExecutorV4
+                        .executeInterleavedComponent(
+                            sourceBaseAddress: try XCTUnwrap(
+                                sourceBytes.baseAddress
+                            ),
+                            sourceRowBytes: 2,
+                            destinationBaseAddress: try XCTUnwrap(
+                                destinationBytes.baseAddress
+                            ),
+                            destinationRowBytes: 2,
+                            bytesPerComponent: 1,
+                            componentsPerElement: 1,
+                            componentIndex: 0,
+                            storedCodeShift: storedCodeShift,
+                            preparedScale: prepared,
+                            minimumCode: 0,
+                            maximumCode: maximumCode,
+                            workspace: &workspace
+                        )) { error in
+                            XCTAssertEqual(
+                                error as? FixedPointKernelV4Error,
+                                .executionArithmeticOverflow
+                            )
+                        }
+                }
+            }
+            XCTAssertEqual(destination, before)
+        }
+    }
+
     private func scalarOracle(
         source: [UInt16],
         sourceRowStride: Int,

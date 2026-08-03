@@ -268,6 +268,175 @@ final class FixedPointMetalExecutorV4Tests: XCTestCase {
         XCTAssertEqual(second, secondCPU)
     }
 
+    func testDirectTransferRejectsOverlappingStorageBeforeDispatch() throws {
+        guard MTLCreateSystemDefaultDevice() != nil else {
+            throw XCTSkip("Metal is unavailable on this host.")
+        }
+        let metal = try FixedPointMetalExecutorV4()
+        let plan = try SpatialScalePlanV4(
+            sourceWidth: 2,
+            sourceHeight: 2,
+            targetWidth: 2,
+            targetHeight: 2
+        )
+        let execution = try metal.prepare(
+            sourceRowStride: 2,
+            scalePlan: plan,
+            kernelIR: FixedPointKernelIRV4(scalePlan: plan),
+            minimumCode: 0,
+            maximumCode: 255
+        )
+        let batch = try FixedPointMetalPreparedBatchV4(
+            executions: [execution]
+        )
+        var storage = Array(repeating: UInt8(17), count: 4)
+        try storage.withUnsafeMutableBytes { bytes in
+            let base = try XCTUnwrap(bytes.baseAddress)
+            let transfers = [FixedPointMetalComponentTransferV4(
+                sourceBaseAddress: UnsafeRawPointer(base),
+                sourceRowBytes: 2,
+                destinationBaseAddress: base,
+                destinationRowBytes: 2,
+                bytesPerComponent: 1,
+                componentsPerElement: 1,
+                componentIndex: 0,
+                storedCodeShift: 0
+            )]
+            XCTAssertThrowsError(try transfers.withUnsafeBufferPointer {
+                try batch.execute(transfers: $0)
+            }) { error in
+                XCTAssertEqual(
+                    error as? FixedPointKernelV4Error,
+                    .overlappingSourceAndDestination
+                )
+            }
+        }
+    }
+
+    func testBatchValidatesEveryTransferBeforeChangingRetainedInputs() throws {
+        guard MTLCreateSystemDefaultDevice() != nil else {
+            throw XCTSkip("Metal is unavailable on this host.")
+        }
+        let metal = try FixedPointMetalExecutorV4()
+        let plan = try SpatialScalePlanV4(
+            sourceWidth: 2,
+            sourceHeight: 2,
+            targetWidth: 2,
+            targetHeight: 2
+        )
+        let ir = try FixedPointKernelIRV4(scalePlan: plan)
+        let executions = try (0..<2).map { _ in
+            try metal.prepare(
+                sourceRowStride: 2,
+                scalePlan: plan,
+                kernelIR: ir,
+                minimumCode: 0,
+                maximumCode: 255
+            )
+        }
+        let batch = try FixedPointMetalPreparedBatchV4(
+            executions: executions
+        )
+
+        var seededSource0 = [UInt8](repeating: 11, count: 4)
+        var seededSource1 = [UInt8](repeating: 22, count: 4)
+        var seededDestination0 = [UInt8](repeating: 0, count: 4)
+        var seededDestination1 = [UInt8](repeating: 0, count: 4)
+        try withTransfers(
+            source0: &seededSource0,
+            source1: &seededSource1,
+            destination0: &seededDestination0,
+            destination1: &seededDestination1,
+            secondSourceRowBytes: 2
+        ) { transfers in
+            try batch.execute(transfers: transfers)
+        }
+        let before = executions.map {
+            $0.retainedSourceBytesForQualification()
+        }
+
+        var attemptedSource0 = [UInt8](repeating: 99, count: 4)
+        var attemptedSource1 = [UInt8](repeating: 77, count: 4)
+        var attemptedDestination0 = [UInt8](repeating: 0xA5, count: 4)
+        var attemptedDestination1 = [UInt8](repeating: 0xA5, count: 4)
+        XCTAssertThrowsError(try withTransfers(
+            source0: &attemptedSource0,
+            source1: &attemptedSource1,
+            destination0: &attemptedDestination0,
+            destination1: &attemptedDestination1,
+            secondSourceRowBytes: 1
+        ) { transfers in
+            try batch.execute(transfers: transfers)
+        }) { error in
+            XCTAssertEqual(
+                error as? FixedPointMetalExecutorV4Error,
+                .invalidComponentTransfer
+            )
+        }
+        XCTAssertEqual(
+            executions.map { $0.retainedSourceBytesForQualification() },
+            before
+        )
+        XCTAssertEqual(
+            attemptedDestination0,
+            [UInt8](repeating: 0xA5, count: 4)
+        )
+        XCTAssertEqual(
+            attemptedDestination1,
+            [UInt8](repeating: 0xA5, count: 4)
+        )
+    }
+
+    private func withTransfers<T>(
+        source0: inout [UInt8],
+        source1: inout [UInt8],
+        destination0: inout [UInt8],
+        destination1: inout [UInt8],
+        secondSourceRowBytes: Int,
+        operation: (UnsafeBufferPointer<FixedPointMetalComponentTransferV4>)
+            throws -> T
+    ) throws -> T {
+        try source0.withUnsafeBytes { source0Bytes in
+            try source1.withUnsafeBytes { source1Bytes in
+                try destination0.withUnsafeMutableBytes { destination0Bytes in
+                    try destination1.withUnsafeMutableBytes { destination1Bytes in
+                        let transfers = [
+                            FixedPointMetalComponentTransferV4(
+                                sourceBaseAddress: try XCTUnwrap(
+                                    source0Bytes.baseAddress
+                                ),
+                                sourceRowBytes: 2,
+                                destinationBaseAddress: try XCTUnwrap(
+                                    destination0Bytes.baseAddress
+                                ),
+                                destinationRowBytes: 2,
+                                bytesPerComponent: 1,
+                                componentsPerElement: 1,
+                                componentIndex: 0,
+                                storedCodeShift: 0
+                            ),
+                            FixedPointMetalComponentTransferV4(
+                                sourceBaseAddress: try XCTUnwrap(
+                                    source1Bytes.baseAddress
+                                ),
+                                sourceRowBytes: secondSourceRowBytes,
+                                destinationBaseAddress: try XCTUnwrap(
+                                    destination1Bytes.baseAddress
+                                ),
+                                destinationRowBytes: 2,
+                                bytesPerComponent: 1,
+                                componentsPerElement: 1,
+                                componentIndex: 0,
+                                storedCodeShift: 0
+                            )
+                        ]
+                        return try transfers.withUnsafeBufferPointer(operation)
+                    }
+                }
+            }
+        }
+    }
+
     private static func execute(
         batch: FixedPointMetalPreparedBatchV4,
         sources: [[UInt16]],

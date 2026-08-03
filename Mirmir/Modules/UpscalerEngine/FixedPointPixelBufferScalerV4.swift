@@ -16,14 +16,47 @@ enum FixedPointExecutionBackendV4: String, Codable, Hashable, Sendable {
     case metal
 }
 
+struct FixedPointPixelBufferScalerHotPathDiagnosticsV4: Equatable, Sendable {
+    /// These counters describe prepared storage and the selected I/O topology.
+    /// They are not a process-wide malloc trace: command objects, attachment
+    /// dictionaries, and the small transfer descriptor set remain outside this
+    /// diagnostic contract.
+    let completedFrameCount: UInt64
+    let scalePreparationCount: Int
+    let coefficientCompilationCount: Int
+    let cpuWorkspaceAllocationCount: Int
+    let cpuReusableHorizontalSampleCount: Int
+    let cpuWorkspaceStorageIdentities: [UInt]
+    let metalPreparedExecutionCount: Int
+    let metalReusableBufferCount: Int
+    let metalReusableBufferIdentities: [ObjectIdentifier]
+    let metalPipelineIdentityCount: Int
+    let metalRetainedPlanarSampleCount: Int
+    let fullPlaneSwiftArrayStagingSampleCount: Int
+    let usesDirectPixelBufferIO: Bool
+}
+
 /// Prepared native NV12/P010 scaler that applies one canonical fixed-point IR
 /// to every visible component. Pixel-buffer layout, phase, coefficient, range,
 /// border, and attachment decisions are fixed before the first frame.
 final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
-    private struct PreparedPlane: Sendable {
+    private final class PreparedPlane: @unchecked Sendable {
         let layout: PixelPlaneLayoutV4
-        let plan: SpatialScalePlanV4
-        let kernelIR: FixedPointKernelIRV4
+        let preparedScale: FixedPointPreparedScaleV4
+        var cpuWorkspace: FixedPointCPUWorkspaceV4
+        let metalExecutions: [FixedPointMetalPreparedExecutionV4]
+
+        init(
+            layout: PixelPlaneLayoutV4,
+            preparedScale: FixedPointPreparedScaleV4,
+            cpuWorkspace: FixedPointCPUWorkspaceV4,
+            metalExecutions: [FixedPointMetalPreparedExecutionV4]
+        ) {
+            self.layout = layout
+            self.preparedScale = preparedScale
+            self.cpuWorkspace = cpuWorkspace
+            self.metalExecutions = metalExecutions
+        }
     }
 
     let backend: FixedPointExecutionBackendV4
@@ -35,7 +68,10 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
 
     private let layout: PixelLayoutV4
     private let planes: [PreparedPlane]
-    private let metalExecutor: FixedPointMetalExecutorV4?
+    private let metalBatch: FixedPointMetalPreparedBatchV4?
+    private let componentExecutionCount: Int
+    private let executionLock = NSLock()
+    private var completedFrameCount: UInt64 = 0
 
     init(
         backend: FixedPointExecutionBackendV4,
@@ -52,7 +88,26 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
         try layout.validateGeometry(width: sourceWidth, height: sourceHeight)
         try layout.validateGeometry(width: targetWidth, height: targetHeight)
 
+        let metalExecutor: FixedPointMetalExecutorV4?
+        if backend == .metal {
+            let device: MTLDevice
+            if let metalDevice {
+                device = metalDevice
+            } else if let systemDevice = MTLCreateSystemDefaultDevice() {
+                device = systemDevice
+            } else {
+                throw FixedPointMetalExecutorV4Error.metalUnavailable
+            }
+            metalExecutor = try FixedPointMetalExecutorV4(
+                device: device,
+                library: metalLibrary
+            )
+        } else {
+            metalExecutor = nil
+        }
+
         var prepared: [PreparedPlane] = []
+        var allMetalExecutions: [FixedPointMetalPreparedExecutionV4] = []
         prepared.reserveCapacity(layout.planes.count)
         for plane in layout.planes {
             let sourcePlaneWidth = try plane.width(forFrameWidth: sourceWidth)
@@ -66,11 +121,39 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
                 targetHeight: targetPlaneHeight,
                 borderRule: borderRule
             )
+            let kernelIR = try FixedPointKernelIRV4(scalePlan: plan)
+            let preparedScale = try FixedPointPreparedScaleV4(
+                scalePlan: plan,
+                kernelIR: kernelIR
+            )
+            var workspace = FixedPointCPUWorkspaceV4()
+            if backend == .cpu {
+                try workspace.prepare(targetWidth: plan.targetWidth)
+            }
+            var planeMetalExecutions: [FixedPointMetalPreparedExecutionV4] = []
+            if let metalExecutor {
+                planeMetalExecutions.reserveCapacity(
+                    plane.signalCodeBounds.count
+                )
+                for bounds in plane.signalCodeBounds {
+                    planeMetalExecutions.append(
+                        try metalExecutor.prepare(
+                            sourceRowStride: plan.sourceWidth,
+                            scalePlan: plan,
+                            kernelIR: kernelIR,
+                            minimumCode: bounds.minimum,
+                            maximumCode: bounds.maximum
+                        )
+                    )
+                }
+                allMetalExecutions.append(contentsOf: planeMetalExecutions)
+            }
             prepared.append(
                 PreparedPlane(
                     layout: plane,
-                    plan: plan,
-                    kernelIR: try FixedPointKernelIRV4(scalePlan: plan)
+                    preparedScale: preparedScale,
+                    cpuWorkspace: workspace,
+                    metalExecutions: planeMetalExecutions
                 )
             )
         }
@@ -83,21 +166,15 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
         self.targetHeight = targetHeight
         self.layout = layout
         self.planes = prepared
-        if backend == .metal {
-            let device: MTLDevice
-            if let metalDevice {
-                device = metalDevice
-            } else if let systemDevice = MTLCreateSystemDefaultDevice() {
-                device = systemDevice
-            } else {
-                throw FixedPointMetalExecutorV4Error.metalUnavailable
-            }
-            self.metalExecutor = try FixedPointMetalExecutorV4(
-                device: device,
-                library: metalLibrary
-            )
+        self.componentExecutionCount = layout.planes.reduce(0) {
+            $0 + $1.componentsPerElement
+        }
+        if allMetalExecutions.isEmpty {
+            self.metalBatch = nil
         } else {
-            self.metalExecutor = nil
+            self.metalBatch = try FixedPointMetalPreparedBatchV4(
+                executions: allMetalExecutions
+            )
         }
     }
 
@@ -119,72 +196,70 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
             expectedHeight: targetHeight
         )
 
-        let dynamicMetadata = try AVFoundationHDRMetadataAdapterV4
-            .probeDynamicMetadata(from: source)
-
-        let sourceComponents = try extractComponents(from: source)
-        var outputComponents: [[[UInt16]]] = []
-        outputComponents.reserveCapacity(planes.count)
-        for planeIndex in planes.indices {
-            let prepared = planes[planeIndex]
-            let bounds = prepared.layout.signalCodeBounds
-            guard bounds.count == sourceComponents[planeIndex].count else {
-                throw FixedPointPixelBufferScalerV4Error.invalidComponentCount(
-                    plane: planeIndex,
-                    count: sourceComponents[planeIndex].count
-                )
-            }
-            var components: [[UInt16]] = []
-            components.reserveCapacity(bounds.count)
-            for componentIndex in bounds.indices {
-                try Task.checkCancellation()
-                components.append(
-                    try await execute(
-                        source: sourceComponents[planeIndex][componentIndex],
-                        plan: prepared.plan,
-                        kernelIR: prepared.kernelIR,
-                        bounds: bounds[componentIndex]
-                    )
-                )
-            }
-            outputComponents.append(components)
-        }
         try Task.checkCancellation()
-        try writeComponents(outputComponents, to: destination)
-        try migrateAttachments(
-            from: source,
-            to: destination,
-            dynamicMetadata: dynamicMetadata
-        )
+        try executionLock.withLock {
+            // Cancellation is observed again after waiting for reusable state.
+            // Once visible-plane mutation begins, the frame is completed as
+            // one boundary so cancellation can never expose a half-written
+            // deterministic frame; the next frame observes cancellation.
+            try Task.checkCancellation()
+            let dynamicMetadata = try AVFoundationHDRMetadataAdapterV4
+                .probeDynamicMetadata(from: source)
+            try withLockedPlanes(source: source, destination: destination) {
+                try preflightNonoverlappingPlaneStorage(
+                    source: source,
+                    destination: destination
+                )
+                try validateVisibleSourceCodes(source)
+                switch backend {
+                case .cpu:
+                    try executeCPU(source: source, destination: destination)
+                case .metal:
+                    try executeMetal(source: source, destination: destination)
+                }
+            }
+            try migrateAttachments(
+                from: source,
+                to: destination,
+                dynamicMetadata: dynamicMetadata
+            )
+            completedFrameCount &+= 1
+        }
     }
 
-    private func execute(
-        source: [UInt16],
-        plan: SpatialScalePlanV4,
-        kernelIR: FixedPointKernelIRV4,
-        bounds: PixelCodeBoundsV4
-    ) async throws -> [UInt16] {
-        switch backend {
-        case .cpu:
-            return try FixedPointCPUExecutorV4.execute(
-                source: source,
-                sourceRowStride: plan.sourceWidth,
-                scalePlan: plan,
-                kernelIR: kernelIR,
-                minimumCode: bounds.minimum,
-                maximumCode: bounds.maximum
-            )
-        case .metal:
-            guard let metalExecutor else {
-                throw FixedPointMetalExecutorV4Error.metalUnavailable
-            }
-            return try await metalExecutor.execute(
-                source: source,
-                sourceRowStride: plan.sourceWidth,
-                scalePlan: plan,
-                kernelIR: kernelIR,
-                minimumCode: bounds.minimum,
-                maximumCode: bounds.maximum
+    func hotPathDiagnostics()
+        -> FixedPointPixelBufferScalerHotPathDiagnosticsV4 {
+        executionLock.withLock {
+            let metalExecutions = planes.flatMap(\.metalExecutions)
+            return FixedPointPixelBufferScalerHotPathDiagnosticsV4(
+                completedFrameCount: completedFrameCount,
+                scalePreparationCount: planes.count,
+                coefficientCompilationCount: planes.count,
+                cpuWorkspaceAllocationCount: planes.reduce(0) {
+                    $0 + $1.cpuWorkspace.allocationCount
+                },
+                cpuReusableHorizontalSampleCount: planes.reduce(0) {
+                    $0 + $1.cpuWorkspace.reusableHorizontalSampleCount
+                },
+                cpuWorkspaceStorageIdentities: planes.compactMap {
+                    let identity = $0.cpuWorkspace.reusableStorageIdentity
+                    return identity == 0 ? nil : identity
+                },
+                metalPreparedExecutionCount: metalExecutions.count,
+                metalReusableBufferCount: metalExecutions.reduce(0) {
+                    $0 + $1.reusableBufferCount
+                },
+                metalReusableBufferIdentities: metalExecutions.flatMap(
+                    \.reusableBufferIdentities
+                ),
+                metalPipelineIdentityCount: Set(
+                    metalExecutions.map(\.pipelineIdentity)
+                ).count,
+                metalRetainedPlanarSampleCount: metalExecutions.reduce(0) {
+                    $0 + $1.sourceSampleCount + $1.outputSampleCount
+                },
+                fullPlaneSwiftArrayStagingSampleCount: 0,
+                usesDirectPixelBufferIO: true
             )
         }
     }
@@ -213,9 +288,11 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
         }
     }
 
-    private func extractComponents(
-        from source: CVPixelBuffer
-    ) throws -> [[[UInt16]]] {
+    private func withLockedPlanes<T>(
+        source: CVPixelBuffer,
+        destination: CVPixelBuffer,
+        _ operation: () throws -> T
+    ) throws -> T {
         let status = CVPixelBufferLockBaseAddress(source, .readOnly)
         guard status == kCVReturnSuccess else {
             throw FixedPointPixelBufferScalerV4Error.lockFailed(
@@ -224,9 +301,20 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
             )
         }
         defer { CVPixelBufferUnlockBaseAddress(source, .readOnly) }
+        let destinationStatus = CVPixelBufferLockBaseAddress(destination, [])
+        guard destinationStatus == kCVReturnSuccess else {
+            throw FixedPointPixelBufferScalerV4Error.lockFailed(
+                destination: true,
+                status: destinationStatus
+            )
+        }
+        defer { CVPixelBufferUnlockBaseAddress(destination, []) }
+        return try operation()
+    }
 
-        var result: [[[UInt16]]] = []
-        result.reserveCapacity(planes.count)
+    private func validateVisibleSourceCodes(
+        _ source: CVPixelBuffer
+    ) throws {
         for planeIndex in planes.indices {
             let prepared = planes[planeIndex]
             guard let base = CVPixelBufferGetBaseAddressOfPlane(
@@ -237,17 +325,11 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
                     planeIndex
                 )
             }
-            let width = prepared.plan.sourceWidth
-            let height = prepared.plan.sourceHeight
+            let width = prepared.preparedScale.sourceWidth
+            let height = prepared.preparedScale.sourceHeight
             let stride = CVPixelBufferGetBytesPerRowOfPlane(source, planeIndex)
-            let count = try checkedProduct(width, height)
-            var components = Array(
-                repeating: [UInt16](),
-                count: prepared.layout.componentsPerElement
-            )
-            for index in components.indices {
-                components[index].reserveCapacity(count)
-            }
+            let shift = prepared.layout.storedCodeShift
+            let alignmentMask = shift == 0 ? UInt16(0) : UInt16((1 << shift) - 1)
             for y in 0..<height {
                 let rowOffset = try checkedProduct(y, stride)
                 let row = base.advanced(by: rowOffset)
@@ -257,7 +339,7 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
                         x,
                         prepared.layout.componentsPerElement
                     )
-                    for componentIndex in components.indices {
+                    for componentIndex in 0..<prepared.layout.componentsPerElement {
                         let sampleIndex = try checkedSum(element, componentIndex)
                         let stored: UInt16
                         if prepared.layout.bytesPerComponent == 1 {
@@ -267,52 +349,120 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
                             stored = UInt16(row[byteOffset])
                                 | (UInt16(row[byteOffset + 1]) << 8)
                         }
-                        components[componentIndex].append(
-                            try layout.validateStoredCode(
-                                stored,
+                        if stored & alignmentMask != 0 {
+                            throw PixelLayoutV4Error.invalidStoredCodeAlignment(
                                 plane: planeIndex,
-                                component: componentIndex
+                                component: componentIndex,
+                                value: stored,
+                                requiredZeroLowBits: shift
                             )
-                        )
+                        }
+                        let signalCode = stored >> UInt16(shift)
+                        let bounds = prepared.layout.signalCodeBounds[
+                            componentIndex
+                        ]
+                        guard bounds.contains(signalCode) else {
+                            throw PixelLayoutV4Error.signalCodeOutOfRange(
+                                plane: planeIndex,
+                                component: componentIndex,
+                                value: signalCode,
+                                minimum: bounds.minimum,
+                                maximum: bounds.maximum
+                            )
+                        }
                     }
                 }
             }
-            result.append(components)
         }
-        return result
     }
 
-    private func writeComponents(
-        _ componentsByPlane: [[[UInt16]]],
-        to destination: CVPixelBuffer
+    /// Rejects every source-plane/destination-plane alias before the first
+    /// destination write or Metal upload. Object identity is insufficient:
+    /// distinct CVPixelBuffer wrappers may legally expose shared planar bytes,
+    /// including a destination plane that overlaps a different source plane.
+    private func preflightNonoverlappingPlaneStorage(
+        source: CVPixelBuffer,
+        destination: CVPixelBuffer
     ) throws {
-        let status = CVPixelBufferLockBaseAddress(destination, [])
-        guard status == kCVReturnSuccess else {
-            throw FixedPointPixelBufferScalerV4Error.lockFailed(
-                destination: true,
-                status: status
-            )
-        }
-        defer { CVPixelBufferUnlockBaseAddress(destination, []) }
-
-        guard componentsByPlane.count == planes.count else {
-            throw FixedPointPixelBufferScalerV4Error.invalidComponentCount(
-                plane: -1,
-                count: componentsByPlane.count
-            )
-        }
-        for planeIndex in planes.indices {
-            let prepared = planes[planeIndex]
-            let components = componentsByPlane[planeIndex]
-            guard components.count == prepared.layout.componentsPerElement,
-                  let sampleCount = components.first?.count,
-                  components.allSatisfy({ $0.count == sampleCount }) else {
-                throw FixedPointPixelBufferScalerV4Error.invalidComponentCount(
-                    plane: planeIndex,
-                    count: components.count
+        for sourcePlane in planes.indices {
+            guard let sourceBase = CVPixelBufferGetBaseAddressOfPlane(
+                source,
+                sourcePlane
+            ) else {
+                throw FixedPointPixelBufferScalerV4Error.inaccessiblePlane(
+                    sourcePlane
                 )
             }
-            guard let base = CVPixelBufferGetBaseAddressOfPlane(
+            let sourceSpan = try Self.memorySpan(
+                baseAddress: UnsafeRawPointer(sourceBase),
+                rowBytes: CVPixelBufferGetBytesPerRowOfPlane(
+                    source,
+                    sourcePlane
+                ),
+                height: CVPixelBufferGetHeightOfPlane(source, sourcePlane)
+            )
+            for destinationPlane in planes.indices {
+                guard let destinationBase = CVPixelBufferGetBaseAddressOfPlane(
+                    destination,
+                    destinationPlane
+                ) else {
+                    throw FixedPointPixelBufferScalerV4Error.inaccessiblePlane(
+                        destinationPlane
+                    )
+                }
+                let destinationSpan = try Self.memorySpan(
+                    baseAddress: UnsafeRawPointer(destinationBase),
+                    rowBytes: CVPixelBufferGetBytesPerRowOfPlane(
+                        destination,
+                        destinationPlane
+                    ),
+                    height: CVPixelBufferGetHeightOfPlane(
+                        destination,
+                        destinationPlane
+                    )
+                )
+                if sourceSpan.start < destinationSpan.end,
+                   destinationSpan.start < sourceSpan.end {
+                    throw FixedPointKernelV4Error
+                        .overlappingSourceAndDestination
+                }
+            }
+        }
+    }
+
+    private static func memorySpan(
+        baseAddress: UnsafeRawPointer,
+        rowBytes: Int,
+        height: Int
+    ) throws -> (start: UInt, end: UInt) {
+        let byteCount = rowBytes.multipliedReportingOverflow(by: height)
+        guard !byteCount.overflow,
+              let length = UInt(exactly: byteCount.partialValue) else {
+            throw FixedPointKernelV4Error.executionArithmeticOverflow
+        }
+        let start = UInt(bitPattern: baseAddress)
+        let end = start.addingReportingOverflow(length)
+        guard !end.overflow else {
+            throw FixedPointKernelV4Error.executionArithmeticOverflow
+        }
+        return (start, end.partialValue)
+    }
+
+    private func executeCPU(
+        source: CVPixelBuffer,
+        destination: CVPixelBuffer
+    ) throws {
+        for planeIndex in planes.indices {
+            let prepared = planes[planeIndex]
+            guard let sourceBase = CVPixelBufferGetBaseAddressOfPlane(
+                source,
+                planeIndex
+            ) else {
+                throw FixedPointPixelBufferScalerV4Error.inaccessiblePlane(
+                    planeIndex
+                )
+            }
+            guard let destinationBase = CVPixelBufferGetBaseAddressOfPlane(
                 destination,
                 planeIndex
             ) else {
@@ -320,50 +470,98 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
                     planeIndex
                 )
             }
-            let width = prepared.plan.targetWidth
-            let height = prepared.plan.targetHeight
-            guard sampleCount == (try checkedProduct(width, height)) else {
-                throw FixedPointPixelBufferScalerV4Error.invalidComponentCount(
-                    plane: planeIndex,
-                    count: sampleCount
-                )
-            }
-            let stride = CVPixelBufferGetBytesPerRowOfPlane(
+            let sourceStride = CVPixelBufferGetBytesPerRowOfPlane(
+                source,
+                planeIndex
+            )
+            let destinationStride = CVPixelBufferGetBytesPerRowOfPlane(
                 destination,
                 planeIndex
             )
-            for y in 0..<height {
-                let rowOffset = try checkedProduct(y, stride)
-                let row = base.advanced(by: rowOffset)
-                    .assumingMemoryBound(to: UInt8.self)
-                for x in 0..<width {
-                    let pixelIndex = try checkedSum(
-                        try checkedProduct(y, width),
-                        x
+            for componentIndex in prepared.layout.signalCodeBounds.indices {
+                let bounds = prepared.layout.signalCodeBounds[componentIndex]
+                try FixedPointCPUExecutorV4.executeInterleavedComponent(
+                    sourceBaseAddress: UnsafeRawPointer(sourceBase),
+                    sourceRowBytes: sourceStride,
+                    destinationBaseAddress: destinationBase,
+                    destinationRowBytes: destinationStride,
+                    bytesPerComponent: prepared.layout.bytesPerComponent,
+                    componentsPerElement: prepared.layout.componentsPerElement,
+                    componentIndex: componentIndex,
+                    storedCodeShift: prepared.layout.storedCodeShift,
+                    preparedScale: prepared.preparedScale,
+                    minimumCode: bounds.minimum,
+                    maximumCode: bounds.maximum,
+                    workspace: &prepared.cpuWorkspace
+                )
+            }
+        }
+    }
+
+    private func executeMetal(
+        source: CVPixelBuffer,
+        destination: CVPixelBuffer
+    ) throws {
+        guard let metalBatch else {
+            throw FixedPointMetalExecutorV4Error.metalUnavailable
+        }
+        try withUnsafeTemporaryAllocation(
+            of: FixedPointMetalComponentTransferV4.self,
+            capacity: componentExecutionCount
+        ) { transfers in
+            var routeIndex = 0
+            defer { transfers.baseAddress?.deinitialize(count: routeIndex) }
+            for planeIndex in planes.indices {
+                let prepared = planes[planeIndex]
+                guard let sourceBase = CVPixelBufferGetBaseAddressOfPlane(
+                    source,
+                    planeIndex
+                ), let destinationBase = CVPixelBufferGetBaseAddressOfPlane(
+                    destination,
+                    planeIndex
+                ) else {
+                    throw FixedPointPixelBufferScalerV4Error.inaccessiblePlane(
+                        planeIndex
                     )
-                    let element = try checkedProduct(
-                        x,
-                        prepared.layout.componentsPerElement
-                    )
-                    for componentIndex in components.indices {
-                        let stored = try layout.storedCode(
-                            forSignalCode: components[componentIndex][pixelIndex],
-                            plane: planeIndex,
-                            component: componentIndex
+                }
+                let sourceStride = CVPixelBufferGetBytesPerRowOfPlane(
+                    source,
+                    planeIndex
+                )
+                let destinationStride = CVPixelBufferGetBytesPerRowOfPlane(
+                    destination,
+                    planeIndex
+                )
+                for componentIndex in 0..<prepared.layout.componentsPerElement {
+                    transfers.initializeElement(
+                        at: routeIndex,
+                        to: FixedPointMetalComponentTransferV4(
+                            sourceBaseAddress: UnsafeRawPointer(sourceBase),
+                            sourceRowBytes: sourceStride,
+                            destinationBaseAddress: destinationBase,
+                            destinationRowBytes: destinationStride,
+                            bytesPerComponent: prepared.layout.bytesPerComponent,
+                            componentsPerElement:
+                                prepared.layout.componentsPerElement,
+                            componentIndex: componentIndex,
+                            storedCodeShift: prepared.layout.storedCodeShift
                         )
-                        let sampleIndex = try checkedSum(element, componentIndex)
-                        if prepared.layout.bytesPerComponent == 1 {
-                            row[sampleIndex] = UInt8(stored)
-                        } else {
-                            let byteOffset = try checkedProduct(sampleIndex, 2)
-                            row[byteOffset] = UInt8(truncatingIfNeeded: stored)
-                            row[byteOffset + 1] = UInt8(
-                                truncatingIfNeeded: stored >> 8
-                            )
-                        }
-                    }
+                    )
+                    routeIndex += 1
                 }
             }
+            guard routeIndex == componentExecutionCount else {
+                throw FixedPointMetalExecutorV4Error.invalidBatchLayout(
+                    expected: componentExecutionCount,
+                    actual: routeIndex
+                )
+            }
+            try metalBatch.execute(
+                transfers: UnsafeBufferPointer(
+                    start: transfers.baseAddress,
+                    count: routeIndex
+                )
+            )
         }
     }
 

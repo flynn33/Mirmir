@@ -15,6 +15,115 @@ enum FixedPointMetalExecutorV4Error: Error, Equatable, Sendable {
     case invalidBatchLayout(expected: Int, actual: Int)
     case duplicateBatchExecution
     case incompatibleBatchDevice
+    case invalidComponentTransfer
+}
+
+/// Synchronous binding between one prepared planar Metal execution and one
+/// component inside caller-locked interleaved CV planes. The binding itself is
+/// temporary; all full-plane GPU storage remains owned by the prepared
+/// execution and is reused across frames.
+struct FixedPointMetalComponentTransferV4 {
+    let sourceBaseAddress: UnsafeRawPointer
+    let sourceRowBytes: Int
+    let destinationBaseAddress: UnsafeMutableRawPointer
+    let destinationRowBytes: Int
+    let bytesPerComponent: Int
+    let componentsPerElement: Int
+    let componentIndex: Int
+    let storedCodeShift: Int
+
+    fileprivate func validate(
+        sourceWidth: Int,
+        sourceHeight: Int,
+        targetWidth: Int,
+        targetHeight: Int
+    ) throws {
+        guard (bytesPerComponent == 1 || bytesPerComponent == 2),
+              componentsPerElement > 0,
+              (0..<componentsPerElement).contains(componentIndex),
+              (0...15).contains(storedCodeShift),
+              sourceWidth > 0,
+              sourceHeight > 0,
+              targetWidth > 0,
+              targetHeight > 0 else {
+            throw FixedPointMetalExecutorV4Error.invalidComponentTransfer
+        }
+        let sourceComponents = sourceWidth.multipliedReportingOverflow(
+            by: componentsPerElement
+        )
+        let sourceBytes = sourceComponents.partialValue
+            .multipliedReportingOverflow(by: bytesPerComponent)
+        let targetComponents = targetWidth.multipliedReportingOverflow(
+            by: componentsPerElement
+        )
+        let targetBytes = targetComponents.partialValue
+            .multipliedReportingOverflow(by: bytesPerComponent)
+        guard !sourceComponents.overflow,
+              !sourceBytes.overflow,
+              !targetComponents.overflow,
+              !targetBytes.overflow,
+              sourceRowBytes >= sourceBytes.partialValue,
+              destinationRowBytes >= targetBytes.partialValue else {
+            throw FixedPointMetalExecutorV4Error.invalidComponentTransfer
+        }
+        let sourceSpan = sourceRowBytes.multipliedReportingOverflow(
+            by: sourceHeight
+        )
+        let destinationSpan = destinationRowBytes.multipliedReportingOverflow(
+            by: targetHeight
+        )
+        guard !sourceSpan.overflow,
+              !destinationSpan.overflow,
+              let sourceByteCount = UInt(exactly: sourceSpan.partialValue),
+              let destinationByteCount = UInt(
+                exactly: destinationSpan.partialValue
+              ) else {
+            throw FixedPointKernelV4Error.executionArithmeticOverflow
+        }
+        let sourceStart = UInt(bitPattern: sourceBaseAddress)
+        let destinationStart = UInt(bitPattern: destinationBaseAddress)
+        let sourceEnd = sourceStart.addingReportingOverflow(sourceByteCount)
+        let destinationEnd = destinationStart.addingReportingOverflow(
+            destinationByteCount
+        )
+        guard !sourceEnd.overflow, !destinationEnd.overflow else {
+            throw FixedPointKernelV4Error.executionArithmeticOverflow
+        }
+        if sourceStart < destinationEnd.partialValue,
+           destinationStart < sourceEnd.partialValue {
+            throw FixedPointKernelV4Error.overlappingSourceAndDestination
+        }
+    }
+
+    @inline(__always)
+    fileprivate func loadSignalCode(x: Int, y: Int) -> UInt16 {
+        let row = sourceBaseAddress.advanced(by: y * sourceRowBytes)
+            .assumingMemoryBound(to: UInt8.self)
+        let sampleIndex = x * componentsPerElement + componentIndex
+        let stored: UInt16
+        if bytesPerComponent == 1 {
+            stored = UInt16(row[sampleIndex])
+        } else {
+            let offset = sampleIndex * 2
+            stored = UInt16(row[offset]) | (UInt16(row[offset + 1]) << 8)
+        }
+        return stored >> UInt16(storedCodeShift)
+    }
+
+    @inline(__always)
+    fileprivate func storeSignalCode(_ signalCode: UInt16, x: Int, y: Int) {
+        let row = destinationBaseAddress.advanced(by: y * destinationRowBytes)
+            .assumingMemoryBound(to: UInt8.self)
+        let sampleIndex = x * componentsPerElement + componentIndex
+        let stored = signalCode << UInt16(storedCodeShift)
+        if bytesPerComponent == 1 {
+            row[sampleIndex] = UInt8(truncatingIfNeeded: stored)
+        } else {
+            let offset = sampleIndex * 2
+            row[offset] = UInt8(truncatingIfNeeded: stored)
+            row[offset + 1] = UInt8(truncatingIfNeeded: stored >> 8)
+        }
+    }
 }
 
 /// Serialized reusable Metal state for one validated scale/stride/range.
@@ -24,6 +133,22 @@ final class FixedPointMetalPreparedExecutionV4: @unchecked Sendable {
     let sourceSampleCount: Int
     let outputSampleCount: Int
     let reusableBufferCount = 7
+
+    var reusableBufferIdentities: [ObjectIdentifier] {
+        [
+            sourceBuffer,
+            horizontalPositionBuffer,
+            verticalPositionBuffer,
+            horizontalCoefficientBuffer,
+            verticalCoefficientBuffer,
+            outputBuffer,
+            uniformBuffer
+        ].map { ObjectIdentifier($0 as AnyObject) }
+    }
+
+    var pipelineIdentity: ObjectIdentifier {
+        ObjectIdentifier(pipeline as AnyObject)
+    }
 
     fileprivate let lock = NSLock()
     private let sourceWidth: Int
@@ -151,6 +276,42 @@ final class FixedPointMetalPreparedExecutionV4: @unchecked Sendable {
         }
     }
 
+    fileprivate func upload(
+        transfer: FixedPointMetalComponentTransferV4
+    ) {
+        let destination = sourceBuffer.contents().assumingMemoryBound(
+            to: UInt16.self
+        )
+        for y in 0..<sourceHeight {
+            let destinationRow = y * sourceRowStride
+            for x in 0..<sourceWidth {
+                destination[destinationRow + x] = transfer.loadSignalCode(
+                    x: x,
+                    y: y
+                )
+            }
+        }
+    }
+
+    fileprivate func validate(
+        transfer: FixedPointMetalComponentTransferV4
+    ) throws {
+        try transfer.validate(
+            sourceWidth: sourceWidth,
+            sourceHeight: sourceHeight,
+            targetWidth: targetWidth,
+            targetHeight: targetHeight
+        )
+    }
+
+    /// Exact retained input bytes for qualification tests. Frame execution
+    /// never calls this accessor; it deliberately allocates a diagnostic copy.
+    func retainedSourceBytesForQualification() -> Data {
+        lock.withLock {
+            Data(bytes: sourceBuffer.contents(), count: sourceByteCount)
+        }
+    }
+
     fileprivate func encode(into encoder: MTLComputeCommandEncoder) {
         encoder.setComputePipelineState(pipeline)
         encoder.setBuffer(sourceBuffer, offset: 0, index: 0)
@@ -193,11 +354,24 @@ final class FixedPointMetalPreparedExecutionV4: @unchecked Sendable {
             outputByteCount
         )
     }
+
+    fileprivate func download(
+        transfer: FixedPointMetalComponentTransferV4
+    ) {
+        let source = outputBuffer.contents().assumingMemoryBound(to: UInt16.self)
+        for y in 0..<targetHeight {
+            let sourceRow = y * targetWidth
+            for x in 0..<targetWidth {
+                transfer.storeSignalCode(source[sourceRow + x], x: x, y: y)
+            }
+        }
+    }
 }
 
 /// A prepared group shares one command buffer and one completion wait across
-/// multiple planes. Source/output arrays and all seven buffers per plane are
-/// caller-owned or retained, so repeated frame dispatches do not allocate.
+/// multiple planes. It retains all seven buffers per plane, so repeated frame
+/// dispatches do not recreate full-plane Swift arrays or Metal buffers. Metal
+/// command objects and the small transfer descriptor set are still per-frame.
 final class FixedPointMetalPreparedBatchV4: @unchecked Sendable {
     // Separate batches may contain overlapping executions in different plane
     // orders. One process-wide acquisition gate prevents cross-batch lock-order
@@ -275,6 +449,45 @@ final class FixedPointMetalPreparedBatchV4: @unchecked Sendable {
                     destinations[index].withUnsafeMutableBufferPointer {
                         executions[index].download(to: $0)
                     }
+                }
+            }
+        }
+    }
+
+    /// Executes all prepared components in one command buffer while copying
+    /// directly between caller-locked interleaved planes and the retained
+    /// shared Metal buffers. No Swift plane arrays are created per frame.
+    func execute(
+        transfers: UnsafeBufferPointer<FixedPointMetalComponentTransferV4>
+    ) throws {
+        guard transfers.count == executions.count else {
+            throw FixedPointMetalExecutorV4Error.invalidBatchLayout(
+                expected: executions.count,
+                actual: transfers.count
+            )
+        }
+        try Self.executionAcquisitionLock.withLock {
+            try withExecutionLocks(at: 0) {
+                // Validate the complete descriptor set transactionally. A
+                // malformed later descriptor must not change an earlier
+                // execution's retained GPU input.
+                for index in executions.indices {
+                    try executions[index].validate(transfer: transfers[index])
+                }
+                for index in executions.indices {
+                    executions[index].upload(transfer: transfers[index])
+                }
+                let commandBuffer = try executions[0].makeCommandBuffer()
+                guard let encoder = commandBuffer.makeComputeCommandEncoder() else {
+                    throw FixedPointMetalExecutorV4Error.commandEncoderUnavailable
+                }
+                for execution in executions {
+                    execution.encode(into: encoder)
+                }
+                encoder.endEncoding()
+                try executions[0].commitAndWait(commandBuffer)
+                for index in executions.indices {
+                    executions[index].download(transfer: transfers[index])
                 }
             }
         }

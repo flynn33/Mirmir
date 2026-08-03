@@ -555,10 +555,21 @@ struct FixedPointPreparedScaleV4: Equatable, Sendable {
 struct FixedPointCPUWorkspaceV4: Sendable {
     fileprivate var horizontalRows: [Int64] = []
     fileprivate var sourceRowBySlot = Array(repeating: -1, count: 4)
+    private(set) var allocationCount = 0
 
     var reusableHorizontalSampleCount: Int { horizontalRows.count }
 
-    fileprivate mutating func prepare(targetWidth: Int) throws {
+    var reusableStorageIdentity: UInt {
+        horizontalRows.withUnsafeBufferPointer { buffer in
+            guard let baseAddress = buffer.baseAddress else { return 0 }
+            return UInt(bitPattern: baseAddress)
+        }
+    }
+
+    /// Reserves the complete bounded workspace. Callers that process a frame
+    /// stream do this during scaler preparation; frame execution subsequently
+    /// resets only the four source-row tags and never changes array capacity.
+    mutating func prepare(targetWidth: Int) throws {
         let (sampleCount, overflow) = targetWidth.multipliedReportingOverflow(
             by: 4
         )
@@ -567,6 +578,7 @@ struct FixedPointCPUWorkspaceV4: Sendable {
         }
         if horizontalRows.count != sampleCount {
             horizontalRows = Array(repeating: 0, count: sampleCount)
+            allocationCount += 1
         }
         for slot in sourceRowBySlot.indices {
             sourceRowBySlot[slot] = -1
@@ -738,6 +750,174 @@ enum FixedPointCPUExecutorV4 {
         }
     }
 
+    /// Executes directly against one component of an interleaved byte plane.
+    /// The caller owns and locks both planes and has already validated every
+    /// visible stored source code. This path retains the exact same ordered
+    /// Q14/Q28 reduction as the planar reference entry point while avoiding a
+    /// source plane, destination plane, or full-height intermediate array.
+    static func executeInterleavedComponent(
+        sourceBaseAddress: UnsafeRawPointer,
+        sourceRowBytes: Int,
+        destinationBaseAddress: UnsafeMutableRawPointer,
+        destinationRowBytes: Int,
+        bytesPerComponent: Int,
+        componentsPerElement: Int,
+        componentIndex: Int,
+        storedCodeShift: Int,
+        preparedScale: FixedPointPreparedScaleV4,
+        minimumCode: UInt16,
+        maximumCode: UInt16,
+        workspace: inout FixedPointCPUWorkspaceV4
+    ) throws {
+        guard minimumCode <= maximumCode else {
+            throw FixedPointKernelV4Error.invalidCodeBounds(
+                minimum: minimumCode,
+                maximum: maximumCode
+            )
+        }
+        let storageBitCount: Int
+        let maximumStoredCode: UInt32
+        switch bytesPerComponent {
+        case 1:
+            storageBitCount = 8
+            maximumStoredCode = UInt32(UInt8.max)
+        case 2:
+            storageBitCount = 16
+            maximumStoredCode = UInt32(UInt16.max)
+        default:
+            throw FixedPointKernelV4Error.executionArithmeticOverflow
+        }
+        guard componentsPerElement > 0,
+              (0..<componentsPerElement).contains(componentIndex),
+              (0..<storageBitCount).contains(storedCodeShift),
+              (UInt32(maximumCode) << UInt32(storedCodeShift))
+                <= maximumStoredCode else {
+            throw FixedPointKernelV4Error.executionArithmeticOverflow
+        }
+        let sourceActiveBytes = try activeRowByteCount(
+            width: preparedScale.sourceWidth,
+            bytesPerComponent: bytesPerComponent,
+            componentsPerElement: componentsPerElement
+        )
+        let destinationActiveBytes = try activeRowByteCount(
+            width: preparedScale.targetWidth,
+            bytesPerComponent: bytesPerComponent,
+            componentsPerElement: componentsPerElement
+        )
+        guard sourceRowBytes >= sourceActiveBytes else {
+            throw FixedPointKernelV4Error.invalidSourceLayout(
+                width: preparedScale.sourceWidth,
+                height: preparedScale.sourceHeight,
+                rowStride: sourceRowBytes,
+                sampleCount: sourceActiveBytes
+            )
+        }
+        guard destinationRowBytes >= destinationActiveBytes else {
+            throw FixedPointKernelV4Error.invalidDestinationLayout(
+                expectedCount: destinationActiveBytes,
+                actualCount: destinationRowBytes
+            )
+        }
+        try validateNonoverlapping(
+            sourceBaseAddress: sourceBaseAddress,
+            sourceRowBytes: sourceRowBytes,
+            sourceHeight: preparedScale.sourceHeight,
+            destinationBaseAddress: destinationBaseAddress,
+            destinationRowBytes: destinationRowBytes,
+            destinationHeight: preparedScale.targetHeight
+        )
+        try workspace.prepare(targetWidth: preparedScale.targetWidth)
+
+        let minimum = Int64(minimumCode)
+        let maximum = Int64(maximumCode)
+        for targetY in 0..<preparedScale.targetHeight {
+            let vertical = preparedScale.verticalSamples[targetY]
+            let slot0 = horizontalRowSlotInterleaved(
+                sourceY: vertical.source0,
+                retaining: vertical,
+                sourceBaseAddress: sourceBaseAddress,
+                sourceRowBytes: sourceRowBytes,
+                bytesPerComponent: bytesPerComponent,
+                componentsPerElement: componentsPerElement,
+                componentIndex: componentIndex,
+                storedCodeShift: storedCodeShift,
+                preparedScale: preparedScale,
+                workspace: &workspace
+            )
+            let slot1 = horizontalRowSlotInterleaved(
+                sourceY: vertical.source1,
+                retaining: vertical,
+                sourceBaseAddress: sourceBaseAddress,
+                sourceRowBytes: sourceRowBytes,
+                bytesPerComponent: bytesPerComponent,
+                componentsPerElement: componentsPerElement,
+                componentIndex: componentIndex,
+                storedCodeShift: storedCodeShift,
+                preparedScale: preparedScale,
+                workspace: &workspace
+            )
+            let slot2 = horizontalRowSlotInterleaved(
+                sourceY: vertical.source2,
+                retaining: vertical,
+                sourceBaseAddress: sourceBaseAddress,
+                sourceRowBytes: sourceRowBytes,
+                bytesPerComponent: bytesPerComponent,
+                componentsPerElement: componentsPerElement,
+                componentIndex: componentIndex,
+                storedCodeShift: storedCodeShift,
+                preparedScale: preparedScale,
+                workspace: &workspace
+            )
+            let slot3 = horizontalRowSlotInterleaved(
+                sourceY: vertical.source3,
+                retaining: vertical,
+                sourceBaseAddress: sourceBaseAddress,
+                sourceRowBytes: sourceRowBytes,
+                bytesPerComponent: bytesPerComponent,
+                componentsPerElement: componentsPerElement,
+                componentIndex: componentIndex,
+                storedCodeShift: storedCodeShift,
+                preparedScale: preparedScale,
+                workspace: &workspace
+            )
+            let row0 = slot0 * preparedScale.targetWidth
+            let row1 = slot1 * preparedScale.targetWidth
+            let row2 = slot2 * preparedScale.targetWidth
+            let row3 = slot3 * preparedScale.targetWidth
+            for targetX in 0..<preparedScale.targetWidth {
+                var accumulator = workspace.horizontalRows[row0 + targetX]
+                    &* vertical.coefficient0
+                accumulator = accumulator &+ (
+                    workspace.horizontalRows[row1 + targetX]
+                        &* vertical.coefficient1
+                )
+                accumulator = accumulator &+ (
+                    workspace.horizontalRows[row2 + targetX]
+                        &* vertical.coefficient2
+                )
+                accumulator = accumulator &+ (
+                    workspace.horizontalRows[row3 + targetX]
+                        &* vertical.coefficient3
+                )
+                let rounded = roundTiesToEvenPrepared(
+                    accumulator,
+                    fractionalBits: preparedScale.finalFractionalBits
+                )
+                storeSignalCode(
+                    UInt16(min(maximum, max(minimum, rounded))),
+                    baseAddress: destinationBaseAddress,
+                    rowBytes: destinationRowBytes,
+                    x: targetX,
+                    y: targetY,
+                    bytesPerComponent: bytesPerComponent,
+                    componentsPerElement: componentsPerElement,
+                    componentIndex: componentIndex,
+                    storedCodeShift: storedCodeShift
+                )
+            }
+        }
+    }
+
     @inline(__always)
     private static func horizontalRowSlot(
         sourceY: Int,
@@ -780,6 +960,189 @@ enum FixedPointCPUExecutorV4 {
         return replacement
     }
 
+    @inline(__always)
+    private static func horizontalRowSlotInterleaved(
+        sourceY: Int,
+        retaining vertical: FixedPointPreparedAxisSampleV4,
+        sourceBaseAddress: UnsafeRawPointer,
+        sourceRowBytes: Int,
+        bytesPerComponent: Int,
+        componentsPerElement: Int,
+        componentIndex: Int,
+        storedCodeShift: Int,
+        preparedScale: FixedPointPreparedScaleV4,
+        workspace: inout FixedPointCPUWorkspaceV4
+    ) -> Int {
+        for slot in 0..<4 where workspace.sourceRowBySlot[slot] == sourceY {
+            return slot
+        }
+        var replacement = 0
+        while replacement < 4,
+              vertical.contains(source: workspace.sourceRowBySlot[replacement]) {
+            replacement += 1
+        }
+        precondition(replacement < 4)
+        workspace.sourceRowBySlot[replacement] = sourceY
+        let horizontalRow = replacement * preparedScale.targetWidth
+        for targetX in 0..<preparedScale.targetWidth {
+            let horizontal = preparedScale.horizontalSamples[targetX]
+            var accumulator = Int64(loadSignalCode(
+                baseAddress: sourceBaseAddress,
+                rowBytes: sourceRowBytes,
+                x: horizontal.source0,
+                y: sourceY,
+                bytesPerComponent: bytesPerComponent,
+                componentsPerElement: componentsPerElement,
+                componentIndex: componentIndex,
+                storedCodeShift: storedCodeShift
+            )) &* horizontal.coefficient0
+            accumulator = accumulator &+ (
+                Int64(loadSignalCode(
+                    baseAddress: sourceBaseAddress,
+                    rowBytes: sourceRowBytes,
+                    x: horizontal.source1,
+                    y: sourceY,
+                    bytesPerComponent: bytesPerComponent,
+                    componentsPerElement: componentsPerElement,
+                    componentIndex: componentIndex,
+                    storedCodeShift: storedCodeShift
+                )) &* horizontal.coefficient1
+            )
+            accumulator = accumulator &+ (
+                Int64(loadSignalCode(
+                    baseAddress: sourceBaseAddress,
+                    rowBytes: sourceRowBytes,
+                    x: horizontal.source2,
+                    y: sourceY,
+                    bytesPerComponent: bytesPerComponent,
+                    componentsPerElement: componentsPerElement,
+                    componentIndex: componentIndex,
+                    storedCodeShift: storedCodeShift
+                )) &* horizontal.coefficient2
+            )
+            accumulator = accumulator &+ (
+                Int64(loadSignalCode(
+                    baseAddress: sourceBaseAddress,
+                    rowBytes: sourceRowBytes,
+                    x: horizontal.source3,
+                    y: sourceY,
+                    bytesPerComponent: bytesPerComponent,
+                    componentsPerElement: componentsPerElement,
+                    componentIndex: componentIndex,
+                    storedCodeShift: storedCodeShift
+                )) &* horizontal.coefficient3
+            )
+            workspace.horizontalRows[horizontalRow + targetX] = accumulator
+        }
+        return replacement
+    }
+
+    @inline(__always)
+    private static func loadSignalCode(
+        baseAddress: UnsafeRawPointer,
+        rowBytes: Int,
+        x: Int,
+        y: Int,
+        bytesPerComponent: Int,
+        componentsPerElement: Int,
+        componentIndex: Int,
+        storedCodeShift: Int
+    ) -> UInt16 {
+        let row = baseAddress.advanced(by: y * rowBytes)
+            .assumingMemoryBound(to: UInt8.self)
+        let sampleIndex = x * componentsPerElement + componentIndex
+        let stored: UInt16
+        if bytesPerComponent == 1 {
+            stored = UInt16(row[sampleIndex])
+        } else {
+            let offset = sampleIndex * 2
+            stored = UInt16(row[offset]) | (UInt16(row[offset + 1]) << 8)
+        }
+        return stored >> UInt16(storedCodeShift)
+    }
+
+    @inline(__always)
+    private static func storeSignalCode(
+        _ signalCode: UInt16,
+        baseAddress: UnsafeMutableRawPointer,
+        rowBytes: Int,
+        x: Int,
+        y: Int,
+        bytesPerComponent: Int,
+        componentsPerElement: Int,
+        componentIndex: Int,
+        storedCodeShift: Int
+    ) {
+        let row = baseAddress.advanced(by: y * rowBytes)
+            .assumingMemoryBound(to: UInt8.self)
+        let sampleIndex = x * componentsPerElement + componentIndex
+        let stored = signalCode << UInt16(storedCodeShift)
+        if bytesPerComponent == 1 {
+            row[sampleIndex] = UInt8(truncatingIfNeeded: stored)
+        } else {
+            let offset = sampleIndex * 2
+            row[offset] = UInt8(truncatingIfNeeded: stored)
+            row[offset + 1] = UInt8(truncatingIfNeeded: stored >> 8)
+        }
+    }
+
+    private static func activeRowByteCount(
+        width: Int,
+        bytesPerComponent: Int,
+        componentsPerElement: Int
+    ) throws -> Int {
+        let components = width.multipliedReportingOverflow(
+            by: componentsPerElement
+        )
+        let bytes = components.partialValue.multipliedReportingOverflow(
+            by: bytesPerComponent
+        )
+        guard !components.overflow, !bytes.overflow else {
+            throw FixedPointKernelV4Error.executionArithmeticOverflow
+        }
+        return bytes.partialValue
+    }
+
+    private static func validateNonoverlapping(
+        sourceBaseAddress: UnsafeRawPointer,
+        sourceRowBytes: Int,
+        sourceHeight: Int,
+        destinationBaseAddress: UnsafeMutableRawPointer,
+        destinationRowBytes: Int,
+        destinationHeight: Int
+    ) throws {
+        let sourceBytes = sourceRowBytes.multipliedReportingOverflow(
+            by: sourceHeight
+        )
+        let destinationBytes = destinationRowBytes.multipliedReportingOverflow(
+            by: destinationHeight
+        )
+        guard !sourceBytes.overflow,
+              !destinationBytes.overflow,
+              let sourceByteCount = UInt(exactly: sourceBytes.partialValue),
+              let destinationByteCount = UInt(
+                exactly: destinationBytes.partialValue
+              ) else {
+            throw FixedPointKernelV4Error.executionArithmeticOverflow
+        }
+        let sourceStart = UInt(bitPattern: sourceBaseAddress)
+        let destinationStart = UInt(bitPattern: destinationBaseAddress)
+        let sourceEnd = sourceStart.addingReportingOverflow(
+            sourceByteCount
+        )
+        let destinationEnd = destinationStart.addingReportingOverflow(
+            destinationByteCount
+        )
+        guard !sourceEnd.overflow,
+              !destinationEnd.overflow else {
+            throw FixedPointKernelV4Error.executionArithmeticOverflow
+        }
+        if sourceStart < destinationEnd.partialValue,
+           destinationStart < sourceEnd.partialValue {
+            throw FixedPointKernelV4Error.overlappingSourceAndDestination
+        }
+    }
+
     private static func validateNonoverlapping(
         source: UnsafeBufferPointer<UInt16>,
         requiredSourceCount: Int,
@@ -795,17 +1158,23 @@ enum FixedPointCPUExecutorV4 {
         )
         let destinationByteCount = requiredDestinationCount
             .multipliedReportingOverflow(by: MemoryLayout<UInt16>.stride)
+        guard !sourceByteCount.overflow,
+              !destinationByteCount.overflow,
+              let sourceByteLength = UInt(exactly: sourceByteCount.partialValue),
+              let destinationByteLength = UInt(
+                exactly: destinationByteCount.partialValue
+              ) else {
+            throw FixedPointKernelV4Error.executionArithmeticOverflow
+        }
         let sourceStart = UInt(bitPattern: sourceAddress)
         let destinationStart = UInt(bitPattern: destinationAddress)
         let sourceEnd = sourceStart.addingReportingOverflow(
-            UInt(sourceByteCount.partialValue)
+            sourceByteLength
         )
         let destinationEnd = destinationStart.addingReportingOverflow(
-            UInt(destinationByteCount.partialValue)
+            destinationByteLength
         )
-        guard !sourceByteCount.overflow,
-              !destinationByteCount.overflow,
-              !sourceEnd.overflow,
+        guard !sourceEnd.overflow,
               !destinationEnd.overflow else {
             throw FixedPointKernelV4Error.executionArithmeticOverflow
         }

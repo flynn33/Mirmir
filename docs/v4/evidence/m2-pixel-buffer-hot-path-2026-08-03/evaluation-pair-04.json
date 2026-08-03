@@ -1,0 +1,47 @@
+{
+  "aggregateRatios": {
+    "cpuMedianMilliseconds": 0.5594194586696225,
+    "cpuP95Milliseconds": 0.5278420671944976,
+    "metalMedianMilliseconds": 0.410983081488457,
+    "metalP95Milliseconds": 0.393685683809156
+  },
+  "baseline": "docs/v4/evidence/m2-pixel-buffer-hot-path-2026-08-03/baseline-54d97e3-pair-04.json",
+  "baselineCaptureSHA256": "d0a84f101e331ee8b655cc0ad66ff0d852573e94ec635e9acb7a5984834d9f4d",
+  "baselineEngineSourceSHA256": "620c6b50ba6abc86dc6ae4b3305b38231909b06050ff24de77fe1d5985687f6d",
+  "baselineExecutableSHA256": "c571eca19031dd042119a9073ed9c9fad88c449ad5a58e2469c9eb347ec701bd",
+  "benchmarkSourceSHA256": "6686abe82b7cb32bdca81010aca31ed1a28a866e94c260cd4d0364e94aeb2e1c",
+  "candidate": "docs/v4/evidence/m2-pixel-buffer-hot-path-2026-08-03/prepared-direct-after-pair-04.json",
+  "candidateCaptureSHA256": "38327617b8c1b403f0d655c7db12c3d319965d49c58bb1637920e49a27f827e2",
+  "candidateEngineSourceSHA256": "cb40fa450fcf4de02a9a37fc165019adc7521d77ab6f3a788f24c74c51c77d9e",
+  "candidateExecutableSHA256": "be1e77e67f28b9ef012cc1f0455902349b6f2f47d12415ca079919aa12659519",
+  "canonicalWorkloadLocked": true,
+  "caseCount": 2,
+  "caseRatios": {
+    "nv12-full-arbitrary-853x481": {
+      "cpuMedianMilliseconds": 0.5345690640166125,
+      "cpuP95Milliseconds": 0.525137413988019,
+      "metalMedianMilliseconds": 0.3914523093567116,
+      "metalP95Milliseconds": 0.4014419395252603
+    },
+    "p010-video-exact-3-over-2": {
+      "cpuMedianMilliseconds": 0.5913411703585084,
+      "cpuP95Milliseconds": 0.5765029993840485,
+      "metalMedianMilliseconds": 0.4702813658025976,
+      "metalP95Milliseconds": 0.4702760858467239
+    }
+  },
+  "compilerIdentityPreserved": true,
+  "environmentIdentityPreserved": true,
+  "evaluatorSourceSHA256": "ffa24010d7589cfd0ea1680a1955d73f345552317f58edb67d04393f7cdec888",
+  "failedMetrics": [],
+  "metalLibrarySHA256": "d3c5871d7858c801ab91aa41f51404974f691e87a702bccc47adc1ab17406d90",
+  "outputIdentityPreserved": true,
+  "passed": true,
+  "rawSamplesValidated": true,
+  "runnerSourceSHA256": "f22f1efbd58dd111a3af74b5c43d2265122d2ac5c0534b5ad2db86498a8e1754",
+  "sampleCountPerCapture": 60,
+  "schemaVersion": "mirmir-v4-pixel-buffer-hot-path-evaluation-v3",
+  "threshold": {
+    "maximumAfterToBeforeRatio": 0.8
+  }
+}
