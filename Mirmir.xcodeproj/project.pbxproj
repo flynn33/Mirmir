@@ -20,6 +20,7 @@
 		32000000000000000000000B /* MirmirError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000000B /* MirmirError.swift */; };
 		32000000000000000000000C /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000000C /* Log.swift */; };
 		32000000000000000000000D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000000D /* Assets.xcassets */; };
+		C42000000000000000000001 /* ASH-P06.bundle in Resources */ = {isa = PBXBuildFile; fileRef = C41000000000000000000001 /* ASH-P06.bundle */; };
 		32000000000000000000000E /* MirmirTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000010 /* MirmirTests.swift */; };
 		32000000000000000000000F /* VideoColorInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000011 /* VideoColorInfo.swift */; };
 		320000000000000000000010 /* VideoGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000012 /* VideoGeometry.swift */; };
@@ -198,6 +199,7 @@
 		31000000000000000000000B /* MirmirError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirError.swift; sourceTree = "<group>"; };
 		31000000000000000000000C /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
 		31000000000000000000000D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		C41000000000000000000001 /* ASH-P06.bundle */ = {isa = PBXFileReference; lastKnownFileType = wrapper.plug-in; path = "ASH-P06.bundle"; sourceTree = "<group>"; };
 		31000000000000000000000E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		31000000000000000000000F /* Mirmir.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Mirmir.entitlements; sourceTree = "<group>"; };
 		310000000000000000000010 /* MirmirTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirTests.swift; sourceTree = "<group>"; };
@@ -603,6 +605,7 @@
 		100000000000000000000010 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				C41000000000000000000001 /* ASH-P06.bundle */,
 				100000000000000000000011 /* Legal */,
 			);
 			path = Resources;
@@ -747,7 +750,7 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		400000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (32000000000000000000000D /* Assets.xcassets in Resources */, 32000000000000000000003E /* ASH-Model-LICENSE.txt in Resources */,); runOnlyForDeploymentPostprocessing = 0; };
+		400000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (32000000000000000000000D /* Assets.xcassets in Resources */, 32000000000000000000003E /* ASH-Model-LICENSE.txt in Resources */, C42000000000000000000001 /* ASH-P06.bundle in Resources */,); runOnlyForDeploymentPostprocessing = 0; };
 		400000000000000000000006 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 

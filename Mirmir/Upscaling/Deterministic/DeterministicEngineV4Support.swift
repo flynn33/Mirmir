@@ -19,11 +19,12 @@ enum ASHProductionP06TrustRootV4 {
     // A zero identity is deliberately non-loadable. The reproducible P06 build
     // patches these three constants together with the checked-in bundle.
     static let manifestSHA256 = try! ASHSHA256V4(
-        String(repeating: "0", count: 64)
+        "6a7820374b08617597632d68bd8b98227ddd5cbd1a47669540403fae8cdee9d0"
     )
-    static let sourceRevision = String(repeating: "0", count: 40)
+    static let sourceRevision =
+        "d103a591027230a4255c4e479168faa39daf8b1639e2640b3ee95de85b043e93"
     static let builderSourceSHA256 = try! ASHSHA256V4(
-        String(repeating: "0", count: 64)
+        "7ab2f00baef157f9b01dc858451505157159d83399371ec37e680803150570d6"
     )
 
     static var isConfigured: Bool {
