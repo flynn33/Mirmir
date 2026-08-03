@@ -15,7 +15,7 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         let runtimeURL = directory.url("deterministic-p06.bundle")
         try await TrackMigrationFixtureFactoryV4.makeRichMovie(
             at: sourceURL,
-            includeAudioGroup: false
+            includeAudioGroup: true
         )
 
         let source = try await VideoProbe().probe(url: sourceURL)
@@ -80,6 +80,8 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         )
         XCTAssertEqual(outputGraph.tracks.filter { $0.kind == .chapter }.count, 1)
         XCTAssertEqual(outputGraph.tracks.filter { $0.kind == .timecode }.count, 1)
+        XCTAssertEqual(outputGraph.groups.count, 1)
+        XCTAssertNotNil(outputGraph.groups[0].defaultTrackID)
         XCTAssertEqual(
             Set(outputGraph.associations.map(\.kind)),
             Set([.chapterList, .timecode, .metadataReferent])
@@ -175,7 +177,8 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
-    func testAlternateAudioGroupFailsClosedBeforeWriting() async throws {
+    func testAlternateAudioGroupRoundTripsDefaultSelectionAndStreams()
+        async throws {
         let directory = try TrackMigrationFixtureDirectoryV4()
         defer { directory.remove() }
         let sourceURL = directory.url("group-source.mov")
@@ -187,11 +190,206 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         let source = try await AVFoundationTrackGraphAdapterV4.probe(
             asset: AVURLAsset(url: sourceURL)
         )
-        XCTAssertEqual(source.groups.count, 1)
-        XCTAssertNotNil(source.groups[0].defaultTrackID)
+        let sourceGroup = try XCTUnwrap(source.groups.first)
+        let defaultTrackID = try XCTUnwrap(sourceGroup.defaultTrackID)
+        XCTAssertFalse(sourceGroup.allowsEmptySelection)
+        XCTAssertEqual(
+            sourceGroup.memberTrackIDs.filter {
+                source.track(id: $0)?.enabled == true
+            },
+            [defaultTrackID]
+        )
         let plan = try MediaTrackGraphPlannerV4.makePlan(source: source)
         let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
             source: source,
+            plan: plan
+        )
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(
+            .init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint
+            )
+        )
+
+        XCTAssertTrue(result.verificationReport.isConformant)
+        XCTAssertEqual(result.outputGraph.groups, source.groups)
+        XCTAssertEqual(result.outputGraph, source)
+        let audioTrackIDs = Set(source.tracks.filter { $0.kind == .audio }
+            .map { $0.identity.stableID })
+        let audioResults = result.trackResults.filter {
+            audioTrackIDs.contains($0.trackID)
+        }
+        XCTAssertEqual(audioResults.count, 2)
+        XCTAssertTrue(audioResults.allSatisfy {
+            $0.action == .passThrough
+                && $0.migratedSampleCount > 0
+                && $0.sourceSampleStreamSHA256 != nil
+                && $0.sourceSampleStreamSHA256
+                    == $0.outputSampleStreamSHA256
+        })
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: destinationURL.path
+        ))
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+    func testAlternateAudioGroupRoundTripsEmptySelection() async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("empty-group-source.mov")
+        let destinationURL = directory.url("empty-group-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: true,
+            selectDefaultAudio: false
+        )
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL)
+        )
+        let group = try XCTUnwrap(source.groups.first)
+        XCTAssertNil(group.defaultTrackID)
+        XCTAssertTrue(group.allowsEmptySelection)
+        XCTAssertTrue(group.memberTrackIDs.allSatisfy { id in
+            source.track(id: id)?.enabled == false
+        })
+        let plan = try MediaTrackGraphPlannerV4.makePlan(source: source)
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(
+            .init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint
+            )
+        )
+
+        XCTAssertTrue(result.verificationReport.isConformant)
+        XCTAssertEqual(result.outputGraph, source)
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: destinationURL.path
+        ))
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+    func testAlternateAudioGroupReconstructsAfterConsentedMemberDrop()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("reconstructed-group-source.mov")
+        let destinationURL = directory.url("reconstructed-group-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: true
+        )
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL)
+        )
+        let group = try XCTUnwrap(source.groups.first)
+        let defaultTrackID = try XCTUnwrap(group.defaultTrackID)
+        let droppedTrackID = try XCTUnwrap(group.memberTrackIDs.first {
+            $0 != defaultTrackID
+        })
+        let approval = ASHSHA256V4(
+            rawData: Data("alternate-audio-member-drop".utf8)
+        )
+        let trackConsent = try MediaTrackDropConsentV4(
+            subjectID: droppedTrackID.rawValue,
+            reasonID: "user-approved-audio-drop",
+            approvalSHA256: approval
+        )
+        let groupConsent = try MediaTrackDropConsentV4(
+            subjectID: group.identity.stableID.rawValue,
+            reasonID: "user-approved-audio-drop",
+            approvalSHA256: approval
+        )
+        let plan = try MediaTrackGraphPlannerV4.makePlan(
+            source: source,
+            request: .init(
+                trackDirectives: [MediaTrackDirectiveV4(
+                    trackID: droppedTrackID,
+                    action: .dropWithConsent,
+                    targetFormatDescriptors: [],
+                    dropConsent: trackConsent
+                )],
+                groupDirectives: [MediaTrackGroupDirectiveV4(
+                    groupID: group.identity.stableID,
+                    action: .transcode,
+                    outputMemberTrackIDs: [defaultTrackID],
+                    outputDefaultTrackID: defaultTrackID,
+                    dropConsent: groupConsent
+                )]
+            )
+        )
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(
+            .init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint
+            )
+        )
+
+        XCTAssertTrue(result.verificationReport.isConformant)
+        let outputGroup = try XCTUnwrap(result.outputGraph.groups.first)
+        XCTAssertEqual(outputGroup.memberTrackIDs, [defaultTrackID])
+        XCTAssertEqual(outputGroup.defaultTrackID, defaultTrackID)
+        XCTAssertFalse(outputGroup.allowsEmptySelection)
+        XCTAssertNil(result.outputGraph.track(id: droppedTrackID))
+        let retainedResult = try XCTUnwrap(result.trackResults.first {
+            $0.trackID == defaultTrackID
+        })
+        XCTAssertEqual(
+            retainedResult.sourceSampleStreamSHA256,
+            retainedResult.outputSampleStreamSHA256
+        )
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+    func testAlternateAudioGroupRejectsContradictoryEnabledMembers()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("contradictory-group-source.mov")
+        let destinationURL = directory.url("contradictory-group-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: true
+        )
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL)
+        )
+        let group = try XCTUnwrap(source.groups.first)
+        let contradictoryTracks = try source.tracks.map { track in
+            guard group.memberTrackIDs.contains(track.identity.stableID) else {
+                return track
+            }
+            return try trackReplacingEnabled(track, enabled: true)
+        }
+        let contradictorySource = try MediaTrackGraphV4(
+            tracks: contradictoryTracks,
+            groups: source.groups,
+            associations: source.associations,
+            diagnostics: source.diagnostics
+        )
+        let plan = try MediaTrackGraphPlannerV4.makePlan(
+            source: contradictorySource
+        )
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: contradictorySource,
             plan: plan
         )
 
@@ -200,7 +398,7 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
                 .init(
                     sourceURL: sourceURL,
                     destinationURL: destinationURL,
-                    sourceGraph: source,
+                    sourceGraph: contradictorySource,
                     identifiedPlan: plan,
                     blueprint: blueprint
                 )
@@ -210,7 +408,10 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
                 error as? AVFoundationTrackMigrationExecutorV4Error else {
                 return XCTFail("Unexpected error: \(error)")
             }
-            XCTAssertEqual(reason, "empty_selection_policy_not_writable")
+            XCTAssertEqual(
+                reason,
+                "enabled_state_not_representable_by_default"
+            )
         }
         XCTAssertFalse(FileManager.default.fileExists(
             atPath: destinationURL.path
@@ -951,6 +1152,25 @@ private extension AVFoundationTrackMigrationExecutorV4Tests {
             diagnostics: source.diagnostics
         )
     }
+
+    func trackReplacingEnabled(
+        _ track: MediaTrackNodeV4,
+        enabled: Bool
+    ) throws -> MediaTrackNodeV4 {
+        try MediaTrackNodeV4(
+            identity: track.identity,
+            enabled: enabled,
+            kind: track.kind,
+            sourceMediaTypeID: track.sourceMediaTypeID,
+            language: track.language,
+            roleIDs: track.roleIDs,
+            timebase: track.timebase,
+            timeRange: track.timeRange,
+            edits: track.edits,
+            formatDescriptors: track.formatDescriptors,
+            metadataFingerprint: track.metadataFingerprint
+        )
+    }
 }
 
 private final class TrackMigrationProgressRecorderV4: @unchecked Sendable {
@@ -1206,7 +1426,8 @@ private enum TrackMigrationFixtureFactoryV4 {
 
     static func makeRichMovie(
         at url: URL,
-        includeAudioGroup: Bool
+        includeAudioGroup: Bool,
+        selectDefaultAudio: Bool = true
     ) async throws {
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
         let firstVideo = makeVideoLane(seed: 17, title: "primary-video")
@@ -1282,7 +1503,7 @@ private enum TrackMigrationFixtureFactoryV4 {
         if includeAudioGroup {
             let group = AVAssetWriterInputGroup(
                 inputs: [englishAudio, spanishAudio],
-                defaultInput: englishAudio
+                defaultInput: selectDefaultAudio ? englishAudio : nil
             )
             guard writer.canAdd(group) else {
                 throw TrackMigrationFixtureErrorV4.writer(

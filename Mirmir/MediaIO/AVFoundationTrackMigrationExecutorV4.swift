@@ -419,8 +419,12 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                 url: destination.temporaryURL,
                 options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
             )
-            let outputGraph = try await AVFoundationTrackGraphAdapterV4
+            let observedOutputGraph = try await AVFoundationTrackGraphAdapterV4
                 .probe(asset: outputAsset)
+            let outputGraph = try reconcileOutputGraph(
+                observedOutputGraph,
+                plan: request.identifiedPlan.plan
+            )
             let report = try MediaTrackSemanticVerifierV4.verify(
                 plan: request.identifiedPlan,
                 output: outputGraph
@@ -628,15 +632,51 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     )
             }
         }
+        let expectedTrackByID = Dictionary(
+            uniqueKeysWithValues: request.identifiedPlan.plan.tracks
+                .compactMap { planned in
+                    planned.expectedOutput.map {
+                        ($0.identity.stableID, $0)
+                    }
+                }
+        )
+        var groupedTrackIDs = Set<MediaTrackStableIDV4>()
         for planned in request.identifiedPlan.plan.groups {
             guard let expected = planned.expectedOutput else { continue }
-            guard expected.allowsEmptySelection,
-                  expected.defaultTrackID == nil else {
+            guard expected.kind == .alternate else {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .unsupportedGroup(
                         expected.identity.stableID,
-                        reason: "empty_selection_policy_not_writable"
+                        reason: "group_kind_not_writable"
                     )
+            }
+            guard expected.allowsEmptySelection
+                == (expected.defaultTrackID == nil) else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .unsupportedGroup(
+                        expected.identity.stableID,
+                        reason: "selection_policy_not_representable"
+                    )
+            }
+            let enabledMembers = expected.memberTrackIDs.filter {
+                expectedTrackByID[$0]?.enabled == true
+            }
+            guard enabledMembers
+                == expected.defaultTrackID.map({ [$0] }) ?? [] else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .unsupportedGroup(
+                        expected.identity.stableID,
+                        reason: "enabled_state_not_representable_by_default"
+                    )
+            }
+            for id in expected.memberTrackIDs {
+                guard groupedTrackIDs.insert(id).inserted else {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .unsupportedGroup(
+                            expected.identity.stableID,
+                            reason: "track_is_in_multiple_groups"
+                        )
+                }
             }
         }
 
@@ -1183,13 +1223,14 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         cancellation: AVFoundationTrackMigrationCancellationV4
     ) async throws -> [MediaTrackStableIDV4: ASHSHA256V4] {
         let outputTracks = try await outputAsset.load(.tracks)
-        guard outputTracks.count == outputGraph.tracks.count else {
+        guard outputTracks.count == outputGraph.tracks.count,
+              outputTracks.count == pipes.count else {
             throw AVFoundationTrackMigrationExecutorV4Error
                 .sourceTrackInventoryMismatch
         }
         let trackByID = Dictionary(
-            uniqueKeysWithValues: zip(outputGraph.tracks, outputTracks).map {
-                ($0.identity.stableID, $1)
+            uniqueKeysWithValues: zip(pipes, outputTracks).map {
+                ($0.trackID, $1)
             }
         )
         var digests: [MediaTrackStableIDV4: ASHSHA256V4] = [:]
@@ -1266,6 +1307,110 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             digests[pipe.trackID] = actual
         }
         return digests
+    }
+
+    /// AVAssetWriter does not provide a way to assign persistent output track
+    /// IDs. When an authorized drop removes an input, later container IDs and
+    /// ordinals can therefore shift even though every surviving track remains
+    /// in writer-input order. Rebind only those uncontrollable identities to
+    /// the plan's logical identities; all observed media semantics, group
+    /// policy, associations, and encoded sample streams remain independently
+    /// verified after the rebind.
+    func reconcileOutputGraph(
+        _ observed: MediaTrackGraphV4,
+        plan: MediaTrackGraphPlanV4
+    ) throws -> MediaTrackGraphV4 {
+        let expectedTracks = plan.tracks.compactMap(\.expectedOutput)
+        guard observed.tracks.count == expectedTracks.count else {
+            throw AVFoundationTrackMigrationExecutorV4Error
+                .sourceTrackInventoryMismatch
+        }
+        let observedToLogicalID = Dictionary(
+            uniqueKeysWithValues: zip(observed.tracks, expectedTracks).map {
+                ($0.identity.stableID, $1.identity.stableID)
+            }
+        )
+        let tracks = try zip(observed.tracks, expectedTracks).map {
+            actual, expected in
+            try MediaTrackNodeV4(
+                identity: expected.identity,
+                enabled: actual.enabled,
+                kind: actual.kind,
+                sourceMediaTypeID: actual.sourceMediaTypeID,
+                language: actual.language,
+                roleIDs: actual.roleIDs,
+                timebase: actual.timebase,
+                timeRange: actual.timeRange,
+                edits: actual.edits,
+                formatDescriptors: actual.formatDescriptors,
+                metadataFingerprint: actual.metadataFingerprint
+            )
+        }
+
+        let expectedGroups = plan.groups.compactMap(\.expectedOutput)
+        guard observed.groups.count == expectedGroups.count else {
+            throw AVFoundationTrackMigrationExecutorV4Error
+                .sourceTrackInventoryMismatch
+        }
+        let groups = try zip(observed.groups, expectedGroups).map {
+            actual, expected in
+            let members = try actual.memberTrackIDs.map { id in
+                guard let mapped = observedToLogicalID[id] else {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .sourceTrackInventoryMismatch
+                }
+                return mapped
+            }
+            let defaultTrackID: MediaTrackStableIDV4?
+            if let actualDefault = actual.defaultTrackID {
+                guard let mapped = observedToLogicalID[actualDefault] else {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .sourceTrackInventoryMismatch
+                }
+                defaultTrackID = mapped
+            } else {
+                defaultTrackID = nil
+            }
+            return try MediaTrackGroupV4(
+                identity: expected.identity,
+                kind: actual.kind,
+                memberTrackIDs: members,
+                defaultTrackID: defaultTrackID,
+                allowsEmptySelection: actual.allowsEmptySelection
+            )
+        }
+
+        let expectedAssociations = plan.associations.compactMap {
+            $0.action == .passThrough ? $0.source : nil
+        }
+        guard observed.associations.count == expectedAssociations.count else {
+            throw AVFoundationTrackMigrationExecutorV4Error
+                .sourceTrackInventoryMismatch
+        }
+        let associations = try zip(
+            observed.associations,
+            expectedAssociations
+        ).map { actual, expected in
+            guard let sourceID = observedToLogicalID[actual.sourceTrackID],
+                  let targetID = observedToLogicalID[actual.targetTrackID] else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .sourceTrackInventoryMismatch
+            }
+            return try MediaTrackAssociationV4(
+                ordinal: expected.ordinal,
+                sourceTrackID: sourceID,
+                targetTrackID: targetID,
+                kind: actual.kind,
+                sourceAssociationTypeID: actual.sourceAssociationTypeID
+            )
+        }
+
+        return try MediaTrackGraphV4(
+            tracks: tracks,
+            groups: groups,
+            associations: associations,
+            diagnostics: observed.diagnostics
+        )
     }
 
     func waitUntilReady(
