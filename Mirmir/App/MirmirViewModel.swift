@@ -73,6 +73,13 @@ struct BackendSelectionTargetAdjustment: Equatable, Sendable {
     }
 }
 
+private extension UpscaleBackendID {
+    var isDeterministicV4: Bool {
+        self == .mirmirDeterministicCPU
+            || self == .mirmirDeterministicMetal
+    }
+}
+
 private enum LiveSuperResolutionScaleSupport {
     static let provider: SuperResolutionScaleProvider = {
         backendID,
@@ -133,6 +140,13 @@ final class MirmirViewModel {
     private(set) var isDownloadingModel = false
     private(set) var modelDownloadProgress: Double?
     private(set) var modelDownloadMessage: String?
+    private(set) var workflowQueueSnapshot:
+        WorkflowApplicationQueueSnapshotV4?
+    private(set) var workflowRecoverySnapshot:
+        WorkflowLaunchRecoverySnapshotV4?
+    private(set) var workflowErrorMessage: String?
+    private(set) var isInitializingWorkflow = false
+    private(set) var isWorkflowProcessing = false
 
     @ObservationIgnored private let videoProbe: any VideoProbing
     @ObservationIgnored private let backendCatalog: UpscaleBackendCatalog
@@ -140,6 +154,8 @@ final class MirmirViewModel {
     @ObservationIgnored private let coordinator: UpscaleCoordinator
     @ObservationIgnored private let superResolutionScaleProvider:
         SuperResolutionScaleProvider
+    @ObservationIgnored private let workflowController:
+        (any WorkflowApplicationControllingV4)?
     @ObservationIgnored private var probeTask: Task<Void, Never>?
     @ObservationIgnored private var backendAvailabilityTask: Task<Void, Never>?
     @ObservationIgnored private var processingTask: Task<Void, Never>?
@@ -156,7 +172,9 @@ final class MirmirViewModel {
         backendCatalog: UpscaleBackendCatalog = .live(),
         runtimeEnvironment: RuntimeEnvironment = .current(),
         coordinator: UpscaleCoordinator? = nil,
-        superResolutionScaleProvider: SuperResolutionScaleProvider? = nil
+        superResolutionScaleProvider: SuperResolutionScaleProvider? = nil,
+        workflowController:
+            (any WorkflowApplicationControllingV4)? = nil
     ) {
         self.videoProbe = videoProbe
         self.backendCatalog = backendCatalog
@@ -168,6 +186,22 @@ final class MirmirViewModel {
             backendCatalog: backendCatalog,
             runtimeEnvironment: runtimeEnvironment
         )
+        if let workflowController {
+            self.workflowController = workflowController
+        } else {
+            do {
+                self.workflowController = try WorkflowApplicationCoordinatorV4
+                    .live(
+                        applicationIdentifier: "com.mirmir.app",
+                        videoProbe: videoProbe,
+                        backendCatalog: backendCatalog,
+                        runtimeEnvironment: runtimeEnvironment
+                    )
+            } catch {
+                self.workflowController = nil
+                workflowErrorMessage = error.localizedDescription
+            }
+        }
     }
 
     var isProcessing: Bool {
@@ -191,7 +225,22 @@ final class MirmirViewModel {
               selectedBackendAvailability?.isRunnable == true else {
             return false
         }
+        if selectedBackendID.isDeterministicV4,
+           workflowController == nil {
+            return false
+        }
         return true
+    }
+
+    var canPauseWorkflow: Bool {
+        guard isWorkflowProcessing else { return false }
+        return workflowQueueSnapshot?.items.contains {
+            $0.lifecycle == .running || $0.lifecycle == .pausing
+        } == true
+    }
+
+    var pausedWorkflowItems: [WorkflowApplicationQueueItemV4] {
+        workflowQueueSnapshot?.items.filter { $0.lifecycle == .paused } ?? []
     }
 
     var startValidationMessage: String? {
@@ -212,6 +261,11 @@ final class MirmirViewModel {
                 : "Backend availability has not been established."
         }
         guard availability.isRunnable else { return availability.statusText }
+        if selectedBackendID.isDeterministicV4,
+           workflowController == nil {
+            return workflowErrorMessage
+                ?? "The durable v4 workflow could not be initialized."
+        }
         return nil
     }
 
@@ -469,6 +523,33 @@ final class MirmirViewModel {
         }
     }
 
+    func initializeWorkflow() async {
+        guard !isInitializingWorkflow,
+              let workflowController else { return }
+        isInitializingWorkflow = true
+        defer { isInitializingWorkflow = false }
+        do {
+            let launch = try await workflowController.launch()
+            workflowQueueSnapshot = launch.queue
+            workflowRecoverySnapshot = launch.recovery
+            workflowErrorMessage = Self.recoveryErrorMessage(
+                launch.recovery
+            )
+        } catch {
+            workflowErrorMessage = error.localizedDescription
+        }
+    }
+
+    func refreshWorkflowSnapshot() async {
+        guard let workflowController else { return }
+        do {
+            workflowQueueSnapshot = try await workflowController
+                .queueSnapshot()
+        } catch {
+            workflowErrorMessage = error.localizedDescription
+        }
+    }
+
     func startUpscale() {
         guard canStart,
               let source = currentVideoInfo,
@@ -493,6 +574,16 @@ final class MirmirViewModel {
             actualBackendID: nil
         )
         state = .processing(source, initialProgress)
+
+        if selectedBackendID.isDeterministicV4,
+           let workflowController {
+            startDurableUpscale(
+                request: request,
+                source: source,
+                workflowController: workflowController
+            )
+            return
+        }
 
         let coordinator = coordinator
         let progressTarget = self
@@ -523,6 +614,73 @@ final class MirmirViewModel {
                 guard let self else { return }
                 self.processingTask = nil
                 self.state = .failed(.outputFinalizeFailed(error.localizedDescription))
+            }
+        }
+    }
+
+    func pauseProcessing() {
+        guard isWorkflowProcessing,
+              let workflowController else { return }
+        Task { [weak self] in
+            do {
+                try await workflowController.requestPause()
+                await self?.refreshWorkflowSnapshot()
+            } catch {
+                self?.workflowErrorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func resumeWorkflowJob(_ jobID: WorkflowJobID) {
+        guard !isProcessing,
+              !isWorkflowProcessing,
+              let workflowController else { return }
+        isWorkflowProcessing = true
+        workflowErrorMessage = nil
+        let progressTarget = self
+        processingTask = Task { [weak self] in
+            do {
+                let outcome = try await workflowController.resume(
+                    jobID: jobID,
+                    progress: { progress in
+                        Task { @MainActor in
+                            guard let current = progressTarget.currentVideoInfo,
+                                  progressTarget.isWorkflowProcessing else {
+                                return
+                            }
+                            progressTarget.state = .processing(
+                                current,
+                                progress
+                            )
+                        }
+                    },
+                    snapshot: { snapshot in
+                        Task { @MainActor in
+                            progressTarget.workflowQueueSnapshot = snapshot
+                        }
+                    }
+                )
+                guard let self else { return }
+                self.applyWorkflowOutcome(outcome)
+                self.processingTask = nil
+                self.isWorkflowProcessing = false
+            } catch is CancellationError {
+                guard let self else { return }
+                self.processingTask = nil
+                self.isWorkflowProcessing = false
+                if let source = self.currentVideoInfo {
+                    self.state = .ready(source)
+                }
+                await self.refreshWorkflowSnapshot()
+            } catch {
+                guard let self else { return }
+                self.processingTask = nil
+                self.isWorkflowProcessing = false
+                self.workflowErrorMessage = error.localizedDescription
+                self.state = .failed(.outputFinalizeFailed(
+                    error.localizedDescription
+                ))
+                await self.refreshWorkflowSnapshot()
             }
         }
     }
@@ -573,6 +731,16 @@ final class MirmirViewModel {
     }
 
     func cancelProcessing() {
+        if isWorkflowProcessing, let workflowController {
+            Task { [weak self] in
+                do {
+                    try await workflowController.cancelActive()
+                } catch {
+                    self?.workflowErrorMessage = error.localizedDescription
+                }
+            }
+            return
+        }
         processingTask?.cancel()
         Task { await coordinator.cancel() }
     }
@@ -609,8 +777,13 @@ final class MirmirViewModel {
         activeProbeID = nil
         probeTask?.cancel()
         probeTask = nil
-        processingTask?.cancel()
+        if isWorkflowProcessing, let workflowController {
+            Task { try? await workflowController.cancelActive() }
+        } else {
+            processingTask?.cancel()
+        }
         processingTask = nil
+        isWorkflowProcessing = false
         modelDownloadTask?.cancel()
         modelDownloadTask = nil
         isDownloadingModel = false
@@ -619,6 +792,94 @@ final class MirmirViewModel {
         Task { await coordinator.cancel() }
         scopedInputAccess = nil
         cancelBackendAvailability()
+    }
+
+    private func startDurableUpscale(
+        request: UpscaleRequest,
+        source: VideoInfo,
+        workflowController: any WorkflowApplicationControllingV4
+    ) {
+        isWorkflowProcessing = true
+        workflowErrorMessage = nil
+        let progressTarget = self
+        processingTask = Task { [weak self] in
+            do {
+                let outcome = try await workflowController.submit(
+                    request: request,
+                    progress: { progress in
+                        Task { @MainActor in
+                            guard progressTarget.isWorkflowProcessing else {
+                                return
+                            }
+                            progressTarget.state = .processing(source, progress)
+                        }
+                    },
+                    snapshot: { snapshot in
+                        Task { @MainActor in
+                            progressTarget.workflowQueueSnapshot = snapshot
+                        }
+                    }
+                )
+                guard let self else { return }
+                self.applyWorkflowOutcome(outcome)
+                self.processingTask = nil
+                self.isWorkflowProcessing = false
+            } catch let error as MirmirError {
+                guard let self else { return }
+                self.processingTask = nil
+                self.isWorkflowProcessing = false
+                if error == .cancelled {
+                    self.state = .ready(source)
+                } else {
+                    self.state = .failed(error)
+                    self.workflowErrorMessage = error.localizedDescription
+                }
+                await self.refreshWorkflowSnapshot()
+            } catch is CancellationError {
+                guard let self else { return }
+                self.processingTask = nil
+                self.isWorkflowProcessing = false
+                self.state = .ready(source)
+                await self.refreshWorkflowSnapshot()
+            } catch {
+                guard let self else { return }
+                self.processingTask = nil
+                self.isWorkflowProcessing = false
+                self.workflowErrorMessage = error.localizedDescription
+                self.state = .failed(.outputFinalizeFailed(
+                    error.localizedDescription
+                ))
+                await self.refreshWorkflowSnapshot()
+            }
+        }
+    }
+
+    private func applyWorkflowOutcome(
+        _ outcome: WorkflowApplicationRunOutcomeV4
+    ) {
+        switch outcome {
+        case .completed(let completion):
+            currentVideoInfo = completion.source
+            state = .completed(completion.source, completion.result)
+        case .paused(_, let source):
+            currentVideoInfo = source
+            state = .ready(source)
+        }
+    }
+
+    private static func recoveryErrorMessage(
+        _ snapshot: WorkflowLaunchRecoverySnapshotV4
+    ) -> String? {
+        let affected = snapshot.items.filter {
+            $0.status == .contained
+                || $0.status == .bookmarkBlocked
+                || $0.status == .decisionRecordCorrupt
+                || $0.status == .recoveryFailed
+                || $0.containedFailureCount > 0
+        }
+        guard !affected.isEmpty else { return nil }
+        let jobs = affected.map { $0.jobID.rawValue }.joined(separator: ", ")
+        return "Launch recovery contained durable workflow errors for: \(jobs)."
     }
 
     private func configureInitialTarget(for source: VideoInfo) {

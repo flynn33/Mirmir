@@ -56,6 +56,91 @@ final class MirmirTests: XCTestCase {
             "Unknown"
         )
     }
+
+    @MainActor
+    func testWorkflowLaunchPublishesSnapshotsAndContainsRecoveryErrors() async throws {
+        let generatedAt = WorkflowWallClockInstantV4(
+            nanosecondsSinceUnixEpoch: 1_000
+        )
+        let jobID = try WorkflowJobID("contained-job")
+        let queue = WorkflowApplicationQueueSnapshotV4(
+            generatedAt: generatedAt,
+            items: []
+        )
+        let containedRecovery = WorkflowLaunchRecoverySnapshotV4(
+            generatedAt: generatedAt,
+            items: [
+                WorkflowLaunchRecoveryItemV4(
+                    jobID: jobID,
+                    observedLifecycle: .running,
+                    presentedLifecycle: .contained,
+                    status: .contained,
+                    resourceSummaries: [],
+                    partialDispositionCounts: [:],
+                    containedFailureCount: 1,
+                    reducerEvents: [],
+                    resumable: false
+                ),
+            ]
+        )
+        let cleanRecovery = WorkflowLaunchRecoverySnapshotV4(
+            generatedAt: generatedAt,
+            items: []
+        )
+        let controller = StubWorkflowApplicationControllerV4(
+            launches: [
+                WorkflowApplicationLaunchSnapshotV4(
+                    queue: queue,
+                    recovery: containedRecovery
+                ),
+                WorkflowApplicationLaunchSnapshotV4(
+                    queue: queue,
+                    recovery: cleanRecovery
+                ),
+            ]
+        )
+        let viewModel = MirmirViewModel(
+            videoProbe: WaitingVideoProbe(),
+            workflowController: controller
+        )
+
+        await viewModel.initializeWorkflow()
+
+        XCTAssertEqual(viewModel.workflowQueueSnapshot, queue)
+        XCTAssertEqual(viewModel.workflowRecoverySnapshot, containedRecovery)
+        XCTAssertEqual(
+            viewModel.workflowErrorMessage,
+            "Launch recovery contained durable workflow errors for: contained-job."
+        )
+
+        await viewModel.initializeWorkflow()
+
+        XCTAssertEqual(viewModel.workflowRecoverySnapshot, cleanRecovery)
+        XCTAssertNil(viewModel.workflowErrorMessage)
+        XCTAssertFalse(viewModel.isInitializingWorkflow)
+    }
+
+    @MainActor
+    func testWorkflowLaunchFailureIsContainedInViewModel() async {
+        let controller = StubWorkflowApplicationControllerV4(
+            launches: [],
+            failureMessage: "durable store unavailable"
+        )
+        let viewModel = MirmirViewModel(
+            videoProbe: WaitingVideoProbe(),
+            workflowController: controller
+        )
+
+        await viewModel.initializeWorkflow()
+
+        XCTAssertEqual(
+            viewModel.workflowErrorMessage,
+            "durable store unavailable"
+        )
+        XCTAssertNil(viewModel.workflowQueueSnapshot)
+        XCTAssertNil(viewModel.workflowRecoverySnapshot)
+        XCTAssertFalse(viewModel.isInitializingWorkflow)
+    }
 }
 
 final class MirmirDashboardTelemetryTests: XCTestCase {
@@ -209,5 +294,71 @@ private struct WaitingVideoProbe: VideoProbing {
     func probe(url: URL) async throws -> VideoInfo {
         try await Task.sleep(nanoseconds: 60_000_000_000)
         throw CancellationError()
+    }
+}
+
+private actor StubWorkflowApplicationControllerV4:
+    WorkflowApplicationControllingV4
+{
+    private struct LaunchFailure: LocalizedError {
+        let message: String
+
+        var errorDescription: String? { message }
+    }
+
+    private var launches: [WorkflowApplicationLaunchSnapshotV4]
+    private let failureMessage: String?
+
+    init(
+        launches: [WorkflowApplicationLaunchSnapshotV4],
+        failureMessage: String? = nil
+    ) {
+        self.launches = launches
+        self.failureMessage = failureMessage
+    }
+
+    func launch() async throws -> WorkflowApplicationLaunchSnapshotV4 {
+        if let failureMessage {
+            throw LaunchFailure(message: failureMessage)
+        }
+        guard !launches.isEmpty else {
+            throw LaunchFailure(message: "Unexpected workflow launch.")
+        }
+        return launches.removeFirst()
+    }
+
+    func submit(
+        request _: UpscaleRequest,
+        progress _: @escaping @Sendable (UpscaleProgress) -> Void,
+        snapshot _: @escaping @Sendable (
+            WorkflowApplicationQueueSnapshotV4
+        ) -> Void
+    ) async throws -> WorkflowApplicationRunOutcomeV4 {
+        throw LaunchFailure(message: "Unexpected workflow submission.")
+    }
+
+    func requestPause() async throws {
+        throw LaunchFailure(message: "Unexpected workflow pause.")
+    }
+
+    func cancelActive() async throws {
+        throw LaunchFailure(message: "Unexpected workflow cancellation.")
+    }
+
+    func resume(
+        jobID _: WorkflowJobID,
+        progress _: @escaping @Sendable (UpscaleProgress) -> Void,
+        snapshot _: @escaping @Sendable (
+            WorkflowApplicationQueueSnapshotV4
+        ) -> Void
+    ) async throws -> WorkflowApplicationRunOutcomeV4 {
+        throw LaunchFailure(message: "Unexpected workflow resume.")
+    }
+
+    func queueSnapshot() async throws -> WorkflowApplicationQueueSnapshotV4 {
+        guard let launch = launches.first else {
+            throw LaunchFailure(message: "Unexpected workflow snapshot.")
+        }
+        return launch.queue
     }
 }

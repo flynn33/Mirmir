@@ -1,3 +1,5 @@
+import AVFoundation
+import CoreMedia
 import Darwin
 import Foundation
 
@@ -27,6 +29,9 @@ enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
     case requestDocumentCorrupt(WorkflowJobID)
     case requestDocumentBindingMismatch(WorkflowJobID)
     case requestDocumentConflict(WorkflowJobID)
+    case dispatchJobMismatch(expected: WorkflowJobID, actual: WorkflowJobID)
+    case preparedPlanChanged(WorkflowJobID)
+    case terminalCheckpointMissing(WorkflowJobID)
 
     var errorDescription: String? {
         switch self {
@@ -56,6 +61,12 @@ enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
             "The durable request document for \(jobID) does not match the journal binding."
         case .requestDocumentConflict(let jobID):
             "A different durable request document already exists for \(jobID)."
+        case .dispatchJobMismatch(let expected, let actual):
+            "The dispatcher selected \(actual), expected \(expected)."
+        case .preparedPlanChanged(let jobID):
+            "The revalidated prepared plan for \(jobID) no longer matches its durable binding."
+        case .terminalCheckpointMissing(let jobID):
+            "The durable job \(jobID) has no compatible terminal segment checkpoint."
         }
     }
 }
@@ -534,6 +545,7 @@ final class WorkflowActivatedUpscaleRequestV4: @unchecked Sendable {
     let specification: WorkflowJobSpecification
     let request: UpscaleRequest
     let cacheDirectoryURL: URL
+    let preparedPlanBinding: WorkflowVerifiedPreparedPlanBindingV4
     let bookmarkReceipts: [WorkflowBookmarkActivationReceiptV4]
 
     private let accessSet: WorkflowActivatedBookmarkAccessSetV4
@@ -542,11 +554,13 @@ final class WorkflowActivatedUpscaleRequestV4: @unchecked Sendable {
         specification: WorkflowJobSpecification,
         request: UpscaleRequest,
         cacheDirectoryURL: URL,
+        preparedPlanBinding: WorkflowVerifiedPreparedPlanBindingV4,
         accessSet: WorkflowActivatedBookmarkAccessSetV4
     ) {
         self.specification = specification
         self.request = request
         self.cacheDirectoryURL = cacheDirectoryURL
+        self.preparedPlanBinding = preparedPlanBinding
         bookmarkReceipts = accessSet.receipts
         self.accessSet = accessSet
     }
@@ -588,6 +602,7 @@ actor WorkflowApplicationQueueV4 {
     private let bookmarkStore: WorkflowSecurityScopedBookmarkStoreV4
     private let dispatcher: WorkflowQueueDispatcherV4
     private let recoveryPresenter: WorkflowLaunchRecoveryPresenterV4
+    private let leaseDuration: WorkflowLeaseIntervalV4
 
     init(
         trustedRootURL: URL,
@@ -659,6 +674,7 @@ actor WorkflowApplicationQueueV4 {
         self.coordinator = coordinator
         self.bookmarkStore = bookmarkStore
         self.dispatcher = dispatcher
+        self.leaseDuration = effectiveLeaseDuration
         recoveryPresenter = WorkflowLaunchRecoveryPresenterV4(
             coordinator: coordinator,
             bookmarkStore: bookmarkStore,
@@ -926,6 +942,7 @@ actor WorkflowApplicationQueueV4 {
                         specification: job.specification,
                         request: request,
                         cacheDirectoryURL: cache,
+                        preparedPlanBinding: body.preparedPlanBinding,
                         accessSet: accessSet
                     )
                 )
@@ -944,6 +961,361 @@ actor WorkflowApplicationQueueV4 {
             .appendingPathComponent(jobID.rawValue, isDirectory: true)
             .appendingPathComponent("application-request-v4", isDirectory: true)
             .appendingPathComponent(Self.requestDocumentName)
+    }
+}
+
+// MARK: - Shipping application execution bridge
+
+private struct WorkflowApplicationOutputContractMaterialV4:
+    Codable,
+    Equatable,
+    Sendable
+{
+    static let currentSchemaVersion: UInt16 = 1
+
+    let schemaVersion: UInt16
+    let ashPlanSHA256: ASHSHA256V4
+    let trackPlanSHA256: ASHSHA256V4
+    let encodedFormatDescriptor: MediaTrackFormatDescriptorV4
+    let targetWidth: Int
+    let targetHeight: Int
+    let outputCodec: OutputCodec
+    let preserveAudio: Bool
+
+    init(
+        preparedPlan: DeterministicV4PreparedAssetPlan,
+        request: UpscaleRequest
+    ) {
+        schemaVersion = Self.currentSchemaVersion
+        ashPlanSHA256 = preparedPlan.ashPlan.planSHA256
+        trackPlanSHA256 = preparedPlan.trackPlan.planSHA256
+        encodedFormatDescriptor = preparedPlan.encodedFormatDescriptor
+        targetWidth = request.targetWidth
+        targetHeight = request.targetHeight
+        outputCodec = request.outputCodec
+        preserveAudio = request.preserveAudio
+    }
+}
+
+private struct WorkflowApplicationMediaContractMaterialV4:
+    Codable,
+    Equatable,
+    Sendable
+{
+    static let currentSchemaVersion: UInt16 = 1
+
+    let schemaVersion: UInt16
+    let canonicalMediaSHA256: ASHSHA256V4
+    let sourceGraphSHA256: ASHSHA256V4
+    let trackPlanSHA256: ASHSHA256V4
+
+    init(preparedPlan: DeterministicV4PreparedAssetPlan) throws {
+        schemaVersion = Self.currentSchemaVersion
+        canonicalMediaSHA256 = try preparedPlan.canonicalMedia.canonicalSHA256
+        sourceGraphSHA256 = try preparedPlan.sourceGraph.canonicalSHA256
+        trackPlanSHA256 = preparedPlan.trackPlan.planSHA256
+    }
+}
+
+private struct WorkflowApplicationTerminalBoundaryStateV4:
+    Codable,
+    Equatable,
+    Sendable
+{
+    static let currentSchemaVersion: UInt16 = 1
+
+    let schemaVersion: UInt16
+    let jobBinding: WorkflowJobBinding
+    let runtimeManifestID: WorkflowRuntimeManifestID
+    let planID: WorkflowPlanID
+    let lastCompletedInputOrdinal: Int64
+    let terminal: Bool
+
+    init(
+        specification: WorkflowJobSpecification,
+        lastCompletedInputOrdinal: Int64
+    ) {
+        schemaVersion = Self.currentSchemaVersion
+        jobBinding = specification.binding
+        runtimeManifestID = specification.runtimeBinding.runtimeManifestID
+        planID = specification.runtimeBinding.planID
+        self.lastCompletedInputOrdinal = lastCompletedInputOrdinal
+        terminal = true
+    }
+}
+
+struct WorkflowApplicationTerminalCheckpointV4: Sendable {
+    let checkpoint: WorkflowCheckpointDocumentV4
+    let segmentIdentity: AVFoundationSegmentIdentityV4
+}
+
+extension WorkflowApplicationQueueV4 {
+    /// Converts only already-verified deterministic planning facts into the
+    /// workflow identifier vocabulary. The queue does not invent a runtime,
+    /// plan, media state, or backend choice.
+    nonisolated static func preparedBinding(
+        preparedPlan: DeterministicV4PreparedAssetPlan,
+        request: UpscaleRequest,
+        resolvedBackendID: UpscaleBackendID
+    ) throws -> WorkflowVerifiedPreparedPlanBindingV4 {
+        try preparedPlan.ashPlan.verify()
+        try preparedPlan.trackPlan.verify()
+        guard request.backendID == resolvedBackendID,
+              resolvedBackendID.isConcreteBackend else {
+            throw WorkflowApplicationQueueErrorV4.preparedBackendMismatch(
+                request: request.backendID,
+                prepared: resolvedBackendID
+            )
+        }
+        let codec = WorkflowCanonicalCodec()
+        let outputMaterial = WorkflowApplicationOutputContractMaterialV4(
+            preparedPlan: preparedPlan,
+            request: request
+        )
+        let mediaMaterial = try WorkflowApplicationMediaContractMaterialV4(
+            preparedPlan: preparedPlan
+        )
+        let plan = preparedPlan.ashPlan.plan
+        return try WorkflowVerifiedPreparedPlanBindingV4(
+            sourceIdentityID: WorkflowSourceIdentityID(
+                plan.mediaStateSHA256.rawValue
+            ),
+            outputContractID: WorkflowOutputContractID(
+                WorkflowV4Validation.domainSeparatedSHA256(
+                    domain: "Mirmir.WorkflowApplication.OutputContract.v1\u{0}",
+                    data: codec.canonicalData(outputMaterial)
+                )
+            ),
+            runtimeManifestID: WorkflowRuntimeManifestID(
+                plan.runtimeManifestSHA256.rawValue
+            ),
+            planID: WorkflowPlanID(preparedPlan.ashPlan.planSHA256.rawValue),
+            workflowBackendID: WorkflowBackendID(resolvedBackendID.rawValue),
+            backendRevisionID: WorkflowBackendRevisionID(
+                plan.runtimeProvenanceSHA256.rawValue
+            ),
+            mediaContractID: WorkflowMediaContractID(
+                WorkflowV4Validation.domainSeparatedSHA256(
+                    domain: "Mirmir.WorkflowApplication.MediaContract.v1\u{0}",
+                    data: codec.canonicalData(mediaMaterial)
+                )
+            ),
+            resolvedBackendID: resolvedBackendID
+        )
+    }
+
+    func claimNextApplicationJob(
+        cycleID: WorkflowDispatchCycleIDV4
+    ) async throws -> WorkflowQueueDispatchResultV4 {
+        try await dispatcher.claimNext(cycleID: cycleID)
+    }
+
+    func transitionApplicationJob(
+        _ dispatch: WorkflowQueueDispatchReceiptV4,
+        expected: WorkflowJobLifecycle,
+        target: WorkflowJobLifecycle,
+        commandKey: WorkflowRecoveryCommandKeyV4,
+        stage: String,
+        attemptID: WorkflowAttemptID?,
+        releaseAfterTransition: Bool = false
+    ) async throws -> WorkflowQueueTransitionReceiptV4 {
+        try await dispatcher.transition(
+            dispatch,
+            expected: expected,
+            target: target,
+            commandKey: commandKey,
+            stage: stage,
+            attemptID: attemptID,
+            releaseAfterTransition: releaseAfterTransition
+        )
+    }
+
+    func requestApplicationPause(
+        _ dispatch: WorkflowQueueDispatchReceiptV4,
+        commandKey: WorkflowRecoveryCommandKeyV4
+    ) async throws -> WorkflowQueueTransitionReceiptV4 {
+        try await dispatcher.requestPause(dispatch, commandKey: commandKey)
+    }
+
+    func completeApplicationPause(
+        _ dispatch: WorkflowQueueDispatchReceiptV4,
+        commandKey: WorkflowRecoveryCommandKeyV4
+    ) async throws -> WorkflowQueueTransitionReceiptV4 {
+        try await dispatcher.completePause(dispatch, commandKey: commandKey)
+    }
+
+    func resumeApplicationJob(
+        jobID: WorkflowJobID,
+        commandKey: WorkflowRecoveryCommandKeyV4,
+        attemptID: WorkflowAttemptID
+    ) async throws -> WorkflowQueueDispatchReceiptV4 {
+        try await dispatcher.resume(
+            jobID: jobID,
+            commandKey: commandKey,
+            attemptID: attemptID
+        )
+    }
+
+    @discardableResult
+    func heartbeatApplicationJob(
+        _ dispatch: WorkflowQueueDispatchReceiptV4
+    ) async throws -> WorkflowDispatchClaimV4 {
+        let current = try await dispatcher.refreshedDispatch(dispatch)
+        return try await coordinator.heartbeat(WorkflowLeaseHeartbeatV4(
+            claim: current.claim,
+            interval: leaseDuration
+        ))
+    }
+
+    func compatibleApplicationCheckpoint(
+        jobID: WorkflowJobID,
+        outputContractID: WorkflowOutputContractID
+    ) async throws -> WorkflowCheckpointDocumentV4? {
+        try await coordinator.loadCompatibleCheckpoint(
+            jobID: jobID,
+            expectedCodecSettingsHash: outputContractID
+        )
+    }
+
+    func commitTerminalApplicationCheckpoint(
+        dispatch: WorkflowQueueDispatchReceiptV4,
+        specification: WorkflowJobSpecification,
+        segmentURL: URL,
+        outputContractID: WorkflowOutputContractID,
+        processedInputFrameCount: Int
+    ) async throws -> WorkflowApplicationTerminalCheckpointV4 {
+        let current = try await dispatcher.refreshedDispatch(dispatch)
+        guard current.claim.jobID == specification.jobID,
+              current.claim.jobBinding == specification.binding else {
+            throw WorkflowApplicationQueueErrorV4.dispatchJobMismatch(
+                expected: specification.jobID,
+                actual: current.claim.jobID
+            )
+        }
+        let store = try WorkflowSegmentCheckpointStoreV4(rootURL: rootURL)
+        let identity = try await AVFoundationSegmentProbeV4().probe(
+            url: segmentURL
+        )
+        let start = try WorkflowMediaTimeV4(
+            value: 0,
+            timescale: identity.duration.timescale
+        )
+        let end = identity.duration
+        let lastInputOrdinal = Int64(max(processedInputFrameCount - 1, 0))
+        let token = try Self.boundaryToken(
+            jobID: specification.jobID,
+            planID: specification.runtimeBinding.planID,
+            outputContractID: outputContractID,
+            segmentIdentity: identity
+        )
+        let trackProgress = try identity.tracks.enumerated().map {
+            index,
+            track in
+            let sampleCount = track.sampleCount
+            return try WorkflowTrackProgressV4(
+                trackID: "track-\(index)-\(Self.checkpointKind(track.key).rawValue)",
+                kind: Self.checkpointKind(track.key),
+                nextInputSampleIndex: sampleCount,
+                nextOutputSampleIndex: sampleCount,
+                lastInputTime: track.endPresentationTimeExclusive,
+                lastOutputTime: track.endPresentationTimeExclusive,
+                isComplete: true
+            )
+        }
+        let publication = try await store.publishBoundary(
+            WorkflowSegmentCheckpointPublicationRequestV4(
+                checkpointID: try WorkflowCheckpointIDV4(
+                    "checkpoint-terminal-\(token)"
+                ),
+                segmentArtifactID: try WorkflowArtifactIDV4(
+                    "artifact-segment-\(token)"
+                ),
+                temporalArtifactID: try WorkflowArtifactIDV4(
+                    "artifact-temporal-\(token)"
+                ),
+                measurementArtifactID: try WorkflowArtifactIDV4(
+                    "artifact-measurement-\(token)"
+                ),
+                sourceSegmentURL: segmentURL,
+                existingSegments: [],
+                startTime: start,
+                endTimeExclusive: end,
+                codecSettingsHash: outputContractID,
+                trackProgress: trackProgress,
+                committedAt: clock.now(),
+                lastCompletedInputOrdinal: lastInputOrdinal
+            ),
+            using: current.claim,
+            temporalCheckpoint: try codec.canonicalData(
+                WorkflowApplicationTerminalBoundaryStateV4(
+                    specification: specification,
+                    lastCompletedInputOrdinal: lastInputOrdinal
+                )
+            )
+        )
+        let committed = try await coordinator.commitCheckpoint(
+            publication.draft,
+            using: current.claim
+        )
+        return WorkflowApplicationTerminalCheckpointV4(
+            checkpoint: committed.document,
+            segmentIdentity: publication.segmentIdentity
+        )
+    }
+
+    func verifyApplicationCheckpoint(
+        _ checkpoint: WorkflowCheckpointDocumentV4
+    ) async throws -> WorkflowSegmentCheckpointVerificationV4 {
+        let store = try WorkflowSegmentCheckpointStoreV4(rootURL: rootURL)
+        return try await store.verifyCheckpoint(checkpoint)
+    }
+
+    func assembleApplicationCheckpoint(
+        _ checkpoint: WorkflowCheckpointDocumentV4,
+        destinationURL: URL,
+        overwriteExistingFile: Bool
+    ) async throws -> AVFoundationSegmentAssemblyResultV4 {
+        try await AVFoundationSegmentAssemblerV4().assemble(.init(
+            artifactRootURL: rootURL,
+            segments: checkpoint.body.segments,
+            destinationURL: destinationURL,
+            outputFileType: .mov,
+            overwriteExistingFile: overwriteExistingFile
+        ))
+    }
+}
+
+private extension WorkflowApplicationQueueV4 {
+    nonisolated static func boundaryToken(
+        jobID: WorkflowJobID,
+        planID: WorkflowPlanID,
+        outputContractID: WorkflowOutputContractID,
+        segmentIdentity: AVFoundationSegmentIdentityV4
+    ) throws -> String {
+        let data = Data([
+            jobID.rawValue,
+            planID.rawValue,
+            outputContractID.rawValue,
+            try segmentIdentity.canonicalSHA256,
+        ].joined(separator: "\u{0}").utf8)
+        return String(WorkflowV4Validation.domainSeparatedSHA256(
+            domain: "Mirmir.WorkflowApplication.TerminalBoundary.v1\u{0}",
+            data: data
+        ).prefix(40))
+    }
+
+    nonisolated static func checkpointKind(
+        _ key: AVFoundationSegmentTrackKeyV4
+    ) -> WorkflowCheckpointTrackKindV4 {
+        switch key.mediaType {
+        case AVMediaType.video.rawValue: .video
+        case AVMediaType.audio.rawValue: .audio
+        case AVMediaType.subtitle.rawValue: .subtitle
+        case AVMediaType.closedCaption.rawValue: .caption
+        case AVMediaType.timecode.rawValue: .timecode
+        case AVMediaType.metadata.rawValue: .timedMetadata
+        default: .auxiliary
+        }
     }
 }
 

@@ -402,15 +402,31 @@ struct MirmirProductUpscaleWorkspace: View {
     private var actionControls: some View {
         VStack(alignment: .leading, spacing: theme.spacing.space2) {
             if viewModel.isProcessing {
-                Button(role: .destructive) {
-                    viewModel.cancelProcessing()
-                } label: {
-                    Label("Cancel", systemImage: "stop.fill")
-                        .frame(maxWidth: .infinity)
+                HStack(spacing: theme.spacing.space2) {
+                    if viewModel.canPauseWorkflow {
+                        Button {
+                            viewModel.pauseProcessing()
+                        } label: {
+                            Label("Pause", systemImage: "pause.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(
+                            MirmirProductSecondaryButtonStyle(theme: theme)
+                        )
+                        .accessibilityIdentifier("mirmir.pauseProcessing")
+                    }
+                    Button(role: .destructive) {
+                        viewModel.cancelProcessing()
+                    } label: {
+                        Label("Cancel", systemImage: "stop.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(
+                        MirmirProductSecondaryButtonStyle(theme: theme)
+                    )
+                    .keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier("mirmir.cancelProcessing")
                 }
-                .buttonStyle(MirmirProductSecondaryButtonStyle(theme: theme))
-                .keyboardShortcut(.cancelAction)
-                .accessibilityIdentifier("mirmir.cancelProcessing")
             } else {
                 Button {
                     viewModel.startUpscale()
