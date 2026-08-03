@@ -1,0 +1,17 @@
+{
+  "buildConfiguration": "Release",
+  "builderID": "ash-p06-release-builder-v4-1",
+  "canonicalManifestIdentityDomain": "ash-p06-runtime-manifest-v4",
+  "cleanBuildCount": 2,
+  "developmentArtifactDependencyCount": 0,
+  "p05ProductionDependencyCount": 0,
+  "runtimeID": "ash-p06-deterministic-v4",
+  "runtimeReleaseStatus": "release_qualified",
+  "schemaVersion": "mirmir-ash-v4-p06-reproduction-contract-v1",
+  "sourceCheckoutState": "clean",
+  "verification": {
+    "byteIdenticalToShippingBundle": true,
+    "productionLoaderAcceptanceRequired": true,
+    "sameLengthArtifactTamperRejectionRequired": true
+  }
+}

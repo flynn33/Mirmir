@@ -6,6 +6,7 @@ repository_root="${script_directory:h:h}"
 
 artifact_output=""
 bundle_output=""
+provenance_output=""
 while (( $# > 0 )); do
     case "$1" in
         --artifacts)
@@ -24,6 +25,14 @@ while (( $# > 0 )); do
             bundle_output="$2"
             shift 2
             ;;
+        --provenance)
+            (( $# >= 2 )) || {
+                print -u2 "Missing value for --provenance"
+                exit 64
+            }
+            provenance_output="$2"
+            shift 2
+            ;;
         *)
             print -u2 "Unknown option: $1"
             exit 64
@@ -32,16 +41,28 @@ while (( $# > 0 )); do
 done
 if [[ -z "${artifact_output}" || -z "${bundle_output}" ]]; then
     print -u2 \
-        "usage: $0 --artifacts <new-input-directory> --output <new-bundle-directory>"
+        "usage: $0 --artifacts <new-input-directory> --output <new-bundle-directory> [--provenance <new-directory>]"
     exit 64
 fi
 artifact_output="${artifact_output:A}"
 bundle_output="${bundle_output:A}"
+if [[ -n "${provenance_output}" ]]; then
+    provenance_output="${provenance_output:A}"
+fi
 if [[ "${artifact_output}" == "${bundle_output}" ]]; then
     print -u2 "Artifact input and runtime bundle outputs must differ"
     exit 64
 fi
-for destination in "${artifact_output}" "${bundle_output}"; do
+destinations=("${artifact_output}" "${bundle_output}")
+if [[ -n "${provenance_output}" ]]; then
+    if [[ "${provenance_output}" == "${artifact_output}" \
+        || "${provenance_output}" == "${bundle_output}" ]]; then
+        print -u2 "Provenance output must differ from artifact and runtime outputs"
+        exit 64
+    fi
+    destinations+=("${provenance_output}")
+fi
+for destination in "${destinations[@]}"; do
     if [[ -e "${destination}" ]]; then
         print -u2 "Output already exists: ${destination}"
         exit 64
@@ -203,6 +224,48 @@ release_bundle="${release_temporary_directory}/release-runtime"
 diff -rq -- "${first_artifacts}" "${second_artifacts}" >/dev/null
 mv -- "${first_artifacts}" "${artifact_output}"
 mv -- "${release_bundle}" "${bundle_output}"
+if [[ -n "${provenance_output}" ]]; then
+    mkdir -- "${provenance_output}"
+    {
+        cd "${repository_root}"
+        shasum -a 256 "${builder_sources[@]}"
+    } >"${provenance_output}/builder-source-manifest.txt"
+    python3 - \
+        "${swift_compiler_identity}" \
+        "${metal_compiler_identity}" \
+        "${metal_language}" \
+        "${sdk_build_identity}" \
+        "${deployment_target}" \
+        "${target_triple}" \
+        >"${provenance_output}/toolchain-image.json" <<'PY'
+import json
+import sys
+
+keys = (
+    "swiftCompilerIdentity",
+    "metalCompilerIdentity",
+    "metalLanguageVersion",
+    "sdkBuildIdentity",
+    "deploymentTarget",
+    "targetTriple",
+)
+if len(sys.argv[1:]) != len(keys):
+    raise SystemExit("toolchain provenance argument count mismatch")
+document = dict(zip(keys, sys.argv[1:]))
+sys.stdout.write(json.dumps(document, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+PY
+    if [[ ! -s "${provenance_output}/toolchain-image.json" ]]; then
+        print -u2 "Toolchain provenance artifact was not generated"
+        exit 65
+    fi
+    actual_builder_source_sha256="$(
+        shasum -a 256 "${provenance_output}/builder-source-manifest.txt" | awk '{print $1}'
+    )"
+    if [[ "${actual_builder_source_sha256}" != "${builder_source_sha256}" ]]; then
+        print -u2 "Builder provenance artifact identity mismatch"
+        exit 65
+    fi
+fi
 print -r -- "source_revision=${source_revision}"
 print -r -- "builder_source_sha256=${builder_source_sha256}"
 print -r -- "artifact_set_sha256=${artifact_set_sha256}"
