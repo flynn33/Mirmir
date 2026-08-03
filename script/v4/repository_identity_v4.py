@@ -18,6 +18,7 @@ RUNTIME_MANIFEST_DOMAIN = "ash-p06-runtime-manifest-v4"
 RUNTIME_SCHEMA = "ash.p06.runtime-manifest.v1"
 RUNTIME_ID = "ash-p06-deterministic-v4"
 EVIDENCE_SCHEMA = "mirmir-v4-evidence-manifest-v1"
+P05_EVIDENCE_SCHEMA = "mirmir-v4-p05-evidence-manifest-v3"
 CORPUS_LOCK_SCHEMA = "mirmir-ash-v4-natural-quality-corpus-lock-v1"
 HEX = frozenset("0123456789abcdef")
 
@@ -80,6 +81,17 @@ def sha256_file(path: Path) -> str:
                 digest.update(block)
     except OSError as error:
         raise RepositoryIdentityError(f"cannot hash {path}: {error}") from error
+    return digest.hexdigest()
+
+
+def artifact_set_identity(entries: Iterable[tuple[str, str]]) -> str:
+    digest = hashlib.sha256()
+    digest.update(b"mirmir-artifact-set-v1\0")
+    for relative, identity in sorted(entries):
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(identity.encode("ascii"))
+        digest.update(b"\n")
     return digest.hexdigest()
 
 
@@ -310,12 +322,41 @@ def verify_corpus_lock(repository: Path) -> dict[str, str]:
 
 def verify_evidence_manifest(path: Path) -> int:
     document = require_mapping(load_json(path), f"evidence manifest {path}")
-    require(document.get("schemaVersion") == EVIDENCE_SCHEMA, f"evidence manifest schema mismatch: {path}")
+    schema = document.get("schemaVersion")
+    require(
+        schema in {EVIDENCE_SCHEMA, P05_EVIDENCE_SCHEMA},
+        f"evidence manifest schema mismatch: {path}",
+    )
+    if schema == EVIDENCE_SCHEMA:
+        require_exact_keys(
+            document,
+            (
+                "schemaVersion",
+                "sourceCommit",
+                "sourceDescribe",
+                "artifactCount",
+                "artifacts",
+                "tools",
+            ),
+            f"evidence manifest {path}",
+        )
+    else:
+        require_exact_keys(
+            document,
+            (
+                "schemaVersion",
+                "artifactCount",
+                "artifactSetSHA256",
+                "artifacts",
+            ),
+            f"P05 evidence manifest {path}",
+        )
     artifacts = require_list(document.get("artifacts"), f"evidence artifacts {path}")
     expected_count = require_integer(document.get("artifactCount"), f"evidence artifactCount {path}")
     require(expected_count == len(artifacts), f"evidence artifact count mismatch: {path}")
     root = path.parent
     seen: set[str] = set()
+    artifact_identities: list[tuple[str, str]] = []
     for index, raw in enumerate(artifacts):
         artifact = require_mapping(raw, f"evidence artifact {index}")
         require_exact_keys(artifact, ("path", "byteCount", "sha256"), f"evidence artifact {index}")
@@ -328,6 +369,16 @@ def verify_evidence_manifest(path: Path) -> int:
         digest = require_sha256(artifact["sha256"], f"evidence artifact {relative}.sha256")
         require(target.stat().st_size == count, f"evidence byte count mismatch: {target}")
         require(sha256_file(target) == digest, f"evidence SHA-256 mismatch: {target}")
+        artifact_identities.append((relative, digest))
+    if schema == P05_EVIDENCE_SCHEMA:
+        expected_set = require_sha256(
+            document.get("artifactSetSHA256"),
+            f"P05 evidence artifact set {path}",
+        )
+        require(
+            artifact_set_identity(artifact_identities) == expected_set,
+            f"evidence artifact-set mismatch: {path}",
+        )
     return len(artifacts)
 
 

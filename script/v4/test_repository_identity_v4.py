@@ -63,6 +63,44 @@ class RepositoryIdentityTests(unittest.TestCase):
             with self.assertRaisesRegex(identity.RepositoryIdentityError, "missing evidence artifact"):
                 identity.verify_evidence_manifest(manifest)
 
+    def testP05EvidenceManifestVerifiesItsArtifactSet(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mirmir-p05-evidence-identity-") as temporary:
+            root = Path(temporary)
+            first = root / "first.bin"
+            second = root / "second.bin"
+            first.write_bytes(b"first")
+            second.write_bytes(b"second")
+            artifacts = [
+                {
+                    "path": path.name,
+                    "byteCount": path.stat().st_size,
+                    "sha256": sha256(path),
+                }
+                for path in (first, second)
+            ]
+            manifest = root / "evidence-manifest.json"
+            write_json(
+                manifest,
+                {
+                    "schemaVersion": "mirmir-v4-p05-evidence-manifest-v3",
+                    "artifactCount": len(artifacts),
+                    "artifactSetSHA256": identity.artifact_set_identity(
+                        (artifact["path"], artifact["sha256"])
+                        for artifact in artifacts
+                    ),
+                    "artifacts": artifacts,
+                },
+            )
+            self.assertEqual(identity.verify_evidence_manifest(manifest), 2)
+            document = json.loads(manifest.read_text())
+            document["artifactSetSHA256"] = "0" * 64
+            write_json(manifest, document)
+            with self.assertRaisesRegex(
+                identity.RepositoryIdentityError,
+                "artifact-set mismatch",
+            ):
+                identity.verify_evidence_manifest(manifest)
+
     def testCorpusLockBindsSelectionContractAndBuilder(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mirmir-corpus-identity-") as temporary:
             repository = Path(temporary)
@@ -111,10 +149,13 @@ class RepositoryIdentityTests(unittest.TestCase):
                 manifest,
                 {
                     "schemaVersion": "mirmir-v4-evidence-manifest-v1",
+                    "sourceCommit": "a" * 40,
+                    "sourceDescribe": "fixture",
                     "artifactCount": 1,
                     "artifacts": [
                         {"path": "../escape", "byteCount": 1, "sha256": "0" * 64}
                     ],
+                    "tools": [],
                 },
             )
             with self.assertRaisesRegex(identity.RepositoryIdentityError, "safe relative path"):
