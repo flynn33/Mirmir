@@ -1,3 +1,4 @@
+import CoreVideo
 import Foundation
 
 enum ASHMeasurementExtractorV4Error: Error, Equatable, Sendable {
@@ -14,6 +15,154 @@ struct ASHExtractedMeasurementV4: Equatable, Sendable {
     /// Canonical 32×32 (or contract-declared) Q16 luma window used to derive
     /// the projection. It is retained for independent conformance tests.
     let normalizedLumaWindowQ16: [UInt32]
+}
+
+/// The only measurement history required by the canonical 32×32 projection.
+/// Binding the compact Q16 window to storage and source geometry prevents a
+/// caller from accidentally reusing evidence across a format transition.
+struct ASHCompactMeasurementHistoryV4: Codable, Hashable, Sendable {
+    let storage: PixelStorageV4
+    let sourceWidth: Int
+    let sourceHeight: Int
+    let windowWidth: Int
+    let windowHeight: Int
+    let normalizedLumaWindowQ16: [UInt32]
+
+    init(
+        storage: PixelStorageV4,
+        sourceWidth: Int,
+        sourceHeight: Int,
+        windowWidth: Int,
+        windowHeight: Int,
+        normalizedLumaWindowQ16: [UInt32]
+    ) throws {
+        self.storage = storage
+        self.sourceWidth = sourceWidth
+        self.sourceHeight = sourceHeight
+        self.windowWidth = windowWidth
+        self.windowHeight = windowHeight
+        self.normalizedLumaWindowQ16 = normalizedLumaWindowQ16
+        try validate()
+    }
+
+    /// Replays all invariants after synthesized `Codable` decoding.
+    func validate() throws {
+        let count = windowWidth.multipliedReportingOverflow(by: windowHeight)
+        guard sourceWidth > 0,
+              sourceHeight > 0,
+              windowWidth > 0,
+              windowHeight > 0,
+              !count.overflow,
+              count.partialValue == normalizedLumaWindowQ16.count,
+              count.partialValue
+                <= PixelBufferSignalWindowWorkspaceV4
+                    .maximumWindowSampleCount,
+              normalizedLumaWindowQ16.allSatisfy({
+                  $0 <= ASHNormalizedQ16V4.scale
+              }) else {
+            throw ASHMeasurementExtractorV4Error.incompatibleHistory
+        }
+    }
+}
+
+/// Reusable bounded storage for direct measurement. At canonical P06 geometry
+/// the retained upper bound is 6 KiB of raw codes plus 8 KiB of Q16 working
+/// values; it never scales with frame dimensions.
+struct ASHMeasurementExtractionWorkspaceV4: Sendable {
+    fileprivate(set) var signalWindow = PixelBufferSignalWindowWorkspaceV4()
+    fileprivate(set) var normalizedLumaQ16: [UInt32] = []
+    fileprivate(set) var chromaEnergyQ16: [UInt32] = []
+    private(set) var reservedWindowSampleCapacity = 0
+    private(set) var storageAllocationCount = 0
+    private(set) var normalizedLumaStorageIdentity: UInt = 0
+    private(set) var chromaStorageIdentity: UInt = 0
+
+    var retainedByteUpperBound: Int {
+        signalWindow.retainedByteUpperBound
+            + reservedWindowSampleCapacity * 2
+                * MemoryLayout<UInt32>.stride
+    }
+
+    fileprivate mutating func prepare(sampleCount: Int) throws {
+        guard sampleCount > 0,
+              sampleCount
+                <= PixelBufferSignalWindowWorkspaceV4
+                    .maximumWindowSampleCount else {
+            throw ASHMeasurementExtractorV4Error.arithmeticOverflow
+        }
+        let priorLuma = normalizedLumaStorageIdentity
+        let priorChroma = chromaStorageIdentity
+        let declaredAllocation = sampleCount > reservedWindowSampleCapacity
+        if declaredAllocation {
+            normalizedLumaQ16 = Array(repeating: 0, count: sampleCount)
+            chromaEnergyQ16 = Array(repeating: 0, count: sampleCount)
+            reservedWindowSampleCapacity = sampleCount
+            storageAllocationCount += 2
+        } else {
+            if normalizedLumaQ16.count < sampleCount {
+                normalizedLumaQ16.append(
+                    contentsOf: repeatElement(
+                        0,
+                        count: sampleCount - normalizedLumaQ16.count
+                    )
+                )
+            } else if normalizedLumaQ16.count > sampleCount {
+                normalizedLumaQ16.removeLast(
+                    normalizedLumaQ16.count - sampleCount
+                )
+            }
+            if chromaEnergyQ16.count < sampleCount {
+                chromaEnergyQ16.append(
+                    contentsOf: repeatElement(
+                        0,
+                        count: sampleCount - chromaEnergyQ16.count
+                    )
+                )
+            } else if chromaEnergyQ16.count > sampleCount {
+                chromaEnergyQ16.removeLast(
+                    chromaEnergyQ16.count - sampleCount
+                )
+            }
+        }
+        let nextLuma = identity(of: normalizedLumaQ16)
+        let nextChroma = identity(of: chromaEnergyQ16)
+        if !declaredAllocation, priorLuma != 0, nextLuma != priorLuma {
+            storageAllocationCount += 1
+        }
+        if !declaredAllocation, priorChroma != 0, nextChroma != priorChroma {
+            storageAllocationCount += 1
+        }
+        normalizedLumaStorageIdentity = nextLuma
+        chromaStorageIdentity = nextChroma
+    }
+
+    fileprivate mutating func finishWrite() {
+        let nextLuma = identity(of: normalizedLumaQ16)
+        let nextChroma = identity(of: chromaEnergyQ16)
+        if normalizedLumaStorageIdentity != 0,
+           nextLuma != normalizedLumaStorageIdentity {
+            storageAllocationCount += 1
+        }
+        if chromaStorageIdentity != 0,
+           nextChroma != chromaStorageIdentity {
+            storageAllocationCount += 1
+        }
+        normalizedLumaStorageIdentity = nextLuma
+        chromaStorageIdentity = nextChroma
+    }
+
+    private func identity(of values: [UInt32]) -> UInt {
+        values.withUnsafeBufferPointer { buffer -> UInt in
+            guard let base = buffer.baseAddress else { return 0 }
+            return UInt(bitPattern: base)
+        }
+    }
+
+}
+
+struct ASHDirectMeasurementResultV4: Equatable, Sendable {
+    let extracted: ASHExtractedMeasurementV4
+    let compactHistory: ASHCompactMeasurementHistoryV4
 }
 
 /// Exact integer implementation of the canonical ASH image measurements. The
@@ -126,6 +275,124 @@ enum ASHMeasurementExtractorV4 {
             }
         }
 
+        return try makeResult(
+            yValues: yValues,
+            previousYValues: previousYValues,
+            chromaValues: chromaValues,
+            windowWidth: windowWidth,
+            windowHeight: windowHeight,
+            contract: contract,
+            history: history,
+            motionCompensatedTemporalEvidenceQ16:
+                motionCompensatedTemporalEvidenceQ16
+        )
+    }
+
+    /// Canonical projection directly from a locked NV12/P010 buffer. This path
+    /// retains only the contract-sized evidence window and its compact prior;
+    /// it is mathematically identical to `extract(frame:previousFrame:...)`.
+    static func extractDirect(
+        buffer: CVPixelBuffer,
+        storage: PixelStorageV4,
+        previousHistory: ASHCompactMeasurementHistoryV4?,
+        contract: ASHMeasurementContractV4,
+        history: ASHMeasurementHistoryV4,
+        motionCompensatedTemporalEvidenceQ16: UInt32? = nil,
+        workspace: inout ASHMeasurementExtractionWorkspaceV4
+    ) throws -> ASHDirectMeasurementResultV4 {
+        try contract.validateCanonical()
+        if let motionCompensatedTemporalEvidenceQ16,
+           motionCompensatedTemporalEvidenceQ16
+            > ASHNormalizedQ16V4.scale {
+            throw ASHMeasurementExtractorV4Error.invalidTemporalEvidence(
+                motionCompensatedTemporalEvidenceQ16
+            )
+        }
+        let layout = PixelLayoutV4(storage: storage)
+        try layout.validateStructure(of: buffer)
+        let sourceWidth = CVPixelBufferGetWidth(buffer)
+        let sourceHeight = CVPixelBufferGetHeight(buffer)
+        let windowWidth = Int(contract.window.width)
+        let windowHeight = Int(contract.window.height)
+        if let previousHistory {
+            try previousHistory.validate()
+            guard previousHistory.storage == storage,
+                  previousHistory.sourceWidth == sourceWidth,
+                  previousHistory.sourceHeight == sourceHeight,
+                  previousHistory.windowWidth == windowWidth,
+                  previousHistory.windowHeight == windowHeight else {
+                throw ASHMeasurementExtractorV4Error.incompatibleHistory
+            }
+        }
+        try PixelBufferSignalCodecV4.readSignalWindow(
+            buffer,
+            storage: storage,
+            windowWidth: windowWidth,
+            windowHeight: windowHeight,
+            into: &workspace.signalWindow
+        )
+        let count = try checkedProduct(windowWidth, windowHeight)
+        try workspace.prepare(sampleCount: count)
+        let lumaBounds = layout.planes[0].signalCodeBounds[0]
+        let chromaBounds = layout.planes[1].signalCodeBounds
+        for index in 0..<count {
+            let yQ16 = try normalize(
+                workspace.signalWindow.luma(at: index),
+                minimum: lumaBounds.minimum,
+                maximum: lumaBounds.maximum
+            )
+            workspace.normalizedLumaQ16[index] = yQ16
+            workspace.chromaEnergyQ16[index] = try chromaEnergyQ16(
+                yQ16: yQ16,
+                cb: workspace.signalWindow.cb(at: index),
+                cr: workspace.signalWindow.cr(at: index),
+                cbBounds: chromaBounds[0],
+                crBounds: chromaBounds[1],
+                bitDepth: storage.signalBitDepth
+            )
+        }
+        workspace.finishWrite()
+        let extracted = try makeResult(
+            yValues: workspace.normalizedLumaQ16,
+            previousYValues: previousHistory?.normalizedLumaWindowQ16,
+            chromaValues: workspace.chromaEnergyQ16,
+            windowWidth: windowWidth,
+            windowHeight: windowHeight,
+            contract: contract,
+            history: history,
+            motionCompensatedTemporalEvidenceQ16:
+                motionCompensatedTemporalEvidenceQ16
+        )
+        return ASHDirectMeasurementResultV4(
+            extracted: extracted,
+            compactHistory: try ASHCompactMeasurementHistoryV4(
+                storage: storage,
+                sourceWidth: sourceWidth,
+                sourceHeight: sourceHeight,
+                windowWidth: windowWidth,
+                windowHeight: windowHeight,
+                normalizedLumaWindowQ16:
+                    extracted.normalizedLumaWindowQ16
+            )
+        )
+    }
+
+    private static func makeResult(
+        yValues: [UInt32],
+        previousYValues: [UInt32]?,
+        chromaValues: [UInt32],
+        windowWidth: Int,
+        windowHeight: Int,
+        contract: ASHMeasurementContractV4,
+        history: ASHMeasurementHistoryV4,
+        motionCompensatedTemporalEvidenceQ16: UInt32?
+    ) throws -> ASHExtractedMeasurementV4 {
+        let count = try checkedProduct(windowWidth, windowHeight)
+        guard yValues.count == count,
+              chromaValues.count == count,
+              previousYValues == nil || previousYValues?.count == count else {
+            throw ASHMeasurementExtractorV4Error.incompatibleHistory
+        }
         let mean = try meanQ16(yValues)
         let contrast = try rmsContrastQ16(yValues, mean: mean)
         let gradients = try gradientMeasurements(
@@ -141,10 +408,6 @@ enum ASHMeasurementExtractorV4 {
         let chroma = try meanQ16(chromaValues)
         let temporal: UInt32
         if let motionCompensatedTemporalEvidenceQ16 {
-            // Production supplies the residual from the canonical block-motion
-            // analysis. The colocated window below remains the deterministic
-            // fallback used by standalone measurement tooling and legacy
-            // fixtures that do not own temporal motion state.
             temporal = motionCompensatedTemporalEvidenceQ16
         } else if let previousYValues {
             var total: UInt64 = 0
@@ -164,14 +427,11 @@ enum ASHMeasurementExtractorV4 {
         } else {
             temporal = 0
         }
-
         let evidence = ASHMeasurementEvidenceV4(
             contract: contract,
             meanLuminance: try ASHNormalizedQ16V4(rawValue: mean),
             rmsContrast: try ASHNormalizedQ16V4(rawValue: contrast),
-            edgeEnergy: try ASHNormalizedQ16V4(
-                rawValue: gradients.edge
-            ),
+            edgeEnergy: try ASHNormalizedQ16V4(rawValue: gradients.edge),
             textureEnergy: try ASHNormalizedQ16V4(rawValue: texture),
             chromaEnergy: try ASHNormalizedQ16V4(rawValue: chroma),
             horizontalGradientEnergy: try ASHNormalizedQ16V4(

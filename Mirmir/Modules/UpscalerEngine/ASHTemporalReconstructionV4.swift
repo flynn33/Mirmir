@@ -104,6 +104,17 @@ struct ASHTemporalPlaneV4: Codable, Equatable, Hashable, Sendable {
             samples: samples
         )
     }
+
+    /// Replays every invariant because synthesized Codable bypasses `init`.
+    func validate() throws {
+        _ = try Self(
+            width: width,
+            height: height,
+            minimumCode: minimumCode,
+            maximumCode: maximumCode,
+            samples: samples
+        )
+    }
 }
 
 struct ASHTemporalFrameV4: Codable, Equatable, Hashable, Sendable {
@@ -163,6 +174,34 @@ struct ASHTemporalFrameV4: Codable, Equatable, Hashable, Sendable {
         !value.isEmpty
             && value.utf8.count <= 127
             && value.utf8.allSatisfy { (0x21...0x7e).contains($0) }
+    }
+
+    /// Replays identifier, time, luma, and tile-state validation after decode.
+    func validate() throws {
+        guard Self.validIdentifier(frameID) else {
+            throw ASHTemporalV4Error.invalidIdentifier(frameID)
+        }
+        guard Self.validIdentifier(streamID) else {
+            throw ASHTemporalV4Error.invalidIdentifier(streamID)
+        }
+        guard Self.validIdentifier(cadenceID) else {
+            throw ASHTemporalV4Error.invalidIdentifier(cadenceID)
+        }
+        guard ordinal >= 0 else {
+            throw ASHTemporalV4Error.frameOrdinalOutOfRange(ordinal)
+        }
+        guard presentationTime >= .zero else {
+            throw ASHTemporalV4Error.negativePresentationTime(
+                presentationTime
+            )
+        }
+        try luma.validate()
+        for rawValue in tileStateRawValues {
+            guard let state = try? ASHState(rawValue: rawValue),
+                  state.hasValidIntegrity else {
+                throw ASHTemporalV4Error.invalidASHState(rawValue)
+            }
+        }
     }
 }
 
@@ -244,6 +283,7 @@ struct ASHTemporalMotionAnalysisV4: Codable, Equatable, Hashable, Sendable {
         guard ASHTemporalFrameV4.validIdentifier(policyID),
               ASHTemporalFrameV4.validIdentifier(currentFrameID),
               ASHTemporalFrameV4.validIdentifier(previousFrameID),
+              currentFrameID != previousFrameID,
               sceneDifferenceQ16 <= ASHNormalizedQ16V4.scale,
               temporalEvidenceQ16 <= ASHNormalizedQ16V4.scale,
               blockColumns > 0,
@@ -256,10 +296,17 @@ struct ASHTemporalMotionAnalysisV4: Codable, Equatable, Hashable, Sendable {
             }
             return
         }
+        guard let alignedPrevious else {
+            throw ASHTemporalV4Error.invalidMotionField
+        }
+        do {
+            try alignedPrevious.validate()
+        } catch {
+            throw ASHTemporalV4Error.invalidMotionField
+        }
         let count = blockColumns.multipliedReportingOverflow(by: blockRows)
         guard !count.overflow,
               count.partialValue == vectors.count,
-              alignedPrevious != nil,
               vectors.enumerated().allSatisfy({ offset, vector in
                   vector.blockIndex == offset
                       && vector.normalizedCostQ16
@@ -269,6 +316,143 @@ struct ASHTemporalMotionAnalysisV4: Codable, Equatable, Hashable, Sendable {
             throw ASHTemporalV4Error.invalidMotionField
         }
     }
+}
+
+/// Canonical block motion without a materialized aligned image. Geometry and
+/// identity fields bind vectors to the exact current/previous luma pair; the
+/// reconstruction path samples the retained previous plane by `(dx, dy)`.
+struct ASHTemporalMotionFieldV4: Codable, Equatable, Hashable, Sendable {
+    let policyID: String
+    let currentFrameID: String
+    let previousFrameID: String
+    let streamID: String
+    let formatIdentity: ASHSHA256V4
+    let planeWidth: Int
+    let planeHeight: Int
+    let minimumCode: UInt16
+    let maximumCode: UInt16
+    let sceneDifferenceQ16: UInt32
+    let sceneCut: Bool
+    let temporalEvidenceQ16: UInt32
+    let blockColumns: Int
+    let blockRows: Int
+    let vectors: [ASHTemporalMotionVectorV4]
+
+    func validate() throws {
+        guard ASHTemporalFrameV4.validIdentifier(policyID),
+              ASHTemporalFrameV4.validIdentifier(currentFrameID),
+              ASHTemporalFrameV4.validIdentifier(previousFrameID),
+              currentFrameID != previousFrameID,
+              ASHTemporalFrameV4.validIdentifier(streamID),
+              planeWidth > 0,
+              planeHeight > 0,
+              minimumCode < maximumCode,
+              sceneDifferenceQ16 <= ASHNormalizedQ16V4.scale,
+              temporalEvidenceQ16 <= ASHNormalizedQ16V4.scale,
+              blockColumns > 0,
+              blockRows > 0 else {
+            throw ASHTemporalV4Error.invalidMotionField
+        }
+        if sceneCut {
+            guard vectors.isEmpty else {
+                throw ASHTemporalV4Error.invalidMotionField
+            }
+            return
+        }
+        let count = blockColumns.multipliedReportingOverflow(by: blockRows)
+        guard !count.overflow, count.partialValue == vectors.count else {
+            throw ASHTemporalV4Error.invalidMotionField
+        }
+        for (offset, vector) in vectors.enumerated() {
+            let endX = vector.originX.addingReportingOverflow(vector.width)
+            let endY = vector.originY.addingReportingOverflow(vector.height)
+            let sourceX = vector.originX.addingReportingOverflow(
+                Int(vector.dx)
+            )
+            let sourceY = vector.originY.addingReportingOverflow(
+                Int(vector.dy)
+            )
+            let sourceEndX = sourceX.partialValue.addingReportingOverflow(
+                vector.width
+            )
+            let sourceEndY = sourceY.partialValue.addingReportingOverflow(
+                vector.height
+            )
+            guard vector.blockIndex == offset,
+                  vector.normalizedCostQ16 <= ASHNormalizedQ16V4.scale,
+                  vector.confidenceQ16 <= ASHNormalizedQ16V4.scale,
+                  vector.originX >= 0,
+                  vector.originY >= 0,
+                  vector.width > 0,
+                  vector.height > 0,
+                  !endX.overflow,
+                  !endY.overflow,
+                  endX.partialValue <= planeWidth,
+                  endY.partialValue <= planeHeight,
+                  !sourceX.overflow,
+                  !sourceY.overflow,
+                  !sourceEndX.overflow,
+                  !sourceEndY.overflow,
+                  sourceX.partialValue >= 0,
+                  sourceY.partialValue >= 0,
+                  sourceEndX.partialValue <= planeWidth,
+                  sourceEndY.partialValue <= planeHeight else {
+                throw ASHTemporalV4Error.invalidMotionField
+            }
+        }
+        guard let first = vectors.first,
+              first.originX == 0,
+              first.originY == 0,
+              first.width > 0,
+              first.height > 0 else {
+            throw ASHTemporalV4Error.invalidMotionField
+        }
+        let expectedColumns = planeWidth / first.width
+            + (planeWidth % first.width == 0 ? 0 : 1)
+        let expectedRows = planeHeight / first.height
+            + (planeHeight % first.height == 0 ? 0 : 1)
+        guard expectedColumns == blockColumns,
+              expectedRows == blockRows else {
+            throw ASHTemporalV4Error.invalidMotionField
+        }
+        for (index, vector) in vectors.enumerated() {
+            let column = index % blockColumns
+            let row = index / blockColumns
+            let expectedX = column.multipliedReportingOverflow(by: first.width)
+            let expectedY = row.multipliedReportingOverflow(by: first.height)
+            guard !expectedX.overflow,
+                  !expectedY.overflow,
+                  expectedX.partialValue < planeWidth,
+                  expectedY.partialValue < planeHeight else {
+                throw ASHTemporalV4Error.invalidMotionField
+            }
+            guard vector.originX == expectedX.partialValue,
+                  vector.originY == expectedY.partialValue,
+                  vector.width == min(
+                    first.width,
+                    planeWidth - expectedX.partialValue
+                  ),
+                  vector.height == min(
+                    first.height,
+                    planeHeight - expectedY.partialValue
+                  ) else {
+                throw ASHTemporalV4Error.invalidMotionField
+            }
+        }
+    }
+}
+
+struct ASHTemporalMotionAllocationDiagnosticsV4: Equatable, Sendable {
+    /// Streaming total-order selection retains only best and second-best.
+    let maximumRetainedCandidatesPerBlock: Int
+    let materializedAlignedSampleCount: Int
+    let vectorCount: Int
+    let vectorStorageByteUpperBound: Int
+}
+
+struct ASHTemporalMotionFieldResultV4: Equatable, Sendable {
+    let field: ASHTemporalMotionFieldV4
+    let allocationDiagnostics: ASHTemporalMotionAllocationDiagnosticsV4
 }
 
 enum ASHTemporalMotionAnalyzerV4 {
@@ -296,6 +480,68 @@ enum ASHTemporalMotionAnalyzerV4 {
         previous: ASHTemporalFrameV4,
         configuration: ASHTemporalBlockMatchingConfigurationV4 = .canonical
     ) throws -> ASHTemporalMotionAnalysisV4 {
+        let fieldResult = try analyzeField(
+            current: current,
+            previous: previous,
+            configuration: configuration
+        )
+        let field = fieldResult.field
+        if field.sceneCut {
+            let result = ASHTemporalMotionAnalysisV4(
+                policyID: field.policyID,
+                currentFrameID: field.currentFrameID,
+                previousFrameID: field.previousFrameID,
+                sceneDifferenceQ16: field.sceneDifferenceQ16,
+                sceneCut: true,
+                temporalEvidenceQ16: field.temporalEvidenceQ16,
+                blockColumns: field.blockColumns,
+                blockRows: field.blockRows,
+                vectors: [],
+                alignedPrevious: nil
+            )
+            try result.validate()
+            return result
+        }
+        var aligned = Array(
+            repeating: UInt16(0),
+            count: current.luma.samples.count
+        )
+        for vector in field.vectors {
+            for y in vector.originY..<(vector.originY + vector.height) {
+                let sourceY = y + Int(vector.dy)
+                for x in vector.originX..<(vector.originX + vector.width) {
+                    aligned[y * field.planeWidth + x] = previous.luma.sample(
+                        x: x + Int(vector.dx),
+                        y: sourceY
+                    )
+                }
+            }
+        }
+        let result = ASHTemporalMotionAnalysisV4(
+            policyID: field.policyID,
+            currentFrameID: field.currentFrameID,
+            previousFrameID: field.previousFrameID,
+            sceneDifferenceQ16: field.sceneDifferenceQ16,
+            sceneCut: false,
+            temporalEvidenceQ16: field.temporalEvidenceQ16,
+            blockColumns: field.blockColumns,
+            blockRows: field.blockRows,
+            vectors: field.vectors,
+            alignedPrevious: try current.luma.replacing(samples: aligned)
+        )
+        try result.validate()
+        return result
+    }
+
+    /// Performs canonical matching while retaining only two ordered candidates
+    /// per block and never constructing the aligned previous image.
+    static func analyzeField(
+        current: ASHTemporalFrameV4,
+        previous: ASHTemporalFrameV4,
+        configuration: ASHTemporalBlockMatchingConfigurationV4 = .canonical
+    ) throws -> ASHTemporalMotionFieldResultV4 {
+        try current.validate()
+        try previous.validate()
         guard previous.ordinal < current.ordinal,
               previous.presentationTime < current.presentationTime else {
             throw ASHTemporalV4Error.futureOrConcurrentHistory
@@ -331,20 +577,34 @@ enum ASHTemporalMotionAnalyzerV4 {
             configuration.blockHeight
         )
         if sceneDifference >= configuration.sceneCutHistogramThresholdQ16 {
-            let result = ASHTemporalMotionAnalysisV4(
+            let field = ASHTemporalMotionFieldV4(
                 policyID: configuration.policyID,
                 currentFrameID: current.frameID,
                 previousFrameID: previous.frameID,
+                streamID: current.streamID,
+                formatIdentity: current.formatIdentity,
+                planeWidth: currentPlane.width,
+                planeHeight: currentPlane.height,
+                minimumCode: currentPlane.minimumCode,
+                maximumCode: currentPlane.maximumCode,
                 sceneDifferenceQ16: sceneDifference,
                 sceneCut: true,
                 temporalEvidenceQ16: sceneDifference,
                 blockColumns: columns,
                 blockRows: rows,
-                vectors: [],
-                alignedPrevious: nil
+                vectors: []
             )
-            try result.validate()
-            return result
+            try field.validate()
+            return ASHTemporalMotionFieldResultV4(
+                field: field,
+                allocationDiagnostics:
+                    ASHTemporalMotionAllocationDiagnosticsV4(
+                        maximumRetainedCandidatesPerBlock: 2,
+                        materializedAlignedSampleCount: 0,
+                        vectorCount: 0,
+                        vectorStorageByteUpperBound: 0
+                    )
+            )
         }
 
         let signalRange = UInt64(
@@ -352,7 +612,6 @@ enum ASHTemporalMotionAnalyzerV4 {
         )
         var vectors: [ASHTemporalMotionVectorV4] = []
         vectors.reserveCapacity(columns * rows)
-        var aligned = Array(repeating: UInt16(0), count: currentPlane.samples.count)
         var weightedEvidence: UInt64 = 0
         var weightedCount: UInt64 = 0
 
@@ -368,7 +627,7 @@ enum ASHTemporalMotionAnalyzerV4 {
                     configuration.blockHeight,
                     currentPlane.height - originY
                 )
-                let candidates = try makeCandidates(
+                let candidates = try bestTwoCandidates(
                     current: currentPlane,
                     previous: previousPlane,
                     originX: originX,
@@ -377,10 +636,8 @@ enum ASHTemporalMotionAnalyzerV4 {
                     height: height,
                     radius: configuration.searchRadius
                 )
-                guard let best = candidates.first else {
-                    throw ASHTemporalV4Error.invalidMotionField
-                }
-                let second = candidates.dropFirst().first ?? best
+                let best = candidates.best
+                let second = candidates.second
                 let sampleCount = UInt64(width * height)
                 let denominator = sampleCount.multipliedReportingOverflow(
                     by: signalRange
@@ -419,17 +676,6 @@ enum ASHTemporalMotionAnalyzerV4 {
                     confidenceQ16: confidenceQ16,
                     occluded: occluded
                 ))
-                for localY in 0..<height {
-                    for localX in 0..<width {
-                        let destinationX = originX + localX
-                        let destinationY = originY + localY
-                        aligned[destinationY * currentPlane.width + destinationX]
-                            = previousPlane.sample(
-                                x: destinationX + best.dx,
-                                y: destinationY + best.dy
-                            )
-                    }
-                }
                 let weighted = UInt64(costQ16).multipliedReportingOverflow(
                     by: sampleCount
                 )
@@ -455,23 +701,42 @@ enum ASHTemporalMotionAnalyzerV4 {
         guard temporalEvidence <= UInt64(ASHNormalizedQ16V4.scale) else {
             throw ASHTemporalV4Error.arithmeticOverflow
         }
-        let result = ASHTemporalMotionAnalysisV4(
+        let field = ASHTemporalMotionFieldV4(
             policyID: configuration.policyID,
             currentFrameID: current.frameID,
             previousFrameID: previous.frameID,
+            streamID: current.streamID,
+            formatIdentity: current.formatIdentity,
+            planeWidth: currentPlane.width,
+            planeHeight: currentPlane.height,
+            minimumCode: currentPlane.minimumCode,
+            maximumCode: currentPlane.maximumCode,
             sceneDifferenceQ16: sceneDifference,
             sceneCut: false,
             temporalEvidenceQ16: UInt32(temporalEvidence),
             blockColumns: columns,
             blockRows: rows,
-            vectors: vectors,
-            alignedPrevious: try currentPlane.replacing(samples: aligned)
+            vectors: vectors
         )
-        try result.validate()
-        return result
+        try field.validate()
+        let vectorBytes = vectors.count.multipliedReportingOverflow(
+            by: MemoryLayout<ASHTemporalMotionVectorV4>.stride
+        )
+        guard !vectorBytes.overflow else {
+            throw ASHTemporalV4Error.arithmeticOverflow
+        }
+        return ASHTemporalMotionFieldResultV4(
+            field: field,
+            allocationDiagnostics: ASHTemporalMotionAllocationDiagnosticsV4(
+                maximumRetainedCandidatesPerBlock: 2,
+                materializedAlignedSampleCount: 0,
+                vectorCount: vectors.count,
+                vectorStorageByteUpperBound: vectorBytes.partialValue
+            )
+        )
     }
 
-    private static func makeCandidates(
+    private static func bestTwoCandidates(
         current: ASHTemporalPlaneV4,
         previous: ASHTemporalPlaneV4,
         originX: Int,
@@ -479,7 +744,7 @@ enum ASHTemporalMotionAnalyzerV4 {
         width: Int,
         height: Int,
         radius: Int
-    ) throws -> [Candidate] {
+    ) throws -> (best: Candidate, second: Candidate) {
         let minimumDX = max(-radius, -originX)
         let maximumDX = min(radius, previous.width - originX - width)
         let minimumDY = max(-radius, -originY)
@@ -487,10 +752,8 @@ enum ASHTemporalMotionAnalyzerV4 {
         guard minimumDX <= maximumDX, minimumDY <= maximumDY else {
             throw ASHTemporalV4Error.invalidMotionField
         }
-        var candidates: [Candidate] = []
-        candidates.reserveCapacity(
-            (maximumDX - minimumDX + 1) * (maximumDY - minimumDY + 1)
-        )
+        var best: Candidate?
+        var second: Candidate?
         for dy in minimumDY...maximumDY {
             for dx in minimumDX...maximumDX {
                 var difference: UInt64 = 0
@@ -514,14 +777,23 @@ enum ASHTemporalMotionAnalyzerV4 {
                         difference = sum.partialValue
                     }
                 }
-                candidates.append(Candidate(
+                let candidate = Candidate(
                     absoluteDifference: difference,
                     dx: dx,
                     dy: dy
-                ))
+                )
+                if best == nil || candidate < best! {
+                    second = best
+                    best = candidate
+                } else if second == nil || candidate < second! {
+                    second = candidate
+                }
             }
         }
-        return candidates.sorted()
+        guard let best else {
+            throw ASHTemporalV4Error.invalidMotionField
+        }
+        return (best, second ?? best)
     }
 
     private static func histogramDifferenceQ16(
@@ -627,6 +899,8 @@ struct ASHTemporalHistoryV4: Codable, Equatable, Hashable, Sendable {
     }
 
     mutating func append(_ frame: ASHTemporalFrameV4) throws {
+        try validate()
+        try frame.validate()
         if let previous = frames.last {
             guard previous.ordinal < frame.ordinal,
                   previous.presentationTime < frame.presentationTime,
@@ -638,6 +912,9 @@ struct ASHTemporalHistoryV4: Codable, Equatable, Hashable, Sendable {
             }
             guard previous.formatIdentity == frame.formatIdentity else {
                 throw ASHTemporalV4Error.formatIdentityMismatch
+            }
+            guard previous.cadenceID == frame.cadenceID else {
+                throw ASHTemporalV4Error.invalidHistory
             }
             guard previous.luma.width == frame.luma.width,
                   previous.luma.height == frame.luma.height,
@@ -665,8 +942,16 @@ struct ASHTemporalHistoryV4: Codable, Equatable, Hashable, Sendable {
 
     func validate() throws {
         guard (1...Self.maximumCapacity).contains(capacity),
-              frames.count <= capacity else {
+              frames.count <= capacity,
+              frames.isEmpty || lastResetReason == nil else {
             throw ASHTemporalV4Error.invalidHistory
+        }
+        for frame in frames {
+            do {
+                try frame.validate()
+            } catch {
+                throw ASHTemporalV4Error.invalidHistory
+            }
         }
         for index in frames.indices.dropFirst() {
             let previous = frames[index - 1]
@@ -676,6 +961,7 @@ struct ASHTemporalHistoryV4: Codable, Equatable, Hashable, Sendable {
                   previous.frameID != current.frameID,
                   previous.streamID == current.streamID,
                   previous.formatIdentity == current.formatIdentity,
+                  previous.cadenceID == current.cadenceID,
                   previous.luma.width == current.luma.width,
                   previous.luma.height == current.luma.height,
                   previous.luma.minimumCode == current.luma.minimumCode,
@@ -722,9 +1008,15 @@ struct ASHTemporalCheckpointV4: Codable, Equatable, Hashable, Sendable {
         guard schemaID == Self.currentSchemaID else {
             throw ASHTemporalV4Error.unsupportedCheckpointSchema(schemaID)
         }
+        guard lastCompletedInputOrdinal >= 0,
+              lastCompletedOutputPresentationTime >= .zero else {
+            throw ASHTemporalV4Error.invalidHistory
+        }
         try history.validate()
         if let latest = history.frames.last {
-            guard latest.ordinal <= lastCompletedInputOrdinal else {
+            guard latest.ordinal == lastCompletedInputOrdinal,
+                  latest.presentationTime
+                    == lastCompletedOutputPresentationTime else {
                 throw ASHTemporalV4Error.invalidHistory
             }
         }
@@ -767,6 +1059,13 @@ struct ASHTemporalReconstructionResultV4: Equatable, Sendable {
     let stateRawValue: UInt16
     let targetMessageRawValue: UInt8
     let historyWeightQ16: UInt32
+}
+
+struct ASHTemporalInPlaceResultV4: Equatable, Sendable {
+    let stateRawValue: UInt16
+    let targetMessageRawValue: UInt8
+    let historyWeightQ16: UInt32
+    let materializedAlignedSampleCount: Int
 }
 
 /// Applies a bounded temporal regularization basis after motion alignment.
@@ -911,6 +1210,208 @@ enum ASHTemporalReconstructorV4 {
         )
     }
 
+    /// Vector-only equivalent of blockwise reconstruction. The previous luma
+    /// plane is sampled at each admitted vector's `(x + dx, y + dy)` coordinate;
+    /// no aligned image and no output copy are required. A complete validation
+    /// and weight pass precedes the non-throwing mutation pass.
+    static func reconstructInPlace(
+        samples: inout [UInt16],
+        width: Int,
+        height: Int,
+        minimumCode: UInt16,
+        maximumCode: UInt16,
+        motionField: ASHTemporalMotionFieldV4?,
+        previousHistory: ASHTemporalFrameV4?,
+        sourceState: ASHState,
+        resetReason: ASHTemporalResetReasonV4?,
+        program: ASHDepthFourBranchProgramV4
+    ) throws -> ASHTemporalInPlaceResultV4 {
+        guard sourceState.hasValidIntegrity else {
+            throw ASHTemporalV4Error.invalidASHState(sourceState.rawValue)
+        }
+        let sampleCount = width.multipliedReportingOverflow(by: height)
+        guard width > 0,
+              height > 0,
+              minimumCode < maximumCode,
+              !sampleCount.overflow,
+              sampleCount.partialValue == samples.count,
+              samples.allSatisfy({
+                  $0 >= minimumCode && $0 <= maximumCode
+              }) else {
+            throw ASHTemporalV4Error.invalidPlaneGeometry(
+                width: width,
+                height: height,
+                sampleCount: samples.count
+            )
+        }
+        let conditioned = try program.conditionedWeights(for: sourceState)
+        let stateWeightQ16 = try regularizationExpectationQ16(
+            conditioned: conditioned,
+            program: program
+        )
+        let spatialOnly = ASHTemporalInPlaceResultV4(
+            stateRawValue: sourceState.rawValue,
+            targetMessageRawValue: conditioned.targetMessageRawValue,
+            historyWeightQ16: 0,
+            materializedAlignedSampleCount: 0
+        )
+        guard resetReason == nil,
+              let motionField,
+              let previousHistory else {
+            return spatialOnly
+        }
+        try motionField.validate()
+        guard !motionField.sceneCut else { return spatialOnly }
+        guard motionField.previousFrameID == previousHistory.frameID,
+              motionField.streamID == previousHistory.streamID,
+              motionField.formatIdentity == previousHistory.formatIdentity
+        else {
+            throw ASHTemporalV4Error.invalidMotionField
+        }
+        let previous = previousHistory.luma
+        guard motionField.planeWidth == width,
+              motionField.planeHeight == height,
+              motionField.minimumCode == minimumCode,
+              motionField.maximumCode == maximumCode,
+              previous.width == width,
+              previous.height == height,
+              previous.minimumCode == minimumCode,
+              previous.maximumCode == maximumCode else {
+            throw ASHTemporalV4Error.planeGeometryMismatch
+        }
+        try validateBlockLayout(
+            motionField.vectors,
+            columns: motionField.blockColumns,
+            rows: motionField.blockRows,
+            width: width,
+            height: height
+        )
+        for vector in motionField.vectors {
+            let minimumSourceX = vector.originX.addingReportingOverflow(
+                Int(vector.dx)
+            )
+            let minimumSourceY = vector.originY.addingReportingOverflow(
+                Int(vector.dy)
+            )
+            guard !minimumSourceX.overflow,
+                  !minimumSourceY.overflow else {
+                throw ASHTemporalV4Error.invalidMotionField
+            }
+            let maximumSourceX = minimumSourceX.partialValue
+                .addingReportingOverflow(vector.width)
+            let maximumSourceY = minimumSourceY.partialValue
+                .addingReportingOverflow(vector.height)
+            guard !maximumSourceX.overflow,
+                  !maximumSourceY.overflow,
+                  minimumSourceX.partialValue >= 0,
+                  minimumSourceY.partialValue >= 0,
+                  maximumSourceX.partialValue <= width,
+                  maximumSourceY.partialValue <= height else {
+                throw ASHTemporalV4Error.invalidMotionField
+            }
+        }
+
+        let scale = UInt64(ASHNormalizedQ16V4.scale)
+        let stateBoostQ16 = try roundedShift(
+            UInt64(stateWeightQ16),
+            fractionalBits: 1
+        )
+        let confidenceGainQ16 = scale + stateBoostQ16
+        var weightedHistorySum: UInt64 = 0
+        for vector in motionField.vectors where !vector.occluded {
+            let unboundedWeight = try roundedShift(
+                UInt64(vector.confidenceQ16) * confidenceGainQ16,
+                fractionalBits: 16
+            )
+            let historyWeight = min(
+                UInt64(Self.maximumHistoryWeightQ16),
+                unboundedWeight
+            )
+            guard historyWeight > 0 else { continue }
+            let blockSampleCount = UInt64(vector.width * vector.height)
+            let weighted = historyWeight.multipliedReportingOverflow(
+                by: blockSampleCount
+            )
+            let accumulated = weightedHistorySum.addingReportingOverflow(
+                weighted.partialValue
+            )
+            guard !weighted.overflow, !accumulated.overflow else {
+                throw ASHTemporalV4Error.arithmeticOverflow
+            }
+            weightedHistorySum = accumulated.partialValue
+        }
+        guard weightedHistorySum > 0 else { return spatialOnly }
+        let averageWeight = try divideRoundedTiesToEven(
+            weightedHistorySum,
+            by: UInt64(samples.count)
+        )
+        guard averageWeight <= UInt64(Self.maximumHistoryWeightQ16) else {
+            throw ASHTemporalV4Error.arithmeticOverflow
+        }
+        try Task.checkCancellation()
+
+        // Convex interpolation of two validated UInt16 signal codes cannot
+        // overflow UInt64 or leave the declared code interval.
+        for vector in motionField.vectors where !vector.occluded {
+            let historyWeight = min(
+                UInt64(Self.maximumHistoryWeightQ16),
+                roundedShift16Unchecked(
+                    UInt64(vector.confidenceQ16) * confidenceGainQ16
+                )
+            )
+            guard historyWeight > 0 else { continue }
+            let currentWeight = scale - historyWeight
+            for y in vector.originY..<(vector.originY + vector.height) {
+                let currentRow = y * width
+                let historyRow = (y + Int(vector.dy)) * width
+                for x in vector.originX..<(vector.originX + vector.width) {
+                    let currentIndex = currentRow + x
+                    let historyIndex = historyRow + x + Int(vector.dx)
+                    let sum = UInt64(samples[currentIndex]) * currentWeight
+                        + UInt64(previous.samples[historyIndex]) * historyWeight
+                    samples[currentIndex] = UInt16(
+                        roundedShift16Unchecked(sum)
+                    )
+                }
+            }
+        }
+        return ASHTemporalInPlaceResultV4(
+            stateRawValue: sourceState.rawValue,
+            targetMessageRawValue: conditioned.targetMessageRawValue,
+            historyWeightQ16: UInt32(averageWeight),
+            materializedAlignedSampleCount: 0
+        )
+    }
+
+    static func reconstruct(
+        spatial: ASHTemporalPlaneV4,
+        motionField: ASHTemporalMotionFieldV4?,
+        previousHistory: ASHTemporalFrameV4?,
+        sourceState: ASHState,
+        resetReason: ASHTemporalResetReasonV4?,
+        program: ASHDepthFourBranchProgramV4
+    ) throws -> ASHTemporalReconstructionResultV4 {
+        var samples = spatial.samples
+        let controls = try reconstructInPlace(
+            samples: &samples,
+            width: spatial.width,
+            height: spatial.height,
+            minimumCode: spatial.minimumCode,
+            maximumCode: spatial.maximumCode,
+            motionField: motionField,
+            previousHistory: previousHistory,
+            sourceState: sourceState,
+            resetReason: resetReason,
+            program: program
+        )
+        return ASHTemporalReconstructionResultV4(
+            output: try spatial.replacing(samples: samples),
+            stateRawValue: controls.stateRawValue,
+            targetMessageRawValue: controls.targetMessageRawValue,
+            historyWeightQ16: controls.historyWeightQ16
+        )
+    }
+
     static func reconstruct(
         spatial: ASHTemporalPlaneV4,
         alignedHistory: ASHTemporalPlaneV4?,
@@ -1023,7 +1524,11 @@ enum ASHTemporalReconstructorV4 {
         width: Int,
         height: Int
     ) throws {
-        guard let first = vectors.first,
+        guard width > 0,
+              height > 0,
+              columns > 0,
+              rows > 0,
+              let first = vectors.first,
               first.originX == 0,
               first.originY == 0,
               first.width > 0,
@@ -1032,15 +1537,36 @@ enum ASHTemporalReconstructorV4 {
               ceilingDivision(height, first.height) == rows else {
             throw ASHTemporalV4Error.invalidMotionField
         }
+        let expectedCount = columns.multipliedReportingOverflow(by: rows)
+        guard !expectedCount.overflow,
+              expectedCount.partialValue == vectors.count else {
+            throw ASHTemporalV4Error.invalidMotionField
+        }
         for (index, vector) in vectors.enumerated() {
             let column = index % columns
             let row = index / columns
-            let expectedX = column * first.width
-            let expectedY = row * first.height
-            guard vector.originX == expectedX,
-                  vector.originY == expectedY,
-                  vector.width == min(first.width, width - expectedX),
-                  vector.height == min(first.height, height - expectedY) else {
+            let expectedX = column.multipliedReportingOverflow(by: first.width)
+            let expectedY = row.multipliedReportingOverflow(by: first.height)
+            guard !expectedX.overflow,
+                  !expectedY.overflow,
+                  expectedX.partialValue >= 0,
+                  expectedY.partialValue >= 0,
+                  expectedX.partialValue < width,
+                  expectedY.partialValue < height else {
+                throw ASHTemporalV4Error.invalidMotionField
+            }
+            let expectedWidth = min(
+                first.width,
+                width - expectedX.partialValue
+            )
+            let expectedHeight = min(
+                first.height,
+                height - expectedY.partialValue
+            )
+            guard vector.originX == expectedX.partialValue,
+                  vector.originY == expectedY.partialValue,
+                  vector.width == expectedWidth,
+                  vector.height == expectedHeight else {
                 throw ASHTemporalV4Error.invalidMotionField
             }
         }
@@ -1109,6 +1635,16 @@ enum ASHTemporalReconstructorV4 {
         }
         return quotient
     }
+
+    private static func roundedShift16Unchecked(_ value: UInt64) -> UInt64 {
+        var quotient = value >> 16
+        let remainder = value & 0xffff
+        if remainder > 0x8000
+            || (remainder == 0x8000 && quotient & 1 == 1) {
+            quotient += 1
+        }
+        return quotient
+    }
 }
 
 struct ASHSpatialReconstructionResultV4: Equatable, Sendable {
@@ -1118,6 +1654,68 @@ struct ASHSpatialReconstructionResultV4: Equatable, Sendable {
     /// Q16 gains in canonical operator-basis order. Regularization remains a
     /// temporal control and is therefore reported as zero in the spatial IR.
     let basisGainsQ16: [UInt32]
+}
+
+/// Three active rows are sufficient for the canonical four-neighbor stencil.
+/// The workspace grows only with width, never with frame area, and exposes
+/// allocation identity for qualification and long-run diagnostics.
+struct ASHSpatialReconstructionWorkspaceV4: Sendable {
+    fileprivate(set) var rows: [UInt16] = []
+    private(set) var reservedWidth = 0
+    private(set) var storageAllocationCount = 0
+    private(set) var storageIdentity: UInt = 0
+
+    var retainedSampleCapacity: Int { reservedWidth * 3 }
+    var retainedByteUpperBound: Int {
+        retainedSampleCapacity * MemoryLayout<UInt16>.stride
+    }
+
+    fileprivate mutating func prepare(width: Int) throws {
+        guard width > 0 else {
+            throw ASHTemporalV4Error.invalidPlaneGeometry(
+                width: width,
+                height: 0,
+                sampleCount: 0
+            )
+        }
+        let count = width.multipliedReportingOverflow(by: 3)
+        guard !count.overflow else {
+            throw ASHTemporalV4Error.arithmeticOverflow
+        }
+        let priorIdentity = storageIdentity
+        let declaredAllocation = width > reservedWidth
+        if declaredAllocation {
+            rows = Array(repeating: 0, count: count.partialValue)
+            reservedWidth = width
+            storageAllocationCount += 1
+        } else if rows.count < count.partialValue {
+            rows.append(
+                contentsOf: repeatElement(
+                    0,
+                    count: count.partialValue - rows.count
+                )
+            )
+        } else if rows.count > count.partialValue {
+            rows.removeLast(rows.count - count.partialValue)
+        }
+        let nextIdentity = rows.withUnsafeBufferPointer { buffer -> UInt in
+            guard let base = buffer.baseAddress else { return 0 }
+            return UInt(bitPattern: base)
+        }
+        if !declaredAllocation,
+           priorIdentity != 0,
+           nextIdentity != priorIdentity {
+            storageAllocationCount += 1
+        }
+        storageIdentity = nextIdentity
+    }
+}
+
+struct ASHSpatialInPlaceResultV4: Equatable, Sendable {
+    let stateRawValue: UInt16
+    let targetMessageRawValue: UInt8
+    let basisGainsQ16: [UInt32]
+    let retainedRowSampleCount: Int
 }
 
 /// Shared integer spatial reconstruction policy applied after the common
@@ -1207,6 +1805,125 @@ enum ASHSpatialReconstructorV4 {
             stateRawValue: sourceState.rawValue,
             targetMessageRawValue: conditioned.targetMessageRawValue,
             basisGainsQ16: gains
+        )
+    }
+
+    /// Applies the exact reference stencil in place while retaining only three
+    /// original source rows. Every validation and cancellation point precedes
+    /// mutation; the commit loop is integer-bounded and non-throwing.
+    static func reconstructInPlace(
+        samples: inout [UInt16],
+        width: Int,
+        height: Int,
+        minimumCode: UInt16,
+        maximumCode: UInt16,
+        sourceState: ASHState,
+        program: ASHDepthFourBranchProgramV4,
+        workspace: inout ASHSpatialReconstructionWorkspaceV4
+    ) throws -> ASHSpatialInPlaceResultV4 {
+        guard sourceState.hasValidIntegrity else {
+            throw ASHTemporalV4Error.invalidASHState(sourceState.rawValue)
+        }
+        let sampleCount = width.multipliedReportingOverflow(by: height)
+        guard width > 0,
+              height > 0,
+              minimumCode < maximumCode,
+              !sampleCount.overflow,
+              sampleCount.partialValue == samples.count,
+              samples.allSatisfy({
+                  $0 >= minimumCode && $0 <= maximumCode
+              }) else {
+            throw ASHTemporalV4Error.invalidPlaneGeometry(
+                width: width,
+                height: height,
+                sampleCount: samples.count
+            )
+        }
+        let conditioned = try program.conditionedWeights(for: sourceState)
+        let expectedBasis = try expectedBasisWeightsQ16(
+            conditioned: conditioned,
+            program: program
+        )
+        guard expectedBasis.count == 4,
+              program.operatorManifest.basisIDs == [
+                "horizontal_detail",
+                "vertical_detail",
+                "isotropic_detail",
+                "regularization"
+              ] else {
+            throw ASHTemporalV4Error.invalidConfiguration
+        }
+        var gains = try expectedBasis.map { try scaledGain($0) }
+        gains[3] = 0
+        try workspace.prepare(width: width)
+
+        func loadRow(_ sourceY: Int, into slot: Int) {
+            let sourceStart = sourceY * width
+            let destinationStart = slot * width
+            for x in 0..<width {
+                workspace.rows[destinationStart + x] = samples[sourceStart + x]
+            }
+        }
+        loadRow(0, into: 0)
+        loadRow(0, into: 1)
+        loadRow(min(1, height - 1), into: 2)
+        try Task.checkCancellation()
+
+        var previousSlot = 0
+        var currentSlot = 1
+        var nextSlot = 2
+        for y in 0..<height {
+            let previousStart = previousSlot * width
+            let currentStart = currentSlot * width
+            let nextStart = nextSlot * width
+            let outputStart = y * width
+            for x in 0..<width {
+                let leftX = max(0, x - 1)
+                let rightX = min(width - 1, x + 1)
+                let center = Int64(workspace.rows[currentStart + x])
+                let left = Int64(workspace.rows[currentStart + leftX])
+                let right = Int64(workspace.rows[currentStart + rightX])
+                let up = Int64(workspace.rows[previousStart + x])
+                let down = Int64(workspace.rows[nextStart + x])
+                let horizontalAverage = divideSignedTiesToEvenUnchecked(
+                    left + right,
+                    by: 2
+                )
+                let verticalAverage = divideSignedTiesToEvenUnchecked(
+                    up + down,
+                    by: 2
+                )
+                let isotropicAverage = divideSignedTiesToEvenUnchecked(
+                    left + right + up + down,
+                    by: 4
+                )
+                let weighted = (center - horizontalAverage)
+                        * Int64(gains[0])
+                    + (center - verticalAverage) * Int64(gains[1])
+                    + (center - isotropicAverage) * Int64(gains[2])
+                let adjustment = divideSignedTiesToEvenUnchecked(
+                    weighted,
+                    by: Int64(ASHNormalizedQ16V4.scale)
+                )
+                samples[outputStart + x] = UInt16(
+                    min(
+                        Int64(maximumCode),
+                        max(Int64(minimumCode), center + adjustment)
+                    )
+                )
+            }
+            guard y + 1 < height else { continue }
+            let recycledSlot = previousSlot
+            previousSlot = currentSlot
+            currentSlot = nextSlot
+            nextSlot = recycledSlot
+            loadRow(min(y + 2, height - 1), into: nextSlot)
+        }
+        return ASHSpatialInPlaceResultV4(
+            stateRawValue: sourceState.rawValue,
+            targetMessageRawValue: conditioned.targetMessageRawValue,
+            basisGainsQ16: gains,
+            retainedRowSampleCount: width * 3
         )
     }
 
@@ -1328,5 +2045,24 @@ enum ASHSpatialReconstructorV4 {
             throw ASHTemporalV4Error.arithmeticOverflow
         }
         return negative ? -Int64(rounded) : Int64(rounded)
+    }
+
+    private static func divideSignedTiesToEvenUnchecked(
+        _ numerator: Int64,
+        by denominator: Int64
+    ) -> Int64 {
+        precondition(denominator > 0 && numerator != Int64.min)
+        let negative = numerator < 0
+        let magnitude = UInt64(negative ? -numerator : numerator)
+        let divisor = UInt64(denominator)
+        var quotient = magnitude / divisor
+        let remainder = magnitude % divisor
+        let complement = divisor - remainder
+        if remainder > complement
+            || (remainder == complement && quotient & 1 == 1) {
+            quotient += 1
+        }
+        let value = Int64(quotient)
+        return negative ? -value : value
     }
 }

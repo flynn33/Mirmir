@@ -461,6 +461,334 @@ final class ASHTemporalReconstructionV4Tests: XCTestCase {
         XCTAssertTrue(results.allSatisfy { $0.output.samples[0] < 700 })
     }
 
+    func testStreamingMotionFieldAndVectorSamplingMatchReferenceExactly()
+        throws {
+        let previous = try makeFrame(id: "stream-0", ordinal: 0) { x, y in
+            self.patternSample(x: x, y: y)
+        }
+        let current = try makeFrame(id: "stream-1", ordinal: 1) { x, y in
+            self.patternSample(x: min(x + 2, 15), y: min(y + 1, 15))
+        }
+        let referenceMotion = try ASHTemporalMotionAnalyzerV4.analyze(
+            current: current,
+            previous: previous
+        )
+        let streaming = try ASHTemporalMotionAnalyzerV4.analyzeField(
+            current: current,
+            previous: previous
+        )
+        XCTAssertEqual(streaming.field.vectors, referenceMotion.vectors)
+        XCTAssertEqual(
+            streaming.field.temporalEvidenceQ16,
+            referenceMotion.temporalEvidenceQ16
+        )
+        XCTAssertEqual(streaming.field.sceneCut, referenceMotion.sceneCut)
+        XCTAssertEqual(
+            streaming.allocationDiagnostics.maximumRetainedCandidatesPerBlock,
+            2
+        )
+        XCTAssertEqual(
+            streaming.allocationDiagnostics.materializedAlignedSampleCount,
+            0
+        )
+
+        let program = try ASHDepthFourBranchCompilerV4.compileCanonical()
+        for payload in 0..<256 {
+            let state = try ASHState(payloadBits: (0..<8).map { bit in
+                (payload >> bit) & 1
+            })
+            let reference = try ASHTemporalReconstructorV4.reconstruct(
+                spatial: current.luma,
+                motionAnalysis: referenceMotion,
+                sourceState: state,
+                resetReason: nil,
+                program: program
+            )
+            let vectorOnly = try ASHTemporalReconstructorV4.reconstruct(
+                spatial: current.luma,
+                motionField: streaming.field,
+                previousHistory: previous,
+                sourceState: state,
+                resetReason: nil,
+                program: program
+            )
+            XCTAssertEqual(vectorOnly, reference)
+        }
+    }
+
+    func testThreeRowSpatialWorkspaceMatchesReferenceForEveryState() throws {
+        let program = try ASHDepthFourBranchCompilerV4.compileCanonical()
+        var workspace = ASHSpatialReconstructionWorkspaceV4()
+        let geometries = [
+            (1, 1), (2, 1), (1, 3), (2, 2), (3, 5), (8, 7), (17, 9)
+        ]
+        for (width, height) in geometries {
+            let sampleCount = width * height
+            var input: [UInt16] = []
+            input.reserveCapacity(sampleCount)
+            for index in 0..<sampleCount {
+                let code = 64 + ((index * 97 + width * 31 + height * 17) % 877)
+                input.append(UInt16(code))
+            }
+            let plane = try ASHTemporalPlaneV4(
+                width: width,
+                height: height,
+                minimumCode: 64,
+                maximumCode: 940,
+                samples: input
+            )
+            for payload in 0..<256 {
+                let state = try ASHState(payloadBits: (0..<8).map { bit in
+                    (payload >> bit) & 1
+                })
+                let reference = try ASHSpatialReconstructorV4.reconstruct(
+                    spatial: plane,
+                    sourceState: state,
+                    program: program
+                )
+                var optimized = input
+                let controls = try ASHSpatialReconstructorV4.reconstructInPlace(
+                    samples: &optimized,
+                    width: width,
+                    height: height,
+                    minimumCode: 64,
+                    maximumCode: 940,
+                    sourceState: state,
+                    program: program,
+                    workspace: &workspace
+                )
+                XCTAssertEqual(optimized, reference.output.samples)
+                XCTAssertEqual(
+                    controls.targetMessageRawValue,
+                    reference.targetMessageRawValue
+                )
+                XCTAssertEqual(controls.basisGainsQ16, reference.basisGainsQ16)
+                XCTAssertEqual(controls.retainedRowSampleCount, width * 3)
+            }
+        }
+        XCTAssertEqual(workspace.retainedSampleCapacity, 17 * 3)
+        XCTAssertEqual(workspace.retainedByteUpperBound, 17 * 3 * 2)
+        let stableIdentity = workspace.storageIdentity
+        let stableAllocations = workspace.storageAllocationCount
+        var small = [UInt16](repeating: 400, count: 6)
+        _ = try ASHSpatialReconstructorV4.reconstructInPlace(
+            samples: &small,
+            width: 3,
+            height: 2,
+            minimumCode: 64,
+            maximumCode: 940,
+            sourceState: ASHState(rawValue: 0),
+            program: program,
+            workspace: &workspace
+        )
+        XCTAssertEqual(workspace.storageIdentity, stableIdentity)
+        XCTAssertEqual(workspace.storageAllocationCount, stableAllocations)
+    }
+
+    func testInPlaceConditioningCancellationAndInvalidFieldNeverMutate()
+        async throws {
+        let program = try ASHDepthFourBranchCompilerV4.compileCanonical()
+        let input = (0..<64).map { UInt16(64 + ($0 * 11) % 877) }
+        let cancelled = await Task { () -> ([UInt16], Error?) in
+            var samples = input
+            var workspace = ASHSpatialReconstructionWorkspaceV4()
+            withUnsafeCurrentTask { $0?.cancel() }
+            do {
+                _ = try ASHSpatialReconstructorV4.reconstructInPlace(
+                    samples: &samples,
+                    width: 8,
+                    height: 8,
+                    minimumCode: 64,
+                    maximumCode: 940,
+                    sourceState: try ASHState(rawValue: 0),
+                    program: program,
+                    workspace: &workspace
+                )
+                return (samples, nil)
+            } catch {
+                return (samples, error)
+            }
+        }.value
+        XCTAssertTrue(cancelled.1 is CancellationError)
+        XCTAssertEqual(cancelled.0, input)
+
+        let previous = try makeFrame(id: "bounds-0", ordinal: 0) { x, y in
+            self.patternSample(x: x, y: y)
+        }
+        let current = try makeFrame(id: "bounds-1", ordinal: 1) { x, y in
+            self.patternSample(x: x, y: y)
+        }
+        let valid = try ASHTemporalMotionAnalyzerV4.analyzeField(
+            current: current,
+            previous: previous
+        ).field
+        var forgedVectors = valid.vectors
+        let original = forgedVectors[0]
+        forgedVectors[0] = ASHTemporalMotionVectorV4(
+            blockIndex: original.blockIndex,
+            originX: original.originX,
+            originY: original.originY,
+            width: original.width,
+            height: original.height,
+            dx: -1,
+            dy: original.dy,
+            absoluteDifference: original.absoluteDifference,
+            normalizedCostQ16: original.normalizedCostQ16,
+            confidenceQ16: original.confidenceQ16,
+            occluded: original.occluded
+        )
+        let forged = replacingVectors(in: valid, with: forgedVectors)
+        var unchanged = current.luma.samples
+        XCTAssertThrowsError(
+            try ASHTemporalReconstructorV4.reconstructInPlace(
+                samples: &unchanged,
+                width: current.luma.width,
+                height: current.luma.height,
+                minimumCode: current.luma.minimumCode,
+                maximumCode: current.luma.maximumCode,
+                motionField: forged,
+                previousHistory: previous,
+                sourceState: ASHState(rawValue: 0),
+                resetReason: nil,
+                program: program
+            )
+        )
+        XCTAssertEqual(unchanged, current.luma.samples)
+    }
+
+    func testCanonicalMaxIntegerAndLayoutTamperingFailWithoutTrap() throws {
+        let oversizedVector = ASHTemporalMotionVectorV4(
+            blockIndex: 0,
+            originX: Int.max,
+            originY: 0,
+            width: Int.max,
+            height: 8,
+            dx: 0,
+            dy: 0,
+            absoluteDifference: 0,
+            normalizedCostQ16: 0,
+            confidenceQ16: 1,
+            occluded: false
+        )
+        let oversizedField = ASHTemporalMotionFieldV4(
+            policyID: "ash.test.max-int",
+            currentFrameID: "current",
+            previousFrameID: "previous",
+            streamID: "video-main",
+            formatIdentity: formatIdentity,
+            planeWidth: 16,
+            planeHeight: 16,
+            minimumCode: 64,
+            maximumCode: 940,
+            sceneDifferenceQ16: 0,
+            sceneCut: false,
+            temporalEvidenceQ16: 0,
+            blockColumns: 1,
+            blockRows: 1,
+            vectors: [oversizedVector]
+        )
+        let canonical = try ASHCanonicalJSONV4.encode(oversizedField)
+        let decoded = try ASHCanonicalJSONV4.decode(
+            ASHTemporalMotionFieldV4.self,
+            from: canonical
+        )
+        XCTAssertThrowsError(try decoded.validate()) { error in
+            XCTAssertEqual(error as? ASHTemporalV4Error, .invalidMotionField)
+        }
+
+        let previous = try makeFrame(id: "layout-0", ordinal: 0) { x, y in
+            self.patternSample(x: x, y: y)
+        }
+        let current = try makeFrame(id: "layout-1", ordinal: 1) { x, y in
+            self.patternSample(x: x, y: y)
+        }
+        let field = try ASHTemporalMotionAnalyzerV4.analyzeField(
+            current: current,
+            previous: previous
+        ).field
+        var overlapping = field.vectors
+        let second = overlapping[1]
+        overlapping[1] = ASHTemporalMotionVectorV4(
+            blockIndex: second.blockIndex,
+            originX: 0,
+            originY: second.originY,
+            width: second.width,
+            height: second.height,
+            dx: second.dx,
+            dy: second.dy,
+            absoluteDifference: second.absoluteDifference,
+            normalizedCostQ16: second.normalizedCostQ16,
+            confidenceQ16: second.confidenceQ16,
+            occluded: second.occluded
+        )
+        XCTAssertThrowsError(
+            try replacingVectors(in: field, with: overlapping).validate()
+        ) { error in
+            XCTAssertEqual(error as? ASHTemporalV4Error, .invalidMotionField)
+        }
+    }
+
+    func testCanonicalCheckpointRejectsDeepPlaneAndProgressTampering()
+        throws {
+        let frame = try makeFrame(id: "deep-0", ordinal: 0) { x, y in
+            self.patternSample(x: x, y: y)
+        }
+        var history = try ASHTemporalHistoryV4(capacity: 1)
+        try history.append(frame)
+        let checkpoint = try ASHTemporalCheckpointV4(
+            planSHA256: planIdentity,
+            runtimeManifestSHA256: runtimeIdentity,
+            lastCompletedInputOrdinal: 0,
+            lastCompletedOutputPresentationTime: .zero,
+            history: history
+        )
+        let canonical = try checkpoint.canonicalData
+        let sampleList = frame.luma.samples.map(String.init).joined(separator: ",")
+        let sampleNeedle = "\"samples\":[\(sampleList)]"
+        let shortened = try replacingUTF8(
+            sampleNeedle,
+            with: "\"samples\":[\(frame.luma.samples[0])]",
+            in: canonical
+        )
+        XCTAssertThrowsError(try ASHTemporalCheckpointV4.decodeCanonical(
+            shortened,
+            expectedPlanSHA256: planIdentity,
+            expectedRuntimeManifestSHA256: runtimeIdentity
+        )) { error in
+            XCTAssertEqual(error as? ASHTemporalV4Error, .invalidHistory)
+        }
+
+        var outOfRangeSamples = frame.luma.samples
+        outOfRangeSamples[outOfRangeSamples.count - 1] = 941
+        let outOfRangeList = outOfRangeSamples.map(String.init)
+            .joined(separator: ",")
+        let outOfRange = try replacingUTF8(
+            sampleNeedle,
+            with: "\"samples\":[\(outOfRangeList)]",
+            in: canonical
+        )
+        XCTAssertThrowsError(try ASHTemporalCheckpointV4.decodeCanonical(
+            outOfRange,
+            expectedPlanSHA256: planIdentity,
+            expectedRuntimeManifestSHA256: runtimeIdentity
+        )) { error in
+            XCTAssertEqual(error as? ASHTemporalV4Error, .invalidHistory)
+        }
+
+        let advancedProgress = try replacingUTF8(
+            "\"lastCompletedInputOrdinal\":0",
+            with: "\"lastCompletedInputOrdinal\":1",
+            in: canonical
+        )
+        XCTAssertThrowsError(try ASHTemporalCheckpointV4.decodeCanonical(
+            advancedProgress,
+            expectedPlanSHA256: planIdentity,
+            expectedRuntimeManifestSHA256: runtimeIdentity
+        )) { error in
+            XCTAssertEqual(error as? ASHTemporalV4Error, .invalidHistory)
+        }
+    }
+
     func testInvalidPlaneAndIntegrityStateFailClosed() throws {
         XCTAssertThrowsError(
             try ASHTemporalPlaneV4(
@@ -515,6 +843,44 @@ final class ASHTemporalReconstructionV4Tests: XCTestCase {
             tileStateRawValues: [],
             cadenceID: "progressive"
         )
+    }
+
+    private func replacingVectors(
+        in field: ASHTemporalMotionFieldV4,
+        with vectors: [ASHTemporalMotionVectorV4]
+    ) -> ASHTemporalMotionFieldV4 {
+        ASHTemporalMotionFieldV4(
+            policyID: field.policyID,
+            currentFrameID: field.currentFrameID,
+            previousFrameID: field.previousFrameID,
+            streamID: field.streamID,
+            formatIdentity: field.formatIdentity,
+            planeWidth: field.planeWidth,
+            planeHeight: field.planeHeight,
+            minimumCode: field.minimumCode,
+            maximumCode: field.maximumCode,
+            sceneDifferenceQ16: field.sceneDifferenceQ16,
+            sceneCut: field.sceneCut,
+            temporalEvidenceQ16: field.temporalEvidenceQ16,
+            blockColumns: field.blockColumns,
+            blockRows: field.blockRows,
+            vectors: vectors
+        )
+    }
+
+    private func replacingUTF8(
+        _ needle: String,
+        with replacement: String,
+        in data: Data
+    ) throws -> Data {
+        guard let text = String(data: data, encoding: .utf8),
+              let range = text.range(of: needle) else {
+            throw ASHTemporalV4Error.invalidHistory
+        }
+        return Data(text.replacingCharacters(
+            in: range,
+            with: replacement
+        ).utf8)
     }
 
     private func patternSample(x: Int, y: Int) -> UInt16 {
