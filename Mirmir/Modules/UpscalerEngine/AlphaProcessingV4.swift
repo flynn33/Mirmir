@@ -19,12 +19,12 @@ enum AlphaProcessingV4Error: Error, Equatable, Sendable {
     case arithmeticOverflow
 }
 
-enum AlphaAssociationV4: String, Hashable, Sendable {
+enum AlphaAssociationV4: String, Codable, Hashable, Sendable {
     case straight
     case premultiplied
 }
 
-enum ZeroAlphaPolicyV4: String, Hashable, Sendable {
+enum ZeroAlphaPolicyV4: String, Codable, Hashable, Sendable {
     /// Canonicalize all zero-alpha RGB components to zero.
     case clearColor
 

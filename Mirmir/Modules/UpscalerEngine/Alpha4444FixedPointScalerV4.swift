@@ -40,7 +40,8 @@ enum Alpha4444ExecutionBackendV4: String, Codable, Hashable, Sendable {
 /// are completely specified by Core Video. Encoded Y'CbCr-alpha layouts are
 /// intentionally excluded: they require a separately planned, manifest-bound
 /// Y'CbCr-to-RGB transform before `AlphaProcessingV4` is semantically valid.
-enum Alpha4444PackedLayoutV4: String, CaseIterable, Hashable, Sendable {
+enum Alpha4444PackedLayoutV4: String, CaseIterable, Codable, Hashable,
+    Sendable {
     case argb8
     case bgra8
     case abgr8
@@ -78,7 +79,7 @@ enum Alpha4444PackedLayoutV4: String, CaseIterable, Hashable, Sendable {
         signalBitDepth == 8 ? 4 : 8
     }
 
-    fileprivate var componentOffsets: ComponentOffsets {
+    var componentOffsets: ComponentOffsets {
         switch self {
         case .argb8, .argb16BigEndian:
             return ComponentOffsets(red: 1, green: 2, blue: 3, alpha: 0)
@@ -91,7 +92,7 @@ enum Alpha4444PackedLayoutV4: String, CaseIterable, Hashable, Sendable {
         }
     }
 
-    fileprivate var byteOrder: ComponentByteOrder {
+    var byteOrder: ComponentByteOrder {
         switch self {
         case .argb8, .bgra8, .abgr8, .rgba8:
             return .singleByte
@@ -102,17 +103,289 @@ enum Alpha4444PackedLayoutV4: String, CaseIterable, Hashable, Sendable {
         }
     }
 
-    fileprivate struct ComponentOffsets: Sendable {
+    struct ComponentOffsets: Sendable {
         let red: Int
         let green: Int
         let blue: Int
         let alpha: Int
     }
 
-    fileprivate enum ComponentByteOrder: Sendable {
+    enum ComponentByteOrder: Sendable {
         case singleByte
         case bigEndian16
         case littleEndian16
+    }
+}
+
+enum Alpha4444PixelBufferAccessV4Error: Error, Equatable, Sendable {
+    case pixelFormatMismatch(expected: OSType, actual: OSType)
+    case planarBufferUnsupported
+    case invalidRowStride(minimum: Int, actual: Int)
+    case inaccessibleBaseAddress
+    case lockFailed(CVReturn)
+    case sampleCountMismatch(expected: Int, actual: Int)
+    case componentOutOfRange(
+        component: AlphaComponentV4,
+        value: UInt16,
+        maximum: UInt16
+    )
+    case arithmeticOverflow
+}
+
+/// Row-padding-independent packed 4:4:4:4 access used at deterministic media
+/// boundaries. Alpha-plane fingerprints retain the layout's declared byte
+/// order, so an encode/decode verifier detects even a single changed alpha
+/// byte without conflating row allocator padding with visible samples.
+enum Alpha4444PixelBufferAccessV4 {
+    static func alphaPlaneBytes(
+        _ buffer: CVPixelBuffer,
+        layout: Alpha4444PackedLayoutV4
+    ) throws -> Data {
+        try validate(buffer, layout: layout)
+        let status = CVPixelBufferLockBaseAddress(buffer, .readOnly)
+        guard status == kCVReturnSuccess else {
+            throw Alpha4444PixelBufferAccessV4Error.lockFailed(status)
+        }
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(buffer)?
+            .assumingMemoryBound(to: UInt8.self) else {
+            throw Alpha4444PixelBufferAccessV4Error.inaccessibleBaseAddress
+        }
+
+        let width = CVPixelBufferGetWidth(buffer)
+        let height = CVPixelBufferGetHeight(buffer)
+        let rowBytes = CVPixelBufferGetBytesPerRow(buffer)
+        let bytesPerComponent = layout.signalBitDepth == 8 ? 1 : 2
+        let sampleCount = try checkedProduct(width, height)
+        var output = Data()
+        output.reserveCapacity(try checkedProduct(sampleCount, bytesPerComponent))
+        let alphaOffset = layout.componentOffsets.alpha * bytesPerComponent
+        for y in 0..<height {
+            let row = base.advanced(by: try checkedProduct(y, rowBytes))
+            for x in 0..<width {
+                let pixel = row.advanced(
+                    by: try checkedProduct(x, layout.bytesPerPixel)
+                )
+                output.append(pixel[alphaOffset])
+                if bytesPerComponent == 2 {
+                    output.append(pixel[alphaOffset + 1])
+                }
+            }
+        }
+        return output
+    }
+
+    static func samples(
+        _ buffer: CVPixelBuffer,
+        layout: Alpha4444PackedLayoutV4
+    ) throws -> [AlphaSampleV4] {
+        try validate(buffer, layout: layout)
+        let status = CVPixelBufferLockBaseAddress(buffer, .readOnly)
+        guard status == kCVReturnSuccess else {
+            throw Alpha4444PixelBufferAccessV4Error.lockFailed(status)
+        }
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(buffer)?
+            .assumingMemoryBound(to: UInt8.self) else {
+            throw Alpha4444PixelBufferAccessV4Error.inaccessibleBaseAddress
+        }
+        let width = CVPixelBufferGetWidth(buffer)
+        let height = CVPixelBufferGetHeight(buffer)
+        let rowBytes = CVPixelBufferGetBytesPerRow(buffer)
+        var output: [AlphaSampleV4] = []
+        output.reserveCapacity(try checkedProduct(width, height))
+        for y in 0..<height {
+            let row = base.advanced(by: try checkedProduct(y, rowBytes))
+            for x in 0..<width {
+                let pixel = row.advanced(
+                    by: try checkedProduct(x, layout.bytesPerPixel)
+                )
+                output.append(AlphaSampleV4(
+                    red: read(
+                        pixel,
+                        component: layout.componentOffsets.red,
+                        layout: layout
+                    ),
+                    green: read(
+                        pixel,
+                        component: layout.componentOffsets.green,
+                        layout: layout
+                    ),
+                    blue: read(
+                        pixel,
+                        component: layout.componentOffsets.blue,
+                        layout: layout
+                    ),
+                    alpha: read(
+                        pixel,
+                        component: layout.componentOffsets.alpha,
+                        layout: layout
+                    )
+                ))
+            }
+        }
+        return output
+    }
+
+    static func write(
+        _ samples: [AlphaSampleV4],
+        to buffer: CVPixelBuffer,
+        layout: Alpha4444PackedLayoutV4
+    ) throws {
+        try validate(buffer, layout: layout)
+        let width = CVPixelBufferGetWidth(buffer)
+        let height = CVPixelBufferGetHeight(buffer)
+        let expectedCount = try checkedProduct(width, height)
+        guard samples.count == expectedCount else {
+            throw Alpha4444PixelBufferAccessV4Error.sampleCountMismatch(
+                expected: expectedCount,
+                actual: samples.count
+            )
+        }
+        let maximum = layout.signalBitDepth == 8
+            ? UInt16(UInt8.max)
+            : UInt16.max
+        for sample in samples {
+            for (component, value) in [
+                (AlphaComponentV4.red, sample.red),
+                (.green, sample.green),
+                (.blue, sample.blue),
+                (.alpha, sample.alpha)
+            ] where value > maximum {
+                throw Alpha4444PixelBufferAccessV4Error.componentOutOfRange(
+                    component: component,
+                    value: value,
+                    maximum: maximum
+                )
+            }
+        }
+
+        let status = CVPixelBufferLockBaseAddress(buffer, [])
+        guard status == kCVReturnSuccess else {
+            throw Alpha4444PixelBufferAccessV4Error.lockFailed(status)
+        }
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+        guard let base = CVPixelBufferGetBaseAddress(buffer)?
+            .assumingMemoryBound(to: UInt8.self) else {
+            throw Alpha4444PixelBufferAccessV4Error.inaccessibleBaseAddress
+        }
+        let rowBytes = CVPixelBufferGetBytesPerRow(buffer)
+        for y in 0..<height {
+            let row = base.advanced(by: try checkedProduct(y, rowBytes))
+            for x in 0..<width {
+                let sample = samples[try checkedSum(
+                    try checkedProduct(y, width),
+                    x
+                )]
+                let pixel = row.advanced(
+                    by: try checkedProduct(x, layout.bytesPerPixel)
+                )
+                write(
+                    sample.red,
+                    to: pixel,
+                    component: layout.componentOffsets.red,
+                    layout: layout
+                )
+                write(
+                    sample.green,
+                    to: pixel,
+                    component: layout.componentOffsets.green,
+                    layout: layout
+                )
+                write(
+                    sample.blue,
+                    to: pixel,
+                    component: layout.componentOffsets.blue,
+                    layout: layout
+                )
+                write(
+                    sample.alpha,
+                    to: pixel,
+                    component: layout.componentOffsets.alpha,
+                    layout: layout
+                )
+            }
+        }
+    }
+
+    private static func validate(
+        _ buffer: CVPixelBuffer,
+        layout: Alpha4444PackedLayoutV4
+    ) throws {
+        let actual = CVPixelBufferGetPixelFormatType(buffer)
+        guard actual == layout.pixelFormat else {
+            throw Alpha4444PixelBufferAccessV4Error.pixelFormatMismatch(
+                expected: layout.pixelFormat,
+                actual: actual
+            )
+        }
+        guard !CVPixelBufferIsPlanar(buffer) else {
+            throw Alpha4444PixelBufferAccessV4Error.planarBufferUnsupported
+        }
+        let minimum = try checkedProduct(
+            CVPixelBufferGetWidth(buffer),
+            layout.bytesPerPixel
+        )
+        let actualStride = CVPixelBufferGetBytesPerRow(buffer)
+        guard actualStride >= minimum else {
+            throw Alpha4444PixelBufferAccessV4Error.invalidRowStride(
+                minimum: minimum,
+                actual: actualStride
+            )
+        }
+    }
+
+    private static func read(
+        _ pixel: UnsafePointer<UInt8>,
+        component: Int,
+        layout: Alpha4444PackedLayoutV4
+    ) -> UInt16 {
+        switch layout.byteOrder {
+        case .singleByte:
+            return UInt16(pixel[component])
+        case .bigEndian16:
+            let offset = component * 2
+            return (UInt16(pixel[offset]) << 8) | UInt16(pixel[offset + 1])
+        case .littleEndian16:
+            let offset = component * 2
+            return UInt16(pixel[offset]) | (UInt16(pixel[offset + 1]) << 8)
+        }
+    }
+
+    private static func write(
+        _ value: UInt16,
+        to pixel: UnsafeMutablePointer<UInt8>,
+        component: Int,
+        layout: Alpha4444PackedLayoutV4
+    ) {
+        switch layout.byteOrder {
+        case .singleByte:
+            pixel[component] = UInt8(truncatingIfNeeded: value)
+        case .bigEndian16:
+            let offset = component * 2
+            pixel[offset] = UInt8(truncatingIfNeeded: value >> 8)
+            pixel[offset + 1] = UInt8(truncatingIfNeeded: value)
+        case .littleEndian16:
+            let offset = component * 2
+            pixel[offset] = UInt8(truncatingIfNeeded: value)
+            pixel[offset + 1] = UInt8(truncatingIfNeeded: value >> 8)
+        }
+    }
+
+    private static func checkedProduct(_ left: Int, _ right: Int) throws -> Int {
+        let (value, overflow) = left.multipliedReportingOverflow(by: right)
+        guard !overflow else {
+            throw Alpha4444PixelBufferAccessV4Error.arithmeticOverflow
+        }
+        return value
+    }
+
+    private static func checkedSum(_ left: Int, _ right: Int) throws -> Int {
+        let (value, overflow) = left.addingReportingOverflow(right)
+        guard !overflow else {
+            throw Alpha4444PixelBufferAccessV4Error.arithmeticOverflow
+        }
+        return value
     }
 }
 
@@ -641,6 +914,173 @@ final class Alpha4444FixedPointScalerV4: @unchecked Sendable {
             throw Alpha4444FixedPointScalerV4Error.arithmeticOverflow
         }
         return result
+    }
+}
+
+enum PreparedAlpha4444UpscalerV4Error: Error, Equatable, Sendable {
+    case alreadyFinished
+    case negativeFrameIndex(Int)
+    case nonContiguousFrameIndex(expected: Int, actual: Int)
+    case invalidPresentationTime(frameIndex: Int)
+    case invalidDuration(frameIndex: Int)
+    case frameIndexOverflow
+}
+
+/// Stateful `PreparedFrameUpscaler` boundary for packed alpha media.
+///
+/// The actor serializes access to the shared fixed-point executor, enforces a
+/// contiguous causal frame order, and advertises only the source/destination
+/// layouts accepted by the alpha kernel. This lets the whole-asset migrator
+/// use the same bounded pixel-buffer-pool path as NV12/P010 without an
+/// unconditional Core Image or RGB bridge.
+actor PreparedAlpha4444UpscalerV4: PreparedFrameUpscaler {
+    nonisolated let sourcePixelBufferAttributes: PixelBufferAttributes
+    nonisolated let destinationPixelBufferAttributes: PixelBufferAttributes
+    nonisolated let actualBackendID: UpscaleBackendID
+    nonisolated let plan: Alpha4444ScalePlanV4
+
+    private let scaler: Alpha4444FixedPointScalerV4
+    private var nextFrameIndex: Int?
+    private var finished = false
+
+    init(
+        backend: Alpha4444ExecutionBackendV4,
+        plan: Alpha4444ScalePlanV4,
+        metalDevice: MTLDevice? = nil,
+        metalLibrary: MTLLibrary? = nil
+    ) throws {
+        self.plan = plan
+        self.sourcePixelBufferAttributes = Self.attributes(
+            layout: plan.layout,
+            width: plan.sourceWidth,
+            height: plan.sourceHeight
+        )
+        self.destinationPixelBufferAttributes = Self.attributes(
+            layout: plan.layout,
+            width: plan.targetWidth,
+            height: plan.targetHeight
+        )
+        self.actualBackendID = backend == .cpu
+            ? .mirmirDeterministicCPU
+            : .mirmirDeterministicMetal
+        self.scaler = try Alpha4444FixedPointScalerV4(
+            backend: backend,
+            plan: plan,
+            metalDevice: metalDevice,
+            metalLibrary: metalLibrary
+        )
+    }
+
+    init(
+        backend: Alpha4444ExecutionBackendV4,
+        layout: Alpha4444PackedLayoutV4,
+        sourceAssociation: AlphaAssociationV4,
+        destinationAssociation: AlphaAssociationV4,
+        zeroAlphaPolicy: ZeroAlphaPolicyV4,
+        sourceWidth: Int,
+        sourceHeight: Int,
+        targetWidth: Int,
+        targetHeight: Int,
+        borderRule: SpatialBorderRuleV4 = .clamp,
+        metalDevice: MTLDevice? = nil,
+        metalLibrary: MTLLibrary? = nil
+    ) throws {
+        let plan = try Alpha4444ScalePlanV4(
+            layout: layout,
+            sourceAssociation: sourceAssociation,
+            destinationAssociation: destinationAssociation,
+            zeroAlphaPolicy: zeroAlphaPolicy,
+            sourceWidth: sourceWidth,
+            sourceHeight: sourceHeight,
+            targetWidth: targetWidth,
+            targetHeight: targetHeight,
+            borderRule: borderRule
+        )
+        self.plan = plan
+        self.sourcePixelBufferAttributes = Self.attributes(
+            layout: plan.layout,
+            width: plan.sourceWidth,
+            height: plan.sourceHeight
+        )
+        self.destinationPixelBufferAttributes = Self.attributes(
+            layout: plan.layout,
+            width: plan.targetWidth,
+            height: plan.targetHeight
+        )
+        self.actualBackendID = backend == .cpu
+            ? .mirmirDeterministicCPU
+            : .mirmirDeterministicMetal
+        self.scaler = try Alpha4444FixedPointScalerV4(
+            backend: backend,
+            plan: plan,
+            metalDevice: metalDevice,
+            metalLibrary: metalLibrary
+        )
+    }
+
+    func process(
+        source: FramePixelBuffer,
+        destination: FramePixelBuffer,
+        timing: FrameTiming
+    ) async throws {
+        guard !finished else {
+            throw PreparedAlpha4444UpscalerV4Error.alreadyFinished
+        }
+        guard timing.frameIndex >= 0 else {
+            throw PreparedAlpha4444UpscalerV4Error.negativeFrameIndex(
+                timing.frameIndex
+            )
+        }
+        if let nextFrameIndex, timing.frameIndex != nextFrameIndex {
+            throw PreparedAlpha4444UpscalerV4Error.nonContiguousFrameIndex(
+                expected: nextFrameIndex,
+                actual: timing.frameIndex
+            )
+        }
+        guard timing.presentationTime.isNumeric,
+              timing.presentationTime.epoch == 0 else {
+            throw PreparedAlpha4444UpscalerV4Error.invalidPresentationTime(
+                frameIndex: timing.frameIndex
+            )
+        }
+        guard timing.duration.isNumeric,
+              timing.duration.value > 0,
+              timing.duration.epoch == 0 else {
+            throw PreparedAlpha4444UpscalerV4Error.invalidDuration(
+                frameIndex: timing.frameIndex
+            )
+        }
+        try Task.checkCancellation()
+        try await scaler.process(
+            source: source.value,
+            destination: destination.value
+        )
+        try Task.checkCancellation()
+        let (following, overflow) = timing.frameIndex.addingReportingOverflow(1)
+        guard !overflow else {
+            throw PreparedAlpha4444UpscalerV4Error.frameIndexOverflow
+        }
+        nextFrameIndex = following
+    }
+
+    func finish() async throws {
+        guard !finished else { return }
+        try Task.checkCancellation()
+        finished = true
+    }
+
+    private nonisolated static func attributes(
+        layout: Alpha4444PackedLayoutV4,
+        width: Int,
+        height: Int
+    ) -> PixelBufferAttributes {
+        PixelBufferAttributes([
+            kCVPixelBufferPixelFormatTypeKey as String:
+                NSNumber(value: layout.pixelFormat),
+            kCVPixelBufferWidthKey as String: NSNumber(value: width),
+            kCVPixelBufferHeightKey as String: NSNumber(value: height),
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:]
+        ])
     }
 }
 

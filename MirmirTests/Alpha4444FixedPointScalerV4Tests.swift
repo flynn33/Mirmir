@@ -7,6 +7,119 @@ import XCTest
 @testable import Mirmir
 
 final class Alpha4444FixedPointScalerV4Tests: XCTestCase {
+    func testPreparedBackendEnforcesCausalLifecycleAndAlphaSemantics()
+        async throws {
+        let source = try makeBuffer(
+            layout: .bgra8,
+            width: 4,
+            height: 4,
+            rowBytes: 21,
+            sentinel: 0xD1
+        )
+        let destination = try makeBuffer(
+            layout: .bgra8,
+            width: 8,
+            height: 8,
+            rowBytes: 39,
+            sentinel: 0xB2
+        )
+        try writeSamples(
+            transparentEdgeFixture(width: 4, height: 4),
+            to: source,
+            layout: .bgra8
+        )
+        installAssociation(.straight, on: source)
+        let scalePlan = try Alpha4444ScalePlanV4(
+            layout: .bgra8,
+            sourceAssociation: .straight,
+            destinationAssociation: .premultiplied,
+            zeroAlphaPolicy: .clearColor,
+            sourceWidth: 4,
+            sourceHeight: 4,
+            targetWidth: 8,
+            targetHeight: 8,
+            borderRule: .reflect101
+        )
+        let backend = try PreparedAlpha4444UpscalerV4(
+            backend: .cpu,
+            plan: scalePlan
+        )
+        XCTAssertEqual(backend.actualBackendID, .mirmirDeterministicCPU)
+        XCTAssertEqual(
+            backend.sourcePixelBufferAttributes.values[
+                kCVPixelBufferPixelFormatTypeKey as String
+            ] as? NSNumber,
+            NSNumber(value: kCVPixelFormatType_32BGRA)
+        )
+        XCTAssertEqual(
+            backend.destinationPixelBufferAttributes.values[
+                kCVPixelBufferWidthKey as String
+            ] as? NSNumber,
+            NSNumber(value: 8)
+        )
+
+        try await backend.process(
+            source: FramePixelBuffer(source),
+            destination: FramePixelBuffer(destination),
+            timing: FrameTiming(
+                frameIndex: 7,
+                presentationTime: CMTime(value: 7, timescale: 30),
+                duration: CMTime(value: 1, timescale: 30)
+            )
+        )
+        let output = try Alpha4444PixelBufferAccessV4.samples(
+            destination,
+            layout: .bgra8
+        )
+        XCTAssertTrue(output.contains { $0.alpha == 0 })
+        XCTAssertTrue(output.contains { $0.alpha > 0 && $0.alpha < 255 })
+        for sample in output {
+            XCTAssertLessThanOrEqual(sample.red, sample.alpha)
+            XCTAssertLessThanOrEqual(sample.green, sample.alpha)
+            XCTAssertLessThanOrEqual(sample.blue, sample.alpha)
+            if sample.alpha == 0 {
+                XCTAssertEqual(sample.red, 0)
+                XCTAssertEqual(sample.green, 0)
+                XCTAssertEqual(sample.blue, 0)
+            }
+        }
+
+        await XCTAssertThrowsAlphaError(
+            try await backend.process(
+                source: FramePixelBuffer(source),
+                destination: FramePixelBuffer(destination),
+                timing: FrameTiming(
+                    frameIndex: 9,
+                    presentationTime: CMTime(value: 9, timescale: 30),
+                    duration: CMTime(value: 1, timescale: 30)
+                )
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? PreparedAlpha4444UpscalerV4Error,
+                .nonContiguousFrameIndex(expected: 8, actual: 9)
+            )
+        }
+        try await backend.finish()
+        try await backend.finish()
+        await XCTAssertThrowsAlphaError(
+            try await backend.process(
+                source: FramePixelBuffer(source),
+                destination: FramePixelBuffer(destination),
+                timing: FrameTiming(
+                    frameIndex: 8,
+                    presentationTime: CMTime(value: 8, timescale: 30),
+                    duration: CMTime(value: 1, timescale: 30)
+                )
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? PreparedAlpha4444UpscalerV4Error,
+                .alreadyFinished
+            )
+        }
+    }
+
     func testCPUAndMetalHaveByteIdenticalVisibleBGRAForOddStrides() async throws {
         guard MTLCreateSystemDefaultDevice() != nil else {
             throw XCTSkip("Metal is unavailable on this host.")
@@ -511,6 +624,191 @@ final class Alpha4444FixedPointScalerV4Tests: XCTestCase {
 }
 
 final class AlphaVideoWriterContractV4Tests: XCTestCase {
+    func testPreparedPremultipliedOutputReopensWithExactProResAlphaBytes()
+        async throws {
+        let width = 8
+        let height = 8
+        let source = try makeBuffer(
+            layout: .bgra8,
+            width: 4,
+            height: 4,
+            rowBytes: 23,
+            sentinel: 0xD7
+        )
+        try writeSamples(
+            transparentEdgeFixture(width: 4, height: 4),
+            to: source,
+            layout: .bgra8
+        )
+        installAssociation(.straight, on: source)
+        let scalePlan = try Alpha4444ScalePlanV4(
+            layout: .bgra8,
+            sourceAssociation: .straight,
+            destinationAssociation: .premultiplied,
+            zeroAlphaPolicy: .clearColor,
+            sourceWidth: 4,
+            sourceHeight: 4,
+            targetWidth: width,
+            targetHeight: height,
+            borderRule: .reflect101
+        )
+        let delivery: PreparedAlphaVideoDeliveryV4
+        do {
+            delivery = try await DeterministicAlphaVideoDeliveryPlannerV4()
+                .prepare(
+                    scalePlan: scalePlan,
+                    executionBackend: .cpu
+                )
+        } catch AlphaVideoWriterContractV4Error.writerRejectedOutputSettings {
+            throw XCTSkip("ProRes 4444 encoder is unavailable.")
+        }
+        let hook = try delivery.makeProcessingHook(
+            trackID: MediaTrackStableIDV4("alpha-video-0"),
+            nominalSourceFrameDuration: ExactRationalV4(1, 30)
+        )
+        XCTAssertEqual(hook.trackID.rawValue, "alpha-video-0")
+        XCTAssertEqual(
+            hook.declaredOutputFormats,
+            [delivery.encodedFormatDescriptor]
+        )
+        XCTAssertEqual(
+            hook.writerOutputSettings[AVVideoCodecKey] as? AVVideoCodecType,
+            .proRes4444
+        )
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "mirmir-alpha-production-v4-\(UUID().uuidString).mov"
+            )
+        defer { try? FileManager.default.removeItem(at: outputURL) }
+        let writer = try delivery.makeVerifiedStandaloneWriter(
+            outputURL: outputURL
+        )
+
+        for frameIndex in 0..<2 {
+            let presentationTime = CMTime(
+                value: Int64(frameIndex),
+                timescale: 30
+            )
+            let input = try makeAlphaSampleBuffer(
+                pixelBuffer: source,
+                presentationTime: presentationTime,
+                duration: CMTime(value: 1, timescale: 30)
+            )
+            let outputs = try await hook.processTemporal(
+                AVFoundationVideoSampleV4(sampleBuffer: input)
+            )
+            XCTAssertEqual(outputs.count, 1)
+            let destination = try XCTUnwrap(
+                CMSampleBufferGetImageBuffer(outputs[0].sampleBuffer)
+            )
+            for sample in try Alpha4444PixelBufferAccessV4.samples(
+                destination,
+                layout: .bgra8
+            ) {
+                XCTAssertLessThanOrEqual(sample.red, sample.alpha)
+                XCTAssertLessThanOrEqual(sample.green, sample.alpha)
+                XCTAssertLessThanOrEqual(sample.blue, sample.alpha)
+                if sample.alpha == 0 {
+                    XCTAssertEqual(sample.red, 0)
+                    XCTAssertEqual(sample.green, 0)
+                    XCTAssertEqual(sample.blue, 0)
+                }
+            }
+            try await writer.append(
+                destination,
+                presentationTime: presentationTime
+            )
+        }
+        try await hook.finish()
+        let report = try await writer.finishAndVerify()
+        XCTAssertEqual(report.schemaID, AlphaVideoWriterVerificationV4.schemaID)
+        XCTAssertEqual(report.codec, .proRes4444)
+        XCTAssertEqual(report.association, .premultiplied)
+        XCTAssertEqual(report.frames.count, 2)
+        XCTAssertEqual(report.frames.map(\.ordinal), [0, 1])
+        XCTAssertEqual(
+            report.frames.map(\.presentationTime),
+            [.zero, try ExactRationalV4(1, 30)]
+        )
+        XCTAssertTrue(report.frames.allSatisfy { frame in
+            frame.alphaByteCount == width * height
+                && frame.sourceAlphaSHA256 == frame.decodedAlphaSHA256
+        })
+        let repeatedReport = try await writer.finishAndVerify()
+        XCTAssertEqual(repeatedReport, report)
+        let migratedReport = try await delivery.verifyMigratedOutput(
+            at: outputURL
+        )
+        XCTAssertEqual(migratedReport, report)
+    }
+
+    func testProductionCalibratorCoversAssociationAndHighBitDepth()
+        async throws {
+        let calibrator = AVFoundationAlphaVideoFormatCalibratorV4()
+        let cases: [(AlphaAssociationV4, Alpha4444PackedLayoutV4)] = [
+            (.straight, .bgra8),
+            (.premultiplied, .bgra8),
+            (.straight, .argb16BigEndian)
+        ]
+        for (association, layout) in cases {
+            let contract = try AlphaVideoWriterContractV4(
+                codec: .proRes4444,
+                association: association,
+                width: 16,
+                height: 16,
+                inputLayout: layout
+            )
+            let report: AlphaVideoWriterVerificationV4
+            do {
+                report = try await calibrator.calibration(for: contract)
+            } catch AlphaVideoWriterContractV4Error
+                .writerRejectedOutputSettings {
+                throw XCTSkip("ProRes 4444 encoder is unavailable.")
+            }
+            XCTAssertEqual(report.association, association)
+            XCTAssertEqual(report.inputLayout, layout)
+            XCTAssertEqual(report.frames.count, 1)
+            XCTAssertEqual(
+                report.frames[0].alphaByteCount,
+                16 * 16 * (layout.signalBitDepth / 8)
+            )
+            XCTAssertEqual(
+                report.frames[0].sourceAlphaSHA256,
+                report.frames[0].decodedAlphaSHA256
+            )
+            let cachedDescriptor = try await calibrator.formatDescriptor(
+                for: contract
+            )
+            XCTAssertEqual(cachedDescriptor, report.encodedFormat)
+            let cachedReport = try await calibrator.calibration(for: contract)
+            XCTAssertEqual(cachedReport, report)
+        }
+    }
+
+    func testExactAlphaWriterRejectsNearLosslessHEVCContract() throws {
+        let contract = try AlphaVideoWriterContractV4(
+            codec: .hevcWithAlpha,
+            association: .straight,
+            width: 16,
+            height: 16,
+            inputLayout: .bgra8
+        )
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mirmir-alpha-hevc-v4-\(UUID().uuidString).mov")
+        defer { try? FileManager.default.removeItem(at: url) }
+        XCTAssertThrowsError(
+            try AVFoundationAlphaVideoWriterV4(
+                outputURL: url,
+                contract: contract
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? AVFoundationAlphaVideoWriterV4Error,
+                .exactVerificationRequiresProRes4444(.hevcWithAlpha)
+            )
+        }
+    }
+
     func testWriterAndDecoderSettingsAreAlphaSpecificAndFailClosed()
         throws {
         let proRes = try AlphaVideoWriterContractV4(
@@ -852,6 +1150,70 @@ private func makeBuffer(
         throw Alpha4444TestError.coreVideo(status)
     }
     return buffer
+}
+
+private func makeAlphaSampleBuffer(
+    pixelBuffer: CVPixelBuffer,
+    presentationTime: CMTime,
+    duration: CMTime
+) throws -> CMSampleBuffer {
+    var format: CMVideoFormatDescription?
+    var status = CMVideoFormatDescriptionCreateForImageBuffer(
+        allocator: kCFAllocatorDefault,
+        imageBuffer: pixelBuffer,
+        formatDescriptionOut: &format
+    )
+    guard status == noErr, let format else {
+        throw Alpha4444TestError.coreMedia(status)
+    }
+    var timing = CMSampleTimingInfo(
+        duration: duration,
+        presentationTimeStamp: presentationTime,
+        decodeTimeStamp: .invalid
+    )
+    var sample: CMSampleBuffer?
+    status = CMSampleBufferCreateReadyWithImageBuffer(
+        allocator: kCFAllocatorDefault,
+        imageBuffer: pixelBuffer,
+        formatDescription: format,
+        sampleTiming: &timing,
+        sampleBufferOut: &sample
+    )
+    guard status == noErr, let sample else {
+        throw Alpha4444TestError.coreMedia(status)
+    }
+    return sample
+}
+
+private func transparentEdgeFixture(
+    width: Int,
+    height: Int
+) -> [AlphaSampleV4] {
+    precondition(width >= 3 && height >= 3)
+    var output: [AlphaSampleV4] = []
+    output.reserveCapacity(width * height)
+    for y in 0..<height {
+        for x in 0..<width {
+            let isTransparentEdge = x == 0 || y == 0
+                || x == width - 1 || y == height - 1
+            if isTransparentEdge {
+                output.append(AlphaSampleV4(
+                    red: UInt16((x * 71 + y * 43 + 17) % 256),
+                    green: UInt16((x * 29 + y * 89 + 31) % 256),
+                    blue: UInt16((x * 53 + y * 11 + 47) % 256),
+                    alpha: 0
+                ))
+            } else {
+                output.append(AlphaSampleV4(
+                    red: UInt16((x * 97 + y * 37 + 59) % 256),
+                    green: UInt16((x * 41 + y * 67 + 83) % 256),
+                    blue: UInt16((x * 19 + y * 101 + 107) % 256),
+                    alpha: UInt16(32 + ((x * 73 + y * 109) % 224))
+                ))
+            }
+        }
+    }
+    return output
 }
 
 private func fillSource(
