@@ -1,13 +1,13 @@
 {
   "contract": {
-    "byteCount": 8745,
+    "byteCount": 9441,
     "repositoryRelativePath": "script/v4/release-qualification-contract-v1.json",
-    "sha256": "6e6731c3f58f083b380638c2ead5cdd76855ce72a948e0095096a4e6b4909979"
+    "sha256": "a6d7680bbe7d239fb15afdc23ac76803533fe8a5c238e7ca2b0f50c0f42826cd"
   },
   "evaluator": {
-    "byteCount": 234786,
+    "byteCount": 273799,
     "repositoryRelativePath": "script/v4/release_qualification_v4.py",
-    "sha256": "d976c068e26fea42933ff184560e75a162860433fe168672efa5810b331a79bd"
+    "sha256": "9c9759fb7cb9336edb97f1251a300ee99ff476e6e23ccbc851416b9c5b9b4b15"
   },
   "hashAlgorithm": "sha256",
   "helpers": [
@@ -19,11 +19,11 @@
       "sha256": "23c0d874e27b7eb37702d18612a969ede2cfda61ed0f968e7c078fd402511403"
     },
     {
-      "byteCount": 65823,
+      "byteCount": 72666,
       "moduleName": "cpu_metal_parity_v4_for_release_qualification",
       "repositoryRelativePath": "script/v4/cpu_metal_parity_v4.py",
       "role": "cpu_metal_parity_replay",
-      "sha256": "74e25019715796216dc979e649a154a9ad6df4ce7557067ee9dd63bed2f03dce"
+      "sha256": "c78ffbb2ca2df90f92e5823b76dce78bf6f47bcb5fd9c508541b0b4dd4fd66fd"
     },
     {
       "byteCount": 11337,
@@ -33,11 +33,11 @@
       "sha256": "d79eff3f6bd7057460546b910cfa7654c9e846d4ff524e7b4ce78be78f6c929f"
     },
     {
-      "byteCount": 70519,
+      "byteCount": 80068,
       "moduleName": "quality_gate_v4_for_release_qualification",
       "repositoryRelativePath": "script/v4/quality_gate_v4.py",
       "role": "quality_raw_plane_replay",
-      "sha256": "4ebc8357f6d6373a5ae74c2e4a4a2576c8ee6062ccc2cb96b06fa9874d5fa198"
+      "sha256": "7ccd36727d705420b007203cb281acde37058b1f94fef8d8be3e06c8bc0a03eb"
     }
   ],
   "roleDispatch": [
@@ -98,5 +98,5 @@
     }
   ],
   "schemaVersion": "mirmir-ash-v4-release-qualification-trust-root-v1",
-  "trustedToolSetSHA256": "e47e4019139ebbd33f47586c33abb762e471993dc1b6e0ba78dcb4e271eff38a"
+  "trustedToolSetSHA256": "6f6668b760a1a4ff055968aeecd853a2d85ce9fa0de522940b444ed0e2496290"
 }
