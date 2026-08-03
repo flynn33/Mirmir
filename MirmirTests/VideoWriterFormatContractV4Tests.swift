@@ -318,6 +318,55 @@ final class VideoWriterFormatContractV4Tests: XCTestCase {
         }
     }
 
+    func testFieldNormalizationReplicatesSceneMetadataWithoutToneMapping()
+        throws {
+        let geometry = try sourceGeometry(width: 64, height: 48)
+        let metadata = try hdrMetadata(transfer: .pq)
+        let contract = try VideoWriterFormatContractV4(
+            codec: .hevc,
+            storage: .p010VideoRange10Bit,
+            color: .hdr(metadata),
+            sourceGeometry: geometry,
+            outputWidth: 128,
+            outputHeight: 96,
+            frameOperation: .fieldNormalization,
+            sourceContainsDynamicHDRMetadata: true,
+            dynamicEncodingPolicy:
+                .replicateSourceSceneMetadataAcrossFieldNormalization
+        )
+        let settings = try contract.outputSettings
+        let compression = try XCTUnwrap(
+            settings[AVVideoCompressionPropertiesKey] as? [String: Any]
+        )
+        XCTAssertEqual(
+            compression[
+                kVTCompressionPropertyKey_PreserveDynamicHDRMetadata as String
+            ] as? Bool,
+            true
+        )
+        XCTAssertEqual(contract.frameOperation, .fieldNormalization)
+
+        XCTAssertThrowsError(
+            try VideoWriterFormatContractV4(
+                codec: .hevc,
+                storage: .p010VideoRange10Bit,
+                color: .hdr(metadata),
+                sourceGeometry: geometry,
+                outputWidth: 128,
+                outputHeight: 96,
+                frameOperation: .frameRateConversion,
+                sourceContainsDynamicHDRMetadata: true,
+                dynamicEncodingPolicy:
+                    .replicateSourceSceneMetadataAcrossFieldNormalization
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? VideoWriterFormatContractV4Error,
+                .dynamicHDRIncompatibleOperation(.frameRateConversion)
+            )
+        }
+    }
+
     func testSilentToneMapPrecisionLossAndDynamicMetadataLossFailClosed() throws {
         let geometry = try sourceGeometry(width: 64, height: 48)
         let hdr = try hdrMetadata(transfer: .pq)

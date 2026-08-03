@@ -427,4 +427,10 @@ enum HDRDynamicEncodingPolicyV4: String, Hashable, Sendable {
     /// This route is invalid for tone mapping, temporal synthesis, frame-rate
     /// conversion, or any operation that changes presentation-sample identity.
     case preserveSourceSceneMetadataAcrossSpatialResampling
+
+    /// Field normalization does not invent a future scene or interpolate
+    /// between presentation samples. The source sample's scene-bound metadata
+    /// is therefore copied byte-for-byte to both progressive field outputs,
+    /// whose adjacent intervals exactly partition the source interval.
+    case replicateSourceSceneMetadataAcrossFieldNormalization
 }

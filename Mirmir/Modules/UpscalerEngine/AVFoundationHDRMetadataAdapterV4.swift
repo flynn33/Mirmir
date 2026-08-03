@@ -297,7 +297,9 @@ enum AVFoundationHDRMetadataAdapterV4 {
         }
         if dynamicPolicy == .preserveSourceWhenPixelsAreUnmodified
             || dynamicPolicy
-                == .preserveSourceSceneMetadataAcrossSpatialResampling {
+                == .preserveSourceSceneMetadataAcrossSpatialResampling
+            || dynamicPolicy
+                == .replicateSourceSceneMetadataAcrossFieldNormalization {
             properties[
                 kVTCompressionPropertyKey_PreserveDynamicHDRMetadata as String
             ] = true

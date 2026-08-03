@@ -31,6 +31,9 @@ enum VideoWriterFrameOperationV4: String, Hashable, Sendable {
     case spatialResampling
     case temporalSynthesis
     case frameRateConversion
+    /// Deterministic two-field normalization: each source presentation sample
+    /// is divided into two progressive samples covering the same interval.
+    case fieldNormalization
     case toneMapping
     case transferFunctionConversion
 
@@ -336,6 +339,10 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
                      (
                         .preserveSourceSceneMetadataAcrossSpatialResampling,
                         .spatialResampling
+                     ),
+                     (
+                        .replicateSourceSceneMetadataAcrossFieldNormalization,
+                        .fieldNormalization
                      ):
                     break
                 default:
