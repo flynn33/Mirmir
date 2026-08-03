@@ -636,13 +636,16 @@ def evaluate_capture(
     return report, capture_manifest
 
 
-def make_suite_manifest(role_root: Path, manifest_path: Path, evidence_root: Path) -> dict[str, Any]:
+def make_suite_manifest(role_root: Path, manifest_path: Path) -> dict[str, Any]:
     files = sorted(
         path.resolve()
         for path in role_root.rglob("*")
         if path.is_file() and path.resolve() != manifest_path.resolve()
     )
-    artifacts = [descriptor(path, evidence_root) for path in files]
+    # The release aggregator resolves a role's sealed-manifest descriptors
+    # relative to the directory containing that manifest. Nested capture and
+    # scenario descriptors remain relative to the global evidence root.
+    artifacts = [descriptor(path, role_root) for path in files]
     return {
         "schemaVersion": SUITE_MANIFEST_SCHEMA,
         "artifacts": artifacts,
@@ -668,7 +671,7 @@ def evaluate_command(arguments: argparse.Namespace) -> None:
     role_root = report_path.parent.resolve(strict=True)
     write_json(
         suite_manifest_path,
-        make_suite_manifest(role_root, suite_manifest_path, evidence_root),
+        make_suite_manifest(role_root, suite_manifest_path),
     )
 
 
@@ -697,7 +700,6 @@ def verify_command(arguments: argparse.Namespace) -> None:
     expected_suite_manifest = make_suite_manifest(
         report_path.parent.resolve(strict=True),
         suite_manifest_path,
-        evidence_root,
     )
     require(
         load_json(suite_manifest_path) == expected_suite_manifest
