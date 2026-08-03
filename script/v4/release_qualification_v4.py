@@ -17,10 +17,12 @@ import json
 import math
 from pathlib import Path, PurePosixPath
 import random
+import stat
 import statistics
 import sys
 import types
 from typing import Any, Callable, Iterable, Mapping, Sequence
+import uuid
 
 
 SCRIPT_DIRECTORY = Path(__file__).resolve().parent
@@ -791,6 +793,334 @@ def quality_aggregate(
     return aggregate, by_cohort, error, 100.0 * (2.0 - error)
 
 
+def packaged_capture_tree(root: Path) -> dict[str, Any]:
+    """Independently reproduce the shipping observer's capture-tree seal."""
+
+    root = root.resolve(strict=True)
+    if not root.is_dir() or root.is_symlink():
+        raise QualificationError("quality packaged capture root is unsafe")
+    rows: list[tuple[str, str, Path | None]] = []
+    for path in sorted(root.rglob("*"), key=lambda value: value.relative_to(root).as_posix()):
+        metadata = path.lstat()
+        relative = path.relative_to(root).as_posix()
+        if stat.S_ISLNK(metadata.st_mode):
+            raise QualificationError("quality packaged capture contains a symbolic link")
+        if stat.S_ISDIR(metadata.st_mode):
+            rows.append((relative, "directory", None))
+        elif stat.S_ISREG(metadata.st_mode) and metadata.st_nlink == 1:
+            rows.append((relative, "file", path))
+        else:
+            raise QualificationError("quality packaged capture contains a special file")
+    digest = hashlib.sha256()
+    digest.update(b"mirmir-packaged-capture-tree-v1\0")
+    byte_count = 0
+    file_count = 0
+    for relative, kind, path in rows:
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        if kind == "directory":
+            digest.update(b"directory\n")
+            continue
+        assert path is not None
+        byte_count += path.stat().st_size
+        file_count += 1
+        if byte_count > 8 * 1_024 * 1_024 * 1_024:
+            raise QualificationError("quality packaged capture exceeds 8 GiB")
+        digest.update(b"file\0")
+        digest.update(sha256(path).encode("ascii"))
+        digest.update(b"\n")
+    return {
+        "byteCount": byte_count,
+        "fileCount": file_count,
+        "sha256": digest.hexdigest(),
+    }
+
+
+def validate_quality_package_identity(
+    value: Any,
+    candidate: Mapping[str, Any],
+) -> dict[str, Any]:
+    package = require_mapping(value, "quality packaged candidate identity")
+    expected_keys = {
+        "schemaVersion",
+        "buildConfiguration",
+        "applicationArchiveSHA256",
+        "applicationPayloadIdentitySHA256",
+        "applicationInfoPlistSHA256",
+        "applicationExecutableSHA256",
+        "codeDirectories",
+        "codeDirectorySetSHA256",
+        "designatedRequirementSHA256",
+        "releaseConfigurationSHA256",
+        "attestationSHA256",
+        "sourceCommit",
+        "sourceTreeIdentitySHA256",
+        "runtimeManifestSHA256",
+        "runtimeManifestFileSHA256",
+        "runtimeArtifactSetSHA256",
+        "runtimeSourceRevision",
+        "bundleIdentifier",
+        "productVersion",
+        "productBuild",
+    }
+    require_exact_keys(package, expected_keys, "quality packaged candidate identity")
+    if (
+        package["schemaVersion"] != "mirmir-v4-packaged-candidate-identity-v1"
+        or package["buildConfiguration"] != "Release"
+    ):
+        raise QualificationError("quality packaged candidate header differs")
+    scalar_sha_keys = {
+        "applicationArchiveSHA256",
+        "applicationPayloadIdentitySHA256",
+        "applicationInfoPlistSHA256",
+        "applicationExecutableSHA256",
+        "codeDirectorySetSHA256",
+        "designatedRequirementSHA256",
+        "releaseConfigurationSHA256",
+        "attestationSHA256",
+        "sourceTreeIdentitySHA256",
+        "runtimeManifestSHA256",
+        "runtimeManifestFileSHA256",
+        "runtimeArtifactSetSHA256",
+    }
+    for key in scalar_sha_keys:
+        require_hex(package[key], 64, f"quality packaged candidate.{key}")
+    require_hex(package["sourceCommit"], 40, "quality packaged candidate.sourceCommit")
+    require_hex(
+        package["runtimeSourceRevision"],
+        (40, 64),
+        "quality packaged candidate.runtimeSourceRevision",
+    )
+    code_directories = require_list(
+        package["codeDirectories"], "quality packaged candidate code directories"
+    )
+    architectures: list[str] = []
+    for index, raw in enumerate(code_directories):
+        row = require_mapping(raw, f"quality CodeDirectory[{index}]")
+        require_exact_keys(row, {"architecture", "sha256"}, f"quality CodeDirectory[{index}]")
+        architecture = require_string(row["architecture"], f"quality CodeDirectory[{index}].architecture")
+        require_hex(row["sha256"], 64, f"quality CodeDirectory[{index}].sha256")
+        architectures.append(architecture)
+    if architectures != ["arm64", "x86_64"]:
+        raise QualificationError("quality packaged candidate architecture set differs")
+    candidate_mapping = {
+        "applicationArchiveSHA256": "appBundleSHA256",
+        "releaseConfigurationSHA256": "releaseConfigurationSHA256",
+        "sourceCommit": "sourceCommit",
+        "sourceTreeIdentitySHA256": "sourceTreeIdentitySHA256",
+        "runtimeManifestSHA256": "runtimeManifestSHA256",
+        "runtimeManifestFileSHA256": "runtimeManifestFileSHA256",
+        "runtimeArtifactSetSHA256": "runtimeArtifactSetSHA256",
+        "runtimeSourceRevision": "runtimeSourceRevision",
+        "bundleIdentifier": "bundleIdentifier",
+        "productVersion": "productVersion",
+        "productBuild": "productBuild",
+    }
+    for package_key, candidate_key in candidate_mapping.items():
+        if package[package_key] != candidate[candidate_key]:
+            raise QualificationError(
+                f"quality packaged candidate differs from release candidate: {package_key}"
+            )
+    return dict(package)
+
+
+def validate_packaged_quality_evidence(
+    report: Mapping[str, Any],
+    candidate: Mapping[str, Any],
+    report_path: Path,
+    contract_path: Path,
+    sealed_paths: set[Path],
+    merged_capture: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Replay the self-contained exact-executable package evidence without a checkout."""
+
+    identities = require_mapping(report["identities"], "quality.identities")
+    package = validate_quality_package_identity(
+        identities["packagedCandidateIdentity"], candidate
+    )
+    package_root = report_path.parent / "packaged-candidate"
+    if not package_root.is_dir() or package_root.is_symlink():
+        raise QualificationError("quality packaged candidate evidence is absent")
+    record_path = package_root / "capture-record.json"
+    if not record_path.is_file() or record_path.resolve() not in sealed_paths:
+        raise QualificationError("quality packaged capture record is outside the suite seal")
+    record = require_mapping(load_json(record_path), "quality packaged capture record")
+    require_exact_keys(
+        record,
+        {
+            "schemaVersion",
+            "lane",
+            "startedAtUTC",
+            "finishedAtUTC",
+            "requestSHA256",
+            "observerSourceSHA256",
+            "contractSHA256",
+            "packageIdentity",
+            "captureTree",
+            "process",
+            "artifacts",
+        },
+        "quality packaged capture record",
+    )
+    if record["schemaVersion"] != "mirmir-v4-packaged-evidence-capture-record-v1" or record["lane"] != "quality":
+        raise QualificationError("quality packaged capture record header differs")
+    if (
+        record["requestSHA256"] != identities["evidenceRequestSHA256"]
+        or record["observerSourceSHA256"] != identities["observerSourceSHA256"]
+        or record["contractSHA256"] != identities["contractSHA256"]
+        or record["packageIdentity"] != package
+    ):
+        raise QualificationError("quality packaged capture record binding differs")
+    artifacts = require_mapping(record["artifacts"], "quality packaged artifacts")
+    artifact_keys = {
+        "request",
+        "result",
+        "stdout",
+        "stderr",
+        "candidate",
+        "packageIdentity",
+        "attestation",
+        "observerSource",
+        "contract",
+        "releaseConfiguration",
+        "applicationArchive",
+    }
+    require_exact_keys(artifacts, artifact_keys, "quality packaged artifacts")
+    artifact_paths: dict[str, Path] = {}
+    for name in sorted(artifact_keys):
+        path, _ = validate_artifact(
+            package_root, artifacts[name], f"quality packaged artifact {name}"
+        )
+        if path not in sealed_paths:
+            raise QualificationError(
+                f"quality packaged artifact is outside the suite seal: {name}"
+            )
+        artifact_paths[name] = path
+    if load_json(artifact_paths["candidate"]) != candidate:
+        raise QualificationError("quality packaged candidate artifact differs")
+    if load_json(artifact_paths["packageIdentity"]) != package:
+        raise QualificationError("quality packaged identity artifact differs")
+    artifact_expectations = {
+        "observerSource": identities["observerSourceSHA256"],
+        "contract": identities["contractSHA256"],
+        "releaseConfiguration": package["releaseConfigurationSHA256"],
+        "applicationArchive": package["applicationArchiveSHA256"],
+        "attestation": package["attestationSHA256"],
+    }
+    for name, expected in artifact_expectations.items():
+        if sha256(artifact_paths[name]) != expected:
+            raise QualificationError(f"quality packaged artifact identity differs: {name}")
+    if sha256(contract_path) != identities["contractSHA256"]:
+        raise QualificationError("quality packaged contract binding differs")
+    request_bytes = artifact_paths["request"].read_bytes()
+    request = require_mapping(load_json(artifact_paths["request"]), "quality packaged request")
+    if request_bytes != canonical_bytes(request):
+        raise QualificationError("quality packaged request is not canonical JSON")
+    require_exact_keys(
+        request,
+        {
+            "schemaVersion",
+            "lane",
+            "requestID",
+            "nonce",
+            "generatedAtUTC",
+            "observerSourceSHA256",
+            "contractSHA256",
+            "packageIdentity",
+            "captureEnvironment",
+        },
+        "quality packaged request",
+    )
+    if (
+        request["schemaVersion"] != "mirmir-v4-packaged-evidence-request-v1"
+        or request["lane"] != "quality"
+        or request["observerSourceSHA256"] != identities["observerSourceSHA256"]
+        or request["contractSHA256"] != identities["contractSHA256"]
+        or request["packageIdentity"] != package
+        or sha256_bytes(request_bytes) != identities["evidenceRequestSHA256"]
+    ):
+        raise QualificationError("quality packaged request binding differs")
+    capture_root = package_root / "capture"
+    observed_tree = packaged_capture_tree(capture_root)
+    if (
+        observed_tree != require_mapping(record["captureTree"], "quality packaged capture tree")
+        or observed_tree["sha256"] != identities["packagedCaptureTreeSHA256"]
+    ):
+        raise QualificationError("quality packaged capture tree differs")
+    process = require_mapping(record["process"], "quality packaged process")
+    require_exact_keys(process, {"executableSHA256", "exitStatus"}, "quality packaged process")
+    if process["executableSHA256"] != package["applicationExecutableSHA256"] or process["exitStatus"] != 0:
+        raise QualificationError("quality packaged observer process differs")
+    result = require_mapping(load_json(artifact_paths["result"]), "quality packaged result")
+    for key, expected in (
+        ("schemaVersion", "mirmir-v4-packaged-evidence-result-v1"),
+        ("lane", "quality"),
+        ("requestSHA256", identities["evidenceRequestSHA256"]),
+        ("observerSourceSHA256", identities["observerSourceSHA256"]),
+        ("contractSHA256", identities["contractSHA256"]),
+        ("packageIdentity", package),
+        ("captureTree", observed_tree),
+    ):
+        if result.get(key) != expected:
+            raise QualificationError(f"quality packaged observer result differs: {key}")
+    exact_manifest_path = capture_root / "candidate-capture-manifest.json"
+    if not exact_manifest_path.is_file() or exact_manifest_path.resolve() not in sealed_paths:
+        raise QualificationError("quality exact capture manifest is outside the suite seal")
+    exact_manifest = require_mapping(
+        load_json(exact_manifest_path), "quality exact capture manifest"
+    )
+    if (
+        exact_manifest.get("schemaVersion")
+        != "mirmir-ash-v4-quality-candidate-capture-v1"
+        or exact_manifest.get("evidenceRequestSHA256")
+        != identities["evidenceRequestSHA256"]
+        or exact_manifest.get("observerSourceSHA256")
+        != identities["observerSourceSHA256"]
+        or exact_manifest.get("packagedCandidateIdentity") != package
+        or exact_manifest.get("productionRuntimeLocked") is not True
+        or exact_manifest.get("fullMirrorIdentityPass") is not True
+    ):
+        raise QualificationError("quality exact capture identity differs")
+    exact_cases = require_list(exact_manifest.get("cases"), "quality exact capture cases")
+    merged_cases = require_list(merged_capture.get("cases"), "quality merged capture cases")
+    exact_by_id = {
+        require_string(item.get("id"), "quality exact case.id"): require_mapping(
+            item, "quality exact case"
+        )
+        for item in exact_cases
+    }
+    merged_by_id = {
+        require_string(item.get("id"), "quality merged case.id"): require_mapping(
+            item, "quality merged case"
+        )
+        for item in merged_cases
+    }
+    if len(exact_by_id) != len(exact_cases) or set(exact_by_id) != set(merged_by_id):
+        raise QualificationError("quality exact and merged case sets differ")
+    candidate_variants = set(QUALITY_VARIANTS) - {"baseline_p05"}
+    for case_id in sorted(exact_by_id):
+        exact_outputs = require_mapping(
+            exact_by_id[case_id].get("outputs"), f"quality exact outputs {case_id}"
+        )
+        merged_outputs = require_mapping(
+            merged_by_id[case_id].get("outputs"), f"quality merged outputs {case_id}"
+        )
+        if set(exact_outputs) != candidate_variants:
+            raise QualificationError(f"quality exact output variants differ: {case_id}")
+        for variant, relative in exact_outputs.items():
+            exact_path = checked_path(capture_root, relative, f"quality exact output {case_id}/{variant}")
+            merged_path = checked_path(
+                report_path.parent,
+                merged_outputs.get(variant),
+                f"quality merged output {case_id}/{variant}",
+            )
+            if exact_path not in sealed_paths or merged_path not in sealed_paths or sha256(exact_path) != sha256(merged_path):
+                raise QualificationError(
+                    f"quality scored plane differs from exact executable: {case_id}/{variant}"
+                )
+    return package
+
+
 def validate_quality(
     report: Mapping[str, Any],
     candidate: Mapping[str, Any],
@@ -807,7 +1137,6 @@ def validate_quality(
     expected_identity_keys = {
         "contractSHA256",
         "metricToolSHA256",
-        "captureTestSourceSHA256",
         "corpusManifestSHA256",
         "corpusArtifactSetSHA256",
         "runtimeManifestSHA256",
@@ -817,9 +1146,18 @@ def validate_quality(
         "cropRuleSHA256",
         "metricModelSHA256",
         "outputSetSHA256",
+        "evidenceRequestSHA256",
+        "observerSourceSHA256",
+        "packagedCaptureTreeSHA256",
+        "packagedCandidateIdentity",
     }
     require_exact_keys(identities, expected_identity_keys, "quality.identities")
-    for key in expected_identity_keys - {"runtimeSourceRevision", "sourceCommit", "outputSetSHA256"}:
+    for key in expected_identity_keys - {
+        "runtimeSourceRevision",
+        "sourceCommit",
+        "outputSetSHA256",
+        "packagedCandidateIdentity",
+    }:
         require_hex(identities[key], 64, f"quality.identities.{key}")
     require_hex(
         identities["runtimeSourceRevision"],
@@ -866,12 +1204,33 @@ def validate_quality(
     report_path = checked_path(
         evidence_root, entry["path"], "quality report path"
     )
+    capture_path = report_path.parent / "capture-manifest.json"
+    if not capture_path.is_file() or capture_path.resolve() not in sealed_paths:
+        raise QualificationError("quality capture manifest is absent from the sealed suite")
+    capture = require_mapping(load_json(capture_path), "quality capture manifest")
+    package = validate_packaged_quality_evidence(
+        report,
+        candidate,
+        report_path,
+        quality_contract_path,
+        sealed_paths,
+        capture,
+    )
     try:
-        quality_replay.verify_report(report_path, quality_contract_path)
+        replayed_per_clip = quality_replay.replay_sealed_evidence(
+            report_path,
+            quality_contract_path,
+            embedded,
+            identities,
+        )
     except (SystemExit, ValueError) as error:
         raise QualificationError(
             f"quality raw-plane replay failed: {error}"
         ) from error
+    if report.get("perClip") != replayed_per_clip:
+        raise QualificationError(
+            "perClip metrics differ from sealed raw-plane replay"
+        )
     components = require_list(embedded.get("components"), "quality.contract.components")
     weights: dict[str, float] = {}
     for index, item in enumerate(components):
@@ -1038,6 +1397,7 @@ def validate_quality(
     gates = require_mapping(quality.get("gates"), "quality.gates")
     required_gates = {
         "identityPass",
+        "exactPackagedCandidatePass",
         "naturalCorpusEligibilityPass",
         "productionRuntimeLockPass",
         "requiredAblationsPresentPass",
@@ -1072,10 +1432,6 @@ def validate_quality(
         raise QualificationError("quality corpus artifact-set identity mismatch")
     if identities.get("corpusArtifactSetSHA256") != computed_corpus_set:
         raise QualificationError("quality report corpus artifact-set identity mismatch")
-    capture_path = report_path.parent / "capture-manifest.json"
-    if not capture_path.is_file() or capture_path.resolve() not in sealed_paths:
-        raise QualificationError("quality capture manifest is absent from the sealed suite")
-    capture = require_mapping(load_json(capture_path), "quality capture manifest")
     for key, expected in (
         ("contractSHA256", identities["contractSHA256"]),
         ("corpusManifestSHA256", identities["corpusManifestSHA256"]),
@@ -1114,6 +1470,9 @@ def validate_quality(
         "upper95PercentConfidenceBound": upper,
         "bootstrapReplicateCount": replicates,
         "corpusArtifactSetSHA256": computed_corpus_set,
+        "applicationArchiveSHA256": package["applicationArchiveSHA256"],
+        "applicationExecutableSHA256": package["applicationExecutableSHA256"],
+        "packagedCaptureTreeSHA256": identities["packagedCaptureTreeSHA256"],
     }
 
 
@@ -1144,6 +1503,29 @@ def validate_performance(
     sealed_paths: set[Path],
 ) -> dict[str, Any]:
     label = "same_scope_performance"
+    require_exact_keys(
+        report,
+        {
+            "schemaVersion",
+            "gateID",
+            "contractSHA256",
+            "baseline",
+            "candidate",
+            "measurement",
+            "absoluteMilliseconds",
+            "metricGates",
+            "mandatoryCaseRatios",
+            "memoryGate",
+            "environmentGate",
+            "semanticVerificationPass",
+            "exactPackagedCandidatePass",
+            "qualificationMode",
+            "releaseEligible",
+            "gatePass",
+            "reportSHA256",
+        },
+        "performance report",
+    )
     if report.get("schemaVersion") != contract["evidenceSchemas"][label]:
         raise QualificationError("performance has unsupported schema")
     if report.get("contractSHA256") != contract_sha:
@@ -1487,6 +1869,139 @@ def validate_performance(
 
     baseline = validate_capture(baseline_source_path.parent, "baseline_p05", baseline_source_path)
     observed = validate_capture(candidate_source_path.parent, "candidate_p06", candidate_source_path)
+    candidate_capture = observed["capture"]
+    package = validate_quality_package_identity(
+        candidate_capture.get("packagedCandidateIdentity"), candidate
+    )
+    request_identity = require_hex(
+        candidate_capture.get("evidenceRequestSHA256"),
+        64,
+        "performance packaged request",
+    )
+    observer_identity = require_hex(
+        candidate_capture.get("observerSourceSHA256"),
+        64,
+        "performance packaged observer source",
+    )
+    package_root = candidate_source_path.parent.parent / "packaged-candidate"
+    record_path = package_root / "capture-record.json"
+    if not record_path.is_file() or record_path.resolve() not in sealed_paths:
+        raise QualificationError("performance packaged capture record is missing or unsealed")
+    record = require_mapping(load_json(record_path), "performance packaged capture record")
+    require_exact_keys(
+        record,
+        {
+            "schemaVersion",
+            "lane",
+            "startedAtUTC",
+            "finishedAtUTC",
+            "requestSHA256",
+            "observerSourceSHA256",
+            "contractSHA256",
+            "packageIdentity",
+            "captureTree",
+            "process",
+            "artifacts",
+        },
+        "performance packaged capture record",
+    )
+    if (
+        record["schemaVersion"]
+        != "mirmir-v4-packaged-evidence-capture-record-v1"
+        or record["lane"] != "performance"
+        or record["requestSHA256"] != request_identity
+        or record["observerSourceSHA256"] != observer_identity
+        or record["contractSHA256"] != contract_sha
+        or record["packageIdentity"] != package
+    ):
+        raise QualificationError("performance packaged capture binding differs")
+    artifacts = require_mapping(record["artifacts"], "performance packaged artifacts")
+    artifact_keys = {
+        "request",
+        "result",
+        "stdout",
+        "stderr",
+        "candidate",
+        "packageIdentity",
+        "attestation",
+        "observerSource",
+        "contract",
+        "releaseConfiguration",
+        "applicationArchive",
+    }
+    require_exact_keys(artifacts, artifact_keys, "performance packaged artifacts")
+    package_paths: dict[str, Path] = {}
+    for name in sorted(artifact_keys):
+        path, _ = validate_artifact(
+            package_root,
+            artifacts[name],
+            f"performance packaged artifact {name}",
+        )
+        if path not in sealed_paths:
+            raise QualificationError(
+                f"performance packaged artifact is outside the suite seal: {name}"
+            )
+        package_paths[name] = path
+    if load_json(package_paths["candidate"]) != candidate or load_json(
+        package_paths["packageIdentity"]
+    ) != package:
+        raise QualificationError("performance packaged candidate binding differs")
+    for name, expected in {
+        "contract": contract_sha,
+        "observerSource": observer_identity,
+        "releaseConfiguration": package["releaseConfigurationSHA256"],
+        "applicationArchive": package["applicationArchiveSHA256"],
+        "attestation": package["attestationSHA256"],
+    }.items():
+        if sha256(package_paths[name]) != expected:
+            raise QualificationError(
+                f"performance packaged artifact identity differs: {name}"
+            )
+    request_bytes = package_paths["request"].read_bytes()
+    request = require_mapping(
+        load_json(package_paths["request"]), "performance packaged request"
+    )
+    if request_bytes != canonical_bytes(request) or (
+        request.get("schemaVersion") != "mirmir-v4-packaged-evidence-request-v1"
+        or request.get("lane") != "performance"
+        or request.get("contractSHA256") != contract_sha
+        or request.get("observerSourceSHA256") != observer_identity
+        or request.get("packageIdentity") != package
+        or sha256_bytes(request_bytes) != request_identity
+    ):
+        raise QualificationError("performance packaged request binding differs")
+    package_capture_root = package_root / "capture"
+    observed_tree = packaged_capture_tree(package_capture_root)
+    if observed_tree != record["captureTree"]:
+        raise QualificationError("performance packaged capture tree differs")
+    process = require_mapping(record["process"], "performance packaged process")
+    if (
+        process.get("executableSHA256") != package["applicationExecutableSHA256"]
+        or process.get("exitStatus") != 0
+    ):
+        raise QualificationError("performance packaged process differs")
+    result = require_mapping(
+        load_json(package_paths["result"]), "performance packaged result"
+    )
+    for key, expected in (
+        ("schemaVersion", "mirmir-v4-packaged-evidence-result-v1"),
+        ("lane", "performance"),
+        ("requestSHA256", request_identity),
+        ("observerSourceSHA256", observer_identity),
+        ("contractSHA256", contract_sha),
+        ("packageIdentity", package),
+        ("captureTree", observed_tree),
+    ):
+        if result.get(key) != expected:
+            raise QualificationError(f"performance packaged result differs: {key}")
+    exact_capture = require_mapping(
+        load_json(package_capture_root / "capture.json"),
+        "performance exact packaged capture",
+    )
+    if exact_capture != candidate_capture:
+        raise QualificationError(
+            "performance evaluated capture differs from exact packaged observer output"
+        )
     if baseline["warmups"] != observed["warmups"] or baseline["samples"] != observed["samples"]:
         raise QualificationError("performance paired warmup/sample counts differ")
     report_measurement = require_mapping(
@@ -1518,6 +2033,31 @@ def validate_performance(
             raise QualificationError(f"performance measurement.{key} mismatch")
     baseline_report = require_mapping(report.get("baseline"), "performance baseline report identity")
     candidate_report = require_mapping(report.get("candidate"), "performance candidate report identity")
+    require_exact_keys(
+        baseline_report,
+        {
+            "sourceRevision",
+            "sourceTreeSHA256",
+            "sourceIdentitySHA256",
+            "artifactManifestSHA256",
+        },
+        "performance baseline report identity",
+    )
+    require_exact_keys(
+        candidate_report,
+        {
+            "sourceRevision",
+            "sourceTreeSHA256",
+            "sourceIdentitySHA256",
+            "runtimeManifestSHA256",
+            "artifactManifestSHA256",
+            "evidenceRequestSHA256",
+            "observerSourceSHA256",
+            "packagedCaptureTreeSHA256",
+            "packagedCandidateIdentity",
+        },
+        "performance candidate report identity",
+    )
     expected_report_identities = (
         (baseline_report, baseline, baseline_source_path, baseline_manifest_path),
         (candidate_report, observed, candidate_source_path, candidate_manifest_path),
@@ -1533,6 +2073,14 @@ def validate_performance(
             raise QualificationError("performance report artifact manifest mismatch")
     if candidate_report.get("runtimeManifestSHA256") != candidate["runtimeManifestSHA256"]:
         raise QualificationError("performance report P06 identity mismatch")
+    if (
+        candidate_report["evidenceRequestSHA256"] != request_identity
+        or candidate_report["observerSourceSHA256"] != observer_identity
+        or candidate_report["packagedCaptureTreeSHA256"]
+        != observed_tree["sha256"]
+        or candidate_report["packagedCandidateIdentity"] != package
+    ):
+        raise QualificationError("performance report packaged identity differs")
 
     def wall_samples(capture: Mapping[str, Any]) -> list[float]:
         return [
@@ -1720,6 +2268,14 @@ def validate_performance(
     require_bool(
         report.get("semanticVerificationPass"), "performance semantic verification", True
     )
+    require_bool(
+        report.get("exactPackagedCandidatePass"),
+        "performance exact packaged candidate",
+        True,
+    )
+    require_bool(report.get("releaseEligible"), "performance releaseEligible", True)
+    if report.get("qualificationMode") != "release":
+        raise QualificationError("performance qualification mode is not release")
     require_bool(report.get("gatePass"), "performance gatePass", True)
     return {
         "aggregateRatios": ratios,
@@ -1729,6 +2285,9 @@ def validate_performance(
         "measuredRunCount": baseline["samples"],
         "engineFrameSampleCount": len(baseline_engine),
         "runtimeBuilderSHA256": observed["runtime"]["builderSourceSHA256"],
+        "applicationArchiveSHA256": package["applicationArchiveSHA256"],
+        "applicationExecutableSHA256": package["applicationExecutableSHA256"],
+        "packagedCaptureTreeSHA256": observed_tree["sha256"],
     }
 
 
@@ -1760,6 +2319,7 @@ def validate_parity(
             "comparison",
             "coverage",
             "cases",
+            "exactPackagedCandidatePass",
             "byteParityGatePass",
         },
         "parity report",
@@ -1778,17 +2338,17 @@ def validate_parity(
     locked_sources = require_mapping(
         contract.get("parityLockedSources"), "parityLockedSources"
     )
-    parity_identity_keys = {
+    source_identity_keys = {
         "captureSourceSHA256",
         "evaluatorSHA256",
         "runnerSHA256",
     }
-    require_exact_keys(locked_sources, parity_identity_keys, "parityLockedSources")
-    for key in parity_identity_keys:
+    require_exact_keys(locked_sources, source_identity_keys, "parityLockedSources")
+    for key in source_identity_keys:
         require_hex(locked_sources[key], 64, f"parityLockedSources.{key}")
     local_sources = {
-        "captureSourceSHA256": SCRIPT_DIRECTORY
-        / "ParityQualificationCaptureTests.swift",
+        "captureSourceSHA256": SCRIPT_DIRECTORY.parent.parent
+        / "Mirmir/App/MirmirApp.swift",
         "evaluatorSHA256": SCRIPT_DIRECTORY / "cpu_metal_parity_v4.py",
         "runnerSHA256": SCRIPT_DIRECTORY / "run_cpu_metal_parity_v4.sh",
     }
@@ -1796,11 +2356,38 @@ def validate_parity(
         if sha256(path) != locked_sources[key]:
             raise QualificationError(f"release-locked parity source is stale: {key}")
     identities = require_mapping(report.get("identities"), "parity.identities")
-    require_exact_keys(identities, parity_identity_keys, "parity.identities")
-    for key in parity_identity_keys:
+    require_exact_keys(
+        identities,
+        {
+            *source_identity_keys,
+            "packagedCandidateIdentity",
+            "evidenceRequestSHA256",
+            "packagedCaptureTreeSHA256",
+        },
+        "parity.identities",
+    )
+    for key in source_identity_keys:
         require_hex(identities[key], 64, f"parity.identities.{key}")
         if identities[key] != locked_sources[key]:
             raise QualificationError(f"parity source differs from release lock: {key}")
+    package = validate_quality_package_identity(
+        identities["packagedCandidateIdentity"], candidate
+    )
+    request_identities = require_list(
+        identities["evidenceRequestSHA256"], "parity packaged request identities"
+    )
+    tree_identities = require_list(
+        identities["packagedCaptureTreeSHA256"],
+        "parity packaged capture-tree identities",
+    )
+    if len(request_identities) != 2 or len(tree_identities) != 2:
+        raise QualificationError("parity packaged identity pair differs")
+    for index, value in enumerate(request_identities):
+        require_hex(value, 64, f"parity packaged request[{index}]")
+    for index, value in enumerate(tree_identities):
+        require_hex(value, 64, f"parity packaged capture tree[{index}]")
+    if request_identities[0] == request_identities[1]:
+        raise QualificationError("parity packaged requests are not independently fresh")
     if report.get("comparison") != PARITY_COMPARISON:
         raise QualificationError("parity comparison omits required v2 semantics")
     report_coverage = require_list(report.get("coverage"), "parity.coverage")
@@ -1845,7 +2432,7 @@ def validate_parity(
     )
     capture_source_path = bound_path(
         "/identities/captureSourceSHA256",
-        "ParityQualificationCaptureTests.swift",
+        "MirmirApp.swift",
     )
     evaluator_path = bound_path(
         "/identities/evaluatorSHA256", "cpu_metal_parity_v4.py"
@@ -1939,8 +2526,12 @@ def validate_parity(
     require_bool(report.get("byteParityGatePass"), "parity.byteParityGatePass", True)
 
     candidate_path = parity_root / "candidate-identity.json"
-    capture_a = parity_root / "capture-a"
-    capture_b = parity_root / "capture-b"
+    packaged_roots = [
+        parity_root / "packaged-process-a",
+        parity_root / "packaged-process-b",
+    ]
+    capture_a = packaged_roots[0] / "capture"
+    capture_b = packaged_roots[1] / "capture"
     manifest_path = parity_root / "artifact-manifest.json"
     for path, path_label in (
         (candidate_path, "candidate identity"),
@@ -1951,6 +2542,145 @@ def validate_parity(
     for path, path_label in ((capture_a, "capture-a"), (capture_b, "capture-b")):
         if not path.is_dir() or path.is_symlink():
             raise QualificationError(f"nested parity {path_label} is missing or symbolic")
+    for index, (package_root, capture_path) in enumerate(
+        zip(packaged_roots, (capture_a, capture_b))
+    ):
+        record_path = package_root / "capture-record.json"
+        if not record_path.is_file() or record_path.resolve() not in sealed_paths:
+            raise QualificationError(
+                f"parity packaged capture record[{index}] is missing or unsealed"
+            )
+        record = require_mapping(
+            load_json(record_path), f"parity packaged capture record[{index}]"
+        )
+        require_exact_keys(
+            record,
+            {
+                "schemaVersion",
+                "lane",
+                "startedAtUTC",
+                "finishedAtUTC",
+                "requestSHA256",
+                "observerSourceSHA256",
+                "contractSHA256",
+                "packageIdentity",
+                "captureTree",
+                "process",
+                "artifacts",
+            },
+            f"parity packaged capture record[{index}]",
+        )
+        if (
+            record["schemaVersion"]
+            != "mirmir-v4-packaged-evidence-capture-record-v1"
+            or record["lane"] != "parity"
+            or record["requestSHA256"] != request_identities[index]
+            or record["contractSHA256"] != contract_sha
+            or record["packageIdentity"] != package
+        ):
+            raise QualificationError(f"parity packaged record[{index}] binding differs")
+        artifacts = require_mapping(
+            record["artifacts"], f"parity packaged artifacts[{index}]"
+        )
+        artifact_keys = {
+            "request",
+            "result",
+            "stdout",
+            "stderr",
+            "candidate",
+            "packageIdentity",
+            "attestation",
+            "observerSource",
+            "contract",
+            "releaseConfiguration",
+            "applicationArchive",
+        }
+        require_exact_keys(
+            artifacts, artifact_keys, f"parity packaged artifacts[{index}]"
+        )
+        paths: dict[str, Path] = {}
+        for name in sorted(artifact_keys):
+            path, _ = validate_artifact(
+                package_root,
+                artifacts[name],
+                f"parity packaged artifact[{index}].{name}",
+            )
+            if path not in sealed_paths:
+                raise QualificationError(
+                    f"parity packaged artifact[{index}].{name} is unsealed"
+                )
+            paths[name] = path
+        if load_json(paths["candidate"]) != candidate or load_json(
+            paths["packageIdentity"]
+        ) != package:
+            raise QualificationError(f"parity packaged binding[{index}] differs")
+        for name, expected in {
+            "contract": contract_sha,
+            "observerSource": record["observerSourceSHA256"],
+            "releaseConfiguration": package["releaseConfigurationSHA256"],
+            "applicationArchive": package["applicationArchiveSHA256"],
+            "attestation": package["attestationSHA256"],
+        }.items():
+            if sha256(paths[name]) != expected:
+                raise QualificationError(
+                    f"parity packaged artifact[{index}].{name} differs"
+                )
+        request_bytes = paths["request"].read_bytes()
+        request = require_mapping(
+            load_json(paths["request"]), f"parity packaged request[{index}]"
+        )
+        if request_bytes != canonical_bytes(request) or (
+            request.get("schemaVersion")
+            != "mirmir-v4-packaged-evidence-request-v1"
+            or request.get("lane") != "parity"
+            or request.get("contractSHA256") != contract_sha
+            or request.get("observerSourceSHA256")
+            != record["observerSourceSHA256"]
+            or request.get("packageIdentity") != package
+            or sha256_bytes(request_bytes) != request_identities[index]
+        ):
+            raise QualificationError(f"parity packaged request[{index}] differs")
+        observed_tree = packaged_capture_tree(capture_path)
+        if (
+            observed_tree != record["captureTree"]
+            or observed_tree["sha256"] != tree_identities[index]
+        ):
+            raise QualificationError(f"parity packaged capture tree[{index}] differs")
+        process = require_mapping(
+            record["process"], f"parity packaged process[{index}]"
+        )
+        if (
+            process.get("executableSHA256")
+            != package["applicationExecutableSHA256"]
+            or process.get("exitStatus") != 0
+        ):
+            raise QualificationError(f"parity packaged process[{index}] differs")
+        result = require_mapping(
+            load_json(paths["result"]), f"parity packaged result[{index}]"
+        )
+        for key, expected in (
+            ("schemaVersion", "mirmir-v4-packaged-evidence-result-v1"),
+            ("lane", "parity"),
+            ("requestSHA256", request_identities[index]),
+            ("observerSourceSHA256", record["observerSourceSHA256"]),
+            ("contractSHA256", contract_sha),
+            ("packageIdentity", package),
+            ("captureTree", observed_tree),
+        ):
+            if result.get(key) != expected:
+                raise QualificationError(
+                    f"parity packaged result[{index}].{key} differs"
+                )
+        observed_capture = require_mapping(
+            load_json(capture_path / "capture.json"),
+            f"parity exact capture[{index}]",
+        )
+        if (
+            observed_capture.get("evidenceRequestSHA256")
+            != request_identities[index]
+            or observed_capture.get("packagedCandidateIdentity") != package
+        ):
+            raise QualificationError(f"parity exact capture[{index}] binding differs")
     try:
         parity_replay.verify_root_manifest(parity_root, manifest_path)
         replayed = parity_replay.evaluate(
@@ -1962,17 +2692,33 @@ def validate_parity(
             evaluator_path,
             runner_path,
             parity_root,
-            allow_fixture_runtime=False,
+            allow_fixture_runtime=True,
         )
     except parity_replay.ParityEvidenceError as error:
         raise QualificationError(f"nested parity replay failed: {error}") from error
-    if canonical_bytes(replayed) != canonical_bytes(report):
+    normalized_report = dict(report)
+    normalized_report["releaseEligible"] = False
+    normalized_report["exactPackagedCandidatePass"] = False
+    normalized_report["byteParityGatePass"] = False
+    normalized_identities = dict(identities)
+    normalized_identities["packagedCandidateIdentity"] = None
+    normalized_identities["evidenceRequestSHA256"] = None
+    normalized_identities["packagedCaptureTreeSHA256"] = None
+    normalized_report["identities"] = normalized_identities
+    if canonical_bytes(replayed) != canonical_bytes(normalized_report):
         raise QualificationError("parity report differs from independent nested replay")
+    require_bool(
+        report.get("exactPackagedCandidatePass"),
+        "parity.exactPackagedCandidatePass",
+        True,
+    )
     return {
         "caseCount": len(cases),
         "coverage": list(PARITY_REQUIRED_COVERAGE),
         "maximumByteDifference": 0,
         "nestedReplayPass": True,
+        "applicationArchiveSHA256": package["applicationArchiveSHA256"],
+        "applicationExecutableSHA256": package["applicationExecutableSHA256"],
     }
 
 
@@ -4103,6 +4849,7 @@ def validate_smoke(
             "schemaVersion",
             "suiteID",
             "releaseQualificationContractPath",
+            "acceptanceProviders",
             "candidate",
             "codeSigning",
             "tools",
@@ -4142,6 +4889,23 @@ def validate_smoke(
 
     if lane_contract["releaseQualificationContractPath"] != "script/v4/release-qualification-contract-v1.json":
         raise QualificationError("notarized smoke release-contract path differs")
+    acceptance_providers = require_mapping(
+        lane_contract["acceptanceProviders"],
+        "notarized smoke lane acceptance providers",
+    )
+    if acceptance_providers != {
+        "notarytool": {
+            "requiredArtifacts": [],
+            "requiredCommandRecords": ["notary_info", "notary_log"],
+            "requiredTools": ["notarytool"],
+        },
+        "xcode_archive": {
+            "requiredArtifacts": ["xcodeArchiveInfo"],
+            "requiredCommandRecords": ["xcode_export_notarized_app", "xcode_export_archive"],
+            "requiredTools": ["xcodebuild"],
+        },
+    }:
+        raise QualificationError("notarized smoke acceptance-provider policy differs")
     lane_candidate = require_mapping(lane_contract["candidate"], "notarized smoke lane candidate")
     require_exact_keys(
         lane_candidate,
@@ -4159,6 +4923,7 @@ def validate_smoke(
         lane_signing,
         {
             "requiredCertificateClass",
+            "requiredArchitectures",
             "requiredTeamIdentifier",
             "requiredHardenedRuntimeFlag",
             "secureTimestampRequired",
@@ -4169,6 +4934,7 @@ def validate_smoke(
     )
     if (
         lane_signing["requiredCertificateClass"] != "Developer ID Application"
+        or lane_signing["requiredArchitectures"] != ["arm64", "x86_64"]
         or lane_signing["requiredTeamIdentifier"] != "9AQ2C2838M"
         or lane_signing["requiredHardenedRuntimeFlag"] != "runtime"
         or lane_signing["forbiddenEntitlement"] != "com.apple.security.get-task-allow"
@@ -4210,7 +4976,7 @@ def validate_smoke(
         if action["evidenceKind"] != contract["notarizedSmokeEvidenceKinds"][identifier]:
             raise QualificationError(f"notarized smoke lane evidence kind differs: {identifier}")
     expected_producers = {
-        "notarization_ticket_acceptance": "notarytool",
+        "notarization_ticket_acceptance": "apple_notary_service",
         "gatekeeper_assessment": "spctl",
         "stapled_ticket_validation": "stapler",
         "code_signature_validation": "codesign",
@@ -4334,6 +5100,61 @@ def validate_smoke(
     ):
         raise QualificationError("notarized smoke capture interval summary differs")
 
+    notary_submission = require_mapping(
+        raw_capture["notarySubmission"],
+        "notarized smoke notary submission",
+    )
+    acceptance_provider = require_string(
+        notary_submission.get("provider"),
+        "notarized smoke notary submission.provider",
+    )
+    if acceptance_provider not in acceptance_providers:
+        raise QualificationError("notarized smoke acceptance provider is unsupported")
+    if acceptance_provider == "notarytool":
+        require_exact_keys(
+            notary_submission,
+            {"provider", "id", "submittedArchiveName"},
+            "notarized smoke notary submission",
+        )
+    else:
+        require_exact_keys(
+            notary_submission,
+            {
+                "provider",
+                "id",
+                "submittedArchiveName",
+                "sourceArchivePath",
+                "submissionRelativePath",
+            },
+            "notarized smoke notary submission",
+        )
+        source_archive = Path(
+            require_string(
+                notary_submission["sourceArchivePath"],
+                "notarized smoke Xcode source archive path",
+            )
+        )
+        if not source_archive.is_absolute() or source_archive.suffix != ".xcarchive":
+            raise QualificationError("notarized smoke Xcode source archive path differs")
+    submission_id = require_string(
+        notary_submission.get("id"),
+        "notarized smoke notary submission.id",
+    ).lower()
+    try:
+        if str(uuid.UUID(submission_id)) != submission_id:
+            raise QualificationError("notarized smoke submission UUID is noncanonical")
+    except ValueError as error:
+        raise QualificationError("notarized smoke submission ID is not a UUID") from error
+    require_string(
+        notary_submission.get("submittedArchiveName"),
+        "notarized smoke submitted archive name",
+    )
+    if acceptance_provider == "xcode_archive" and require_string(
+        notary_submission["submissionRelativePath"],
+        "notarized smoke Xcode submission relative path",
+    ).upper() != f"SUBMISSIONS/{submission_id.upper()}":
+        raise QualificationError("notarized smoke Xcode submission receipt path differs")
+
     raw_identities = require_mapping(raw_capture["identities"], "notarized smoke raw identities")
     raw_identity_keys = {
         "observerSourceSHA256",
@@ -4367,6 +5188,7 @@ def validate_smoke(
         "candidateExecutable",
         "toolManifest",
         "notaryLog",
+        *acceptance_providers[acceptance_provider]["requiredArtifacts"],
     }
     require_exact_keys(raw_artifacts, expected_raw_artifacts, "notarized smoke raw artifacts")
     raw_artifact_paths: dict[str, Path] = {}
@@ -4398,26 +5220,69 @@ def validate_smoke(
     if require_mapping(load_json(raw_artifact_paths["candidateJSON"]), "notarized smoke candidate artifact") != candidate:
         raise QualificationError("notarized smoke candidate artifact differs")
 
-    required_record_ids = [
+    tool_manifest = require_mapping(
+        load_json(raw_artifact_paths["toolManifest"]),
+        "notarized smoke tool identity manifest",
+    )
+    if tool_manifest.get("schemaVersion") != "mirmir-ash-v4-notarized-smoke-tool-identities-v1":
+        raise QualificationError("notarized smoke tool identity schema differs")
+    tool_rows = require_mapping(
+        tool_manifest.get("tools"),
+        "notarized smoke tool identities",
+    )
+    expected_tool_names = {
+        "app",
+        "codesign",
+        "ditto",
+        "python3",
+        "spctl",
+        "stapler",
+        "xcrun",
+        *acceptance_providers[acceptance_provider]["requiredTools"],
+    }
+    if set(tool_rows) != expected_tool_names:
+        raise QualificationError("notarized smoke tool identity set differs")
+    for tool_name, raw_tool in tool_rows.items():
+        tool = require_mapping(raw_tool, f"notarized smoke tool {tool_name}")
+        require_exact_keys(tool, {"path", "sha256"}, f"notarized smoke tool {tool_name}")
+        require_string(tool["path"], f"notarized smoke tool {tool_name}.path")
+        require_hex(tool["sha256"], 64, f"notarized smoke tool {tool_name}.sha256")
+    if tool_rows["app"]["sha256"] != identities["applicationExecutableSHA256"]:
+        raise QualificationError("notarized smoke app tool identity differs")
+    for tool_name, expected_path in lane_tools.items():
+        if tool_rows[tool_name]["path"] != expected_path:
+            raise QualificationError(f"notarized smoke locked tool path differs: {tool_name}")
+
+    common_record_ids = [
         require_string(value, "notarized smoke required command record")
         for value in require_list(lane_contract["requiredCommandRecords"], "notarized smoke required command records")
     ]
-    expected_record_ids = [
-        "notary_info",
-        "notary_log",
+    expected_common_record_ids = [
         "gatekeeper_assessment",
         "stapled_ticket_validation",
         "code_signature_validation",
         "code_signature_display",
+        "code_signature_display_arm64",
+        "code_signature_display_x86_64",
         "code_signature_entitlements",
         "code_signature_requirements",
         "submitted_signature_display",
+        "submitted_signature_display_arm64",
+        "submitted_signature_display_x86_64",
         "submitted_signature_requirements",
         "observer_prepare",
         "observer_recover",
     ]
-    if required_record_ids != expected_record_ids:
+    if common_record_ids != expected_common_record_ids:
         raise QualificationError("notarized smoke required command record order differs")
+    provider_record_ids = [
+        require_string(value, "notarized smoke provider command record")
+        for value in require_list(
+            acceptance_providers[acceptance_provider]["requiredCommandRecords"],
+            "notarized smoke provider command records",
+        )
+    ]
+    required_record_ids = [*common_record_ids, *provider_record_ids]
     observer_checks = require_mapping(
         lane_contract["requiredObserverChecks"],
         "notarized smoke required observer checks",
@@ -4485,7 +5350,7 @@ def validate_smoke(
         },
         "notarized smoke replay receipt",
     )
-    if receipt["schemaVersion"] != "mirmir-ash-v4-notarized-smoke-replay-v1":
+    if receipt["schemaVersion"] != "mirmir-ash-v4-notarized-smoke-replay-receipt-v1":
         raise QualificationError("notarized smoke replay receipt schema differs")
     if receipt["captureSHA256"] != raw_capture_identity:
         raise QualificationError("notarized smoke replay receipt captures another input")
@@ -4503,6 +5368,29 @@ def validate_smoke(
     actions = require_list(report.get("actions"), "notarized smoke.actions")
     required_order = contract["notarizedSmokeActions"]
     required = set(required_order)
+    expected_action_records = {
+        "notarization_ticket_acceptance": provider_record_ids,
+        "gatekeeper_assessment": ["gatekeeper_assessment"],
+        "stapled_ticket_validation": ["stapled_ticket_validation"],
+        "code_signature_validation": [
+            "code_signature_validation",
+            "code_signature_display",
+            "code_signature_display_arm64",
+            "code_signature_display_x86_64",
+            "code_signature_entitlements",
+            "code_signature_requirements",
+            "submitted_signature_display",
+            "submitted_signature_display_arm64",
+            "submitted_signature_display_x86_64",
+            "submitted_signature_requirements",
+        ],
+        "launch": ["observer_prepare"],
+        "p06_runtime_load": ["observer_prepare"],
+        "media_probe": ["observer_prepare"],
+        "deterministic_process": ["observer_prepare"],
+        "semantic_output_verify": ["observer_recover"],
+        "queue_relaunch_recovery": ["observer_recover"],
+    }
     evidence_kinds = require_mapping(
         contract.get("notarizedSmokeEvidenceKinds"), "notarized smoke evidence-kind contract"
     )
@@ -4600,7 +5488,7 @@ def validate_smoke(
             },
             f"notarized smoke action {identifier} transcript",
         )
-        if transcript["schemaVersion"] != "mirmir-ash-v4-notarized-smoke-transcript-v1":
+        if transcript["schemaVersion"] != "mirmir-ash-v4-notarized-smoke-action-transcript-v1":
             raise QualificationError(f"notarized smoke action transcript schema differs: {identifier}")
         if transcript["actionID"] != identifier or transcript["evidenceKind"] != evidence_kinds[identifier]:
             raise QualificationError(f"notarized smoke action transcript identity differs: {identifier}")
@@ -4613,11 +5501,25 @@ def validate_smoke(
             for record_id in source_record_ids
         ):
             raise QualificationError(f"notarized smoke action has invalid source records: {identifier}")
+        if source_record_ids != expected_action_records[identifier]:
+            raise QualificationError(f"notarized smoke action source records differ: {identifier}")
         claims = require_mapping(transcript["claims"], f"notarized smoke action {identifier}.claims")
         if claims.get("candidateArchiveSHA256") != candidate["appBundleSHA256"]:
             raise QualificationError(f"notarized smoke transcript observed another app: {identifier}")
         if claims.get("runtimeManifestSHA256") != candidate["runtimeManifestSHA256"]:
             raise QualificationError(f"notarized smoke transcript observed another runtime: {identifier}")
+        if identifier == "notarization_ticket_acceptance":
+            if claims.get("acceptanceProvider") != acceptance_provider:
+                raise QualificationError("notarized smoke acceptance-provider claim differs")
+            if str(claims.get("submissionID", "")).lower() != submission_id:
+                raise QualificationError("notarized smoke submission claim differs")
+            if claims.get("status") != "Accepted" or claims.get("issueCount") != 0:
+                raise QualificationError("notarized smoke Apple acceptance claim differs")
+            require_hex(
+                claims.get("archiveSHA256"),
+                64,
+                "notarized smoke Apple submission archive SHA-256",
+            )
         transcript_artifacts = require_list(
             transcript["rawArtifacts"],
             f"notarized smoke action {identifier}.rawArtifacts",
@@ -4632,7 +5534,15 @@ def validate_smoke(
     if seen != required:
         raise QualificationError(f"notarized smoke misses actions: {sorted(required-seen)}")
     require_bool(report.get("notarizedSmokeGatePass"), "notarized smoke.notarizedSmokeGatePass", True)
-    return {"actionCount": len(actions), "actions": sorted(seen)}
+    return {
+        "actionCount": len(actions),
+        "actions": sorted(seen),
+        "acceptanceProvider": acceptance_provider,
+        "applicationArchiveSHA256": candidate["appBundleSHA256"],
+        "applicationExecutableSHA256": identities[
+            "applicationExecutableSHA256"
+        ],
+    }
 
 
 VALIDATORS: dict[str, Callable[..., dict[str, Any]]] = {
@@ -4764,6 +5674,21 @@ def evaluate_candidate(
         raise QualificationError(
             "performance evidence and clean P06 reproduction use different builders"
         )
+    for key in ("applicationArchiveSHA256", "applicationExecutableSHA256"):
+        observed = {
+            role: summaries[role][key]
+            for role in (
+                "quality",
+                "same_scope_performance",
+                "cpu_metal_parity",
+                "notarized_smoke",
+            )
+        }
+        if len(set(observed.values())) != 1:
+            raise QualificationError(
+                "quality, performance, parity, and notarized-smoke evidence "
+                f"use different {key}"
+            )
     candidate_identity = sha256_bytes(canonical_bytes(candidate))
     evidence_set_identity = sha256_bytes(canonical_bytes(evidence_identities))
     qualification_identity = sha256_bytes(

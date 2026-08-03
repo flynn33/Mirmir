@@ -13,6 +13,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 
 SCRIPT_DIRECTORY = Path(__file__).resolve().parent
@@ -289,7 +290,6 @@ class EvidenceFixture:
 
         copied_sources = (
             "quality_gate_v4.py",
-            "QualityGateCaptureTests.swift",
             "p05_baseline_v4.py",
             "P05QualityBaselineCaptureTests.swift",
             "p05-baseline-source-manifest-v1.json",
@@ -297,7 +297,11 @@ class EvidenceFixture:
         for filename in copied_sources:
             shutil.copy2(SCRIPT_DIRECTORY / filename, role_dir / filename)
         metric_path = role_dir / "quality_gate_v4.py"
-        capture_source_path = role_dir / "QualityGateCaptureTests.swift"
+        observer_source_path = role_dir / "MirmirApp.swift"
+        observer_source_path.write_bytes(
+            (SCRIPT_DIRECTORY.parent.parent / "Mirmir/App/MirmirApp.swift")
+            .read_bytes()
+        )
 
         corpus_stage = role_dir / "corpus-stage"
         with contextlib.redirect_stdout(io.StringIO()):
@@ -343,6 +347,13 @@ class EvidenceFixture:
         contract_sha = quality_gate.sha256(contract_path)
         corpus_sha = quality_gate.sha256(corpus_path)
         baseline_identity = quality_gate.p05.frozen_identity(quality_contract)
+        package_fixture = self._build_packaged_quality_fixture(
+            role_dir,
+            contract_path,
+            corpus_path,
+            capture_cases,
+            observer_source_path,
+        )
         capture_manifest = {
             "schemaVersion": quality_gate.SCHEMA_CAPTURE,
             "contractSHA256": contract_sha,
@@ -363,20 +374,53 @@ class EvidenceFixture:
                 "implementationVersion"
             ],
             "baselineWarmupCount": 1,
+            "evidenceRequestSHA256": package_fixture["requestSHA256"],
+            "observerSourceSHA256": package_fixture["observerSourceSHA256"],
+            "packagedCandidateIdentity": package_fixture["packageIdentity"],
             "cases": capture_cases,
         }
         capture_path = role_dir / "capture-manifest.json"
         write_json(capture_path, capture_manifest)
         report_path = role_dir / "report.json"
-        with contextlib.redirect_stdout(io.StringIO()):
-            quality_gate.evaluate(contract_path, corpus_path, capture_path, report_path)
+        with contextlib.redirect_stdout(io.StringIO()), mock.patch.object(
+            quality_gate,
+            "validate_packaged_quality_capture",
+            return_value={
+                "packageIdentity": package_fixture["packageIdentity"],
+                "requestSHA256": package_fixture["requestSHA256"],
+                "observerSourceSHA256": package_fixture["observerSourceSHA256"],
+                "captureTree": package_fixture["captureTree"],
+            },
+        ):
+            quality_gate.evaluate(
+                contract_path,
+                corpus_path,
+                capture_path,
+                report_path,
+                package_fixture["root"],
+                self.root,
+                runtime_path,
+            )
         report = json.loads(report_path.read_text())
         self._write_quality_evidence_manifest()
         bindings = [
             ("/identities/contractSHA256", contract_path),
             ("/identities/metricToolSHA256", metric_path),
-            ("/identities/captureTestSourceSHA256", capture_source_path),
             ("/identities/corpusManifestSHA256", corpus_path),
+            ("/identities/evidenceRequestSHA256", package_fixture["request"]),
+            ("/identities/observerSourceSHA256", package_fixture["observerSource"]),
+            (
+                "/identities/packagedCandidateIdentity/applicationArchiveSHA256",
+                package_fixture["applicationArchive"],
+            ),
+            (
+                "/identities/packagedCandidateIdentity/attestationSHA256",
+                package_fixture["attestation"],
+            ),
+            (
+                "/identities/packagedCandidateIdentity/releaseConfigurationSHA256",
+                package_fixture["releaseConfiguration"],
+            ),
         ]
         self._seal_and_add(
             role,
@@ -388,12 +432,246 @@ class EvidenceFixture:
             existing_report_path=report_path,
         )
 
+    def _build_packaged_quality_fixture(
+        self,
+        role_dir: Path,
+        contract_path: Path,
+        corpus_path: Path,
+        capture_cases: list[dict[str, object]],
+        observer_source_path: Path,
+    ) -> dict[str, object]:
+        """Build a package-shaped unit fixture; production CLI has no such adapter."""
+
+        package_root = role_dir / "packaged-candidate"
+        observer_root = package_root / "observer"
+        capture_root = package_root / "capture"
+        bindings_root = package_root / "bindings"
+        for directory in (observer_root, capture_root / "artifacts", bindings_root):
+            directory.mkdir(parents=True, exist_ok=True)
+
+        def write_canonical(path: Path, value: object) -> None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(qualification.canonical_bytes(value))
+
+        candidate_path = bindings_root / "candidate.json"
+        write_canonical(candidate_path, self.candidate)
+        observer_path = bindings_root / "observer-source.swift"
+        observer_path.write_bytes(observer_source_path.read_bytes())
+        lane_contract_path = bindings_root / "lane-contract.json"
+        lane_contract_path.write_bytes(contract_path.read_bytes())
+        release_configuration = bindings_root / "release-candidate-v4.xcconfig"
+        release_configuration.write_bytes(self.release_bytes)
+        application_archive = bindings_root / "application-archive.zip"
+        application_archive.write_bytes(self.app_bytes)
+        attestation = bindings_root / "application-archive-attestation-v1.json"
+        write_canonical(
+            attestation,
+            {
+                "schemaVersion": "mirmir-v4-release-archive-attestation-v1",
+                "fixtureOnly": True,
+            },
+        )
+        package = {
+            "schemaVersion": "mirmir-v4-packaged-candidate-identity-v1",
+            "buildConfiguration": "Release",
+            "applicationArchiveSHA256": qualification.sha256(application_archive),
+            "applicationPayloadIdentitySHA256": identity("quality-package-payload"),
+            "applicationInfoPlistSHA256": identity("quality-package-info"),
+            "applicationExecutableSHA256": qualification.sha256_bytes(
+                b"shipping-app-executable"
+            ),
+            "codeDirectories": [
+                {"architecture": "arm64", "sha256": identity("quality-cd-arm64")},
+                {"architecture": "x86_64", "sha256": identity("quality-cd-x86_64")},
+            ],
+            "codeDirectorySetSHA256": identity("quality-cd-set"),
+            "designatedRequirementSHA256": identity("quality-requirement"),
+            "releaseConfigurationSHA256": qualification.sha256(
+                release_configuration
+            ),
+            "attestationSHA256": qualification.sha256(attestation),
+            "sourceCommit": self.candidate["sourceCommit"],
+            "sourceTreeIdentitySHA256": self.candidate[
+                "sourceTreeIdentitySHA256"
+            ],
+            "runtimeManifestSHA256": self.candidate["runtimeManifestSHA256"],
+            "runtimeManifestFileSHA256": self.candidate[
+                "runtimeManifestFileSHA256"
+            ],
+            "runtimeArtifactSetSHA256": self.candidate[
+                "runtimeArtifactSetSHA256"
+            ],
+            "runtimeSourceRevision": self.candidate["runtimeSourceRevision"],
+            "bundleIdentifier": self.candidate["bundleIdentifier"],
+            "productVersion": self.candidate["productVersion"],
+            "productBuild": self.candidate["productBuild"],
+        }
+        package_path = bindings_root / "package-identity.json"
+        write_canonical(package_path, package)
+        exact_cases = []
+        for case in capture_cases:
+            outputs = {
+                variant: case["outputs"][variant]
+                for variant in quality_replay.CANDIDATE_VARIANTS
+            }
+            milliseconds = {
+                variant: case["milliseconds"][variant]
+                for variant in quality_replay.CANDIDATE_VARIANTS
+            }
+            for relative in outputs.values():
+                destination = capture_root / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(role_dir / relative, destination)
+            exact_cases.append(
+                {"id": case["id"], "outputs": outputs, "milliseconds": milliseconds}
+            )
+        observer_sha = qualification.sha256(observer_path)
+        request = {
+            "schemaVersion": "mirmir-v4-packaged-evidence-request-v1",
+            "lane": "quality",
+            "requestID": "11111111-1111-4111-8111-111111111111",
+            "nonce": identity("quality-request-nonce"),
+            "generatedAtUTC": "2026-08-02T12:00:00Z",
+            "observerSourceSHA256": observer_sha,
+            "contractSHA256": qualification.sha256(contract_path),
+            "packageIdentity": package,
+            "captureEnvironment": {
+                "MIRMIR_V4_QUALITY_CAPTURE_DIR": "/fixture/capture",
+                "MIRMIR_V4_QUALITY_CORPUS_MANIFEST": "/fixture/inputs/corpus-manifest.json",
+                "MIRMIR_V4_QUALITY_CONTRACT_SHA256": qualification.sha256(
+                    contract_path
+                ),
+                "MIRMIR_V4_QUALITY_SOURCE_COMMIT": self.candidate[
+                    "sourceCommit"
+                ],
+                "MIRMIR_V4_QUALITY_SOURCE_TREE_SHA256": self.candidate[
+                    "sourceTreeIdentitySHA256"
+                ],
+            },
+        }
+        request_path = observer_root / "request.json"
+        write_canonical(request_path, request)
+        request_sha = qualification.sha256(request_path)
+        exact_manifest = {
+            "schemaVersion": "mirmir-ash-v4-quality-candidate-capture-v1",
+            "contractSHA256": qualification.sha256(contract_path),
+            "corpusManifestSHA256": qualification.sha256(corpus_path),
+            "sourceCommit": self.candidate["sourceCommit"],
+            "sourceTreeIdentitySHA256": self.candidate[
+                "sourceTreeIdentitySHA256"
+            ],
+            "candidateBackendID": self.contract["quality"]["requiredBackendID"],
+            "candidateImplementationVersion": self.contract["quality"][
+                "requiredCandidateImplementationVersion"
+            ],
+            "runtimeManifestSHA256": self.candidate["runtimeManifestSHA256"],
+            "runtimeSourceRevision": self.candidate["runtimeSourceRevision"],
+            "productionRuntimeLocked": True,
+            "fullMirrorIdentityPass": True,
+            "warmupCount": 1,
+            "evidenceRequestSHA256": request_sha,
+            "observerSourceSHA256": observer_sha,
+            "packagedCandidateIdentity": package,
+            "cases": exact_cases,
+        }
+        exact_manifest_path = capture_root / "candidate-capture-manifest.json"
+        write_json(exact_manifest_path, exact_manifest)
+        capture_tree = qualification.packaged_capture_tree(capture_root)
+        result = {
+            "schemaVersion": "mirmir-v4-packaged-evidence-result-v1",
+            "lane": "quality",
+            "requestID": request["requestID"],
+            "requestSHA256": request_sha,
+            "observerSourceSHA256": observer_sha,
+            "contractSHA256": qualification.sha256(contract_path),
+            "packageIdentity": package,
+            "process": {
+                "bundlePath": "/fixture/Mirmir.app",
+                "executablePath": "/fixture/Mirmir.app/Contents/MacOS/Mirmir",
+                "executableSHA256": package["applicationExecutableSHA256"],
+                "processID": 101,
+                "parentProcessID": 100,
+            },
+            "runtime": {
+                "runtimeID": "ash-p06-deterministic-v4",
+                "releaseStatus": "release_qualified",
+                "manifestSHA256": self.candidate["runtimeManifestSHA256"],
+                "sourceRevision": self.candidate["runtimeSourceRevision"],
+                "trustRootConfigured": True,
+            },
+            "captureManifest": {
+                "fileName": exact_manifest_path.name,
+                "byteCount": exact_manifest_path.stat().st_size,
+                "sha256": qualification.sha256(exact_manifest_path),
+            },
+            "captureTree": capture_tree,
+            "checks": {
+                "exactExecutableIdentity": True,
+                "signedBuildClaims": True,
+                "productionP06Load": True,
+                "normativePixelCapture": True,
+            },
+        }
+        result_path = observer_root / "result.json"
+        write_canonical(result_path, result)
+        stdout_path = observer_root / "stdout.bin"
+        stderr_path = observer_root / "stderr.bin"
+        stdout_path.write_bytes(b"fixture packaged observer result\n")
+        stderr_path.write_bytes(b"")
+        record = {
+            "schemaVersion": "mirmir-v4-packaged-evidence-capture-record-v1",
+            "lane": "quality",
+            "startedAtUTC": "2026-08-02T12:00:00Z",
+            "finishedAtUTC": "2026-08-02T12:00:01Z",
+            "requestSHA256": request_sha,
+            "observerSourceSHA256": observer_sha,
+            "contractSHA256": qualification.sha256(contract_path),
+            "packageIdentity": package,
+            "captureTree": capture_tree,
+            "process": {
+                "executableSHA256": package["applicationExecutableSHA256"],
+                "exitStatus": 0,
+            },
+            "artifacts": {
+                "request": descriptor(request_path, package_root),
+                "result": descriptor(result_path, package_root),
+                "stdout": descriptor(stdout_path, package_root),
+                "stderr": descriptor(stderr_path, package_root),
+                "candidate": descriptor(candidate_path, package_root),
+                "packageIdentity": descriptor(package_path, package_root),
+                "attestation": descriptor(attestation, package_root),
+                "observerSource": descriptor(observer_path, package_root),
+                "contract": descriptor(lane_contract_path, package_root),
+                "releaseConfiguration": descriptor(
+                    release_configuration, package_root
+                ),
+                "applicationArchive": descriptor(application_archive, package_root),
+            },
+        }
+        write_canonical(package_root / "capture-record.json", record)
+        self.packaged_candidate_identity = copy.deepcopy(package)
+        return {
+            "root": package_root,
+            "packageIdentity": package,
+            "requestSHA256": request_sha,
+            "observerSourceSHA256": observer_sha,
+            "captureTree": capture_tree,
+            "request": request_path,
+            "observerSource": observer_path,
+            "applicationArchive": application_archive,
+            "attestation": attestation,
+            "releaseConfiguration": release_configuration,
+        }
+
     def _write_quality_evidence_manifest(self) -> None:
         role_dir = self.root / "quality"
         manifest_path = role_dir / "artifact-manifest.json"
         artifacts = [
             descriptor(path, role_dir)
-            for path in sorted(role_dir.rglob("*"))
+            for path in sorted(
+                role_dir.rglob("*"),
+                key=lambda value: value.relative_to(role_dir).as_posix(),
+            )
             if path.is_file()
             and path != manifest_path
             and path != role_dir / "sealed-manifest.json"
@@ -412,6 +690,189 @@ class EvidenceFixture:
             "contractSHA256": contract_sha,
             "candidate": self.candidate,
             "releaseEligible": True,
+        }
+
+    def _build_performance_package_fixture(
+        self,
+        role_dir: Path,
+        contract_path: Path,
+        candidate_directory: Path,
+    ) -> dict[str, object]:
+        package_root = role_dir / "packaged-candidate"
+        capture_root = package_root / "capture"
+        observer_root = package_root / "observer"
+        bindings_root = package_root / "bindings"
+        for directory in (capture_root, observer_root, bindings_root):
+            directory.mkdir(parents=True, exist_ok=True)
+
+        def write_canonical(path: Path, value: object) -> None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(qualification.canonical_bytes(value))
+
+        package = copy.deepcopy(self.packaged_candidate_identity)
+        observer_source = bindings_root / "observer-source.swift"
+        observer_source.write_bytes(
+            (SCRIPT_DIRECTORY.parent.parent / "Mirmir/App/MirmirApp.swift")
+            .read_bytes()
+        )
+        observer_sha = qualification.sha256(observer_source)
+        source_path = candidate_directory / "source-identity.json"
+        request = {
+            "schemaVersion": "mirmir-v4-packaged-evidence-request-v1",
+            "lane": "performance",
+            "requestID": "33333333-3333-4333-8333-333333333333",
+            "nonce": identity("performance-request-nonce"),
+            "generatedAtUTC": "2026-08-02T12:00:00Z",
+            "observerSourceSHA256": observer_sha,
+            "contractSHA256": qualification.sha256(contract_path),
+            "packageIdentity": package,
+            "captureEnvironment": {
+                "MIRMIR_V4_PERFORMANCE_CAPTURE_DIR": "/fixture/capture",
+                "MIRMIR_V4_PERFORMANCE_INPUT": "/fixture/inputs/performance.mov",
+                "MIRMIR_V4_PERFORMANCE_VARIANT": "candidate_p06",
+                "MIRMIR_V4_PERFORMANCE_CONTRACT_SHA256": qualification.sha256(
+                    contract_path
+                ),
+                "MIRMIR_V4_PERFORMANCE_CAPTURE_SOURCE_SHA256": identity(
+                    "performance capture source"
+                ),
+                "MIRMIR_V4_PERFORMANCE_SOURCE_IDENTITY_SHA256": qualification.sha256(
+                    source_path
+                ),
+                "MIRMIR_V4_PERFORMANCE_SOURCE_REVISION": self.candidate[
+                    "sourceCommit"
+                ],
+                "MIRMIR_V4_PERFORMANCE_SOURCE_TREE_SHA256": self.candidate[
+                    "sourceTreeIdentitySHA256"
+                ],
+                "MIRMIR_V4_PERFORMANCE_WARMUPS": "5",
+                "MIRMIR_V4_PERFORMANCE_SAMPLES": "10",
+            },
+        }
+        request_path = observer_root / "request.json"
+        write_canonical(request_path, request)
+        request_sha = qualification.sha256(request_path)
+        capture_path = candidate_directory / "capture.json"
+        capture = json.loads(capture_path.read_text())
+        capture.update(
+            {
+                "evidenceRequestSHA256": request_sha,
+                "observerSourceSHA256": observer_sha,
+                "packagedCandidateIdentity": package,
+            }
+        )
+        write_json(capture_path, capture)
+        candidate_manifest = performance_gate.make_evidence_manifest(
+            candidate_directory
+        )
+        candidate_manifest["schemaVersion"] = (
+            "mirmir-v4-performance-capture-artifacts-v1"
+        )
+        write_json(candidate_directory / "artifact-manifest.json", candidate_manifest)
+        shutil.copyfile(capture_path, capture_root / "capture.json")
+
+        candidate_path = bindings_root / "candidate.json"
+        package_path = bindings_root / "package-identity.json"
+        write_canonical(candidate_path, self.candidate)
+        write_canonical(package_path, package)
+        attestation = bindings_root / "application-archive-attestation-v1.json"
+        write_canonical(
+            attestation,
+            {
+                "schemaVersion": "mirmir-v4-release-archive-attestation-v1",
+                "fixtureOnly": True,
+            },
+        )
+        lane_contract = bindings_root / "lane-contract.json"
+        lane_contract.write_bytes(contract_path.read_bytes())
+        release_configuration = bindings_root / "release-candidate-v4.xcconfig"
+        release_configuration.write_bytes(self.release_bytes)
+        application_archive = bindings_root / "application-archive.zip"
+        application_archive.write_bytes(self.app_bytes)
+        package_identity_path = bindings_root / "package-identity.json"
+        capture_tree = qualification.packaged_capture_tree(capture_root)
+        result = {
+            "schemaVersion": "mirmir-v4-packaged-evidence-result-v1",
+            "lane": "performance",
+            "requestID": request["requestID"],
+            "requestSHA256": request_sha,
+            "observerSourceSHA256": observer_sha,
+            "contractSHA256": qualification.sha256(contract_path),
+            "packageIdentity": package,
+            "process": {
+                "bundlePath": "/fixture/Mirmir.app",
+                "executablePath": "/fixture/Mirmir.app/Contents/MacOS/Mirmir",
+                "executableSHA256": package["applicationExecutableSHA256"],
+                "processID": 301,
+                "parentProcessID": 300,
+            },
+            "runtime": {
+                "runtimeID": "ash-p06-deterministic-v4",
+                "releaseStatus": "release_qualified",
+                "manifestSHA256": self.candidate["runtimeManifestSHA256"],
+                "sourceRevision": self.candidate["runtimeSourceRevision"],
+                "trustRootConfigured": True,
+            },
+            "captureManifest": {
+                "fileName": "capture.json",
+                "byteCount": (capture_root / "capture.json").stat().st_size,
+                "sha256": qualification.sha256(capture_root / "capture.json"),
+            },
+            "captureTree": capture_tree,
+            "checks": {
+                "exactExecutableIdentity": True,
+                "signedBuildClaims": True,
+                "productionP06Load": True,
+                "normativePixelCapture": True,
+            },
+        }
+        result_path = observer_root / "result.json"
+        write_canonical(result_path, result)
+        stdout_path = observer_root / "stdout.bin"
+        stderr_path = observer_root / "stderr.bin"
+        stdout_path.write_bytes(b"fixture packaged performance observer result\n")
+        stderr_path.write_bytes(b"")
+        record = {
+            "schemaVersion": "mirmir-v4-packaged-evidence-capture-record-v1",
+            "lane": "performance",
+            "startedAtUTC": "2026-08-02T12:00:00Z",
+            "finishedAtUTC": "2026-08-02T12:00:01Z",
+            "requestSHA256": request_sha,
+            "observerSourceSHA256": observer_sha,
+            "contractSHA256": qualification.sha256(contract_path),
+            "packageIdentity": package,
+            "captureTree": capture_tree,
+            "process": {
+                "executableSHA256": package["applicationExecutableSHA256"],
+                "exitStatus": 0,
+            },
+            "artifacts": {
+                "request": descriptor(request_path, package_root),
+                "result": descriptor(result_path, package_root),
+                "stdout": descriptor(stdout_path, package_root),
+                "stderr": descriptor(stderr_path, package_root),
+                "candidate": descriptor(candidate_path, package_root),
+                "packageIdentity": descriptor(package_identity_path, package_root),
+                "attestation": descriptor(attestation, package_root),
+                "observerSource": descriptor(observer_source, package_root),
+                "contract": descriptor(lane_contract, package_root),
+                "releaseConfiguration": descriptor(
+                    release_configuration, package_root
+                ),
+                "applicationArchive": descriptor(application_archive, package_root),
+            },
+        }
+        write_canonical(package_root / "capture-record.json", record)
+        return {
+            "root": package_root,
+            "packageIdentity": package,
+            "requestSHA256": request_sha,
+            "observerSourceSHA256": observer_sha,
+            "captureTree": capture_tree,
+            "request": request_path,
+            "observerSource": observer_source,
+            "applicationArchive": application_archive,
+            "attestation": attestation,
         }
 
     def _build_performance_actual(self) -> None:
@@ -484,7 +945,12 @@ class EvidenceFixture:
             write_json(source_path, source)
             write_json(directory / "environment-before.json", environment())
             write_json(directory / "environment-after.json", environment())
-            (directory / "xcodebuild.log").write_text(
+            producer_log = (
+                "xcodebuild.log"
+                if variant == "baseline_p05"
+                else "packaged-observer.log"
+            )
+            (directory / producer_log).write_text(
                 "Release qualification test process completed successfully\n",
                 encoding="utf-8",
             )
@@ -567,13 +1033,37 @@ class EvidenceFixture:
 
         baseline = make_capture("baseline_p05", wall=100.0, engine=10.0)
         observed = make_capture("candidate_p06", wall=50.0, engine=5.0)
-        report = performance_gate.evaluate(contract_path, baseline, observed)
+        package_fixture = self._build_performance_package_fixture(
+            role_dir, contract_path, observed
+        )
+        with mock.patch.object(
+            performance_gate,
+            "validate_packaged_performance_capture",
+            return_value={
+                "packageIdentity": package_fixture["packageIdentity"],
+                "requestSHA256": package_fixture["requestSHA256"],
+                "observerSourceSHA256": package_fixture["observerSourceSHA256"],
+                "captureTree": package_fixture["captureTree"],
+            },
+        ):
+            report = performance_gate.evaluate(
+                contract_path,
+                baseline,
+                observed,
+                package_fixture["root"],
+                self.root,
+                role_dir / "runtime-manifest.json",
+                allow_fixture_runtime=False,
+            )
         report_path = role_dir / "performance-gate-report.json"
         write_json(report_path, report)
         root_manifest_path = role_dir / "artifact-manifest.json"
         root_artifacts = [
             descriptor(path, role_dir)
-            for path in sorted(role_dir.rglob("*"))
+            for path in sorted(
+                role_dir.rglob("*"),
+                key=lambda value: value.relative_to(role_dir).as_posix(),
+            )
             if path.is_file() and path != root_manifest_path
         ]
         write_json(
@@ -589,6 +1079,16 @@ class EvidenceFixture:
             ("/baseline/artifactManifestSHA256", baseline / "artifact-manifest.json"),
             ("/candidate/sourceIdentitySHA256", observed / "source-identity.json"),
             ("/candidate/artifactManifestSHA256", observed / "artifact-manifest.json"),
+            ("/candidate/evidenceRequestSHA256", package_fixture["request"]),
+            ("/candidate/observerSourceSHA256", package_fixture["observerSource"]),
+            (
+                "/candidate/packagedCandidateIdentity/applicationArchiveSHA256",
+                package_fixture["applicationArchive"],
+            ),
+            (
+                "/candidate/packagedCandidateIdentity/attestationSHA256",
+                package_fixture["attestation"],
+            ),
         ]
         self.entries.append(
             {
@@ -1347,9 +1847,13 @@ class EvidenceFixture:
             "code_signature_validation": [
                 "code_signature_validation",
                 "code_signature_display",
+                "code_signature_display_arm64",
+                "code_signature_display_x86_64",
                 "code_signature_entitlements",
                 "code_signature_requirements",
                 "submitted_signature_display",
+                "submitted_signature_display_arm64",
+                "submitted_signature_display_x86_64",
                 "submitted_signature_requirements",
             ],
             "launch": ["observer_prepare"],
@@ -1359,24 +1863,48 @@ class EvidenceFixture:
             "semantic_output_verify": ["observer_recover"],
             "queue_relaunch_recovery": ["observer_recover"],
         }
-        required_records = [
-            "notary_info",
-            "notary_log",
+        common_records = [
             "gatekeeper_assessment",
             "stapled_ticket_validation",
             "code_signature_validation",
             "code_signature_display",
+            "code_signature_display_arm64",
+            "code_signature_display_x86_64",
             "code_signature_entitlements",
             "code_signature_requirements",
             "submitted_signature_display",
+            "submitted_signature_display_arm64",
+            "submitted_signature_display_x86_64",
             "submitted_signature_requirements",
             "observer_prepare",
             "observer_recover",
         ]
         lane_contract_source = SCRIPT_DIRECTORY / "notarized-smoke-contract-v1.json"
         lane_contract = json.loads(lane_contract_source.read_text())
-        if lane_contract["requiredCommandRecords"] != required_records:
+        if lane_contract["requiredCommandRecords"] != common_records:
             raise AssertionError("committed notarized smoke command contract changed")
+        expected_providers = {
+            "notarytool": {
+                "requiredArtifacts": [],
+                "requiredCommandRecords": ["notary_info", "notary_log"],
+                "requiredTools": ["notarytool"],
+            },
+            "xcode_archive": {
+                "requiredArtifacts": ["xcodeArchiveInfo"],
+                "requiredCommandRecords": [
+                    "xcode_export_notarized_app",
+                    "xcode_export_archive",
+                ],
+                "requiredTools": ["xcodebuild"],
+            },
+        }
+        if lane_contract["acceptanceProviders"] != expected_providers:
+            raise AssertionError("committed notarized smoke provider contract changed")
+        acceptance_provider = "notarytool"
+        provider_records = expected_providers[acceptance_provider][
+            "requiredCommandRecords"
+        ]
+        required_records = [*common_records, *provider_records]
         lane_contract_path = bindings_root / "notarized-smoke-contract-v1.json"
         lane_contract_path.write_bytes(lane_contract_source.read_bytes())
         release_contract_path = bindings_root / "release-qualification-contract-v1.json"
@@ -1392,7 +1920,34 @@ class EvidenceFixture:
         executable = bindings_root / "Mirmir-executable"
         executable.write_bytes(b"shipping-app-executable")
         tool_manifest = bindings_root / "tool-identities.json"
-        write_json(tool_manifest, {"schemaVersion": "mirmir-v4-notarized-smoke-tool-identities-v1", "tools": {"app": {"sha256": qualification.sha256(executable)}}})
+        tool_paths = {
+            "app": str(executable),
+            "codesign": "/usr/bin/codesign",
+            "ditto": "/usr/bin/ditto",
+            "notarytool": "/usr/bin/xcrun",
+            "python3": "/usr/bin/python3",
+            "spctl": "/usr/sbin/spctl",
+            "stapler": "/usr/bin/xcrun",
+            "xcrun": "/usr/bin/xcrun",
+        }
+        tool_rows = {
+            name: {
+                "path": path,
+                "sha256": qualification.sha256(executable)
+                if name == "app"
+                else identity(f"notarized-smoke-tool-{name}"),
+            }
+            for name, path in sorted(tool_paths.items())
+        }
+        write_json(
+            tool_manifest,
+            {
+                "schemaVersion": (
+                    "mirmir-ash-v4-notarized-smoke-tool-identities-v1"
+                ),
+                "tools": tool_rows,
+            },
+        )
         notary_log = raw_root / "apple" / "notary-log.json"
         write_json(notary_log, {"status": "Accepted", "statusCode": 0})
 
@@ -1438,6 +1993,7 @@ class EvidenceFixture:
             "candidate": self.candidate,
             "identities": raw_identities,
             "notarySubmission": {
+                "provider": acceptance_provider,
                 "id": "11111111-1111-4111-8111-111111111111",
                 "submittedArchiveName": submitted_archive.name,
             },
@@ -1448,7 +2004,9 @@ class EvidenceFixture:
         raw_capture_path = raw_root / "capture.json"
         write_json(raw_capture_path, raw_capture)
         receipt = {
-            "schemaVersion": "mirmir-ash-v4-notarized-smoke-replay-v1",
+            "schemaVersion": (
+                "mirmir-ash-v4-notarized-smoke-replay-receipt-v1"
+            ),
             "captureSHA256": qualification.sha256(raw_capture_path),
             "evaluationSHA256": identity("notarized-smoke-evaluation"),
             "verifiedActionIDs": self.contract["notarizedSmokeActions"],
@@ -1461,17 +2019,32 @@ class EvidenceFixture:
         action_rows = []
         for action in self.contract["notarizedSmokeActions"]:
             transcript_path = role_dir / "transcripts" / f"{action}.json"
+            claims = {
+                "candidateArchiveSHA256": self.candidate["appBundleSHA256"],
+                "runtimeManifestSHA256": self.candidate["runtimeManifestSHA256"],
+            }
+            if action == "notarization_ticket_acceptance":
+                claims.update(
+                    {
+                        "acceptanceProvider": acceptance_provider,
+                        "submissionID": raw_capture["notarySubmission"]["id"],
+                        "status": "Accepted",
+                        "issueCount": 0,
+                        "archiveSHA256": raw_identities[
+                            "submittedArchiveSHA256"
+                        ],
+                    }
+                )
             write_json(
                 transcript_path,
                 {
-                    "schemaVersion": "mirmir-ash-v4-notarized-smoke-transcript-v1",
+                    "schemaVersion": (
+                        "mirmir-ash-v4-notarized-smoke-action-transcript-v1"
+                    ),
                     "actionID": action,
                     "evidenceKind": self.contract["notarizedSmokeEvidenceKinds"][action],
                     "sourceRecordIDs": action_records[action],
-                    "claims": {
-                        "candidateArchiveSHA256": self.candidate["appBundleSHA256"],
-                        "runtimeManifestSHA256": self.candidate["runtimeManifestSHA256"],
-                    },
+                    "claims": claims,
                     "rawArtifacts": [
                         descriptor(record_paths[record_id], role_dir)
                         for record_id in action_records[action]
@@ -1553,6 +2126,171 @@ class EvidenceFixture:
             ]
         )
 
+    def _build_parity_package_fixture(
+        self,
+        fixture: object,
+        capture_source: Path,
+        package_root: Path,
+        process_id: str,
+        request_ordinal: int,
+    ) -> dict[str, object]:
+        package = copy.deepcopy(self.packaged_candidate_identity)
+        bindings = package_root / "bindings"
+        observer = package_root / "observer"
+        bindings.mkdir(parents=True, exist_ok=True)
+        observer.mkdir(parents=True, exist_ok=True)
+
+        def write_canonical(path: Path, value: object) -> None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(qualification.canonical_bytes(value))
+
+        destination_capture = package_root / "capture"
+        capture = parity_fixture_module.parity.load_json(capture_source / "capture.json")
+        request_id = (
+            "22222222-2222-4222-8222-22222222222"
+            + str(request_ordinal)
+        )
+        request = {
+            "schemaVersion": "mirmir-v4-packaged-evidence-request-v1",
+            "lane": "parity",
+            "requestID": request_id,
+            "nonce": identity(f"parity-request-nonce-{request_ordinal}"),
+            "generatedAtUTC": "2026-08-02T12:00:00Z",
+            "observerSourceSHA256": qualification.sha256_bytes(
+                (SCRIPT_DIRECTORY.parent.parent / "Mirmir/App/MirmirApp.swift")
+                .read_bytes()
+            ),
+            "contractSHA256": qualification.sha256(fixture.contract_path),
+            "packageIdentity": package,
+            "captureEnvironment": {
+                "MIRMIR_PARITY_CAPTURE_DIRECTORY": "/fixture/capture",
+                "MIRMIR_PARITY_CONTRACT_PATH": "/fixture/inputs/contract.json",
+                "MIRMIR_PARITY_CONTRACT_SHA256": qualification.sha256(
+                    fixture.contract_path
+                ),
+                "MIRMIR_PARITY_CAPTURE_SOURCE_SHA256": qualification.sha256(
+                    fixture.capture_source
+                ),
+                "MIRMIR_PARITY_SOURCE_REVISION": self.candidate["sourceCommit"],
+                "MIRMIR_PARITY_BUILD_CONFIGURATION": "Release",
+                "MIRMIR_PARITY_PROCESS_RUN_ID": process_id,
+                "MIRMIR_PARITY_RUNTIME_MODE": "production",
+            },
+        }
+        request_path = observer / "request.json"
+        write_canonical(request_path, request)
+        request_sha = qualification.sha256(request_path)
+        capture["evidenceRequestSHA256"] = request_sha
+        capture["packagedCandidateIdentity"] = package
+        parity_fixture_module.parity.write_json(capture_source / "capture.json", capture)
+        fixture.reseal(capture_source)
+        shutil.move(str(capture_source), str(destination_capture))
+
+        candidate_path = bindings / "candidate.json"
+        package_path = bindings / "package-identity.json"
+        write_canonical(candidate_path, self.candidate)
+        write_canonical(package_path, package)
+        attestation = bindings / "application-archive-attestation-v1.json"
+        write_canonical(
+            attestation,
+            {
+                "schemaVersion": "mirmir-v4-release-archive-attestation-v1",
+                "fixtureOnly": True,
+            },
+        )
+        observer_source = bindings / "observer-source.swift"
+        observer_source.write_bytes(
+            (SCRIPT_DIRECTORY.parent.parent / "Mirmir/App/MirmirApp.swift")
+            .read_bytes()
+        )
+        lane_contract = bindings / "lane-contract.json"
+        lane_contract.write_bytes(fixture.contract_path.read_bytes())
+        release_configuration = bindings / "release-candidate-v4.xcconfig"
+        release_configuration.write_bytes(self.release_bytes)
+        application_archive = bindings / "application-archive.zip"
+        application_archive.write_bytes(self.app_bytes)
+        capture_tree = qualification.packaged_capture_tree(destination_capture)
+        result = {
+            "schemaVersion": "mirmir-v4-packaged-evidence-result-v1",
+            "lane": "parity",
+            "requestID": request_id,
+            "requestSHA256": request_sha,
+            "observerSourceSHA256": request["observerSourceSHA256"],
+            "contractSHA256": qualification.sha256(fixture.contract_path),
+            "packageIdentity": package,
+            "process": {
+                "bundlePath": "/fixture/Mirmir.app",
+                "executablePath": "/fixture/Mirmir.app/Contents/MacOS/Mirmir",
+                "executableSHA256": package["applicationExecutableSHA256"],
+                "processID": 200 + request_ordinal,
+                "parentProcessID": 199,
+            },
+            "runtime": {
+                "runtimeID": "ash-p06-deterministic-v4",
+                "releaseStatus": "release_qualified",
+                "manifestSHA256": self.candidate["runtimeManifestSHA256"],
+                "sourceRevision": self.candidate["runtimeSourceRevision"],
+                "trustRootConfigured": True,
+            },
+            "captureManifest": {
+                "fileName": "capture.json",
+                "byteCount": (destination_capture / "capture.json").stat().st_size,
+                "sha256": qualification.sha256(destination_capture / "capture.json"),
+            },
+            "captureTree": capture_tree,
+            "checks": {
+                "exactExecutableIdentity": True,
+                "signedBuildClaims": True,
+                "productionP06Load": True,
+                "normativePixelCapture": True,
+            },
+        }
+        result_path = observer / "result.json"
+        write_canonical(result_path, result)
+        stdout_path = observer / "stdout.bin"
+        stderr_path = observer / "stderr.bin"
+        stdout_path.write_bytes(b"fixture packaged parity observer result\n")
+        stderr_path.write_bytes(b"")
+        record = {
+            "schemaVersion": "mirmir-v4-packaged-evidence-capture-record-v1",
+            "lane": "parity",
+            "startedAtUTC": "2026-08-02T12:00:00Z",
+            "finishedAtUTC": "2026-08-02T12:00:01Z",
+            "requestSHA256": request_sha,
+            "observerSourceSHA256": request["observerSourceSHA256"],
+            "contractSHA256": qualification.sha256(fixture.contract_path),
+            "packageIdentity": package,
+            "captureTree": capture_tree,
+            "process": {
+                "executableSHA256": package["applicationExecutableSHA256"],
+                "exitStatus": 0,
+            },
+            "artifacts": {
+                "request": descriptor(request_path, package_root),
+                "result": descriptor(result_path, package_root),
+                "stdout": descriptor(stdout_path, package_root),
+                "stderr": descriptor(stderr_path, package_root),
+                "candidate": descriptor(candidate_path, package_root),
+                "packageIdentity": descriptor(package_path, package_root),
+                "attestation": descriptor(attestation, package_root),
+                "observerSource": descriptor(observer_source, package_root),
+                "contract": descriptor(lane_contract, package_root),
+                "releaseConfiguration": descriptor(
+                    release_configuration, package_root
+                ),
+                "applicationArchive": descriptor(application_archive, package_root),
+            },
+        }
+        write_canonical(package_root / "capture-record.json", record)
+        return {
+            "root": package_root,
+            "requestSHA256": request_sha,
+            "captureTree": capture_tree,
+            "request": request_path,
+            "applicationArchive": application_archive,
+            "attestation": attestation,
+        }
+
     def _build_parity_actual(self, role_dir: Path) -> None:
         parity_root = role_dir / "parity-evidence"
         fixture = parity_fixture_module.ParityEvidenceFixture(
@@ -1560,8 +2298,46 @@ class EvidenceFixture:
             candidate=self.candidate,
             production_runtime=True,
         )
-        report_path, _ = fixture.publish()
-        report = parity_fixture_module.parity.load_json(report_path)
+        packaged = [
+            self._build_parity_package_fixture(
+                fixture,
+                fixture.capture_a,
+                parity_root / "packaged-process-a",
+                "process-a",
+                1,
+            ),
+            self._build_parity_package_fixture(
+                fixture,
+                fixture.capture_b,
+                parity_root / "packaged-process-b",
+                "process-b",
+                2,
+            ),
+        ]
+        fixture.capture_a = packaged[0]["root"] / "capture"
+        fixture.capture_b = packaged[1]["root"] / "capture"
+        report = fixture.evaluate(allow_fixture_runtime=True)
+        report["releaseEligible"] = True
+        report["identities"]["packagedCandidateIdentity"] = copy.deepcopy(
+            self.packaged_candidate_identity
+        )
+        report["identities"]["evidenceRequestSHA256"] = [
+            item["requestSHA256"] for item in packaged
+        ]
+        report["identities"]["packagedCaptureTreeSHA256"] = [
+            item["captureTree"]["sha256"] for item in packaged
+        ]
+        report["exactPackagedCandidatePass"] = True
+        report["byteParityGatePass"] = True
+        report_path = parity_root / "cpu-metal-parity-report.json"
+        parity_fixture_module.parity.write_json(report_path, report)
+        manifest_path = parity_root / "artifact-manifest.json"
+        parity_fixture_module.parity.write_json(
+            manifest_path,
+            parity_fixture_module.parity.make_root_manifest(
+                parity_root, manifest_path
+            ),
+        )
         runtime_path = role_dir / "runtime-manifest.json"
         release_path = role_dir / "Release.xcconfig"
         runtime_path.write_bytes(self.runtime_bytes)
@@ -1580,6 +2356,22 @@ class EvidenceFixture:
                 ),
                 ("/identities/evaluatorSHA256", fixture.evaluator),
                 ("/identities/runnerSHA256", fixture.runner),
+                (
+                    "/identities/evidenceRequestSHA256/0",
+                    packaged[0]["request"],
+                ),
+                (
+                    "/identities/evidenceRequestSHA256/1",
+                    packaged[1]["request"],
+                ),
+                (
+                    "/identities/packagedCandidateIdentity/applicationArchiveSHA256",
+                    packaged[0]["applicationArchive"],
+                ),
+                (
+                    "/identities/packagedCandidateIdentity/attestationSHA256",
+                    packaged[0]["attestation"],
+                ),
             ],
             existing_report_path=report_path,
         )
@@ -2148,6 +2940,37 @@ class EvidenceFixture:
         )
         self.reseal_role("cpu_metal_parity")
 
+    def reseal_parity_package(self, ordinal: int) -> None:
+        parity_root = self.parity_fixture.root
+        package_root = parity_root / f"packaged-process-{'ab'[ordinal]}"
+        capture_root = package_root / "capture"
+        capture_tree = qualification.packaged_capture_tree(capture_root)
+
+        result_path = package_root / "observer/result.json"
+        result = qualification.load_json(result_path)
+        result["captureTree"] = capture_tree
+        capture_path = capture_root / "capture.json"
+        result["captureManifest"] = {
+            "fileName": "capture.json",
+            "byteCount": capture_path.stat().st_size,
+            "sha256": qualification.sha256(capture_path),
+        }
+        result_path.write_bytes(qualification.canonical_bytes(result))
+
+        record_path = package_root / "capture-record.json"
+        record = qualification.load_json(record_path)
+        record["captureTree"] = capture_tree
+        record["artifacts"]["result"] = descriptor(result_path, package_root)
+        record_path.write_bytes(qualification.canonical_bytes(record))
+
+        report_path = parity_root / "cpu-metal-parity-report.json"
+        report = qualification.load_json(report_path)
+        report["identities"]["packagedCaptureTreeSHA256"][ordinal] = capture_tree[
+            "sha256"
+        ]
+        parity_fixture_module.parity.write_json(report_path, report)
+        self.reseal_parity_evidence()
+
     def reseal_quality_evidence(self) -> None:
         self._write_quality_evidence_manifest()
         self.reseal_role("quality")
@@ -2428,7 +3251,7 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
             self.fixture.parity_fixture.capture_a,
             {relative: b"resealed-schedule-dependent-output"},
         )
-        self.fixture.reseal_parity_evidence()
+        self.fixture.reseal_parity_package(0)
         with self.assertRaisesRegex(
             qualification.QualificationError,
             "nested parity replay failed:.*schedule reverse.*visible",

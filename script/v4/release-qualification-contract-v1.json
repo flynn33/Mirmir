@@ -34,7 +34,11 @@
       "/candidate/runtimeManifestFileSHA256",
       "/candidate/releaseConfigurationSHA256",
       "/identities/captureSourceSHA256",
+      "/identities/evidenceRequestSHA256/0",
+      "/identities/evidenceRequestSHA256/1",
       "/identities/evaluatorSHA256",
+      "/identities/packagedCandidateIdentity/applicationArchiveSHA256",
+      "/identities/packagedCandidateIdentity/attestationSHA256",
       "/identities/runnerSHA256"
     ],
     "media_preservation": [
@@ -78,8 +82,12 @@
     "quality": [
       "/identities/contractSHA256",
       "/identities/metricToolSHA256",
-      "/identities/captureTestSourceSHA256",
-      "/identities/corpusManifestSHA256"
+      "/identities/corpusManifestSHA256",
+      "/identities/evidenceRequestSHA256",
+      "/identities/observerSourceSHA256",
+      "/identities/packagedCandidateIdentity/applicationArchiveSHA256",
+      "/identities/packagedCandidateIdentity/attestationSHA256",
+      "/identities/packagedCandidateIdentity/releaseConfigurationSHA256"
     ],
     "recovery": [
       "/contractSHA256",
@@ -95,7 +103,11 @@
       "/baseline/sourceIdentitySHA256",
       "/baseline/artifactManifestSHA256",
       "/candidate/sourceIdentitySHA256",
-      "/candidate/artifactManifestSHA256"
+      "/candidate/artifactManifestSHA256",
+      "/candidate/evidenceRequestSHA256",
+      "/candidate/observerSourceSHA256",
+      "/candidate/packagedCandidateIdentity/applicationArchiveSHA256",
+      "/candidate/packagedCandidateIdentity/attestationSHA256"
     ],
     "support_matrix": [
       "/contractSHA256",
@@ -158,11 +170,11 @@
     "semantic_output_verify": "notarized_app_observer",
     "stapled_ticket_validation": "system_stapler_validation"
   },
-  "notarizedSmokeLaneContractSHA256": "4c7588f3c895c86171d4cd54716d7a2175383e6a190b5379821f6d861fead9a8",
+  "notarizedSmokeLaneContractSHA256": "3c6b895bc397c1ac6a8238c1827ab053c20d07a872f4d7ad213aafe7c8f71d89",
   "notarizedSmokeLockedSources": {
-    "evaluatorSHA256": "d561acd0ef789a616308d0ca1afd4ef06441f850dcf44ad2c4ba240e13a0b441",
-    "observerSourceSHA256": "517e9133a2996039448d4a37a27aaf368a8388f8215985741782b1c316a58a08",
-    "runnerSHA256": "c6c785d88c076ebc7591f246e95fb37817e5b3e53b9cd023d92ac93fc859dbd8"
+    "evaluatorSHA256": "12cae408a52e5dc9b87f1d3afd50f90935c40cd69fa9b066fcf0d4dc2b4c7e30",
+    "observerSourceSHA256": "1e2da33aeca0faf51e193e112f4828d885a38b1630d9bb5a5c9156eb3776d65c",
+    "runnerSHA256": "ffad88657112d7a39bb259589a66d1cc267c87c3db7e041aa938b20e3880bbce"
   },
   "parityCoverage": [
     "nv12_video_range",
@@ -194,11 +206,11 @@
     "cross_process",
     "tile_schedule"
   ],
-  "parityLaneContractSHA256": "016f2dd8d87335ada99dc08e5afdbaff4809336aef44b4af2c936dfc0d814436",
+  "parityLaneContractSHA256": "3a948539e3e0d3dcd41b1247f76ebf89255f99eff2e2ee753365a48c28b40ca9",
   "parityLockedSources": {
-    "captureSourceSHA256": "e267bfa41ca15a197b1ed9084fa86a82e63e19dd178407bc38ec748ce1673c49",
-    "evaluatorSHA256": "74e25019715796216dc979e649a154a9ad6df4ce7557067ee9dd63bed2f03dce",
-    "runnerSHA256": "42b0fa8bc60142d0103b01cc516ee528f8db656289332628d6ad5c48c4264923"
+    "captureSourceSHA256": "1e2da33aeca0faf51e193e112f4828d885a38b1630d9bb5a5c9156eb3776d65c",
+    "evaluatorSHA256": "c78ffbb2ca2df90f92e5823b76dce78bf6f47bcb5fd9c508541b0b4dd4fd66fd",
+    "runnerSHA256": "e503c1de7379b73874bf8195b31d90378a720ce1b75172895fdc6df6b884c268"
   },
   "p06RuntimeArtifactRoles": [
     "benchmark_corpus_identity",
