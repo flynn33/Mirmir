@@ -246,7 +246,17 @@ else:
         raise SystemExit(f"release-qualified P06 manifest is missing: {manifest_path}")
     manifest_bytes = manifest_path.read_bytes()
     manifest = json.loads(manifest_bytes)
-    manifest_hash = hashlib.sha256(manifest_bytes).hexdigest()
+    canonical_manifest_bytes = json.dumps(
+        manifest,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    if manifest_bytes != canonical_manifest_bytes:
+        raise SystemExit("candidate P06 manifest bytes are not canonical")
+    manifest_hash = hashlib.sha256(
+        b"ash-p06-runtime-manifest-v4\0" + canonical_manifest_bytes
+    ).hexdigest()
     if manifest.get("schemaID") != "ash.p06.runtime-manifest.v1":
         raise SystemExit("candidate P06 manifest schema differs")
     if manifest.get("releaseStatus") != candidate["requiredRuntimeStatus"]:

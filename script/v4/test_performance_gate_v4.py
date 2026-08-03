@@ -322,6 +322,32 @@ class PerformanceGateTests(unittest.TestCase):
         with self.assertRaisesRegex(gate.EvidenceError, "report seal differs"):
             gate.verify_report(report, self.contract_path)
 
+    def test_locked_runner_uses_semantic_p06_manifest_identity(self) -> None:
+        runner = SCRIPT_DIRECTORY / "run_performance_gate_v4.sh"
+        locked_contract = json.loads(
+            (SCRIPT_DIRECTORY / "performance-gate-contract-v1.json").read_text()
+        )
+        self.assertEqual(
+            sha256(runner),
+            locked_contract["capture"]["runnerSourceSHA256"],
+        )
+        source = runner.read_text()
+        self.assertIn('b"ash-p06-runtime-manifest-v4\\0"', source)
+        self.assertIn("manifest_bytes != canonical_manifest_bytes", source)
+
+        manifest = {"runtimeID": "ash-p06-deterministic-v4", "version": 1}
+        canonical = json.dumps(
+            manifest,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+        raw_identity = hashlib.sha256(canonical).hexdigest()
+        semantic_identity = hashlib.sha256(
+            b"ash-p06-runtime-manifest-v4\0" + canonical
+        ).hexdigest()
+        self.assertNotEqual(raw_identity, semantic_identity)
+
     def _fresh_candidate(self) -> Path:
         candidate = self.root / "candidate_p06"
         if candidate.exists():

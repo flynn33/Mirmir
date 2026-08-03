@@ -13,7 +13,7 @@
     "evaluatorSourceSHA256": "2c3c915c0ea235619e3f17474aae697fe27c5c47f7c3e274bbabd8d5e6978949",
     "minimumMeasuredRuns": 10,
     "minimumWarmupRuns": 5,
-    "runnerSourceSHA256": "0ab49d8932e0b2898fc0d956aa3885a5fbfa9d323a3de0941798b2d43e199422"
+    "runnerSourceSHA256": "354224dbade28480a89f765ed1131713cc75e1d489eb73e9619b920c7d0ef6ff"
   },
   "candidate": {
     "bundleRepositoryPath": "Mirmir/Resources/ASH-P06.bundle",
