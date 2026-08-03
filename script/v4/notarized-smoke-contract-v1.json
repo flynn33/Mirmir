@@ -1,0 +1,126 @@
+{
+  "actions": [
+    {
+      "evidenceKind": "apple_notary_service_acceptance",
+      "id": "notarization_ticket_acceptance",
+      "producer": "notarytool"
+    },
+    {
+      "evidenceKind": "system_gatekeeper_assessment",
+      "id": "gatekeeper_assessment",
+      "producer": "spctl"
+    },
+    {
+      "evidenceKind": "system_stapler_validation",
+      "id": "stapled_ticket_validation",
+      "producer": "stapler"
+    },
+    {
+      "evidenceKind": "system_codesign_verification",
+      "id": "code_signature_validation",
+      "producer": "codesign"
+    },
+    {
+      "evidenceKind": "notarized_app_observer",
+      "id": "launch",
+      "producer": "shipping_app"
+    },
+    {
+      "evidenceKind": "notarized_app_observer",
+      "id": "p06_runtime_load",
+      "producer": "shipping_app"
+    },
+    {
+      "evidenceKind": "notarized_app_observer",
+      "id": "media_probe",
+      "producer": "shipping_app"
+    },
+    {
+      "evidenceKind": "notarized_app_observer",
+      "id": "deterministic_process",
+      "producer": "shipping_app"
+    },
+    {
+      "evidenceKind": "notarized_app_observer",
+      "id": "semantic_output_verify",
+      "producer": "shipping_app"
+    },
+    {
+      "evidenceKind": "notarized_app_observer",
+      "id": "queue_relaunch_recovery",
+      "producer": "shipping_app"
+    }
+  ],
+  "candidate": {
+    "requiredBundleIdentifier": "com.mirmir.app",
+    "requiredRuntimeID": "ash-p06-deterministic-v4",
+    "requiredRuntimeStatus": "release_qualified"
+  },
+  "capture": {
+    "appInvocationTimeoutSeconds": 900,
+    "buildConfiguration": "Release",
+    "evaluatorSHA256": "d561acd0ef789a616308d0ca1afd4ef06441f850dcf44ad2c4ba240e13a0b441",
+    "maximumCaptureAgeSeconds": 3600,
+    "maximumNotarySubmissionAgeSeconds": 604800,
+    "maximumSandboxEvidenceBytes": 536870912,
+    "observerSourcePath": "Mirmir/App/MirmirApp.swift",
+    "observerSourceSHA256": "517e9133a2996039448d4a37a27aaf368a8388f8215985741782b1c316a58a08",
+    "qualificationNamespace": "MirmirQualificationV4/notarized-smoke",
+    "runnerSHA256": "c6c785d88c076ebc7591f246e95fb37817e5b3e53b9cd023d92ac93fc859dbd8"
+  },
+  "codeSigning": {
+    "forbiddenEntitlement": "com.apple.security.get-task-allow",
+    "requiredCertificateClass": "Developer ID Application",
+    "requiredEntitlements": [
+      "com.apple.security.app-sandbox",
+      "com.apple.security.files.bookmarks.app-scope"
+    ],
+    "requiredHardenedRuntimeFlag": "runtime",
+    "requiredTeamIdentifier": "9AQ2C2838M",
+    "secureTimestampRequired": true
+  },
+  "releaseQualificationContractPath": "script/v4/release-qualification-contract-v1.json",
+  "requiredCommandRecords": [
+    "notary_info",
+    "notary_log",
+    "gatekeeper_assessment",
+    "stapled_ticket_validation",
+    "code_signature_validation",
+    "code_signature_display",
+    "code_signature_entitlements",
+    "code_signature_requirements",
+    "submitted_signature_display",
+    "submitted_signature_requirements",
+    "observer_prepare",
+    "observer_recover"
+  ],
+  "requiredObserverChecks": {
+    "prepare": [
+      "shippingExecutableIdentity",
+      "sandboxIsolation",
+      "productionP06Load",
+      "realMediaProbe",
+      "deterministicCPUProcess",
+      "durableCheckpointPause",
+      "userQueueUntouched"
+    ],
+    "recover": [
+      "shippingExecutableIdentity",
+      "sandboxIsolation",
+      "productionP06Load",
+      "phaseOneSealReplayVerified",
+      "durableQueueReopened",
+      "checkpointResumeCompleted",
+      "decodedSemanticEquality",
+      "userQueueUntouched"
+    ]
+  },
+  "schemaVersion": "mirmir-ash-v4-notarized-smoke-contract-v1",
+  "suiteID": "mirmir-ash-v4-notarized-smoke-v1",
+  "tools": {
+    "codesign": "/usr/bin/codesign",
+    "ditto": "/usr/bin/ditto",
+    "spctl": "/usr/sbin/spctl",
+    "xcrun": "/usr/bin/xcrun"
+  }
+}
