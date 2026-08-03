@@ -1,5 +1,6 @@
 import CoreMedia
 import CoreVideo
+import Darwin
 import Foundation
 import XCTest
 @testable import Mirmir
@@ -68,6 +69,24 @@ final class DeterministicMetalBackendTests: XCTestCase {
         let sampleCount: Int
         let cpuMilliseconds: [Double]
         let metalMilliseconds: [Double]
+        let memoryBeforeWarmups: BaselineMemorySnapshot
+        let memoryAfterSamples: BaselineMemorySnapshot
+        let cpuMemoryDeltas: [BaselineMemoryDelta]
+        let metalMemoryDeltas: [BaselineMemoryDelta]
+    }
+
+    private struct BaselineMemorySnapshot: Codable {
+        let mallocSizeInUseBytes: UInt64
+        let mallocSizeAllocatedBytes: UInt64
+        let residentBytes: UInt64
+        let physicalFootprintBytes: UInt64
+    }
+
+    private struct BaselineMemoryDelta: Codable {
+        let mallocSizeInUseBytes: Int64
+        let mallocSizeAllocatedBytes: Int64
+        let residentBytes: Int64
+        let physicalFootprintBytes: Int64
     }
 
     private struct BaselineCapture: Codable {
@@ -418,6 +437,7 @@ final class DeterministicMetalBackendTests: XCTestCase {
                 attachProgressiveBT709(to: benchmarkSource)
                 let cpuBenchmarkOutput = try makeOutput(target, pixelFormat: pixelFormat)
                 let metalBenchmarkOutput = try makeOutput(target, pixelFormat: pixelFormat)
+                let memoryBeforeWarmups = try baselineMemorySnapshot()
 
                 for iteration in 0..<warmupCount {
                     let timing = FrameTiming(
@@ -443,6 +463,8 @@ final class DeterministicMetalBackendTests: XCTestCase {
 
                 var cpuSamples: [Double] = []
                 var metalSamples: [Double] = []
+                var cpuMemoryDeltas: [BaselineMemoryDelta] = []
+                var metalMemoryDeltas: [BaselineMemoryDelta] = []
                 for iteration in 0..<sampleCount {
                     let timing = FrameTiming(
                         frameIndex: frameIndex + iteration,
@@ -452,6 +474,7 @@ final class DeterministicMetalBackendTests: XCTestCase {
                         ),
                         duration: CMTime(value: 1, timescale: 30)
                     )
+                    let cpuMemoryBefore = try baselineMemorySnapshot()
                     cpuSamples.append(try await measuredMilliseconds {
                         try await cpu.process(
                             source: benchmarkSource,
@@ -459,6 +482,12 @@ final class DeterministicMetalBackendTests: XCTestCase {
                             timing: timing
                         )
                     })
+                    let cpuMemoryAfter = try baselineMemorySnapshot()
+                    cpuMemoryDeltas.append(baselineMemoryDelta(
+                        from: cpuMemoryBefore,
+                        to: cpuMemoryAfter
+                    ))
+                    let metalMemoryBefore = try baselineMemorySnapshot()
                     metalSamples.append(try await measuredMilliseconds {
                         try await metal.process(
                             source: benchmarkSource,
@@ -466,8 +495,14 @@ final class DeterministicMetalBackendTests: XCTestCase {
                             timing: timing
                         )
                     })
+                    let metalMemoryAfter = try baselineMemorySnapshot()
+                    metalMemoryDeltas.append(baselineMemoryDelta(
+                        from: metalMemoryBefore,
+                        to: metalMemoryAfter
+                    ))
                 }
                 frameIndex += sampleCount
+                let memoryAfterSamples = try baselineMemorySnapshot()
                 performanceRecords.append(BaselinePerformanceRecord(
                     id: "\(formatName)-\(route.rawValue)-radial_detail",
                     route: route.rawValue,
@@ -475,7 +510,11 @@ final class DeterministicMetalBackendTests: XCTestCase {
                     warmupCount: warmupCount,
                     sampleCount: sampleCount,
                     cpuMilliseconds: cpuSamples,
-                    metalMilliseconds: metalSamples
+                    metalMilliseconds: metalSamples,
+                    memoryBeforeWarmups: memoryBeforeWarmups,
+                    memoryAfterSamples: memoryAfterSamples,
+                    cpuMemoryDeltas: cpuMemoryDeltas,
+                    metalMemoryDeltas: metalMemoryDeltas
                 ))
                 try await cpu.finish()
                 try await metal.finish()
@@ -724,6 +763,49 @@ final class DeterministicMetalBackendTests: XCTestCase {
             to: directory.appendingPathComponent(name),
             options: .atomic
         )
+    }
+
+    private func baselineMemorySnapshot() throws -> BaselineMemorySnapshot {
+        var mallocStatistics = malloc_statistics_t()
+        malloc_zone_statistics(nil, &mallocStatistics)
+        let resourceUsage = try MirmirSystemProcessTelemetrySampler().sample()
+        return BaselineMemorySnapshot(
+            mallocSizeInUseBytes: UInt64(max(0, mallocStatistics.size_in_use)),
+            mallocSizeAllocatedBytes: UInt64(max(0, mallocStatistics.size_allocated)),
+            residentBytes: resourceUsage.residentBytes,
+            physicalFootprintBytes: resourceUsage.physicalFootprintBytes
+        )
+    }
+
+    private func baselineMemoryDelta(
+        from before: BaselineMemorySnapshot,
+        to after: BaselineMemorySnapshot
+    ) -> BaselineMemoryDelta {
+        BaselineMemoryDelta(
+            mallocSizeInUseBytes: signedDelta(
+                from: before.mallocSizeInUseBytes,
+                to: after.mallocSizeInUseBytes
+            ),
+            mallocSizeAllocatedBytes: signedDelta(
+                from: before.mallocSizeAllocatedBytes,
+                to: after.mallocSizeAllocatedBytes
+            ),
+            residentBytes: signedDelta(
+                from: before.residentBytes,
+                to: after.residentBytes
+            ),
+            physicalFootprintBytes: signedDelta(
+                from: before.physicalFootprintBytes,
+                to: after.physicalFootprintBytes
+            )
+        )
+    }
+
+    private func signedDelta(from before: UInt64, to after: UInt64) -> Int64 {
+        if after >= before {
+            return Int64(clamping: after - before)
+        }
+        return -Int64(clamping: before - after)
     }
 
     private func measuredMilliseconds(

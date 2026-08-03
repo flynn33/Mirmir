@@ -299,6 +299,61 @@ def summarize_performance(records: list[dict[str, Any]]) -> dict[str, Any]:
     return result
 
 
+def signed_delta_summary(values: list[int]) -> dict[str, Any]:
+    return {
+        "minimumBytes": min(values),
+        "medianBytes": statistics.median(values),
+        "maximumBytes": max(values),
+        "positiveSampleCount": sum(value > 0 for value in values),
+        "positiveBytesTotal": sum(max(0, value) for value in values),
+    }
+
+
+def summarize_allocation_pressure(records: list[dict[str, Any]]) -> dict[str, Any]:
+    fields = (
+        "mallocSizeInUseBytes",
+        "mallocSizeAllocatedBytes",
+        "residentBytes",
+        "physicalFootprintBytes",
+    )
+    aggregate: dict[str, dict[str, list[int]]] = {
+        "cpu": {field: [] for field in fields},
+        "metal": {field: [] for field in fields},
+    }
+    cases: list[dict[str, Any]] = []
+    for record in records:
+        case: dict[str, Any] = {
+            "id": record["id"],
+            "memoryBeforeWarmups": record["memoryBeforeWarmups"],
+            "memoryAfterSamples": record["memoryAfterSamples"],
+        }
+        for backend, key in (
+            ("cpu", "cpuMemoryDeltas"),
+            ("metal", "metalMemoryDeltas"),
+        ):
+            case[backend] = {}
+            for field in fields:
+                values = [int(delta[field]) for delta in record[key]]
+                aggregate[backend][field].extend(values)
+                case[backend][field] = signed_delta_summary(values)
+        cases.append(case)
+    return {
+        "schemaVersion": "mirmir-v4-allocation-profile-v1",
+        "measurement": (
+            "Per-operation deltas from malloc zone and proc_pid_rusage snapshots; "
+            "sampling occurs outside the timed interval."
+        ),
+        "aggregate": {
+            backend: {
+                field: signed_delta_summary(values)
+                for field, values in by_field.items()
+            }
+            for backend, by_field in aggregate.items()
+        },
+        "cases": cases,
+    }
+
+
 def environment_manifest(repository: Path) -> dict[str, Any]:
     commands = {
         "macOS": ["sw_vers"],
@@ -433,6 +488,10 @@ def main() -> int:
             "schemaVersion": "mirmir-v4-performance-baseline-v1",
             **summarize_performance(engine_results["performance"]),
         },
+    )
+    write_json(
+        output / "allocation-profile.json",
+        summarize_allocation_pressure(engine_results["performance"]),
     )
     write_json(output / "environment.json", environment_manifest(repository))
     write_json(
