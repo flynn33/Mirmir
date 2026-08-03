@@ -21,7 +21,7 @@ enum ASHPreparedTemporalCheckpointV4Error: Error, Equatable, Sendable {
 /// luma history; either omission changes temporal evidence after resume.
 struct ASHPreparedTemporalCheckpointV4: Codable, Equatable, Hashable,
     Sendable {
-    static let currentSchemaID = "ash.prepared-temporal-checkpoint.v4.4"
+    static let currentSchemaID = "ash.prepared-temporal-checkpoint.v4.5"
 
     let schemaID: String
     let planSHA256: ASHSHA256V4
@@ -35,7 +35,8 @@ struct ASHPreparedTemporalCheckpointV4: Codable, Equatable, Hashable,
     let nextOutputOrdinal: Int64
     let lastCompletedOutputPresentationTime: ExactRationalV4
     let history: ASHTemporalHistoryV4
-    let previousMeasurementFrame: PixelBufferSignalFrameV4?
+    let previousMeasurementHistory: ASHCompactMeasurementHistoryV4?
+    let previousSourceLumaFrame: ASHTemporalFrameV4?
     let previousMeasurementStateRawValue: UInt16?
     let previousInterlacedFrame: PixelBufferSignalFrameV4?
     let fieldCadenceState: DeterministicFieldCadenceStateV4?
@@ -52,7 +53,8 @@ struct ASHPreparedTemporalCheckpointV4: Codable, Equatable, Hashable,
         nextOutputOrdinal: Int64,
         lastCompletedOutputPresentationTime: ExactRationalV4,
         history: ASHTemporalHistoryV4,
-        previousMeasurementFrame: PixelBufferSignalFrameV4?,
+        previousMeasurementHistory: ASHCompactMeasurementHistoryV4?,
+        previousSourceLumaFrame: ASHTemporalFrameV4?,
         previousMeasurementStateRawValue: UInt16?,
         previousInterlacedFrame: PixelBufferSignalFrameV4?,
         fieldCadenceState: DeterministicFieldCadenceStateV4?
@@ -70,7 +72,8 @@ struct ASHPreparedTemporalCheckpointV4: Codable, Equatable, Hashable,
         self.lastCompletedOutputPresentationTime
             = lastCompletedOutputPresentationTime
         self.history = history
-        self.previousMeasurementFrame = previousMeasurementFrame
+        self.previousMeasurementHistory = previousMeasurementHistory
+        self.previousSourceLumaFrame = previousSourceLumaFrame
         self.previousMeasurementStateRawValue
             = previousMeasurementStateRawValue
         self.previousInterlacedFrame = previousInterlacedFrame
@@ -94,7 +97,8 @@ struct ASHPreparedTemporalCheckpointV4: Codable, Equatable, Hashable,
         }
         do {
             try history.validate()
-            try validateSourceFrame(previousMeasurementFrame)
+            try previousMeasurementHistory?.validate()
+            try previousSourceLumaFrame?.validate()
             try validateSourceFrame(previousInterlacedFrame)
         } catch {
             throw ASHPreparedTemporalCheckpointV4Error.invalidState
@@ -133,7 +137,8 @@ struct ASHPreparedTemporalCheckpointV4: Codable, Equatable, Hashable,
               latest.ordinal == nextOutputOrdinal - 1,
               latest.presentationTime
                 == lastCompletedOutputPresentationTime,
-              previousMeasurementFrame != nil,
+              previousMeasurementHistory != nil,
+              previousSourceLumaFrame != nil,
               previousMeasurementStateRawValue != nil else {
             throw ASHPreparedTemporalCheckpointV4Error.invalidState
         }
@@ -177,6 +182,10 @@ struct ASHPreparedTemporalCheckpointV4: Codable, Equatable, Hashable,
         }
         try validateProductionTemporalHistory(
             expectedCadenceID: expectedCadenceID
+        )
+        try validateProductionMeasurementHistory(
+            expectedCadenceID: expectedCadenceID,
+            expectedStateRawValue: raw
         )
     }
 
@@ -227,12 +236,11 @@ struct ASHPreparedTemporalCheckpointV4: Codable, Equatable, Hashable,
     private func validateProductionTemporalHistory(
         expectedCadenceID: String
     ) throws {
-        guard history.capacity == 3,
+        guard history.capacity == 1,
               history.generation > 0,
               history.generation < UInt64.max,
               history.lastResetReason == nil,
-              !history.frames.isEmpty,
-              history.frames.count <= history.capacity,
+              history.frames.count == 1,
               let historyCount = Int64(exactly: history.frames.count) else {
             throw ASHPreparedTemporalCheckpointV4Error.invalidState
         }
@@ -281,7 +289,110 @@ struct ASHPreparedTemporalCheckpointV4: Codable, Equatable, Hashable,
             }
         }
     }
+
+    private func validateProductionMeasurementHistory(
+        expectedCadenceID: String,
+        expectedStateRawValue: UInt16
+    ) throws {
+        guard let compact = previousMeasurementHistory,
+              compact.storage == sourceStorage,
+              compact.sourceWidth == sourceWidth,
+              compact.sourceHeight == sourceHeight,
+              compact.windowWidth == 32,
+              compact.windowHeight == 32,
+              let frame = previousSourceLumaFrame,
+              frame.frameID == "v4-measurement-\(nextOutputOrdinal - 1)",
+              frame.streamID == "primary-video-measurement",
+              frame.formatIdentity == formatIdentity,
+              frame.ordinal == nextOutputOrdinal - 1,
+              frame.presentationTime == lastCompletedOutputPresentationTime,
+              frame.luma.width == sourceWidth,
+              frame.luma.height == sourceHeight,
+              frame.tileStateRawValues == [expectedStateRawValue],
+              frame.cadenceID == expectedCadenceID else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        let lumaBounds = PixelLayoutV4(storage: sourceStorage)
+            .planes[0].signalCodeBounds[0]
+        guard frame.luma.minimumCode == lumaBounds.minimum,
+              frame.luma.maximumCode == lumaBounds.maximum else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        guard try normalizedMeasurementWindowQ16(from: frame.luma)
+                == compact.normalizedLumaWindowQ16 else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+    }
+
+    /// Compact measurement evidence is durable only when it is an exact
+    /// projection of the durable source luma. The direct extractor samples the
+    /// top-left canonical window and clamps coordinates at the source edge.
+    private func normalizedMeasurementWindowQ16(
+        from luma: ASHTemporalPlaneV4
+    ) throws -> [UInt32] {
+        let windowWidth = 32
+        let windowHeight = 32
+        let scale = UInt64(ASHNormalizedQ16V4.scale)
+        let range = UInt64(luma.maximumCode - luma.minimumCode)
+        guard range > 0 else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        var normalized = Array(
+            repeating: UInt32(0),
+            count: windowWidth * windowHeight
+        )
+        for y in 0..<windowHeight {
+            let sourceY = min(y, luma.height - 1)
+            for x in 0..<windowWidth {
+                let sourceX = min(x, luma.width - 1)
+                let code = luma.samples[sourceY * luma.width + sourceX]
+                let numerator = UInt64(code - luma.minimumCode) * scale
+                let quotient = numerator / range
+                let remainder = numerator % range
+                let complement = range - remainder
+                let rounded = remainder > complement
+                    || (remainder == complement && quotient & 1 == 1)
+                    ? quotient + 1
+                    : quotient
+                guard let value = UInt32(exactly: rounded),
+                      value <= ASHNormalizedQ16V4.scale else {
+                    throw ASHPreparedTemporalCheckpointV4Error.invalidState
+                }
+                normalized[y * windowWidth + x] = value
+            }
+        }
+        return normalized
+    }
 }
+
+private final class ASHPreparedProcessingWorkspaceV4 {
+    var sourceLuma = PixelBufferLumaWorkspaceV4()
+    var outputLuma = PixelBufferLumaWorkspaceV4()
+    var measurement = ASHMeasurementExtractionWorkspaceV4()
+    var spatial = ASHSpatialReconstructionWorkspaceV4()
+}
+
+#if DEBUG
+struct ASHPreparedWorkspaceDiagnosticsV4: Equatable, Sendable {
+    let temporalHistoryCapacity: Int
+    let temporalHistoryCount: Int
+    let measurementHistorySampleCount: Int
+    let sourceLumaAllocationCounts: [Int]
+    let sourceLumaStorageIdentities: [UInt]
+    let outputLumaAllocationCounts: [Int]
+    let outputLumaStorageIdentities: [UInt]
+    let measurementAllocationCounts: [Int]
+    let measurementLumaStorageIdentities: [UInt]
+    let measurementChromaStorageIdentities: [UInt]
+    let signalWindowAllocationCounts: [Int]
+    let signalWindowStorageIdentities: [UInt]
+    let spatialAllocationCounts: [Int]
+    let spatialStorageIdentities: [UInt]
+    let lastSourceMaterializedAlignedSampleCount: Int
+    let lastOutputMaterializedAlignedSampleCount: Int
+    let interlacedNormalizedSourceIdentities: [UInt]
+}
+#endif
 
 actor PreparedDeterministicV4Upscaler:
     PreparedCheckpointableTemporalFrameUpscaler,
@@ -301,9 +412,12 @@ actor PreparedDeterministicV4Upscaler:
     private let scaler: FixedPointPixelBufferScalerV4
     private let formatIdentity: ASHSHA256V4
     private let interlacedScratchDestinations: [CVPixelBuffer]
+    private let interlacedNormalizedSources: [CVPixelBuffer]
+    private let processingWorkspaces: [ASHPreparedProcessingWorkspaceV4]
 
     private var temporalHistory: ASHTemporalHistoryV4
-    private var previousMeasurementFrame: PixelBufferSignalFrameV4?
+    private var previousMeasurementHistory: ASHCompactMeasurementHistoryV4?
+    private var previousSourceLumaFrame: ASHTemporalFrameV4?
     private var previousMeasurementState: ASHState?
     private var previousInterlacedFrame: PixelBufferSignalFrameV4?
     private var fieldCadenceState: DeterministicFieldCadenceStateV4?
@@ -315,6 +429,10 @@ actor PreparedDeterministicV4Upscaler:
 #if DEBUG
     private var interlacedOutputBoundaryTestHook:
         (@Sendable (Int) async throws -> Void)?
+    private var lastSourceMotionAllocationDiagnostics:
+        ASHTemporalMotionAllocationDiagnosticsV4?
+    private var lastOutputMotionAllocationDiagnostics:
+        ASHTemporalMotionAllocationDiagnosticsV4?
 #endif
 
     private var scanModeIdentity: String {
@@ -351,7 +469,10 @@ actor PreparedDeterministicV4Upscaler:
             : .metalFixedPoint
         self.maximumOutputFramesPerInput = configuration.scanMode
             == .progressive ? 1 : 2
-        self.temporalHistory = try ASHTemporalHistoryV4(capacity: 3)
+        self.temporalHistory = try ASHTemporalHistoryV4(capacity: 1)
+        self.processingWorkspaces = (0..<3).map { _ in
+            ASHPreparedProcessingWorkspaceV4()
+        }
         self.scaler = try FixedPointPixelBufferScalerV4(
             backend: configuration.executionBackend,
             storage: configuration.storage,
@@ -365,12 +486,21 @@ actor PreparedDeterministicV4Upscaler:
         )
         if configuration.scanMode == .progressive {
             self.interlacedScratchDestinations = []
+            self.interlacedNormalizedSources = []
         } else {
             self.interlacedScratchDestinations = try (0..<2).map { _ in
                 try PixelBufferSignalCodecV4.makeBuffer(
                     storage: configuration.storage,
                     width: configuration.targetWidth,
                     height: configuration.targetHeight,
+                    metalCompatible: configuration.executionBackend == .metal
+                )
+            }
+            self.interlacedNormalizedSources = try (0..<2).map { _ in
+                try PixelBufferSignalCodecV4.makeBuffer(
+                    storage: configuration.storage,
+                    width: configuration.sourceWidth,
+                    height: configuration.sourceHeight,
                     metalCompatible: configuration.executionBackend == .metal
                 )
             }
@@ -464,7 +594,7 @@ actor PreparedDeterministicV4Upscaler:
                     presentationTime: timing.presentationTime,
                     sourceFrameIndex: timing.frameIndex,
                     cadenceID: "progressive",
-                    resetTrigger: previousMeasurementFrame == nil
+                    resetTrigger: previousSourceLumaFrame == nil
                         ? .streamStart : nil,
                     suppressAutomaticSceneCutReset: false
                 )
@@ -498,7 +628,8 @@ actor PreparedDeterministicV4Upscaler:
         guard !finished else { return }
         try Task.checkCancellation()
         try temporalHistory.reset(reason: .explicitReset)
-        previousMeasurementFrame = nil
+        previousMeasurementHistory = nil
+        previousSourceLumaFrame = nil
         previousMeasurementState = nil
         previousInterlacedFrame = nil
         fieldCadenceState = nil
@@ -513,6 +644,58 @@ actor PreparedDeterministicV4Upscaler:
         _ hook: (@Sendable (Int) async throws -> Void)?
     ) {
         interlacedOutputBoundaryTestHook = hook
+    }
+
+    func workspaceDiagnostics() -> ASHPreparedWorkspaceDiagnosticsV4 {
+        ASHPreparedWorkspaceDiagnosticsV4(
+            temporalHistoryCapacity: temporalHistory.capacity,
+            temporalHistoryCount: temporalHistory.frames.count,
+            measurementHistorySampleCount: previousMeasurementHistory?
+                .normalizedLumaWindowQ16.count ?? 0,
+            sourceLumaAllocationCounts: processingWorkspaces.map {
+                $0.sourceLuma.storageAllocationCount
+            },
+            sourceLumaStorageIdentities: processingWorkspaces.map {
+                $0.sourceLuma.storageIdentity
+            },
+            outputLumaAllocationCounts: processingWorkspaces.map {
+                $0.outputLuma.storageAllocationCount
+            },
+            outputLumaStorageIdentities: processingWorkspaces.map {
+                $0.outputLuma.storageIdentity
+            },
+            measurementAllocationCounts: processingWorkspaces.map {
+                $0.measurement.storageAllocationCount
+            },
+            measurementLumaStorageIdentities: processingWorkspaces.map {
+                $0.measurement.normalizedLumaStorageIdentity
+            },
+            measurementChromaStorageIdentities: processingWorkspaces.map {
+                $0.measurement.chromaStorageIdentity
+            },
+            signalWindowAllocationCounts: processingWorkspaces.map {
+                $0.measurement.signalWindow.storageAllocationCount
+            },
+            signalWindowStorageIdentities: processingWorkspaces.map {
+                $0.measurement.signalWindow.storageIdentity
+            },
+            spatialAllocationCounts: processingWorkspaces.map {
+                $0.spatial.storageAllocationCount
+            },
+            spatialStorageIdentities: processingWorkspaces.map {
+                $0.spatial.storageIdentity
+            },
+            lastSourceMaterializedAlignedSampleCount:
+                lastSourceMotionAllocationDiagnostics?
+                    .materializedAlignedSampleCount ?? 0,
+            lastOutputMaterializedAlignedSampleCount:
+                lastOutputMotionAllocationDiagnostics?
+                    .materializedAlignedSampleCount ?? 0,
+            interlacedNormalizedSourceIdentities:
+                interlacedNormalizedSources.map {
+                    UInt(bitPattern: Unmanaged.passUnretained($0).toOpaque())
+                }
+        )
     }
 #endif
 
@@ -545,7 +728,8 @@ actor PreparedDeterministicV4Upscaler:
             nextOutputOrdinal: outputOrdinal,
             lastCompletedOutputPresentationTime: lastOutputPresentationTime,
             history: temporalHistory,
-            previousMeasurementFrame: previousMeasurementFrame,
+            previousMeasurementHistory: previousMeasurementHistory,
+            previousSourceLumaFrame: previousSourceLumaFrame,
             previousMeasurementStateRawValue:
                 previousMeasurementState?.rawValue,
             previousInterlacedFrame: previousInterlacedFrame,
@@ -581,7 +765,8 @@ actor PreparedDeterministicV4Upscaler:
         lastCompletedInputOrdinal = checkpoint.lastCompletedInputOrdinal
         lastOutputPresentationTime = checkpoint
             .lastCompletedOutputPresentationTime
-        previousMeasurementFrame = checkpoint.previousMeasurementFrame
+        previousMeasurementHistory = checkpoint.previousMeasurementHistory
+        previousSourceLumaFrame = checkpoint.previousSourceLumaFrame
         previousMeasurementState = try checkpoint
             .previousMeasurementStateRawValue.map(ASHState.init(rawValue:))
         previousInterlacedFrame = checkpoint.previousInterlacedFrame
@@ -595,7 +780,8 @@ actor PreparedDeterministicV4Upscaler:
         dominance: FieldDominanceV4
     ) async throws -> [TemporalOutputFrame] {
         let initialTemporalHistory = temporalHistory
-        let initialPreviousMeasurementFrame = previousMeasurementFrame
+        let initialPreviousMeasurementHistory = previousMeasurementHistory
+        let initialPreviousSourceLumaFrame = previousSourceLumaFrame
         let initialPreviousMeasurementState = previousMeasurementState
         let initialPreviousInterlacedFrame = previousInterlacedFrame
         let initialFieldCadenceState = fieldCadenceState
@@ -606,7 +792,8 @@ actor PreparedDeterministicV4Upscaler:
         defer {
             if !completedTransaction {
                 temporalHistory = initialTemporalHistory
-                previousMeasurementFrame = initialPreviousMeasurementFrame
+                previousMeasurementHistory = initialPreviousMeasurementHistory
+                previousSourceLumaFrame = initialPreviousSourceLumaFrame
                 previousMeasurementState = initialPreviousMeasurementState
                 previousInterlacedFrame = initialPreviousInterlacedFrame
                 fieldCadenceState = initialFieldCadenceState
@@ -739,7 +926,9 @@ actor PreparedDeterministicV4Upscaler:
         previousInterlacedFrame = signal
 
         let scratchDestinations = interlacedScratchDestinations
-        guard scratchDestinations.count == 2 else {
+        let normalizedSources = interlacedNormalizedSources
+        guard scratchDestinations.count == 2,
+              normalizedSources.count == 2 else {
             throw ASHPreparedTemporalCheckpointV4Error.invalidState
         }
         var outputs: [TemporalOutputFrame] = []
@@ -754,12 +943,7 @@ actor PreparedDeterministicV4Upscaler:
                 height: configuration.sourceHeight,
                 planes: outputPlanes[outputIndex]
             )
-            let temporary = try PixelBufferSignalCodecV4.makeBuffer(
-                storage: configuration.storage,
-                width: configuration.sourceWidth,
-                height: configuration.sourceHeight,
-                metalCompatible: configuration.executionBackend == .metal
-            )
+            let temporary = normalizedSources[outputIndex]
             try PixelBufferSignalCodecV4.write(
                 normalized,
                 to: temporary,
@@ -772,6 +956,13 @@ actor PreparedDeterministicV4Upscaler:
                 .shouldPropagate
             )
             CVBufferRemoveAttachment(temporary, kCVImageBufferFieldDetailKey)
+            // A progressive frame has one chroma sample location. Preserve the
+            // source's explicit top/progressive location and discard the stale
+            // bottom-field location copied from interlaced input.
+            CVBufferRemoveAttachment(
+                temporary,
+                kCVImageBufferChromaLocationBottomFieldKey
+            )
             guard let outputTiming = outputTimings?[outputIndex] else {
                 throw ASHPreparedTemporalCheckpointV4Error.invalidState
             }
@@ -786,7 +977,7 @@ actor PreparedDeterministicV4Upscaler:
                 sourceFrameIndex: timing.frameIndex,
                 cadenceID: cadenceID,
                 resetTrigger: outputIndex == 0
-                    ? (previousMeasurementFrame == nil
+                    ? (previousSourceLumaFrame == nil
                         ? .streamStart
                         : (cadenceChanged ? .fieldCadenceChange : nil))
                     : nil,
@@ -1165,15 +1356,23 @@ actor PreparedDeterministicV4Upscaler:
         resetTrigger: ASHMeasurementResetTriggerV4?,
         suppressAutomaticSceneCutReset: Bool
     ) async throws -> TemporalOutputFrame {
-        let sourceSignal = try PixelBufferSignalCodecV4.read(
-            source,
-            storage: configuration.storage
-        )
         let exactPTS = try ExactRationalV4(
             presentationTime.value,
             Int64(presentationTime.timescale)
         )
-        let sourceTemporalPlane = try temporalLumaPlane(from: sourceSignal)
+        guard !processingWorkspaces.isEmpty else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        let workspaceIndex = Int(
+            outputOrdinal % Int64(processingWorkspaces.count)
+        )
+        let workspace = processingWorkspaces[workspaceIndex]
+        try PixelBufferSignalCodecV4.readLuma(
+            source,
+            storage: configuration.storage,
+            into: &workspace.sourceLuma
+        )
+        let sourceTemporalPlane = try workspace.sourceLuma.temporalPlane()
         let neutralState = try ASHState(rawValue: 0)
         let sourceTemporalFrame = try ASHTemporalFrameV4(
             frameID: "v4-measurement-\(outputOrdinal)",
@@ -1187,35 +1386,24 @@ actor PreparedDeterministicV4Upscaler:
             ],
             cadenceID: cadenceID
         )
-        var measurementMotion: ASHTemporalMotionAnalysisV4?
+        var measurementMotion: ASHTemporalMotionFieldResultV4?
         if resetTrigger == nil,
            outputOrdinal > 0,
            lastOutputPresentationTime < exactPTS,
-           let previousMeasurementFrame {
-            let previousSourceFrame = try ASHTemporalFrameV4(
-                frameID: "v4-measurement-\(outputOrdinal - 1)",
-                streamID: sourceTemporalFrame.streamID,
-                formatIdentity: sourceTemporalFrame.formatIdentity,
-                ordinal: outputOrdinal - 1,
-                presentationTime: lastOutputPresentationTime,
-                luma: try temporalLumaPlane(
-                    from: previousMeasurementFrame
-                ),
-                tileStateRawValues: [
-                    previousMeasurementState?.rawValue
-                        ?? neutralState.rawValue
-                ],
-                cadenceID: cadenceID
-            )
-            measurementMotion = try ASHTemporalMotionAnalyzerV4.analyze(
+           let previousSourceLumaFrame {
+            measurementMotion = try ASHTemporalMotionAnalyzerV4.analyzeField(
                 current: sourceTemporalFrame,
-                previous: previousSourceFrame
+                previous: previousSourceLumaFrame
             )
         }
+#if DEBUG
+        lastSourceMotionAllocationDiagnostics = measurementMotion?
+            .allocationDiagnostics
+#endif
         let effectiveMeasurementReset: ASHMeasurementResetTriggerV4?
         if let resetTrigger {
             effectiveMeasurementReset = resetTrigger
-        } else if measurementMotion?.sceneCut == true,
+        } else if measurementMotion?.field.sceneCut == true,
                   !suppressAutomaticSceneCutReset {
             effectiveMeasurementReset = .sceneCut
         } else {
@@ -1223,7 +1411,7 @@ actor PreparedDeterministicV4Upscaler:
         }
         let forceSpatialFallbackForSuppressedPairedFieldCut =
             suppressAutomaticSceneCutReset
-                && measurementMotion?.sceneCut == true
+                && measurementMotion?.field.sceneCut == true
         let measurementHistory: ASHMeasurementHistoryV4
         if let effectiveMeasurementReset {
             measurementHistory = .reset(effectiveMeasurementReset)
@@ -1237,53 +1425,59 @@ actor PreparedDeterministicV4Upscaler:
         let canonicalTemporalEvidenceQ16: UInt32?
         if let measurementMotion {
             canonicalTemporalEvidenceQ16
-                = measurementMotion.temporalEvidenceQ16
+                = measurementMotion.field.temporalEvidenceQ16
         } else if effectiveMeasurementReset != nil {
             canonicalTemporalEvidenceQ16 = 0
         } else {
             canonicalTemporalEvidenceQ16 = nil
         }
-        let measurement = try ASHMeasurementExtractorV4.extract(
-            frame: sourceSignal,
-            previousFrame: previousMeasurementFrame,
+        let directMeasurement = try ASHMeasurementExtractorV4.extractDirect(
+            buffer: source,
+            storage: configuration.storage,
+            previousHistory: previousMeasurementHistory,
             contract: measurementContract,
             history: measurementHistory,
             motionCompensatedTemporalEvidenceQ16:
-                canonicalTemporalEvidenceQ16
+                canonicalTemporalEvidenceQ16,
+            workspace: &workspace.measurement
+        )
+        let measurement = directMeasurement.extracted
+        let retainedSourceFrame = try ASHTemporalFrameV4(
+            frameID: sourceTemporalFrame.frameID,
+            streamID: sourceTemporalFrame.streamID,
+            formatIdentity: sourceTemporalFrame.formatIdentity,
+            ordinal: sourceTemporalFrame.ordinal,
+            presentationTime: sourceTemporalFrame.presentationTime,
+            luma: sourceTemporalFrame.luma,
+            tileStateRawValues: [measurement.projection.state.rawValue],
+            cadenceID: sourceTemporalFrame.cadenceID
         )
 
         try await scaler.process(source: source, destination: destination)
-        let outputSignal = try PixelBufferSignalCodecV4.read(
+        try PixelBufferSignalCodecV4.readLuma(
             destination,
-            storage: configuration.storage
+            storage: configuration.storage,
+            into: &workspace.outputLuma
         )
-        let lumaPlane = outputSignal.planes[0]
-        let bounds = lumaPlane.componentBounds[0]
-        let spatial = try ASHTemporalPlaneV4(
-            width: lumaPlane.width,
-            height: lumaPlane.height,
-            minimumCode: bounds.minimum,
-            maximumCode: bounds.maximum,
-            samples: try lumaPlane.component(0)
-        )
-        let conditionedSpatial = try ASHSpatialReconstructorV4.reconstruct(
-            spatial: spatial,
-            sourceState: measurement.projection.state,
-            program: branchProgram
-        ).output
-        let frame = try ASHTemporalFrameV4(
-            frameID: "v4-frame-\(outputOrdinal)",
-            streamID: "primary-video",
-            formatIdentity: formatIdentity,
-            ordinal: outputOrdinal,
-            presentationTime: exactPTS,
-            luma: conditionedSpatial,
-            tileStateRawValues: [measurement.projection.state.rawValue],
-            cadenceID: cadenceID
-        )
+        let outputWidth = workspace.outputLuma.width
+        let outputHeight = workspace.outputLuma.height
+        let outputMinimumCode = workspace.outputLuma.minimumCode
+        let outputMaximumCode = workspace.outputLuma.maximumCode
+        _ = try workspace.outputLuma.withMutableSamples { samples in
+            try ASHSpatialReconstructorV4.reconstructInPlace(
+                samples: &samples,
+                width: outputWidth,
+                height: outputHeight,
+                minimumCode: outputMinimumCode,
+                maximumCode: outputMaximumCode,
+                sourceState: measurement.projection.state,
+                program: branchProgram,
+                workspace: &workspace.spatial
+            )
+        }
 
         var resetReason = effectiveMeasurementReset.map(temporalResetReason)
-        var motionAnalysis: ASHTemporalMotionAnalysisV4?
+        var motionField: ASHTemporalMotionFieldV4?
         let dynamicMetadata = try AVFoundationHDRMetadataAdapterV4
             .probeDynamicMetadata(from: source)
         // Dynamic HDR metadata is frame-bound. Preserve it exactly by using
@@ -1295,58 +1489,73 @@ actor PreparedDeterministicV4Upscaler:
             // Output zero already established the new cadence generation.
             // A cut between the paired fields must not blend old evidence or
             // advance that generation a second time.
-            motionAnalysis = nil
+            motionField = nil
         } else if resetReason == nil,
                   let previous = temporalHistory.frames.last {
-            let motion = try ASHTemporalMotionAnalyzerV4.analyze(
-                current: frame,
+            let motion = try analyzeOutputMotionField(
+                currentLuma: try workspace.outputLuma.temporalPlane(),
+                exactPTS: exactPTS,
+                cadenceID: cadenceID,
+                stateRawValue: measurement.projection.state.rawValue,
                 previous: previous
             )
-            if motion.sceneCut {
+            #if DEBUG
+            lastOutputMotionAllocationDiagnostics = motion
+                .allocationDiagnostics
+            #endif
+            if motion.field.sceneCut {
                 if !suppressAutomaticSceneCutReset {
                     resetReason = .sceneCut
                 }
             } else {
-                motionAnalysis = motion
+                motionField = motion.field
             }
         }
-        let reconstructed = try ASHTemporalReconstructorV4.reconstruct(
-            spatial: conditionedSpatial,
-            motionAnalysis: motionAnalysis,
-            sourceState: measurement.projection.state,
-            resetReason: resetReason,
-            program: branchProgram
-        )
-        var reconstructedPlanes = outputSignal.planes
-        reconstructedPlanes[0] = try lumaPlane.replacingComponent(
-            0,
-            with: reconstructed.output.samples
-        )
-        try PixelBufferSignalCodecV4.write(
-            PixelBufferSignalFrameV4(
-                storage: outputSignal.storage,
-                width: outputSignal.width,
-                height: outputSignal.height,
-                planes: reconstructedPlanes
-            ),
-            to: destination
+#if DEBUG
+        if dynamicMetadata != nil
+            || forceSpatialFallbackForSuppressedPairedFieldCut
+            || resetReason != nil
+            || temporalHistory.frames.last == nil {
+            lastOutputMotionAllocationDiagnostics = nil
+        }
+#endif
+        let previousOutputFrame = temporalHistory.frames.last
+        _ = try workspace.outputLuma.withMutableSamples { samples in
+            try ASHTemporalReconstructorV4.reconstructInPlace(
+                samples: &samples,
+                width: outputWidth,
+                height: outputHeight,
+                minimumCode: outputMinimumCode,
+                maximumCode: outputMaximumCode,
+                motionField: motionField,
+                previousHistory: previousOutputFrame,
+                sourceState: measurement.projection.state,
+                resetReason: resetReason,
+                program: branchProgram
+            )
+        }
+        try PixelBufferSignalCodecV4.writeLuma(
+            from: workspace.outputLuma,
+            to: destination,
+            storage: configuration.storage
         )
 
         if let resetReason {
             try temporalHistory.reset(reason: resetReason)
         }
         let emittedFrame = try ASHTemporalFrameV4(
-            frameID: frame.frameID,
-            streamID: frame.streamID,
-            formatIdentity: frame.formatIdentity,
-            ordinal: frame.ordinal,
-            presentationTime: frame.presentationTime,
-            luma: reconstructed.output,
-            tileStateRawValues: frame.tileStateRawValues,
-            cadenceID: frame.cadenceID
+            frameID: "v4-frame-\(outputOrdinal)",
+            streamID: "primary-video",
+            formatIdentity: formatIdentity,
+            ordinal: outputOrdinal,
+            presentationTime: exactPTS,
+            luma: try workspace.outputLuma.temporalPlane(),
+            tileStateRawValues: [measurement.projection.state.rawValue],
+            cadenceID: cadenceID
         )
         try temporalHistory.append(emittedFrame)
-        previousMeasurementFrame = sourceSignal
+        previousMeasurementHistory = directMeasurement.compactHistory
+        previousSourceLumaFrame = retainedSourceFrame
         previousMeasurementState = measurement.projection.state
         outputOrdinal += 1
         lastOutputPresentationTime = exactPTS
@@ -1356,20 +1565,26 @@ actor PreparedDeterministicV4Upscaler:
         )
     }
 
-    private func temporalLumaPlane(
-        from frame: PixelBufferSignalFrameV4
-    ) throws -> ASHTemporalPlaneV4 {
-        guard let luma = frame.planes.first,
-              luma.componentsPerElement == 1,
-              let bounds = luma.componentBounds.first else {
-            throw ASHPreparedTemporalCheckpointV4Error.invalidState
-        }
-        return try ASHTemporalPlaneV4(
-            width: luma.width,
-            height: luma.height,
-            minimumCode: bounds.minimum,
-            maximumCode: bounds.maximum,
-            samples: try luma.component(0)
+    private func analyzeOutputMotionField(
+        currentLuma: ASHTemporalPlaneV4,
+        exactPTS: ExactRationalV4,
+        cadenceID: String,
+        stateRawValue: UInt16,
+        previous: ASHTemporalFrameV4
+    ) throws -> ASHTemporalMotionFieldResultV4 {
+        let current = try ASHTemporalFrameV4(
+            frameID: "v4-frame-\(outputOrdinal)",
+            streamID: "primary-video",
+            formatIdentity: formatIdentity,
+            ordinal: outputOrdinal,
+            presentationTime: exactPTS,
+            luma: currentLuma,
+            tileStateRawValues: [stateRawValue],
+            cadenceID: cadenceID
+        )
+        return try ASHTemporalMotionAnalyzerV4.analyzeField(
+            current: current,
+            previous: previous
         )
     }
 

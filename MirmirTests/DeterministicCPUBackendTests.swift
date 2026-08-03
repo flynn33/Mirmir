@@ -179,6 +179,320 @@ final class DeterministicCPUBackendTests: XCTestCase {
         }
     }
 
+    func testFusedPreparedPathPreservesLegacyProgressiveAndInterlacedPixels() async throws {
+        let backend = try makeBackend()
+        let progressivePrepared = try await backend.prepare(
+            request: BackendPreparationRequest(
+                source: makeSourceInfo(
+                    pixelFormat:
+                        kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+                ),
+                targetSize: CGSize(width: 28, height: 20)
+            ),
+            environment: deterministicTestEnvironment
+        )
+        var progressiveHashes: [String] = []
+        for frameIndex in 0..<4 {
+            let source = try SyntheticNV12PixelBuffer.make(
+                width: 16,
+                height: 12
+            )
+            try writeMovingPattern(frameIndex: frameIndex, to: source)
+            attachProgressiveBT709(to: source)
+            let destination = try SyntheticNV12PixelBuffer.make(
+                width: 28,
+                height: 20
+            )
+            try await progressivePrepared.process(
+                source: source,
+                destination: destination,
+                timing: FrameTiming(
+                    frameIndex: frameIndex,
+                    presentationTime: CMTime(
+                        value: Int64(frameIndex),
+                        timescale: 30
+                    ),
+                    duration: CMTime(value: 1, timescale: 30)
+                )
+            )
+            progressiveHashes.append(
+                ASHSHA256V4(rawData: try visiblePlaneData(destination))
+                    .rawValue
+            )
+        }
+
+        let interlacedBackend = try await backend.prepare(
+            request: BackendPreparationRequest(
+                source: makeSourceInfo(
+                    pixelFormat:
+                        kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                    fieldCount: 2,
+                    fieldDetail:
+                        kCVImageBufferFieldDetailTemporalTopFirst as String
+                ),
+                targetSize: CGSize(width: 32, height: 24)
+            ),
+            environment: deterministicTestEnvironment
+        )
+        let interlacedPrepared = try XCTUnwrap(
+            interlacedBackend as? PreparedDeterministicV4Upscaler
+        )
+        var interlacedHashes: [String] = []
+        for (frameIndex, pair) in [(1, 2), (3, 4)].enumerated() {
+            let destinations = try makeDestinations(
+                count: 2,
+                width: 32,
+                height: 24
+            )
+            _ = try await interlacedPrepared.processTemporal(
+                source: FramePixelBuffer(try makeCadenceSource(
+                    top: pair.0,
+                    bottom: pair.1
+                )),
+                destinations: destinations.map(FramePixelBuffer.init),
+                timing: FrameTiming(
+                    frameIndex: frameIndex,
+                    presentationTime: CMTime(
+                        value: Int64(frameIndex),
+                        timescale: 30
+                    ),
+                    duration: CMTime(value: 1, timescale: 30)
+                )
+            )
+            for destination in destinations {
+                interlacedHashes.append(
+                    ASHSHA256V4(rawData: try visiblePlaneData(destination))
+                        .rawValue
+                )
+            }
+        }
+        XCTAssertEqual(
+            progressiveHashes,
+            [
+                "20817356a3be1c19026e9cb7e3408ab3937d4f63facd8b9b4efd99a1b8badeec",
+                "8c164529aabcb7ba23c29d1abda5b8a574bdaf6693ff7d1cffa831537a63a69f",
+                "e4d385b5926d0e823e46132e401e3bba8dd9f819c6af3de03941a9526edd69cf",
+                "ef810ff6c4dd15ff6aa7826064f4d5b48070c809e4da08c888ced23e9feb78fc",
+            ]
+        )
+        XCTAssertEqual(
+            interlacedHashes,
+            [
+                "93cf6a7e479904a7d95e061a28f61086596ee01643c8456b08b207bd7187716d",
+                "6e073a790a917a70e2197a8c0ed4d17caf64ef791bb5533e3af965a9ee9f049f",
+                "16858ddc8af9a353d178b2aa05f0c187af43feeed3cb31927845f5fb77f2e76a",
+                "0cb5bdc2d596f266f97034b3821e8f3a66f4f241876b89b874e2bbbe09055c95",
+            ]
+        )
+    }
+
+    func testFusedPreparedPathReusesBoundedWorkspacesWithoutAlignedImages()
+        async throws {
+        let backend = try makeBackend()
+        let preparedBackend = try await backend.prepare(
+            request: BackendPreparationRequest(
+                source: makeSourceInfo(
+                    pixelFormat:
+                        kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+                ),
+                targetSize: CGSize(width: 28, height: 20)
+            ),
+            environment: deterministicTestEnvironment
+        )
+        let prepared = try XCTUnwrap(
+            preparedBackend as? PreparedDeterministicV4Upscaler
+        )
+        var warmedDiagnostics: ASHPreparedWorkspaceDiagnosticsV4?
+        for frameIndex in 0..<9 {
+            let source = try SyntheticNV12PixelBuffer.make(
+                width: 16,
+                height: 12
+            )
+            try writeMovingPattern(frameIndex: frameIndex, to: source)
+            attachProgressiveBT709(to: source)
+            try await prepared.process(
+                source: FramePixelBuffer(source),
+                destination: FramePixelBuffer(
+                    try SyntheticNV12PixelBuffer.make(
+                        width: 28,
+                        height: 20
+                    )
+                ),
+                timing: FrameTiming(
+                    frameIndex: frameIndex,
+                    presentationTime: CMTime(
+                        value: Int64(frameIndex),
+                        timescale: 30
+                    ),
+                    duration: CMTime(value: 1, timescale: 30)
+                )
+            )
+            if frameIndex == 5 {
+                warmedDiagnostics = await prepared.workspaceDiagnostics()
+            }
+        }
+        let warmed = try XCTUnwrap(warmedDiagnostics)
+        let final = await prepared.workspaceDiagnostics()
+        XCTAssertEqual(final.temporalHistoryCapacity, 1)
+        XCTAssertEqual(final.temporalHistoryCount, 1)
+        XCTAssertEqual(final.measurementHistorySampleCount, 32 * 32)
+        XCTAssertEqual(final.sourceLumaAllocationCounts, warmed.sourceLumaAllocationCounts)
+        XCTAssertEqual(final.sourceLumaStorageIdentities, warmed.sourceLumaStorageIdentities)
+        XCTAssertEqual(final.outputLumaAllocationCounts, warmed.outputLumaAllocationCounts)
+        XCTAssertEqual(final.outputLumaStorageIdentities, warmed.outputLumaStorageIdentities)
+        XCTAssertEqual(final.measurementAllocationCounts, warmed.measurementAllocationCounts)
+        XCTAssertEqual(
+            final.measurementLumaStorageIdentities,
+            warmed.measurementLumaStorageIdentities
+        )
+        XCTAssertEqual(
+            final.measurementChromaStorageIdentities,
+            warmed.measurementChromaStorageIdentities
+        )
+        XCTAssertEqual(final.signalWindowAllocationCounts, warmed.signalWindowAllocationCounts)
+        XCTAssertEqual(final.signalWindowStorageIdentities, warmed.signalWindowStorageIdentities)
+        XCTAssertEqual(final.spatialAllocationCounts, warmed.spatialAllocationCounts)
+        XCTAssertEqual(final.spatialStorageIdentities, warmed.spatialStorageIdentities)
+        XCTAssertTrue(final.sourceLumaStorageIdentities.allSatisfy { $0 != 0 })
+        XCTAssertTrue(final.outputLumaStorageIdentities.allSatisfy { $0 != 0 })
+        XCTAssertEqual(final.lastSourceMaterializedAlignedSampleCount, 0)
+        XCTAssertEqual(final.lastOutputMaterializedAlignedSampleCount, 0)
+    }
+
+    func testFusedPreparedPathChangesOnlyVisibleLumaAfterCanonicalScale()
+        async throws {
+        let backend = try makeBackend()
+        let prepared = try await backend.prepare(
+            request: BackendPreparationRequest(
+                source: makeSourceInfo(
+                    pixelFormat:
+                        kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+                ),
+                targetSize: CGSize(width: 28, height: 20)
+            ),
+            environment: deterministicTestEnvironment
+        )
+        let source = try SyntheticNV12PixelBuffer.make(width: 16, height: 12)
+        try writeMovingPattern(frameIndex: 0, to: source)
+        attachProgressiveBT709(to: source)
+        let destination = try SyntheticNV12PixelBuffer.make(
+            width: 28,
+            height: 20
+        )
+        let reference = try SyntheticNV12PixelBuffer.make(
+            width: 28,
+            height: 20
+        )
+        try fillRowPadding(destination, storage: .nv12VideoRange8Bit, byte: 0xA5)
+        let expectedPadding = try rowPaddingBytes(
+            destination,
+            storage: .nv12VideoRange8Bit
+        )
+        let scaler = try FixedPointPixelBufferScalerV4(
+            backend: .cpu,
+            storage: .nv12VideoRange8Bit,
+            sourceWidth: 16,
+            sourceHeight: 12,
+            targetWidth: 28,
+            targetHeight: 20,
+            borderRule: .reflect101
+        )
+        try await scaler.process(source: source, destination: reference)
+        try await prepared.process(
+            source: FramePixelBuffer(source),
+            destination: FramePixelBuffer(destination),
+            timing: FrameTiming(
+                frameIndex: 0,
+                presentationTime: .zero,
+                duration: CMTime(value: 1, timescale: 30)
+            )
+        )
+        XCTAssertEqual(
+            try SyntheticNV12PixelBuffer.visibleBytes(destination, plane: 1),
+            try SyntheticNV12PixelBuffer.visibleBytes(reference, plane: 1)
+        )
+        XCTAssertNotEqual(
+            try SyntheticNV12PixelBuffer.visibleBytes(destination, plane: 0),
+            try SyntheticNV12PixelBuffer.visibleBytes(reference, plane: 0)
+        )
+        XCTAssertEqual(
+            ASHSHA256V4(rawData: try visiblePlaneData(destination)).rawValue,
+            "20817356a3be1c19026e9cb7e3408ab3937d4f63facd8b9b4efd99a1b8badeec"
+        )
+        XCTAssertEqual(
+            try rowPaddingBytes(destination, storage: .nv12VideoRange8Bit),
+            expectedPadding
+        )
+    }
+
+    func testInterlacedNormalizationPreservesTopChromaAndRemovesBottomChroma()
+        async throws {
+        let backend = try makeBackend()
+        let preparedBackend = try await backend.prepare(
+            request: BackendPreparationRequest(
+                source: makeSourceInfo(
+                    pixelFormat:
+                        kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                    fieldCount: 2,
+                    fieldDetail:
+                        kCVImageBufferFieldDetailTemporalTopFirst as String
+                ),
+                targetSize: CGSize(width: 32, height: 24)
+            ),
+            environment: deterministicTestEnvironment
+        )
+        let prepared = try XCTUnwrap(
+            preparedBackend as? PreparedDeterministicV4Upscaler
+        )
+        let initialDiagnostics = await prepared.workspaceDiagnostics()
+        XCTAssertEqual(initialDiagnostics.interlacedNormalizedSourceIdentities.count, 2)
+        XCTAssertEqual(
+            Set(initialDiagnostics.interlacedNormalizedSourceIdentities).count,
+            2
+        )
+        let source = try makeCadenceSource(top: 1, bottom: 2)
+        CVBufferSetAttachment(
+            source,
+            kCVImageBufferChromaLocationBottomFieldKey,
+            kCVImageBufferChromaLocation_Center,
+            .shouldPropagate
+        )
+        let destinations = try makeDestinations(
+            count: 2,
+            width: 32,
+            height: 24
+        )
+        _ = try await prepared.processTemporal(
+            source: FramePixelBuffer(source),
+            destinations: destinations.map(FramePixelBuffer.init),
+            timing: FrameTiming(
+                frameIndex: 0,
+                presentationTime: .zero,
+                duration: CMTime(value: 1, timescale: 30)
+            )
+        )
+        for destination in destinations {
+            XCTAssertEqual(
+                CVBufferCopyAttachment(
+                    destination,
+                    kCVImageBufferChromaLocationTopFieldKey,
+                    nil
+                ) as? String,
+                kCVImageBufferChromaLocation_Left as String
+            )
+            XCTAssertNil(CVBufferCopyAttachment(
+                destination,
+                kCVImageBufferChromaLocationBottomFieldKey,
+                nil
+            ))
+        }
+        let finalDiagnostics = await prepared.workspaceDiagnostics()
+        XCTAssertEqual(
+            finalDiagnostics.interlacedNormalizedSourceIdentities,
+            initialDiagnostics.interlacedNormalizedSourceIdentities
+        )
+    }
+
     func testMissingChromaLocationDoesNotInventOrRequireAHiddenFallback() async throws {
         let sourceInfo = makeSourceInfo(
             pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
@@ -448,6 +762,21 @@ final class DeterministicCPUBackendTests: XCTestCase {
             planSHA256: planIdentity,
             lastCompletedInputOrdinal: 3
         )
+        let decodedCheckpoint = try JSONDecoder().decode(
+            ASHPreparedTemporalCheckpointV4.self,
+            from: checkpoint
+        )
+        XCTAssertEqual(decodedCheckpoint.history.capacity, 1)
+        XCTAssertEqual(decodedCheckpoint.history.frames.count, 1)
+        XCTAssertEqual(
+            decodedCheckpoint.previousMeasurementHistory?
+                .normalizedLumaWindowQ16.count,
+            32 * 32
+        )
+        XCTAssertEqual(
+            decodedCheckpoint.previousSourceLumaFrame?.luma.samples.count,
+            16 * 12
+        )
         let wrongFormatIdentity = ASHSHA256V4(
             rawData: Data("wrong-history-format".utf8)
         )
@@ -566,6 +895,80 @@ final class DeterministicCPUBackendTests: XCTestCase {
             checkpoint,
             mutatingHistory: { history in
                 history["generation"] = .integer(0)
+            }
+        )))
+        malformed.append(("short compact measurement window", try checkpointByMutatingRoot(
+            checkpoint,
+            mutation: { root in
+                guard case .object(var measurement)? =
+                        root["previousMeasurementHistory"],
+                      case .array(var samples)? =
+                        measurement["normalizedLumaWindowQ16"],
+                      !samples.isEmpty else {
+                    throw CheckpointMutationFixtureError.malformed
+                }
+                samples.removeLast()
+                measurement["normalizedLumaWindowQ16"] = .array(samples)
+                root["previousMeasurementHistory"] = .object(measurement)
+            }
+        )))
+        malformed.append(("out-of-range compact measurement", try checkpointByMutatingRoot(
+            checkpoint,
+            mutation: { root in
+                guard case .object(var measurement)? =
+                        root["previousMeasurementHistory"],
+                      case .array(var samples)? =
+                        measurement["normalizedLumaWindowQ16"],
+                      !samples.isEmpty else {
+                    throw CheckpointMutationFixtureError.malformed
+                }
+                samples[0] = .integer(65_537)
+                measurement["normalizedLumaWindowQ16"] = .array(samples)
+                root["previousMeasurementHistory"] = .object(measurement)
+            }
+        )))
+        malformed.append(("in-range forged compact measurement", try checkpointByMutatingRoot(
+            checkpoint,
+            mutation: { root in
+                guard case .object(var measurement)? =
+                        root["previousMeasurementHistory"],
+                      case .array(var samples)? =
+                        measurement["normalizedLumaWindowQ16"],
+                      case .integer(let original) = samples[0] else {
+                    throw CheckpointMutationFixtureError.malformed
+                }
+                samples[0] = .integer(original == 65_536
+                    ? 65_535
+                    : original + 1)
+                measurement["normalizedLumaWindowQ16"] = .array(samples)
+                root["previousMeasurementHistory"] = .object(measurement)
+            }
+        )))
+        malformed.append(("short previous source luma", try checkpointByMutatingRoot(
+            checkpoint,
+            mutation: { root in
+                guard case .object(var frame)? =
+                        root["previousSourceLumaFrame"],
+                      case .object(var luma)? = frame["luma"],
+                      case .array(var samples)? = luma["samples"],
+                      !samples.isEmpty else {
+                    throw CheckpointMutationFixtureError.malformed
+                }
+                samples.removeLast()
+                luma["samples"] = .array(samples)
+                frame["luma"] = .object(luma)
+                root["previousSourceLumaFrame"] = .object(frame)
+            }
+        )))
+        malformed.append(("forged previous source identity", try checkpointByMutatingRoot(
+            checkpoint,
+            mutation: { root in
+                guard case .object(var frame)? =
+                        root["previousSourceLumaFrame"] else {
+                    throw CheckpointMutationFixtureError.malformed
+                }
+                frame["streamID"] = .string("forged-measurement-stream")
+                root["previousSourceLumaFrame"] = .object(frame)
             }
         )))
 
@@ -1140,7 +1543,7 @@ final class DeterministicCPUBackendTests: XCTestCase {
             mixedState.history.generation,
             telecineState.history.generation + 1
         )
-        XCTAssertEqual(mixedState.history.frames.count, 2)
+        XCTAssertEqual(mixedState.history.frames.count, 1)
         XCTAssertTrue(
             mixedState.history.frames.allSatisfy {
                 $0.cadenceID == "mixed_tff_double_rate"
@@ -1195,7 +1598,7 @@ final class DeterministicCPUBackendTests: XCTestCase {
             dominanceState.history.generation,
             mixedState.history.generation + 1
         )
-        XCTAssertEqual(dominanceState.history.frames.count, 2)
+        XCTAssertEqual(dominanceState.history.frames.count, 1)
     }
 
     func testInterlacedFailureAndCancellationRollbackForByteIdenticalRetry()
@@ -1598,6 +2001,114 @@ final class DeterministicCPUBackendTests: XCTestCase {
         ))
     }
 
+    private func visiblePlaneData(_ buffer: CVPixelBuffer) throws -> Data {
+        var data = Data()
+        for plane in 0..<CVPixelBufferGetPlaneCount(buffer) {
+            data.append(contentsOf: try SyntheticNV12PixelBuffer.visibleBytes(
+                buffer,
+                plane: plane
+            ))
+        }
+        return data
+    }
+
+    private func fillRowPadding(
+        _ buffer: CVPixelBuffer,
+        storage: PixelStorageV4,
+        byte: UInt8
+    ) throws {
+        let layout = PixelLayoutV4(storage: storage)
+        try layout.validateStructure(of: buffer)
+        let activeByteCounts = try layout.planes.map {
+            try $0.activeBytesPerRow(frameWidth: CVPixelBufferGetWidth(buffer))
+        }
+        let status = CVPixelBufferLockBaseAddress(buffer, [])
+        guard status == kCVReturnSuccess else {
+            throw PixelBufferSignalCodecV4Error.lockFailed(
+                destination: true,
+                status: status
+            )
+        }
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+        for planeIndex in layout.planes.indices {
+            guard let base = CVPixelBufferGetBaseAddressOfPlane(
+                buffer,
+                planeIndex
+            ) else {
+                throw PixelBufferSignalCodecV4Error.inaccessiblePlane(
+                    planeIndex
+                )
+            }
+            let stride = CVPixelBufferGetBytesPerRowOfPlane(
+                buffer,
+                planeIndex
+            )
+            let active = activeByteCounts[planeIndex]
+            let height = CVPixelBufferGetHeightOfPlane(buffer, planeIndex)
+            guard stride >= active else {
+                throw CheckpointMutationFixtureError.malformed
+            }
+            for row in 0..<height where stride > active {
+                memset(
+                    base.advanced(by: row * stride + active),
+                    Int32(byte),
+                    stride - active
+                )
+            }
+        }
+    }
+
+    private func rowPaddingBytes(
+        _ buffer: CVPixelBuffer,
+        storage: PixelStorageV4
+    ) throws -> [Data] {
+        let layout = PixelLayoutV4(storage: storage)
+        try layout.validateStructure(of: buffer)
+        let activeByteCounts = try layout.planes.map {
+            try $0.activeBytesPerRow(frameWidth: CVPixelBufferGetWidth(buffer))
+        }
+        let status = CVPixelBufferLockBaseAddress(buffer, .readOnly)
+        guard status == kCVReturnSuccess else {
+            throw PixelBufferSignalCodecV4Error.lockFailed(
+                destination: false,
+                status: status
+            )
+        }
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        var result: [Data] = []
+        result.reserveCapacity(layout.planes.count)
+        for planeIndex in layout.planes.indices {
+            guard let base = CVPixelBufferGetBaseAddressOfPlane(
+                buffer,
+                planeIndex
+            ) else {
+                throw PixelBufferSignalCodecV4Error.inaccessiblePlane(
+                    planeIndex
+                )
+            }
+            let stride = CVPixelBufferGetBytesPerRowOfPlane(
+                buffer,
+                planeIndex
+            )
+            let active = activeByteCounts[planeIndex]
+            let height = CVPixelBufferGetHeightOfPlane(buffer, planeIndex)
+            guard stride >= active else {
+                throw CheckpointMutationFixtureError.malformed
+            }
+            var planePadding = Data()
+            planePadding.reserveCapacity((stride - active) * height)
+            for row in 0..<height where stride > active {
+                planePadding.append(
+                    base.advanced(by: row * stride + active)
+                        .assumingMemoryBound(to: UInt8.self),
+                    count: stride - active
+                )
+            }
+            result.append(planePadding)
+        }
+        return result
+    }
+
     private func checkpointByMutatingHistory(
         _ checkpoint: Data,
         mutatingHistory mutation: (inout CheckpointJSONObjectV4) throws -> Void
@@ -1609,6 +2120,18 @@ final class DeterministicCPUBackendTests: XCTestCase {
         }
         try mutation(&history)
         root["history"] = .object(history)
+        return ASHCanonicalJSONV4.encode(.object(root))
+    }
+
+    private func checkpointByMutatingRoot(
+        _ checkpoint: Data,
+        mutation: (inout CheckpointJSONObjectV4) throws -> Void
+    ) throws -> Data {
+        let parsed = try ASHCanonicalJSONV4.parse(checkpoint)
+        guard case .object(var root) = parsed else {
+            throw CheckpointMutationFixtureError.malformed
+        }
+        try mutation(&root)
         return ASHCanonicalJSONV4.encode(.object(root))
     }
 
