@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import statistics
 import subprocess
 import sys
@@ -50,6 +51,14 @@ def redact_system_profile(raw_json: str) -> str:
         return value
 
     return json.dumps(redacted(json.loads(raw_json)), indent=2, sort_keys=True)
+
+
+def redact_xcodebuild_log(raw_log: str) -> str:
+    return re.sub(
+        r"(?<=\bid:)[0-9A-Fa-f-]{16,}",
+        "<redacted-device-id>",
+        raw_log,
+    )
 
 
 def sha256(path: Path) -> str:
@@ -459,9 +468,10 @@ def main() -> int:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
-    (output / "xcodebuild.log").write_text(completed.stdout)
+    redacted_build_log = redact_xcodebuild_log(completed.stdout)
+    (output / "xcodebuild.log").write_text(redacted_build_log)
     if completed.returncode != 0:
-        print(completed.stdout, file=sys.stderr)
+        print(redacted_build_log, file=sys.stderr)
         return completed.returncode
 
     engine_results_path = output / "engine-results.json"
