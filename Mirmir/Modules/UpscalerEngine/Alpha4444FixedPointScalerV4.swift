@@ -1168,6 +1168,10 @@ actor PreparedAlpha4444UpscalerV4:
                 == checkpoint.lastCompletedInputOrdinal + 1 else {
             throw PreparedAlpha4444UpscalerV4Error.checkpointStateMismatch
         }
+        if let nextFrameIndex,
+           nextFrameIndex != checkpoint.nextFrameIndex {
+            throw PreparedAlpha4444UpscalerV4Error.checkpointStateMismatch
+        }
         nextFrameIndex = checkpoint.nextFrameIndex
     }
 

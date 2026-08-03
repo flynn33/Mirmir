@@ -120,6 +120,196 @@ final class Alpha4444FixedPointScalerV4Tests: XCTestCase {
         }
     }
 
+    func testAlphaCheckpointRestoresIdentityBoundCausalFrameState()
+        async throws {
+        let plan = try Alpha4444ScalePlanV4(
+            layout: .bgra8,
+            sourceAssociation: .straight,
+            destinationAssociation: .premultiplied,
+            zeroAlphaPolicy: .clearColor,
+            sourceWidth: 3,
+            sourceHeight: 3,
+            targetWidth: 6,
+            targetHeight: 6,
+            borderRule: .reflect101
+        )
+        let source = try makeBuffer(
+            layout: .bgra8,
+            width: 3,
+            height: 3,
+            rowBytes: 17,
+            sentinel: 0x8A
+        )
+        try writeSamples(
+            transparentEdgeFixture(width: 3, height: 3),
+            to: source,
+            layout: .bgra8
+        )
+        installAssociation(.straight, on: source)
+        func output(_ sentinel: UInt8) throws -> CVPixelBuffer {
+            try makeBuffer(
+                layout: .bgra8,
+                width: 6,
+                height: 6,
+                rowBytes: 29,
+                sentinel: sentinel
+            )
+        }
+        let timing0 = FrameTiming(
+            frameIndex: 0,
+            presentationTime: CMTime(value: 0, timescale: 30),
+            duration: CMTime(value: 1, timescale: 30)
+        )
+        let timing1 = FrameTiming(
+            frameIndex: 1,
+            presentationTime: CMTime(value: 1, timescale: 30),
+            duration: CMTime(value: 1, timescale: 30)
+        )
+        let planSHA256 = ASHSHA256V4(
+            rawData: Data("alpha-checkpoint-plan".utf8)
+        )
+
+        let baseline = try PreparedAlpha4444UpscalerV4(
+            backend: .cpu,
+            plan: plan
+        )
+        let baselineOutput = try output(0x11)
+        try await baseline.process(
+            source: FramePixelBuffer(source),
+            destination: FramePixelBuffer(baselineOutput),
+            timing: timing0
+        )
+        try await baseline.process(
+            source: FramePixelBuffer(source),
+            destination: FramePixelBuffer(baselineOutput),
+            timing: timing1
+        )
+
+        let interrupted = try PreparedAlpha4444UpscalerV4(
+            backend: .cpu,
+            plan: plan
+        )
+        try await interrupted.process(
+            source: FramePixelBuffer(source),
+            destination: FramePixelBuffer(try output(0x22)),
+            timing: timing0
+        )
+        let checkpoint = try await interrupted.makeTemporalCheckpoint(
+            planSHA256: planSHA256,
+            lastCompletedInputOrdinal: 0
+        )
+
+        let resumed = try PreparedAlpha4444UpscalerV4(
+            backend: .cpu,
+            plan: plan
+        )
+        try await resumed.restoreTemporalCheckpoint(
+            checkpoint,
+            planSHA256: planSHA256
+        )
+        let resumedOutput = try output(0x33)
+        try await resumed.process(
+            source: FramePixelBuffer(source),
+            destination: FramePixelBuffer(resumedOutput),
+            timing: timing1
+        )
+        XCTAssertEqual(
+            try Alpha4444PixelBufferAccessV4.samples(
+                resumedOutput,
+                layout: .bgra8
+            ),
+            try Alpha4444PixelBufferAccessV4.samples(
+                baselineOutput,
+                layout: .bgra8
+            )
+        )
+
+        let wrongPlanBinding = try PreparedAlpha4444UpscalerV4(
+            backend: .cpu,
+            plan: plan
+        )
+        await XCTAssertThrowsAlphaError(
+            try await wrongPlanBinding.restoreTemporalCheckpoint(
+                checkpoint,
+                planSHA256: ASHSHA256V4(
+                    rawData: Data("different-execution-plan".utf8)
+                )
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? PreparedAlpha4444UpscalerV4Error,
+                .checkpointIdentityMismatch
+            )
+        }
+
+        let differentAlphaPlan = try Alpha4444ScalePlanV4(
+            layout: .bgra8,
+            sourceAssociation: .straight,
+            destinationAssociation: .premultiplied,
+            zeroAlphaPolicy: .clearColor,
+            sourceWidth: 3,
+            sourceHeight: 3,
+            targetWidth: 6,
+            targetHeight: 6,
+            borderRule: .clamp
+        )
+        let wrongAlphaBinding = try PreparedAlpha4444UpscalerV4(
+            backend: .cpu,
+            plan: differentAlphaPlan
+        )
+        await XCTAssertThrowsAlphaError(
+            try await wrongAlphaBinding.restoreTemporalCheckpoint(
+                checkpoint,
+                planSHA256: planSHA256
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? PreparedAlpha4444UpscalerV4Error,
+                .checkpointIdentityMismatch
+            )
+        }
+
+        let advanced = try PreparedAlpha4444UpscalerV4(
+            backend: .cpu,
+            plan: plan
+        )
+        let advancedOutput = try output(0x44)
+        try await advanced.process(
+            source: FramePixelBuffer(source),
+            destination: FramePixelBuffer(advancedOutput),
+            timing: timing0
+        )
+        try await advanced.process(
+            source: FramePixelBuffer(source),
+            destination: FramePixelBuffer(advancedOutput),
+            timing: timing1
+        )
+        await XCTAssertThrowsAlphaError(
+            try await advanced.restoreTemporalCheckpoint(
+                checkpoint,
+                planSHA256: planSHA256
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? PreparedAlpha4444UpscalerV4Error,
+                .checkpointStateMismatch
+            )
+        }
+
+        var corrupted = checkpoint
+        corrupted.append(0)
+        let corruptionProbe = try PreparedAlpha4444UpscalerV4(
+            backend: .cpu,
+            plan: plan
+        )
+        await XCTAssertThrowsAlphaError(
+            try await corruptionProbe.restoreTemporalCheckpoint(
+                corrupted,
+                planSHA256: planSHA256
+            )
+        )
+    }
+
     func testCPUAndMetalHaveByteIdenticalVisibleBGRAForOddStrides() async throws {
         guard MTLCreateSystemDefaultDevice() != nil else {
             throw XCTSkip("Metal is unavailable on this host.")
