@@ -21,12 +21,12 @@ enum DeterministicDeinterlacerV4Error: Error, Equatable, Sendable {
     case arithmeticOverflow
 }
 
-enum FieldParityV4: Int, Hashable, Sendable {
+enum FieldParityV4: Int, Codable, Hashable, Sendable {
     case top = 0
     case bottom = 1
 }
 
-enum FieldDominanceV4: String, Hashable, Sendable {
+enum FieldDominanceV4: String, Codable, Hashable, Sendable {
     case topFieldFirst = "top_field_first"
     case bottomFieldFirst = "bottom_field_first"
 
@@ -198,6 +198,598 @@ struct DeinterlacedFieldFrameV4: Equatable, Hashable, Sendable {
     let timing: ProgressiveFieldTimingV4
     let progressivePlane: FieldPlaneV4
     let decisions: DeinterlaceDecisionSummaryV4
+}
+
+enum DeterministicFieldCadenceClassV4: String, Codable, Equatable, Hashable,
+    Sendable {
+    case interlaced
+    case telecine32 = "telecine_3_2"
+    case mixed
+}
+
+enum DeterministicFieldRepeatEvidenceV4: String, Codable, Equatable, Hashable,
+    Sendable {
+    case neither
+    case topOnly = "top_only"
+    case bottomOnly = "bottom_only"
+    case both
+}
+
+enum DeterministicFieldCadenceV4Error: Error, Equatable, Sendable {
+    case incompatibleFieldHistory
+    case invalidState
+    case arithmeticOverflow
+}
+
+/// Causal evidence for the transition ending at `inputFrameOrdinal`. The two
+/// deltas compare like-parity source fields only; no future frame is observed.
+struct DeterministicFieldCadenceObservationV4: Codable, Equatable, Hashable,
+    Sendable {
+    let inputFrameOrdinal: UInt64
+    let topMeanAbsoluteDifferenceQ16: UInt32
+    let bottomMeanAbsoluteDifferenceQ16: UInt32
+    let topChangedSampleFractionQ16: UInt32
+    let bottomChangedSampleFractionQ16: UInt32
+    let topMaximumBlockMeanAbsoluteDifferenceQ16: UInt32
+    let bottomMaximumBlockMeanAbsoluteDifferenceQ16: UInt32
+    let topMaximumBlockChangedSampleFractionQ16: UInt32
+    let bottomMaximumBlockChangedSampleFractionQ16: UInt32
+    let normalizedRepeatThresholdQ16: UInt32
+    let repeatEvidence: DeterministicFieldRepeatEvidenceV4
+
+    func validate() throws {
+        guard inputFrameOrdinal > 0,
+              topMeanAbsoluteDifferenceQ16 <= 65_536,
+              bottomMeanAbsoluteDifferenceQ16 <= 65_536,
+              topChangedSampleFractionQ16 <= 65_536,
+              bottomChangedSampleFractionQ16 <= 65_536,
+              topMaximumBlockMeanAbsoluteDifferenceQ16 <= 65_536,
+              bottomMaximumBlockMeanAbsoluteDifferenceQ16 <= 65_536,
+              topMaximumBlockChangedSampleFractionQ16 <= 65_536,
+              bottomMaximumBlockChangedSampleFractionQ16 <= 65_536,
+              normalizedRepeatThresholdQ16 <= 65_536 else {
+            throw DeterministicFieldCadenceV4Error.invalidState
+        }
+        let topRepeated = DeterministicFieldCadenceClassifierV4
+            .isRepeatedParity(
+                meanAbsoluteDifferenceQ16:
+                    topMeanAbsoluteDifferenceQ16,
+                changedSampleFractionQ16: topChangedSampleFractionQ16,
+                maximumBlockMeanAbsoluteDifferenceQ16:
+                    topMaximumBlockMeanAbsoluteDifferenceQ16,
+                maximumBlockChangedSampleFractionQ16:
+                    topMaximumBlockChangedSampleFractionQ16,
+                normalizedRepeatThresholdQ16:
+                    normalizedRepeatThresholdQ16
+            )
+        let bottomRepeated = DeterministicFieldCadenceClassifierV4
+            .isRepeatedParity(
+                meanAbsoluteDifferenceQ16:
+                    bottomMeanAbsoluteDifferenceQ16,
+                changedSampleFractionQ16: bottomChangedSampleFractionQ16,
+                maximumBlockMeanAbsoluteDifferenceQ16:
+                    bottomMaximumBlockMeanAbsoluteDifferenceQ16,
+                maximumBlockChangedSampleFractionQ16:
+                    bottomMaximumBlockChangedSampleFractionQ16,
+                normalizedRepeatThresholdQ16:
+                    normalizedRepeatThresholdQ16
+            )
+        let expectedRepeatEvidence: DeterministicFieldRepeatEvidenceV4
+        switch (topRepeated, bottomRepeated) {
+        case (false, false): expectedRepeatEvidence = .neither
+        case (true, false): expectedRepeatEvidence = .topOnly
+        case (false, true): expectedRepeatEvidence = .bottomOnly
+        case (true, true): expectedRepeatEvidence = .both
+        }
+        guard repeatEvidence == expectedRepeatEvidence else {
+            throw DeterministicFieldCadenceV4Error.invalidState
+        }
+    }
+}
+
+/// The entire bounded field-cadence state. Keeping the five most recent
+/// transitions from each of two complete cycles recognizes every cyclic phase
+/// of 3:2 pulldown without promoting a one-cycle coincidence. The complete
+/// trailing window also makes checkpoint/resume classification byte-stable.
+struct DeterministicFieldCadenceStateV4: Codable, Equatable, Hashable,
+    Sendable {
+    static let evidenceCapacity = 10
+
+    let dominance: FieldDominanceV4
+    let streamInputFrameCount: UInt64
+    let inputFrameCount: UInt64
+    let classification: DeterministicFieldCadenceClassV4
+    let observations: [DeterministicFieldCadenceObservationV4]
+
+    init(
+        dominance: FieldDominanceV4,
+        streamInputFrameCount: UInt64,
+        inputFrameCount: UInt64,
+        classification: DeterministicFieldCadenceClassV4,
+        observations: [DeterministicFieldCadenceObservationV4]
+    ) throws {
+        self.dominance = dominance
+        self.streamInputFrameCount = streamInputFrameCount
+        self.inputFrameCount = inputFrameCount
+        self.classification = classification
+        self.observations = observations
+        try validate()
+    }
+
+    func validate() throws {
+        guard streamInputFrameCount > 0,
+              inputFrameCount > 0,
+              inputFrameCount <= streamInputFrameCount,
+              observations.count <= Self.evidenceCapacity else {
+            throw DeterministicFieldCadenceV4Error.invalidState
+        }
+        let availableObservationCount = inputFrameCount - 1
+        let expectedObservationCount = availableObservationCount
+            >= UInt64(Self.evidenceCapacity)
+            ? Self.evidenceCapacity : Int(availableObservationCount)
+        guard observations.count == expectedObservationCount else {
+            throw DeterministicFieldCadenceV4Error.invalidState
+        }
+        let firstExpectedOrdinal = inputFrameCount
+            - UInt64(expectedObservationCount)
+        for (index, observation) in observations.enumerated() {
+            try observation.validate()
+            guard observation.inputFrameOrdinal
+                    == firstExpectedOrdinal + UInt64(index) else {
+                throw DeterministicFieldCadenceV4Error.invalidState
+            }
+        }
+        guard classification == DeterministicFieldCadenceClassifierV4
+            .classify(observations: observations, dominance: dominance) else {
+            throw DeterministicFieldCadenceV4Error.invalidState
+        }
+    }
+
+    var cadenceID: String {
+        let dominanceID = dominance == .topFieldFirst ? "tff" : "bff"
+        switch classification {
+        case .interlaced:
+            return "interlaced_\(dominanceID)_double_rate"
+        case .telecine32:
+            return "telecine_3_2_\(dominanceID)_double_rate"
+        case .mixed:
+            return "mixed_\(dominanceID)_double_rate"
+        }
+    }
+}
+
+struct DeterministicFieldCadenceDecisionV4: Equatable, Hashable, Sendable {
+    let state: DeterministicFieldCadenceStateV4
+    let observation: DeterministicFieldCadenceObservationV4?
+    let didTransition: Bool
+}
+
+/// Deterministic 3:2 classification from ordered, same-parity field evidence.
+/// The detector intentionally has no `next` input: its result for a frame can
+/// never change after that frame has been emitted.
+enum DeterministicFieldCadenceClassifierV4 {
+    static let algorithmIdentity =
+        "field-cadence.block-consistent.causal-3-2-two-cycle.v3"
+
+    /// A repeated field may contain a bounded amount of compression noise,
+    /// but not a small moving object whose energy is hidden by a frame-wide
+    /// average. Both global and per-block changed-sample limits are Q16.
+    static let maximumChangedSampleFractionQ16: UInt32 = 1_024
+    static let maximumBlockChangedSampleFractionQ16: UInt32 = 4_096
+    static let comparisonBlockWidth = 16
+    static let comparisonBlockFieldHeight = 8
+
+    static func observe(
+        previous: FieldPlaneV4?,
+        current: FieldPlaneV4,
+        dominance: FieldDominanceV4,
+        repeatCodeDifference: UInt16,
+        state: DeterministicFieldCadenceStateV4?
+    ) throws -> DeterministicFieldCadenceDecisionV4 {
+        if let state {
+            try state.validate()
+        }
+
+        guard let state else {
+            let initial = try DeterministicFieldCadenceStateV4(
+                dominance: dominance,
+                streamInputFrameCount: 1,
+                inputFrameCount: 1,
+                classification: .interlaced,
+                observations: []
+            )
+            return DeterministicFieldCadenceDecisionV4(
+                state: initial,
+                observation: nil,
+                didTransition: false
+            )
+        }
+        if state.dominance != dominance {
+            let nextStreamCount = state.streamInputFrameCount
+                .addingReportingOverflow(1)
+            guard !nextStreamCount.overflow else {
+                throw DeterministicFieldCadenceV4Error.arithmeticOverflow
+            }
+            let initial = try DeterministicFieldCadenceStateV4(
+                dominance: dominance,
+                streamInputFrameCount: nextStreamCount.partialValue,
+                inputFrameCount: 1,
+                classification: .interlaced,
+                observations: []
+            )
+            return DeterministicFieldCadenceDecisionV4(
+                state: initial,
+                observation: nil,
+                didTransition: true
+            )
+        }
+        guard let previous else {
+            throw DeterministicFieldCadenceV4Error.incompatibleFieldHistory
+        }
+        let nextCount = state.inputFrameCount.addingReportingOverflow(1)
+        let nextStreamCount = state.streamInputFrameCount
+            .addingReportingOverflow(1)
+        guard !nextCount.overflow, !nextStreamCount.overflow else {
+            throw DeterministicFieldCadenceV4Error.arithmeticOverflow
+        }
+        let observation = try measure(
+            previous: previous,
+            current: current,
+            inputFrameOrdinal: state.inputFrameCount,
+            repeatCodeDifference: repeatCodeDifference
+        )
+        var observations = state.observations
+        observations.append(observation)
+        if observations.count > DeterministicFieldCadenceStateV4
+            .evidenceCapacity {
+            observations.removeFirst(
+                observations.count
+                    - DeterministicFieldCadenceStateV4.evidenceCapacity
+            )
+        }
+        let nextClassification = classify(
+            observations: observations,
+            dominance: dominance
+        )
+        let nextState = try DeterministicFieldCadenceStateV4(
+            dominance: dominance,
+            streamInputFrameCount: nextStreamCount.partialValue,
+            inputFrameCount: nextCount.partialValue,
+            classification: nextClassification,
+            observations: observations
+        )
+        return DeterministicFieldCadenceDecisionV4(
+            state: nextState,
+            observation: observation,
+            didTransition: nextClassification != state.classification
+        )
+    }
+
+    fileprivate static func classify(
+        observations: [DeterministicFieldCadenceObservationV4],
+        dominance: FieldDominanceV4
+    ) -> DeterministicFieldCadenceClassV4 {
+        guard observations.count
+                == DeterministicFieldCadenceStateV4.evidenceCapacity else {
+            return .interlaced
+        }
+        let firstRepeat: DeterministicFieldRepeatEvidenceV4
+        let secondRepeat: DeterministicFieldRepeatEvidenceV4
+        switch dominance {
+        case .topFieldFirst:
+            firstRepeat = .topOnly
+            secondRepeat = .bottomOnly
+        case .bottomFieldFirst:
+            firstRepeat = .bottomOnly
+            secondRepeat = .topOnly
+        }
+        let canonical: [DeterministicFieldRepeatEvidenceV4] = [
+            .neither, firstRepeat, .neither, secondRepeat, .neither
+        ]
+        let observed = observations.map(\.repeatEvidence)
+        for phase in canonical.indices {
+            if observed.indices.allSatisfy({ index in
+                observed[index]
+                    == canonical[(index + phase) % canonical.count]
+            }) {
+                return .telecine32
+            }
+        }
+        let singleParityRepeats = observed.filter {
+            $0 == .topOnly || $0 == .bottomOnly
+        }
+        if singleParityRepeats.count >= 3,
+           singleParityRepeats.contains(.topOnly),
+           singleParityRepeats.contains(.bottomOnly) {
+            return .mixed
+        }
+        return .interlaced
+    }
+
+    private static func measure(
+        previous: FieldPlaneV4,
+        current: FieldPlaneV4,
+        inputFrameOrdinal: UInt64,
+        repeatCodeDifference: UInt16
+    ) throws -> DeterministicFieldCadenceObservationV4 {
+        guard previous.width == current.width,
+              previous.height == current.height,
+              previous.componentsPerSample == current.componentsPerSample,
+              previous.minimumCode == current.minimumCode,
+              previous.maximumCode == current.maximumCode else {
+            throw DeterministicFieldCadenceV4Error.incompatibleFieldHistory
+        }
+        let top = try fieldDifference(
+            previous: previous,
+            current: current,
+            parity: .top,
+            repeatCodeDifference: repeatCodeDifference
+        )
+        let bottom = try fieldDifference(
+            previous: previous,
+            current: current,
+            parity: .bottom,
+            repeatCodeDifference: repeatCodeDifference
+        )
+        let normalizedRepeatThresholdQ16 = try Self
+            .normalizedRepeatThresholdQ16(
+            minimumCode: current.minimumCode,
+            maximumCode: current.maximumCode,
+            repeatCodeDifference: repeatCodeDifference
+        )
+        let topRepeated = isRepeatedParity(
+            meanAbsoluteDifferenceQ16: top.meanQ16,
+            changedSampleFractionQ16: top.changedFractionQ16,
+            maximumBlockMeanAbsoluteDifferenceQ16:
+                top.maximumBlockMeanQ16,
+            maximumBlockChangedSampleFractionQ16:
+                top.maximumBlockChangedFractionQ16,
+            normalizedRepeatThresholdQ16: normalizedRepeatThresholdQ16
+        )
+        let bottomRepeated = isRepeatedParity(
+            meanAbsoluteDifferenceQ16: bottom.meanQ16,
+            changedSampleFractionQ16: bottom.changedFractionQ16,
+            maximumBlockMeanAbsoluteDifferenceQ16:
+                bottom.maximumBlockMeanQ16,
+            maximumBlockChangedSampleFractionQ16:
+                bottom.maximumBlockChangedFractionQ16,
+            normalizedRepeatThresholdQ16: normalizedRepeatThresholdQ16
+        )
+        let repeatEvidence: DeterministicFieldRepeatEvidenceV4
+        switch (topRepeated, bottomRepeated) {
+        case (false, false): repeatEvidence = .neither
+        case (true, false): repeatEvidence = .topOnly
+        case (false, true): repeatEvidence = .bottomOnly
+        case (true, true): repeatEvidence = .both
+        }
+        return DeterministicFieldCadenceObservationV4(
+            inputFrameOrdinal: inputFrameOrdinal,
+            topMeanAbsoluteDifferenceQ16: top.meanQ16,
+            bottomMeanAbsoluteDifferenceQ16: bottom.meanQ16,
+            topChangedSampleFractionQ16: top.changedFractionQ16,
+            bottomChangedSampleFractionQ16: bottom.changedFractionQ16,
+            topMaximumBlockMeanAbsoluteDifferenceQ16:
+                top.maximumBlockMeanQ16,
+            bottomMaximumBlockMeanAbsoluteDifferenceQ16:
+                bottom.maximumBlockMeanQ16,
+            topMaximumBlockChangedSampleFractionQ16:
+                top.maximumBlockChangedFractionQ16,
+            bottomMaximumBlockChangedSampleFractionQ16:
+                bottom.maximumBlockChangedFractionQ16,
+            normalizedRepeatThresholdQ16: normalizedRepeatThresholdQ16,
+            repeatEvidence: repeatEvidence
+        )
+    }
+
+    private static func fieldDifference(
+        previous: FieldPlaneV4,
+        current: FieldPlaneV4,
+        parity: FieldParityV4,
+        repeatCodeDifference: UInt16
+    ) throws -> (
+        meanQ16: UInt32,
+        changedFractionQ16: UInt32,
+        maximumBlockMeanQ16: UInt32,
+        maximumBlockChangedFractionQ16: UInt32
+    ) {
+        var differenceSum = UInt64(0)
+        var sampleCount = UInt64(0)
+        var changedSampleCount = UInt64(0)
+        var maximumBlockMeanQ16 = UInt32(0)
+        var maximumBlockChangedFractionQ16 = UInt32(0)
+        let fieldRowCount = current.height / 2
+            + (parity == .top && !current.height.isMultiple(of: 2) ? 1 : 0)
+        for fieldOriginY in stride(
+            from: 0,
+            to: fieldRowCount,
+            by: comparisonBlockFieldHeight
+        ) {
+            let blockFieldHeight = min(
+                comparisonBlockFieldHeight,
+                fieldRowCount - fieldOriginY
+            )
+            for originX in stride(
+                from: 0,
+                to: current.width,
+                by: comparisonBlockWidth
+            ) {
+                let blockWidth = min(
+                    comparisonBlockWidth,
+                    current.width - originX
+                )
+                var blockDifferenceSum = UInt64(0)
+                var blockSampleCount = UInt64(0)
+                var blockChangedSampleCount = UInt64(0)
+                for fieldY in fieldOriginY..<(
+                    fieldOriginY + blockFieldHeight
+                ) {
+                    let y = parity.rawValue + fieldY * 2
+                    for x in originX..<(originX + blockWidth) {
+                        let first = previous.codeUnchecked(
+                            x: x,
+                            y: y,
+                            component: 0
+                        )
+                        let second = current.codeUnchecked(
+                            x: x,
+                            y: y,
+                            component: 0
+                        )
+                        let difference = first > second
+                            ? UInt64(first - second)
+                            : UInt64(second - first)
+                        blockDifferenceSum = try checkedCadenceSum(
+                            blockDifferenceSum,
+                            difference
+                        )
+                        blockSampleCount = try checkedCadenceSum(
+                            blockSampleCount,
+                            1
+                        )
+                        if difference > UInt64(repeatCodeDifference) {
+                            blockChangedSampleCount = try checkedCadenceSum(
+                                blockChangedSampleCount,
+                                1
+                            )
+                        }
+                    }
+                }
+                differenceSum = try checkedCadenceSum(
+                    differenceSum,
+                    blockDifferenceSum
+                )
+                sampleCount = try checkedCadenceSum(
+                    sampleCount,
+                    blockSampleCount
+                )
+                changedSampleCount = try checkedCadenceSum(
+                    changedSampleCount,
+                    blockChangedSampleCount
+                )
+                let signalRange = UInt64(
+                    current.maximumCode - current.minimumCode
+                )
+                let blockDenominator = blockSampleCount
+                    .multipliedReportingOverflow(by: signalRange)
+                guard !blockDenominator.overflow else {
+                    throw DeterministicFieldCadenceV4Error.arithmeticOverflow
+                }
+                let blockMeanQ16 = try normalizedQ16(
+                    blockDifferenceSum,
+                    denominator: blockDenominator.partialValue
+                )
+                let blockChangedFractionQ16 = try normalizedQ16(
+                    blockChangedSampleCount,
+                    denominator: blockSampleCount
+                )
+                maximumBlockMeanQ16 = max(
+                    maximumBlockMeanQ16,
+                    blockMeanQ16
+                )
+                maximumBlockChangedFractionQ16 = max(
+                    maximumBlockChangedFractionQ16,
+                    blockChangedFractionQ16
+                )
+            }
+        }
+        guard sampleCount > 0 else {
+            throw DeterministicFieldCadenceV4Error.invalidState
+        }
+        let signalRange = UInt64(current.maximumCode - current.minimumCode)
+        let denominator = sampleCount.multipliedReportingOverflow(
+            by: signalRange
+        )
+        guard !denominator.overflow else {
+            throw DeterministicFieldCadenceV4Error.arithmeticOverflow
+        }
+        let meanQ16 = try normalizedQ16(
+            differenceSum,
+            denominator: denominator.partialValue
+        )
+        let changedFractionQ16 = try normalizedQ16(
+            changedSampleCount,
+            denominator: sampleCount
+        )
+        return (
+            meanQ16: meanQ16,
+            changedFractionQ16: changedFractionQ16,
+            maximumBlockMeanQ16: maximumBlockMeanQ16,
+            maximumBlockChangedFractionQ16:
+                maximumBlockChangedFractionQ16
+        )
+    }
+
+    fileprivate static func isRepeatedParity(
+        meanAbsoluteDifferenceQ16: UInt32,
+        changedSampleFractionQ16: UInt32,
+        maximumBlockMeanAbsoluteDifferenceQ16: UInt32,
+        maximumBlockChangedSampleFractionQ16: UInt32,
+        normalizedRepeatThresholdQ16: UInt32
+    ) -> Bool {
+        meanAbsoluteDifferenceQ16 <= normalizedRepeatThresholdQ16
+            && changedSampleFractionQ16
+                <= maximumChangedSampleFractionQ16
+            && maximumBlockMeanAbsoluteDifferenceQ16
+                <= normalizedRepeatThresholdQ16
+            && maximumBlockChangedSampleFractionQ16
+                <= maximumBlockChangedSampleFractionQ16
+    }
+
+    static func normalizedRepeatThresholdQ16(
+        minimumCode: UInt16,
+        maximumCode: UInt16,
+        repeatCodeDifference: UInt16
+    ) throws -> UInt32 {
+        guard minimumCode <= maximumCode else {
+            throw DeterministicFieldCadenceV4Error.invalidState
+        }
+        let signalRange = UInt64(maximumCode - minimumCode)
+        return try normalizedQ16(
+            min(UInt64(repeatCodeDifference), signalRange),
+            denominator: signalRange
+        )
+    }
+
+    private static func checkedCadenceSum(
+        _ lhs: UInt64,
+        _ rhs: UInt64
+    ) throws -> UInt64 {
+        let result = lhs.addingReportingOverflow(rhs)
+        guard !result.overflow else {
+            throw DeterministicFieldCadenceV4Error.arithmeticOverflow
+        }
+        return result.partialValue
+    }
+
+    private static func normalizedQ16(
+        _ numerator: UInt64,
+        denominator: UInt64
+    ) throws -> UInt32 {
+        if denominator == 0 { return 0 }
+        let scaled = numerator.multipliedReportingOverflow(by: 65_536)
+        guard !scaled.overflow else {
+            throw DeterministicFieldCadenceV4Error.arithmeticOverflow
+        }
+        var quotient = scaled.partialValue / denominator
+        let remainder = scaled.partialValue % denominator
+        let doubledRemainder = remainder.multipliedReportingOverflow(by: 2)
+        guard !doubledRemainder.overflow else {
+            throw DeterministicFieldCadenceV4Error.arithmeticOverflow
+        }
+        if doubledRemainder.partialValue > denominator
+            || (doubledRemainder.partialValue == denominator
+                && !quotient.isMultiple(of: 2)) {
+            let rounded = quotient.addingReportingOverflow(1)
+            guard !rounded.overflow else {
+                throw DeterministicFieldCadenceV4Error.arithmeticOverflow
+            }
+            quotient = rounded.partialValue
+        }
+        guard quotient <= 65_536, let result = UInt32(exactly: quotient) else {
+            throw DeterministicFieldCadenceV4Error.arithmeticOverflow
+        }
+        return result
+    }
 }
 
 /// Deterministic edge-directed bob with motion-adaptive temporal substitution.

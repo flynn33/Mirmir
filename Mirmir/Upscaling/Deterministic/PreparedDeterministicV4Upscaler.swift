@@ -8,6 +8,11 @@ enum ASHPreparedTemporalCheckpointV4Error: Error, Equatable, Sendable {
     case identityMismatch
     case invalidState
     case nonCanonicalEncoding
+    case operationInProgress
+    case destinationAlias
+    case pixelBufferLockFailed(role: String, status: CVReturn)
+    case inputOrdinalMismatch(expected: Int64, actual: Int64)
+    case ordinalOverflow
 }
 
 /// Complete state needed to make the next emitted pixel independent of
@@ -16,7 +21,7 @@ enum ASHPreparedTemporalCheckpointV4Error: Error, Equatable, Sendable {
 /// luma history; either omission changes temporal evidence after resume.
 struct ASHPreparedTemporalCheckpointV4: Codable, Equatable, Hashable,
     Sendable {
-    static let currentSchemaID = "ash.prepared-temporal-checkpoint.v4.1"
+    static let currentSchemaID = "ash.prepared-temporal-checkpoint.v4.4"
 
     let schemaID: String
     let planSHA256: ASHSHA256V4
@@ -33,6 +38,7 @@ struct ASHPreparedTemporalCheckpointV4: Codable, Equatable, Hashable,
     let previousMeasurementFrame: PixelBufferSignalFrameV4?
     let previousMeasurementStateRawValue: UInt16?
     let previousInterlacedFrame: PixelBufferSignalFrameV4?
+    let fieldCadenceState: DeterministicFieldCadenceStateV4?
 
     init(
         planSHA256: ASHSHA256V4,
@@ -48,7 +54,8 @@ struct ASHPreparedTemporalCheckpointV4: Codable, Equatable, Hashable,
         history: ASHTemporalHistoryV4,
         previousMeasurementFrame: PixelBufferSignalFrameV4?,
         previousMeasurementStateRawValue: UInt16?,
-        previousInterlacedFrame: PixelBufferSignalFrameV4?
+        previousInterlacedFrame: PixelBufferSignalFrameV4?,
+        fieldCadenceState: DeterministicFieldCadenceStateV4?
     ) throws {
         schemaID = Self.currentSchemaID
         self.planSHA256 = planSHA256
@@ -67,6 +74,7 @@ struct ASHPreparedTemporalCheckpointV4: Codable, Equatable, Hashable,
         self.previousMeasurementStateRawValue
             = previousMeasurementStateRawValue
         self.previousInterlacedFrame = previousInterlacedFrame
+        self.fieldCadenceState = fieldCadenceState
         try validate()
     }
 
@@ -84,7 +92,43 @@ struct ASHPreparedTemporalCheckpointV4: Codable, Equatable, Hashable,
               ASHTemporalFrameV4.validIdentifier(scanModeID) else {
             throw ASHPreparedTemporalCheckpointV4Error.invalidState
         }
-        try history.validate()
+        do {
+            try history.validate()
+            try validateSourceFrame(previousMeasurementFrame)
+            try validateSourceFrame(previousInterlacedFrame)
+        } catch {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        let completedInputCount = lastCompletedInputOrdinal
+            .addingReportingOverflow(1)
+        guard !completedInputCount.overflow,
+              completedInputCount.partialValue > 0,
+              let completedInputCountUnsigned = UInt64(
+                exactly: completedInputCount.partialValue
+              ) else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        let outputsPerInput: Int64
+        switch scanModeID {
+        case "progressive":
+            outputsPerInput = 1
+        case "interlaced_tff_double_rate", "interlaced_bff_double_rate":
+            outputsPerInput = 2
+        default:
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        let expectedOutputCount = completedInputCount.partialValue
+            .multipliedReportingOverflow(by: outputsPerInput)
+        let nextInputOrdinal = lastCompletedInputOrdinal
+            .addingReportingOverflow(1)
+        let nextOutputOrdinalWithHeadroom = nextOutputOrdinal
+            .addingReportingOverflow(outputsPerInput)
+        guard !expectedOutputCount.overflow,
+              expectedOutputCount.partialValue == nextOutputOrdinal,
+              !nextInputOrdinal.overflow,
+              !nextOutputOrdinalWithHeadroom.overflow else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
         guard let latest = history.frames.last,
               latest.ordinal == nextOutputOrdinal - 1,
               latest.presentationTime
@@ -93,26 +137,47 @@ struct ASHPreparedTemporalCheckpointV4: Codable, Equatable, Hashable,
               previousMeasurementStateRawValue != nil else {
             throw ASHPreparedTemporalCheckpointV4Error.invalidState
         }
-        if let raw = previousMeasurementStateRawValue {
-            let state = try ASHState(rawValue: raw)
-            guard state.hasValidIntegrity,
-                  latest.tileStateRawValues.last == raw else {
-                throw ASHPreparedTemporalCheckpointV4Error.invalidState
-            }
-        }
-        try validateSourceFrame(previousMeasurementFrame)
-        try validateSourceFrame(previousInterlacedFrame)
-        if scanModeID == "progressive" {
-            guard previousInterlacedFrame == nil else {
-                throw ASHPreparedTemporalCheckpointV4Error.invalidState
-            }
-        } else if scanModeID.hasPrefix("interlaced_") {
-            guard previousInterlacedFrame != nil else {
-                throw ASHPreparedTemporalCheckpointV4Error.invalidState
-            }
-        } else {
+        guard let raw = previousMeasurementStateRawValue,
+              let state = try? ASHState(rawValue: raw),
+              state.hasValidIntegrity,
+              latest.tileStateRawValues.last == raw else {
             throw ASHPreparedTemporalCheckpointV4Error.invalidState
         }
+        let expectedCadenceID: String
+        if scanModeID == "progressive" {
+            guard previousInterlacedFrame == nil,
+                  fieldCadenceState == nil else {
+                throw ASHPreparedTemporalCheckpointV4Error.invalidState
+            }
+            expectedCadenceID = "progressive"
+        } else {
+            guard let previousInterlacedFrame,
+                  let luma = previousInterlacedFrame.planes.first,
+                  let lumaBounds = luma.componentBounds.first,
+                  let expectedRepeatThresholdQ16 = try?
+                    DeterministicFieldCadenceClassifierV4
+                        .normalizedRepeatThresholdQ16(
+                            minimumCode: lumaBounds.minimum,
+                            maximumCode: lumaBounds.maximum,
+                            repeatCodeDifference:
+                                sourceStorage.signalBitDepth == 10 ? 16 : 4
+                        ),
+                  let fieldCadenceState,
+                  (try? fieldCadenceState.validate()) != nil,
+                  fieldCadenceState.streamInputFrameCount
+                    == completedInputCountUnsigned,
+                  fieldCadenceState.observations.allSatisfy({
+                    $0.normalizedRepeatThresholdQ16
+                        == expectedRepeatThresholdQ16
+                  }),
+                  latest.cadenceID == fieldCadenceState.cadenceID else {
+                throw ASHPreparedTemporalCheckpointV4Error.invalidState
+            }
+            expectedCadenceID = fieldCadenceState.cadenceID
+        }
+        try validateProductionTemporalHistory(
+            expectedCadenceID: expectedCadenceID
+        )
     }
 
     var canonicalData: Data {
@@ -153,6 +218,69 @@ struct ASHPreparedTemporalCheckpointV4: Codable, Equatable, Hashable,
             throw ASHPreparedTemporalCheckpointV4Error.invalidState
         }
     }
+
+    /// Synthesized `Codable` initializers do not execute the throwing temporal
+    /// plane/frame initializers. Reconstruct every decoded value here before it
+    /// can become actor state, then enforce the narrower state shape emitted by
+    /// this prepared engine. This keeps malformed durable data from reaching
+    /// unchecked sample access in motion analysis.
+    private func validateProductionTemporalHistory(
+        expectedCadenceID: String
+    ) throws {
+        guard history.capacity == 3,
+              history.generation > 0,
+              history.generation < UInt64.max,
+              history.lastResetReason == nil,
+              !history.frames.isEmpty,
+              history.frames.count <= history.capacity,
+              let historyCount = Int64(exactly: history.frames.count) else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        let firstOrdinal = nextOutputOrdinal.subtractingReportingOverflow(
+            historyCount
+        )
+        guard !firstOrdinal.overflow, firstOrdinal.partialValue >= 0 else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+
+        for (index, frame) in history.frames.enumerated() {
+            let validatedFrame: ASHTemporalFrameV4
+            do {
+                let validatedLuma = try ASHTemporalPlaneV4(
+                    width: frame.luma.width,
+                    height: frame.luma.height,
+                    minimumCode: frame.luma.minimumCode,
+                    maximumCode: frame.luma.maximumCode,
+                    samples: frame.luma.samples
+                )
+                validatedFrame = try ASHTemporalFrameV4(
+                    frameID: frame.frameID,
+                    streamID: frame.streamID,
+                    formatIdentity: frame.formatIdentity,
+                    ordinal: frame.ordinal,
+                    presentationTime: frame.presentationTime,
+                    luma: validatedLuma,
+                    tileStateRawValues: frame.tileStateRawValues,
+                    cadenceID: frame.cadenceID
+                )
+            } catch {
+                throw ASHPreparedTemporalCheckpointV4Error.invalidState
+            }
+            let ordinalOffset = Int64(index)
+            let expectedOrdinal = firstOrdinal.partialValue
+                .addingReportingOverflow(ordinalOffset)
+            guard !expectedOrdinal.overflow,
+                  validatedFrame == frame,
+                  frame.ordinal == expectedOrdinal.partialValue,
+                  frame.frameID == "v4-frame-\(frame.ordinal)",
+                  frame.streamID == "primary-video",
+                  frame.formatIdentity == formatIdentity,
+                  frame.tileStateRawValues.count == 1,
+                  frame.cadenceID == expectedCadenceID else {
+                throw ASHPreparedTemporalCheckpointV4Error.invalidState
+            }
+        }
+    }
 }
 
 actor PreparedDeterministicV4Upscaler:
@@ -172,14 +300,22 @@ actor PreparedDeterministicV4Upscaler:
     private let branchProgram: ASHDepthFourBranchProgramV4
     private let scaler: FixedPointPixelBufferScalerV4
     private let formatIdentity: ASHSHA256V4
+    private let interlacedScratchDestinations: [CVPixelBuffer]
 
     private var temporalHistory: ASHTemporalHistoryV4
     private var previousMeasurementFrame: PixelBufferSignalFrameV4?
     private var previousMeasurementState: ASHState?
     private var previousInterlacedFrame: PixelBufferSignalFrameV4?
+    private var fieldCadenceState: DeterministicFieldCadenceStateV4?
     private var outputOrdinal: Int64 = 0
+    private var lastCompletedInputOrdinal: Int64 = -1
     private var lastOutputPresentationTime = ExactRationalV4.zero
     private var finished = false
+    private var operationInFlight = false
+#if DEBUG
+    private var interlacedOutputBoundaryTestHook:
+        (@Sendable (Int) async throws -> Void)?
+#endif
 
     private var scanModeIdentity: String {
         switch configuration.scanMode {
@@ -227,6 +363,18 @@ actor PreparedDeterministicV4Upscaler:
             metalDevice: metalDevice,
             metalLibrary: metalLibrary
         )
+        if configuration.scanMode == .progressive {
+            self.interlacedScratchDestinations = []
+        } else {
+            self.interlacedScratchDestinations = try (0..<2).map { _ in
+                try PixelBufferSignalCodecV4.makeBuffer(
+                    storage: configuration.storage,
+                    width: configuration.targetWidth,
+                    height: configuration.targetHeight,
+                    metalCompatible: configuration.executionBackend == .metal
+                )
+            }
+        }
         self.formatIdentity = ASHSHA256V4(rawData: Data(
             [
                 ASHRuntimeManifestV4.runtimeIdentity,
@@ -289,6 +437,8 @@ actor PreparedDeterministicV4Upscaler:
         destinations: [FramePixelBuffer],
         timing: FrameTiming
     ) async throws -> [TemporalOutputFrame] {
+        try beginExclusiveOperation()
+        defer { endExclusiveOperation() }
         do {
             guard !finished else {
                 throw configuration.processingError(
@@ -303,18 +453,23 @@ actor PreparedDeterministicV4Upscaler:
                     frameIndex: timing.frameIndex
                 )
             }
+            let inputOrdinal = try validatedNextInputOrdinal(timing.frameIndex)
+            try validateOutputOrdinalHeadroom()
             try Task.checkCancellation()
             switch configuration.scanMode {
             case .progressive:
-                return [try await processProgressive(
+                let output = try await processProgressive(
                     source: source.value,
                     destination: destinations[0].value,
                     presentationTime: timing.presentationTime,
                     sourceFrameIndex: timing.frameIndex,
                     cadenceID: "progressive",
                     resetTrigger: previousMeasurementFrame == nil
-                        ? .streamStart : nil
-                )]
+                        ? .streamStart : nil,
+                    suppressAutomaticSceneCutReset: false
+                )
+                lastCompletedInputOrdinal = inputOrdinal
+                return [output]
             case .interlaced(let dominance):
                 return try await processInterlaced(
                     source: source.value,
@@ -325,6 +480,8 @@ actor PreparedDeterministicV4Upscaler:
             }
         } catch is CancellationError {
             throw CancellationError()
+        } catch let error as ASHPreparedTemporalCheckpointV4Error {
+            throw error
         } catch let error as MirmirError {
             throw error
         } catch {
@@ -336,22 +493,44 @@ actor PreparedDeterministicV4Upscaler:
     }
 
     func finish() async throws {
+        try beginExclusiveOperation()
+        defer { endExclusiveOperation() }
         guard !finished else { return }
         try Task.checkCancellation()
         try temporalHistory.reset(reason: .explicitReset)
         previousMeasurementFrame = nil
         previousMeasurementState = nil
         previousInterlacedFrame = nil
+        fieldCadenceState = nil
         finished = true
     }
 
+#if DEBUG
+    /// Deterministic failure injection at an interlaced output boundary. This
+    /// is compiled out of release builds and exists only to prove that an
+    /// interrupted two-field transaction can be retried byte-identically.
+    func setInterlacedOutputBoundaryTestHook(
+        _ hook: (@Sendable (Int) async throws -> Void)?
+    ) {
+        interlacedOutputBoundaryTestHook = hook
+    }
+#endif
+
     func makeTemporalCheckpoint(
         planSHA256: ASHSHA256V4,
-        lastCompletedInputOrdinal: Int64
+        lastCompletedInputOrdinal requestedInputOrdinal: Int64
     ) async throws -> Data {
+        try beginExclusiveOperation()
+        defer { endExclusiveOperation() }
         guard !finished else {
             throw configuration.processingError(
                 "a finished engine cannot produce a resumable checkpoint"
+            )
+        }
+        guard requestedInputOrdinal == lastCompletedInputOrdinal else {
+            throw ASHPreparedTemporalCheckpointV4Error.inputOrdinalMismatch(
+                expected: lastCompletedInputOrdinal,
+                actual: requestedInputOrdinal
             )
         }
         return try ASHPreparedTemporalCheckpointV4(
@@ -369,7 +548,8 @@ actor PreparedDeterministicV4Upscaler:
             previousMeasurementFrame: previousMeasurementFrame,
             previousMeasurementStateRawValue:
                 previousMeasurementState?.rawValue,
-            previousInterlacedFrame: previousInterlacedFrame
+            previousInterlacedFrame: previousInterlacedFrame,
+            fieldCadenceState: fieldCadenceState
         ).canonicalData
     }
 
@@ -377,6 +557,8 @@ actor PreparedDeterministicV4Upscaler:
         _ data: Data,
         planSHA256: ASHSHA256V4
     ) async throws {
+        try beginExclusiveOperation()
+        defer { endExclusiveOperation() }
         guard !finished else {
             throw configuration.processingError(
                 "a finished engine cannot restore a checkpoint"
@@ -396,12 +578,14 @@ actor PreparedDeterministicV4Upscaler:
         }
         temporalHistory = checkpoint.history
         outputOrdinal = checkpoint.nextOutputOrdinal
+        lastCompletedInputOrdinal = checkpoint.lastCompletedInputOrdinal
         lastOutputPresentationTime = checkpoint
             .lastCompletedOutputPresentationTime
         previousMeasurementFrame = checkpoint.previousMeasurementFrame
         previousMeasurementState = try checkpoint
             .previousMeasurementStateRawValue.map(ASHState.init(rawValue:))
         previousInterlacedFrame = checkpoint.previousInterlacedFrame
+        fieldCadenceState = checkpoint.fieldCadenceState
     }
 
     private func processInterlaced(
@@ -410,21 +594,58 @@ actor PreparedDeterministicV4Upscaler:
         timing: FrameTiming,
         dominance: FieldDominanceV4
     ) async throws -> [TemporalOutputFrame] {
+        let initialTemporalHistory = temporalHistory
+        let initialPreviousMeasurementFrame = previousMeasurementFrame
+        let initialPreviousMeasurementState = previousMeasurementState
+        let initialPreviousInterlacedFrame = previousInterlacedFrame
+        let initialFieldCadenceState = fieldCadenceState
+        let initialOutputOrdinal = outputOrdinal
+        let initialLastCompletedInputOrdinal = lastCompletedInputOrdinal
+        let initialLastOutputPresentationTime = lastOutputPresentationTime
+        var completedTransaction = false
+        defer {
+            if !completedTransaction {
+                temporalHistory = initialTemporalHistory
+                previousMeasurementFrame = initialPreviousMeasurementFrame
+                previousMeasurementState = initialPreviousMeasurementState
+                previousInterlacedFrame = initialPreviousInterlacedFrame
+                fieldCadenceState = initialFieldCadenceState
+                outputOrdinal = initialOutputOrdinal
+                lastCompletedInputOrdinal = initialLastCompletedInputOrdinal
+                lastOutputPresentationTime = initialLastOutputPresentationTime
+            }
+        }
+        try preflightInterlacedCallerDestinations(
+            source: source,
+            destinations: destinations
+        )
         let effectiveDominance = try resolvedFieldDominance(
             from: source,
             fallback: dominance
         )
-        let cadenceID = effectiveDominance == .topFieldFirst
-            ? "interlaced_tff_double_rate"
-            : "interlaced_bff_double_rate"
-        let previousCadenceID = temporalHistory.frames.last?.cadenceID
-        let cadenceChanged = previousInterlacedFrame != nil
-            && previousCadenceID != nil
-            && previousCadenceID != cadenceID
         let signal = try PixelBufferSignalCodecV4.read(
             source,
             storage: configuration.storage
         )
+        let previousCadencePlane: FieldPlaneV4?
+        if let previousInterlacedFrame {
+            previousCadencePlane = try cadencePlane(
+                from: previousInterlacedFrame
+            )
+        } else {
+            previousCadencePlane = nil
+        }
+        let cadenceDecision = try DeterministicFieldCadenceClassifierV4
+            .observe(
+                previous: previousCadencePlane,
+                current: try cadencePlane(from: signal),
+                dominance: effectiveDominance,
+                repeatCodeDifference:
+                    configuration.storage.signalBitDepth == 10 ? 16 : 4,
+                state: fieldCadenceState
+            )
+        let cadenceID = cadenceDecision.state.cadenceID
+        let cadenceChanged = cadenceDecision.didTransition
         let duration = timing.duration.isNumeric
             && timing.duration.value > 0
             ? timing.duration
@@ -514,11 +735,19 @@ actor PreparedDeterministicV4Upscaler:
                 )
             }
         }
+        fieldCadenceState = cadenceDecision.state
         previousInterlacedFrame = signal
 
+        let scratchDestinations = interlacedScratchDestinations
+        guard scratchDestinations.count == 2 else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
         var outputs: [TemporalOutputFrame] = []
         outputs.reserveCapacity(2)
         for outputIndex in 0..<2 {
+#if DEBUG
+            try await interlacedOutputBoundaryTestHook?(outputIndex)
+#endif
             let normalized = PixelBufferSignalFrameV4(
                 storage: configuration.storage,
                 width: configuration.sourceWidth,
@@ -552,16 +781,331 @@ actor PreparedDeterministicV4Upscaler:
             )
             outputs.append(try await processProgressive(
                 source: temporary,
-                destination: destinations[outputIndex].value,
+                destination: scratchDestinations[outputIndex],
                 presentationTime: presentation,
                 sourceFrameIndex: timing.frameIndex,
                 cadenceID: cadenceID,
                 resetTrigger: outputIndex == 0
-                    && (cadenceChanged || previousMeasurementFrame == nil)
-                    ? .fieldCadenceChange : nil
+                    ? (previousMeasurementFrame == nil
+                        ? .streamStart
+                        : (cadenceChanged ? .fieldCadenceChange : nil))
+                    : nil,
+                suppressAutomaticSceneCutReset:
+                    cadenceChanged && outputIndex == 1
             ))
         }
-        return outputs
+#if DEBUG
+        try await interlacedOutputBoundaryTestHook?(2)
+#endif
+        try Task.checkCancellation()
+        try commitInterlacedScratchOutputs(
+            scratchDestinations,
+            to: destinations.map(\.value)
+        )
+        guard let completedInputOrdinal = Int64(exactly: timing.frameIndex)
+        else {
+            throw ASHPreparedTemporalCheckpointV4Error.ordinalOverflow
+        }
+        lastCompletedInputOrdinal = completedInputOrdinal
+        completedTransaction = true
+        return outputs.enumerated().map { index, output in
+            TemporalOutputFrame(
+                pixelBuffer: destinations[index],
+                presentationTime: output.presentationTime
+            )
+        }
+    }
+
+    private struct PixelBufferLockRequest {
+        let buffer: CVPixelBuffer
+        let flags: CVPixelBufferLockFlags
+        let role: String
+    }
+
+    private struct PixelBufferPlaneSpan {
+        let bufferIndex: Int
+        let planeIndex: Int
+        let start: UInt
+        let end: UInt
+    }
+
+    private struct PixelBufferRowCopy {
+        let source: UnsafeRawPointer
+        let destination: UnsafeMutableRawPointer
+        let sourceStride: Int
+        let destinationStride: Int
+        let activeByteCount: Int
+        let height: Int
+    }
+
+    private func preflightInterlacedCallerDestinations(
+        source: CVPixelBuffer,
+        destinations: [FramePixelBuffer]
+    ) throws {
+        guard destinations.count >= 2 else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        let first = destinations[0].value
+        let second = destinations[1].value
+        guard first !== second,
+              source !== first,
+              source !== second else {
+            throw ASHPreparedTemporalCheckpointV4Error.destinationAlias
+        }
+        try validateInterlacedDestination(first)
+        try validateInterlacedDestination(second)
+        try withLockedPixelBuffers([
+            PixelBufferLockRequest(
+                buffer: source,
+                flags: .readOnly,
+                role: "source"
+            ),
+            PixelBufferLockRequest(
+                buffer: first,
+                flags: .readOnly,
+                role: "destination_0_preflight"
+            ),
+            PixelBufferLockRequest(
+                buffer: second,
+                flags: .readOnly,
+                role: "destination_1_preflight"
+            )
+        ]) {
+            try validateNonoverlappingPlaneSpans(
+                buffers: [source, first, second]
+            )
+        }
+    }
+
+    /// Commits both completed field outputs as one non-suspending boundary.
+    /// Every fallible lock, geometry, pointer, span, and row calculation is
+    /// completed before the first caller-owned byte or attachment is changed.
+    private func commitInterlacedScratchOutputs(
+        _ scratch: [CVPixelBuffer],
+        to destinations: [CVPixelBuffer]
+    ) throws {
+        guard scratch.count == 2, destinations.count >= 2 else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        let allBuffers = [scratch[0], scratch[1], destinations[0], destinations[1]]
+        for leftIndex in allBuffers.indices {
+            for rightIndex in allBuffers.indices where rightIndex > leftIndex {
+                guard allBuffers[leftIndex] !== allBuffers[rightIndex] else {
+                    throw ASHPreparedTemporalCheckpointV4Error.destinationAlias
+                }
+            }
+        }
+        try validateInterlacedDestination(scratch[0])
+        try validateInterlacedDestination(scratch[1])
+        try validateInterlacedDestination(destinations[0])
+        try validateInterlacedDestination(destinations[1])
+
+        try withLockedPixelBuffers([
+            PixelBufferLockRequest(
+                buffer: scratch[0],
+                flags: .readOnly,
+                role: "scratch_0"
+            ),
+            PixelBufferLockRequest(
+                buffer: scratch[1],
+                flags: .readOnly,
+                role: "scratch_1"
+            ),
+            PixelBufferLockRequest(
+                buffer: destinations[0],
+                flags: [],
+                role: "destination_0_commit"
+            ),
+            PixelBufferLockRequest(
+                buffer: destinations[1],
+                flags: [],
+                role: "destination_1_commit"
+            )
+        ]) {
+            try validateNonoverlappingPlaneSpans(buffers: allBuffers)
+            let layout = PixelLayoutV4(storage: configuration.storage)
+            var copies: [PixelBufferRowCopy] = []
+            copies.reserveCapacity(layout.planes.count * 2)
+            for outputIndex in 0..<2 {
+                for (planeIndex, plane) in layout.planes.enumerated() {
+                    guard let sourceBase = CVPixelBufferGetBaseAddressOfPlane(
+                        scratch[outputIndex],
+                        planeIndex
+                    ), let destinationBase = CVPixelBufferGetBaseAddressOfPlane(
+                        destinations[outputIndex],
+                        planeIndex
+                    ) else {
+                        throw ASHPreparedTemporalCheckpointV4Error.invalidState
+                    }
+                    let activeByteCount = try plane.activeBytesPerRow(
+                        frameWidth: configuration.targetWidth
+                    )
+                    let sourceStride = CVPixelBufferGetBytesPerRowOfPlane(
+                        scratch[outputIndex],
+                        planeIndex
+                    )
+                    let destinationStride = CVPixelBufferGetBytesPerRowOfPlane(
+                        destinations[outputIndex],
+                        planeIndex
+                    )
+                    let sourceHeight = CVPixelBufferGetHeightOfPlane(
+                        scratch[outputIndex],
+                        planeIndex
+                    )
+                    let destinationHeight = CVPixelBufferGetHeightOfPlane(
+                        destinations[outputIndex],
+                        planeIndex
+                    )
+                    guard sourceStride >= activeByteCount,
+                          destinationStride >= activeByteCount,
+                          sourceHeight == destinationHeight else {
+                        throw ASHPreparedTemporalCheckpointV4Error.invalidState
+                    }
+                    copies.append(PixelBufferRowCopy(
+                        source: UnsafeRawPointer(sourceBase),
+                        destination: destinationBase,
+                        sourceStride: sourceStride,
+                        destinationStride: destinationStride,
+                        activeByteCount: activeByteCount,
+                        height: sourceHeight
+                    ))
+                }
+            }
+            let propagatedAttachments = scratch.map {
+                CVBufferCopyAttachments($0, .shouldPropagate)
+            }
+            let localAttachments = scratch.map {
+                CVBufferCopyAttachments($0, .shouldNotPropagate)
+            }
+
+            // No throwing operation is permitted below this boundary.
+            for copy in copies {
+                for rowIndex in 0..<copy.height {
+                    memcpy(
+                        copy.destination.advanced(
+                            by: rowIndex * copy.destinationStride
+                        ),
+                        copy.source.advanced(
+                            by: rowIndex * copy.sourceStride
+                        ),
+                        copy.activeByteCount
+                    )
+                }
+            }
+            for outputIndex in 0..<2 {
+                CVBufferRemoveAllAttachments(destinations[outputIndex])
+                if let propagatedAttachments =
+                    propagatedAttachments[outputIndex] {
+                    CVBufferSetAttachments(
+                        destinations[outputIndex],
+                        propagatedAttachments,
+                        .shouldPropagate
+                    )
+                }
+                if let localAttachments = localAttachments[outputIndex] {
+                    CVBufferSetAttachments(
+                        destinations[outputIndex],
+                        localAttachments,
+                        .shouldNotPropagate
+                    )
+                }
+            }
+        }
+    }
+
+    private func validateInterlacedDestination(
+        _ destination: CVPixelBuffer
+    ) throws {
+        guard CVPixelBufferGetPixelFormatType(destination)
+                == configuration.storage.pixelFormat,
+              CVPixelBufferGetWidth(destination) == configuration.targetWidth,
+              CVPixelBufferGetHeight(destination)
+                == configuration.targetHeight else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        try PixelLayoutV4(storage: configuration.storage)
+            .validateStructure(of: destination)
+    }
+
+    private func withLockedPixelBuffers<T>(
+        _ requests: [PixelBufferLockRequest],
+        operation: () throws -> T
+    ) throws -> T {
+        var lockedRequests: [PixelBufferLockRequest] = []
+        lockedRequests.reserveCapacity(requests.count)
+        for request in requests {
+            let status = CVPixelBufferLockBaseAddress(
+                request.buffer,
+                request.flags
+            )
+            guard status == kCVReturnSuccess else {
+                for locked in lockedRequests.reversed() {
+                    CVPixelBufferUnlockBaseAddress(
+                        locked.buffer,
+                        locked.flags
+                    )
+                }
+                throw ASHPreparedTemporalCheckpointV4Error
+                    .pixelBufferLockFailed(
+                        role: request.role,
+                        status: status
+                    )
+            }
+            lockedRequests.append(request)
+        }
+        defer {
+            for request in lockedRequests.reversed() {
+                CVPixelBufferUnlockBaseAddress(request.buffer, request.flags)
+            }
+        }
+        return try operation()
+    }
+
+    private func validateNonoverlappingPlaneSpans(
+        buffers: [CVPixelBuffer]
+    ) throws {
+        var spans: [PixelBufferPlaneSpan] = []
+        for (bufferIndex, buffer) in buffers.enumerated() {
+            let planeCount = CVPixelBufferGetPlaneCount(buffer)
+            for planeIndex in 0..<planeCount {
+                guard let base = CVPixelBufferGetBaseAddressOfPlane(
+                    buffer,
+                    planeIndex
+                ) else {
+                    throw ASHPreparedTemporalCheckpointV4Error.invalidState
+                }
+                let byteCount = CVPixelBufferGetBytesPerRowOfPlane(
+                    buffer,
+                    planeIndex
+                ).multipliedReportingOverflow(
+                    by: CVPixelBufferGetHeightOfPlane(buffer, planeIndex)
+                )
+                guard !byteCount.overflow,
+                      let length = UInt(exactly: byteCount.partialValue) else {
+                    throw ASHPreparedTemporalCheckpointV4Error.ordinalOverflow
+                }
+                let start = UInt(bitPattern: base)
+                let end = start.addingReportingOverflow(length)
+                guard !end.overflow else {
+                    throw ASHPreparedTemporalCheckpointV4Error.ordinalOverflow
+                }
+                spans.append(PixelBufferPlaneSpan(
+                    bufferIndex: bufferIndex,
+                    planeIndex: planeIndex,
+                    start: start,
+                    end: end.partialValue
+                ))
+            }
+        }
+        for leftIndex in spans.indices {
+            for rightIndex in spans.indices where rightIndex > leftIndex {
+                let left = spans[leftIndex]
+                let right = spans[rightIndex]
+                if left.start < right.end, right.start < left.end {
+                    throw ASHPreparedTemporalCheckpointV4Error.destinationAlias
+                }
+            }
+        }
     }
 
     private func resolvedFieldDominance(
@@ -595,13 +1139,31 @@ actor PreparedDeterministicV4Upscaler:
         throw ASHPreparedTemporalCheckpointV4Error.invalidState
     }
 
+    private func cadencePlane(
+        from frame: PixelBufferSignalFrameV4
+    ) throws -> FieldPlaneV4 {
+        guard let luma = frame.planes.first,
+              luma.componentsPerElement == 1,
+              let bounds = luma.componentBounds.first else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        return try FieldPlaneV4(
+            width: luma.width,
+            height: luma.height,
+            minimumCode: bounds.minimum,
+            maximumCode: bounds.maximum,
+            samples: luma.samples
+        )
+    }
+
     private func processProgressive(
         source: CVPixelBuffer,
         destination: CVPixelBuffer,
         presentationTime: CMTime,
         sourceFrameIndex: Int,
         cadenceID: String,
-        resetTrigger: ASHMeasurementResetTriggerV4?
+        resetTrigger: ASHMeasurementResetTriggerV4?,
+        suppressAutomaticSceneCutReset: Bool
     ) async throws -> TemporalOutputFrame {
         let sourceSignal = try PixelBufferSignalCodecV4.read(
             source,
@@ -653,11 +1215,15 @@ actor PreparedDeterministicV4Upscaler:
         let effectiveMeasurementReset: ASHMeasurementResetTriggerV4?
         if let resetTrigger {
             effectiveMeasurementReset = resetTrigger
-        } else if measurementMotion?.sceneCut == true {
+        } else if measurementMotion?.sceneCut == true,
+                  !suppressAutomaticSceneCutReset {
             effectiveMeasurementReset = .sceneCut
         } else {
             effectiveMeasurementReset = nil
         }
+        let forceSpatialFallbackForSuppressedPairedFieldCut =
+            suppressAutomaticSceneCutReset
+                && measurementMotion?.sceneCut == true
         let measurementHistory: ASHMeasurementHistoryV4
         if let effectiveMeasurementReset {
             measurementHistory = .reset(effectiveMeasurementReset)
@@ -725,6 +1291,11 @@ actor PreparedDeterministicV4Upscaler:
         // metadata that the engine cannot regenerate.
         if dynamicMetadata != nil {
             resetReason = .colorDomainChange
+        } else if forceSpatialFallbackForSuppressedPairedFieldCut {
+            // Output zero already established the new cadence generation.
+            // A cut between the paired fields must not blend old evidence or
+            // advance that generation a second time.
+            motionAnalysis = nil
         } else if resetReason == nil,
                   let previous = temporalHistory.frames.last {
             let motion = try ASHTemporalMotionAnalyzerV4.analyze(
@@ -732,7 +1303,9 @@ actor PreparedDeterministicV4Upscaler:
                 previous: previous
             )
             if motion.sceneCut {
-                resetReason = .sceneCut
+                if !suppressAutomaticSceneCutReset {
+                    resetReason = .sceneCut
+                }
             } else {
                 motionAnalysis = motion
             }
@@ -868,6 +1441,42 @@ actor PreparedDeterministicV4Upscaler:
             (left, right) = (right, left % right)
         }
         return left
+    }
+
+    private func beginExclusiveOperation() throws {
+        guard !operationInFlight else {
+            throw ASHPreparedTemporalCheckpointV4Error.operationInProgress
+        }
+        operationInFlight = true
+    }
+
+    private func endExclusiveOperation() {
+        operationInFlight = false
+    }
+
+    private func validatedNextInputOrdinal(_ frameIndex: Int) throws -> Int64 {
+        guard let actual = Int64(exactly: frameIndex) else {
+            throw ASHPreparedTemporalCheckpointV4Error.ordinalOverflow
+        }
+        let next = lastCompletedInputOrdinal.addingReportingOverflow(1)
+        guard !next.overflow else {
+            throw ASHPreparedTemporalCheckpointV4Error.ordinalOverflow
+        }
+        guard actual == next.partialValue else {
+            throw ASHPreparedTemporalCheckpointV4Error.inputOrdinalMismatch(
+                expected: next.partialValue,
+                actual: actual
+            )
+        }
+        return actual
+    }
+
+    private func validateOutputOrdinalHeadroom() throws {
+        let advance = Int64(maximumOutputFramesPerInput)
+        let next = outputOrdinal.addingReportingOverflow(advance)
+        guard !next.overflow else {
+            throw ASHPreparedTemporalCheckpointV4Error.ordinalOverflow
+        }
     }
 }
 
