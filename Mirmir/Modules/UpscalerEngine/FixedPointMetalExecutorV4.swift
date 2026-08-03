@@ -12,6 +12,285 @@ enum FixedPointMetalExecutorV4Error: Error, Equatable, Sendable {
     case commandEncoderUnavailable
     case commandFailed(String)
     case planExceedsMetalRepresentation
+    case invalidBatchLayout(expected: Int, actual: Int)
+    case duplicateBatchExecution
+    case incompatibleBatchDevice
+}
+
+/// Serialized reusable Metal state for one validated scale/stride/range.
+/// Immutable plan buffers plus source/output storage survive across frames;
+/// only source bytes and command objects change per execution.
+final class FixedPointMetalPreparedExecutionV4: @unchecked Sendable {
+    let sourceSampleCount: Int
+    let outputSampleCount: Int
+    let reusableBufferCount = 7
+
+    fileprivate let lock = NSLock()
+    private let sourceWidth: Int
+    private let sourceHeight: Int
+    private let sourceRowStride: Int
+    private let targetWidth: Int
+    private let targetHeight: Int
+    private let sourceByteCount: Int
+    private let outputByteCount: Int
+    fileprivate let commandQueue: MTLCommandQueue
+    private let pipeline: MTLComputePipelineState
+    private let sourceBuffer: MTLBuffer
+    private let horizontalPositionBuffer: MTLBuffer
+    private let verticalPositionBuffer: MTLBuffer
+    private let horizontalCoefficientBuffer: MTLBuffer
+    private let verticalCoefficientBuffer: MTLBuffer
+    private let outputBuffer: MTLBuffer
+    private let uniformBuffer: MTLBuffer
+    private let threadsPerThreadgroup: MTLSize
+
+    fileprivate init(
+        sourceWidth: Int,
+        sourceHeight: Int,
+        sourceRowStride: Int,
+        targetWidth: Int,
+        targetHeight: Int,
+        sourceSampleCount: Int,
+        outputSampleCount: Int,
+        sourceByteCount: Int,
+        outputByteCount: Int,
+        commandQueue: MTLCommandQueue,
+        pipeline: MTLComputePipelineState,
+        sourceBuffer: MTLBuffer,
+        horizontalPositionBuffer: MTLBuffer,
+        verticalPositionBuffer: MTLBuffer,
+        horizontalCoefficientBuffer: MTLBuffer,
+        verticalCoefficientBuffer: MTLBuffer,
+        outputBuffer: MTLBuffer,
+        uniformBuffer: MTLBuffer,
+        threadsPerThreadgroup: MTLSize
+    ) {
+        self.sourceWidth = sourceWidth
+        self.sourceHeight = sourceHeight
+        self.sourceRowStride = sourceRowStride
+        self.targetWidth = targetWidth
+        self.targetHeight = targetHeight
+        self.sourceSampleCount = sourceSampleCount
+        self.outputSampleCount = outputSampleCount
+        self.sourceByteCount = sourceByteCount
+        self.outputByteCount = outputByteCount
+        self.commandQueue = commandQueue
+        self.pipeline = pipeline
+        self.sourceBuffer = sourceBuffer
+        self.horizontalPositionBuffer = horizontalPositionBuffer
+        self.verticalPositionBuffer = verticalPositionBuffer
+        self.horizontalCoefficientBuffer = horizontalCoefficientBuffer
+        self.verticalCoefficientBuffer = verticalCoefficientBuffer
+        self.outputBuffer = outputBuffer
+        self.uniformBuffer = uniformBuffer
+        self.threadsPerThreadgroup = threadsPerThreadgroup
+    }
+
+    func execute(source: [UInt16]) async throws -> [UInt16] {
+        var output = Array(repeating: UInt16(0), count: outputSampleCount)
+        try source.withUnsafeBufferPointer { sourceBuffer in
+            try output.withUnsafeMutableBufferPointer { destination in
+                try execute(
+                    source: sourceBuffer,
+                    destination: destination
+                )
+            }
+        }
+        return output
+    }
+
+    func execute(
+        source: UnsafeBufferPointer<UInt16>,
+        destination: UnsafeMutableBufferPointer<UInt16>
+    ) throws {
+        try validate(
+            sourceCount: source.count,
+            destinationCount: destination.count
+        )
+        try lock.withLock {
+            upload(source: source)
+            let commandBuffer = try makeCommandBuffer()
+            guard let encoder = commandBuffer.makeComputeCommandEncoder() else {
+                throw FixedPointMetalExecutorV4Error.commandEncoderUnavailable
+            }
+            encode(into: encoder)
+            encoder.endEncoding()
+            try commitAndWait(commandBuffer)
+            download(to: destination)
+        }
+    }
+
+    fileprivate func validate(
+        sourceCount: Int,
+        destinationCount: Int
+    ) throws {
+        guard sourceCount >= sourceSampleCount else {
+            throw FixedPointKernelV4Error.invalidSourceLayout(
+                width: sourceWidth,
+                height: sourceHeight,
+                rowStride: sourceRowStride,
+                sampleCount: sourceCount
+            )
+        }
+        guard destinationCount >= outputSampleCount else {
+            throw FixedPointKernelV4Error.invalidDestinationLayout(
+                expectedCount: outputSampleCount,
+                actualCount: destinationCount
+            )
+        }
+    }
+
+    fileprivate func upload(source: UnsafeBufferPointer<UInt16>) {
+        source.withMemoryRebound(to: UInt8.self) { bytes in
+            precondition(bytes.count >= sourceByteCount)
+            _ = memcpy(
+                sourceBuffer.contents(),
+                bytes.baseAddress!,
+                sourceByteCount
+            )
+        }
+    }
+
+    fileprivate func encode(into encoder: MTLComputeCommandEncoder) {
+        encoder.setComputePipelineState(pipeline)
+        encoder.setBuffer(sourceBuffer, offset: 0, index: 0)
+        encoder.setBuffer(horizontalPositionBuffer, offset: 0, index: 1)
+        encoder.setBuffer(verticalPositionBuffer, offset: 0, index: 2)
+        encoder.setBuffer(horizontalCoefficientBuffer, offset: 0, index: 3)
+        encoder.setBuffer(verticalCoefficientBuffer, offset: 0, index: 4)
+        encoder.setBuffer(outputBuffer, offset: 0, index: 5)
+        encoder.setBuffer(uniformBuffer, offset: 0, index: 6)
+        encoder.dispatchThreads(
+            MTLSize(width: targetWidth, height: targetHeight, depth: 1),
+            threadsPerThreadgroup: threadsPerThreadgroup
+        )
+    }
+
+    fileprivate func makeCommandBuffer() throws -> MTLCommandBuffer {
+        guard let commandBuffer = commandQueue.makeCommandBuffer() else {
+            throw FixedPointMetalExecutorV4Error.commandBufferUnavailable
+        }
+        return commandBuffer
+    }
+
+    fileprivate func commitAndWait(_ commandBuffer: MTLCommandBuffer) throws {
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else {
+            throw FixedPointMetalExecutorV4Error.commandFailed(
+                commandBuffer.error.map(String.init(describing:))
+                    ?? "Metal command ended with status \(commandBuffer.status.rawValue)."
+            )
+        }
+    }
+
+    fileprivate func download(
+        to destination: UnsafeMutableBufferPointer<UInt16>
+    ) {
+        _ = memcpy(
+            destination.baseAddress!,
+            outputBuffer.contents(),
+            outputByteCount
+        )
+    }
+}
+
+/// A prepared group shares one command buffer and one completion wait across
+/// multiple planes. Source/output arrays and all seven buffers per plane are
+/// caller-owned or retained, so repeated frame dispatches do not allocate.
+final class FixedPointMetalPreparedBatchV4: @unchecked Sendable {
+    // Separate batches may contain overlapping executions in different plane
+    // orders. One process-wide acquisition gate prevents cross-batch lock-order
+    // inversion while individual single-plane calls still synchronize narrowly.
+    private static let executionAcquisitionLock = NSLock()
+
+    let executionCount: Int
+    let reusableBufferCount: Int
+
+    private let executions: [FixedPointMetalPreparedExecutionV4]
+
+    init(executions: [FixedPointMetalPreparedExecutionV4]) throws {
+        guard !executions.isEmpty else {
+            throw FixedPointMetalExecutorV4Error.invalidBatchLayout(
+                expected: 1,
+                actual: 0
+            )
+        }
+        guard Set(executions.map(ObjectIdentifier.init)).count
+                == executions.count else {
+            throw FixedPointMetalExecutorV4Error.duplicateBatchExecution
+        }
+        let device = ObjectIdentifier(
+            executions[0].commandQueue.device as AnyObject
+        )
+        guard executions.dropFirst().allSatisfy({
+            ObjectIdentifier($0.commandQueue.device as AnyObject) == device
+        }) else {
+            throw FixedPointMetalExecutorV4Error.incompatibleBatchDevice
+        }
+        self.executions = executions
+        self.executionCount = executions.count
+        self.reusableBufferCount = executions.reduce(0) {
+            $0 + $1.reusableBufferCount
+        }
+    }
+
+    func execute(
+        sources: [[UInt16]],
+        destinations: inout [[UInt16]]
+    ) throws {
+        guard sources.count == executions.count else {
+            throw FixedPointMetalExecutorV4Error.invalidBatchLayout(
+                expected: executions.count,
+                actual: sources.count
+            )
+        }
+        guard destinations.count == executions.count else {
+            throw FixedPointMetalExecutorV4Error.invalidBatchLayout(
+                expected: executions.count,
+                actual: destinations.count
+            )
+        }
+        try Self.executionAcquisitionLock.withLock {
+            try withExecutionLocks(at: 0) {
+                for index in executions.indices {
+                    try executions[index].validate(
+                        sourceCount: sources[index].count,
+                        destinationCount: destinations[index].count
+                    )
+                    sources[index].withUnsafeBufferPointer {
+                        executions[index].upload(source: $0)
+                    }
+                }
+                let commandBuffer = try executions[0].makeCommandBuffer()
+                guard let encoder = commandBuffer.makeComputeCommandEncoder() else {
+                    throw FixedPointMetalExecutorV4Error.commandEncoderUnavailable
+                }
+                for execution in executions {
+                    execution.encode(into: encoder)
+                }
+                encoder.endEncoding()
+                try executions[0].commitAndWait(commandBuffer)
+                for index in executions.indices {
+                    destinations[index].withUnsafeMutableBufferPointer {
+                        executions[index].download(to: $0)
+                    }
+                }
+            }
+        }
+    }
+
+    private func withExecutionLocks<T>(
+        at index: Int,
+        _ operation: () throws -> T
+    ) rethrows -> T {
+        guard index < executions.count else {
+            return try operation()
+        }
+        return try executions[index].lock.withLock {
+            try withExecutionLocks(at: index + 1, operation)
+        }
+    }
 }
 
 /// Metal executor for the exact same Q14 IR consumed by
@@ -89,27 +368,44 @@ final class FixedPointMetalExecutorV4: @unchecked Sendable {
         minimumCode: UInt16,
         maximumCode: UInt16
     ) async throws -> [UInt16] {
-        // Run the platform-independent validator before allocating GPU state.
+        let prepared = try prepare(
+            sourceRowStride: sourceRowStride,
+            scalePlan: scalePlan,
+            kernelIR: kernelIR,
+            minimumCode: minimumCode,
+            maximumCode: maximumCode
+        )
+        return try await prepared.execute(source: source)
+    }
+
+    func prepare(
+        sourceRowStride: Int,
+        scalePlan: SpatialScalePlanV4,
+        kernelIR: FixedPointKernelIRV4,
+        minimumCode: UInt16,
+        maximumCode: UInt16
+    ) throws -> FixedPointMetalPreparedExecutionV4 {
         guard minimumCode <= maximumCode else {
             throw FixedPointKernelV4Error.invalidCodeBounds(
                 minimum: minimumCode,
                 maximum: maximumCode
             )
         }
-        let (requiredSourceCount, sourceCountOverflow) = sourceRowStride
+        let preparedScale = try FixedPointPreparedScaleV4(
+            scalePlan: scalePlan,
+            kernelIR: kernelIR
+        )
+        let (sourceSampleCount, sourceCountOverflow) = sourceRowStride
             .multipliedReportingOverflow(by: scalePlan.sourceHeight)
         guard sourceRowStride >= scalePlan.sourceWidth,
-              !sourceCountOverflow,
-              source.count >= requiredSourceCount else {
+              !sourceCountOverflow else {
             throw FixedPointKernelV4Error.invalidSourceLayout(
                 width: scalePlan.sourceWidth,
                 height: scalePlan.sourceHeight,
                 rowStride: sourceRowStride,
-                sampleCount: source.count
+                sampleCount: 0
             )
         }
-        try kernelIR.validate(scalePlan: scalePlan)
-
         let horizontalPositions = try makePositions(
             scalePlan.horizontal.positions,
             kernelIndices: kernelIR.horizontalKernelIndexByDestination
@@ -131,16 +427,16 @@ final class FixedPointMetalExecutorV4: @unchecked Sendable {
             minimumCode: minimumCode,
             maximumCode: maximumCode
         )
-        let (outputCount, outputCountOverflow) = scalePlan.targetWidth
-            .multipliedReportingOverflow(by: scalePlan.targetHeight)
-        let (outputByteCount, outputByteCountOverflow) = outputCount
+        let (sourceByteCount, sourceByteCountOverflow) = sourceSampleCount
             .multipliedReportingOverflow(by: MemoryLayout<UInt16>.stride)
-        guard !outputCountOverflow, !outputByteCountOverflow else {
+        let (outputByteCount, outputByteCountOverflow) = preparedScale
+            .outputSampleCount
+            .multipliedReportingOverflow(by: MemoryLayout<UInt16>.stride)
+        guard !sourceByteCountOverflow, !outputByteCountOverflow else {
             throw FixedPointKernelV4Error.executionArithmeticOverflow
         }
-
-        let sourceBuffer = try makeBuffer(
-            values: source,
+        let sourceBuffer = try makeEmptyBuffer(
+            byteCount: sourceByteCount,
             label: "v4 source"
         )
         let horizontalPositionBuffer = try makeBuffer(
@@ -159,15 +455,10 @@ final class FixedPointMetalExecutorV4: @unchecked Sendable {
             values: verticalCoefficients,
             label: "v4 vertical coefficients"
         )
-        guard let outputBuffer = device.makeBuffer(
-            length: outputByteCount,
-            options: .storageModeShared
-        ) else {
-            throw FixedPointMetalExecutorV4Error.bufferAllocationFailed(
-                label: "v4 output",
-                byteCount: outputByteCount
-            )
-        }
+        let outputBuffer = try makeEmptyBuffer(
+            byteCount: outputByteCount,
+            label: "v4 output"
+        )
         var mutableUniforms = uniforms
         guard let uniformBuffer = withUnsafeBytes(of: &mutableUniforms, {
             bytes in
@@ -182,21 +473,6 @@ final class FixedPointMetalExecutorV4: @unchecked Sendable {
                 byteCount: MemoryLayout<Uniforms>.stride
             )
         }
-
-        guard let commandBuffer = commandQueue.makeCommandBuffer() else {
-            throw FixedPointMetalExecutorV4Error.commandBufferUnavailable
-        }
-        guard let encoder = commandBuffer.makeComputeCommandEncoder() else {
-            throw FixedPointMetalExecutorV4Error.commandEncoderUnavailable
-        }
-        encoder.setComputePipelineState(pipeline)
-        encoder.setBuffer(sourceBuffer, offset: 0, index: 0)
-        encoder.setBuffer(horizontalPositionBuffer, offset: 0, index: 1)
-        encoder.setBuffer(verticalPositionBuffer, offset: 0, index: 2)
-        encoder.setBuffer(horizontalCoefficientBuffer, offset: 0, index: 3)
-        encoder.setBuffer(verticalCoefficientBuffer, offset: 0, index: 4)
-        encoder.setBuffer(outputBuffer, offset: 0, index: 5)
-        encoder.setBuffer(uniformBuffer, offset: 0, index: 6)
         let executionWidth = max(
             1,
             min(pipeline.threadExecutionWidth, scalePlan.targetWidth)
@@ -208,37 +484,31 @@ final class FixedPointMetalExecutorV4: @unchecked Sendable {
                 scalePlan.targetHeight
             )
         )
-        encoder.dispatchThreads(
-            MTLSize(
-                width: scalePlan.targetWidth,
-                height: scalePlan.targetHeight,
-                depth: 1
-            ),
+        return FixedPointMetalPreparedExecutionV4(
+            sourceWidth: scalePlan.sourceWidth,
+            sourceHeight: scalePlan.sourceHeight,
+            sourceRowStride: sourceRowStride,
+            targetWidth: scalePlan.targetWidth,
+            targetHeight: scalePlan.targetHeight,
+            sourceSampleCount: sourceSampleCount,
+            outputSampleCount: preparedScale.outputSampleCount,
+            sourceByteCount: sourceByteCount,
+            outputByteCount: outputByteCount,
+            commandQueue: commandQueue,
+            pipeline: pipeline,
+            sourceBuffer: sourceBuffer,
+            horizontalPositionBuffer: horizontalPositionBuffer,
+            verticalPositionBuffer: verticalPositionBuffer,
+            horizontalCoefficientBuffer: horizontalCoefficientBuffer,
+            verticalCoefficientBuffer: verticalCoefficientBuffer,
+            outputBuffer: outputBuffer,
+            uniformBuffer: uniformBuffer,
             threadsPerThreadgroup: MTLSize(
                 width: executionWidth,
                 height: executionHeight,
                 depth: 1
             )
         )
-        encoder.endEncoding()
-        await withCheckedContinuation { continuation in
-            commandBuffer.addCompletedHandler { _ in
-                continuation.resume()
-            }
-            commandBuffer.commit()
-        }
-        guard commandBuffer.status == .completed else {
-            throw FixedPointMetalExecutorV4Error.commandFailed(
-                commandBuffer.error.map(String.init(describing:))
-                    ?? "Metal command ended with status \(commandBuffer.status.rawValue)."
-            )
-        }
-
-        let pointer = outputBuffer.contents().bindMemory(
-            to: UInt16.self,
-            capacity: outputCount
-        )
-        return Array(UnsafeBufferPointer(start: pointer, count: outputCount))
     }
 
     private func makePositions(
@@ -318,6 +588,24 @@ final class FixedPointMetalExecutorV4: @unchecked Sendable {
             )
         }
         guard let buffer else {
+            throw FixedPointMetalExecutorV4Error.bufferAllocationFailed(
+                label: label,
+                byteCount: byteCount
+            )
+        }
+        buffer.label = label
+        return buffer
+    }
+
+    private func makeEmptyBuffer(
+        byteCount: Int,
+        label: String
+    ) throws -> MTLBuffer {
+        guard byteCount > 0,
+              let buffer = device.makeBuffer(
+                  length: byteCount,
+                  options: .storageModeShared
+              ) else {
             throw FixedPointMetalExecutorV4Error.bufferAllocationFailed(
                 label: label,
                 byteCount: byteCount

@@ -13,6 +13,8 @@ enum FixedPointKernelV4Error: Error, Equatable, Sendable {
         sampleCount: Int
     )
     case invalidCodeBounds(minimum: UInt16, maximum: UInt16)
+    case invalidDestinationLayout(expectedCount: Int, actualCount: Int)
+    case overlappingSourceAndDestination
     case executionArithmeticOverflow
     case nonCanonicalKernelIR
 }
@@ -411,9 +413,171 @@ struct FixedPointKernelIRV4: Codable, Equatable, Hashable, Sendable {
     }
 }
 
-/// Scalar CPU reference for the shared separable fixed-point IR. It keeps the
-/// horizontal Q14 accumulator unrounded and performs one Q28 ties-to-even
-/// reduction after the vertical pass, making the clamp point explicit.
+/// Four source indices and coefficients prepared once from one canonical axis.
+/// The explicit fields preserve the declared tap order without per-pixel
+/// arrays, dictionary lookups, phase resolution, or border arithmetic.
+struct FixedPointPreparedAxisSampleV4: Equatable, Sendable {
+    let source0: Int
+    let source1: Int
+    let source2: Int
+    let source3: Int
+    let coefficient0: Int64
+    let coefficient1: Int64
+    let coefficient2: Int64
+    let coefficient3: Int64
+
+    @inline(__always)
+    fileprivate func contains(source: Int) -> Bool {
+        source0 == source || source1 == source
+            || source2 == source || source3 == source
+    }
+
+    fileprivate var absoluteCoefficientSum: UInt64 {
+        coefficient0.magnitude + coefficient1.magnitude
+            + coefficient2.magnitude + coefficient3.magnitude
+    }
+}
+
+/// Validated, immutable hot-path representation shared by repeated plane
+/// executions. Border indices and coefficient selections are fully resolved.
+struct FixedPointPreparedScaleV4: Equatable, Sendable {
+    let sourceWidth: Int
+    let sourceHeight: Int
+    let targetWidth: Int
+    let targetHeight: Int
+    let outputSampleCount: Int
+    let finalFractionalBits: Int
+    let horizontalSamples: [FixedPointPreparedAxisSampleV4]
+    let verticalSamples: [FixedPointPreparedAxisSampleV4]
+
+    init(
+        scalePlan: SpatialScalePlanV4,
+        kernelIR: FixedPointKernelIRV4
+    ) throws {
+        try kernelIR.validate(scalePlan: scalePlan)
+        let (outputSampleCount, outputOverflow) = scalePlan.targetWidth
+            .multipliedReportingOverflow(by: scalePlan.targetHeight)
+        guard !outputOverflow else {
+            throw FixedPointKernelV4Error.executionArithmeticOverflow
+        }
+        let horizontal = try Self.prepare(
+            positions: scalePlan.horizontal.positions,
+            kernelIndices: kernelIR.horizontalKernelIndexByDestination,
+            kernels: kernelIR.horizontalKernels,
+            sourceCount: scalePlan.sourceWidth,
+            borderRule: scalePlan.horizontal.borderRule
+        )
+        let vertical = try Self.prepare(
+            positions: scalePlan.vertical.positions,
+            kernelIndices: kernelIR.verticalKernelIndexByDestination,
+            kernels: kernelIR.verticalKernels,
+            sourceCount: scalePlan.sourceHeight,
+            borderRule: scalePlan.vertical.borderRule
+        )
+        try Self.validateAccumulatorBounds(
+            horizontal: horizontal,
+            vertical: vertical
+        )
+        self.sourceWidth = scalePlan.sourceWidth
+        self.sourceHeight = scalePlan.sourceHeight
+        self.targetWidth = scalePlan.targetWidth
+        self.targetHeight = scalePlan.targetHeight
+        self.outputSampleCount = outputSampleCount
+        self.finalFractionalBits = kernelIR.fractionalBits * 2
+        self.horizontalSamples = horizontal
+        self.verticalSamples = vertical
+    }
+
+    private static func prepare(
+        positions: [SpatialSamplePositionV4],
+        kernelIndices: [Int],
+        kernels: [FixedPointPhaseKernelV4],
+        sourceCount: Int,
+        borderRule: SpatialBorderRuleV4
+    ) throws -> [FixedPointPreparedAxisSampleV4] {
+        guard positions.count == kernelIndices.count else {
+            throw FixedPointKernelV4Error.nonCanonicalKernelIR
+        }
+        return try positions.indices.map { destination in
+            let position = positions[destination]
+            let kernelIndex = kernelIndices[destination]
+            guard kernels.indices.contains(kernelIndex) else {
+                throw FixedPointKernelV4Error.nonCanonicalKernelIR
+            }
+            let kernel = kernels[kernelIndex]
+            let indices = FixedPointPhaseKernelV4.tapOffsets.map { offset in
+                FixedPointCPUExecutorV4.borderIndex(
+                    position.sourceBase + offset,
+                    count: sourceCount,
+                    rule: borderRule
+                )
+            }
+            return FixedPointPreparedAxisSampleV4(
+                source0: indices[0],
+                source1: indices[1],
+                source2: indices[2],
+                source3: indices[3],
+                coefficient0: Int64(kernel.coefficients[0]),
+                coefficient1: Int64(kernel.coefficients[1]),
+                coefficient2: Int64(kernel.coefficients[2]),
+                coefficient3: Int64(kernel.coefficients[3])
+            )
+        }
+    }
+
+    /// Canonical Q14 coefficients and UInt16 inputs have a much smaller bound
+    /// than Int64. Proving that once permits wrapping operators in the timed
+    /// loop while retaining fail-closed preparation for a changed contract.
+    private static func validateAccumulatorBounds(
+        horizontal: [FixedPointPreparedAxisSampleV4],
+        vertical: [FixedPointPreparedAxisSampleV4]
+    ) throws {
+        guard let horizontalSum = horizontal.map(\.absoluteCoefficientSum).max(),
+              let verticalSum = vertical.map(\.absoluteCoefficientSum).max()
+        else {
+            throw FixedPointKernelV4Error.nonCanonicalKernelIR
+        }
+        let horizontalBound = UInt64(UInt16.max)
+            .multipliedReportingOverflow(by: horizontalSum)
+        let finalBound = horizontalBound.partialValue
+            .multipliedReportingOverflow(by: verticalSum)
+        guard !horizontalBound.overflow,
+              !finalBound.overflow,
+              finalBound.partialValue <= UInt64(Int64.max) else {
+            throw FixedPointKernelV4Error.executionArithmeticOverflow
+        }
+    }
+}
+
+/// Four-row separable cache reused across frames. It bounds intermediate
+/// storage to `4 * targetWidth` Int64 values instead of a full source-height
+/// plane and retains its allocation while the prepared scale is unchanged.
+struct FixedPointCPUWorkspaceV4: Sendable {
+    fileprivate var horizontalRows: [Int64] = []
+    fileprivate var sourceRowBySlot = Array(repeating: -1, count: 4)
+
+    var reusableHorizontalSampleCount: Int { horizontalRows.count }
+
+    fileprivate mutating func prepare(targetWidth: Int) throws {
+        let (sampleCount, overflow) = targetWidth.multipliedReportingOverflow(
+            by: 4
+        )
+        guard !overflow else {
+            throw FixedPointKernelV4Error.executionArithmeticOverflow
+        }
+        if horizontalRows.count != sampleCount {
+            horizontalRows = Array(repeating: 0, count: sampleCount)
+        }
+        for slot in sourceRowBySlot.indices {
+            sourceRowBySlot[slot] = -1
+        }
+    }
+}
+
+/// Optimized CPU executor for the shared separable fixed-point IR. The Metal
+/// path fuses all 16 products per destination; CPU uses a bounded four-row
+/// separable cache because that performs fewer products while preserving the
+/// same unrounded horizontal Q14 and single ordered Q28 reduction.
 enum FixedPointCPUExecutorV4 {
     static func execute(
         source: [UInt16],
@@ -423,118 +587,232 @@ enum FixedPointCPUExecutorV4 {
         minimumCode: UInt16,
         maximumCode: UInt16
     ) throws -> [UInt16] {
+        let prepared = try FixedPointPreparedScaleV4(
+            scalePlan: scalePlan,
+            kernelIR: kernelIR
+        )
+        var workspace = FixedPointCPUWorkspaceV4()
+        return try execute(
+            source: source,
+            sourceRowStride: sourceRowStride,
+            preparedScale: prepared,
+            minimumCode: minimumCode,
+            maximumCode: maximumCode,
+            workspace: &workspace
+        )
+    }
+
+    static func execute(
+        source: [UInt16],
+        sourceRowStride: Int,
+        preparedScale: FixedPointPreparedScaleV4,
+        minimumCode: UInt16,
+        maximumCode: UInt16,
+        workspace: inout FixedPointCPUWorkspaceV4
+    ) throws -> [UInt16] {
+        var output = Array(
+            repeating: UInt16(0),
+            count: preparedScale.outputSampleCount
+        )
+        try source.withUnsafeBufferPointer { sourceBuffer in
+            try output.withUnsafeMutableBufferPointer { outputBuffer in
+                try execute(
+                    source: sourceBuffer,
+                    sourceRowStride: sourceRowStride,
+                    preparedScale: preparedScale,
+                    minimumCode: minimumCode,
+                    maximumCode: maximumCode,
+                    destination: outputBuffer,
+                    workspace: &workspace
+                )
+            }
+        }
+        return output
+    }
+
+    static func execute(
+        source: UnsafeBufferPointer<UInt16>,
+        sourceRowStride: Int,
+        preparedScale: FixedPointPreparedScaleV4,
+        minimumCode: UInt16,
+        maximumCode: UInt16,
+        destination: UnsafeMutableBufferPointer<UInt16>,
+        workspace: inout FixedPointCPUWorkspaceV4
+    ) throws {
         guard minimumCode <= maximumCode else {
             throw FixedPointKernelV4Error.invalidCodeBounds(
                 minimum: minimumCode,
                 maximum: maximumCode
             )
         }
-        let sourceWidth = scalePlan.sourceWidth
-        let sourceHeight = scalePlan.sourceHeight
         let (requiredSourceCount, sourceCountOverflow) = sourceRowStride
-            .multipliedReportingOverflow(by: sourceHeight)
-        guard sourceRowStride >= sourceWidth,
-              sourceHeight > 0,
+            .multipliedReportingOverflow(by: preparedScale.sourceHeight)
+        guard sourceRowStride >= preparedScale.sourceWidth,
               !sourceCountOverflow,
               source.count >= requiredSourceCount else {
             throw FixedPointKernelV4Error.invalidSourceLayout(
-                width: sourceWidth,
-                height: sourceHeight,
+                width: preparedScale.sourceWidth,
+                height: preparedScale.sourceHeight,
                 rowStride: sourceRowStride,
                 sampleCount: source.count
             )
         }
-        try kernelIR.validate(scalePlan: scalePlan)
-
-        let targetWidth = scalePlan.targetWidth
-        let targetHeight = scalePlan.targetHeight
-        let (horizontalCount, horizontalCountOverflow) = targetWidth
-            .multipliedReportingOverflow(by: sourceHeight)
-        let (outputCount, outputCountOverflow) = targetWidth
-            .multipliedReportingOverflow(by: targetHeight)
-        guard !horizontalCountOverflow, !outputCountOverflow else {
-            throw FixedPointKernelV4Error.executionArithmeticOverflow
+        guard destination.count >= preparedScale.outputSampleCount else {
+            throw FixedPointKernelV4Error.invalidDestinationLayout(
+                expectedCount: preparedScale.outputSampleCount,
+                actualCount: destination.count
+            )
         }
-        var horizontal = Array(repeating: Int64(0), count: horizontalCount)
+        try validateNonoverlapping(
+            source: source,
+            requiredSourceCount: requiredSourceCount,
+            destination: destination,
+            requiredDestinationCount: preparedScale.outputSampleCount
+        )
+        try workspace.prepare(targetWidth: preparedScale.targetWidth)
 
-        for sourceY in 0..<sourceHeight {
-            for targetX in 0..<targetWidth {
-                let position = scalePlan.horizontal.positions[targetX]
-                let kernel = kernelIR.horizontalKernels[
-                    kernelIR.horizontalKernelIndexByDestination[targetX]
-                ]
-                var accumulator: Int64 = 0
-                for tap in 0..<FixedPointPhaseKernelV4.tapOffsets.count {
-                    let rawX = position.sourceBase
-                        + FixedPointPhaseKernelV4.tapOffsets[tap]
-                    let sourceX = borderIndex(
-                        rawX,
-                        count: sourceWidth,
-                        rule: scalePlan.horizontal.borderRule
-                    )
-                    let sample = Int64(
-                        source[sourceY * sourceRowStride + sourceX]
-                    )
-                    accumulator = try multiplyAccumulate(
-                        accumulator,
-                        sample,
-                        Int64(kernel.coefficients[tap])
-                    )
-                }
-                horizontal[sourceY * targetWidth + targetX] = accumulator
-            }
-        }
-
-        var output = Array(repeating: UInt16(0), count: outputCount)
-        let finalShift = kernelIR.fractionalBits * 2
-        for targetY in 0..<targetHeight {
-            let position = scalePlan.vertical.positions[targetY]
-            let kernel = kernelIR.verticalKernels[
-                kernelIR.verticalKernelIndexByDestination[targetY]
-            ]
-            for targetX in 0..<targetWidth {
-                var accumulator: Int64 = 0
-                for tap in 0..<FixedPointPhaseKernelV4.tapOffsets.count {
-                    let rawY = position.sourceBase
-                        + FixedPointPhaseKernelV4.tapOffsets[tap]
-                    let sourceY = borderIndex(
-                        rawY,
-                        count: sourceHeight,
-                        rule: scalePlan.vertical.borderRule
-                    )
-                    accumulator = try multiplyAccumulate(
-                        accumulator,
-                        horizontal[sourceY * targetWidth + targetX],
-                        Int64(kernel.coefficients[tap])
-                    )
-                }
-                let rounded = try roundTiesToEven(
+        let minimum = Int64(minimumCode)
+        let maximum = Int64(maximumCode)
+        for targetY in 0..<preparedScale.targetHeight {
+            let vertical = preparedScale.verticalSamples[targetY]
+            let slot0 = horizontalRowSlot(
+                sourceY: vertical.source0,
+                retaining: vertical,
+                source: source,
+                sourceRowStride: sourceRowStride,
+                preparedScale: preparedScale,
+                workspace: &workspace
+            )
+            let slot1 = horizontalRowSlot(
+                sourceY: vertical.source1,
+                retaining: vertical,
+                source: source,
+                sourceRowStride: sourceRowStride,
+                preparedScale: preparedScale,
+                workspace: &workspace
+            )
+            let slot2 = horizontalRowSlot(
+                sourceY: vertical.source2,
+                retaining: vertical,
+                source: source,
+                sourceRowStride: sourceRowStride,
+                preparedScale: preparedScale,
+                workspace: &workspace
+            )
+            let slot3 = horizontalRowSlot(
+                sourceY: vertical.source3,
+                retaining: vertical,
+                source: source,
+                sourceRowStride: sourceRowStride,
+                preparedScale: preparedScale,
+                workspace: &workspace
+            )
+            let row0 = slot0 * preparedScale.targetWidth
+            let row1 = slot1 * preparedScale.targetWidth
+            let row2 = slot2 * preparedScale.targetWidth
+            let row3 = slot3 * preparedScale.targetWidth
+            let outputRow = targetY * preparedScale.targetWidth
+            for targetX in 0..<preparedScale.targetWidth {
+                var accumulator = workspace.horizontalRows[row0 + targetX]
+                    &* vertical.coefficient0
+                accumulator = accumulator &+ (
+                    workspace.horizontalRows[row1 + targetX]
+                        &* vertical.coefficient1
+                )
+                accumulator = accumulator &+ (
+                    workspace.horizontalRows[row2 + targetX]
+                        &* vertical.coefficient2
+                )
+                accumulator = accumulator &+ (
+                    workspace.horizontalRows[row3 + targetX]
+                        &* vertical.coefficient3
+                )
+                let rounded = roundTiesToEvenPrepared(
                     accumulator,
-                    fractionalBits: finalShift
+                    fractionalBits: preparedScale.finalFractionalBits
                 )
-                let clamped = min(
-                    Int64(maximumCode),
-                    max(Int64(minimumCode), rounded)
+                destination[outputRow + targetX] = UInt16(
+                    min(maximum, max(minimum, rounded))
                 )
-                output[targetY * targetWidth + targetX] = UInt16(clamped)
             }
         }
-        return output
     }
 
-    private static func multiplyAccumulate(
-        _ accumulator: Int64,
-        _ multiplicand: Int64,
-        _ multiplier: Int64
-    ) throws -> Int64 {
-        let (product, productOverflow) = multiplicand
-            .multipliedReportingOverflow(by: multiplier)
-        let (result, additionOverflow) = accumulator
-            .addingReportingOverflow(product)
-        guard !productOverflow, !additionOverflow else {
+    @inline(__always)
+    private static func horizontalRowSlot(
+        sourceY: Int,
+        retaining vertical: FixedPointPreparedAxisSampleV4,
+        source: UnsafeBufferPointer<UInt16>,
+        sourceRowStride: Int,
+        preparedScale: FixedPointPreparedScaleV4,
+        workspace: inout FixedPointCPUWorkspaceV4
+    ) -> Int {
+        for slot in 0..<4 where workspace.sourceRowBySlot[slot] == sourceY {
+            return slot
+        }
+        var replacement = 0
+        while replacement < 4,
+              vertical.contains(source: workspace.sourceRowBySlot[replacement]) {
+            replacement += 1
+        }
+        precondition(replacement < 4)
+        workspace.sourceRowBySlot[replacement] = sourceY
+        let sourceRow = sourceY * sourceRowStride
+        let horizontalRow = replacement * preparedScale.targetWidth
+        for targetX in 0..<preparedScale.targetWidth {
+            let horizontal = preparedScale.horizontalSamples[targetX]
+            var accumulator = Int64(source[sourceRow + horizontal.source0])
+                &* horizontal.coefficient0
+            accumulator = accumulator &+ (
+                Int64(source[sourceRow + horizontal.source1])
+                    &* horizontal.coefficient1
+            )
+            accumulator = accumulator &+ (
+                Int64(source[sourceRow + horizontal.source2])
+                    &* horizontal.coefficient2
+            )
+            accumulator = accumulator &+ (
+                Int64(source[sourceRow + horizontal.source3])
+                    &* horizontal.coefficient3
+            )
+            workspace.horizontalRows[horizontalRow + targetX] = accumulator
+        }
+        return replacement
+    }
+
+    private static func validateNonoverlapping(
+        source: UnsafeBufferPointer<UInt16>,
+        requiredSourceCount: Int,
+        destination: UnsafeMutableBufferPointer<UInt16>,
+        requiredDestinationCount: Int
+    ) throws {
+        guard let sourceAddress = source.baseAddress,
+              let destinationAddress = destination.baseAddress else {
+            return
+        }
+        let sourceByteCount = requiredSourceCount.multipliedReportingOverflow(
+            by: MemoryLayout<UInt16>.stride
+        )
+        let destinationByteCount = requiredDestinationCount
+            .multipliedReportingOverflow(by: MemoryLayout<UInt16>.stride)
+        let sourceStart = UInt(bitPattern: sourceAddress)
+        let destinationStart = UInt(bitPattern: destinationAddress)
+        let sourceEnd = sourceStart.addingReportingOverflow(
+            UInt(sourceByteCount.partialValue)
+        )
+        let destinationEnd = destinationStart.addingReportingOverflow(
+            UInt(destinationByteCount.partialValue)
+        )
+        guard !sourceByteCount.overflow,
+              !destinationByteCount.overflow,
+              !sourceEnd.overflow,
+              !destinationEnd.overflow else {
             throw FixedPointKernelV4Error.executionArithmeticOverflow
         }
-        return result
+        if sourceStart < destinationEnd.partialValue,
+           destinationStart < sourceEnd.partialValue {
+            throw FixedPointKernelV4Error.overlappingSourceAndDestination
+        }
     }
 
     static func roundTiesToEven(
@@ -549,6 +827,17 @@ enum FixedPointCPUExecutorV4 {
         guard fractionalBits > 0 else {
             return value
         }
+        return roundTiesToEvenPrepared(
+            value,
+            fractionalBits: fractionalBits
+        )
+    }
+
+    @inline(__always)
+    private static func roundTiesToEvenPrepared(
+        _ value: Int64,
+        fractionalBits: Int
+    ) -> Int64 {
         let denominator = Int64(1 << fractionalBits)
         var quotient = value / denominator
         var remainder = value % denominator

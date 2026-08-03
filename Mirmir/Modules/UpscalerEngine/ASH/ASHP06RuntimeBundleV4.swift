@@ -837,8 +837,8 @@ enum ASHP06FixedPointSourceIdentityV4 {
     static func fixedPointKernel() throws -> ASHP06LockedFileIdentityV4 {
         try identity(
             "Mirmir/Modules/UpscalerEngine/FixedPointKernelV4.swift",
-            22_290,
-            "f12a426c609c12c4b0001ac6122f594f4f589b65ae8d2f81558f839f12ca0bf6"
+            33_564,
+            "0fc893f9c73d96b9f3f82a4ab8ad1cfadcd6b9c6245ec756738f1e45194240c4"
         )
     }
 
@@ -850,8 +850,23 @@ enum ASHP06FixedPointSourceIdentityV4 {
         )
     }
 
+    static func metalExecutor() throws -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "Mirmir/Modules/UpscalerEngine/FixedPointMetalExecutorV4.swift",
+            23_196,
+            "e6e2bcca424a120bc2363e5ad431368c43835e53797e05e3b40190a4bf4d4f42"
+        )
+    }
+
     static var allLockedFiles: [ASHP06LockedFileIdentityV4] {
-        get throws { try [spatialScalePlan(), fixedPointKernel(), metalKernel()] }
+        get throws {
+            try [
+                spatialScalePlan(),
+                fixedPointKernel(),
+                metalKernel(),
+                metalExecutor()
+            ]
+        }
     }
 
     private static func identity(
@@ -877,6 +892,7 @@ struct ASHP06PhaseCoefficientProcedureArtifactV4: Codable, Equatable,
     let spatialScalePlanSource: ASHP06LockedFileIdentityV4
     let fixedPointKernelSource: ASHP06LockedFileIdentityV4
     let metalKernelSource: ASHP06LockedFileIdentityV4
+    let metalExecutorSource: ASHP06LockedFileIdentityV4
     let tapOffsets: [Int]
     let fractionalBits: Int
     let normalization: Int32
@@ -907,6 +923,8 @@ struct ASHP06PhaseCoefficientProcedureArtifactV4: Codable, Equatable,
                 try ASHP06FixedPointSourceIdentityV4.fixedPointKernel(),
             metalKernelSource:
                 try ASHP06FixedPointSourceIdentityV4.metalKernel(),
+            metalExecutorSource:
+                try ASHP06FixedPointSourceIdentityV4.metalExecutor(),
             tapOffsets: FixedPointPhaseKernelV4.tapOffsets,
             fractionalBits: FixedPointCoefficientCompilerV4.fractionalBits,
             normalization: FixedPointCoefficientCompilerV4.normalization,

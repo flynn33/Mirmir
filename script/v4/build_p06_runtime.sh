@@ -22,6 +22,7 @@ xcrun swiftc \
     "${repository_root}/Mirmir/Modules/UpscalerEngine/RationalPresentationGeometryV4.swift" \
     "${repository_root}/Mirmir/Modules/UpscalerEngine/SpatialScalePlanV4.swift" \
     "${repository_root}/Mirmir/Modules/UpscalerEngine/FixedPointKernelV4.swift" \
+    "${repository_root}/Mirmir/Modules/UpscalerEngine/FixedPointMetalExecutorV4.swift" \
     "${repository_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift" \
     "${repository_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift" \
     "${repository_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHCoreV4.swift" \
