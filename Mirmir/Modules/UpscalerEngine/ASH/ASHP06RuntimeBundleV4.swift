@@ -486,83 +486,71 @@ enum ASHP06LockedV3EvidenceV4 {
     static let baselineID = "mirmir-v3-p05-baseline-2026-08-02"
     static let captureSourceRevision =
         "d3a4de55c08391ea8a08c00beb766b5650dc9f58"
+}
 
-    static func evidenceManifest() throws -> ASHP06LockedFileIdentityV4 {
+/// Immutable same-scope performance population and evaluator identities. The
+/// release report is generated later against the completed P06 candidate; the
+/// runtime locks the preregistered workload and measurement procedure so that
+/// candidate results cannot redefine the gate.
+enum ASHP06LockedPerformanceGateV4 {
+    static let gateID =
+        "mirmir-deterministic-engine-v4-same-scope-performance-v1"
+    static let lockedInputByteCount: Int64 = 1_158
+    static let lockedInputSHA256 = try! ASHSHA256V4(
+        "8049c0bbd4e9e67796cea3e68767208715f4672cbe3e1db0dadc5db51da3eced"
+    )
+
+    static func contract() throws -> ASHP06LockedFileIdentityV4 {
         try identity(
-            "docs/v4/evidence/evidence-manifest.json",
-            62_591,
-            "5d7ab2674663fede08978888083b436a733b7bd112f6277dfb29c7a6d9991b37"
+            "script/v4/performance-gate-contract-v1.json",
+            3_869,
+            "da14c8d106c88aa12b23b10ac4016329c64e0f151c5faf0181cf18f0314aadba"
         )
     }
 
-    static func captureManifest() throws -> ASHP06LockedFileIdentityV4 {
-        try identity(
-            "docs/v4/evidence/v3-p05-baseline-2026-08-02/capture-manifest.json",
-            53_805,
-            "902971d4102cd361a4791e275630f518cfbab53293c0c3ceb46d3e103ffe1dbd"
-        )
-    }
-
-    static func qualityBaseline() throws -> ASHP06LockedFileIdentityV4 {
-        try identity(
-            "docs/v4/evidence/v3-p05-baseline-2026-08-02/quality-baseline.json",
-            1_178,
-            "6a019b338fd17ab0299161b0eea9a0493939fe783c2d6bf10ba1cfe51fe84b8e"
-        )
-    }
-
-    static func performanceBaseline() throws -> ASHP06LockedFileIdentityV4 {
-        try identity(
-            "docs/v4/evidence/v3-p05-baseline-2026-08-02/performance-baseline.json",
-            1_444,
-            "144eae7c39c97e37662308dba095786c2bc14c06403825133fed847d1f88ece8"
-        )
-    }
-
-    static func endToEndBaseline() throws -> ASHP06LockedFileIdentityV4 {
-        try identity(
-            "docs/v4/evidence/v3-p05-baseline-2026-08-02/end-to-end-baseline.json",
-            2_876,
-            "2cd70eaa74f3245c4fa6a8c899391ef843c745fbf3c74dffce76d133b479ded0"
-        )
-    }
-
-    static func engineResults() throws -> ASHP06LockedFileIdentityV4 {
-        try identity(
-            "docs/v4/evidence/v3-p05-baseline-2026-08-02/engine-results.json",
-            45_104,
-            "2852efbc144c9bafacd9e699f4383c6db726ea53c7c214f003ee7a398972c4ee"
-        )
-    }
-
-    static func endToEndResults() throws -> ASHP06LockedFileIdentityV4 {
-        try identity(
-            "docs/v4/evidence/v3-p05-baseline-2026-08-02/end-to-end-results.json",
-            17_663,
-            "68e3311dc9bdf7ae874f8f851e122e20e86e8a6378d7a226f8ec6f5b0c43015d"
-        )
-    }
-
-    static func metricImplementationSource() throws
+    static func captureImplementation() throws
         -> ASHP06LockedFileIdentityV4 {
         try identity(
-            "script/v4/capture_baseline.py",
-            21_109,
-            "9ed3497962e09c5e40a7639f5e97ad2d36ac40070ec6dca1ef3b1402aedbbecb"
+            "script/v4/PerformanceGateCaptureTests.swift",
+            30_219,
+            "c2406a7a8d96c9df8d24d956619ffbfe866638bff47585d64c7177174b91906c"
+        )
+    }
+
+    static func evaluatorImplementation() throws
+        -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "script/v4/performance_gate_v4.py",
+            40_041,
+            "2c3c915c0ea235619e3f17474aae697fe27c5c47f7c3e274bbabd8d5e6978949"
+        )
+    }
+
+    static func runnerImplementation() throws
+        -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "script/v4/run_performance_gate_v4.sh",
+            22_581,
+            "0ab49d8932e0b2898fc0d956aa3885a5fbfa9d323a3de0941798b2d43e199422"
+        )
+    }
+
+    static func lockedInput() throws -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "docs/v4/evidence/v3-p05-baseline-2026-08-02/end-to-end-input.mov",
+            lockedInputByteCount,
+            lockedInputSHA256.rawValue
         )
     }
 
     static var allLockedFiles: [ASHP06LockedFileIdentityV4] {
         get throws {
             try [
-                evidenceManifest(),
-                captureManifest(),
-                qualityBaseline(),
-                performanceBaseline(),
-                endToEndBaseline(),
-                engineResults(),
-                endToEndResults(),
-                metricImplementationSource()
+                contract(),
+                captureImplementation(),
+                evaluatorImplementation(),
+                runnerImplementation(),
+                lockedInput()
             ]
         }
     }
@@ -688,10 +676,14 @@ enum ASHP06LockedNaturalQualityEvidenceV4 {
 
 struct ASHP06BenchmarkRouteIdentityV4: Codable, Equatable, Sendable {
     let caseID: String
+    let backendID: String
     let pixelFormatID: String
+    let sourceWidth: Int
+    let sourceHeight: Int
+    let targetWidth: Int
+    let targetHeight: Int
     let scaleNumerator: Int
     let scaleDenominator: Int
-    let patternID: String
     let warmupCount: Int
     let measuredSampleCount: Int
 }
@@ -702,29 +694,36 @@ struct ASHP06BenchmarkCorpusIdentityArtifactV4: Codable, Equatable, Sendable {
     let corpusID: String
     let baselineID: String
     let baselineSourceRevision: String
-    let evidenceManifest: ASHP06LockedFileIdentityV4
-    let captureManifest: ASHP06LockedFileIdentityV4
-    let performanceBaseline: ASHP06LockedFileIdentityV4
-    let endToEndBaseline: ASHP06LockedFileIdentityV4
-    let engineResults: ASHP06LockedFileIdentityV4
-    let endToEndResults: ASHP06LockedFileIdentityV4
+    let baselineImplementationVersions: [String]
+    let performanceContract: ASHP06LockedFileIdentityV4
+    let captureImplementation: ASHP06LockedFileIdentityV4
+    let evaluatorImplementation: ASHP06LockedFileIdentityV4
+    let runnerImplementation: ASHP06LockedFileIdentityV4
+    let lockedInput: ASHP06LockedFileIdentityV4
+    let inputFrameCount: Int
+    let inputCodecID: String
+    let outputCodecID: String
     let routes: [ASHP06BenchmarkRouteIdentityV4]
     let requiredStatistics: [String]
     let comparabilityRuleID: String
 
     static func canonical() throws -> Self {
         let routes = [
-            ("420f-direct_2x-radial_detail", "420f", 2, 1),
-            ("420f-direct_3_over_2-radial_detail", "420f", 3, 2),
-            ("420v-direct_2x-radial_detail", "420v", 2, 1),
-            ("420v-direct_3_over_2-radial_detail", "420v", 3, 2)
-        ].map { id, format, numerator, denominator in
+            ("nv12-video-range-2x-cpu", "mirmirDeterministicCPU", 128, 96, 2, 1),
+            ("nv12-video-range-2x-metal", "mirmirDeterministicMetal", 128, 96, 2, 1),
+            ("nv12-video-range-3-over-2-cpu", "mirmirDeterministicCPU", 96, 72, 3, 2),
+            ("nv12-video-range-3-over-2-metal", "mirmirDeterministicMetal", 96, 72, 3, 2)
+        ].map { id, backend, width, height, numerator, denominator in
             ASHP06BenchmarkRouteIdentityV4(
                 caseID: id,
-                pixelFormatID: format,
+                backendID: backend,
+                pixelFormatID: "420v",
+                sourceWidth: 64,
+                sourceHeight: 48,
+                targetWidth: width,
+                targetHeight: height,
                 scaleNumerator: numerator,
                 scaleDenominator: denominator,
-                patternID: "radial_detail",
                 warmupCount: 5,
                 measuredSampleCount: 10
             )
@@ -734,26 +733,35 @@ struct ASHP06BenchmarkCorpusIdentityArtifactV4: Codable, Equatable, Sendable {
                 .expectedSchemaID,
             artifactRole:
                 ASHRuntimeArtifactRoleV4.benchmarkCorpusIdentity.rawValue,
-            corpusID: "ash-p06-locked-benchmark-corpus-v1",
+            corpusID: ASHP06LockedPerformanceGateV4.gateID,
             baselineID: ASHP06LockedV3EvidenceV4.baselineID,
             baselineSourceRevision:
                 ASHP06LockedV3EvidenceV4.captureSourceRevision,
-            evidenceManifest: try ASHP06LockedV3EvidenceV4.evidenceManifest(),
-            captureManifest: try ASHP06LockedV3EvidenceV4.captureManifest(),
-            performanceBaseline:
-                try ASHP06LockedV3EvidenceV4.performanceBaseline(),
-            endToEndBaseline:
-                try ASHP06LockedV3EvidenceV4.endToEndBaseline(),
-            engineResults: try ASHP06LockedV3EvidenceV4.engineResults(),
-            endToEndResults: try ASHP06LockedV3EvidenceV4.endToEndResults(),
+            baselineImplementationVersions: [
+                "ash-p05-cpu-reference-preview",
+                "ash-p05-metal-v3-preview"
+            ],
+            performanceContract:
+                try ASHP06LockedPerformanceGateV4.contract(),
+            captureImplementation:
+                try ASHP06LockedPerformanceGateV4.captureImplementation(),
+            evaluatorImplementation:
+                try ASHP06LockedPerformanceGateV4.evaluatorImplementation(),
+            runnerImplementation:
+                try ASHP06LockedPerformanceGateV4.runnerImplementation(),
+            lockedInput: try ASHP06LockedPerformanceGateV4.lockedInput(),
+            inputFrameCount: 3,
+            inputCodecID: "avc1",
+            outputCodecID: "avc1",
             routes: routes,
             requiredStatistics: [
-                "aggregate-wall-median",
+                "aggregate-corpus-wall-median",
                 "engine-frame-median",
-                "engine-frame-p95"
+                "engine-frame-p95",
+                "paired-bootstrap-95-percent-upper-bound"
             ],
             comparabilityRuleID:
-                "identical-input-target-codec-hardware-toolchain-warmup-thermal-v1"
+                "same-input-target-codec-hardware-software-power-thermal-v1"
         )
     }
 
@@ -1371,7 +1379,7 @@ enum ASHP06CanonicalRuntimeArtifactsV4 {
         repositoryRoot: URL,
         fileManager: FileManager = .default
     ) throws {
-        let identities = try ASHP06LockedV3EvidenceV4.allLockedFiles
+        let identities = try ASHP06LockedPerformanceGateV4.allLockedFiles
             + ASHP06LockedNaturalQualityEvidenceV4.allLockedFiles
             + ASHP06FixedPointSourceIdentityV4.allLockedFiles
             + [ASHP06VerificationSourceIdentityV4.executionPlan()]
