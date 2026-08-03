@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -97,6 +98,44 @@ class NaturalQualityCorpusTests(unittest.TestCase):
             builder.source_license_set_sha(selection["assets"]),
             "30ee1b9d1cbb391c2134cfac685d9f7b3da0aa256487ea3ec5466b15abfed345",
         )
+
+    def testReleaseLockBindsEveryReproducibilityInput(self) -> None:
+        lock = json.loads(
+            (SCRIPT_DIRECTORY / "natural-quality-corpus-lock-v1.json").read_text()
+        )
+        self.assertEqual(
+            lock["schemaVersion"],
+            "mirmir-ash-v4-natural-quality-corpus-lock-v1",
+        )
+        self.assertTrue(lock["releaseEligible"])
+        self.assertEqual(lock["clipCount"], 28)
+        self.assertEqual(lock["caseCount"], 168)
+        self.assertEqual(
+            lock["sourceSelectionSHA256"],
+            file_sha256(SCRIPT_DIRECTORY / "natural-quality-sources-v1.json"),
+        )
+        self.assertEqual(
+            lock["qualityContractSHA256"],
+            file_sha256(SCRIPT_DIRECTORY / "quality-gate-release-contract-v1.json"),
+        )
+        self.assertEqual(
+            lock["builderSourceSHA256"],
+            file_sha256(SCRIPT_DIRECTORY / "build_natural_quality_corpus.py"),
+        )
+        for field in (
+            "manifestSHA256",
+            "artifactSetSHA256",
+            "sourceAssetSetSHA256",
+            "sourceLicenseSetSHA256",
+            "sourceSelectionSHA256",
+            "qualityContractSHA256",
+            "builderSourceSHA256",
+        ):
+            self.assertRegex(lock[field], r"^[0-9a-f]{64}$")
+
+
+def file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 if __name__ == "__main__":
