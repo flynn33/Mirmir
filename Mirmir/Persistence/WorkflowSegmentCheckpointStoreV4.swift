@@ -84,6 +84,7 @@ struct WorkflowSegmentCheckpointPublicationRequestV4: Equatable, Sendable {
     let auxiliaryState: [WorkflowCheckpointArtifactV4]
     let committedAt: WorkflowWallClockInstantV4
     let lastCompletedInputOrdinal: Int64
+    let sourceSnapshotIdentityID: WorkflowSourceIdentityID?
 
     init(
         checkpointID: WorkflowCheckpointIDV4,
@@ -98,7 +99,8 @@ struct WorkflowSegmentCheckpointPublicationRequestV4: Equatable, Sendable {
         trackProgress: [WorkflowTrackProgressV4],
         auxiliaryState: [WorkflowCheckpointArtifactV4] = [],
         committedAt: WorkflowWallClockInstantV4,
-        lastCompletedInputOrdinal: Int64
+        lastCompletedInputOrdinal: Int64,
+        sourceSnapshotIdentityID: WorkflowSourceIdentityID? = nil
     ) {
         self.checkpointID = checkpointID
         self.segmentArtifactID = segmentArtifactID
@@ -113,6 +115,7 @@ struct WorkflowSegmentCheckpointPublicationRequestV4: Equatable, Sendable {
         self.auxiliaryState = auxiliaryState
         self.committedAt = committedAt
         self.lastCompletedInputOrdinal = lastCompletedInputOrdinal
+        self.sourceSnapshotIdentityID = sourceSnapshotIdentityID
     }
 }
 
@@ -318,7 +321,8 @@ actor WorkflowSegmentCheckpointStoreV4 {
             trackProgress: request.trackProgress,
             temporalHistory: temporalArtifact,
             measurementHysteresis: measurementArtifact,
-            auxiliaryState: request.auxiliaryState
+            auxiliaryState: request.auxiliaryState,
+            sourceSnapshotIdentityID: request.sourceSnapshotIdentityID
         )
         return WorkflowSegmentCheckpointPublicationV4(
             draft: draft,

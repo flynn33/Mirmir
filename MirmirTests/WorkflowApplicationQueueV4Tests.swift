@@ -25,6 +25,7 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         let resolver = WorkflowApplicationBookmarkResolverStubV4()
         let clock = WorkflowApplicationQueueTestClockV4(8_000_000_000)
         let original = request(fixture: fixture)
+        let admissionBytes = try Data(contentsOf: original.inputURL)
         let binding = try preparedBinding()
         let first = try makeQueue(
             fixture: fixture,
@@ -76,9 +77,27 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         }
         defer { activated.close() }
         try activated.revalidateAll()
-        XCTAssertEqual(
+        XCTAssertNotEqual(
             activated.request.inputURL.standardizedFileURL,
             original.inputURL.standardizedFileURL
+        )
+        XCTAssertTrue(
+            activated.request.inputURL.path.hasPrefix(fixture.storeURL.path)
+        )
+        XCTAssertEqual(
+            try Data(contentsOf: activated.request.inputURL),
+            admissionBytes
+        )
+        let snapshotAttributes = try FileManager.default.attributesOfItem(
+            atPath: activated.request.inputURL.path
+        )
+        XCTAssertEqual(
+            (snapshotAttributes[.posixPermissions] as? NSNumber)?.uint16Value,
+            0o400
+        )
+        XCTAssertEqual(
+            activated.sourceSnapshot.byteCount,
+            UInt64(admissionBytes.count)
         )
         XCTAssertEqual(
             activated.request.outputURL.standardizedFileURL,
@@ -172,10 +191,13 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         XCTAssertEqual(migrated, current)
     }
 
-    func testBookmarkDenialAndPathReplacementAreContained() async throws {
+    func testBookmarkDenialAndOriginalPathReplacementUsesAdmissionSnapshot()
+        async throws
+    {
         let fixture = try makeFixture()
         let resolver = WorkflowApplicationBookmarkResolverStubV4()
         let queue = try makeQueue(fixture: fixture, resolver: resolver)
+        let admissionBytes = try Data(contentsOf: fixture.inputURL)
         let receipt = try await queue.enqueue(
             request: request(fixture: fixture),
             preparedPlanBinding: preparedBinding()
@@ -199,19 +221,68 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         resolver.deniedRole = nil
         try FileManager.default.removeItem(at: fixture.inputURL)
         try Data("replacement".utf8).write(to: fixture.inputURL)
-        let replaced = await queue.activate(jobID: receipt.specification.jobID)
-        guard case .blocked(.bookmarkBlocked(let replacedFailures)) = replaced else {
-            return XCTFail("A replaced source inode must be contained")
-        }
-        XCTAssertEqual(
-            replacedFailures,
-            [
-                WorkflowBookmarkActivationFailureV4(
-                    role: .inputFile,
-                    reason: .targetReplaced
-                )
-            ]
+        let relaunched = try makeQueue(
+            fixture: fixture,
+            resolver: resolver,
+            workerID: "application-worker-original-replaced"
         )
+        let replaced = await relaunched.activate(
+            jobID: receipt.specification.jobID
+        )
+        guard case .active(let activated) = replaced else {
+            return XCTFail("Original path replacement must not affect the private snapshot")
+        }
+        defer { activated.close() }
+        XCTAssertNotEqual(
+            activated.request.inputURL.standardizedFileURL,
+            fixture.inputURL.standardizedFileURL
+        )
+        XCTAssertEqual(
+            try Data(contentsOf: activated.request.inputURL),
+            admissionBytes
+        )
+    }
+
+    func testTamperedPrivateSourceSnapshotFailsClosedAcrossRelaunch()
+        async throws
+    {
+        let fixture = try makeFixture()
+        let resolver = WorkflowApplicationBookmarkResolverStubV4()
+        let first = try makeQueue(fixture: fixture, resolver: resolver)
+        let receipt = try await first.enqueue(
+            request: request(fixture: fixture),
+            preparedPlanBinding: preparedBinding()
+        )
+        let firstActivation = await first.activate(
+            jobID: receipt.specification.jobID
+        )
+        guard case .active(let activated) = firstActivation else {
+            return XCTFail("Expected the authenticated snapshot to activate")
+        }
+        let snapshotURL = activated.request.inputURL
+        activated.close()
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o600],
+            ofItemAtPath: snapshotURL.path
+        )
+        try Data("snapshot-tamper".utf8).write(to: snapshotURL)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o400],
+            ofItemAtPath: snapshotURL.path
+        )
+
+        let relaunched = try makeQueue(
+            fixture: fixture,
+            resolver: resolver,
+            workerID: "application-worker-snapshot-tamper"
+        )
+        let result = await relaunched.activate(
+            jobID: receipt.specification.jobID
+        )
+        guard case .blocked(let failure) = result else {
+            return XCTFail("A changed private snapshot must fail closed")
+        }
+        XCTAssertEqual(failure, .sourceSnapshotInvalid)
     }
 
     func testBookmarkRegistrationFailureCannotPublishAQueuedJob() async throws {
@@ -629,10 +700,58 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         )
     }
 
+    func testPublicationReverifiesCompleteSourceSnapshotBeforeFinalRename()
+        async throws
+    {
+        let context = try await makeTerminalPublicationContext()
+        defer { context.activated.close() }
+        let intent = try await context.queue.prepareApplicationPublication(
+            activated: context.activated,
+            checkpoint: context.checkpoint
+        )
+        let stagingURL = try await context.queue
+            .applicationPublicationStagingURL(
+                intent,
+                activated: context.activated
+            )
+        try Data("verified-publication".utf8).write(to: stagingURL)
+        _ = try await context.queue.recordApplicationStagedPublication(
+            intent,
+            finalized: WorkflowApplicationFinalizedOutputV4(
+                destinationURL: stagingURL,
+                verification: try publicationVerification()
+            ),
+            activated: context.activated
+        )
+        let snapshotURL = context.activated.request.inputURL
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o600],
+            ofItemAtPath: snapshotURL.path
+        )
+        try Data("changed-before-publication".utf8).write(to: snapshotURL)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o400],
+            ofItemAtPath: snapshotURL.path
+        )
+
+        do {
+            _ = try await context.queue.publishApplicationStagedOutput(
+                intent,
+                activated: context.activated
+            )
+            XCTFail("A changed source snapshot must block final publication")
+        } catch WorkflowApplicationQueueErrorV4.sourceSnapshotInvalid {
+            XCTAssertFalse(
+                FileManager.default.fileExists(atPath: context.outputURL.path)
+            )
+        }
+    }
+
     func testCoordinatorLaunchReconcilesPostRenameProcessTermination()
         async throws {
         let context = try await makeTerminalPublicationContext()
         let jobID = context.activated.specification.jobID
+        let sourceSnapshotURL = context.activated.request.inputURL
         let intent = try await context.queue.prepareApplicationPublication(
             activated: context.activated,
             checkpoint: context.checkpoint
@@ -698,6 +817,165 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         XCTAssertEqual(counts.revalidations, 1)
         XCTAssertEqual(counts.inspections, 1)
         XCTAssertEqual(counts.finalizations, 0)
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: sourceSnapshotURL.path)
+        )
+    }
+
+    func testCheckpointBindsCanonicalSourceSnapshotIdentity() async throws {
+        let context = try await makeTerminalPublicationContext()
+        defer { context.activated.close() }
+        XCTAssertEqual(
+            context.checkpoint.body.compatibility.sourceSnapshotIdentityID,
+            context.activated.sourceSnapshot.identityID
+        )
+        let loaded = try await context.queue.compatibleApplicationCheckpoint(
+            jobID: context.activated.specification.jobID,
+            outputContractID:
+                context.activated.preparedPlanBinding.outputContractID,
+            sourceSnapshotIdentityID:
+                context.activated.sourceSnapshot.identityID
+        )
+        XCTAssertEqual(loaded, context.checkpoint)
+        do {
+            _ = try await context.queue.compatibleApplicationCheckpoint(
+                jobID: context.activated.specification.jobID,
+                outputContractID:
+                    context.activated.preparedPlanBinding.outputContractID,
+                sourceSnapshotIdentityID: WorkflowSourceIdentityID(
+                    workflowApplicationDigest(61)
+                )
+            )
+            XCTFail("A different snapshot identity must reject the checkpoint")
+        } catch WorkflowDurableCoordinatorErrorV4.checkpointIncompatible(
+            let failures
+        ) {
+            XCTAssertEqual(failures, [.sourceSnapshot])
+        }
+    }
+
+    func testSourceSnapshotCleanupRequiresSuccessOrCancellation()
+        async throws
+    {
+        let fixture = try makeFixture()
+        let resolver = WorkflowApplicationBookmarkResolverStubV4()
+        let tokens = WorkflowApplicationTokenSequenceV4([
+            UUID(uuidString: "aaaaaaaa-1111-2222-3333-444444444444")!,
+            UUID(uuidString: "bbbbbbbb-1111-2222-3333-444444444444")!,
+        ])
+        let queue = try makeQueue(
+            fixture: fixture,
+            resolver: resolver,
+            tokenFactory: { tokens.next() }
+        )
+        let failed = try await queue.enqueue(
+            request: request(fixture: fixture, outputName: "failed.mov"),
+            preparedPlanBinding: preparedBinding()
+        )
+        let cancelled = try await queue.enqueue(
+            request: request(fixture: fixture, outputName: "cancelled.mov"),
+            preparedPlanBinding: preparedBinding()
+        )
+        let failedActivation = await queue.activate(
+            jobID: failed.specification.jobID
+        )
+        let cancelledActivation = await queue.activate(
+            jobID: cancelled.specification.jobID
+        )
+        guard case .active(let failedActive) = failedActivation,
+              case .active(let cancelledActive) = cancelledActivation else {
+            return XCTFail("Expected both source snapshots to activate")
+        }
+        let failedURL = failedActive.request.inputURL
+        let cancelledURL = cancelledActive.request.inputURL
+        failedActive.close()
+        cancelledActive.close()
+
+        guard case .claimed(let failedDispatch) = try await queue
+            .claimNextApplicationJob(
+                cycleID: WorkflowDispatchCycleIDV4("snapshot-cleanup-failed")
+            ) else {
+            return XCTFail("Expected failed job dispatch")
+        }
+        _ = try await queue.transitionApplicationJob(
+            failedDispatch,
+            expected: .probing,
+            target: .failed,
+            commandKey: WorkflowRecoveryCommandKeyV4(
+                "snapshot-cleanup-failed-transition"
+            ),
+            stage: "snapshot-cleanup-failed-transition",
+            attemptID: nil,
+            releaseAfterTransition: true
+        )
+        guard case .claimed(let cancelledDispatch) = try await queue
+            .claimNextApplicationJob(
+                cycleID: WorkflowDispatchCycleIDV4("snapshot-cleanup-cancelled")
+            ) else {
+            return XCTFail("Expected cancelled job dispatch")
+        }
+        _ = try await queue.transitionApplicationJob(
+            cancelledDispatch,
+            expected: .probing,
+            target: .cancelled,
+            commandKey: WorkflowRecoveryCommandKeyV4(
+                "snapshot-cleanup-cancelled-transition"
+            ),
+            stage: "snapshot-cleanup-cancelled-transition",
+            attemptID: nil,
+            releaseAfterTransition: true
+        )
+
+        try await queue.cleanupTerminalApplicationSourceSnapshots()
+        XCTAssertTrue(FileManager.default.fileExists(atPath: failedURL.path))
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: cancelledURL.path)
+        )
+    }
+
+    func testOriginalMutationCannotAffectLaterSegmentReaders() async throws {
+        let fixture = try makeFixture()
+        let admissionBytes = try Data(contentsOf: fixture.inputURL)
+        let segmentTemplateURL = fixture.rootURL.appendingPathComponent(
+            "source-snapshot-segment-template.mov"
+        )
+        try await writePublicationSegment(to: segmentTemplateURL)
+        let binding = try preparedBinding()
+        let engine = WorkflowApplicationSnapshotIsolationEngineV4(
+            binding: binding,
+            originalURL: fixture.inputURL,
+            segmentTemplateURL: segmentTemplateURL
+        )
+        let coordinator = WorkflowApplicationCoordinatorV4(
+            queue: try makeQueue(fixture: fixture),
+            engine: engine,
+            maximumInputFramesPerBoundary: 1
+        )
+
+        do {
+            _ = try await coordinator.submit(
+                request: request(fixture: fixture),
+                progress: { _ in },
+                snapshot: { _ in }
+            )
+            XCTFail("Expected the proof engine to stop after its second read")
+        } catch WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch {
+            // The first segment was durably committed; the second read is the
+            // assertion boundary and intentionally terminates the run.
+        }
+
+        let observations = await engine.observations()
+        XCTAssertEqual(observations.bytes, [admissionBytes, admissionBytes, admissionBytes])
+        XCTAssertEqual(Set(observations.urls).count, 1)
+        XCTAssertNotEqual(
+            observations.urls.first?.standardizedFileURL,
+            fixture.inputURL.standardizedFileURL
+        )
+        XCTAssertEqual(
+            try Data(contentsOf: fixture.inputURL),
+            Data("mutated-original-after-first-segment".utf8)
+        )
+        XCTAssertEqual(observations.processCallCount, 2)
     }
 
     func testPublicationCanonicalRecordTamperingFailsClosed() async throws {
@@ -1078,6 +1356,158 @@ private final class WorkflowApplicationTokenSequenceV4: @unchecked Sendable {
 
 private enum WorkflowApplicationFailingEngineErrorV4: Error {
     case injectedAfterDispatch
+}
+
+private actor WorkflowApplicationSnapshotIsolationEngineV4:
+    WorkflowApplicationDeterministicExecutingV4
+{
+    struct Observations: Sendable {
+        let urls: [URL]
+        let bytes: [Data]
+        let processCallCount: Int
+    }
+
+    let binding: WorkflowVerifiedPreparedPlanBindingV4
+    let originalURL: URL
+    let segmentTemplateURL: URL
+    private var observedURLs: [URL] = []
+    private var observedBytes: [Data] = []
+    private var processCalls = 0
+
+    init(
+        binding: WorkflowVerifiedPreparedPlanBindingV4,
+        originalURL: URL,
+        segmentTemplateURL: URL
+    ) {
+        self.binding = binding
+        self.originalURL = originalURL
+        self.segmentTemplateURL = segmentTemplateURL
+    }
+
+    func prepareSubmission(
+        request: UpscaleRequest
+    ) async throws -> WorkflowApplicationPreparedSubmissionV4 {
+        WorkflowApplicationPreparedSubmissionV4(
+            request: request,
+            binding: binding
+        )
+    }
+
+    func revalidateAndPrepare(
+        jobID _: WorkflowJobID,
+        request: UpscaleRequest,
+        expectedBinding: WorkflowVerifiedPreparedPlanBindingV4
+    ) async throws -> VideoInfo {
+        guard expectedBinding == binding else {
+            throw WorkflowApplicationFailingEngineErrorV4
+                .injectedAfterDispatch
+        }
+        try observe(request.inputURL)
+        return workflowApplicationVideoInfo(url: request.inputURL)
+    }
+
+    func processPrepared(
+        jobID _: WorkflowJobID,
+        request: UpscaleRequest,
+        startingInputFrameIndex _: Int,
+        startTime: WorkflowMediaTimeV4?,
+        maximumInputFrames _: Int,
+        previousCheckpoint _: WorkflowCheckpointDocumentV4?,
+        cancellation _: ProcessingCancellation,
+        progress _: @escaping @Sendable (UpscaleProgress) -> Void
+    ) async throws -> WorkflowApplicationProcessedSegmentV4 {
+        processCalls += 1
+        try observe(request.inputURL)
+        guard processCalls == 1 else {
+            throw WorkflowApplicationFailingEngineErrorV4
+                .injectedAfterDispatch
+        }
+        try FileManager.default.removeItem(at: originalURL)
+        try Data("mutated-original-after-first-segment".utf8).write(
+            to: originalURL
+        )
+        try FileManager.default.copyItem(
+            at: segmentTemplateURL,
+            to: request.outputURL
+        )
+        let start = try startTime ?? WorkflowMediaTimeV4(
+            value: 0,
+            timescale: 30
+        )
+        let end = try WorkflowMediaTimeV4(
+            value: start.value + 1,
+            timescale: start.timescale
+        )
+        return WorkflowApplicationProcessedSegmentV4(
+            source: workflowApplicationVideoInfo(url: request.inputURL),
+            segment: DeterministicV4MediaSegmentResultV4(
+                segmentURL: request.outputURL,
+                startTime: start,
+                endTimeExclusive: end,
+                inputSampleCount: 1,
+                outputSampleCount: 1,
+                lastCompletedInputOrdinal: 0,
+                terminal: false,
+                processingDurationSeconds: 0.01
+            ),
+            temporalCheckpoint: Data("snapshot-isolation-state".utf8),
+            trackProgress: [
+                try WorkflowTrackProgressV4(
+                    trackID: "video-primary",
+                    kind: .video,
+                    nextInputSampleIndex: 1,
+                    nextOutputSampleIndex: 1,
+                    lastInputTime: start,
+                    lastOutputTime: start,
+                    isComplete: false
+                )
+            ]
+        )
+    }
+
+    func restorePrepared(
+        jobID _: WorkflowJobID,
+        temporalCheckpoint _: Data,
+        lastCompletedInputOrdinal _: Int64
+    ) async throws {
+        throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
+    func finalizePreparedOutput(
+        jobID _: WorkflowJobID,
+        request _: UpscaleRequest,
+        assembledVideoURL _: URL,
+        publicationURL _: URL,
+        migrationTemporaryURL _: URL,
+        cancellation _: ProcessingCancellation,
+        progress _: @escaping @Sendable (UpscaleProgress) -> Void
+    ) async throws -> WorkflowApplicationFinalizedOutputV4 {
+        throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
+    func inspectCompletion(
+        request _: UpscaleRequest,
+        checkpoint _: WorkflowCheckpointDocumentV4,
+        segmentResult _: UpscaleResult?,
+        processingDurationSeconds _: TimeInterval
+    ) async throws -> WorkflowApplicationCompletionV4 {
+        throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
+    func abandonPrepared(jobID _: WorkflowJobID) async {}
+
+    func observations() -> Observations {
+        Observations(
+            urls: observedURLs,
+            bytes: observedBytes,
+            processCallCount: processCalls
+        )
+    }
+
+    private func observe(_ url: URL) throws {
+        observedURLs.append(url)
+        observedBytes.append(try Data(contentsOf: url))
+    }
 }
 
 private actor WorkflowApplicationDispatchRecorderV4 {

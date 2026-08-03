@@ -566,17 +566,23 @@ struct WorkflowCheckpointCompatibilityBindingV4:
     let mediaContractID: WorkflowMediaContractID
     let sourceBookmark: WorkflowBookmarkReference
     let outputDirectoryBookmark: WorkflowBookmarkReference
+    let sourceSnapshotIdentityID: WorkflowSourceIdentityID?
 
-    init(specification: WorkflowJobSpecification) {
+    init(
+        specification: WorkflowJobSpecification,
+        sourceSnapshotIdentityID: WorkflowSourceIdentityID? = nil
+    ) {
         jobBinding = specification.binding
         runtimeManifestID = specification.runtimeBinding.runtimeManifestID
         mediaContractID = specification.runtimeBinding.mediaContractID
         sourceBookmark = specification.source.bookmark
         outputDirectoryBookmark = specification.output.directoryBookmark
+        self.sourceSnapshotIdentityID = sourceSnapshotIdentityID
     }
 
     func compatibilityFailures(
-        with specification: WorkflowJobSpecification
+        with specification: WorkflowJobSpecification,
+        expectedSourceSnapshotIdentityID: WorkflowSourceIdentityID? = nil
     ) -> [WorkflowCheckpointIncompatibilityV4] {
         var failures: [WorkflowCheckpointIncompatibilityV4] = []
         if jobBinding != specification.binding { failures.append(.jobBinding) }
@@ -591,6 +597,9 @@ struct WorkflowCheckpointCompatibilityBindingV4:
         }
         if outputDirectoryBookmark != specification.output.directoryBookmark {
             failures.append(.outputBookmark)
+        }
+        if sourceSnapshotIdentityID != expectedSourceSnapshotIdentityID {
+            failures.append(.sourceSnapshot)
         }
         return failures
     }
@@ -608,11 +617,12 @@ enum WorkflowCheckpointIncompatibilityV4:
     case mediaContract = "media_contract"
     case sourceBookmark = "source_bookmark"
     case outputBookmark = "output_bookmark"
+    case sourceSnapshot = "source_snapshot"
     case codecSettings = "codec_settings"
 }
 
 struct WorkflowCheckpointBodyV4: Codable, Equatable, Hashable, Sendable {
-    static let currentSchemaVersion: UInt16 = 1
+    static let currentSchemaVersion: UInt16 = 2
 
     let schemaVersion: UInt16
     let checkpointID: WorkflowCheckpointIDV4
@@ -897,6 +907,27 @@ struct WorkflowCheckpointDraftV4: Equatable, Hashable, Sendable {
     let temporalHistory: WorkflowCheckpointArtifactV4
     let measurementHysteresis: WorkflowCheckpointArtifactV4
     let auxiliaryState: [WorkflowCheckpointArtifactV4]
+    let sourceSnapshotIdentityID: WorkflowSourceIdentityID?
+
+    init(
+        checkpointID: WorkflowCheckpointIDV4,
+        committedAt: WorkflowWallClockInstantV4,
+        segments: [WorkflowSegmentCheckpointV4],
+        trackProgress: [WorkflowTrackProgressV4],
+        temporalHistory: WorkflowCheckpointArtifactV4,
+        measurementHysteresis: WorkflowCheckpointArtifactV4,
+        auxiliaryState: [WorkflowCheckpointArtifactV4],
+        sourceSnapshotIdentityID: WorkflowSourceIdentityID? = nil
+    ) {
+        self.checkpointID = checkpointID
+        self.committedAt = committedAt
+        self.segments = segments
+        self.trackProgress = trackProgress
+        self.temporalHistory = temporalHistory
+        self.measurementHysteresis = measurementHysteresis
+        self.auxiliaryState = auxiliaryState
+        self.sourceSnapshotIdentityID = sourceSnapshotIdentityID
+    }
 }
 
 enum WorkflowCheckpointCommitDispositionV4: Equatable, Sendable {
@@ -1496,7 +1527,9 @@ actor WorkflowDurableCoordinatorV4 {
         let previous = try loadCheckpointDocument(jobID: claim.jobID)
         if let previous,
            previous.body.checkpointID == draft.checkpointID {
-            guard previous.body.segments == draft.segments,
+            guard previous.body.compatibility.sourceSnapshotIdentityID
+                    == draft.sourceSnapshotIdentityID,
+                  previous.body.segments == draft.segments,
                   previous.body.trackProgress == draft.trackProgress.sorted(by: {
                       if $0.kind.rawValue != $1.kind.rawValue {
                           return $0.kind.rawValue < $1.kind.rawValue
@@ -1536,7 +1569,8 @@ actor WorkflowDurableCoordinatorV4 {
             ordinal: ordinal,
             previousCheckpointHash: previous?.bodyHash,
             compatibility: WorkflowCheckpointCompatibilityBindingV4(
-                specification: job.specification
+                specification: job.specification,
+                sourceSnapshotIdentityID: draft.sourceSnapshotIdentityID
             ),
             attemptID: activeAttemptID,
             committedAt: draft.committedAt,
@@ -1589,7 +1623,8 @@ actor WorkflowDurableCoordinatorV4 {
 
     func loadCompatibleCheckpoint(
         jobID: WorkflowJobID,
-        expectedCodecSettingsHash: WorkflowOutputContractID
+        expectedCodecSettingsHash: WorkflowOutputContractID,
+        expectedSourceSnapshotIdentityID: WorkflowSourceIdentityID? = nil
     ) throws -> WorkflowCheckpointDocumentV4? {
         guard let document = try loadCheckpointDocument(jobID: jobID) else {
             return nil
@@ -1599,7 +1634,9 @@ actor WorkflowDurableCoordinatorV4 {
             throw WorkflowReducerError.jobNotFound(jobID)
         }
         var failures = document.body.compatibility.compatibilityFailures(
-            with: job.specification
+            with: job.specification,
+            expectedSourceSnapshotIdentityID:
+                expectedSourceSnapshotIdentityID
         )
         if document.body.segments.contains(where: {
             $0.codecSettingsHash != expectedCodecSettingsHash

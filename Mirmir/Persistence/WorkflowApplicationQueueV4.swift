@@ -64,6 +64,12 @@ enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
     )
     case requestDocumentBindingMismatch(WorkflowJobID)
     case requestDocumentConflict(WorkflowJobID)
+    case sourceSnapshotInvalid(WorkflowJobID)
+    case sourceSnapshotFilesystemFailure(
+        operation: String,
+        path: String,
+        code: Int32
+    )
     case dispatchJobMismatch(expected: WorkflowJobID, actual: WorkflowJobID)
     case preparedPlanChanged(WorkflowJobID)
     case terminalCheckpointMissing(WorkflowJobID)
@@ -115,6 +121,10 @@ enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
             "The durable request document for \(jobID) does not match the journal binding."
         case .requestDocumentConflict(let jobID):
             "A different durable request document already exists for \(jobID)."
+        case .sourceSnapshotInvalid(let jobID):
+            "The private source snapshot for \(jobID) is missing, changed, or unsafe."
+        case let .sourceSnapshotFilesystemFailure(operation, path, code):
+            "The private source snapshot operation \(operation) failed for \(path) with errno \(code)."
         case .dispatchJobMismatch(let expected, let actual):
             "The dispatcher selected \(actual), expected \(expected)."
         case .preparedPlanChanged(let jobID):
@@ -733,6 +743,109 @@ private struct WorkflowApplicationRequestIdentityMaterialV4:
     }
 }
 
+private struct WorkflowApplicationSourceSnapshotIdentityMaterialV4:
+    Codable,
+    Equatable,
+    Sendable
+{
+    static let currentSchemaVersion: UInt16 = 1
+
+    let schemaVersion: UInt16
+    let byteCount: UInt64
+    let sha256: ASHSHA256V4
+
+    init(byteCount: UInt64, sha256: ASHSHA256V4) {
+        schemaVersion = Self.currentSchemaVersion
+        self.byteCount = byteCount
+        self.sha256 = sha256
+    }
+}
+
+/// Canonical, full-file identity of the queue-owned source copy. Its durable
+/// request also binds the relative path so bytes from another job namespace
+/// cannot be substituted as authority.
+struct WorkflowApplicationSourceSnapshotBindingV4:
+    Codable,
+    Equatable,
+    Hashable,
+    Sendable
+{
+    static let currentSchemaVersion: UInt16 = 1
+
+    let schemaVersion: UInt16
+    let relativePath: String
+    let byteCount: UInt64
+    let sha256: ASHSHA256V4
+    let identityID: WorkflowSourceIdentityID
+
+    init(
+        relativePath: String,
+        byteCount: UInt64,
+        sha256: ASHSHA256V4,
+        expectedIdentityID: WorkflowSourceIdentityID? = nil
+    ) throws {
+        guard !relativePath.isEmpty,
+              relativePath.utf8.count <= 1_024,
+              !relativePath.hasPrefix("/"),
+              !relativePath.contains("\\"),
+              !relativePath.split(separator: "/").contains(".."),
+              byteCount > 0 else {
+            throw WorkflowDomainValidationError.invalidIdentifier(relativePath)
+        }
+        let material = WorkflowApplicationSourceSnapshotIdentityMaterialV4(
+            byteCount: byteCount,
+            sha256: sha256
+        )
+        let computed = try WorkflowSourceIdentityID(
+            WorkflowV4Validation.domainSeparatedSHA256(
+                domain: "Mirmir.WorkflowApplication.SourceSnapshot.v1\u{0}",
+                data: WorkflowCanonicalCodec().canonicalData(material)
+            )
+        )
+        if let expectedIdentityID, expectedIdentityID != computed {
+            throw WorkflowApplicationQueueErrorV4
+                .preparedBindingHashMismatch
+        }
+        schemaVersion = Self.currentSchemaVersion
+        self.relativePath = relativePath
+        self.byteCount = byteCount
+        self.sha256 = sha256
+        identityID = computed
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case relativePath
+        case byteCount
+        case sha256
+        case identityID
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let schemaVersion = try container.decode(
+            UInt16.self,
+            forKey: .schemaVersion
+        )
+        guard schemaVersion == Self.currentSchemaVersion else {
+            throw WorkflowDomainValidationError.unsupportedSchemaVersion(
+                type: "WorkflowApplicationSourceSnapshotBindingV4",
+                actual: schemaVersion,
+                current: Self.currentSchemaVersion
+            )
+        }
+        try self.init(
+            relativePath: container.decode(String.self, forKey: .relativePath),
+            byteCount: container.decode(UInt64.self, forKey: .byteCount),
+            sha256: container.decode(ASHSHA256V4.self, forKey: .sha256),
+            expectedIdentityID: container.decode(
+                WorkflowSourceIdentityID.self,
+                forKey: .identityID
+            )
+        )
+    }
+}
+
 private struct WorkflowApplicationBookmarkAuthorizationMaterialV4:
     Codable,
     Equatable,
@@ -765,11 +878,12 @@ private struct WorkflowApplicationRequestBodyV4:
     Equatable,
     Sendable
 {
-    static let currentSchemaVersion: UInt16 = 1
+    static let currentSchemaVersion: UInt16 = 2
 
     let schemaVersion: UInt16
     let specification: WorkflowJobSpecification
     let cacheBookmark: WorkflowBookmarkReference
+    let sourceSnapshot: WorkflowApplicationSourceSnapshotBindingV4
     let preparedPlanBinding: WorkflowVerifiedPreparedPlanBindingV4
     let targetWidth: Int
     let targetHeight: Int
@@ -780,6 +894,7 @@ private struct WorkflowApplicationRequestBodyV4:
     init(
         specification: WorkflowJobSpecification,
         cacheBookmark: WorkflowBookmarkReference,
+        sourceSnapshot: WorkflowApplicationSourceSnapshotBindingV4,
         preparedPlanBinding: WorkflowVerifiedPreparedPlanBindingV4,
         targetWidth: Int,
         targetHeight: Int,
@@ -790,6 +905,7 @@ private struct WorkflowApplicationRequestBodyV4:
         schemaVersion = Self.currentSchemaVersion
         self.specification = specification
         self.cacheBookmark = cacheBookmark
+        self.sourceSnapshot = sourceSnapshot
         self.preparedPlanBinding = preparedPlanBinding
         self.targetWidth = targetWidth
         self.targetHeight = targetHeight
@@ -802,6 +918,7 @@ private struct WorkflowApplicationRequestBodyV4:
         case schemaVersion
         case specification
         case cacheBookmark
+        case sourceSnapshot
         case preparedPlanBinding
         case targetWidth
         case targetHeight
@@ -831,6 +948,10 @@ private struct WorkflowApplicationRequestBodyV4:
             cacheBookmark: try container.decode(
                 WorkflowBookmarkReference.self,
                 forKey: .cacheBookmark
+            ),
+            sourceSnapshot: try container.decode(
+                WorkflowApplicationSourceSnapshotBindingV4.self,
+                forKey: .sourceSnapshot
             ),
             preparedPlanBinding: try container.decode(
                 WorkflowVerifiedPreparedPlanBindingV4.self,
@@ -1006,6 +1127,7 @@ enum WorkflowApplicationActivationFailureV4: Equatable, Sendable {
     case requestDocumentMissing
     case requestDocumentCorrupt
     case requestDocumentBindingMismatch
+    case sourceSnapshotInvalid
     case bookmarkBlocked([WorkflowBookmarkActivationFailureV4])
 }
 
@@ -1021,27 +1143,34 @@ final class WorkflowActivatedUpscaleRequestV4: @unchecked Sendable {
     let request: UpscaleRequest
     let cacheDirectoryURL: URL
     let preparedPlanBinding: WorkflowVerifiedPreparedPlanBindingV4
+    let sourceSnapshot: WorkflowApplicationSourceSnapshotBindingV4
     let bookmarkReceipts: [WorkflowBookmarkActivationReceiptV4]
 
     private let accessSet: WorkflowActivatedBookmarkAccessSetV4
+    private let sourceSnapshotValidator: @Sendable () throws -> Void
 
     fileprivate init(
         specification: WorkflowJobSpecification,
         request: UpscaleRequest,
         cacheDirectoryURL: URL,
         preparedPlanBinding: WorkflowVerifiedPreparedPlanBindingV4,
-        accessSet: WorkflowActivatedBookmarkAccessSetV4
+        sourceSnapshot: WorkflowApplicationSourceSnapshotBindingV4,
+        accessSet: WorkflowActivatedBookmarkAccessSetV4,
+        sourceSnapshotValidator: @escaping @Sendable () throws -> Void
     ) {
         self.specification = specification
         self.request = request
         self.cacheDirectoryURL = cacheDirectoryURL
         self.preparedPlanBinding = preparedPlanBinding
+        self.sourceSnapshot = sourceSnapshot
         bookmarkReceipts = accessSet.receipts
         self.accessSet = accessSet
+        self.sourceSnapshotValidator = sourceSnapshotValidator
     }
 
     func revalidateAll() throws {
         try accessSet.revalidateAll()
+        try sourceSnapshotValidator()
     }
 
     func close() {
@@ -1075,6 +1204,8 @@ actor WorkflowApplicationQueueV4 {
     private static let publicationStageName = "publication-stage-v1.json"
     private static let publicationReceiptName = "publication-receipt-v1.json"
     private static let publicationLockName = "publication.lock"
+    private static let sourceSnapshotDirectoryName = "source-snapshot-v4"
+    private static let sourceSnapshotReadSize = 1_048_576
 
     private let fileSystem: any WorkflowDurableFileSystem
     private let resolver: any WorkflowSecurityScopedBookmarkResolvingV4
@@ -1248,80 +1379,110 @@ actor WorkflowApplicationQueueV4 {
             role: .cacheDirectory,
             codec: codec
         )
-        let specification = WorkflowJobSpecification(
-            jobID: jobID,
-            requestID: requestID,
-            source: WorkflowSourceSpecification(
-                identityID: binding.sourceIdentityID,
-                bookmark: sourceBookmark
-            ),
-            output: WorkflowOutputSpecification(
-                contractID: binding.outputContractID,
-                directoryBookmark: outputBookmark,
-                fileName: outputFileName
-            ),
-            runtimeBinding: binding.runtimeBinding
+        let snapshot = try createApplicationSourceSnapshot(
+            sourceURL: request.inputURL,
+            jobID: jobID
         )
-        let body = WorkflowApplicationRequestBodyV4(
-            specification: specification,
-            cacheBookmark: cacheBookmark,
-            preparedPlanBinding: binding,
-            targetWidth: request.targetWidth,
-            targetHeight: request.targetHeight,
-            outputCodec: request.outputCodec,
-            preserveAudio: request.preserveAudio,
-            overwriteExistingFile: request.overwriteExistingFile
-        )
-        let requestDocument = try makeRequestDocument(body)
-
-        // Bookmark authority is durably registered before the enqueue event is
-        // published. A failure at either earlier step leaves no dispatchable
-        // job; replaying an exact document remains idempotent.
-        let bookmarkDocument = try await bookmarkStore.register(
-            specification: specification,
-            registrations: [
-                WorkflowBookmarkRegistrationV4(
-                    role: .inputFile,
-                    authorizationReference: sourceBookmark,
-                    url: request.inputURL
+        do {
+            let specification = WorkflowJobSpecification(
+                jobID: jobID,
+                requestID: requestID,
+                source: WorkflowSourceSpecification(
+                    identityID: binding.sourceIdentityID,
+                    bookmark: sourceBookmark
                 ),
-                WorkflowBookmarkRegistrationV4(
-                    role: .outputDirectory,
-                    authorizationReference: outputBookmark,
-                    url: request.outputURL.deletingLastPathComponent()
+                output: WorkflowOutputSpecification(
+                    contractID: binding.outputContractID,
+                    directoryBookmark: outputBookmark,
+                    fileName: outputFileName
                 ),
-                WorkflowBookmarkRegistrationV4(
-                    role: .cacheDirectory,
-                    authorizationReference: cacheBookmark,
-                    url: cacheDirectoryURL
-                ),
-            ],
-            resolver: resolver
-        )
-        try persistRequestDocument(requestDocument)
-        // Priority is committed before the enqueue event. Therefore any job
-        // visible in the journal already has its requested dispatch priority,
-        // even if the process is killed at the next instruction. A priority
-        // entry whose enqueue never becomes visible is harmless and is pruned
-        // during launch reconciliation.
-        try persistPriority(jobID: jobID, value: priority)
-        let append = try await coordinator.append(
-            WorkflowEventDraft(
-                eventID: WorkflowEventID("enqueue-event-\(token)"),
-                commandID: WorkflowCommandID("enqueue-command-\(token)"),
-                scope: .job(jobID),
-                jobBinding: specification.binding,
-                attemptID: nil,
-                event: .jobEnqueued(specification)
+                runtimeBinding: binding.runtimeBinding
             )
-        )
-        return WorkflowApplicationEnqueueReceiptV4(
-            specification: specification,
-            priority: priority,
-            requestDocumentHash: requestDocument.bodyHash,
-            bookmarkSetHash: bookmarkDocument.bodyHash,
-            journalReceipt: append.receipt
-        )
+            let body = WorkflowApplicationRequestBodyV4(
+                specification: specification,
+                cacheBookmark: cacheBookmark,
+                sourceSnapshot: snapshot.binding,
+                preparedPlanBinding: binding,
+                targetWidth: request.targetWidth,
+                targetHeight: request.targetHeight,
+                outputCodec: request.outputCodec,
+                preserveAudio: request.preserveAudio,
+                overwriteExistingFile: request.overwriteExistingFile
+            )
+            let requestDocument = try makeRequestDocument(body)
+
+            // Bookmark authority is durably registered before the enqueue
+            // event is published. A failure at either earlier step leaves no
+            // dispatchable job; replaying an exact document is idempotent.
+            let bookmarkDocument = try await bookmarkStore.register(
+                specification: specification,
+                registrations: [
+                    WorkflowBookmarkRegistrationV4(
+                        role: .inputFile,
+                        authorizationReference: sourceBookmark,
+                        url: snapshot.url
+                    ),
+                    WorkflowBookmarkRegistrationV4(
+                        role: .outputDirectory,
+                        authorizationReference: outputBookmark,
+                        url: request.outputURL.deletingLastPathComponent()
+                    ),
+                    WorkflowBookmarkRegistrationV4(
+                        role: .cacheDirectory,
+                        authorizationReference: cacheBookmark,
+                        url: cacheDirectoryURL
+                    ),
+                ],
+                resolver: resolver
+            )
+            try persistRequestDocument(requestDocument)
+            // Priority is committed before the enqueue event. Therefore any
+            // job visible in the journal already has its requested priority,
+            // even if the process is killed at the next instruction. An entry
+            // whose enqueue never becomes visible is pruned during launch.
+            try persistPriority(jobID: jobID, value: priority)
+            let append = try await coordinator.append(
+                WorkflowEventDraft(
+                    eventID: WorkflowEventID("enqueue-event-\(token)"),
+                    commandID: WorkflowCommandID(
+                        "enqueue-command-\(token)"
+                    ),
+                    scope: .job(jobID),
+                    jobBinding: specification.binding,
+                    attemptID: nil,
+                    event: .jobEnqueued(specification)
+                )
+            )
+            return WorkflowApplicationEnqueueReceiptV4(
+                specification: specification,
+                priority: priority,
+                requestDocumentHash: requestDocument.bodyHash,
+                bookmarkSetHash: bookmarkDocument.bodyHash,
+                journalReceipt: append.receipt
+            )
+        } catch {
+            // An append can throw after durable visibility. Retain the source
+            // whenever durable state is uncertain; launch recovery will make
+            // the terminal cleanup decision.
+            let durableJobExists: Bool
+            do {
+                durableJobExists = try await coordinator.open().state.job(
+                    id: jobID
+                ) != nil
+            } catch {
+                // A failed replay cannot prove that the enqueue is absent.
+                // Retaining private recovery authority is safer than
+                // orphaning a possibly durable job.
+                durableJobExists = true
+            }
+            if !durableJobExists {
+                try? removeApplicationSourceSnapshot(
+                    jobID: jobID,
+                    binding: snapshot.binding
+                )
+            }
+            throw error
+        }
     }
 
     func queueSnapshot() async throws -> WorkflowApplicationQueueSnapshotV4 {
@@ -1453,15 +1614,35 @@ actor WorkflowApplicationQueueV4 {
                     overwriteExistingFile: body.overwriteExistingFile
                 )
                 try accessSet.revalidateAll()
+                try Self.verifyApplicationSourceSnapshot(
+                    at: input,
+                    trustedRootURL: rootURL,
+                    jobID: jobID,
+                    binding: body.sourceSnapshot
+                )
+                let snapshotBinding = body.sourceSnapshot
+                let snapshotRoot = rootURL
                 return .active(
                     WorkflowActivatedUpscaleRequestV4(
                         specification: job.specification,
                         request: request,
                         cacheDirectoryURL: cache,
                         preparedPlanBinding: body.preparedPlanBinding,
-                        accessSet: accessSet
+                        sourceSnapshot: snapshotBinding,
+                        accessSet: accessSet,
+                        sourceSnapshotValidator: {
+                            try Self.verifyApplicationSourceSnapshot(
+                                at: input,
+                                trustedRootURL: snapshotRoot,
+                                jobID: jobID,
+                                binding: snapshotBinding
+                            )
+                        }
                     )
                 )
+            } catch WorkflowApplicationQueueErrorV4.sourceSnapshotInvalid {
+                accessSet.close()
+                return .blocked(.sourceSnapshotInvalid)
             } catch {
                 accessSet.close()
                 return .blocked(.requestDocumentBindingMismatch)
@@ -1749,11 +1930,13 @@ extension WorkflowApplicationQueueV4 {
 
     func compatibleApplicationCheckpoint(
         jobID: WorkflowJobID,
-        outputContractID: WorkflowOutputContractID
+        outputContractID: WorkflowOutputContractID,
+        sourceSnapshotIdentityID: WorkflowSourceIdentityID? = nil
     ) async throws -> WorkflowCheckpointDocumentV4? {
         try await coordinator.loadCompatibleCheckpoint(
             jobID: jobID,
-            expectedCodecSettingsHash: outputContractID
+            expectedCodecSettingsHash: outputContractID,
+            expectedSourceSnapshotIdentityID: sourceSnapshotIdentityID
         )
     }
 
@@ -1764,7 +1947,8 @@ extension WorkflowApplicationQueueV4 {
         outputContractID: WorkflowOutputContractID,
         previousCheckpoint: WorkflowCheckpointDocumentV4?,
         trackProgress: [WorkflowTrackProgressV4],
-        temporalCheckpoint: Data
+        temporalCheckpoint: Data,
+        sourceSnapshotIdentityID: WorkflowSourceIdentityID? = nil
     ) async throws -> WorkflowApplicationBoundaryCheckpointV4 {
         let current = try await dispatcher.refreshedDispatch(dispatch)
         guard current.claim.jobID == specification.jobID,
@@ -1774,6 +1958,14 @@ extension WorkflowApplicationQueueV4 {
                 actual: current.claim.jobID
             )
         }
+        let durableSnapshotIdentityID = try loadVerifiedRequestDocument(
+            specification: specification
+        ).body.sourceSnapshot.identityID
+        guard sourceSnapshotIdentityID == nil
+                || sourceSnapshotIdentityID == durableSnapshotIdentityID else {
+            throw WorkflowDurableCoordinatorErrorV4
+                .checkpointIncompatible([.sourceSnapshot])
+        }
         let store = try WorkflowSegmentCheckpointStoreV4(rootURL: rootURL)
         let identity = try await AVFoundationSegmentProbeV4().probe(
             url: segment.segmentURL
@@ -1782,7 +1974,8 @@ extension WorkflowApplicationQueueV4 {
         guard previousCheckpoint?.body.compatibility == nil
                 || previousCheckpoint?.body.compatibility
                     == WorkflowCheckpointCompatibilityBindingV4(
-                        specification: specification
+                        specification: specification,
+                        sourceSnapshotIdentityID: durableSnapshotIdentityID
                     ) else {
             throw WorkflowDurableCoordinatorErrorV4
                 .checkpointIncompatible([.jobBinding])
@@ -1817,7 +2010,8 @@ extension WorkflowApplicationQueueV4 {
                 trackProgress: trackProgress,
                 committedAt: clock.now(),
                 lastCompletedInputOrdinal:
-                    segment.lastCompletedInputOrdinal
+                    segment.lastCompletedInputOrdinal,
+                sourceSnapshotIdentityID: durableSnapshotIdentityID
             ),
             using: current.claim,
             temporalCheckpoint: temporalCheckpoint
@@ -2023,7 +2217,9 @@ extension WorkflowApplicationQueueV4 {
               job.specification.binding == specification.binding,
               checkpoint.body.compatibility
                 == WorkflowCheckpointCompatibilityBindingV4(
-                    specification: specification
+                    specification: specification,
+                    sourceSnapshotIdentityID:
+                        activated.sourceSnapshot.identityID
                 ),
               checkpoint.body.compatibility.jobBinding
                 == specification.binding,
@@ -2443,11 +2639,618 @@ extension WorkflowApplicationQueueV4 {
             }
         }
     }
+
+    /// Source copies are recovery authority and therefore outlive every
+    /// nonterminal disposition, including failed, contained, paused, and
+    /// recovering jobs. Only durable success or cancellation permits removal.
+    func cleanupTerminalApplicationSourceSnapshots() async throws {
+        let state = try await coordinator.open().state
+        for job in state.jobs.values
+        where job.lifecycle == .completed || job.lifecycle == .cancelled {
+            let document: WorkflowApplicationRequestDocumentV4
+            do {
+                document = try loadVerifiedRequestDocument(
+                    specification: job.specification
+                )
+            } catch {
+                // A corrupt authority record cannot authorize deletion.
+                continue
+            }
+            do {
+                try removeApplicationSourceSnapshot(
+                    jobID: job.specification.jobID,
+                    binding: document.body.sourceSnapshot
+                )
+            } catch {
+                // Retention is the safe recovery behavior for an unexpected
+                // filesystem shape; a later launch can retry after inspection.
+                continue
+            }
+        }
+    }
 }
 
 // MARK: - Validation and persistence
 
 private extension WorkflowApplicationQueueV4 {
+    struct ApplicationSourceSnapshotCreationV4 {
+        let url: URL
+        let binding: WorkflowApplicationSourceSnapshotBindingV4
+    }
+
+    func createApplicationSourceSnapshot(
+        sourceURL: URL,
+        jobID: WorkflowJobID
+    ) throws -> ApplicationSourceSnapshotCreationV4 {
+        let jobsURL = rootURL.appendingPathComponent("jobs", isDirectory: true)
+        let jobURL = jobsURL.appendingPathComponent(
+            jobID.rawValue,
+            isDirectory: true
+        )
+        try fileSystem.ensureDirectory(jobsURL)
+        try fileSystem.ensureDirectory(jobURL)
+
+        let extensionValue = sourceURL.pathExtension.lowercased()
+        let safeExtension = extensionValue.utf8.count <= 16
+            && extensionValue.utf8.allSatisfy {
+                (0x30...0x39).contains($0) || (0x61...0x7a).contains($0)
+            }
+        let fileName = safeExtension && !extensionValue.isEmpty
+            ? "source.\(extensionValue)"
+            : "source"
+        let finalDirectory = jobURL.appendingPathComponent(
+            Self.sourceSnapshotDirectoryName,
+            isDirectory: true
+        )
+        let temporaryDirectory = jobURL.appendingPathComponent(
+            ".\(Self.sourceSnapshotDirectoryName).\(UUID().uuidString.lowercased()).partial",
+            isDirectory: true
+        )
+        let temporaryURL = temporaryDirectory.appendingPathComponent(fileName)
+        let finalURL = finalDirectory.appendingPathComponent(fileName)
+        guard !FileManager.default.fileExists(atPath: finalDirectory.path),
+              mkdir(temporaryDirectory.path, S_IRWXU) == 0 else {
+            throw Self.sourceSnapshotFilesystemError(
+                operation: "create_private_directory",
+                path: temporaryDirectory.path
+            )
+        }
+
+        var finalInstalled = false
+        do {
+            let sourcePath = sourceURL.standardizedFileURL.path
+            var sourcePathBefore = stat()
+            guard lstat(sourcePath, &sourcePathBefore) == 0,
+                  Self.isSafeSourceSnapshotFile(sourcePathBefore) else {
+                throw WorkflowApplicationQueueErrorV4
+                    .sourceSnapshotInvalid(jobID)
+            }
+            let sourceDescriptor = open(
+                sourcePath,
+                O_RDONLY | O_NOFOLLOW | O_CLOEXEC
+            )
+            guard sourceDescriptor >= 0 else {
+                throw Self.sourceSnapshotFilesystemError(
+                    operation: "open_source",
+                    path: sourcePath
+                )
+            }
+            defer { close(sourceDescriptor) }
+            var sourceBefore = stat()
+            guard fstat(sourceDescriptor, &sourceBefore) == 0,
+                  Self.sameSourceSnapshotFile(
+                    sourcePathBefore,
+                    sourceBefore
+                  ) else {
+                throw WorkflowApplicationQueueErrorV4
+                    .sourceSnapshotInvalid(jobID)
+            }
+
+            let directoryDescriptor = open(
+                temporaryDirectory.path,
+                O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+            )
+            guard directoryDescriptor >= 0 else {
+                throw Self.sourceSnapshotFilesystemError(
+                    operation: "open_private_directory",
+                    path: temporaryDirectory.path
+                )
+            }
+            defer { close(directoryDescriptor) }
+            let destinationDescriptor = openat(
+                directoryDescriptor,
+                fileName,
+                O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
+                S_IRUSR | S_IWUSR
+            )
+            guard destinationDescriptor >= 0 else {
+                throw Self.sourceSnapshotFilesystemError(
+                    operation: "create_snapshot",
+                    path: temporaryURL.path
+                )
+            }
+            defer { close(destinationDescriptor) }
+
+            var byteCount: UInt64 = 0
+            var hasher = SHA256()
+            var buffer = [UInt8](
+                repeating: 0,
+                count: Self.sourceSnapshotReadSize
+            )
+            while true {
+                let count = Darwin.read(
+                    sourceDescriptor,
+                    &buffer,
+                    buffer.count
+                )
+                if count < 0 && errno == EINTR { continue }
+                guard count >= 0 else {
+                    throw Self.sourceSnapshotFilesystemError(
+                        operation: "read_source",
+                        path: sourcePath
+                    )
+                }
+                guard count > 0 else { break }
+                let (nextCount, overflow) = byteCount.addingReportingOverflow(
+                    UInt64(count)
+                )
+                guard !overflow else {
+                    throw WorkflowApplicationQueueErrorV4
+                        .sourceSnapshotInvalid(jobID)
+                }
+                try Self.writeApplicationSourceSnapshotBytes(
+                    buffer,
+                    count: count,
+                    descriptor: destinationDescriptor,
+                    jobID: jobID,
+                    path: temporaryURL.path
+                )
+                hasher.update(data: Data(buffer[0..<count]))
+                byteCount = nextCount
+            }
+
+            var sourceAfter = stat()
+            var sourcePathAfter = stat()
+            guard byteCount > 0,
+                  fstat(sourceDescriptor, &sourceAfter) == 0,
+                  lstat(sourcePath, &sourcePathAfter) == 0,
+                  Self.sameSourceSnapshotFile(sourceBefore, sourceAfter),
+                  Self.sameSourceSnapshotFile(sourceAfter, sourcePathAfter),
+                  fchmod(destinationDescriptor, S_IRUSR) == 0,
+                  fsync(destinationDescriptor) == 0,
+                  fsync(directoryDescriptor) == 0 else {
+                throw WorkflowApplicationQueueErrorV4
+                    .sourceSnapshotInvalid(jobID)
+            }
+            let digest = try ASHSHA256V4(Self.hex(hasher.finalize()))
+            let relativePath = "jobs/\(jobID.rawValue)/\(Self.sourceSnapshotDirectoryName)/\(fileName)"
+            let binding = try WorkflowApplicationSourceSnapshotBindingV4(
+                relativePath: relativePath,
+                byteCount: byteCount,
+                sha256: digest
+            )
+
+            guard rename(temporaryDirectory.path, finalDirectory.path) == 0
+            else {
+                throw Self.sourceSnapshotFilesystemError(
+                    operation: "install_snapshot",
+                    path: finalDirectory.path
+                )
+            }
+            finalInstalled = true
+            let jobDescriptor = open(
+                jobURL.path,
+                O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+            )
+            guard jobDescriptor >= 0, fsync(jobDescriptor) == 0 else {
+                if jobDescriptor >= 0 { close(jobDescriptor) }
+                throw Self.sourceSnapshotFilesystemError(
+                    operation: "sync_snapshot_parent",
+                    path: jobURL.path
+                )
+            }
+            close(jobDescriptor)
+            try Self.verifyApplicationSourceSnapshot(
+                at: finalURL,
+                trustedRootURL: rootURL,
+                jobID: jobID,
+                binding: binding
+            )
+            return ApplicationSourceSnapshotCreationV4(
+                url: finalURL,
+                binding: binding
+            )
+        } catch {
+            let target = finalInstalled ? finalDirectory : temporaryDirectory
+            try? Self.removeOwnedApplicationSourceSnapshotDirectory(
+                target,
+                expectedFileName: fileName
+            )
+            throw error
+        }
+    }
+
+    nonisolated static func verifyApplicationSourceSnapshot(
+        at url: URL,
+        trustedRootURL: URL,
+        jobID: WorkflowJobID,
+        binding: WorkflowApplicationSourceSnapshotBindingV4
+    ) throws {
+        let expectedRelativePath = "jobs/\(jobID.rawValue)/\(Self.sourceSnapshotDirectoryName)/\(url.lastPathComponent)"
+        let expectedURL = trustedRootURL.appendingPathComponent(
+            binding.relativePath,
+            isDirectory: false
+        ).standardizedFileURL
+        guard Self.isExpectedApplicationSourceSnapshotRelativePath(
+                binding.relativePath,
+                jobID: jobID
+              ),
+              binding.relativePath == expectedRelativePath,
+              url.standardizedFileURL == expectedURL,
+              url.deletingLastPathComponent().lastPathComponent
+                == Self.sourceSnapshotDirectoryName else {
+            throw WorkflowApplicationQueueErrorV4
+                .sourceSnapshotInvalid(jobID)
+        }
+        let rootDescriptor = open(
+            trustedRootURL.path,
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard rootDescriptor >= 0 else {
+            throw WorkflowApplicationQueueErrorV4
+                .sourceSnapshotInvalid(jobID)
+        }
+        defer { close(rootDescriptor) }
+        let jobsDescriptor = openat(
+            rootDescriptor,
+            "jobs",
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard jobsDescriptor >= 0 else {
+            throw WorkflowApplicationQueueErrorV4
+                .sourceSnapshotInvalid(jobID)
+        }
+        defer { close(jobsDescriptor) }
+        let jobDescriptor = openat(
+            jobsDescriptor,
+            jobID.rawValue,
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard jobDescriptor >= 0 else {
+            throw WorkflowApplicationQueueErrorV4
+                .sourceSnapshotInvalid(jobID)
+        }
+        defer { close(jobDescriptor) }
+        let snapshotDirectoryDescriptor = openat(
+            jobDescriptor,
+            Self.sourceSnapshotDirectoryName,
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard snapshotDirectoryDescriptor >= 0 else {
+            throw WorkflowApplicationQueueErrorV4
+                .sourceSnapshotInvalid(jobID)
+        }
+        defer { close(snapshotDirectoryDescriptor) }
+        var openedDirectoryMetadata = stat()
+        var pathDirectoryMetadata = stat()
+        guard fstat(
+                snapshotDirectoryDescriptor,
+                &openedDirectoryMetadata
+              ) == 0,
+              lstat(
+                url.deletingLastPathComponent().path,
+                &pathDirectoryMetadata
+              ) == 0,
+              (openedDirectoryMetadata.st_mode & S_IFMT) == S_IFDIR,
+              openedDirectoryMetadata.st_dev == pathDirectoryMetadata.st_dev,
+              openedDirectoryMetadata.st_ino == pathDirectoryMetadata.st_ino,
+              (openedDirectoryMetadata.st_mode & 0o077) == 0 else {
+            throw WorkflowApplicationQueueErrorV4
+                .sourceSnapshotInvalid(jobID)
+        }
+        let descriptor = openat(
+            snapshotDirectoryDescriptor,
+            url.lastPathComponent,
+            O_RDONLY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard descriptor >= 0 else {
+            throw WorkflowApplicationQueueErrorV4
+                .sourceSnapshotInvalid(jobID)
+        }
+        defer { close(descriptor) }
+        var before = stat()
+        guard fstat(descriptor, &before) == 0,
+              Self.isSafeSourceSnapshotFile(before),
+              (before.st_mode & 0o777) == S_IRUSR,
+              UInt64(before.st_size) == binding.byteCount else {
+            throw WorkflowApplicationQueueErrorV4
+                .sourceSnapshotInvalid(jobID)
+        }
+        var hasher = SHA256()
+        var observedByteCount: UInt64 = 0
+        var buffer = [UInt8](repeating: 0, count: Self.sourceSnapshotReadSize)
+        while true {
+            let count = Darwin.read(descriptor, &buffer, buffer.count)
+            if count < 0 && errno == EINTR { continue }
+            guard count >= 0 else {
+                throw WorkflowApplicationQueueErrorV4
+                    .sourceSnapshotInvalid(jobID)
+            }
+            guard count > 0 else { break }
+            let (next, overflow) = observedByteCount.addingReportingOverflow(
+                UInt64(count)
+            )
+            guard !overflow, next <= binding.byteCount else {
+                throw WorkflowApplicationQueueErrorV4
+                    .sourceSnapshotInvalid(jobID)
+            }
+            hasher.update(data: Data(buffer[0..<count]))
+            observedByteCount = next
+        }
+        var after = stat()
+        var pathAfter = stat()
+        var directoryAfter = stat()
+        guard observedByteCount == binding.byteCount,
+              try ASHSHA256V4(Self.hex(hasher.finalize())) == binding.sha256,
+              fstat(descriptor, &after) == 0,
+              lstat(url.path, &pathAfter) == 0,
+              lstat(
+                url.deletingLastPathComponent().path,
+                &directoryAfter
+              ) == 0,
+              Self.sameSourceSnapshotFile(before, after),
+              Self.sameSourceSnapshotFile(after, pathAfter),
+              openedDirectoryMetadata.st_dev == directoryAfter.st_dev,
+              openedDirectoryMetadata.st_ino == directoryAfter.st_ino else {
+            throw WorkflowApplicationQueueErrorV4
+                .sourceSnapshotInvalid(jobID)
+        }
+    }
+
+    nonisolated static func isExpectedApplicationSourceSnapshotRelativePath(
+        _ relativePath: String,
+        jobID: WorkflowJobID
+    ) -> Bool {
+        let components = relativePath.split(separator: "/", omittingEmptySubsequences: false)
+        guard components.count == 4,
+              components[0] == "jobs",
+              components[1] == Substring(jobID.rawValue),
+              components[2] == Substring(Self.sourceSnapshotDirectoryName)
+        else { return false }
+        let name = String(components[3])
+        guard name == "source" || name.hasPrefix("source.") else {
+            return false
+        }
+        let suffix = name == "source" ? "" : String(name.dropFirst(7))
+        return suffix.utf8.count <= 16 && suffix.utf8.allSatisfy {
+            (0x30...0x39).contains($0) || (0x61...0x7a).contains($0)
+        }
+    }
+
+    func removeApplicationSourceSnapshot(
+        jobID: WorkflowJobID,
+        binding: WorkflowApplicationSourceSnapshotBindingV4
+    ) throws {
+        let url = rootURL.appendingPathComponent(binding.relativePath)
+            .standardizedFileURL
+        let expectedRelativePath = "jobs/\(jobID.rawValue)/\(Self.sourceSnapshotDirectoryName)/\(url.lastPathComponent)"
+        guard binding.relativePath == expectedRelativePath,
+              Self.isExpectedApplicationSourceSnapshotRelativePath(
+                binding.relativePath,
+                jobID: jobID
+              ) else {
+            throw WorkflowApplicationQueueErrorV4
+                .sourceSnapshotInvalid(jobID)
+        }
+        let rootDescriptor = open(
+            rootURL.path,
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard rootDescriptor >= 0 else {
+            throw Self.sourceSnapshotFilesystemError(
+                operation: "open_cleanup_root",
+                path: rootURL.path
+            )
+        }
+        defer { close(rootDescriptor) }
+        let jobsDescriptor = openat(
+            rootDescriptor,
+            "jobs",
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard jobsDescriptor >= 0 else {
+            throw Self.sourceSnapshotFilesystemError(
+                operation: "open_cleanup_jobs",
+                path: url.path
+            )
+        }
+        defer { close(jobsDescriptor) }
+        let jobDescriptor = openat(
+            jobsDescriptor,
+            jobID.rawValue,
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard jobDescriptor >= 0 else {
+            throw Self.sourceSnapshotFilesystemError(
+                operation: "open_cleanup_job",
+                path: url.path
+            )
+        }
+        defer { close(jobDescriptor) }
+        let directoryDescriptor = openat(
+            jobDescriptor,
+            Self.sourceSnapshotDirectoryName,
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard directoryDescriptor >= 0 else {
+            if errno == ENOENT { return }
+            throw Self.sourceSnapshotFilesystemError(
+                operation: "open_cleanup_snapshot",
+                path: url.path
+            )
+        }
+        defer { close(directoryDescriptor) }
+        var openedDirectory = stat()
+        var pathDirectory = stat()
+        var fileMetadata = stat()
+        guard fstat(directoryDescriptor, &openedDirectory) == 0,
+              lstat(url.deletingLastPathComponent().path, &pathDirectory) == 0,
+              openedDirectory.st_dev == pathDirectory.st_dev,
+              openedDirectory.st_ino == pathDirectory.st_ino,
+              (openedDirectory.st_mode & S_IFMT) == S_IFDIR,
+              (openedDirectory.st_mode & 0o077) == 0,
+              try FileManager.default.contentsOfDirectory(
+                atPath: url.deletingLastPathComponent().path
+              ) == [url.lastPathComponent],
+              fstatat(
+                directoryDescriptor,
+                url.lastPathComponent,
+                &fileMetadata,
+                AT_SYMLINK_NOFOLLOW
+              ) == 0,
+              (fileMetadata.st_mode & S_IFMT) == S_IFREG,
+              fileMetadata.st_nlink == 1 else {
+            throw WorkflowApplicationQueueErrorV4
+                .sourceSnapshotFilesystemFailure(
+                    operation: "unsafe_cleanup_snapshot",
+                    path: url.path,
+                    code: EINVAL
+                )
+        }
+        guard unlinkat(
+                directoryDescriptor,
+                url.lastPathComponent,
+                0
+              ) == 0,
+              unlinkat(
+                jobDescriptor,
+                Self.sourceSnapshotDirectoryName,
+                AT_REMOVEDIR
+              ) == 0,
+              fsync(jobDescriptor) == 0 else {
+            throw Self.sourceSnapshotFilesystemError(
+                operation: "remove_snapshot",
+                path: url.path
+            )
+        }
+    }
+
+    nonisolated static func removeOwnedApplicationSourceSnapshotDirectory(
+        _ directory: URL,
+        expectedFileName: String
+    ) throws {
+        var directoryMetadata = stat()
+        guard lstat(directory.path, &directoryMetadata) == 0 else {
+            if errno == ENOENT { return }
+            throw sourceSnapshotFilesystemError(
+                operation: "inspect_cleanup_directory",
+                path: directory.path
+            )
+        }
+        let entries = try FileManager.default.contentsOfDirectory(
+            atPath: directory.path
+        )
+        guard (directoryMetadata.st_mode & S_IFMT) == S_IFDIR,
+              (directoryMetadata.st_mode & 0o077) == 0,
+              entries.isEmpty || entries == [expectedFileName] else {
+            throw WorkflowApplicationQueueErrorV4
+                .sourceSnapshotFilesystemFailure(
+                    operation: "unsafe_cleanup_directory",
+                    path: directory.path,
+                    code: EINVAL
+                )
+        }
+        if !entries.isEmpty {
+            let fileURL = directory.appendingPathComponent(expectedFileName)
+            var fileMetadata = stat()
+            guard lstat(fileURL.path, &fileMetadata) == 0,
+                  (fileMetadata.st_mode & S_IFMT) == S_IFREG,
+                  fileMetadata.st_nlink == 1,
+                  unlink(fileURL.path) == 0 else {
+                throw WorkflowApplicationQueueErrorV4
+                    .sourceSnapshotFilesystemFailure(
+                        operation: "unsafe_cleanup_file",
+                        path: fileURL.path,
+                        code: EINVAL
+                    )
+            }
+        }
+        guard rmdir(directory.path) == 0 else {
+            throw sourceSnapshotFilesystemError(
+                operation: "remove_snapshot",
+                path: directory.path
+            )
+        }
+    }
+
+    nonisolated static func isSafeSourceSnapshotFile(_ metadata: stat) -> Bool {
+        (metadata.st_mode & S_IFMT) == S_IFREG
+            && metadata.st_nlink == 1
+            && metadata.st_size > 0
+    }
+
+    nonisolated static func sameSourceSnapshotFile(
+        _ lhs: stat,
+        _ rhs: stat
+    ) -> Bool {
+        lhs.st_dev == rhs.st_dev
+            && lhs.st_ino == rhs.st_ino
+            && lhs.st_mode == rhs.st_mode
+            && lhs.st_nlink == rhs.st_nlink
+            && lhs.st_size == rhs.st_size
+            && lhs.st_mtimespec.tv_sec == rhs.st_mtimespec.tv_sec
+            && lhs.st_mtimespec.tv_nsec == rhs.st_mtimespec.tv_nsec
+            && lhs.st_ctimespec.tv_sec == rhs.st_ctimespec.tv_sec
+            && lhs.st_ctimespec.tv_nsec == rhs.st_ctimespec.tv_nsec
+    }
+
+    nonisolated static func writeApplicationSourceSnapshotBytes(
+        _ buffer: [UInt8],
+        count: Int,
+        descriptor: Int32,
+        jobID: WorkflowJobID,
+        path: String
+    ) throws {
+        try buffer.withUnsafeBytes { bytes in
+            guard let base = bytes.baseAddress else {
+                throw WorkflowApplicationQueueErrorV4
+                    .sourceSnapshotInvalid(jobID)
+            }
+            var offset = 0
+            while offset < count {
+                let written = Darwin.write(
+                    descriptor,
+                    base.advanced(by: offset),
+                    count - offset
+                )
+                if written < 0 && errno == EINTR { continue }
+                guard written > 0 else {
+                    throw sourceSnapshotFilesystemError(
+                        operation: "write_snapshot",
+                        path: path
+                    )
+                }
+                offset += written
+            }
+        }
+    }
+
+    nonisolated static func sourceSnapshotFilesystemError(
+        operation: String,
+        path: String
+    ) -> WorkflowApplicationQueueErrorV4 {
+        WorkflowApplicationQueueErrorV4.sourceSnapshotFilesystemFailure(
+            operation: operation,
+            path: path,
+            code: errno
+        )
+    }
+
+    nonisolated static func hex<D: Sequence>(_ digest: D) -> String
+    where D.Element == UInt8 {
+        digest.map { String(format: "%02x", $0) }.joined()
+    }
+
     static func prepareTrustedRoot(_ url: URL) throws -> URL {
         let candidate = url.standardizedFileURL
         guard candidate.isFileURL, candidate.path.hasPrefix("/") else {
@@ -2692,7 +3495,11 @@ private extension WorkflowApplicationQueueV4 {
         guard specification.requestID == expectedRequestID,
               specification.source.bookmark == expectedSource,
               specification.output.directoryBookmark == expectedOutput,
-              body.cacheBookmark == expectedCache else {
+              body.cacheBookmark == expectedCache,
+              Self.isExpectedApplicationSourceSnapshotRelativePath(
+                body.sourceSnapshot.relativePath,
+                jobID: specification.jobID
+              ) else {
             throw WorkflowApplicationQueueErrorV4
                 .requestDocumentBindingMismatch(specification.jobID)
         }

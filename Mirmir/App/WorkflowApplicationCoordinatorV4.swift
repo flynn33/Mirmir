@@ -872,6 +872,7 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
             commandKey: try Self.commandKey(stage: "launch-recovery")
         )
         try await queue.cleanupCompletedApplicationPublications()
+        try await queue.cleanupTerminalApplicationSourceSnapshots()
         observer.snapshot(snapshot.queue)
         if publicationRecoveryDeferred {
             schedulePublicationRecoveryRetry()
@@ -1034,7 +1035,9 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
                 .compatibleApplicationCheckpoint(
                     jobID: jobID,
                     outputContractID:
-                        activated.preparedPlanBinding.outputContractID
+                        activated.preparedPlanBinding.outputContractID,
+                    sourceSnapshotIdentityID:
+                        activated.sourceSnapshot.identityID
                 ) else {
                 throw WorkflowApplicationControllerErrorV4
                     .checkpointMissing(jobID)
@@ -1142,6 +1145,7 @@ private extension WorkflowApplicationCoordinatorV4 {
                 stopHeartbeat()
                 active = nil
                 await engine.abandonPrepared(jobID: candidate.jobID)
+                try? await queue.cleanupTerminalApplicationSourceSnapshots()
                 observer.execution(
                     .finished(
                         jobID: candidate.jobID,
@@ -1187,7 +1191,9 @@ private extension WorkflowApplicationCoordinatorV4 {
             .compatibleApplicationCheckpoint(
                 jobID: jobID,
                 outputContractID:
-                    activated.preparedPlanBinding.outputContractID
+                    activated.preparedPlanBinding.outputContractID,
+                sourceSnapshotIdentityID:
+                    activated.sourceSnapshot.identityID
             ), checkpointIsTerminal(checkpoint) else {
             throw WorkflowApplicationControllerErrorV4
                 .checkpointMissing(jobID)
@@ -1288,6 +1294,7 @@ private extension WorkflowApplicationCoordinatorV4 {
                 guard let self else { return }
                 let deferred = try await self.recoverInterruptedPublications()
                 try await self.queue.cleanupCompletedApplicationPublications()
+                try await self.queue.cleanupTerminalApplicationSourceSnapshots()
                 let snapshot = try await self.queue.queueSnapshot()
                 await self.forwardSnapshotForLaunch(snapshot)
                 await self.clearPublicationRecoveryTask()
@@ -1585,6 +1592,10 @@ private extension WorkflowApplicationCoordinatorV4 {
 
         while true {
             try throwIfActiveControlFailed()
+            // Reopen and authenticate the complete immutable source before
+            // every segment. Auxiliary-track finalization receives this same
+            // queue-owned URL through `activated.request`.
+            try activated.revalidateAll()
             guard let cancellation = active?.cancellation else {
                 throw WorkflowApplicationControllerErrorV4.noActiveJob
             }
@@ -1638,7 +1649,9 @@ private extension WorkflowApplicationCoordinatorV4 {
                         activated.preparedPlanBinding.outputContractID,
                     previousCheckpoint: checkpoint,
                     trackProgress: segment.trackProgress,
-                    temporalCheckpoint: segment.temporalCheckpoint
+                    temporalCheckpoint: segment.temporalCheckpoint,
+                    sourceSnapshotIdentityID:
+                        activated.sourceSnapshot.identityID
                 )
             try await queue.removeApplicationWorkingArtifact(workingURL)
             checkpoint = committed.checkpoint
@@ -1795,6 +1808,7 @@ private extension WorkflowApplicationCoordinatorV4 {
             result: completion.result
         ))
         await engine.abandonPrepared(jobID: dispatch.claim.jobID)
+        try? await queue.cleanupTerminalApplicationSourceSnapshots()
         return completion
     }
 
@@ -1851,7 +1865,7 @@ private extension WorkflowApplicationCoordinatorV4 {
             target = containmentRequired ? .contained : .failed
         }
         if current.lifecycle.allowsTransition(to: target) {
-            _ = try? await queue.transitionApplicationJob(
+            let transition = try? await queue.transitionApplicationJob(
                 current.dispatch,
                 expected: current.lifecycle,
                 target: target,
@@ -1866,6 +1880,9 @@ private extension WorkflowApplicationCoordinatorV4 {
                     : nil,
                 releaseAfterTransition: true
             )
+            if transition != nil, target == .cancelled {
+                try? await queue.cleanupTerminalApplicationSourceSnapshots()
+            }
         }
         let handler = current.snapshotHandler
         active = nil
