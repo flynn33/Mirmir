@@ -1110,3 +1110,223 @@ enum ASHTemporalReconstructorV4 {
         return quotient
     }
 }
+
+struct ASHSpatialReconstructionResultV4: Equatable, Sendable {
+    let output: ASHTemporalPlaneV4
+    let stateRawValue: UInt16
+    let targetMessageRawValue: UInt8
+    /// Q16 gains in canonical operator-basis order. Regularization remains a
+    /// temporal control and is therefore reported as zero in the spatial IR.
+    let basisGainsQ16: [UInt32]
+}
+
+/// Shared integer spatial reconstruction policy applied after the common
+/// rational resampling kernel and before temporal history. CPU and Metal routes
+/// consume the same state-conditioned blend here, so the selected ASH state
+/// changes first-frame pixels without introducing backend-specific arithmetic.
+enum ASHSpatialReconstructorV4 {
+    static let outputRuleID = "ash.p06.conditioned-fixed-point-blend.v1"
+    static let maximumDetailGainQ16: UInt32 = 2_048 // 1/32 per basis
+
+    static func reconstruct(
+        spatial: ASHTemporalPlaneV4,
+        sourceState: ASHState,
+        program: ASHDepthFourBranchProgramV4
+    ) throws -> ASHSpatialReconstructionResultV4 {
+        guard sourceState.hasValidIntegrity else {
+            throw ASHTemporalV4Error.invalidASHState(sourceState.rawValue)
+        }
+        let conditioned = try program.conditionedWeights(for: sourceState)
+        let expectedBasis = try expectedBasisWeightsQ16(
+            conditioned: conditioned,
+            program: program
+        )
+        guard expectedBasis.count == 4,
+              program.operatorManifest.basisIDs == [
+                "horizontal_detail",
+                "vertical_detail",
+                "isotropic_detail",
+                "regularization"
+              ] else {
+            throw ASHTemporalV4Error.invalidConfiguration
+        }
+        var gains = try expectedBasis.map { expectation in
+            try scaledGain(expectation)
+        }
+        // The fourth canonical control is consumed only by temporal history.
+        gains[3] = 0
+
+        let width = spatial.width
+        let height = spatial.height
+        let source = spatial.samples
+        var output = source
+        for y in 0..<height {
+            let upY = max(0, y - 1)
+            let downY = min(height - 1, y + 1)
+            for x in 0..<width {
+                let leftX = max(0, x - 1)
+                let rightX = min(width - 1, x + 1)
+                let index = y * width + x
+                let center = Int64(source[index])
+                let left = Int64(source[y * width + leftX])
+                let right = Int64(source[y * width + rightX])
+                let up = Int64(source[upY * width + x])
+                let down = Int64(source[downY * width + x])
+                let horizontalAverage = try divideSignedTiesToEven(
+                    left + right,
+                    by: 2
+                )
+                let verticalAverage = try divideSignedTiesToEven(
+                    up + down,
+                    by: 2
+                )
+                let isotropicAverage = try divideSignedTiesToEven(
+                    left + right + up + down,
+                    by: 4
+                )
+                let weighted = (center - horizontalAverage)
+                        * Int64(gains[0])
+                    + (center - verticalAverage) * Int64(gains[1])
+                    + (center - isotropicAverage) * Int64(gains[2])
+                let adjustment = try divideSignedTiesToEven(
+                    weighted,
+                    by: Int64(ASHNormalizedQ16V4.scale)
+                )
+                let reconstructed = min(
+                    Int64(spatial.maximumCode),
+                    max(Int64(spatial.minimumCode), center + adjustment)
+                )
+                guard let sample = UInt16(exactly: reconstructed) else {
+                    throw ASHTemporalV4Error.arithmeticOverflow
+                }
+                output[index] = sample
+            }
+        }
+        return ASHSpatialReconstructionResultV4(
+            output: try spatial.replacing(samples: output),
+            stateRawValue: sourceState.rawValue,
+            targetMessageRawValue: conditioned.targetMessageRawValue,
+            basisGainsQ16: gains
+        )
+    }
+
+    private static func expectedBasisWeightsQ16(
+        conditioned: ASHStateConditionedMessageWeightsV4,
+        program: ASHDepthFourBranchProgramV4
+    ) throws -> [UInt32] {
+        let basisCount = program.operatorManifest.basisIDs.count
+        var numerators = Array(repeating: UInt64(0), count: basisCount)
+        for weight in conditioned.weightsByMessage {
+            guard weight.operatorCoefficients.count == basisCount else {
+                throw ASHTemporalV4Error.invalidConfiguration
+            }
+            for index in 0..<basisCount {
+                let coefficient = weight.operatorCoefficients[index]
+                guard coefficient >= 0 else {
+                    throw ASHTemporalV4Error.invalidConfiguration
+                }
+                let product = weight.numerator.multipliedReportingOverflow(
+                    by: UInt64(coefficient)
+                )
+                let sum = numerators[index].addingReportingOverflow(
+                    product.partialValue
+                )
+                guard !product.overflow, !sum.overflow else {
+                    throw ASHTemporalV4Error.arithmeticOverflow
+                }
+                numerators[index] = sum.partialValue
+            }
+        }
+        return try numerators.map { numerator in
+            try normalizedQ16(
+                numerator: numerator,
+                denominator: conditioned.denominator
+            )
+        }
+    }
+
+    private static func scaledGain(_ expectationQ16: UInt32) throws -> UInt32 {
+        let product = UInt64(expectationQ16).multipliedReportingOverflow(
+            by: UInt64(maximumDetailGainQ16)
+        )
+        guard !product.overflow else {
+            throw ASHTemporalV4Error.arithmeticOverflow
+        }
+        let value = try divideUnsignedTiesToEven(
+            product.partialValue,
+            by: UInt64(ASHNormalizedQ16V4.scale)
+        )
+        guard let result = UInt32(exactly: value),
+              result <= maximumDetailGainQ16 else {
+            throw ASHTemporalV4Error.arithmeticOverflow
+        }
+        return result
+    }
+
+    private static func normalizedQ16(
+        numerator: UInt64,
+        denominator: UInt64
+    ) throws -> UInt32 {
+        guard denominator > 0, numerator <= denominator else {
+            throw ASHTemporalV4Error.arithmeticOverflow
+        }
+        let product = numerator.multipliedFullWidth(
+            by: UInt64(ASHNormalizedQ16V4.scale)
+        )
+        guard product.high < denominator else {
+            throw ASHTemporalV4Error.arithmeticOverflow
+        }
+        let division = denominator.dividingFullWidth(product)
+        var quotient = division.quotient
+        let complement = denominator - division.remainder
+        if division.remainder > complement
+            || (division.remainder == complement && quotient & 1 == 1) {
+            quotient += 1
+        }
+        guard let value = UInt32(exactly: quotient),
+              value <= ASHNormalizedQ16V4.scale else {
+            throw ASHTemporalV4Error.arithmeticOverflow
+        }
+        return value
+    }
+
+    private static func divideUnsignedTiesToEven(
+        _ numerator: UInt64,
+        by denominator: UInt64
+    ) throws -> UInt64 {
+        guard denominator > 0 else {
+            throw ASHTemporalV4Error.arithmeticOverflow
+        }
+        var quotient = numerator / denominator
+        let remainder = numerator % denominator
+        let complement = denominator - remainder
+        if remainder > complement
+            || (remainder == complement && quotient & 1 == 1) {
+            let increment = quotient.addingReportingOverflow(1)
+            guard !increment.overflow else {
+                throw ASHTemporalV4Error.arithmeticOverflow
+            }
+            quotient = increment.partialValue
+        }
+        return quotient
+    }
+
+    private static func divideSignedTiesToEven(
+        _ numerator: Int64,
+        by denominator: Int64
+    ) throws -> Int64 {
+        guard denominator > 0 else {
+            throw ASHTemporalV4Error.arithmeticOverflow
+        }
+        let negative = numerator < 0
+        let magnitude = numerator.magnitude
+        let rounded = try divideUnsignedTiesToEven(
+            magnitude,
+            by: UInt64(denominator)
+        )
+        guard rounded <= UInt64(Int64.max) else {
+            throw ASHTemporalV4Error.arithmeticOverflow
+        }
+        return negative ? -Int64(rounded) : Int64(rounded)
+    }
+}

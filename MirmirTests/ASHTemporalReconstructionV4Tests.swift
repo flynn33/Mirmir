@@ -222,6 +222,67 @@ final class ASHTemporalReconstructionV4Tests: XCTestCase {
         XCTAssertEqual(result.historyWeightQ16, 0)
     }
 
+    func testSpatialReconstructionIsStateConditionedAndDeterministic() throws {
+        let spatial = try ASHTemporalPlaneV4(
+            width: 8,
+            height: 8,
+            minimumCode: 64,
+            maximumCode: 940,
+            samples: (0..<64).map { index in
+                let x = index % 8
+                let y = index / 8
+                return UInt16(96 + ((x * 101 + y * 67) % 780))
+            }
+        )
+        let program = try ASHDepthFourBranchCompilerV4.compileCanonical()
+        var distinctPixels = Set<[UInt16]>()
+        var distinctTargets = Set<UInt8>()
+        for payload in 0..<256 {
+            let state = try ASHState(payloadBits: (0..<8).map { bit in
+                (payload >> bit) & 1
+            })
+            let first = try ASHSpatialReconstructorV4.reconstruct(
+                spatial: spatial,
+                sourceState: state,
+                program: program
+            )
+            let second = try ASHSpatialReconstructorV4.reconstruct(
+                spatial: spatial,
+                sourceState: state,
+                program: program
+            )
+            XCTAssertEqual(first, second)
+            XCTAssertTrue(first.output.samples.allSatisfy {
+                (spatial.minimumCode...spatial.maximumCode).contains($0)
+            })
+            distinctPixels.insert(first.output.samples)
+            distinctTargets.insert(first.targetMessageRawValue)
+        }
+        XCTAssertEqual(distinctTargets, Set(UInt8(0)..<UInt8(16)))
+        XCTAssertGreaterThan(distinctPixels.count, 1)
+    }
+
+    func testSpatialReconstructionLeavesConstantPlaneExact() throws {
+        let spatial = try ASHTemporalPlaneV4(
+            width: 5,
+            height: 3,
+            minimumCode: 64,
+            maximumCode: 940,
+            samples: Array(repeating: 512, count: 15)
+        )
+        let state = try ASHState(
+            payloadBits: [1, 0, 1, 0, 1, 0, 1, 0]
+        )
+        let result = try ASHSpatialReconstructorV4.reconstruct(
+            spatial: spatial,
+            sourceState: state,
+            program: ASHDepthFourBranchCompilerV4.compileCanonical()
+        )
+        XCTAssertEqual(result.output, spatial)
+        XCTAssertEqual(result.basisGainsQ16.count, 4)
+        XCTAssertEqual(result.basisGainsQ16[3], 0)
+    }
+
     func testBlockwiseReconstructionKeepsOccludedBlocksSpatial() throws {
         let spatial = try ASHTemporalPlaneV4(
             width: 4,

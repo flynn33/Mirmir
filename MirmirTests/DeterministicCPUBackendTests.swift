@@ -433,7 +433,9 @@ final class DeterministicCPUBackendTests: XCTestCase {
             CVBufferSetAttachment(
                 buffer,
                 kCVImageBufferFieldDetailKey,
-                kCVImageBufferFieldDetailTemporalTopFirst,
+                frameIndex == 0
+                    ? kCVImageBufferFieldDetailTemporalTopFirst
+                    : kCVImageBufferFieldDetailTemporalBottomFirst,
                 .shouldPropagate
             )
             return buffer
@@ -496,6 +498,21 @@ final class DeterministicCPUBackendTests: XCTestCase {
             destinations: secondContinuousDestinations.map(FramePixelBuffer.init),
             timing: timings[1]
         )
+        let cadenceCheckpoint = try await continuous.makeTemporalCheckpoint(
+            planSHA256: ASHSHA256V4(
+                rawData: Data("cadence-transition-plan".utf8)
+            ),
+            lastCompletedInputOrdinal: 1
+        )
+        let cadenceState = try JSONDecoder().decode(
+            ASHPreparedTemporalCheckpointV4.self,
+            from: cadenceCheckpoint
+        )
+        XCTAssertEqual(
+            cadenceState.history.frames.last?.cadenceID,
+            "interlaced_bff_double_rate"
+        )
+        XCTAssertGreaterThanOrEqual(cadenceState.history.generation, 2)
 
         _ = try await checkpointSource.processTemporal(
             source: FramePixelBuffer(sources[0]),

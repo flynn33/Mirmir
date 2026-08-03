@@ -410,6 +410,17 @@ actor PreparedDeterministicV4Upscaler:
         timing: FrameTiming,
         dominance: FieldDominanceV4
     ) async throws -> [TemporalOutputFrame] {
+        let effectiveDominance = try resolvedFieldDominance(
+            from: source,
+            fallback: dominance
+        )
+        let cadenceID = effectiveDominance == .topFieldFirst
+            ? "interlaced_tff_double_rate"
+            : "interlaced_bff_double_rate"
+        let previousCadenceID = temporalHistory.frames.last?.cadenceID
+        let cadenceChanged = previousInterlacedFrame != nil
+            && previousCadenceID != nil
+            && previousCadenceID != cadenceID
         let signal = try PixelBufferSignalCodecV4.read(
             source,
             storage: configuration.storage
@@ -452,7 +463,8 @@ actor PreparedDeterministicV4Upscaler:
                 maximumCode: bounds.maximum,
                 samples: plane.samples
             )
-            let priorPlane = previousInterlacedFrame?.planes[planeIndex]
+            let priorPlane = cadenceChanged
+                ? nil : previousInterlacedFrame?.planes[planeIndex]
             let prior: FieldPlaneV4?
             if let priorPlane {
                 prior = try FieldPlaneV4(
@@ -473,7 +485,7 @@ actor PreparedDeterministicV4Upscaler:
                 // second temporal vote makes agreement explicit and retains
                 // immediate two-field output without a hidden lookahead.
                 next: prior,
-                dominance: dominance,
+                dominance: effectiveDominance,
                 timing: fieldTiming,
                 thresholds: DeinterlaceThresholdsV4(
                     motionCodeDifference: configuration.storage.signalBitDepth
@@ -543,14 +555,44 @@ actor PreparedDeterministicV4Upscaler:
                 destination: destinations[outputIndex].value,
                 presentationTime: presentation,
                 sourceFrameIndex: timing.frameIndex,
-                cadenceID: dominance == .topFieldFirst
-                    ? "interlaced_tff_double_rate"
-                    : "interlaced_bff_double_rate",
-                resetTrigger: previousMeasurementFrame == nil
+                cadenceID: cadenceID,
+                resetTrigger: outputIndex == 0
+                    && (cadenceChanged || previousMeasurementFrame == nil)
                     ? .fieldCadenceChange : nil
             ))
         }
         return outputs
+    }
+
+    private func resolvedFieldDominance(
+        from source: CVPixelBuffer,
+        fallback: FieldDominanceV4
+    ) throws -> FieldDominanceV4 {
+        if let count = CVBufferCopyAttachment(
+            source,
+            kCVImageBufferFieldCountKey,
+            nil
+        ) as? NSNumber, count.intValue != 2 {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        guard let detail = CVBufferCopyAttachment(
+            source,
+            kCVImageBufferFieldDetailKey,
+            nil
+        ) as? String else {
+            return fallback
+        }
+        if detail == kCVImageBufferFieldDetailTemporalTopFirst as String
+            || detail
+                == kCVImageBufferFieldDetailSpatialFirstLineEarly as String {
+            return .topFieldFirst
+        }
+        if detail == kCVImageBufferFieldDetailTemporalBottomFirst as String
+            || detail
+                == kCVImageBufferFieldDetailSpatialFirstLineLate as String {
+            return .bottomFieldFirst
+        }
+        throw ASHPreparedTemporalCheckpointV4Error.invalidState
     }
 
     private func processProgressive(
@@ -658,13 +700,18 @@ actor PreparedDeterministicV4Upscaler:
             maximumCode: bounds.maximum,
             samples: try lumaPlane.component(0)
         )
+        let conditionedSpatial = try ASHSpatialReconstructorV4.reconstruct(
+            spatial: spatial,
+            sourceState: measurement.projection.state,
+            program: branchProgram
+        ).output
         let frame = try ASHTemporalFrameV4(
             frameID: "v4-frame-\(outputOrdinal)",
             streamID: "primary-video",
             formatIdentity: formatIdentity,
             ordinal: outputOrdinal,
             presentationTime: exactPTS,
-            luma: spatial,
+            luma: conditionedSpatial,
             tileStateRawValues: [measurement.projection.state.rawValue],
             cadenceID: cadenceID
         )
@@ -691,7 +738,7 @@ actor PreparedDeterministicV4Upscaler:
             }
         }
         let reconstructed = try ASHTemporalReconstructorV4.reconstruct(
-            spatial: spatial,
+            spatial: conditionedSpatial,
             motionAnalysis: motionAnalysis,
             sourceState: measurement.projection.state,
             resetReason: resetReason,

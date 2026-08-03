@@ -21,6 +21,12 @@ enum ASHExecutorV4: String, Codable, Hashable, Sendable {
     case metalFixedPoint = "metal_fixed_point"
 }
 
+enum ASHReconstructionOutputRuleV4: String, Codable, Hashable, Sendable {
+    /// Emit the exact integer blend produced by state-conditioned P06 operator
+    /// expectations. An ordered candidate list is never an implicit output.
+    case conditionedFixedPointBlend = "conditioned_fixed_point_blend"
+}
+
 enum ASHTrackActionV4: String, Codable, Hashable, Sendable {
     case processVideo = "process_video"
     case transcode
@@ -154,7 +160,7 @@ struct ASHVerificationPlanV4: Codable, Equatable, Hashable, Sendable {
 }
 
 struct ASHExecutionPlanV4: Codable, Equatable, Hashable, Sendable {
-    static let currentSchemaID = "ash.execution-plan.v4.1"
+    static let currentSchemaID = "ash.execution-plan.v4.2"
     static let identityDomain = "ash-execution-plan-v4"
 
     let schemaID: String
@@ -162,6 +168,7 @@ struct ASHExecutionPlanV4: Codable, Equatable, Hashable, Sendable {
     let runtimeManifestSHA256: ASHSHA256V4
     let runtimeProvenanceSHA256: ASHSHA256V4
     let executor: ASHExecutorV4
+    let reconstructionOutputRule: ASHReconstructionOutputRuleV4
     let measurementContractID: String
     let measurementContractSHA256: ASHSHA256V4
     let kernelContractID: String
@@ -190,6 +197,7 @@ struct ASHExecutionPlanV4: Codable, Equatable, Hashable, Sendable {
         self.runtimeManifestSHA256 = runtimeManifestSHA256
         self.runtimeProvenanceSHA256 = runtimeProvenanceSHA256
         self.executor = executor
+        self.reconstructionOutputRule = .conditionedFixedPointBlend
         self.measurementContractID = measurementContractID
         self.measurementContractSHA256 = measurementContractSHA256
         self.kernelContractID = kernelContractID
@@ -204,6 +212,9 @@ struct ASHExecutionPlanV4: Codable, Equatable, Hashable, Sendable {
     func validate() throws {
         guard schemaID == Self.currentSchemaID else {
             throw ASHExecutionPlanV4Error.unsupportedSchema(schemaID)
+        }
+        guard reconstructionOutputRule == .conditionedFixedPointBlend else {
+            throw ASHExecutionPlanV4Error.runtimeIdentityMismatch
         }
         guard tracks == tracks.sorted(by: {
             $0.sourceIdentity < $1.sourceIdentity

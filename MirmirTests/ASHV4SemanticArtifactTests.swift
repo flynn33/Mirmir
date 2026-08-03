@@ -110,6 +110,10 @@ final class ASHV4SemanticArtifactTests: XCTestCase {
             runtime: first
         )
         try plan.verify()
+        XCTAssertEqual(
+            plan.plan.reconstructionOutputRule,
+            .conditionedFixedPointBlend
+        )
         XCTAssertEqual(plan.plan.tracks.count, 4)
         XCTAssertEqual(
             plan.plan.tracks.map(\.sourceIdentity.persistentID),
