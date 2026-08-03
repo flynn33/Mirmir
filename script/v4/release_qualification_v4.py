@@ -42,6 +42,13 @@ MEDIA_TRACK_SCHEMA = "mirmir-ash-v4-track-observation-v1"
 MEDIA_TIMING_SCHEMA = "mirmir-ash-v4-timing-observation-v1"
 MEDIA_PIXEL_SCHEMA = "mirmir-ash-v4-pixel-observation-v1"
 MEDIA_ATTACHMENT_SCHEMA = "mirmir-ash-v4-attachment-observation-v1"
+RECOVERY_LANE_CONTRACT_SCHEMA = "mirmir-v4-recovery-qualification-contract-v1"
+RECOVERY_CAPTURE_SCHEMA = "mirmir-v4-recovery-capture-v1"
+RECOVERY_CAPTURE_MANIFEST_SCHEMA = "mirmir-v4-recovery-capture-artifacts-v1"
+RECOVERY_SCENARIO_SCHEMA = "mirmir-v4-recovery-scenario-evidence-v1"
+RECOVERY_SEMANTIC_SCHEMA = "mirmir-v4-recovery-semantic-output-v1"
+RECOVERY_SUITE_MANIFEST_SCHEMA = "mirmir-v4-recovery-evidence-manifest-v1"
+RECOVERY_TRANSCRIPT_SCHEMA = "mirmir-v4-recovery-fault-transcript-v1"
 
 
 class QualificationError(ValueError):
@@ -103,6 +110,20 @@ def artifact_set_sha(entries: Iterable[tuple[str, str]]) -> str:
         digest.update(identity.encode("ascii"))
         digest.update(b"\n")
     return digest.hexdigest()
+
+
+def recovery_artifact_set_sha(artifacts: Iterable[Mapping[str, Any]]) -> str:
+    """Recompute the recovery lane's canonical descriptor-set identity."""
+    normalized = [
+        {
+            "path": item["path"],
+            "byteCount": item["byteCount"],
+            "sha256": item["sha256"],
+        }
+        for item in artifacts
+    ]
+    normalized.sort(key=lambda item: item["path"])
+    return sha256_bytes(canonical_bytes(normalized) + b"\n")
 
 
 def ash_canonical_identity(domain: str, value: Any) -> str:
@@ -2164,6 +2185,130 @@ def validate_preservation(
     return {"fixtureCount": len(fixtures), "accountedTrackCount": accounted_tracks, "coverage": sorted(covered)}
 
 
+def recovery_binding_path(
+    evidence_root: Path,
+    entry: Mapping[str, Any],
+    sealed_paths: set[Path],
+    pointer: str,
+) -> Path:
+    bindings = require_list(entry["identityBindings"], "recovery.identityBindings")
+    matches = [
+        binding
+        for binding in bindings
+        if isinstance(binding, dict) and binding.get("jsonPointer") == pointer
+    ]
+    if len(matches) != 1:
+        raise QualificationError(f"recovery binding is absent or repeated: {pointer}")
+    path, _ = validate_artifact(
+        evidence_root,
+        matches[0],
+        f"recovery binding {pointer}",
+        allowed_extra_keys={"jsonPointer"},
+    )
+    if path not in sealed_paths:
+        raise QualificationError(f"recovery binding is not sealed: {pointer}")
+    return path
+
+
+def validate_recovery_semantic(path: Path, label: str) -> dict[str, Any]:
+    semantic = require_mapping(load_json(path), label)
+    require_exact_keys(
+        semantic,
+        {
+            "allRequiredChecksPassed",
+            "decodedVisiblePixelSHA256",
+            "duration",
+            "presentationTimelineSHA256",
+            "sampleCount",
+            "schemaVersion",
+            "trackGraphSHA256",
+        },
+        label,
+    )
+    if semantic["schemaVersion"] != RECOVERY_SEMANTIC_SCHEMA:
+        raise QualificationError(f"{label} schema differs")
+    require_bool(
+        semantic["allRequiredChecksPassed"],
+        f"{label}.allRequiredChecksPassed",
+        True,
+    )
+    for key in (
+        "decodedVisiblePixelSHA256",
+        "presentationTimelineSHA256",
+        "trackGraphSHA256",
+    ):
+        require_hex(semantic[key], 64, f"{label}.{key}")
+    require_integer(semantic["sampleCount"], f"{label}.sampleCount", 1)
+    duration = require_mapping(semantic["duration"], f"{label}.duration")
+    require_exact_keys(duration, {"value", "timescale"}, f"{label}.duration")
+    if isinstance(duration["value"], bool) or not isinstance(duration["value"], int):
+        raise QualificationError(f"{label}.duration.value must be an integer")
+    require_integer(duration["timescale"], f"{label}.duration.timescale", 1)
+    return semantic
+
+
+def validate_recovery_transcript(
+    path: Path,
+    expected: Mapping[str, Any],
+    label: str,
+) -> None:
+    transcript = require_mapping(load_json(path), label)
+    require_exact_keys(
+        transcript,
+        {
+            "coverageID",
+            "events",
+            "faultObserved",
+            "id",
+            "injectionPoint",
+            "reopenedDurableState",
+            "schemaVersion",
+            "terminalDisposition",
+        },
+        label,
+    )
+    if transcript["schemaVersion"] != RECOVERY_TRANSCRIPT_SCHEMA:
+        raise QualificationError(f"{label} schema differs")
+    for key in ("id", "coverageID", "injectionPoint"):
+        if transcript[key] != expected[key]:
+            raise QualificationError(f"{label}.{key} differs")
+    require_bool(transcript["faultObserved"], f"{label}.faultObserved", True)
+    require_bool(
+        transcript["reopenedDurableState"],
+        f"{label}.reopenedDurableState",
+        True,
+    )
+    expected_terminal = (
+        "completed"
+        if expected["outcome"] == "identical_resumed_output"
+        else "contained"
+    )
+    if transcript["terminalDisposition"] != expected_terminal:
+        raise QualificationError(f"{label}.terminalDisposition differs")
+    events = require_list(transcript["events"], f"{label}.events")
+    expected_operations = [
+        "prepare_durable_state",
+        "inject_fault",
+        "reopen_durable_state",
+    ]
+    if len(events) != len(expected_operations):
+        raise QualificationError(f"{label} must contain the exact fault/reopen event sequence")
+    for index, expected_operation in enumerate(expected_operations):
+        event = require_mapping(events[index], f"{label}.events[{index}]")
+        require_exact_keys(
+            event,
+            {"durableStateSHA256", "operation", "sequence"},
+            f"{label}.events[{index}]",
+        )
+        if event["sequence"] != index or event["operation"] != expected_operation:
+            raise QualificationError(f"{label} event sequence differs")
+        require_hex(
+            event["durableStateSHA256"],
+            64,
+            f"{label}.events[{index}].durableStateSHA256",
+        )
+
+
 def validate_recovery(
     report: Mapping[str, Any],
     candidate: Mapping[str, Any],
@@ -2174,91 +2319,620 @@ def validate_recovery(
     sealed_paths: set[Path],
 ) -> dict[str, Any]:
     label = "recovery"
-    validate_common_report(report, candidate, contract["evidenceSchemas"][label], contract_sha, label)
-    scenarios = require_list(report.get("scenarios"), "recovery.scenarios")
-    required = set(contract["recoveryCoverage"])
-    covered: set[str] = set()
-    identities: set[str] = set()
-    identical = 0
-    contained = 0
-    for index, item in enumerate(scenarios):
-        scenario = require_mapping(item, f"recovery.scenarios[{index}]")
+    validate_common_report(
+        report,
+        candidate,
+        contract["evidenceSchemas"][label],
+        contract_sha,
+        label,
+    )
+    require_exact_keys(
+        report,
+        {
+            "candidate",
+            "capture",
+            "contractSHA256",
+            "identities",
+            "recoveryGatePass",
+            "releaseEligible",
+            "scenarios",
+            "schemaVersion",
+        },
+        "recovery report",
+    )
+
+    identities = require_mapping(report["identities"], "recovery.identities")
+    require_exact_keys(
+        identities,
+        {"captureSourceSHA256", "evaluatorSHA256", "runnerSHA256"},
+        "recovery.identities",
+    )
+    for key, value in identities.items():
+        require_hex(value, 64, f"recovery.identities.{key}")
+
+    suite_manifest_path, _ = validate_artifact(
+        evidence_root,
+        entry["sealedManifest"],
+        "recovery sealed manifest",
+    )
+    suite_manifest = require_mapping(
+        load_json(suite_manifest_path), "recovery sealed manifest document"
+    )
+    require_exact_keys(
+        suite_manifest,
+        {"artifactSetSHA256", "artifacts", "schemaVersion"},
+        "recovery sealed manifest document",
+    )
+    if suite_manifest["schemaVersion"] != RECOVERY_SUITE_MANIFEST_SCHEMA:
+        raise QualificationError("recovery sealed manifest schema differs")
+    suite_artifacts = require_list(
+        suite_manifest["artifacts"], "recovery sealed manifest artifacts"
+    )
+    suite_paths = [
+        require_string(item.get("path") if isinstance(item, dict) else None, f"recovery sealed manifest artifacts[{index}].path")
+        for index, item in enumerate(suite_artifacts)
+    ]
+    if suite_paths != sorted(suite_paths):
+        raise QualificationError("recovery sealed manifest artifacts are not sorted")
+    if require_hex(
+        suite_manifest["artifactSetSHA256"],
+        64,
+        "recovery sealed manifest artifactSetSHA256",
+    ) != recovery_artifact_set_sha(suite_artifacts):
+        raise QualificationError("recovery sealed manifest artifact set differs")
+
+    for pointer in (
+        "/contractSHA256",
+        "/candidate/runtimeManifestFileSHA256",
+        "/candidate/releaseConfigurationSHA256",
+    ):
+        recovery_binding_path(evidence_root, entry, sealed_paths, pointer)
+    lane_contract_path = recovery_binding_path(
+        evidence_root, entry, sealed_paths, "/contractSHA256"
+    )
+    lane_contract = require_mapping(
+        load_json(lane_contract_path), "recovery lane contract"
+    )
+    require_exact_keys(
+        lane_contract,
+        {
+            "artifactSchemas",
+            "buildConfiguration",
+            "capture",
+            "hashAlgorithm",
+            "scenarios",
+            "schemaVersion",
+            "semanticVerification",
+            "suiteID",
+        },
+        "recovery lane contract",
+    )
+    if lane_contract["schemaVersion"] != RECOVERY_LANE_CONTRACT_SCHEMA:
+        raise QualificationError("recovery lane contract schema differs")
+    if lane_contract["hashAlgorithm"] != "sha256":
+        raise QualificationError("recovery lane contract hash algorithm differs")
+    if lane_contract["buildConfiguration"] != "Release":
+        raise QualificationError("recovery lane contract is not Release")
+    require_string(lane_contract["suiteID"], "recovery lane contract.suiteID")
+    expected_artifact_schemas = {
+        "capture": RECOVERY_CAPTURE_SCHEMA,
+        "captureManifest": RECOVERY_CAPTURE_MANIFEST_SCHEMA,
+        "report": contract["evidenceSchemas"][label],
+        "scenarioEvidence": RECOVERY_SCENARIO_SCHEMA,
+        "semanticManifest": RECOVERY_SEMANTIC_SCHEMA,
+        "suiteManifest": RECOVERY_SUITE_MANIFEST_SCHEMA,
+        "transcript": RECOVERY_TRANSCRIPT_SCHEMA,
+    }
+    artifact_schemas = require_mapping(
+        lane_contract["artifactSchemas"], "recovery lane contract.artifactSchemas"
+    )
+    require_exact_keys(
+        artifact_schemas,
+        set(expected_artifact_schemas),
+        "recovery lane contract.artifactSchemas",
+    )
+    if artifact_schemas != expected_artifact_schemas:
+        raise QualificationError("recovery lane contract artifact schemas differ")
+    semantic_requirements = require_mapping(
+        lane_contract["semanticVerification"],
+        "recovery lane contract.semanticVerification",
+    )
+    require_exact_keys(
+        semantic_requirements,
+        {
+            "requireByteIdentity",
+            "requireDecodedVisiblePixelIdentity",
+            "requireExactPresentationTimeline",
+            "requireTrackGraphIdentity",
+        },
+        "recovery lane contract.semanticVerification",
+    )
+    for key, value in semantic_requirements.items():
+        require_bool(value, f"recovery lane contract.semanticVerification.{key}", True)
+
+    required_coverage = require_list(
+        contract["recoveryCoverage"], "release contract.recoveryCoverage"
+    )
+    lane_scenarios = require_list(
+        lane_contract["scenarios"], "recovery lane contract.scenarios"
+    )
+    if len(lane_scenarios) != len(required_coverage):
+        raise QualificationError("recovery lane contract scenario count differs")
+    expected_scenarios: list[dict[str, Any]] = []
+    scenario_ids: set[str] = set()
+    lane_coverage: list[str] = []
+    for index, item in enumerate(lane_scenarios):
+        scenario = require_mapping(
+            item, f"recovery lane contract.scenarios[{index}]"
+        )
         require_exact_keys(
             scenario,
-            {
-                "id",
-                "coverage",
-                "outcome",
-                "referenceOutputSHA256",
-                "resumedOutputSHA256",
-                "containedFailureCode",
-                "unownedArtifactCount",
-                "ownedArtifactReconciled",
-                "referenceOutputArtifact",
-                "resumedOutputArtifact",
-                "externalEvidenceArtifact",
-            },
-            f"recovery.scenarios[{index}]",
+            {"containedFailureCode", "coverageID", "id", "injectionPoint", "outcome"},
+            f"recovery lane contract.scenarios[{index}]",
         )
-        identifier = require_string(scenario["id"], f"recovery scenario[{index}].id")
-        if identifier in identities:
-            raise QualificationError(f"recovery repeats scenario: {identifier}")
-        identities.add(identifier)
-        coverage = set(require_list(scenario["coverage"], f"recovery {identifier}.coverage"))
-        if not coverage or not coverage.issubset(required):
-            raise QualificationError(f"recovery scenario has unexpected coverage: {identifier}")
-        covered.update(coverage)
-        if require_integer(scenario["unownedArtifactCount"], f"recovery {identifier}.unowned artifacts") != 0:
-            raise QualificationError(f"recovery left unowned artifacts: {identifier}")
-        require_bool(scenario["ownedArtifactReconciled"], f"recovery {identifier}.ownedArtifactReconciled", True)
-        validate_sealed_artifact(
-            evidence_root,
-            scenario["externalEvidenceArtifact"],
-            sealed_paths,
-            f"recovery {identifier}.externalEvidenceArtifact",
+        identifier = require_string(
+            scenario["id"], f"recovery lane contract.scenarios[{index}].id"
+        )
+        if (
+            identifier in scenario_ids
+            or any(character not in "abcdefghijklmnopqrstuvwxyz0123456789-" for character in identifier)
+        ):
+            raise QualificationError(f"recovery lane scenario identifier is unsafe/repeated: {identifier}")
+        scenario_ids.add(identifier)
+        coverage_id = require_string(
+            scenario["coverageID"],
+            f"recovery lane contract.scenarios[{index}].coverageID",
+        )
+        lane_coverage.append(coverage_id)
+        require_string(
+            scenario["injectionPoint"],
+            f"recovery lane contract.scenarios[{index}].injectionPoint",
         )
         outcome = scenario["outcome"]
         if outcome == "identical_resumed_output":
-            reference = require_hex(scenario["referenceOutputSHA256"], 64, f"recovery {identifier}.reference")
-            resumed = require_hex(scenario["resumedOutputSHA256"], 64, f"recovery {identifier}.resumed")
-            if reference != resumed or scenario["containedFailureCode"] is not None:
-                raise QualificationError(f"recovery resumed output is not identical: {identifier}")
-            reference_path, reference_artifact_identity = validate_sealed_artifact(
-                evidence_root,
-                scenario["referenceOutputArtifact"],
-                sealed_paths,
-                f"recovery {identifier}.referenceOutputArtifact",
+            if scenario["containedFailureCode"] is not None:
+                raise QualificationError(
+                    f"recovery identical scenario has a failure code: {identifier}"
+                )
+        elif outcome == "explicit_contained_failure":
+            require_string(
+                scenario["containedFailureCode"],
+                f"recovery lane contract.scenarios[{index}].containedFailureCode",
             )
-            resumed_path, resumed_artifact_identity = validate_sealed_artifact(
-                evidence_root,
-                scenario["resumedOutputArtifact"],
-                sealed_paths,
-                f"recovery {identifier}.resumedOutputArtifact",
+        else:
+            raise QualificationError(f"recovery scenario has unsupported outcome: {identifier}")
+        expected_scenarios.append(scenario)
+    if lane_coverage != required_coverage or len(set(required_coverage)) != len(required_coverage):
+        raise QualificationError("recovery lane contract coverage/order differs")
+
+    lane_capture = require_mapping(
+        lane_contract["capture"], "recovery lane contract.capture"
+    )
+    require_exact_keys(
+        lane_capture,
+        {"captureSourceSHA256", "evaluatorSourceSHA256", "runnerSourceSHA256"},
+        "recovery lane contract.capture",
+    )
+    tool_fields = (
+        ("captureSourceSHA256", "captureSourceSHA256"),
+        ("evaluatorSourceSHA256", "evaluatorSHA256"),
+        ("runnerSourceSHA256", "runnerSHA256"),
+    )
+    for lane_key, report_key in tool_fields:
+        lane_identity = require_hex(
+            lane_capture[lane_key], 64, f"recovery lane contract.capture.{lane_key}"
+        )
+        if lane_identity != identities[report_key]:
+            raise QualificationError(f"recovery lane tool identity differs: {report_key}")
+        tool_path = recovery_binding_path(
+            evidence_root,
+            entry,
+            sealed_paths,
+            f"/identities/{report_key}",
+        )
+        if sha256(tool_path) != lane_identity:
+            raise QualificationError(f"recovery bound tool differs: {report_key}")
+
+    capture_summary = require_mapping(report["capture"], "recovery.capture")
+    require_exact_keys(
+        capture_summary,
+        {
+            "artifactManifestSHA256",
+            "artifactSetSHA256",
+            "buildConfiguration",
+            "sourceCommit",
+            "sourceTreeSHA256",
+        },
+        "recovery.capture",
+    )
+    for key in ("artifactManifestSHA256", "artifactSetSHA256", "sourceTreeSHA256"):
+        require_hex(capture_summary[key], 64, f"recovery.capture.{key}")
+    require_hex(capture_summary["sourceCommit"], 40, "recovery.capture.sourceCommit")
+    if (
+        capture_summary["buildConfiguration"] != "Release"
+        or capture_summary["sourceCommit"] != candidate["sourceCommit"]
+        or capture_summary["sourceTreeSHA256"] != candidate["sourceTreeIdentitySHA256"]
+    ):
+        raise QualificationError("recovery capture summary belongs to another candidate/configuration")
+
+    capture_manifest_path = recovery_binding_path(
+        evidence_root,
+        entry,
+        sealed_paths,
+        "/capture/artifactManifestSHA256",
+    )
+    if capture_manifest_path.name != "artifact-manifest.json":
+        raise QualificationError("recovery capture manifest is not at its canonical path")
+    capture_root = capture_manifest_path.parent.resolve()
+    capture_manifest = require_mapping(
+        load_json(capture_manifest_path), "recovery capture artifact manifest"
+    )
+    require_exact_keys(
+        capture_manifest,
+        {"artifactSetSHA256", "artifacts", "schemaVersion"},
+        "recovery capture artifact manifest",
+    )
+    if capture_manifest["schemaVersion"] != RECOVERY_CAPTURE_MANIFEST_SCHEMA:
+        raise QualificationError("recovery capture manifest schema differs")
+    raw_descriptors = require_list(
+        capture_manifest["artifacts"], "recovery capture artifact manifest.artifacts"
+    )
+    if not raw_descriptors:
+        raise QualificationError("recovery capture artifact manifest is empty")
+    captured: dict[Path, dict[str, Any]] = {}
+    descriptor_paths: list[str] = []
+    for index, item in enumerate(raw_descriptors):
+        descriptor_value = require_mapping(
+            item, f"recovery capture artifact manifest.artifacts[{index}]"
+        )
+        path, _ = validate_artifact(
+            evidence_root,
+            descriptor_value,
+            f"recovery capture artifact manifest.artifacts[{index}]",
+        )
+        if path == capture_root or capture_root not in path.parents:
+            raise QualificationError("recovery capture artifact escapes capture root")
+        if path == capture_manifest_path or path not in sealed_paths:
+            raise QualificationError("recovery capture artifact is unsealed or self-referential")
+        if descriptor_value["byteCount"] < 1:
+            raise QualificationError("recovery capture artifact must be nonempty")
+        if path in captured:
+            raise QualificationError("recovery capture manifest repeats an artifact")
+        captured[path] = descriptor_value
+        descriptor_paths.append(descriptor_value["path"])
+    if descriptor_paths != sorted(descriptor_paths):
+        raise QualificationError("recovery capture artifacts are not sorted")
+    actual_capture_files = {
+        path.resolve()
+        for path in capture_root.rglob("*")
+        if path.is_file() and path.resolve() != capture_manifest_path
+    }
+    if set(captured) != actual_capture_files:
+        raise QualificationError("recovery capture file set differs from its manifest")
+    capture_artifact_set = recovery_artifact_set_sha(raw_descriptors)
+    if require_hex(
+        capture_manifest["artifactSetSHA256"],
+        64,
+        "recovery capture artifact manifest.artifactSetSHA256",
+    ) != capture_artifact_set:
+        raise QualificationError("recovery capture artifact set differs")
+    if (
+        capture_summary["artifactManifestSHA256"] != sha256(capture_manifest_path)
+        or capture_summary["artifactSetSHA256"] != capture_artifact_set
+    ):
+        raise QualificationError("recovery report capture manifest identity differs")
+
+    def capture_artifact(
+        value: Any,
+        artifact_label: str,
+        canonical_path: Path,
+    ) -> tuple[Path, str]:
+        path, artifact_identity = validate_sealed_artifact(
+            evidence_root, value, sealed_paths, artifact_label
+        )
+        if path != canonical_path.resolve() or path not in captured:
+            raise QualificationError(f"{artifact_label} is not at its canonical captured path")
+        if require_mapping(value, artifact_label) != captured[path]:
+            raise QualificationError(f"{artifact_label} differs from the capture manifest")
+        return path, artifact_identity
+
+    capture_path = (capture_root / "capture.json").resolve()
+    if capture_path not in captured:
+        raise QualificationError("recovery capture.json is absent from the capture manifest")
+    capture_document = require_mapping(load_json(capture_path), "recovery raw capture")
+    require_exact_keys(
+        capture_document,
+        {
+            "buildConfiguration",
+            "captureSourceSHA256",
+            "contractSHA256",
+            "scenarios",
+            "schemaVersion",
+            "sourceCommit",
+            "sourceTreeSHA256",
+        },
+        "recovery raw capture",
+    )
+    if (
+        capture_document["schemaVersion"] != RECOVERY_CAPTURE_SCHEMA
+        or capture_document["contractSHA256"] != contract_sha
+        or capture_document["captureSourceSHA256"] != identities["captureSourceSHA256"]
+        or capture_document["buildConfiguration"] != "Release"
+        or capture_document["sourceCommit"] != candidate["sourceCommit"]
+        or capture_document["sourceTreeSHA256"] != candidate["sourceTreeIdentitySHA256"]
+    ):
+        raise QualificationError("recovery raw capture provenance differs")
+
+    environment_path = (capture_root / "environment.json").resolve()
+    execution_log_path = (capture_root / "xcodebuild.log").resolve()
+    if environment_path not in captured or execution_log_path not in captured:
+        raise QualificationError("recovery capture environment or execution log is missing")
+    environment = require_mapping(
+        load_json(environment_path), "recovery capture environment"
+    )
+    require_exact_keys(
+        environment,
+        {
+            "buildConfiguration",
+            "hardwareModel",
+            "macOSVersion",
+            "schemaVersion",
+            "xcodeVersion",
+        },
+        "recovery capture environment",
+    )
+    if (
+        environment["schemaVersion"] != "mirmir-v4-recovery-environment-v1"
+        or environment["buildConfiguration"] != "Release"
+    ):
+        raise QualificationError("recovery capture environment is not qualified Release evidence")
+    for key in ("hardwareModel", "macOSVersion", "xcodeVersion"):
+        require_string(environment[key], f"recovery capture environment.{key}")
+    try:
+        execution_log = execution_log_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        raise QualificationError(f"cannot read recovery execution log: {error}") from error
+    if "** TEST SUCCEEDED **" not in execution_log:
+        raise QualificationError("recovery execution log does not prove test success")
+
+    report_scenarios = require_list(report["scenarios"], "recovery.scenarios")
+    captured_scenarios = require_list(
+        capture_document["scenarios"], "recovery raw capture.scenarios"
+    )
+    if len(report_scenarios) != len(expected_scenarios) or len(captured_scenarios) != len(expected_scenarios):
+        raise QualificationError("recovery scenario count differs")
+    referenced_paths: set[Path] = {capture_path, environment_path, execution_log_path}
+    identical = 0
+    contained = 0
+    for index, expected in enumerate(expected_scenarios):
+        identifier = expected["id"]
+        scenario_label = f"recovery scenario {identifier}"
+        report_scenario = require_mapping(
+            report_scenarios[index], f"recovery.scenarios[{index}]"
+        )
+        require_exact_keys(
+            report_scenario,
+            {
+                "containedFailureCode",
+                "coverage",
+                "externalEvidenceArtifact",
+                "id",
+                "outcome",
+                "ownedArtifactReconciled",
+                "referenceOutputArtifact",
+                "referenceOutputSHA256",
+                "referenceSemanticArtifact",
+                "referenceSemanticSHA256",
+                "resumedOutputArtifact",
+                "resumedOutputSHA256",
+                "resumedSemanticArtifact",
+                "resumedSemanticSHA256",
+                "unownedArtifactCount",
+            },
+            f"recovery.scenarios[{index}]",
+        )
+        if (
+            report_scenario["id"] != identifier
+            or report_scenario["coverage"] != [expected["coverageID"]]
+            or report_scenario["outcome"] != expected["outcome"]
+            or report_scenario["containedFailureCode"] != expected["containedFailureCode"]
+        ):
+            raise QualificationError(f"{scenario_label} differs from the locked contract")
+        if require_integer(
+            report_scenario["unownedArtifactCount"],
+            f"{scenario_label}.unownedArtifactCount",
+        ) != 0:
+            raise QualificationError(f"recovery left unowned artifacts: {identifier}")
+        require_bool(
+            report_scenario["ownedArtifactReconciled"],
+            f"{scenario_label}.ownedArtifactReconciled",
+            True,
+        )
+
+        captured_scenario = require_mapping(
+            captured_scenarios[index], f"recovery raw capture.scenarios[{index}]"
+        )
+        require_exact_keys(
+            captured_scenario,
+            {"externalEvidenceArtifact", "id"},
+            f"recovery raw capture.scenarios[{index}]",
+        )
+        if (
+            captured_scenario["id"] != identifier
+            or captured_scenario["externalEvidenceArtifact"]
+            != report_scenario["externalEvidenceArtifact"]
+        ):
+            raise QualificationError(f"{scenario_label} capture/report binding differs")
+        scenario_root = (capture_root / "scenarios" / identifier).resolve()
+        external_path, _ = capture_artifact(
+            report_scenario["externalEvidenceArtifact"],
+            f"{scenario_label}.externalEvidenceArtifact",
+            scenario_root / "evidence.json",
+        )
+        referenced_paths.add(external_path)
+        external = require_mapping(load_json(external_path), f"{scenario_label}.evidence")
+        require_exact_keys(
+            external,
+            {
+                "containedFailureCode",
+                "coverageID",
+                "faultInjected",
+                "id",
+                "injectionPoint",
+                "outcome",
+                "ownedArtifactReconciled",
+                "referenceOutputArtifact",
+                "referenceSemanticArtifact",
+                "resumedOutputArtifact",
+                "resumedSemanticArtifact",
+                "schemaVersion",
+                "transcriptArtifact",
+                "unownedArtifactCount",
+            },
+            f"{scenario_label}.evidence",
+        )
+        if external["schemaVersion"] != RECOVERY_SCENARIO_SCHEMA:
+            raise QualificationError(f"{scenario_label} evidence schema differs")
+        for key in ("id", "coverageID", "injectionPoint", "outcome", "containedFailureCode"):
+            if external[key] != expected[key]:
+                raise QualificationError(f"{scenario_label}.{key} differs from the contract")
+        require_bool(external["faultInjected"], f"{scenario_label}.faultInjected", True)
+        require_bool(
+            external["ownedArtifactReconciled"],
+            f"{scenario_label}.evidence.ownedArtifactReconciled",
+            True,
+        )
+        if require_integer(
+            external["unownedArtifactCount"],
+            f"{scenario_label}.evidence.unownedArtifactCount",
+        ) != 0:
+            raise QualificationError(f"recovery evidence left an unowned artifact: {identifier}")
+        transcript_path, _ = capture_artifact(
+            external["transcriptArtifact"],
+            f"{scenario_label}.transcriptArtifact",
+            scenario_root / "transcript.json",
+        )
+        referenced_paths.add(transcript_path)
+        validate_recovery_transcript(
+            transcript_path, expected, f"{scenario_label}.transcript"
+        )
+
+        artifact_keys = (
+            "referenceOutputArtifact",
+            "resumedOutputArtifact",
+            "referenceSemanticArtifact",
+            "resumedSemanticArtifact",
+        )
+        identity_keys = (
+            "referenceOutputSHA256",
+            "resumedOutputSHA256",
+            "referenceSemanticSHA256",
+            "resumedSemanticSHA256",
+        )
+        if expected["outcome"] == "identical_resumed_output":
+            for key in artifact_keys:
+                if report_scenario[key] != external[key]:
+                    raise QualificationError(f"{scenario_label}.{key} report/evidence differs")
+            reference_path, reference_identity = capture_artifact(
+                external["referenceOutputArtifact"],
+                f"{scenario_label}.referenceOutputArtifact",
+                scenario_root / "reference-output.mov",
             )
+            resumed_path, resumed_identity = capture_artifact(
+                external["resumedOutputArtifact"],
+                f"{scenario_label}.resumedOutputArtifact",
+                scenario_root / "resumed-output.mov",
+            )
+            reference_semantic_path, reference_semantic_identity = capture_artifact(
+                external["referenceSemanticArtifact"],
+                f"{scenario_label}.referenceSemanticArtifact",
+                scenario_root / "reference-semantic.json",
+            )
+            resumed_semantic_path, resumed_semantic_identity = capture_artifact(
+                external["resumedSemanticArtifact"],
+                f"{scenario_label}.resumedSemanticArtifact",
+                scenario_root / "resumed-semantic.json",
+            )
+            referenced_paths.update(
+                {
+                    reference_path,
+                    resumed_path,
+                    reference_semantic_path,
+                    resumed_semantic_path,
+                }
+            )
+            claimed_identities = (
+                require_hex(
+                    report_scenario["referenceOutputSHA256"],
+                    64,
+                    f"{scenario_label}.referenceOutputSHA256",
+                ),
+                require_hex(
+                    report_scenario["resumedOutputSHA256"],
+                    64,
+                    f"{scenario_label}.resumedOutputSHA256",
+                ),
+                require_hex(
+                    report_scenario["referenceSemanticSHA256"],
+                    64,
+                    f"{scenario_label}.referenceSemanticSHA256",
+                ),
+                require_hex(
+                    report_scenario["resumedSemanticSHA256"],
+                    64,
+                    f"{scenario_label}.resumedSemanticSHA256",
+                ),
+            )
+            actual_identities = (
+                reference_identity,
+                resumed_identity,
+                reference_semantic_identity,
+                resumed_semantic_identity,
+            )
+            if claimed_identities != actual_identities:
+                raise QualificationError(f"{scenario_label} artifact identity claims differ")
             if (
-                reference_artifact_identity != reference
-                or resumed_artifact_identity != resumed
+                reference_identity != resumed_identity
                 or reference_path.stat().st_size != resumed_path.stat().st_size
             ):
-                raise QualificationError(f"recovery output artifact identity mismatch: {identifier}")
+                raise QualificationError(f"recovery resumed output is not byte-identical: {identifier}")
+            reference_semantic = validate_recovery_semantic(
+                reference_semantic_path, f"{scenario_label}.referenceSemantic"
+            )
+            resumed_semantic = validate_recovery_semantic(
+                resumed_semantic_path, f"{scenario_label}.resumedSemantic"
+            )
+            if (
+                reference_semantic != resumed_semantic
+                or reference_semantic_identity != resumed_semantic_identity
+            ):
+                raise QualificationError(f"recovery resumed semantics differ: {identifier}")
             identical += 1
-        elif outcome == "explicit_contained_failure":
-            require_string(scenario["containedFailureCode"], f"recovery {identifier}.failure code")
-            if scenario["referenceOutputSHA256"] is not None or scenario["resumedOutputSHA256"] is not None:
-                raise QualificationError(f"recovery contained failure claims output identity: {identifier}")
-            if scenario["referenceOutputArtifact"] is not None or scenario["resumedOutputArtifact"] is not None:
-                raise QualificationError(f"recovery contained failure supplies output artifacts: {identifier}")
-            contained += 1
         else:
-            raise QualificationError(f"recovery has unsupported outcome: {identifier}")
-    if covered != required:
-        raise QualificationError(f"recovery coverage mismatch; missing={sorted(required-covered)}")
-    require_bool(report.get("recoveryGatePass"), "recovery.recoveryGatePass", True)
+            for key in (*artifact_keys, *identity_keys):
+                if report_scenario[key] is not None:
+                    raise QualificationError(
+                        f"recovery contained failure supplies output evidence: {identifier}"
+                    )
+            for key in artifact_keys:
+                if external[key] is not None:
+                    raise QualificationError(
+                        f"recovery contained failure supplies captured output: {identifier}"
+                    )
+            require_string(
+                report_scenario["containedFailureCode"],
+                f"{scenario_label}.containedFailureCode",
+            )
+            contained += 1
+
+    if referenced_paths != set(captured):
+        raise QualificationError("recovery capture contains unreferenced or missing evidence")
+    require_bool(report["recoveryGatePass"], "recovery.recoveryGatePass", True)
     return {
-        "scenarioCount": len(scenarios),
+        "scenarioCount": len(report_scenarios),
         "identicalResumptionCount": identical,
         "containedFailureCount": contained,
-        "coverage": sorted(covered),
+        "coverage": required_coverage,
     }
 
 

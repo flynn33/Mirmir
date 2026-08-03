@@ -60,6 +60,15 @@
       "/identities/captureTestSourceSHA256",
       "/identities/corpusManifestSHA256"
     ],
+    "recovery": [
+      "/contractSHA256",
+      "/candidate/runtimeManifestFileSHA256",
+      "/candidate/releaseConfigurationSHA256",
+      "/identities/captureSourceSHA256",
+      "/identities/evaluatorSHA256",
+      "/identities/runnerSHA256",
+      "/capture/artifactManifestSHA256"
+    ],
     "same_scope_performance": [
       "/contractSHA256",
       "/baseline/sourceIdentitySHA256",

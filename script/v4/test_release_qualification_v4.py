@@ -184,10 +184,19 @@ class EvidenceFixture:
             for path in role_dir.rglob("*")
             if path.is_file() and path.name != "sealed-manifest.json"
         )
+        sealed_artifacts = [descriptor(path, role_dir) for path in sealed_paths]
         sealed = {
-            "schemaVersion": "mirmir-test-sealed-evidence-v1",
-            "artifacts": [descriptor(path, role_dir) for path in sealed_paths],
+            "schemaVersion": (
+                qualification.RECOVERY_SUITE_MANIFEST_SCHEMA
+                if role == "recovery"
+                else "mirmir-test-sealed-evidence-v1"
+            ),
+            "artifacts": sealed_artifacts,
         }
+        if role == "recovery":
+            sealed["artifactSetSHA256"] = qualification.recovery_artifact_set_sha(
+                sealed_artifacts
+            )
         sealed_path = role_dir / "sealed-manifest.json"
         write_json(sealed_path, sealed)
         self.entries.append(
@@ -1030,6 +1039,257 @@ class EvidenceFixture:
             ("/identities/captureSHA256", capture_path),
         ])
 
+    def _build_recovery(
+        self,
+        role_dir: Path,
+        report: dict[str, object],
+        lane_contract: dict[str, object],
+        contract_sha: str,
+        extra_bindings: list[tuple[str, Path]],
+    ) -> None:
+        capture_source = role_dir / "RecoveryQualificationCaptureTests.swift"
+        evaluator_source = role_dir / "recovery_qualification_v4.py"
+        runner_source = role_dir / "run_recovery_qualification_v4.sh"
+        capture_source.write_bytes(
+            (SCRIPT_DIRECTORY / "RecoveryQualificationCaptureTests.swift").read_bytes()
+        )
+        evaluator_source.write_bytes(
+            (SCRIPT_DIRECTORY / "recovery_qualification_v4.py").read_bytes()
+        )
+        runner_source.write_bytes(
+            (SCRIPT_DIRECTORY / "run_recovery_qualification_v4.sh").read_bytes()
+        )
+        tool_identities = {
+            "captureSourceSHA256": qualification.sha256(capture_source),
+            "evaluatorSHA256": qualification.sha256(evaluator_source),
+            "runnerSHA256": qualification.sha256(runner_source),
+        }
+        lane_capture = lane_contract["capture"]
+        assert isinstance(lane_capture, dict)
+        self.assert_recovery_tool_identity(
+            lane_capture, "captureSourceSHA256", tool_identities["captureSourceSHA256"]
+        )
+        self.assert_recovery_tool_identity(
+            lane_capture, "evaluatorSourceSHA256", tool_identities["evaluatorSHA256"]
+        )
+        self.assert_recovery_tool_identity(
+            lane_capture, "runnerSourceSHA256", tool_identities["runnerSHA256"]
+        )
+
+        capture_root = role_dir / "capture"
+        capture_root.mkdir(parents=True, exist_ok=True)
+        write_json(
+            capture_root / "environment.json",
+            {
+                "schemaVersion": "mirmir-v4-recovery-environment-v1",
+                "buildConfiguration": "Release",
+                "hardwareModel": "locked-test-hardware",
+                "macOSVersion": "locked-test-macos",
+                "xcodeVersion": "locked-test-xcode",
+            },
+        )
+        (capture_root / "xcodebuild.log").write_text(
+            "Test Suite 'RecoveryQualification' passed\n** TEST SUCCEEDED **\n",
+            encoding="utf-8",
+        )
+
+        capture_scenarios: list[dict[str, object]] = []
+        report_scenarios: list[dict[str, object]] = []
+        lane_scenarios = lane_contract["scenarios"]
+        assert isinstance(lane_scenarios, list)
+        for raw_scenario in lane_scenarios:
+            assert isinstance(raw_scenario, dict)
+            identifier = raw_scenario["id"]
+            assert isinstance(identifier, str)
+            scenario_root = capture_root / "scenarios" / identifier
+            scenario_root.mkdir(parents=True, exist_ok=True)
+            transcript = {
+                "schemaVersion": qualification.RECOVERY_TRANSCRIPT_SCHEMA,
+                "id": identifier,
+                "coverageID": raw_scenario["coverageID"],
+                "injectionPoint": raw_scenario["injectionPoint"],
+                "faultObserved": True,
+                "reopenedDurableState": True,
+                "terminalDisposition": (
+                    "completed"
+                    if raw_scenario["outcome"] == "identical_resumed_output"
+                    else "contained"
+                ),
+                "events": [
+                    {
+                        "sequence": index,
+                        "operation": operation,
+                        "durableStateSHA256": identity(
+                            f"{identifier}-{operation}-durable-state"
+                        ),
+                    }
+                    for index, operation in enumerate(
+                        (
+                            "prepare_durable_state",
+                            "inject_fault",
+                            "reopen_durable_state",
+                        )
+                    )
+                ],
+            }
+            transcript_path = scenario_root / "transcript.json"
+            write_json(transcript_path, transcript)
+
+            external: dict[str, object] = {
+                "schemaVersion": qualification.RECOVERY_SCENARIO_SCHEMA,
+                "id": identifier,
+                "coverageID": raw_scenario["coverageID"],
+                "injectionPoint": raw_scenario["injectionPoint"],
+                "outcome": raw_scenario["outcome"],
+                "containedFailureCode": raw_scenario["containedFailureCode"],
+                "faultInjected": True,
+                "unownedArtifactCount": 0,
+                "ownedArtifactReconciled": True,
+                "referenceOutputArtifact": None,
+                "resumedOutputArtifact": None,
+                "referenceSemanticArtifact": None,
+                "resumedSemanticArtifact": None,
+                "transcriptArtifact": descriptor(transcript_path, self.root),
+            }
+            report_scenario: dict[str, object] = {
+                "id": identifier,
+                "coverage": [raw_scenario["coverageID"]],
+                "outcome": raw_scenario["outcome"],
+                "referenceOutputSHA256": None,
+                "resumedOutputSHA256": None,
+                "referenceSemanticSHA256": None,
+                "resumedSemanticSHA256": None,
+                "containedFailureCode": raw_scenario["containedFailureCode"],
+                "unownedArtifactCount": 0,
+                "ownedArtifactReconciled": True,
+                "referenceOutputArtifact": None,
+                "resumedOutputArtifact": None,
+                "referenceSemanticArtifact": None,
+                "resumedSemanticArtifact": None,
+                "externalEvidenceArtifact": None,
+            }
+            if raw_scenario["outcome"] == "identical_resumed_output":
+                output_bytes = f"byte-identical-recovery-output:{identifier}".encode()
+                reference_output = scenario_root / "reference-output.mov"
+                resumed_output = scenario_root / "resumed-output.mov"
+                reference_output.write_bytes(output_bytes)
+                resumed_output.write_bytes(output_bytes)
+                semantic = {
+                    "schemaVersion": qualification.RECOVERY_SEMANTIC_SCHEMA,
+                    "trackGraphSHA256": identity(f"{identifier}-track-graph"),
+                    "decodedVisiblePixelSHA256": identity(
+                        f"{identifier}-decoded-visible-pixels"
+                    ),
+                    "presentationTimelineSHA256": identity(
+                        f"{identifier}-presentation-timeline"
+                    ),
+                    "sampleCount": 4,
+                    "duration": {"value": 4, "timescale": 30},
+                    "allRequiredChecksPassed": True,
+                }
+                reference_semantic = scenario_root / "reference-semantic.json"
+                resumed_semantic = scenario_root / "resumed-semantic.json"
+                write_json(reference_semantic, semantic)
+                write_json(resumed_semantic, semantic)
+                external.update(
+                    {
+                        "referenceOutputArtifact": descriptor(
+                            reference_output, self.root
+                        ),
+                        "resumedOutputArtifact": descriptor(resumed_output, self.root),
+                        "referenceSemanticArtifact": descriptor(
+                            reference_semantic, self.root
+                        ),
+                        "resumedSemanticArtifact": descriptor(
+                            resumed_semantic, self.root
+                        ),
+                    }
+                )
+                report_scenario.update(
+                    {
+                        "referenceOutputSHA256": qualification.sha256(reference_output),
+                        "resumedOutputSHA256": qualification.sha256(resumed_output),
+                        "referenceSemanticSHA256": qualification.sha256(
+                            reference_semantic
+                        ),
+                        "resumedSemanticSHA256": qualification.sha256(resumed_semantic),
+                        "referenceOutputArtifact": external[
+                            "referenceOutputArtifact"
+                        ],
+                        "resumedOutputArtifact": external["resumedOutputArtifact"],
+                        "referenceSemanticArtifact": external[
+                            "referenceSemanticArtifact"
+                        ],
+                        "resumedSemanticArtifact": external[
+                            "resumedSemanticArtifact"
+                        ],
+                    }
+                )
+            evidence_path = scenario_root / "evidence.json"
+            write_json(evidence_path, external)
+            external_descriptor = descriptor(evidence_path, self.root)
+            report_scenario["externalEvidenceArtifact"] = external_descriptor
+            capture_scenarios.append(
+                {"id": identifier, "externalEvidenceArtifact": external_descriptor}
+            )
+            report_scenarios.append(report_scenario)
+
+        capture_document = {
+            "schemaVersion": qualification.RECOVERY_CAPTURE_SCHEMA,
+            "contractSHA256": contract_sha,
+            "captureSourceSHA256": tool_identities["captureSourceSHA256"],
+            "buildConfiguration": "Release",
+            "sourceCommit": self.candidate["sourceCommit"],
+            "sourceTreeSHA256": self.candidate["sourceTreeIdentitySHA256"],
+            "scenarios": capture_scenarios,
+        }
+        capture_path = capture_root / "capture.json"
+        write_json(capture_path, capture_document)
+        raw_paths = sorted(path for path in capture_root.rglob("*") if path.is_file())
+        raw_descriptors = [descriptor(path, self.root) for path in raw_paths]
+        capture_manifest = {
+            "schemaVersion": qualification.RECOVERY_CAPTURE_MANIFEST_SCHEMA,
+            "artifacts": raw_descriptors,
+            "artifactSetSHA256": qualification.recovery_artifact_set_sha(
+                raw_descriptors
+            ),
+        }
+        capture_manifest_path = capture_root / "artifact-manifest.json"
+        write_json(capture_manifest_path, capture_manifest)
+        report.update(
+            {
+                "identities": tool_identities,
+                "capture": {
+                    "artifactManifestSHA256": qualification.sha256(
+                        capture_manifest_path
+                    ),
+                    "artifactSetSHA256": capture_manifest["artifactSetSHA256"],
+                    "buildConfiguration": "Release",
+                    "sourceCommit": self.candidate["sourceCommit"],
+                    "sourceTreeSHA256": self.candidate[
+                        "sourceTreeIdentitySHA256"
+                    ],
+                },
+                "scenarios": report_scenarios,
+                "recoveryGatePass": True,
+            }
+        )
+        extra_bindings.extend(
+            [
+                ("/identities/captureSourceSHA256", capture_source),
+                ("/identities/evaluatorSHA256", evaluator_source),
+                ("/identities/runnerSHA256", runner_source),
+                ("/capture/artifactManifestSHA256", capture_manifest_path),
+            ]
+        )
+
+    @staticmethod
+    def assert_recovery_tool_identity(
+        lane_capture: dict[str, object], key: str, actual: str
+    ) -> None:
+        if lane_capture.get(key) != actual:
+            raise AssertionError(f"committed recovery tool identity is stale: {key}")
+
     def _build_common_reports(self) -> None:
         for role in self.contract["requiredEvidenceRoles"]:
             if role == "quality":
@@ -1038,11 +1298,17 @@ class EvidenceFixture:
                 self._build_performance_actual()
                 continue
             role_dir = self.root / role
-            suite_contract = (
-                {"schemaVersion": qualification.SCHEMA_CONTRACT}
-                if role == "media_preservation"
-                else {"schemaVersion": f"mirmir-{role}-contract-v1", "coverageLocked": True}
-            )
+            if role == "media_preservation":
+                suite_contract = {"schemaVersion": qualification.SCHEMA_CONTRACT}
+            elif role == "recovery":
+                suite_contract = json.loads(
+                    (SCRIPT_DIRECTORY / "recovery-qualification-contract-v1.json").read_text()
+                )
+            else:
+                suite_contract = {
+                    "schemaVersion": f"mirmir-{role}-contract-v1",
+                    "coverageLocked": True,
+                }
             contract_path, runtime_path, release_path = self._write_bound_files(role_dir, role, suite_contract)
             contract_sha = qualification.sha256(contract_path)
             report = self._base(role, contract_sha)
@@ -1176,49 +1442,13 @@ class EvidenceFixture:
                     role_dir, report, contract_sha, extra_bindings
                 )
             elif role == "recovery":
-                corrupt = {"corrupt_journal", "corrupt_checkpoint", "unowned_artifact_rejection"}
-                normal = [item for item in self.contract["recoveryCoverage"] if item not in corrupt]
-                reference_output = role_dir / "reference-output.mov"
-                resumed_output = role_dir / "resumed-output.mov"
-                reference_output.write_bytes(b"identical-resumed-output")
-                resumed_output.write_bytes(reference_output.read_bytes())
-                resume_evidence = role_dir / "resume-fault-injection.json"
-                corrupt_evidence = role_dir / "corruption-containment.json"
-                write_json(resume_evidence, {"injectedBoundaries": normal, "pass": True})
-                write_json(corrupt_evidence, {"injectedBoundaries": sorted(corrupt), "pass": True})
-                output_sha = qualification.sha256(reference_output)
-                report.update(
-                    {
-                        "scenarios": [
-                            {
-                                "id": "resume-identically",
-                                "coverage": normal,
-                                "outcome": "identical_resumed_output",
-                                "referenceOutputSHA256": output_sha,
-                                "resumedOutputSHA256": output_sha,
-                                "containedFailureCode": None,
-                                "unownedArtifactCount": 0,
-                                "ownedArtifactReconciled": True,
-                                "referenceOutputArtifact": descriptor(reference_output, self.root),
-                                "resumedOutputArtifact": descriptor(resumed_output, self.root),
-                                "externalEvidenceArtifact": descriptor(resume_evidence, self.root),
-                            },
-                            {
-                                "id": "contain-corruption",
-                                "coverage": sorted(corrupt),
-                                "outcome": "explicit_contained_failure",
-                                "referenceOutputSHA256": None,
-                                "resumedOutputSHA256": None,
-                                "containedFailureCode": "qualification_fixture_corrupt",
-                                "unownedArtifactCount": 0,
-                                "ownedArtifactReconciled": True,
-                                "referenceOutputArtifact": None,
-                                "resumedOutputArtifact": None,
-                                "externalEvidenceArtifact": descriptor(corrupt_evidence, self.root),
-                            },
-                        ],
-                        "recoveryGatePass": True,
-                    }
+                assert isinstance(suite_contract, dict)
+                self._build_recovery(
+                    role_dir,
+                    report,
+                    suite_contract,
+                    contract_sha,
+                    extra_bindings,
                 )
             elif role == "p06_reproduction":
                 builds = []
@@ -1402,9 +1632,87 @@ class EvidenceFixture:
         report_relative = report_path.relative_to(sealed_path.parent).as_posix()
         artifact = next(item for item in sealed["artifacts"] if item["path"] == report_relative)
         artifact.update(descriptor(report_path, sealed_path.parent))
+        if role == "recovery":
+            sealed["artifactSetSHA256"] = qualification.recovery_artifact_set_sha(
+                sealed["artifacts"]
+            )
         write_json(sealed_path, sealed)
         sealed_descriptor.update(descriptor(sealed_path, self.root))
         self.save_index()
+
+    def refresh_recovery_evidence(self) -> None:
+        role_dir = self.root / "recovery"
+        capture_root = role_dir / "capture"
+        capture_path = capture_root / "capture.json"
+        capture = json.loads(capture_path.read_text())
+        report_path = role_dir / "report.json"
+        report = json.loads(report_path.read_text())
+        if len(capture["scenarios"]) != len(report["scenarios"]):
+            raise AssertionError("recovery fixture scenario count differs")
+        for capture_scenario, report_scenario in zip(
+            capture["scenarios"], report["scenarios"]
+        ):
+            identifier = capture_scenario["id"]
+            scenario_root = capture_root / "scenarios" / identifier
+            evidence_path = scenario_root / "evidence.json"
+            evidence = json.loads(evidence_path.read_text())
+            artifact_paths = {
+                "transcriptArtifact": scenario_root / "transcript.json",
+                "referenceOutputArtifact": scenario_root / "reference-output.mov",
+                "resumedOutputArtifact": scenario_root / "resumed-output.mov",
+                "referenceSemanticArtifact": scenario_root / "reference-semantic.json",
+                "resumedSemanticArtifact": scenario_root / "resumed-semantic.json",
+            }
+            for key, path in artifact_paths.items():
+                if evidence[key] is not None:
+                    evidence[key] = descriptor(path, self.root)
+            write_json(evidence_path, evidence)
+            external_descriptor = descriptor(evidence_path, self.root)
+            capture_scenario["externalEvidenceArtifact"] = external_descriptor
+            report_scenario["externalEvidenceArtifact"] = external_descriptor
+            for artifact_key, identity_key in (
+                ("referenceOutputArtifact", "referenceOutputSHA256"),
+                ("resumedOutputArtifact", "resumedOutputSHA256"),
+                ("referenceSemanticArtifact", "referenceSemanticSHA256"),
+                ("resumedSemanticArtifact", "resumedSemanticSHA256"),
+            ):
+                report_scenario[artifact_key] = evidence[artifact_key]
+                report_scenario[identity_key] = (
+                    None
+                    if evidence[artifact_key] is None
+                    else evidence[artifact_key]["sha256"]
+                )
+        write_json(capture_path, capture)
+        capture_manifest_path = capture_root / "artifact-manifest.json"
+        raw_paths = sorted(
+            path
+            for path in capture_root.rglob("*")
+            if path.is_file() and path != capture_manifest_path
+        )
+        raw_descriptors = [descriptor(path, self.root) for path in raw_paths]
+        capture_manifest = {
+            "schemaVersion": qualification.RECOVERY_CAPTURE_MANIFEST_SCHEMA,
+            "artifacts": raw_descriptors,
+            "artifactSetSHA256": qualification.recovery_artifact_set_sha(
+                raw_descriptors
+            ),
+        }
+        write_json(capture_manifest_path, capture_manifest)
+        report["capture"]["artifactManifestSHA256"] = qualification.sha256(
+            capture_manifest_path
+        )
+        report["capture"]["artifactSetSHA256"] = capture_manifest[
+            "artifactSetSHA256"
+        ]
+        write_json(report_path, report)
+        entry = self.entry("recovery")
+        binding = next(
+            item
+            for item in entry["identityBindings"]
+            if item["jsonPointer"] == "/capture/artifactManifestSHA256"
+        )
+        binding.update(descriptor(capture_manifest_path, self.root))
+        self.reseal_role("recovery")
 
     def reseal_role(self, role: str) -> None:
         entry = self.entry(role)
@@ -1412,14 +1720,23 @@ class EvidenceFixture:
         report_path = self.root / entry["path"]
         entry.update({key: value for key, value in descriptor(report_path, self.root).items()})
         sealed_path = self.root / entry["sealedManifest"]["path"]
+        sealed_artifacts = [
+            descriptor(path, role_dir)
+            for path in sorted(role_dir.rglob("*"))
+            if path.is_file() and path != sealed_path
+        ]
         sealed = {
-            "schemaVersion": "mirmir-test-sealed-evidence-v1",
-            "artifacts": [
-                descriptor(path, role_dir)
-                for path in sorted(role_dir.rglob("*"))
-                if path.is_file() and path != sealed_path
-            ],
+            "schemaVersion": (
+                qualification.RECOVERY_SUITE_MANIFEST_SCHEMA
+                if role == "recovery"
+                else "mirmir-test-sealed-evidence-v1"
+            ),
+            "artifacts": sealed_artifacts,
         }
+        if role == "recovery":
+            sealed["artifactSetSHA256"] = qualification.recovery_artifact_set_sha(
+                sealed_artifacts
+            )
         write_json(sealed_path, sealed)
         entry["sealedManifest"].update(descriptor(sealed_path, self.root))
         self.save_index()
@@ -1597,6 +1914,73 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
             lambda report: report["builds"][1].update({"p05ProductionDependencyCount": 1}),
         )
         with self.assertRaisesRegex(qualification.QualificationError, "P05 production dependency"):
+            self.evaluate()
+
+    def testRecoveryNestedTranscriptIsIndependentlyRecomputed(self) -> None:
+        transcript_path = (
+            self.root
+            / "recovery"
+            / "capture"
+            / "scenarios"
+            / "append-only-event-boundary"
+            / "transcript.json"
+        )
+        transcript = json.loads(transcript_path.read_text())
+        transcript["events"][1]["operation"] = "claim_fault_without_injection"
+        write_json(transcript_path, transcript)
+        self.fixture.refresh_recovery_evidence()
+        with self.assertRaisesRegex(
+            qualification.QualificationError, "event sequence differs"
+        ):
+            self.evaluate()
+
+    def testRecoveryNestedSemanticAndArtifactSetClaimsFailClosed(self) -> None:
+        scenario_root = (
+            self.root
+            / "recovery"
+            / "capture"
+            / "scenarios"
+            / "append-only-event-boundary"
+        )
+        for name in ("reference-semantic.json", "resumed-semantic.json"):
+            path = scenario_root / name
+            semantic = json.loads(path.read_text())
+            semantic["allRequiredChecksPassed"] = False
+            write_json(path, semantic)
+        self.fixture.refresh_recovery_evidence()
+        with self.assertRaisesRegex(
+            qualification.QualificationError, "allRequiredChecksPassed"
+        ):
+            self.evaluate()
+
+        for name in ("reference-semantic.json", "resumed-semantic.json"):
+            path = scenario_root / name
+            semantic = json.loads(path.read_text())
+            semantic["allRequiredChecksPassed"] = True
+            write_json(path, semantic)
+        self.fixture.refresh_recovery_evidence()
+        manifest_path = self.root / "recovery" / "capture" / "artifact-manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        manifest["artifactSetSHA256"] = identity("forged-recovery-artifact-set")
+        write_json(manifest_path, manifest)
+        report_path = self.root / "recovery" / "report.json"
+        report = json.loads(report_path.read_text())
+        report["capture"]["artifactManifestSHA256"] = qualification.sha256(
+            manifest_path
+        )
+        report["capture"]["artifactSetSHA256"] = manifest["artifactSetSHA256"]
+        write_json(report_path, report)
+        entry = self.fixture.entry("recovery")
+        binding = next(
+            item
+            for item in entry["identityBindings"]
+            if item["jsonPointer"] == "/capture/artifactManifestSHA256"
+        )
+        binding.update(descriptor(manifest_path, self.root))
+        self.fixture.reseal_role("recovery")
+        with self.assertRaisesRegex(
+            qualification.QualificationError, "capture artifact set differs"
+        ):
             self.evaluate()
 
     def testSupportMatrixAndNotarizedSmokeMustCoverExactCandidate(self) -> None:
