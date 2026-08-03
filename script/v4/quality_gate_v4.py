@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import math
 from pathlib import Path
@@ -35,6 +36,24 @@ VARIANTS = (
     "motion_history_off",
 )
 CANDIDATE_VARIANTS = VARIANTS[1:]
+PACKAGED_CAPTURE_FIELDS = {
+    "evidenceRequestSHA256",
+    "observerSourceSHA256",
+    "packagedCandidateIdentity",
+}
+
+
+def packaged_evidence_module():
+    path = Path(__file__).resolve().with_name("packaged_candidate_evidence_v4.py")
+    spec = importlib.util.spec_from_file_location(
+        "quality_packaged_candidate_evidence_v4", path
+    )
+    if spec is None or spec.loader is None:
+        raise SystemExit("cannot load packaged-candidate evidence verifier")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def require_frozen_p05_identity(
@@ -799,11 +818,24 @@ def merge_captures(
         "fullMirrorIdentityPass",
         "warmupCount",
     }
-    if set(candidate) != candidate_fields | {"schemaVersion", "cases"}:
+    candidate_keys = set(candidate)
+    base_keys = candidate_fields | {"schemaVersion", "cases"}
+    if candidate_keys == base_keys | PACKAGED_CAPTURE_FIELDS:
+        packaged_fields = {
+            key: candidate[key] for key in sorted(PACKAGED_CAPTURE_FIELDS)
+        }
+    elif candidate_keys == base_keys and not candidate.get(
+        "productionRuntimeLocked", False
+    ):
+        # Diagnostic fixtures remain scoreable, but can never satisfy the
+        # release gate without evidence from the exact packaged executable.
+        packaged_fields = {key: None for key in sorted(PACKAGED_CAPTURE_FIELDS)}
+    else:
         raise SystemExit("candidate capture manifest field set differs")
     merged = {
         "schemaVersion": SCHEMA_CAPTURE,
         **{key: candidate[key] for key in sorted(candidate_fields)},
+        **packaged_fields,
         "baselineIdentity": baseline_identity,
         "baselineImplementationVersion": baseline_identity[
             "implementationVersion"
@@ -937,7 +969,123 @@ def replay_raw_components(
     return per_clip, metrics, clips_by_cohort
 
 
-def evaluate(contract_path: Path, corpus_path: Path, capture_path: Path, output: Path) -> int:
+def validate_packaged_quality_capture(
+    packaged_evidence_path: Path | None,
+    repository: Path | None,
+    runtime: Path | None,
+    capture_data: dict[str, Any],
+    capture_root: Path,
+) -> dict[str, Any] | None:
+    supplied = (
+        packaged_evidence_path is not None,
+        repository is not None,
+        runtime is not None,
+    )
+    if any(supplied) and not all(supplied):
+        raise SystemExit(
+            "packaged quality evidence requires --packaged-evidence, "
+            "--repository, and --runtime together"
+        )
+    if not all(supplied):
+        return None
+    assert packaged_evidence_path is not None
+    assert repository is not None
+    assert runtime is not None
+    verifier = packaged_evidence_module()
+    try:
+        binding = verifier.validate_capture_binding(
+            packaged_evidence_path, repository, runtime
+        )
+    except (ValueError, OSError) as error:
+        raise SystemExit(f"packaged quality evidence failed: {error}") from error
+    if binding.get("lane") != "quality":
+        raise SystemExit("packaged evidence is not a quality capture")
+    exact = binding.get("captureManifest")
+    if not isinstance(exact, dict):
+        raise SystemExit("packaged quality capture manifest is absent")
+    identity_fields = {
+        "contractSHA256",
+        "corpusManifestSHA256",
+        "sourceCommit",
+        "sourceTreeIdentitySHA256",
+        "candidateBackendID",
+        "candidateImplementationVersion",
+        "runtimeManifestSHA256",
+        "runtimeSourceRevision",
+        "productionRuntimeLocked",
+        "fullMirrorIdentityPass",
+        "warmupCount",
+        "evidenceRequestSHA256",
+        "observerSourceSHA256",
+        "packagedCandidateIdentity",
+    }
+    for key in identity_fields:
+        if capture_data.get(key) != exact.get(key):
+            raise SystemExit(
+                f"scored quality capture differs from packaged observer: {key}"
+            )
+    exact_cases = exact.get("cases")
+    merged_cases = capture_data.get("cases")
+    if not isinstance(exact_cases, list) or not isinstance(merged_cases, list):
+        raise SystemExit("packaged quality cases are absent")
+    exact_by_id = {
+        item.get("id"): item for item in exact_cases if isinstance(item, dict)
+    }
+    merged_by_id = {
+        item.get("id"): item for item in merged_cases if isinstance(item, dict)
+    }
+    if (
+        len(exact_by_id) != len(exact_cases)
+        or len(merged_by_id) != len(merged_cases)
+        or set(exact_by_id) != set(merged_by_id)
+    ):
+        raise SystemExit("packaged and scored quality case sets differ")
+    exact_root = packaged_evidence_path.resolve() / "capture"
+    for case_id in sorted(exact_by_id):
+        exact_case = exact_by_id[case_id]
+        merged_case = merged_by_id[case_id]
+        exact_outputs = exact_case.get("outputs")
+        exact_times = exact_case.get("milliseconds")
+        merged_outputs = merged_case.get("outputs")
+        merged_times = merged_case.get("milliseconds")
+        if (
+            not isinstance(exact_outputs, dict)
+            or set(exact_outputs) != set(CANDIDATE_VARIANTS)
+            or not isinstance(exact_times, dict)
+            or set(exact_times) != set(CANDIDATE_VARIANTS)
+            or not isinstance(merged_outputs, dict)
+            or not isinstance(merged_times, dict)
+        ):
+            raise SystemExit(f"packaged quality case fields differ: {case_id}")
+        for variant in CANDIDATE_VARIANTS:
+            if merged_times.get(variant) != exact_times[variant]:
+                raise SystemExit(
+                    f"packaged quality timing differs: {case_id} {variant}"
+                )
+            relative = exact_outputs[variant]
+            if merged_outputs.get(variant) != relative:
+                raise SystemExit(
+                    f"packaged quality output path differs: {case_id} {variant}"
+                )
+            exact_plane = checked_relative(exact_root, relative)
+            scored_plane = checked_relative(capture_root, relative)
+            if sha256(exact_plane) != sha256(scored_plane):
+                raise SystemExit(
+                    f"scored quality plane differs from exact executable: "
+                    f"{case_id} {variant}"
+                )
+    return binding
+
+
+def evaluate(
+    contract_path: Path,
+    corpus_path: Path,
+    capture_path: Path,
+    output: Path,
+    packaged_evidence_path: Path | None = None,
+    repository: Path | None = None,
+    runtime: Path | None = None,
+) -> int:
     contract_path = contract_path.resolve()
     corpus_path = corpus_path.resolve()
     capture_path = capture_path.resolve()
@@ -968,6 +1116,13 @@ def evaluate(contract_path: Path, corpus_path: Path, capture_path: Path, output:
         raise SystemExit("capture corpus identity mismatch")
     corpus_root = corpus_path.parent
     capture_root = capture_path.parent
+    packaged_binding = validate_packaged_quality_capture(
+        packaged_evidence_path,
+        repository,
+        runtime,
+        capture_data,
+        capture_root,
+    )
     validate_artifacts(corpus_root, corpus["artifacts"])
     computed_corpus_set = artifact_set_sha((a["path"], a["sha256"]) for a in corpus["artifacts"])
     if computed_corpus_set != corpus.get("artifactSetSHA256"):
@@ -1037,6 +1192,7 @@ def evaluate(contract_path: Path, corpus_path: Path, capture_path: Path, output:
     release_threshold = float(contract["aggregate"]["releaseThreshold"])
     gates = {
         "identityPass": True,
+        "exactPackagedCandidatePass": packaged_binding is not None,
         "naturalCorpusEligibilityPass": bool(corpus.get("releaseEligible"))
             and corpus.get("corpusKind") == "locked_natural",
         "productionRuntimeLockPass": bool(capture_data.get("productionRuntimeLocked", False)),
@@ -1072,7 +1228,6 @@ def evaluate(contract_path: Path, corpus_path: Path, capture_path: Path, output:
     )
 
     tool_path = Path(__file__).resolve()
-    capture_source = tool_path.with_name("QualityGateCaptureTests.swift")
     crop_identity = sha256_bytes(
         canonical_bytes([{item["id"]: item["crop"]} for item in contract["components"]])
     )
@@ -1091,7 +1246,6 @@ def evaluate(contract_path: Path, corpus_path: Path, capture_path: Path, output:
         "identities": {
             "contractSHA256": contract_hash,
             "metricToolSHA256": sha256(tool_path),
-            "captureTestSourceSHA256": sha256(capture_source),
             "corpusManifestSHA256": corpus_hash,
             "corpusArtifactSetSHA256": computed_corpus_set,
             "runtimeManifestSHA256": capture_data["runtimeManifestSHA256"],
@@ -1101,6 +1255,14 @@ def evaluate(contract_path: Path, corpus_path: Path, capture_path: Path, output:
             "cropRuleSHA256": crop_identity,
             "metricModelSHA256": metric_model_identity,
             "outputSetSHA256": output_identities,
+            "evidenceRequestSHA256": capture_data.get("evidenceRequestSHA256"),
+            "observerSourceSHA256": capture_data.get("observerSourceSHA256"),
+            "packagedCaptureTreeSHA256": packaged_binding["captureTree"]["sha256"]
+                if packaged_binding is not None
+                else None,
+            "packagedCandidateIdentity": capture_data.get(
+                "packagedCandidateIdentity"
+            ),
         },
         "corpus": {
             "corpusID": corpus["corpusID"],
@@ -1228,6 +1390,9 @@ def replay_sealed_evidence(
         "runtimeSourceRevision": identities["runtimeSourceRevision"],
         "sourceCommit": identities["sourceCommit"],
         "sourceTreeIdentitySHA256": identities["sourceTreeIdentitySHA256"],
+        "evidenceRequestSHA256": identities["evidenceRequestSHA256"],
+        "observerSourceSHA256": identities["observerSourceSHA256"],
+        "packagedCandidateIdentity": identities["packagedCandidateIdentity"],
     }
     for key, value in expected_capture_identities.items():
         if capture.get(key) != value:
@@ -1269,7 +1434,13 @@ def replay_sealed_evidence(
     )[0]
 
 
-def verify_report(report_path: Path, contract_path: Path | None = None) -> int:
+def verify_report(
+    report_path: Path,
+    contract_path: Path | None = None,
+    repository: Path | None = None,
+    runtime_path: Path | None = None,
+    require_release: bool = False,
+) -> int:
     report = json.loads(report_path.read_text())
     if report.get("schemaVersion") != SCHEMA_REPORT:
         raise SystemExit("unsupported report")
@@ -1277,7 +1448,6 @@ def verify_report(report_path: Path, contract_path: Path | None = None) -> int:
     required = {
         "contractSHA256",
         "metricToolSHA256",
-        "captureTestSourceSHA256",
         "corpusManifestSHA256",
         "corpusArtifactSetSHA256",
         "runtimeManifestSHA256",
@@ -1287,11 +1457,15 @@ def verify_report(report_path: Path, contract_path: Path | None = None) -> int:
         "cropRuleSHA256",
         "metricModelSHA256",
         "outputSetSHA256",
+        "evidenceRequestSHA256",
+        "observerSourceSHA256",
+        "packagedCaptureTreeSHA256",
+        "packagedCandidateIdentity",
     }
     if set(identities) != required:
         raise SystemExit("report identity set is incomplete or unexpected")
 
-    # Reject an eligibility promotion before any deeper validation so this
+    # Reject an eligibility promotion before any artifact replay so this
     # invariant remains independently testable with a minimal report fixture.
     quality = report["quality"]
     if quality["gates"]["releaseQualityGatePass"]:
@@ -1307,12 +1481,29 @@ def verify_report(report_path: Path, contract_path: Path | None = None) -> int:
         ):
             raise SystemExit(f"invalid identity: {label}")
 
+    packaged_keys = {
+        "evidenceRequestSHA256",
+        "observerSourceSHA256",
+        "packagedCaptureTreeSHA256",
+    }
+    packaged_identity = identities["packagedCandidateIdentity"]
+    packaged_present = packaged_identity is not None
+    if packaged_present != all(identities[key] is not None for key in packaged_keys):
+        raise SystemExit("packaged quality identity set is only partially present")
+    if quality["gates"].get("exactPackagedCandidatePass") is not packaged_present:
+        raise SystemExit("packaged quality gate/identity presence differs")
+
     for key, value in identities.items():
         if key == "outputSetSHA256":
             if not isinstance(value, dict) or set(value) != set(VARIANTS):
                 raise SystemExit("invalid output-set identities")
             for variant, identity in value.items():
                 require_hex(identity, 64, f"outputSetSHA256.{variant}")
+        elif key == "packagedCandidateIdentity":
+            if packaged_present and not isinstance(value, dict):
+                raise SystemExit("invalid packaged candidate identity")
+        elif key in packaged_keys and value is None:
+            continue
         elif key == "runtimeSourceRevision":
             require_hex(value, (40, 64), key)
         elif key == "sourceCommit":
@@ -1326,7 +1517,6 @@ def verify_report(report_path: Path, contract_path: Path | None = None) -> int:
         if contract_path is not None
         else report_path.parent.resolve() / "quality-gate-contract-v1.json"
     )
-    capture_source = tool_path.with_name("QualityGateCaptureTests.swift")
     p05_capture_source = tool_path.with_name("P05QualityBaselineCaptureTests.swift")
     p05_source_manifest = tool_path.with_name("p05-baseline-source-manifest-v1.json")
     p05_identity_tool = tool_path.with_name("p05_baseline_v4.py")
@@ -1334,7 +1524,6 @@ def verify_report(report_path: Path, contract_path: Path | None = None) -> int:
         path.is_file() and not path.is_symlink()
         for path in (
             contract_path,
-            capture_source,
             p05_capture_source,
             p05_source_manifest,
             p05_identity_tool,
@@ -1346,8 +1535,6 @@ def verify_report(report_path: Path, contract_path: Path | None = None) -> int:
         raise SystemExit("contract identity mismatch")
     if identities["metricToolSHA256"] != sha256(tool_path):
         raise SystemExit("metric tool identity mismatch")
-    if identities["captureTestSourceSHA256"] != sha256(capture_source):
-        raise SystemExit("capture source identity mismatch")
     crop_identity = sha256_bytes(
         canonical_bytes([{item["id"]: item["crop"]} for item in contract["components"]])
     )
@@ -1360,6 +1547,38 @@ def verify_report(report_path: Path, contract_path: Path | None = None) -> int:
         raise SystemExit("crop-rule identity mismatch")
     if identities["metricModelSHA256"] != metric_model_identity:
         raise SystemExit("metric-model identity mismatch")
+
+    packaged_binding = None
+    if packaged_present:
+        if repository is None or runtime_path is None:
+            raise SystemExit(
+                "release quality verification requires repository and runtime "
+                "for packaged archive inspection"
+            )
+        packaged_root = report_path.parent.resolve() / "packaged-candidate"
+        packaged_binding = validate_packaged_quality_capture(
+            packaged_root,
+            repository,
+            runtime_path,
+            json.loads((report_path.parent.resolve() / "capture-manifest.json").read_text()),
+            report_path.parent.resolve(),
+        )
+        if packaged_binding is None:
+            raise SystemExit("packaged quality evidence was not validated")
+        if packaged_binding["packageIdentity"] != packaged_identity:
+            raise SystemExit("report packaged candidate identity differs")
+        if packaged_binding["requestSHA256"] != identities["evidenceRequestSHA256"]:
+            raise SystemExit("report packaged request identity differs")
+        if (
+            packaged_binding["observerSourceSHA256"]
+            != identities["observerSourceSHA256"]
+        ):
+            raise SystemExit("report packaged observer source differs")
+        if (
+            packaged_binding["captureTree"]["sha256"]
+            != identities["packagedCaptureTreeSHA256"]
+        ):
+            raise SystemExit("report packaged capture tree differs")
 
     expected_p05 = p05.frozen_identity(contract)
     if sha256(p05_capture_source) != expected_p05["captureSourceSHA256"]:
@@ -1525,6 +1744,7 @@ def verify_report(report_path: Path, contract_path: Path | None = None) -> int:
     release_threshold = float(contract["aggregate"]["releaseThreshold"])
     expected_gates = {
         "identityPass": True,
+        "exactPackagedCandidatePass": packaged_binding is not None,
         "naturalCorpusEligibilityPass": bool(report["corpus"].get("releaseEligible"))
             and report["corpus"].get("corpusKind") == "locked_natural",
         "productionRuntimeLockPass": bool(report["runtime"].get("productionRuntimeLocked")),
@@ -1550,6 +1770,9 @@ def verify_report(report_path: Path, contract_path: Path | None = None) -> int:
     expected_gates["releaseQualityGatePass"] = all(expected_gates.values())
     require_equal(quality.get("gates"), expected_gates, "quality.gates")
 
+    if require_release and not expected_gates["releaseQualityGatePass"]:
+        raise SystemExit("final quality verification requires a release-quality pass")
+
     if report.get("timingDiagnostic", {}).get("releasePerformanceGateEligible") is not False:
         raise SystemExit("diagnostic timing was promoted to release evidence")
 
@@ -1568,6 +1791,9 @@ def parse_arguments() -> argparse.Namespace:
     evaluate_parser.add_argument("--corpus", required=True, type=Path)
     evaluate_parser.add_argument("--capture", required=True, type=Path)
     evaluate_parser.add_argument("--output", required=True, type=Path)
+    evaluate_parser.add_argument("--packaged-evidence", type=Path)
+    evaluate_parser.add_argument("--repository", type=Path)
+    evaluate_parser.add_argument("--runtime", type=Path)
     merge = subparsers.add_parser("merge")
     merge.add_argument("--contract", required=True, type=Path)
     merge.add_argument("--corpus", required=True, type=Path)
@@ -1577,6 +1803,9 @@ def parse_arguments() -> argparse.Namespace:
     verify = subparsers.add_parser("verify")
     verify.add_argument("--report", required=True, type=Path)
     verify.add_argument("--contract", type=Path)
+    verify.add_argument("--repository", type=Path)
+    verify.add_argument("--runtime", type=Path)
+    verify.add_argument("--require-release", action="store_true")
     return parser.parse_args()
 
 
@@ -1586,7 +1815,13 @@ def main() -> int:
         return generate_corpus(arguments.contract, arguments.output)
     if arguments.command == "evaluate":
         return evaluate(
-            arguments.contract, arguments.corpus, arguments.capture, arguments.output
+            arguments.contract,
+            arguments.corpus,
+            arguments.capture,
+            arguments.output,
+            arguments.packaged_evidence,
+            arguments.repository,
+            arguments.runtime,
         )
     if arguments.command == "merge":
         return merge_captures(
@@ -1597,7 +1832,13 @@ def main() -> int:
             arguments.output,
         )
     if arguments.command == "verify":
-        return verify_report(arguments.report, arguments.contract)
+        return verify_report(
+            arguments.report,
+            arguments.contract,
+            arguments.repository,
+            arguments.runtime,
+            arguments.require_release,
+        )
     raise AssertionError(arguments.command)
 
 

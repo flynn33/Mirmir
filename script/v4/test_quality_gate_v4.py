@@ -117,10 +117,10 @@ class QualityGateV4Tests(unittest.TestCase):
         self.sealEvidence(root)
         return report_path, contract_path
 
-    def testCaptureMirrorIncludesCanonicalMotionAndSpatialPaths(self) -> None:
-        source = (SCRIPT_DIRECTORY / "QualityGateCaptureTests.swift").read_text(
-            encoding="utf-8"
-        )
+    def testPackagedObserverIncludesCanonicalMotionAndSpatialPaths(self) -> None:
+        source = (
+            SCRIPT_DIRECTORY.parent.parent / "Mirmir/App/MirmirApp.swift"
+        ).read_text(encoding="utf-8")
         self.assertIn("motionCompensatedTemporalEvidenceQ16:", source)
         self.assertIn("ASHSpatialReconstructorV4.reconstruct(", source)
         self.assertIn("uniformSpatialReconstruction(", source)
@@ -128,6 +128,22 @@ class QualityGateV4Tests(unittest.TestCase):
         self.assertNotIn("ASHDeterministicUpscaleBackend", source)
         self.assertNotIn("developmentP05", source)
         self.assertIn("mirmir-ash-v4-quality-candidate-capture-v1", source)
+
+    def testPackagedArchiveVerificationFailureIsNormative(self) -> None:
+        verifier = mock.Mock()
+        verifier.validate_capture_binding.side_effect = ValueError(
+            "candidate record differs from the verified application archive"
+        )
+        with mock.patch.object(
+            quality_gate, "packaged_evidence_module", return_value=verifier
+        ), self.assertRaisesRegex(SystemExit, "verified application archive"):
+            quality_gate.validate_packaged_quality_capture(
+                Path("packaged-quality"),
+                Path("repository"),
+                Path("runtime"),
+                {},
+                Path("capture"),
+            )
 
     def testSyntheticCorpusReproducesByteForByte(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ash-quality-test-") as temporary:
@@ -206,7 +222,6 @@ class QualityGateV4Tests(unittest.TestCase):
         identities = {
             "contractSHA256": digest,
             "metricToolSHA256": digest,
-            "captureTestSourceSHA256": digest,
             "corpusManifestSHA256": digest,
             "corpusArtifactSetSHA256": digest,
             "runtimeManifestSHA256": digest,
@@ -218,6 +233,10 @@ class QualityGateV4Tests(unittest.TestCase):
             "outputSetSHA256": {
                 variant: digest for variant in quality_gate.VARIANTS
             },
+            "evidenceRequestSHA256": None,
+            "observerSourceSHA256": None,
+            "packagedCaptureTreeSHA256": None,
+            "packagedCandidateIdentity": None,
         }
         report = {
             "schemaVersion": quality_gate.SCHEMA_REPORT,
@@ -259,6 +278,15 @@ class QualityGateV4Tests(unittest.TestCase):
             report_path, contract_path = self.materializeValidEvidence(root)
             with contextlib.redirect_stdout(io.StringIO()):
                 quality_gate.verify_report(report_path, contract_path)
+            with self.assertRaisesRegex(
+                SystemExit,
+                "final quality verification requires a release-quality pass",
+            ):
+                quality_gate.verify_report(
+                    report_path,
+                    contract_path,
+                    require_release=True,
+                )
 
             capture = json.loads((root / "capture-manifest.json").read_text())
             capture_artifact = root / capture["cases"][0]["outputs"]["candidate_v4"]

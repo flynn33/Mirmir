@@ -19,8 +19,8 @@
     "version": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
   },
   "manifestByteCount": 192662,
-  "manifestSHA256": "97e47b3a8dafd0dbf959edfa61105904ca220569a017893bfb8bc4a654163aac",
-  "qualityContractSHA256": "3c91d22280e56c66608a7bf214c4064c74aa12459bdd17f989359259462fbf21",
+  "manifestSHA256": "f999e0607dfac799ee0531804d14c4e6333db3bee20328898498e6a5e9a96896",
+  "qualityContractSHA256": "0b0beceb0a62a5fc1a022adff890b9c546075d03451a4f2cc448521a1cd62a88",
   "referenceHeight": 144,
   "referenceWidth": 256,
   "releaseEligible": true,
