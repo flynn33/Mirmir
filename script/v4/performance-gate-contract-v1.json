@@ -1,0 +1,120 @@
+{
+  "baseline": {
+    "implementationVersions": [
+      "ash-p05-cpu-reference-preview",
+      "ash-p05-metal-v3-preview"
+    ],
+    "runtimeStatus": "p05_frozen_preview",
+    "sourceRevision": "d3a4de55c08391ea8a08c00beb766b5650dc9f58"
+  },
+  "capture": {
+    "buildConfiguration": "Release",
+    "captureSourceSHA256": "c2406a7a8d96c9df8d24d956619ffbfe866638bff47585d64c7177174b91906c",
+    "evaluatorSourceSHA256": "2c3c915c0ea235619e3f17474aae697fe27c5c47f7c3e274bbabd8d5e6978949",
+    "minimumMeasuredRuns": 10,
+    "minimumWarmupRuns": 5,
+    "runnerSourceSHA256": "0ab49d8932e0b2898fc0d956aa3885a5fbfa9d323a3de0941798b2d43e199422"
+  },
+  "candidate": {
+    "bundleRepositoryPath": "Mirmir/Resources/ASH-P06.bundle",
+    "requiredRuntimeID": "ash-p06-deterministic-v4",
+    "requiredRuntimeStatus": "release_qualified",
+    "trustRootSourcePath": "Mirmir/Upscaling/Deterministic/DeterministicEngineV4Support.swift"
+  },
+  "environment": {
+    "rejectThermalWarnings": true,
+    "requireIdenticalHardwareAndSoftwareImage": true,
+    "requireIdenticalPowerState": true
+  },
+  "gateID": "mirmir-deterministic-engine-v4-same-scope-performance-v1",
+  "measurement": {
+    "bootstrapIterations": 10000,
+    "bootstrapSeed": 1469598103934665603,
+    "confidenceLevel": 0.95,
+    "engineStatistic": "median_and_p95_of_all_visible_input_frame_calls",
+    "requireUpperConfidenceBoundAtOrBelowThreshold": true,
+    "wallStatistic": "median_of_per-sample-summed-mandatory-class-wall-times",
+    "wallTimerIncludes": [
+      "probe",
+      "runtime verification and backend preparation",
+      "decode",
+      "deterministic frame processing including temporal history",
+      "encode",
+      "writer finalization",
+      "application output validation",
+      "independent semantic track verification",
+      "decoded visible-pixel hashing"
+    ],
+    "wallTimerExcludes": [
+      "Release build",
+      "fixture identity verification",
+      "untimed warmups",
+      "evidence serialization"
+    ]
+  },
+  "schemaVersion": "mirmir-v4-performance-gate-contract-v1",
+  "thresholds": {
+    "maximumProcessingTimeRatio": 0.8,
+    "temporalHistoryResidentBudgetBytes": 33554432
+  },
+  "workload": {
+    "cases": [
+      {
+        "backendID": "mirmirDeterministicCPU",
+        "id": "nv12-video-range-2x-cpu",
+        "targetHeight": 96,
+        "targetWidth": 128
+      },
+      {
+        "backendID": "mirmirDeterministicMetal",
+        "id": "nv12-video-range-2x-metal",
+        "targetHeight": 96,
+        "targetWidth": 128
+      },
+      {
+        "backendID": "mirmirDeterministicCPU",
+        "id": "nv12-video-range-3-over-2-cpu",
+        "targetHeight": 72,
+        "targetWidth": 96
+      },
+      {
+        "backendID": "mirmirDeterministicMetal",
+        "id": "nv12-video-range-3-over-2-metal",
+        "targetHeight": 72,
+        "targetWidth": 96
+      }
+    ],
+    "input": {
+      "byteCount": 1158,
+      "codecFourCC": "avc1",
+      "durationNumerator": 1,
+      "durationTimescale": 10,
+      "enabledVideoTrackCount": 1,
+      "frameCount": 3,
+      "height": 48,
+      "repositoryPath": "docs/v4/evidence/v3-p05-baseline-2026-08-02/end-to-end-input.mov",
+      "sha256": "8049c0bbd4e9e67796cea3e68767208715f4672cbe3e1db0dadc5db51da3eced",
+      "trackCount": 1,
+      "width": 64
+    },
+    "output": {
+      "codec": "h264",
+      "codecFourCC": "avc1",
+      "fileType": "mov",
+      "overwriteExistingFile": false,
+      "preserveAudio": false
+    },
+    "semanticVerificationRules": [
+      "requested_backend_executed_without_fallback",
+      "all_input_tracks_accounted",
+      "exact_enabled_video_track_count",
+      "exact_encoded_dimensions",
+      "exact_codec",
+      "exact_frame_count",
+      "exact_presentation_timestamps",
+      "exact_duration",
+      "bt709_color_contract",
+      "stable_decoded_visible_pixels_across_runs"
+    ]
+  }
+}
