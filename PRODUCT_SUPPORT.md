@@ -48,8 +48,10 @@ backends. It excludes both Deterministic routes and Smooth Motion.
 - Sample aspect ratio, clean aperture, preferred transform, and encoded raster
   scale are composed with rational arithmetic. Representations that cannot be
   emitted exactly are rejected rather than rounded silently.
-- State-conditioned spatial reconstruction precedes a bounded three-frame,
-  block-matched temporal history. Scene cuts, seeks, discontinuities, format or
+- State-conditioned spatial reconstruction precedes block-matched temporal
+  reconstruction from one retained output frame. Measurement hysteresis keeps
+  only its canonical 32×32 Q16 window and one prior source-luma frame; no unused
+  full-frame history is retained. Scene cuts, seeks, discontinuities, format or
   color changes, field-cadence changes, and dynamic HDR frame metadata trigger
   the declared spatial fallback/reset behavior.
 - CPU and Metal consume one fixed-point semantic contract. Release evidence
