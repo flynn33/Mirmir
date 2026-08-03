@@ -1,5 +1,6 @@
 {
   "buildConfiguration": "Release",
+  "developmentTeam": "9AQ2C2838M",
   "expectedSkippedTests": [
     "DeterministicMetalBackendTests/testCaptureV3BaselineWhenRequested()",
     "VideoProcessingSessionTests/testCaptureV3EndToEndBaselineWhenRequested()"

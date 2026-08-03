@@ -142,6 +142,7 @@ def validate_contract(document: Any) -> dict[str, Any]:
     expected_keys = {
         "schemaVersion",
         "buildConfiguration",
+        "developmentTeam",
         "expectedSkippedTests",
         "machineClasses",
         "minimumPassingTestCount",
@@ -157,6 +158,14 @@ def validate_contract(document: Any) -> dict[str, Any]:
         raise SupportCaptureError("unsupported support-matrix contract")
     if document.get("buildConfiguration") != "Release":
         raise SupportCaptureError("support matrix must use Release builds")
+    development_team = document.get("developmentTeam")
+    if (
+        not isinstance(development_team, str)
+        or len(development_team) != 10
+        or not development_team.isalnum()
+        or development_team != development_team.upper()
+    ):
+        raise SupportCaptureError("support contract has invalid Apple development team")
     for key in (
         "project",
         "releaseConfigurationPath",
@@ -243,9 +252,14 @@ def capture_row(
         str(result_bundle),
         "-xcconfig",
         str(worktree / str(contract["releaseConfigurationPath"])),
-        "CODE_SIGN_IDENTITY=-",
+        f"DEVELOPMENT_TEAM={contract['developmentTeam']}",
+        "CODE_SIGN_STYLE=Automatic",
+        "CODE_SIGN_IDENTITY=Apple Development",
         "CODE_SIGNING_ALLOWED=YES",
         "CODE_SIGNING_REQUIRED=YES",
+        "ONLY_ACTIVE_ARCH=YES",
+        f"ARCHS={architecture}",
+        "ENABLE_TESTABILITY=YES",
     ]
     process = run(command, cwd=worktree, transcript=transcript, require_success=False)
     if not result_bundle.is_dir():
@@ -302,7 +316,7 @@ def capture_row(
         )
     if (
         process.returncode != 0
-        or result != "Succeeded"
+        or result != "Passed"
         or failed != 0
         or passed < int(contract["minimumPassingTestCount"])
         or skipped != len(expected_skips)

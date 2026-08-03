@@ -47,6 +47,7 @@ class SupportMatrixCaptureTests(unittest.TestCase):
         valid = {
             "schemaVersion": "mirmir-ash-v4-support-matrix-contract-v1",
             "buildConfiguration": "Release",
+            "developmentTeam": "9AQ2C2838M",
             "machineClasses": [
                 {
                     "id": "reference",
