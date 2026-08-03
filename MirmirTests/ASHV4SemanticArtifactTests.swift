@@ -75,7 +75,7 @@ final class ASHV4SemanticArtifactTests: XCTestCase {
         )
         XCTAssertEqual(
             try first.qualityCorpusIdentity().caseCount,
-            40
+            168
         )
         XCTAssertEqual(
             try first.metricContract().minimumQualityIndex,
@@ -256,8 +256,8 @@ final class ASHV4SemanticArtifactTests: XCTestCase {
             ),
             (
                 .qualityCorpusIdentity,
-                "\"caseCount\":40",
-                "\"caseCount\":41",
+                "\"caseCount\":168",
+                "\"caseCount\":169",
                 .qualityCorpusIdentityMismatch
             ),
             (

@@ -580,6 +580,112 @@ enum ASHP06LockedV3EvidenceV4 {
     }
 }
 
+/// Repository identities that reproduce the release quality population. The
+/// corpus pixels are generated outside the runtime, but the immutable lock
+/// records the exact natural sources, decoder, construction procedure, case
+/// inventory, and resulting artifact-set identity.
+enum ASHP06LockedNaturalQualityEvidenceV4 {
+    static let corpusID = "ash-v4-seven-cohort-locked-natural-v1"
+    static let manifestByteCount: Int64 = 192_662
+    static let manifestSHA256 = try! ASHSHA256V4(
+        "97e47b3a8dafd0dbf959edfa61105904ca220569a017893bfb8bc4a654163aac"
+    )
+    static let artifactSetSHA256 = try! ASHSHA256V4(
+        "750cab4072c635f30a925dd7715c1729213f14601855a841fb6d3f32cf1db66e"
+    )
+    static let sourceAssetSetSHA256 = try! ASHSHA256V4(
+        "88556f6bd16c363ae1c76d98d2a6017b78b15da78936b76dfaea7e790488af00"
+    )
+    static let sourceLicenseSetSHA256 = try! ASHSHA256V4(
+        "30ee1b9d1cbb391c2134cfac685d9f7b3da0aa256487ea3ec5466b15abfed345"
+    )
+    static let decoderExecutableSHA256 = try! ASHSHA256V4(
+        "dad4b30b36a1a999bfa4b6ffbde138bd17ee496c69e12eef638227dff2c6415c"
+    )
+
+    static func releaseLock() throws -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "script/v4/natural-quality-corpus-lock-v1.json",
+            1_401,
+            "eb2c0b22f060eab70c953512d1e68dc1cb9a2e3939868b3cb85dc5b847b4c372"
+        )
+    }
+
+    static func sourceSelection() throws -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "script/v4/natural-quality-sources-v1.json",
+            8_558,
+            "4c9e1c5a06ab7e679b3ce5954421baef7c509abab164ed91ce5a5031370dd611"
+        )
+    }
+
+    static func qualityContract() throws -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "script/v4/quality-gate-release-contract-v1.json",
+            5_156,
+            "3c91d22280e56c66608a7bf214c4064c74aa12459bdd17f989359259462fbf21"
+        )
+    }
+
+    static func corpusBuilder() throws -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "script/v4/build_natural_quality_corpus.py",
+            19_178,
+            "0150955cfa206bf9e4b3f3ca7b74971543e70d4ec47d4f174eb87b1e33790aa8"
+        )
+    }
+
+    static func metricImplementation() throws -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "script/v4/quality_gate_v4.py",
+            55_414,
+            "2fce2cac184560126e8649e744c6942a9021755e6599aa6937725dff1bb0bdce"
+        )
+    }
+
+    static func captureImplementation() throws -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "script/v4/QualityGateCaptureTests.swift",
+            33_635,
+            "5e30952f5be733d330bd46a93b9dddc13c0c92b0db5011f2d62ec760180dee7f"
+        )
+    }
+
+    static func runnerImplementation() throws -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "script/v4/run_quality_gate_v4.sh",
+            8_589,
+            "62a2fff31cd112103f05d3a12a5c574908eab5f0f5415312b855aee037c05ee5"
+        )
+    }
+
+    static var allLockedFiles: [ASHP06LockedFileIdentityV4] {
+        get throws {
+            try [
+                releaseLock(),
+                sourceSelection(),
+                qualityContract(),
+                corpusBuilder(),
+                metricImplementation(),
+                captureImplementation(),
+                runnerImplementation()
+            ]
+        }
+    }
+
+    private static func identity(
+        _ path: String,
+        _ byteCount: Int64,
+        _ sha256: String
+    ) throws -> ASHP06LockedFileIdentityV4 {
+        ASHP06LockedFileIdentityV4(
+            repositoryRelativePath: path,
+            byteCount: byteCount,
+            contentSHA256: try ASHSHA256V4(sha256)
+        )
+    }
+}
+
 struct ASHP06BenchmarkRouteIdentityV4: Codable, Equatable, Sendable {
     let caseID: String
     let pixelFormatID: String
@@ -665,47 +771,92 @@ struct ASHP06QualityCorpusIdentityArtifactV4: Codable, Equatable, Sendable {
     let corpusID: String
     let baselineID: String
     let baselineSourceRevision: String
-    let evidenceManifest: ASHP06LockedFileIdentityV4
-    let captureManifest: ASHP06LockedFileIdentityV4
-    let qualityBaseline: ASHP06LockedFileIdentityV4
-    let engineResults: ASHP06LockedFileIdentityV4
-    let pixelFormatIDs: [String]
-    let routeIDs: [String]
-    let orderedPatternIDs: [String]
+    let baselineImplementationVersions: [String]
+    let releaseLock: ASHP06LockedFileIdentityV4
+    let sourceSelection: ASHP06LockedFileIdentityV4
+    let qualityContract: ASHP06LockedFileIdentityV4
+    let corpusBuilder: ASHP06LockedFileIdentityV4
+    let captureImplementation: ASHP06LockedFileIdentityV4
+    let runnerImplementation: ASHP06LockedFileIdentityV4
+    let manifestByteCount: Int64
+    let manifestSHA256: ASHSHA256V4
+    let artifactSetSHA256: ASHSHA256V4
+    let sourceAssetSetSHA256: ASHSHA256V4
+    let sourceLicenseSetSHA256: ASHSHA256V4
+    let decoderExecutableSHA256: ASHSHA256V4
+    let decoderVersion: String
+    let decodeProcedureID: String
+    let pixelStorageIDs: [String]
+    let orderedCohortIDs: [String]
+    let clipCount: Int
     let caseCount: Int
-    let temporalPairCount: Int
-    let acceptedByBothEnginesOnly: Bool
+    let framesPerClip: Int
+    let primaryScaleNumerator: Int
+    let primaryScaleDenominator: Int
+    let releaseEligible: Bool
 
     static func canonical() throws -> Self {
         Self(
             schemaID: ASHRuntimeArtifactRoleV4.qualityCorpusIdentity
                 .expectedSchemaID,
             artifactRole: ASHRuntimeArtifactRoleV4.qualityCorpusIdentity.rawValue,
-            corpusID: "ash-p06-locked-quality-corpus-v1",
+            corpusID: ASHP06LockedNaturalQualityEvidenceV4.corpusID,
             baselineID: ASHP06LockedV3EvidenceV4.baselineID,
             baselineSourceRevision:
                 ASHP06LockedV3EvidenceV4.captureSourceRevision,
-            evidenceManifest: try ASHP06LockedV3EvidenceV4.evidenceManifest(),
-            captureManifest: try ASHP06LockedV3EvidenceV4.captureManifest(),
-            qualityBaseline: try ASHP06LockedV3EvidenceV4.qualityBaseline(),
-            engineResults: try ASHP06LockedV3EvidenceV4.engineResults(),
-            pixelFormatIDs: ["420f", "420v"],
-            routeIDs: ["direct_2x", "direct_3_over_2"],
-            orderedPatternIDs: [
-                "checkerboard",
-                "constant",
-                "diagonal_edge",
-                "horizontal_ramp",
-                "impulse",
-                "moving_edge_0",
-                "moving_edge_1",
-                "moving_edge_2",
-                "moving_edge_3",
-                "radial_detail"
+            baselineImplementationVersions: [
+                "ash-p05-cpu-reference-preview",
+                "ash-p05-metal-v3-preview"
             ],
-            caseCount: 40,
-            temporalPairCount: 12,
-            acceptedByBothEnginesOnly: true
+            releaseLock:
+                try ASHP06LockedNaturalQualityEvidenceV4.releaseLock(),
+            sourceSelection:
+                try ASHP06LockedNaturalQualityEvidenceV4.sourceSelection(),
+            qualityContract:
+                try ASHP06LockedNaturalQualityEvidenceV4.qualityContract(),
+            corpusBuilder:
+                try ASHP06LockedNaturalQualityEvidenceV4.corpusBuilder(),
+            captureImplementation:
+                try ASHP06LockedNaturalQualityEvidenceV4
+                    .captureImplementation(),
+            runnerImplementation:
+                try ASHP06LockedNaturalQualityEvidenceV4
+                    .runnerImplementation(),
+            manifestByteCount:
+                ASHP06LockedNaturalQualityEvidenceV4.manifestByteCount,
+            manifestSHA256:
+                ASHP06LockedNaturalQualityEvidenceV4.manifestSHA256,
+            artifactSetSHA256:
+                ASHP06LockedNaturalQualityEvidenceV4.artifactSetSHA256,
+            sourceAssetSetSHA256:
+                ASHP06LockedNaturalQualityEvidenceV4.sourceAssetSetSHA256,
+            sourceLicenseSetSHA256:
+                ASHP06LockedNaturalQualityEvidenceV4.sourceLicenseSetSHA256,
+            decoderExecutableSHA256:
+                ASHP06LockedNaturalQualityEvidenceV4.decoderExecutableSHA256,
+            decoderVersion:
+                "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers",
+            decodeProcedureID:
+                "ffmpeg-accurate-input-seek-rgb24-center-crop-lanczos-v1",
+            pixelStorageIDs: [
+                "nv12_full_range_8_bit",
+                "nv12_video_range_8_bit"
+            ],
+            orderedCohortIDs: [
+                "natural_detail",
+                "text_graphics",
+                "animation",
+                "faces",
+                "low_light_noise",
+                "high_motion",
+                "scene_cuts"
+            ],
+            clipCount: 28,
+            caseCount: 168,
+            framesPerClip: 6,
+            primaryScaleNumerator: 2,
+            primaryScaleDenominator: 1,
+            releaseEligible: true
         )
     }
 
@@ -720,10 +871,11 @@ enum ASHP06QualityMetricComponentV4: String, Codable, CaseIterable,
     Sendable {
     case chromaMultiscaleStructuralError =
         "chroma_multiscale_structural_error"
-    case edgeRingingError = "edge_ringing_error"
+    case edgeRingingError = "edge_displacement_ringing_overshoot_error"
     case lumaMultiscaleStructuralError = "luma_multiscale_structural_error"
-    case perceptualFeatureError = "perceptual_feature_error"
-    case temporalFlickerError = "temporal_flicker_error"
+    case perceptualFeatureError = "perceptual_feature_distance"
+    case temporalFlickerError =
+        "motion_compensated_temporal_flicker_error"
 }
 
 struct ASHP06QualityMetricWeightV4: Codable, Equatable, Sendable {
@@ -759,12 +911,13 @@ struct ASHP06MetricContractArtifactV4: Codable, Equatable, Sendable {
         Self(
             schemaID: ASHRuntimeArtifactRoleV4.metricContract.expectedSchemaID,
             artifactRole: ASHRuntimeArtifactRoleV4.metricContract.rawValue,
-            contractID: "ash-p06-quality-performance-metric-contract-v1",
+            contractID: "ash-p06-quality-performance-metric-contract-v2",
             qualityCorpusIdentitySHA256: qualityCorpusIdentitySHA256,
             benchmarkCorpusIdentitySHA256: benchmarkCorpusIdentitySHA256,
             measurementContractSHA256: measurementContractSHA256,
             metricImplementationSource:
-                try ASHP06LockedV3EvidenceV4.metricImplementationSource(),
+                try ASHP06LockedNaturalQualityEvidenceV4
+                    .metricImplementation(),
             qualityWeights: [
                 ASHP06QualityMetricWeightV4(
                     component: .chromaMultiscaleStructuralError,
@@ -976,9 +1129,9 @@ enum ASHP06VerificationSourceIdentityV4 {
         ASHP06LockedFileIdentityV4(
             repositoryRelativePath:
                 "Mirmir/Modules/UpscalerEngine/ASH/ASHExecutionPlanV4.swift",
-            byteCount: 18_800,
+            byteCount: 19_744,
             contentSHA256: try ASHSHA256V4(
-                "fe2b402fc0b18a4f8b199744026973988522bd3db132d1f3ea7a53ec4ee54977"
+                "ac15cbea15bb6d1c434d8284ec35a310a0ea4f7caf08b387e51915c9cbf6794a"
             )
         )
     }
@@ -1219,6 +1372,7 @@ enum ASHP06CanonicalRuntimeArtifactsV4 {
         fileManager: FileManager = .default
     ) throws {
         let identities = try ASHP06LockedV3EvidenceV4.allLockedFiles
+            + ASHP06LockedNaturalQualityEvidenceV4.allLockedFiles
             + ASHP06FixedPointSourceIdentityV4.allLockedFiles
             + [ASHP06VerificationSourceIdentityV4.executionPlan()]
         for identity in identities {
@@ -1430,8 +1584,8 @@ enum ASHP06RuntimeBundleBuilderV4 {
            let text = String(data: data, encoding: .utf8)?.lowercased() {
             let isBaselineIdentity = role == .benchmarkCorpusIdentity
                 || role == .qualityCorpusIdentity
-            if (!isBaselineIdentity && text.contains("p05"))
-                || text.contains("preview")
+            if (!isBaselineIdentity
+                && (text.contains("p05") || text.contains("preview")))
                 || text.contains("development") {
                 throw ASHP06RuntimeBundleV4Error.forbiddenPreviewArtifact(role)
             }

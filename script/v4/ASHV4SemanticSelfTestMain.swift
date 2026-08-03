@@ -48,7 +48,7 @@ private enum ASHV4SemanticSelfTestMain {
             "benchmark corpus contract is not canonical"
         )
         try require(
-            try first.qualityCorpusIdentity().caseCount == 40,
+            try first.qualityCorpusIdentity().caseCount == 168,
             "quality corpus contract is not canonical"
         )
         try require(
@@ -124,8 +124,8 @@ private enum ASHV4SemanticSelfTestMain {
             ),
             (
                 .qualityCorpusIdentity,
-                "\"caseCount\":40",
-                "\"caseCount\":41",
+                "\"caseCount\":168",
+                "\"caseCount\":169",
                 .qualityCorpusIdentityMismatch
             ),
             (
