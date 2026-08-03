@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import XCTest
 @testable import Mirmir
@@ -489,6 +490,116 @@ final class WorkflowEventJournalTests: XCTestCase {
         XCTAssertEqual(try store.journal.append(draft).disposition, .committed)
     }
 
+    func testDiskFullBeforeAppendIsExplicitAndRetryableWithoutDuplication() throws {
+        let controller = WorkflowFaultController()
+        let store = try makeJournalStore(controller: controller)
+        let specification = try journalSpecification(index: 17)
+        let draft = try enqueueDraft(specification, index: 17)
+        _ = try store.journal.open()
+        controller.arm(.beforeAppend, errnoCode: ENOSPC)
+
+        XCTAssertThrowsError(try store.journal.append(draft)) { error in
+            XCTAssertEqual(
+                error as? WorkflowDurableFileSystemError,
+                .ioFailure(
+                    operation: "injected_fault",
+                    path: store.root
+                        .appendingPathComponent("events-v1.bin")
+                        .path,
+                    code: ENOSPC
+                )
+            )
+        }
+        XCTAssertEqual(try store.journal.open().state, WorkflowState())
+        XCTAssertEqual(try store.journal.append(draft).disposition, .committed)
+        XCTAssertEqual(try store.journal.open().state.appliedEvents.count, 1)
+        XCTAssertEqual(
+            try store.journal.append(draft).disposition,
+            .alreadyApplied
+        )
+    }
+
+    func testStoreIdentityV1MigratesWithoutChangingStoreID() throws {
+        let store = try makeJournalStore()
+        let opened = try store.journal.open()
+        let identityURL = store.root.appendingPathComponent("store-v1.json")
+        let current = try store.fileSystem.readRegularFile(
+            identityURL,
+            maximumBytes: 16 * 1_024
+        )
+        let legacy = try replacingJournalTopLevelSchemaVersion(
+            in: current,
+            from: 2,
+            to: 1
+        )
+        try store.fileSystem.replaceAtomically(legacy, at: identityURL)
+
+        let relaunched = try WorkflowEventJournal(
+            rootURL: store.root,
+            fileSystem: store.fileSystem
+        )
+        XCTAssertEqual(try relaunched.open().storeID, opened.storeID)
+        XCTAssertEqual(
+            try store.fileSystem.readRegularFile(
+                identityURL,
+                maximumBytes: 16 * 1_024
+            ),
+            current
+        )
+    }
+
+    func testSnapshotV1MigratesAtomicallyAndRetainsJournalAnchor() throws {
+        let controller = WorkflowFaultController()
+        let store = try makeJournalStore(controller: controller)
+        let specification = try journalSpecification(index: 18)
+        let committed = try store.journal.append(
+            enqueueDraft(specification, index: 18)
+        )
+        let current = try store.journal.writeSnapshot()
+        let legacy = WorkflowSnapshotDocumentV1(
+            bodyHash: current.bodyHash,
+            body: current.body
+        )
+        let codec = WorkflowCanonicalCodec()
+        let snapshotURL = store.root.appendingPathComponent("snapshot-v1.json")
+        try store.fileSystem.replaceAtomically(
+            codec.canonicalData(legacy),
+            at: snapshotURL
+        )
+        controller.arm(.beforeTemporaryCreate, errnoCode: ENOSPC)
+
+        XCTAssertThrowsError(try store.journal.open()) { error in
+            XCTAssertEqual(
+                error as? WorkflowDurableFileSystemError,
+                .ioFailure(
+                    operation: "injected_fault",
+                    path: snapshotURL.path,
+                    code: ENOSPC
+                )
+            )
+        }
+
+        let reopened = try store.journal.open()
+        XCTAssertEqual(reopened.state, committed.state)
+        XCTAssertEqual(reopened.recovery.snapshot, .applied(generation: 1))
+        let migratedData = try store.fileSystem.readRegularFile(
+            snapshotURL,
+            maximumBytes: WorkflowJournalConfiguration.default
+                .maximumSnapshotBytes
+        )
+        XCTAssertEqual(
+            try JSONDecoder().decode(
+                WorkflowSchemaVersionProbeV4.self,
+                from: migratedData
+            ).schemaVersion,
+            WorkflowSnapshotDocument.currentSchemaVersion
+        )
+        XCTAssertEqual(
+            try codec.decodeCanonicalSnapshot(migratedData),
+            current
+        )
+    }
+
     func testSnapshotFaultAtEveryAtomicBoundaryLeavesOldOrNewSnapshot() throws {
         let points: [WorkflowFileSystemFaultPoint] = [
             .beforeTemporaryCreate,
@@ -804,32 +915,69 @@ private extension XCTestCase {
     }
 }
 
+private enum WorkflowJournalSchemaFixtureError: Error {
+    case topLevelSchemaNotFound
+}
+
+private func replacingJournalTopLevelSchemaVersion(
+    in data: Data,
+    from oldVersion: UInt16,
+    to newVersion: UInt16
+) throws -> Data {
+    guard var text = String(data: data, encoding: .utf8),
+          let range = text.range(
+              of: "\"schemaVersion\":\(oldVersion)",
+              options: .literal
+          ) else {
+        throw WorkflowJournalSchemaFixtureError.topLevelSchemaNotFound
+    }
+    text.replaceSubrange(
+        range,
+        with: "\"schemaVersion\":\(newVersion)"
+    )
+    return Data(text.utf8)
+}
+
 private final class WorkflowFaultController: @unchecked Sendable {
     private let lock = NSLock()
     private var target: WorkflowFileSystemFaultPoint?
     private var targetOccurrence = 1
     private var observedOccurrences = 0
+    private var errnoCode: Int32?
 
     func arm(
         _ point: WorkflowFileSystemFaultPoint,
-        occurrence: Int = 1
+        occurrence: Int = 1,
+        errnoCode: Int32? = nil
     ) {
         lock.withLock {
             target = point
             targetOccurrence = occurrence
             observedOccurrences = 0
+            self.errnoCode = errnoCode
         }
     }
 
-    func hook(_ point: WorkflowFileSystemFaultPoint, _: URL) throws {
-        let shouldThrow = lock.withLock { () -> Bool in
-            guard target == point else { return false }
+    func hook(_ point: WorkflowFileSystemFaultPoint, _ url: URL) throws {
+        let injection = lock.withLock { () -> (Bool, Int32?) in
+            guard target == point else { return (false, nil) }
             observedOccurrences += 1
-            guard observedOccurrences == targetOccurrence else { return false }
+            guard observedOccurrences == targetOccurrence else {
+                return (false, nil)
+            }
             target = nil
-            return true
+            let code = errnoCode
+            errnoCode = nil
+            return (true, code)
         }
-        if shouldThrow {
+        if injection.0, let code = injection.1 {
+            throw WorkflowDurableFileSystemError.ioFailure(
+                operation: "injected_fault",
+                path: url.path,
+                code: code
+            )
+        }
+        if injection.0 {
             throw WorkflowInjectedFault(point: point)
         }
     }

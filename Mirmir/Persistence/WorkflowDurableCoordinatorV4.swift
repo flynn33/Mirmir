@@ -248,7 +248,7 @@ struct WorkflowLeaseBodyV4: Codable, Equatable, Hashable, Sendable {
 }
 
 struct WorkflowLeaseDocumentV4: Codable, Equatable, Hashable, Sendable {
-    static let currentSchemaVersion: UInt16 = 1
+    static let currentSchemaVersion: UInt16 = 2
 
     let schemaVersion: UInt16
     let bodyHash: WorkflowLeaseDocumentHashV4
@@ -258,6 +258,54 @@ struct WorkflowLeaseDocumentV4: Codable, Equatable, Hashable, Sendable {
         schemaVersion = Self.currentSchemaVersion
         self.bodyHash = bodyHash
         self.body = body
+    }
+}
+
+/// Canonical v1 lease envelope retained for one-way, hash-preserving
+/// migration.  The lease body is fully validated before a v2 envelope is
+/// atomically published.
+struct WorkflowLeaseDocumentV1: Codable, Equatable, Hashable, Sendable {
+    static let schemaVersionValue: UInt16 = 1
+
+    let schemaVersion: UInt16
+    let bodyHash: WorkflowLeaseDocumentHashV4
+    let body: WorkflowLeaseBodyV4
+
+    init(bodyHash: WorkflowLeaseDocumentHashV4, body: WorkflowLeaseBodyV4) {
+        schemaVersion = Self.schemaVersionValue
+        self.bodyHash = bodyHash
+        self.body = body
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case bodyHash
+        case body
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let schemaVersion = try container.decode(
+            UInt16.self,
+            forKey: .schemaVersion
+        )
+        guard schemaVersion == Self.schemaVersionValue else {
+            throw WorkflowDurableCoordinatorErrorV4.unsupportedSchemaVersion(
+                type: "WorkflowLeaseDocumentV1",
+                actual: schemaVersion,
+                current: Self.schemaVersionValue
+            )
+        }
+        self.init(
+            bodyHash: try container.decode(
+                WorkflowLeaseDocumentHashV4.self,
+                forKey: .bodyHash
+            ),
+            body: try container.decode(
+                WorkflowLeaseBodyV4.self,
+                forKey: .body
+            )
+        )
     }
 }
 
@@ -769,7 +817,7 @@ struct WorkflowCheckpointBodyV4: Codable, Equatable, Hashable, Sendable {
 }
 
 struct WorkflowCheckpointDocumentV4: Codable, Equatable, Hashable, Sendable {
-    static let currentSchemaVersion: UInt16 = 1
+    static let currentSchemaVersion: UInt16 = 2
 
     let schemaVersion: UInt16
     let bodyHash: WorkflowCheckpointDocumentHashV4
@@ -782,6 +830,62 @@ struct WorkflowCheckpointDocumentV4: Codable, Equatable, Hashable, Sendable {
         schemaVersion = Self.currentSchemaVersion
         self.bodyHash = bodyHash
         self.body = body
+    }
+}
+
+/// Canonical v1 checkpoint envelope.  Segment and temporal artifact hashes,
+/// compatibility bindings, and the predecessor hash are never rewritten by
+/// this envelope-only migration.
+struct WorkflowCheckpointDocumentV1:
+    Codable,
+    Equatable,
+    Hashable,
+    Sendable
+{
+    static let schemaVersionValue: UInt16 = 1
+
+    let schemaVersion: UInt16
+    let bodyHash: WorkflowCheckpointDocumentHashV4
+    let body: WorkflowCheckpointBodyV4
+
+    init(
+        bodyHash: WorkflowCheckpointDocumentHashV4,
+        body: WorkflowCheckpointBodyV4
+    ) {
+        schemaVersion = Self.schemaVersionValue
+        self.bodyHash = bodyHash
+        self.body = body
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case bodyHash
+        case body
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let schemaVersion = try container.decode(
+            UInt16.self,
+            forKey: .schemaVersion
+        )
+        guard schemaVersion == Self.schemaVersionValue else {
+            throw WorkflowDurableCoordinatorErrorV4.unsupportedSchemaVersion(
+                type: "WorkflowCheckpointDocumentV1",
+                actual: schemaVersion,
+                current: Self.schemaVersionValue
+            )
+        }
+        self.init(
+            bodyHash: try container.decode(
+                WorkflowCheckpointDocumentHashV4.self,
+                forKey: .bodyHash
+            ),
+            body: try container.decode(
+                WorkflowCheckpointBodyV4.self,
+                forKey: .body
+            )
+        )
     }
 }
 
@@ -843,12 +947,18 @@ struct WorkflowOwnedPartialArtifactV4: Codable, Equatable, Hashable, Sendable {
     }
 }
 
+enum WorkflowPartialRegistryEnvelopeSchemaV4 {
+    static let legacy: UInt16 = 1
+    static let current: UInt16 = 2
+}
+
 private struct WorkflowPartialRegistryDocumentV4:
     Codable,
     Equatable,
     Sendable
 {
-    static let currentSchemaVersion: UInt16 = 1
+    static let currentSchemaVersion =
+        WorkflowPartialRegistryEnvelopeSchemaV4.current
 
     let schemaVersion: UInt16
     let jobBinding: WorkflowJobBinding
@@ -869,6 +979,69 @@ private struct WorkflowPartialRegistryDocumentV4:
         self.jobBinding = jobBinding
         self.generation = generation
         self.artifacts = artifacts.sorted { $0.artifactID < $1.artifactID }
+    }
+}
+
+private struct WorkflowPartialRegistryDocumentV1:
+    Codable,
+    Equatable,
+    Sendable
+{
+    static let schemaVersionValue =
+        WorkflowPartialRegistryEnvelopeSchemaV4.legacy
+
+    let schemaVersion: UInt16
+    let jobBinding: WorkflowJobBinding
+    let generation: UInt64
+    let artifacts: [WorkflowOwnedPartialArtifactV4]
+
+    init(
+        jobBinding: WorkflowJobBinding,
+        generation: UInt64,
+        artifacts: [WorkflowOwnedPartialArtifactV4]
+    ) {
+        schemaVersion = Self.schemaVersionValue
+        self.jobBinding = jobBinding
+        self.generation = generation
+        self.artifacts = artifacts
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case jobBinding
+        case generation
+        case artifacts
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let schemaVersion = try container.decode(
+            UInt16.self,
+            forKey: .schemaVersion
+        )
+        guard schemaVersion == Self.schemaVersionValue else {
+            throw WorkflowDurableCoordinatorErrorV4
+                .unsupportedSchemaVersion(
+                    type: "WorkflowPartialRegistryDocumentV1",
+                    actual: schemaVersion,
+                    current: WorkflowPartialRegistryDocumentV4
+                        .currentSchemaVersion
+                )
+        }
+        self.init(
+            jobBinding: try container.decode(
+                WorkflowJobBinding.self,
+                forKey: .jobBinding
+            ),
+            generation: try container.decode(
+                UInt64.self,
+                forKey: .generation
+            ),
+            artifacts: try container.decode(
+                [WorkflowOwnedPartialArtifactV4].self,
+                forKey: .artifacts
+            )
+        )
     }
 }
 
@@ -1580,10 +1753,42 @@ private extension WorkflowDurableCoordinatorV4 {
         guard try fileSystem.regularFileExists(url) else { return nil }
         do {
             let data = try fileSystem.readRegularFile(url, maximumBytes: 256 * 1_024)
-            let document = try codec.decodeCanonical(
-                WorkflowLeaseDocumentV4.self,
+            let schema = try JSONDecoder().decode(
+                WorkflowSchemaVersionProbeV4.self,
                 from: data
-            )
+            ).schemaVersion
+            let document: WorkflowLeaseDocumentV4
+            switch schema {
+            case WorkflowLeaseDocumentV4.currentSchemaVersion:
+                document = try codec.decodeCanonical(
+                    WorkflowLeaseDocumentV4.self,
+                    from: data
+                )
+            case WorkflowLeaseDocumentV1.schemaVersionValue:
+                let legacy = try codec.decodeCanonical(
+                    WorkflowLeaseDocumentV1.self,
+                    from: data
+                )
+                let migrated = try makeLeaseDocument(legacy.body)
+                guard migrated.bodyHash == legacy.bodyHash else {
+                    throw WorkflowDurableCoordinatorErrorV4
+                        .corruptLeaseDocument
+                }
+                try verifyLeaseDocument(migrated)
+                try fileSystem.replaceAtomically(
+                    codec.canonicalData(migrated),
+                    at: url
+                )
+                document = migrated
+            default:
+                throw WorkflowDurableCoordinatorErrorV4
+                    .unsupportedSchemaVersion(
+                        type: "WorkflowLeaseDocumentV4",
+                        actual: schema,
+                        current: WorkflowLeaseDocumentV4
+                            .currentSchemaVersion
+                    )
+            }
             try verifyLeaseDocument(document)
             return document
         } catch let error as WorkflowDurableCoordinatorErrorV4 {
@@ -1786,17 +1991,60 @@ private extension WorkflowDurableCoordinatorV4 {
     func decodeCheckpointDocument(
         _ data: Data
     ) throws -> WorkflowCheckpointDocumentV4 {
+        try decodeCheckpointDocumentMigrating(data).document
+    }
+
+    struct CheckpointMigrationResult {
+        let document: WorkflowCheckpointDocumentV4
+        let migratedFromSchemaVersion: UInt16?
+    }
+
+    func decodeCheckpointDocumentMigrating(
+        _ data: Data
+    ) throws -> CheckpointMigrationResult {
         do {
-            let document = try codec.decodeCanonical(
-                WorkflowCheckpointDocumentV4.self,
+            let schema = try JSONDecoder().decode(
+                WorkflowSchemaVersionProbeV4.self,
                 from: data
-            )
+            ).schemaVersion
+            let document: WorkflowCheckpointDocumentV4
+            let migratedFromSchemaVersion: UInt16?
+            switch schema {
+            case WorkflowCheckpointDocumentV4.currentSchemaVersion:
+                document = try codec.decodeCanonical(
+                    WorkflowCheckpointDocumentV4.self,
+                    from: data
+                )
+                migratedFromSchemaVersion = nil
+            case WorkflowCheckpointDocumentV1.schemaVersionValue:
+                let legacy = try codec.decodeCanonical(
+                    WorkflowCheckpointDocumentV1.self,
+                    from: data
+                )
+                let migrated = try makeCheckpointDocument(legacy.body)
+                guard migrated.bodyHash == legacy.bodyHash else {
+                    throw WorkflowDurableCoordinatorErrorV4.corruptCheckpoint
+                }
+                document = migrated
+                migratedFromSchemaVersion = legacy.schemaVersion
+            default:
+                throw WorkflowDurableCoordinatorErrorV4
+                    .unsupportedSchemaVersion(
+                        type: "WorkflowCheckpointDocumentV4",
+                        actual: schema,
+                        current: WorkflowCheckpointDocumentV4
+                            .currentSchemaVersion
+                    )
+            }
             guard document.schemaVersion
                     == WorkflowCheckpointDocumentV4.currentSchemaVersion,
                   try makeCheckpointDocument(document.body) == document else {
                 throw WorkflowDurableCoordinatorErrorV4.corruptCheckpoint
             }
-            return document
+            return CheckpointMigrationResult(
+                document: document,
+                migratedFromSchemaVersion: migratedFromSchemaVersion
+            )
         } catch let error as WorkflowDurableCoordinatorErrorV4 {
             throw error
         } catch {
@@ -1810,9 +2058,26 @@ private extension WorkflowDurableCoordinatorV4 {
         try fileSystem.ensureDirectory(checkpointDirectoryURL(jobID: jobID))
         let url = checkpointHeadURL(jobID: jobID)
         guard try fileSystem.regularFileExists(url) else { return nil }
-        return try decodeCheckpointDocument(
-            fileSystem.readRegularFile(url, maximumBytes: 16 * 1_024 * 1_024)
+        let decoded = try decodeCheckpointDocumentMigrating(
+            fileSystem.readRegularFile(
+                url,
+                maximumBytes: 16 * 1_024 * 1_024
+            )
         )
+        if decoded.migratedFromSchemaVersion != nil {
+            let data = try codec.canonicalData(decoded.document)
+            let archiveURL = checkpointArchiveURL(
+                jobID: jobID,
+                document: decoded.document
+            )
+            if try fileSystem.regularFileExists(archiveURL) {
+                try fileSystem.replaceAtomically(data, at: archiveURL)
+            } else {
+                try fileSystem.writeNewAtomically(data, to: archiveURL)
+            }
+            try fileSystem.replaceAtomically(data, at: url)
+        }
+        return decoded.document
     }
 
     func loadPartialRegistry(
@@ -1823,10 +2088,43 @@ private extension WorkflowDurableCoordinatorV4 {
         guard try fileSystem.regularFileExists(url) else { return nil }
         do {
             let data = try fileSystem.readRegularFile(url, maximumBytes: 4 * 1_024 * 1_024)
-            let document = try codec.decodeCanonical(
-                WorkflowPartialRegistryDocumentV4.self,
+            let schema = try JSONDecoder().decode(
+                WorkflowSchemaVersionProbeV4.self,
                 from: data
-            )
+            ).schemaVersion
+            let document: WorkflowPartialRegistryDocumentV4
+            let migrated: Bool
+            switch schema {
+            case WorkflowPartialRegistryDocumentV4.currentSchemaVersion:
+                document = try codec.decodeCanonical(
+                    WorkflowPartialRegistryDocumentV4.self,
+                    from: data
+                )
+                migrated = false
+            case WorkflowPartialRegistryDocumentV1.schemaVersionValue:
+                let legacy = try codec.decodeCanonical(
+                    WorkflowPartialRegistryDocumentV1.self,
+                    from: data
+                )
+                document = try WorkflowPartialRegistryDocumentV4(
+                    jobBinding: legacy.jobBinding,
+                    generation: legacy.generation,
+                    artifacts: legacy.artifacts
+                )
+                guard document.artifacts == legacy.artifacts else {
+                    throw WorkflowDurableCoordinatorErrorV4
+                        .invalidPartialRegistry
+                }
+                migrated = true
+            default:
+                throw WorkflowDurableCoordinatorErrorV4
+                    .unsupportedSchemaVersion(
+                        type: "WorkflowPartialRegistryDocumentV4",
+                        actual: schema,
+                        current: WorkflowPartialRegistryDocumentV4
+                            .currentSchemaVersion
+                    )
+            }
             guard document.schemaVersion
                     == WorkflowPartialRegistryDocumentV4.currentSchemaVersion,
                   try WorkflowPartialRegistryDocumentV4(
@@ -1835,6 +2133,12 @@ private extension WorkflowDurableCoordinatorV4 {
                       artifacts: document.artifacts
                   ) == document else {
                 throw WorkflowDurableCoordinatorErrorV4.invalidPartialRegistry
+            }
+            if migrated {
+                try fileSystem.replaceAtomically(
+                    codec.canonicalData(document),
+                    at: url
+                )
             }
             return document
         } catch let error as WorkflowDurableCoordinatorErrorV4 {

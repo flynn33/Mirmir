@@ -97,6 +97,27 @@ final class WorkflowSegmentCheckpointStoreV4Tests: XCTestCase {
             using: runningClaim
         )
         XCTAssertEqual(firstCommit.document.body.segments.count, 1)
+        let measurementURL = fixture.store.appendingPathComponent(
+            firstCommit.document.body.measurementHysteresis.relativePath
+        )
+        let immutableMeasurementV1 = try Data(contentsOf: measurementURL)
+        XCTAssertEqual(
+            try JSONDecoder().decode(
+                WorkflowSchemaVersionProbeV4.self,
+                from: immutableMeasurementV1
+            ).schemaVersion,
+            WorkflowSegmentArtifactPersistenceSchemaV4.immutableV1
+        )
+        let immutableReceiptHashesV1 =
+            firstCommit.document.body.segments.map {
+                $0.artifact.reopenReceiptSHA256
+            }
+            + [
+                firstCommit.document.body.temporalHistory
+                    .reopenReceiptSHA256,
+                firstCommit.document.body.measurementHysteresis
+                    .reopenReceiptSHA256
+            ]
         let capturedOrdinal = await firstEngine.lastCheckpointOrdinal()
         XCTAssertEqual(capturedOrdinal, 1)
 
@@ -150,6 +171,22 @@ final class WorkflowSegmentCheckpointStoreV4Tests: XCTestCase {
         XCTAssertEqual(
             restoredCheckpoint,
             Data("opaque-state-after-frame-1".utf8)
+        )
+        XCTAssertEqual(
+            try Data(contentsOf: measurementURL),
+            immutableMeasurementV1
+        )
+        XCTAssertEqual(
+            firstCommit.document.body.segments.map {
+                $0.artifact.reopenReceiptSHA256
+            }
+                + [
+                    firstCommit.document.body.temporalHistory
+                        .reopenReceiptSHA256,
+                    firstCommit.document.body.measurementHysteresis
+                        .reopenReceiptSHA256
+                ],
+            immutableReceiptHashesV1
         )
 
         let secondPublication = try await resumedStore.publishBoundary(

@@ -369,7 +369,10 @@ private extension WorkflowEventJournal {
                     snapshotURL,
                     maximumBytes: configuration.maximumSnapshotBytes
                 )
-                let document = try codec.decodeCanonicalSnapshot(snapshotData)
+                let decoded = try codec.decodeCanonicalSnapshotMigrating(
+                    snapshotData
+                )
+                let document = decoded.document
                 guard document.body.storeID == storeID else {
                     throw SnapshotValidationFailure.storeIdentityMismatch
                 }
@@ -393,6 +396,12 @@ private extension WorkflowEventJournal {
                 snapshotDisposition = .applied(
                     generation: document.body.generation
                 )
+                if decoded.migratedFromSchemaVersion != nil {
+                    try fileSystem.replaceAtomically(
+                        codec.canonicalSnapshotData(document),
+                        at: snapshotURL
+                    )
+                }
             } catch let failure as SnapshotValidationFailure {
                 snapshotDisposition = .rejected(failure.reason)
                 baseState = WorkflowState()
@@ -522,10 +531,37 @@ private extension WorkflowEventJournal {
                 storeIdentityURL,
                 maximumBytes: 16 * 1_024
             )
-            return try codec.decodeCanonical(
-                WorkflowStoreIdentityDocument.self,
+            let schema = try JSONDecoder().decode(
+                WorkflowSchemaVersionProbeV4.self,
                 from: data
-            ).storeID
+            ).schemaVersion
+            switch schema {
+            case WorkflowStoreIdentityDocument.currentSchemaVersion:
+                return try codec.decodeCanonical(
+                    WorkflowStoreIdentityDocument.self,
+                    from: data
+                ).storeID
+            case WorkflowStoreIdentityDocumentV1.schemaVersionValue:
+                let legacy = try codec.decodeCanonical(
+                    WorkflowStoreIdentityDocumentV1.self,
+                    from: data
+                )
+                let migrated = WorkflowStoreIdentityDocument(
+                    storeID: legacy.storeID
+                )
+                try fileSystem.replaceAtomically(
+                    codec.canonicalData(migrated),
+                    at: storeIdentityURL
+                )
+                return migrated.storeID
+            default:
+                throw WorkflowCanonicalCodecError.unsupportedSchemaVersion(
+                    type: "WorkflowStoreIdentityDocument",
+                    actual: schema,
+                    current: WorkflowStoreIdentityDocument
+                        .currentSchemaVersion
+                )
+            }
         } catch {
             throw WorkflowEventJournalError.invalidStoreIdentity
         }
@@ -588,7 +624,7 @@ private enum SnapshotValidationFailure: Error {
 }
 
 private struct WorkflowStoreIdentityDocument: Codable {
-    static let currentSchemaVersion: UInt16 = 1
+    static let currentSchemaVersion: UInt16 = 2
 
     let schemaVersion: UInt16
     let storeID: WorkflowStoreID
@@ -614,6 +650,44 @@ private struct WorkflowStoreIdentityDocument: Codable {
                 type: "WorkflowStoreIdentityDocument",
                 actual: schemaVersion,
                 current: Self.currentSchemaVersion
+            )
+        }
+        self.init(
+            storeID: try container.decode(
+                WorkflowStoreID.self,
+                forKey: .storeID
+            )
+        )
+    }
+}
+
+private struct WorkflowStoreIdentityDocumentV1: Codable {
+    static let schemaVersionValue: UInt16 = 1
+
+    let schemaVersion: UInt16
+    let storeID: WorkflowStoreID
+
+    init(storeID: WorkflowStoreID) {
+        schemaVersion = Self.schemaVersionValue
+        self.storeID = storeID
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case storeID
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let schemaVersion = try container.decode(
+            UInt16.self,
+            forKey: .schemaVersion
+        )
+        guard schemaVersion == Self.schemaVersionValue else {
+            throw WorkflowCanonicalCodecError.unsupportedSchemaVersion(
+                type: "WorkflowStoreIdentityDocumentV1",
+                actual: schemaVersion,
+                current: Self.schemaVersionValue
             )
         }
         self.init(

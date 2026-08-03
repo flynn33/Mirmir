@@ -116,7 +116,7 @@ final class DeterministicEngineV4RecoveryQualificationCaptureTests:
             "mirmir-v4-recovery-qualification-contract-v1"
         )
         XCTAssertEqual(contract.buildConfiguration, "Release")
-        XCTAssertEqual(contract.scenarios.count, 14)
+        XCTAssertEqual(contract.scenarios.count, 15)
         try FileManager.default.createDirectory(
             at: captureRoot,
             withIntermediateDirectories: true
@@ -378,6 +378,8 @@ private extension DeterministicEngineV4RecoveryQualificationCaptureTests {
             )
         case "forced_termination_restart":
             try await forcedTerminationFault(root: stateRoot)
+        case "disk_full":
+            try diskFullFault(root: stateRoot)
         case "corrupt_journal":
             try corruptJournalFault(root: stateRoot)
         case "corrupt_checkpoint":
@@ -488,6 +490,59 @@ private extension DeterministicEngineV4RecoveryQualificationCaptureTests {
             )
         }
         _ = try reopened.writeSnapshot()
+    }
+
+    func diskFullFault(root: URL) throws {
+        let controller = RecoveryCaptureFileSystemFault(
+            point: .beforeAppend,
+            pathSuffix: "events-v1.bin",
+            occurrence: 1,
+            errnoCode: ENOSPC
+        )
+        let fileSystem = try WorkflowLocalDurableFileSystem(
+            trustedRootURL: root,
+            durabilityLevel: .processCrash,
+            operationHook: { point, url in
+                try controller.hook(point, url)
+            }
+        )
+        let journal = try WorkflowEventJournal(
+            rootURL: root,
+            fileSystem: fileSystem
+        )
+        _ = try journal.open()
+        do {
+            _ = try journal.append(try enqueueDraft(index: 13))
+            throw CaptureFailure.assertion(
+                "Injected disk exhaustion did not fail the journal append."
+            )
+        } catch WorkflowDurableFileSystemError.ioFailure(
+            let operation,
+            let path,
+            let code
+        ) {
+            guard operation == "injected_disk_full",
+                  path.hasSuffix("events-v1.bin"),
+                  code == ENOSPC else {
+                throw CaptureFailure.assertion(
+                    "Disk exhaustion surfaced the wrong durable error."
+                )
+            }
+        }
+        guard controller.didFire else {
+            throw CaptureFailure.assertion(
+                "Disk-full fault hook was not reached."
+            )
+        }
+        controller.disarm()
+        let reopened = try WorkflowEventJournal(rootURL: root).open()
+        guard reopened.state == WorkflowState(),
+              reopened.validJournalByteCount == 0,
+              reopened.physicalJournalByteCount == 0 else {
+            throw CaptureFailure.assertion(
+                "Disk-full containment acknowledged or partially committed an event."
+            )
+        }
     }
 
     func bookmarkTOCTOUFault(root: URL, sourceMovie: URL) async throws {
@@ -1599,6 +1654,7 @@ private final class RecoveryCaptureFileSystemFault: @unchecked Sendable {
     private let pathSuffix: String?
     private let pathContains: String?
     private let occurrence: Int
+    private let errnoCode: Int32?
     private var count = 0
     private var armed = true
     private var fired = false
@@ -1607,12 +1663,14 @@ private final class RecoveryCaptureFileSystemFault: @unchecked Sendable {
         point: WorkflowFileSystemFaultPoint,
         pathSuffix: String? = nil,
         pathContains: String? = nil,
-        occurrence: Int
+        occurrence: Int,
+        errnoCode: Int32? = nil
     ) {
         self.point = point
         self.pathSuffix = pathSuffix
         self.pathContains = pathContains
         self.occurrence = occurrence
+        self.errnoCode = errnoCode
     }
 
     var didFire: Bool { lock.withLock { fired } }
@@ -1632,6 +1690,13 @@ private final class RecoveryCaptureFileSystemFault: @unchecked Sendable {
             return true
         }
         if shouldThrow {
+            if let errnoCode {
+                throw WorkflowDurableFileSystemError.ioFailure(
+                    operation: "injected_disk_full",
+                    path: url.path,
+                    code: errnoCode
+                )
+            }
             throw DeterministicEngineV4RecoveryQualificationCaptureTests
                 .CaptureFailure.injected(observed.rawValue)
         }

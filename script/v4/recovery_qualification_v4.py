@@ -38,6 +38,7 @@ REQUIRED_COVERAGE = (
     "atomic_output_publish_boundary",
     "pause_resume",
     "forced_termination_restart",
+    "disk_full",
     "corrupt_journal",
     "corrupt_checkpoint",
     "orphan_partial_reconciliation",

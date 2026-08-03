@@ -12,6 +12,11 @@ enum WorkflowApplicationRequestDocumentDigestPurposeV4:
 typealias WorkflowApplicationRequestDocumentHashV4 =
     WorkflowDigest<WorkflowApplicationRequestDocumentDigestPurposeV4>
 
+enum WorkflowApplicationRequestEnvelopeSchemaV4 {
+    static let legacy: UInt16 = 1
+    static let current: UInt16 = 2
+}
+
 enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
     case unsafeApplicationSupportRoot(String)
     case invalidApplicationIdentifier(String)
@@ -27,6 +32,11 @@ enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
     case jobNotFound(WorkflowJobID)
     case requestDocumentMissing(WorkflowJobID)
     case requestDocumentCorrupt(WorkflowJobID)
+    case requestDocumentUnsupportedSchema(
+        jobID: WorkflowJobID,
+        actual: UInt16,
+        current: UInt16
+    )
     case requestDocumentBindingMismatch(WorkflowJobID)
     case requestDocumentConflict(WorkflowJobID)
     case dispatchJobMismatch(expected: WorkflowJobID, actual: WorkflowJobID)
@@ -59,6 +69,8 @@ enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
             "The durable request document for \(jobID) is missing."
         case .requestDocumentCorrupt(let jobID):
             "The durable request document for \(jobID) is noncanonical or hash-invalid."
+        case let .requestDocumentUnsupportedSchema(jobID, actual, current):
+            "The durable request document for \(jobID) uses unsupported schema \(actual); current is \(current)."
         case .requestDocumentBindingMismatch(let jobID):
             "The durable request document for \(jobID) does not match the journal binding."
         case .requestDocumentConflict(let jobID):
@@ -449,7 +461,8 @@ private struct WorkflowApplicationRequestDocumentV4:
     Equatable,
     Sendable
 {
-    static let currentSchemaVersion: UInt16 = 1
+    static let currentSchemaVersion =
+        WorkflowApplicationRequestEnvelopeSchemaV4.current
 
     let schemaVersion: UInt16
     let bodyHash: WorkflowApplicationRequestDocumentHashV4
@@ -462,6 +475,62 @@ private struct WorkflowApplicationRequestDocumentV4:
         schemaVersion = Self.currentSchemaVersion
         self.bodyHash = bodyHash
         self.body = body
+    }
+}
+
+/// Canonical deployed request envelope accepted only as an atomic migration
+/// input.  Its hashed body is immutable and is revalidated before the v2
+/// envelope replaces it.
+private struct WorkflowApplicationRequestDocumentV1:
+    Codable,
+    Equatable,
+    Sendable
+{
+    static let schemaVersionValue =
+        WorkflowApplicationRequestEnvelopeSchemaV4.legacy
+
+    let schemaVersion: UInt16
+    let bodyHash: WorkflowApplicationRequestDocumentHashV4
+    fileprivate let body: WorkflowApplicationRequestBodyV4
+
+    fileprivate init(
+        bodyHash: WorkflowApplicationRequestDocumentHashV4,
+        body: WorkflowApplicationRequestBodyV4
+    ) {
+        schemaVersion = Self.schemaVersionValue
+        self.bodyHash = bodyHash
+        self.body = body
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case bodyHash
+        case body
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let schemaVersion = try container.decode(
+            UInt16.self,
+            forKey: .schemaVersion
+        )
+        guard schemaVersion == Self.schemaVersionValue else {
+            throw WorkflowDomainValidationError.unsupportedSchemaVersion(
+                type: "WorkflowApplicationRequestDocumentV1",
+                actual: schemaVersion,
+                current: Self.schemaVersionValue
+            )
+        }
+        self.init(
+            bodyHash: try container.decode(
+                WorkflowApplicationRequestDocumentHashV4.self,
+                forKey: .bodyHash
+            ),
+            body: try container.decode(
+                WorkflowApplicationRequestBodyV4.self,
+                forKey: .body
+            )
+        )
     }
 }
 
@@ -1733,10 +1802,45 @@ private extension WorkflowApplicationQueueV4 {
                 url,
                 maximumBytes: Self.maximumRequestDocumentBytes
             )
-            let document = try codec.decodeCanonical(
-                WorkflowApplicationRequestDocumentV4.self,
+            let schema = try JSONDecoder().decode(
+                WorkflowSchemaVersionProbeV4.self,
                 from: data
-            )
+            ).schemaVersion
+            let document: WorkflowApplicationRequestDocumentV4
+            switch schema {
+            case WorkflowApplicationRequestDocumentV4.currentSchemaVersion:
+                document = try codec.decodeCanonical(
+                    WorkflowApplicationRequestDocumentV4.self,
+                    from: data
+                )
+            case WorkflowApplicationRequestDocumentV1.schemaVersionValue:
+                let legacy = try codec.decodeCanonical(
+                    WorkflowApplicationRequestDocumentV1.self,
+                    from: data
+                )
+                let expected = try makeRequestDocument(legacy.body)
+                guard expected.bodyHash == legacy.bodyHash else {
+                    throw WorkflowApplicationQueueErrorV4
+                        .requestDocumentCorrupt(specification.jobID)
+                }
+                document = expected
+                try verifyRequestDocument(
+                    document,
+                    specification: specification
+                )
+                try transaction.replaceAtomically(
+                    codec.canonicalData(document),
+                    at: url
+                )
+            default:
+                throw WorkflowApplicationQueueErrorV4
+                    .requestDocumentUnsupportedSchema(
+                        jobID: specification.jobID,
+                        actual: schema,
+                        current: WorkflowApplicationRequestDocumentV4
+                            .currentSchemaVersion
+                    )
+            }
             try verifyRequestDocument(document, specification: specification)
             return document
         } catch let error as WorkflowApplicationQueueErrorV4 {

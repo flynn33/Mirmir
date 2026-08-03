@@ -223,6 +223,22 @@ class RecoveryQualificationTests(unittest.TestCase):
             self.assertEqual(item["referenceOutputSHA256"], item["resumedOutputSHA256"])
             self.assertEqual(item["referenceSemanticSHA256"], item["resumedSemanticSHA256"])
 
+    def testDiskFullIsMandatoryExplicitContainedCoverage(self) -> None:
+        locked = next(
+            item for item in self.contract["scenarios"]
+            if item["coverageID"] == "disk_full"
+        )
+        self.assertEqual(locked["id"], "disk-full")
+        self.assertEqual(locked["outcome"], "explicit_contained_failure")
+        self.assertEqual(locked["containedFailureCode"], "disk_full_contained")
+        report, _ = self._evaluate()
+        observed = next(
+            item for item in report["scenarios"]
+            if item["coverage"][0] == "disk_full"
+        )
+        self.assertEqual(observed["outcome"], "explicit_contained_failure")
+        self.assertEqual(observed["containedFailureCode"], "disk_full_contained")
+
     def testMissingScenarioFailsClosed(self) -> None:
         capture = json.loads(self.capture_path.read_text())
         capture["scenarios"].pop()

@@ -19,6 +19,11 @@ typealias WorkflowRecoveryPreparedDecisionHashV4 =
 typealias WorkflowDispatcherConfigurationHashV4 =
   WorkflowDigest<WorkflowDispatcherConfigurationDigestPurposeV4>
 
+enum WorkflowQueueDispatcherEnvelopeSchemaV4 {
+  static let legacy: UInt16 = 1
+  static let current: UInt16 = 2
+}
+
 private struct WorkflowDispatcherConfigurationBodyV4:
   Codable,
   Equatable,
@@ -40,7 +45,8 @@ private struct WorkflowDispatcherConfigurationDocumentV4:
   Equatable,
   Sendable
 {
-  static let currentSchemaVersion: UInt16 = 1
+  static let currentSchemaVersion =
+    WorkflowQueueDispatcherEnvelopeSchemaV4.current
 
   let schemaVersion: UInt16
   let bodyHash: WorkflowDispatcherConfigurationHashV4
@@ -53,6 +59,59 @@ private struct WorkflowDispatcherConfigurationDocumentV4:
     schemaVersion = Self.currentSchemaVersion
     self.bodyHash = bodyHash
     self.body = body
+  }
+}
+
+private struct WorkflowDispatcherConfigurationDocumentV1:
+  Codable,
+  Equatable,
+  Sendable
+{
+  static let schemaVersionValue =
+    WorkflowQueueDispatcherEnvelopeSchemaV4.legacy
+
+  let schemaVersion: UInt16
+  let bodyHash: WorkflowDispatcherConfigurationHashV4
+  let body: WorkflowDispatcherConfigurationBodyV4
+
+  init(
+    bodyHash: WorkflowDispatcherConfigurationHashV4,
+    body: WorkflowDispatcherConfigurationBodyV4
+  ) {
+    schemaVersion = Self.schemaVersionValue
+    self.bodyHash = bodyHash
+    self.body = body
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case schemaVersion
+    case bodyHash
+    case body
+  }
+
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    let schemaVersion = try container.decode(
+      UInt16.self,
+      forKey: .schemaVersion
+    )
+    guard schemaVersion == Self.schemaVersionValue else {
+      throw WorkflowQueueDispatcherErrorV4.unsupportedConfigurationSchema(
+        actual: schemaVersion,
+        current: WorkflowDispatcherConfigurationDocumentV4
+          .currentSchemaVersion
+      )
+    }
+    self.init(
+      bodyHash: try container.decode(
+        WorkflowDispatcherConfigurationHashV4.self,
+        forKey: .bodyHash
+      ),
+      body: try container.decode(
+        WorkflowDispatcherConfigurationBodyV4.self,
+        forKey: .body
+      )
+    )
   }
 }
 
@@ -108,6 +167,7 @@ enum WorkflowQueueDispatcherErrorV4: Error, Equatable, LocalizedError {
   case missingAcquisitionReceipt(WorkflowCommandID)
   case noDispatchCapacity
   case corruptConfiguration
+  case unsupportedConfigurationSchema(actual: UInt16, current: UInt16)
   case concurrencyConfigurationMismatch(expected: Int, actual: Int)
   case cycleReplayConflict(WorkflowDispatchCycleIDV4)
   case staleClaimLifecycle(
@@ -132,6 +192,8 @@ enum WorkflowQueueDispatcherErrorV4: Error, Equatable, LocalizedError {
       "No global dispatcher slot is available."
     case .corruptConfiguration:
       "The global dispatcher configuration is noncanonical or hash-invalid."
+    case let .unsupportedConfigurationSchema(actual, current):
+      "Dispatcher configuration schema \(actual) is unsupported; current is \(current)."
     case .concurrencyConfigurationMismatch(let expected, let actual):
       "Dispatcher concurrency is durably locked to \(expected), not \(actual)."
     case .cycleReplayConflict(let cycleID):
@@ -706,13 +768,55 @@ extension WorkflowQueueDispatcherV4 {
       if try transaction.regularFileExists(configurationURL) {
         let existing: WorkflowDispatcherConfigurationDocumentV4
         do {
-          existing = try codec.decodeCanonical(
-            WorkflowDispatcherConfigurationDocumentV4.self,
-            from: transaction.readRegularFile(
-              configurationURL,
-              maximumBytes: 4_096
-            )
+          let data = try transaction.readRegularFile(
+            configurationURL,
+            maximumBytes: 4_096
           )
+          let schema = try JSONDecoder().decode(
+            WorkflowSchemaVersionProbeV4.self,
+            from: data
+          ).schemaVersion
+          switch schema {
+          case WorkflowDispatcherConfigurationDocumentV4
+            .currentSchemaVersion:
+            existing = try codec.decodeCanonical(
+              WorkflowDispatcherConfigurationDocumentV4.self,
+              from: data
+            )
+          case WorkflowDispatcherConfigurationDocumentV1
+            .schemaVersionValue:
+            let legacy = try codec.decodeCanonical(
+              WorkflowDispatcherConfigurationDocumentV1.self,
+              from: data
+            )
+            guard
+              legacy.body.schemaVersion
+                == WorkflowDispatcherConfigurationBodyV4
+                .currentSchemaVersion,
+              (1...64).contains(legacy.body.maximumConcurrentJobs)
+            else {
+              throw WorkflowQueueDispatcherErrorV4.corruptConfiguration
+            }
+            let migrated = try makeConfigurationDocument(
+              legacy.body,
+              codec: codec
+            )
+            guard migrated.bodyHash == legacy.bodyHash else {
+              throw WorkflowQueueDispatcherErrorV4.corruptConfiguration
+            }
+            existing = migrated
+            try transaction.replaceAtomically(
+              codec.canonicalData(migrated),
+              at: configurationURL
+            )
+          default:
+            throw WorkflowQueueDispatcherErrorV4
+              .unsupportedConfigurationSchema(
+                actual: schema,
+                current: WorkflowDispatcherConfigurationDocumentV4
+                  .currentSchemaVersion
+              )
+          }
           guard
             existing.schemaVersion
               == WorkflowDispatcherConfigurationDocumentV4
@@ -865,7 +969,8 @@ struct WorkflowRecoveryPreparedDecisionDocumentV4:
   Equatable,
   Sendable
 {
-  static let currentSchemaVersion: UInt16 = 1
+  static let currentSchemaVersion =
+    WorkflowQueueDispatcherEnvelopeSchemaV4.current
 
   let schemaVersion: UInt16
   let bodyHash: WorkflowRecoveryPreparedDecisionHashV4
@@ -878,6 +983,60 @@ struct WorkflowRecoveryPreparedDecisionDocumentV4:
     schemaVersion = Self.currentSchemaVersion
     self.bodyHash = bodyHash
     self.body = body
+  }
+}
+
+private struct WorkflowRecoveryPreparedDecisionDocumentV1:
+  Codable,
+  Equatable,
+  Sendable
+{
+  static let schemaVersionValue =
+    WorkflowQueueDispatcherEnvelopeSchemaV4.legacy
+
+  let schemaVersion: UInt16
+  let bodyHash: WorkflowRecoveryPreparedDecisionHashV4
+  let body: WorkflowRecoveryPreparedDecisionBodyV4
+
+  init(
+    bodyHash: WorkflowRecoveryPreparedDecisionHashV4,
+    body: WorkflowRecoveryPreparedDecisionBodyV4
+  ) {
+    schemaVersion = Self.schemaVersionValue
+    self.bodyHash = bodyHash
+    self.body = body
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case schemaVersion
+    case bodyHash
+    case body
+  }
+
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    let schemaVersion = try container.decode(
+      UInt16.self,
+      forKey: .schemaVersion
+    )
+    guard schemaVersion == Self.schemaVersionValue else {
+      throw WorkflowRecoveryDecisionStoreErrorV4
+        .unsupportedSchemaVersion(
+          actual: schemaVersion,
+          current: WorkflowRecoveryPreparedDecisionDocumentV4
+            .currentSchemaVersion
+        )
+    }
+    self.init(
+      bodyHash: try container.decode(
+        WorkflowRecoveryPreparedDecisionHashV4.self,
+        forKey: .bodyHash
+      ),
+      body: try container.decode(
+        WorkflowRecoveryPreparedDecisionBodyV4.self,
+        forKey: .body
+      )
+    )
   }
 }
 
@@ -970,7 +1129,8 @@ struct WorkflowRecoveryDecisionBodyV4: Codable, Equatable, Sendable {
 }
 
 struct WorkflowRecoveryDecisionDocumentV4: Codable, Equatable, Sendable {
-  static let currentSchemaVersion: UInt16 = 1
+  static let currentSchemaVersion =
+    WorkflowQueueDispatcherEnvelopeSchemaV4.current
 
   let schemaVersion: UInt16
   let bodyHash: WorkflowRecoveryDecisionHashV4
@@ -986,9 +1146,64 @@ struct WorkflowRecoveryDecisionDocumentV4: Codable, Equatable, Sendable {
   }
 }
 
+private struct WorkflowRecoveryDecisionDocumentV1:
+  Codable,
+  Equatable,
+  Sendable
+{
+  static let schemaVersionValue =
+    WorkflowQueueDispatcherEnvelopeSchemaV4.legacy
+
+  let schemaVersion: UInt16
+  let bodyHash: WorkflowRecoveryDecisionHashV4
+  let body: WorkflowRecoveryDecisionBodyV4
+
+  init(
+    bodyHash: WorkflowRecoveryDecisionHashV4,
+    body: WorkflowRecoveryDecisionBodyV4
+  ) {
+    schemaVersion = Self.schemaVersionValue
+    self.bodyHash = bodyHash
+    self.body = body
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case schemaVersion
+    case bodyHash
+    case body
+  }
+
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    let schemaVersion = try container.decode(
+      UInt16.self,
+      forKey: .schemaVersion
+    )
+    guard schemaVersion == Self.schemaVersionValue else {
+      throw WorkflowRecoveryDecisionStoreErrorV4
+        .unsupportedSchemaVersion(
+          actual: schemaVersion,
+          current: WorkflowRecoveryDecisionDocumentV4
+            .currentSchemaVersion
+        )
+    }
+    self.init(
+      bodyHash: try container.decode(
+        WorkflowRecoveryDecisionHashV4.self,
+        forKey: .bodyHash
+      ),
+      body: try container.decode(
+        WorkflowRecoveryDecisionBodyV4.self,
+        forKey: .body
+      )
+    )
+  }
+}
+
 enum WorkflowRecoveryDecisionStoreErrorV4: Error, Equatable, LocalizedError {
   case invalidDocument
   case corruptDocument
+  case unsupportedSchemaVersion(actual: UInt16, current: UInt16)
   case conflict
 
   var errorDescription: String? {
@@ -997,6 +1212,8 @@ enum WorkflowRecoveryDecisionStoreErrorV4: Error, Equatable, LocalizedError {
       "The recovery decision violates its canonical contract."
     case .corruptDocument:
       "The recovery decision is noncanonical or hash-invalid."
+    case let .unsupportedSchemaVersion(actual, current):
+      "Recovery decision schema \(actual) is unsupported; current is \(current)."
     case .conflict:
       "A different recovery decision already uses this command key."
     }
@@ -1037,12 +1254,15 @@ actor WorkflowRecoveryDecisionStoreV4 {
           url,
           maximumBytes: Self.maximumDocumentByteCount
         )
-        let document: WorkflowRecoveryDecisionDocumentV4 =
-          try codec.decodeCanonical(
-            WorkflowRecoveryDecisionDocumentV4.self,
-            from: data
-          )
+        let decoded = try decodeDecisionMigrating(data)
+        let document = decoded.document
         try verify(document, jobID: jobID, commandKey: commandKey)
+        if decoded.migrated {
+          try transaction.replaceAtomically(
+            codec.canonicalData(document),
+            at: url
+          )
+        }
         return document
       } catch let error as WorkflowRecoveryDecisionStoreErrorV4 {
         throw error
@@ -1068,16 +1288,19 @@ actor WorkflowRecoveryDecisionStoreV4 {
           url,
           maximumBytes: Self.maximumDocumentByteCount
         )
-        let document: WorkflowRecoveryPreparedDecisionDocumentV4 =
-          try codec.decodeCanonical(
-            WorkflowRecoveryPreparedDecisionDocumentV4.self,
-            from: data
-          )
+        let decoded = try decodePreparedDecisionMigrating(data)
+        let document = decoded.document
         try verifyPrepared(
           document,
           jobID: jobID,
           commandKey: commandKey
         )
+        if decoded.migrated {
+          try transaction.replaceAtomically(
+            codec.canonicalData(document),
+            at: url
+          )
+        }
         return document
       } catch let error as WorkflowRecoveryDecisionStoreErrorV4 {
         throw error
@@ -1106,15 +1329,21 @@ actor WorkflowRecoveryDecisionStoreV4 {
         )
         let existing: WorkflowRecoveryDecisionDocumentV4
         do {
-          existing = try codec.decodeCanonical(
-            WorkflowRecoveryDecisionDocumentV4.self,
-            from: data
-          )
+          let decoded = try decodeDecisionMigrating(data)
+          existing = decoded.document
           try verify(
             existing,
             jobID: jobID,
             commandKey: body.commandKey
           )
+          if decoded.migrated {
+            try transaction.replaceAtomically(
+              codec.canonicalData(existing),
+              at: url
+            )
+          }
+        } catch let error as WorkflowRecoveryDecisionStoreErrorV4 {
+          throw error
         } catch {
           throw WorkflowRecoveryDecisionStoreErrorV4.corruptDocument
         }
@@ -1149,18 +1378,26 @@ actor WorkflowRecoveryDecisionStoreV4 {
       if try transaction.regularFileExists(url) {
         let existing: WorkflowRecoveryPreparedDecisionDocumentV4
         do {
-          existing = try codec.decodeCanonical(
-            WorkflowRecoveryPreparedDecisionDocumentV4.self,
-            from: transaction.readRegularFile(
+          let decoded = try decodePreparedDecisionMigrating(
+            transaction.readRegularFile(
               url,
               maximumBytes: Self.maximumDocumentByteCount
             )
           )
+          existing = decoded.document
           try verifyPrepared(
             existing,
             jobID: jobID,
             commandKey: body.commandKey
           )
+          if decoded.migrated {
+            try transaction.replaceAtomically(
+              codec.canonicalData(existing),
+              at: url
+            )
+          }
+        } catch let error as WorkflowRecoveryDecisionStoreErrorV4 {
+          throw error
         } catch {
           throw WorkflowRecoveryDecisionStoreErrorV4.corruptDocument
         }
@@ -1179,6 +1416,81 @@ actor WorkflowRecoveryDecisionStoreV4 {
 }
 
 extension WorkflowRecoveryDecisionStoreV4 {
+  fileprivate func decodeDecisionMigrating(
+    _ data: Data
+  ) throws -> (
+    document: WorkflowRecoveryDecisionDocumentV4,
+    migrated: Bool
+  ) {
+    let schema = try JSONDecoder().decode(
+      WorkflowSchemaVersionProbeV4.self,
+      from: data
+    ).schemaVersion
+    switch schema {
+    case WorkflowRecoveryDecisionDocumentV4.currentSchemaVersion:
+      return (
+        try codec.decodeCanonical(
+          WorkflowRecoveryDecisionDocumentV4.self,
+          from: data
+        ),
+        false
+      )
+    case WorkflowRecoveryDecisionDocumentV1.schemaVersionValue:
+      let legacy = try codec.decodeCanonical(
+        WorkflowRecoveryDecisionDocumentV1.self,
+        from: data
+      )
+      let migrated = try makeDocument(legacy.body)
+      guard migrated.bodyHash == legacy.bodyHash else {
+        throw WorkflowRecoveryDecisionStoreErrorV4.corruptDocument
+      }
+      return (migrated, true)
+    default:
+      throw WorkflowRecoveryDecisionStoreErrorV4.unsupportedSchemaVersion(
+        actual: schema,
+        current: WorkflowRecoveryDecisionDocumentV4.currentSchemaVersion
+      )
+    }
+  }
+
+  fileprivate func decodePreparedDecisionMigrating(
+    _ data: Data
+  ) throws -> (
+    document: WorkflowRecoveryPreparedDecisionDocumentV4,
+    migrated: Bool
+  ) {
+    let schema = try JSONDecoder().decode(
+      WorkflowSchemaVersionProbeV4.self,
+      from: data
+    ).schemaVersion
+    switch schema {
+    case WorkflowRecoveryPreparedDecisionDocumentV4.currentSchemaVersion:
+      return (
+        try codec.decodeCanonical(
+          WorkflowRecoveryPreparedDecisionDocumentV4.self,
+          from: data
+        ),
+        false
+      )
+    case WorkflowRecoveryPreparedDecisionDocumentV1.schemaVersionValue:
+      let legacy = try codec.decodeCanonical(
+        WorkflowRecoveryPreparedDecisionDocumentV1.self,
+        from: data
+      )
+      let migrated = try makePreparedDocument(legacy.body)
+      guard migrated.bodyHash == legacy.bodyHash else {
+        throw WorkflowRecoveryDecisionStoreErrorV4.corruptDocument
+      }
+      return (migrated, true)
+    default:
+      throw WorkflowRecoveryDecisionStoreErrorV4.unsupportedSchemaVersion(
+        actual: schema,
+        current: WorkflowRecoveryPreparedDecisionDocumentV4
+          .currentSchemaVersion
+      )
+    }
+  }
+
   fileprivate func makeDocument(
     _ body: WorkflowRecoveryDecisionBodyV4
   ) throws -> WorkflowRecoveryDecisionDocumentV4 {

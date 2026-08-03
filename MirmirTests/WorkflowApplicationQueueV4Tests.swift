@@ -130,6 +130,46 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         XCTAssertEqual(reason, .requestDocumentCorrupt)
     }
 
+    func testRequestEnvelopeV1MigratesAtomicallyOnRelaunch() async throws {
+        let fixture = try makeFixture()
+        let resolver = WorkflowApplicationBookmarkResolverStubV4()
+        let first = try makeQueue(fixture: fixture, resolver: resolver)
+        let receipt = try await first.enqueue(
+            request: request(fixture: fixture),
+            preparedPlanBinding: preparedBinding()
+        )
+        let documentURL = await first.requestDocumentURL(
+            jobID: receipt.specification.jobID
+        )
+        let current = try Data(contentsOf: documentURL)
+        let legacy = try replacingTopLevelSchemaVersion(
+            in: current,
+            from: WorkflowApplicationRequestEnvelopeSchemaV4.current,
+            to: WorkflowApplicationRequestEnvelopeSchemaV4.legacy
+        )
+        try legacy.write(to: documentURL, options: .atomic)
+
+        let relaunched = try makeQueue(
+            fixture: fixture,
+            resolver: resolver,
+            workerID: "application-worker-migration"
+        )
+        let snapshot = try await relaunched.queueSnapshot()
+        XCTAssertEqual(snapshot.items.count, 1)
+        XCTAssertEqual(snapshot.items[0].requestRecordStatus, .ready)
+        XCTAssertEqual(snapshot.items[0].jobID, receipt.specification.jobID)
+
+        let migrated = try Data(contentsOf: documentURL)
+        XCTAssertEqual(
+            try JSONDecoder().decode(
+                WorkflowSchemaVersionProbeV4.self,
+                from: migrated
+            ).schemaVersion,
+            WorkflowApplicationRequestEnvelopeSchemaV4.current
+        )
+        XCTAssertEqual(migrated, current)
+    }
+
     func testBookmarkDenialAndPathReplacementAreContained() async throws {
         let fixture = try makeFixture()
         let resolver = WorkflowApplicationBookmarkResolverStubV4()
@@ -385,4 +425,28 @@ private final class WorkflowApplicationBookmarkResolverStubV4:
 
 private func workflowApplicationDigest(_ value: Int) -> String {
     String(format: "%064llx", value)
+}
+
+private enum WorkflowApplicationSchemaFixtureErrorV4: Error {
+    case topLevelSchemaNotFound
+}
+
+private func replacingTopLevelSchemaVersion(
+    in data: Data,
+    from oldVersion: UInt16,
+    to newVersion: UInt16
+) throws -> Data {
+    guard var text = String(data: data, encoding: .utf8),
+          let range = text.range(
+              of: "\"schemaVersion\":\(oldVersion)",
+              options: .backwards
+          ),
+          text[range.upperBound...] == "}" else {
+        throw WorkflowApplicationSchemaFixtureErrorV4.topLevelSchemaNotFound
+    }
+    text.replaceSubrange(
+        range,
+        with: "\"schemaVersion\":\(newVersion)"
+    )
+    return Data(text.utf8)
 }

@@ -190,6 +190,45 @@ final class WorkflowQueueDispatcherV4Tests: XCTestCase {
     XCTAssertEqual(nextReceipt.claim.jobID, first.jobID)
   }
 
+  func testDispatcherConfigurationV1MigratesAtomicallyOnRelaunch() async throws {
+    let fixture = try makeFixture("dispatcher-configuration-migration")
+    let coordinator = try WorkflowDurableCoordinatorV4(
+      rootURL: fixture.storeURL,
+      clock: fixture.clock
+    )
+    let duration = try WorkflowLeaseIntervalV4(
+      nanoseconds: 10_000_000_000
+    )
+    _ = try WorkflowQueueDispatcherV4(
+      coordinator: coordinator,
+      rootURL: fixture.storeURL,
+      workerID: WorkflowWorkerIDV4("configuration-first"),
+      maximumConcurrentJobs: 2,
+      leaseDuration: duration
+    )
+    let configurationURL = fixture.storeURL
+      .appendingPathComponent("dispatcher-v4", isDirectory: true)
+      .appendingPathComponent("configuration-v1.json")
+    let current = try Data(contentsOf: configurationURL)
+    let legacy = try replacingQueueTopLevelSchemaVersion(
+      in: current,
+      from: WorkflowQueueDispatcherEnvelopeSchemaV4.current,
+      to: WorkflowQueueDispatcherEnvelopeSchemaV4.legacy
+    )
+    try legacy.write(to: configurationURL, options: .atomic)
+
+    let relaunched = try WorkflowQueueDispatcherV4(
+      coordinator: coordinator,
+      rootURL: fixture.storeURL,
+      workerID: WorkflowWorkerIDV4("configuration-relaunch"),
+      maximumConcurrentJobs: 2,
+      leaseDuration: duration
+    )
+    let migratedMaximumConcurrentJobs = await relaunched.maximumConcurrentJobs
+    XCTAssertEqual(migratedMaximumConcurrentJobs, 2)
+    XCTAssertEqual(try Data(contentsOf: configurationURL), current)
+  }
+
   func testPauseResumeCommandsRetainCheckpointLifecycleSemantics() async throws {
     let fixture = try makeFixture("pause")
     let coordinator = try WorkflowDurableCoordinatorV4(
@@ -340,6 +379,48 @@ final class WorkflowQueueDispatcherV4Tests: XCTestCase {
     XCTAssertTrue(first.items[0].resumable)
     XCTAssertFalse(FileManager.default.fileExists(atPath: partialURL.path))
 
+    let recoveryDirectory = fixture.storeURL
+      .appendingPathComponent("jobs", isDirectory: true)
+      .appendingPathComponent(specification.jobID.rawValue, isDirectory: true)
+      .appendingPathComponent("recovery-v4", isDirectory: true)
+    let recoveryURLs = try FileManager.default.contentsOfDirectory(
+      at: recoveryDirectory,
+      includingPropertiesForKeys: nil
+    )
+    let decisionURL = try XCTUnwrap(
+      recoveryURLs.first {
+        $0.lastPathComponent.hasPrefix("decision-")
+          && $0.pathExtension == "json"
+      }
+    )
+    let preparedURL = try XCTUnwrap(
+      recoveryURLs.first {
+        $0.lastPathComponent.hasPrefix("prepared-")
+          && $0.pathExtension == "json"
+      }
+    )
+    let currentDecision = try Data(contentsOf: decisionURL)
+    let currentPrepared = try Data(contentsOf: preparedURL)
+    let preparedDocument = try WorkflowCanonicalCodec().decodeCanonical(
+      WorkflowRecoveryPreparedDecisionDocumentV4.self,
+      from: currentPrepared
+    )
+    try replacingQueueTopLevelSchemaVersion(
+      in: currentDecision,
+      from: WorkflowQueueDispatcherEnvelopeSchemaV4.current,
+      to: WorkflowQueueDispatcherEnvelopeSchemaV4.legacy
+    ).write(to: decisionURL, options: .atomic)
+    try replacingQueueTopLevelSchemaVersion(
+      in: currentPrepared,
+      from: WorkflowQueueDispatcherEnvelopeSchemaV4.current,
+      to: WorkflowQueueDispatcherEnvelopeSchemaV4.legacy
+    ).write(to: preparedURL, options: .atomic)
+    let migratedPrepared = try await decisionStore.loadPrepared(
+      jobID: specification.jobID,
+      commandKey: preparedDocument.body.commandKey
+    )
+    XCTAssertEqual(migratedPrepared, preparedDocument)
+
     let eventCount = try await relaunched.open().state.appliedEvents.count
     let replay = await presenter.recoverAtLaunch(
       commandKey: command,
@@ -349,6 +430,8 @@ final class WorkflowQueueDispatcherV4Tests: XCTestCase {
     XCTAssertEqual(replay.items[0].reducerEvents, first.items[0].reducerEvents)
     let replayEventCount = try await relaunched.open().state.appliedEvents.count
     XCTAssertEqual(replayEventCount, eventCount)
+    XCTAssertEqual(try Data(contentsOf: decisionURL), currentDecision)
+    XCTAssertEqual(try Data(contentsOf: preparedURL), currentPrepared)
   }
 
   func testCorruptBookmarkRecordIsContainedWithoutDirectoryDiscovery() async throws {
@@ -781,4 +864,29 @@ extension WorkflowQueueDispatcherV4Tests {
 
 private func workflowQueueDigest(_ value: Int) -> String {
   String(format: "%064llx", value)
+}
+
+private enum WorkflowQueueSchemaFixtureErrorV4: Error {
+  case topLevelSchemaNotFound
+}
+
+private func replacingQueueTopLevelSchemaVersion(
+  in data: Data,
+  from oldVersion: UInt16,
+  to newVersion: UInt16
+) throws -> Data {
+  guard var text = String(data: data, encoding: .utf8),
+    let range = text.range(
+      of: "\"schemaVersion\":\(oldVersion)",
+      options: .backwards
+    ),
+    text[range.upperBound...] == "}"
+  else {
+    throw WorkflowQueueSchemaFixtureErrorV4.topLevelSchemaNotFound
+  }
+  text.replaceSubrange(
+    range,
+    with: "\"schemaVersion\":\(newVersion)"
+  )
+  return Data(text.utf8)
 }

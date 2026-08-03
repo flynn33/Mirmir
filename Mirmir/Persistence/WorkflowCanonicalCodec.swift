@@ -27,6 +27,14 @@ enum WorkflowCanonicalCodecError: Error, Equatable, LocalizedError {
     }
 }
 
+/// Minimal, fail-closed discriminator used before selecting a canonical
+/// persistence decoder.  Durable migrations always decode and re-encode the
+/// complete versioned document after probing this field; the probe is never
+/// treated as validation by itself.
+struct WorkflowSchemaVersionProbeV4: Decodable, Sendable {
+    let schemaVersion: UInt16
+}
+
 enum WorkflowJournalPrefixDigestPurpose: WorkflowDigestPurpose {}
 enum WorkflowSnapshotBodyDigestPurpose: WorkflowDigestPurpose {}
 enum WorkflowJournalFrameDigestPurpose: WorkflowDigestPurpose {}
@@ -171,7 +179,7 @@ enum WorkflowStoreIDPurpose: WorkflowIdentifierPurpose {}
 typealias WorkflowStoreID = WorkflowIdentifier<WorkflowStoreIDPurpose>
 
 struct WorkflowSnapshotDocument: Codable, Equatable, Sendable {
-    static let currentSchemaVersion: UInt16 = 1
+    static let currentSchemaVersion: UInt16 = 2
 
     let schemaVersion: UInt16
     let bodyHash: WorkflowSnapshotBodyHash
@@ -213,6 +221,59 @@ struct WorkflowSnapshotDocument: Codable, Equatable, Sendable {
             )
         )
     }
+}
+
+/// Deployed snapshot envelope retained solely as a migration input.  The
+/// body schema and body hash remain immutable, so upgrading the envelope does
+/// not reinterpret reducer state or weaken the journal anchor.
+struct WorkflowSnapshotDocumentV1: Codable, Equatable, Sendable {
+    static let schemaVersionValue: UInt16 = 1
+
+    let schemaVersion: UInt16
+    let bodyHash: WorkflowSnapshotBodyHash
+    let body: WorkflowSnapshotBody
+
+    init(bodyHash: WorkflowSnapshotBodyHash, body: WorkflowSnapshotBody) {
+        schemaVersion = Self.schemaVersionValue
+        self.bodyHash = bodyHash
+        self.body = body
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case bodyHash
+        case body
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let schemaVersion = try container.decode(
+            UInt16.self,
+            forKey: .schemaVersion
+        )
+        guard schemaVersion == Self.schemaVersionValue else {
+            throw WorkflowCanonicalCodecError.unsupportedSchemaVersion(
+                type: "WorkflowSnapshotDocumentV1",
+                actual: schemaVersion,
+                current: Self.schemaVersionValue
+            )
+        }
+        self.init(
+            bodyHash: try container.decode(
+                WorkflowSnapshotBodyHash.self,
+                forKey: .bodyHash
+            ),
+            body: try container.decode(
+                WorkflowSnapshotBody.self,
+                forKey: .body
+            )
+        )
+    }
+}
+
+struct WorkflowSnapshotMigrationResultV4: Equatable, Sendable {
+    let document: WorkflowSnapshotDocument
+    let migratedFromSchemaVersion: UInt16?
 }
 
 struct WorkflowCanonicalCodec: Sendable {
@@ -390,12 +451,52 @@ struct WorkflowCanonicalCodec: Sendable {
     func decodeCanonicalSnapshot(
         _ data: Data
     ) throws -> WorkflowSnapshotDocument {
-        let document: WorkflowSnapshotDocument = try decodeCanonical(
-            WorkflowSnapshotDocument.self,
+        try decodeCanonicalSnapshotMigrating(data).document
+    }
+
+    func decodeCanonicalSnapshotMigrating(
+        _ data: Data
+    ) throws -> WorkflowSnapshotMigrationResultV4 {
+        let schema = try JSONDecoder().decode(
+            WorkflowSchemaVersionProbeV4.self,
             from: data
-        )
-        try verifySnapshotDocument(document)
-        return document
+        ).schemaVersion
+        switch schema {
+        case WorkflowSnapshotDocument.currentSchemaVersion:
+            let document: WorkflowSnapshotDocument = try decodeCanonical(
+                WorkflowSnapshotDocument.self,
+                from: data
+            )
+            try verifySnapshotDocument(document)
+            return WorkflowSnapshotMigrationResultV4(
+                document: document,
+                migratedFromSchemaVersion: nil
+            )
+        case WorkflowSnapshotDocumentV1.schemaVersionValue:
+            let legacy: WorkflowSnapshotDocumentV1 = try decodeCanonical(
+                WorkflowSnapshotDocumentV1.self,
+                from: data
+            )
+            try verifySnapshotBodyHash(
+                bodyHash: legacy.bodyHash,
+                body: legacy.body
+            )
+            let migrated = WorkflowSnapshotDocument(
+                bodyHash: legacy.bodyHash,
+                body: legacy.body
+            )
+            try verifySnapshotDocument(migrated)
+            return WorkflowSnapshotMigrationResultV4(
+                document: migrated,
+                migratedFromSchemaVersion: legacy.schemaVersion
+            )
+        default:
+            throw WorkflowCanonicalCodecError.unsupportedSchemaVersion(
+                type: "WorkflowSnapshotDocument",
+                actual: schema,
+                current: WorkflowSnapshotDocument.currentSchemaVersion
+            )
+        }
     }
 
     func canonicalData<Value: Encodable>(_ value: Value) throws -> Data {
@@ -428,13 +529,23 @@ struct WorkflowCanonicalCodec: Sendable {
         else {
             throw WorkflowCanonicalCodecError.snapshotAnchorMismatch
         }
+        try verifySnapshotBodyHash(
+            bodyHash: document.bodyHash,
+            body: document.body
+        )
+    }
+
+    private func verifySnapshotBodyHash(
+        bodyHash: WorkflowSnapshotBodyHash,
+        body: WorkflowSnapshotBody
+    ) throws {
         let expectedHash = try WorkflowSnapshotBodyHash(
             Self.domainSeparatedSHA256(
                 domain: Self.snapshotDomain,
-                components: [try canonicalData(document.body)]
+                components: [try canonicalData(body)]
             )
         )
-        guard expectedHash == document.bodyHash else {
+        guard expectedHash == bodyHash else {
             throw WorkflowCanonicalCodecError.snapshotBodyHashMismatch
         }
     }

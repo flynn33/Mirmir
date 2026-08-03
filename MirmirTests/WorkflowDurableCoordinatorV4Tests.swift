@@ -228,6 +228,132 @@ final class WorkflowDurableCoordinatorV4Tests: XCTestCase {
         )
     }
 
+    func testLeaseEnvelopeV1MigratesWithoutChangingLeaseIdentity() async throws {
+        let fixture = try makeFixture()
+        let first = try WorkflowDurableCoordinatorV4(
+            rootURL: fixture.storeURL,
+            clock: fixture.clock
+        )
+        let specification = try makeSpecification(index: 21)
+        try await enqueue(specification, into: first, index: 21)
+        let claim = try await first.acquire(
+            acquisition(index: 21, worker: 21)
+        )
+        await first.injectProcessTerminationAfterLeasePersistence()
+
+        let leaseURL = fixture.storeURL
+            .appendingPathComponent("jobs", isDirectory: true)
+            .appendingPathComponent(specification.jobID.rawValue, isDirectory: true)
+            .appendingPathComponent("lease-v4.json")
+        let codec = WorkflowCanonicalCodec()
+        let current = try codec.decodeCanonical(
+            WorkflowLeaseDocumentV4.self,
+            from: Data(contentsOf: leaseURL)
+        )
+        let legacy = WorkflowLeaseDocumentV1(
+            bodyHash: current.bodyHash,
+            body: current.body
+        )
+        try codec.canonicalData(legacy).write(to: leaseURL, options: .atomic)
+
+        let relaunched = try WorkflowDurableCoordinatorV4(
+            rootURL: fixture.storeURL,
+            clock: fixture.clock
+        )
+        let inspection = try await relaunched.inspectRecovery(
+            jobID: specification.jobID
+        )
+        XCTAssertEqual(
+            inspection,
+            .awaitingExpiry(
+                leaseID: claim.leaseID,
+                expiresAt: claim.expiresAt
+            )
+        )
+        let migratedData = try Data(contentsOf: leaseURL)
+        XCTAssertEqual(
+            try JSONDecoder().decode(
+                WorkflowSchemaVersionProbeV4.self,
+                from: migratedData
+            ).schemaVersion,
+            WorkflowLeaseDocumentV4.currentSchemaVersion
+        )
+        XCTAssertEqual(
+            try codec.decodeCanonical(
+                WorkflowLeaseDocumentV4.self,
+                from: migratedData
+            ),
+            current
+        )
+    }
+
+    func testCheckpointEnvelopeV1MigratesHeadAndArchiveAtomically() async throws {
+        let fixture = try makeFixture()
+        let coordinator = try WorkflowDurableCoordinatorV4(
+            rootURL: fixture.storeURL,
+            clock: fixture.clock
+        )
+        let specification = try makeSpecification(index: 22)
+        try await enqueue(specification, into: coordinator, index: 22)
+        let claim = try await coordinator.acquire(
+            acquisition(index: 22, worker: 22)
+        )
+        _ = try await coordinator.transition(
+            WorkflowLifecycleCommandV4(
+                eventID: WorkflowEventID("migration-plan-event"),
+                commandID: WorkflowCommandID("migration-plan-command"),
+                from: .probing,
+                to: .planned,
+                attemptID: nil
+            ),
+            using: claim
+        )
+        let attemptID = try WorkflowAttemptID("migration-attempt")
+        _ = try await coordinator.transition(
+            WorkflowLifecycleCommandV4(
+                eventID: WorkflowEventID("migration-run-event"),
+                commandID: WorkflowCommandID("migration-run-command"),
+                from: .planned,
+                to: .running,
+                attemptID: attemptID
+            ),
+            using: claim
+        )
+        let committed = try await coordinator.commitCheckpoint(
+            checkpointDraft(codec: specification.output.contractID),
+            using: claim
+        ).document
+        let codec = WorkflowCanonicalCodec()
+        let legacy = WorkflowCheckpointDocumentV1(
+            bodyHash: committed.bodyHash,
+            body: committed.body
+        )
+        let legacyData = try codec.canonicalData(legacy)
+        let directory = fixture.storeURL
+            .appendingPathComponent("jobs", isDirectory: true)
+            .appendingPathComponent(specification.jobID.rawValue, isDirectory: true)
+            .appendingPathComponent("checkpoints-v4", isDirectory: true)
+        let headURL = directory.appendingPathComponent("head-v1.json")
+        let archiveURL = directory.appendingPathComponent(
+            String(
+                format: "checkpoint-%020llu-%@.json",
+                committed.body.ordinal,
+                String(committed.bodyHash.rawValue.prefix(16))
+            )
+        )
+        try legacyData.write(to: archiveURL, options: .atomic)
+        try legacyData.write(to: headURL, options: .atomic)
+
+        let loaded = try await coordinator.loadCompatibleCheckpoint(
+            jobID: specification.jobID,
+            expectedCodecSettingsHash: specification.output.contractID
+        )
+        XCTAssertEqual(loaded, committed)
+        let currentData = try codec.canonicalData(committed)
+        XCTAssertEqual(try Data(contentsOf: headURL), currentData)
+        XCTAssertEqual(try Data(contentsOf: archiveURL), currentData)
+    }
+
     func testStartupScavengerUsesRegistryAndInodeOwnership() async throws {
         let fixture = try makeFixture()
         let coordinator = try WorkflowDurableCoordinatorV4(
@@ -255,6 +381,23 @@ final class WorkflowDurableCoordinatorV4Tests: XCTestCase {
             jobID: specification.jobID
         )
         XCTAssertEqual(registered, [registration])
+        let registryURL = fixture.storeURL
+            .appendingPathComponent("jobs", isDirectory: true)
+            .appendingPathComponent(
+                specification.jobID.rawValue,
+                isDirectory: true
+            )
+            .appendingPathComponent("partial-artifacts-v4.json")
+        let currentRegistry = try Data(contentsOf: registryURL)
+        try replacingCoordinatorTopLevelSchemaVersion(
+            in: currentRegistry,
+            from: WorkflowPartialRegistryEnvelopeSchemaV4.current,
+            to: WorkflowPartialRegistryEnvelopeSchemaV4.legacy
+        ).write(to: registryURL, options: .atomic)
+        let migratedRegistry = try await coordinator
+            .registeredPartialArtifacts(jobID: specification.jobID)
+        XCTAssertEqual(migratedRegistry, [registration])
+        XCTAssertEqual(try Data(contentsOf: registryURL), currentRegistry)
 
         let legacyURL = fixture.outputURL.appendingPathComponent(
             ".mirmir-track-v4-22222222-2222-2222-2222-222222222222.partial.mov"
@@ -510,4 +653,29 @@ private extension WorkflowDurableCoordinatorV4Tests {
 
 private func testDigest(_ value: Int) -> String {
     String(format: "%064llx", value)
+}
+
+private enum WorkflowCoordinatorSchemaFixtureErrorV4: Error {
+    case topLevelSchemaNotFound
+}
+
+private func replacingCoordinatorTopLevelSchemaVersion(
+    in data: Data,
+    from oldVersion: UInt16,
+    to newVersion: UInt16
+) throws -> Data {
+    guard var text = String(data: data, encoding: .utf8),
+          let range = text.range(
+              of: "\"schemaVersion\":\(oldVersion)",
+              options: .backwards
+          ),
+          text[range.upperBound...] == "}" else {
+        throw WorkflowCoordinatorSchemaFixtureErrorV4
+            .topLevelSchemaNotFound
+    }
+    text.replaceSubrange(
+        range,
+        with: "\"schemaVersion\":\(newVersion)"
+    )
+    return Data(text.utf8)
 }

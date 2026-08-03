@@ -4,6 +4,18 @@ import CoreMedia
 import Darwin
 import Foundation
 
+/// Content-addressed segment state remains byte-locked to the deployed v1
+/// representation. Readers explicitly retain v1 support because rewriting
+/// either the measurement binding or the synthetic reopen receipt would
+/// invalidate hashes embedded in durable checkpoint documents.
+enum WorkflowSegmentArtifactPersistenceSchemaV4 {
+    static let immutableV1: UInt16 = 1
+
+    static func isReadable(_ schemaVersion: UInt16) -> Bool {
+        schemaVersion == immutableV1
+    }
+}
+
 enum WorkflowSegmentCheckpointStoreV4Error: Error, Equatable,
     LocalizedError, Sendable {
     case invalidRoot
@@ -476,7 +488,8 @@ actor WorkflowSegmentCheckpointStoreV4 {
 
 private struct WorkflowMeasurementStateBindingV4: Codable, Equatable,
     Sendable {
-    static let currentSchemaVersion: UInt16 = 1
+    static let currentSchemaVersion =
+        WorkflowSegmentArtifactPersistenceSchemaV4.immutableV1
 
     let schemaVersion: UInt16
     let checkpointID: WorkflowCheckpointIDV4
@@ -515,7 +528,9 @@ private struct WorkflowMeasurementStateBindingV4: Codable, Equatable,
             UInt16.self,
             forKey: .schemaVersion
         )
-        guard schemaVersion == Self.currentSchemaVersion else {
+        guard WorkflowSegmentArtifactPersistenceSchemaV4.isReadable(
+            schemaVersion
+        ) else {
             throw WorkflowSegmentCheckpointStoreV4Error
                 .temporalBindingMismatch
         }
@@ -543,7 +558,8 @@ private struct WorkflowMeasurementStateBindingV4: Codable, Equatable,
 
 private struct WorkflowCheckpointArtifactReopenReceiptV4: Codable,
     Equatable, Sendable {
-    static let currentSchemaVersion: UInt16 = 1
+    static let currentSchemaVersion =
+        WorkflowSegmentArtifactPersistenceSchemaV4.immutableV1
 
     let schemaVersion: UInt16
     let artifactID: WorkflowArtifactIDV4

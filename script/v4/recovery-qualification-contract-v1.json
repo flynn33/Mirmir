@@ -10,8 +10,8 @@
   },
   "buildConfiguration": "Release",
   "capture": {
-    "captureSourceSHA256": "18b7976482d1c92f08d545636706da0f4046a093b59170c539f2dc99fdf148d6",
-    "evaluatorSourceSHA256": "001e61c727f6deef5e1c4098c1c0f80cf83d2ea2675bf6831da4069b13f32c72",
+    "captureSourceSHA256": "c1bdd17b741ac67ec6875f0eb7a47a9366ff395bfc93b6b4857c7b9b5de4e723",
+    "evaluatorSourceSHA256": "b01dc0e1556f03585367c299c5497f6e47e6c97afae113d9215c120a6c871b65",
     "runnerSourceSHA256": "3cb48e41efc69f21c3739022708fe0d636126af971971ba320228d0c846030f1"
   },
   "hashAlgorithm": "sha256",
@@ -85,6 +85,13 @@
       "id": "forced-termination-restart",
       "injectionPoint": "after_lease_persistence_before_process_death",
       "outcome": "identical_resumed_output"
+    },
+    {
+      "containedFailureCode": "disk_full_contained",
+      "coverageID": "disk_full",
+      "id": "disk-full",
+      "injectionPoint": "journal_append_enospc_before_write",
+      "outcome": "explicit_contained_failure"
     },
     {
       "containedFailureCode": "corrupt_journal_contained",
