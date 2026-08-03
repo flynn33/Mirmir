@@ -913,7 +913,7 @@ def evaluate(contract_path: Path, corpus_path: Path, capture_path: Path, output:
             "gates": gates,
         },
         "timingDiagnostic": {
-            "scope": "engine calls on the synthetic quality corpus; no decode, encode, or end-to-end wall measurement",
+            "scope": "engine calls on the declared quality corpus; no decode, encode, or end-to-end wall measurement",
             "warmupCount": int(capture_data.get("warmupCount", 0)),
             "variants": timing_by_variant,
             "releasePerformanceGateEligible": False,
@@ -925,7 +925,7 @@ def evaluate(contract_path: Path, corpus_path: Path, capture_path: Path, output:
     return 0
 
 
-def verify_report(report_path: Path) -> int:
+def verify_report(report_path: Path, contract_path: Path | None = None) -> int:
     report = json.loads(report_path.read_text())
     if report.get("schemaVersion") != SCHEMA_REPORT:
         raise SystemExit("unsupported report")
@@ -974,7 +974,11 @@ def verify_report(report_path: Path) -> int:
             require_hex(value, 64, key)
 
     tool_path = Path(__file__).resolve()
-    contract_path = tool_path.with_name("quality-gate-contract-v1.json")
+    contract_path = (
+        contract_path.resolve()
+        if contract_path is not None
+        else tool_path.with_name("quality-gate-contract-v1.json")
+    )
     capture_source = tool_path.with_name("QualityGateCaptureTests.swift")
     if not contract_path.is_file() or not capture_source.is_file():
         raise SystemExit("quality verifier sources are incomplete")
@@ -1225,6 +1229,7 @@ def parse_arguments() -> argparse.Namespace:
     evaluate_parser.add_argument("--output", required=True, type=Path)
     verify = subparsers.add_parser("verify")
     verify.add_argument("--report", required=True, type=Path)
+    verify.add_argument("--contract", type=Path)
     return parser.parse_args()
 
 
@@ -1237,7 +1242,7 @@ def main() -> int:
             arguments.contract, arguments.corpus, arguments.capture, arguments.output
         )
     if arguments.command == "verify":
-        return verify_report(arguments.report)
+        return verify_report(arguments.report, arguments.contract)
     raise AssertionError(arguments.command)
 
 

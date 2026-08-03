@@ -401,9 +401,24 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
             injected: Self.injectedContractSHA256
         ))
         XCTAssertEqual(corpus.contractSHA256, expectedContract)
-        let runtime = try ASHV4SemanticArtifactTestSupport
-            .executableSystemMetalRuntime()
+        let productionRuntimeConfigured = ASHProductionP06TrustRootV4
+            .isConfigured
+        let runtime: ASHVerifiedRuntimeBundleV4
+        if productionRuntimeConfigured {
+            runtime = try ASHP06RuntimeProviderV4.production().load()
+        } else {
+            runtime = try ASHV4SemanticArtifactTestSupport
+                .executableSystemMetalRuntime()
+        }
         try runtime.verifyBinding()
+        let productionRuntimeLocked = productionRuntimeConfigured
+            && runtime.manifest.releaseStatus == .releaseQualified
+            && runtime.manifestSHA256
+                == ASHProductionP06TrustRootV4.manifestSHA256
+            && runtime.manifest.provenance.sourceRevision
+                == ASHProductionP06TrustRootV4.sourceRevision
+            && runtime.manifest.provenance.builderSourceSHA256
+                == ASHProductionP06TrustRootV4.builderSourceSHA256
 
         let clips = Dictionary(grouping: corpus.cases, by: \.clipID)
         try await runWarmups(
@@ -620,7 +635,7 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
             baselineImplementationVersion: "ash-p05-cpu-reference-preview",
             runtimeManifestSHA256: runtime.manifestSHA256.rawValue,
             runtimeSourceRevision: runtime.manifest.provenance.sourceRevision,
-            productionRuntimeLocked: false,
+            productionRuntimeLocked: productionRuntimeLocked,
             fullMirrorIdentityPass: fullMirrorIdentityPass,
             warmupCount: 5,
             cases: captures.sorted { $0.id < $1.id }

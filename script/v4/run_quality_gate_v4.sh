@@ -2,13 +2,15 @@
 set -eu
 
 usage() {
-  echo "usage: $0 --output DIRECTORY [--derived-data DIRECTORY] [--keep-work]" >&2
+  echo "usage: $0 --output DIRECTORY [--contract FILE] [--corpus-manifest FILE] [--derived-data DIRECTORY] [--keep-work]" >&2
   exit 64
 }
 
 OUTPUT=""
 DERIVED_DATA=""
 KEEP_WORK=0
+CONTRACT=""
+CORPUS_MANIFEST=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --output)
@@ -19,6 +21,16 @@ while [ "$#" -gt 0 ]; do
     --derived-data)
       [ "$#" -ge 2 ] || usage
       DERIVED_DATA=$2
+      shift 2
+      ;;
+    --contract)
+      [ "$#" -ge 2 ] || usage
+      CONTRACT=$2
+      shift 2
+      ;;
+    --corpus-manifest)
+      [ "$#" -ge 2 ] || usage
+      CORPUS_MANIFEST=$2
       shift 2
       ;;
     --keep-work)
@@ -32,7 +44,21 @@ done
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPOSITORY=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)
-CONTRACT="$SCRIPT_DIR/quality-gate-contract-v1.json"
+if [ -z "$CONTRACT" ]; then
+  CONTRACT="$SCRIPT_DIR/quality-gate-contract-v1.json"
+fi
+CONTRACT=$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve())' "$CONTRACT")
+[ -f "$CONTRACT" ] || {
+  echo "quality contract is not a regular file: $CONTRACT" >&2
+  exit 66
+}
+if [ -n "$CORPUS_MANIFEST" ]; then
+  CORPUS_MANIFEST=$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve())' "$CORPUS_MANIFEST")
+  [ -f "$CORPUS_MANIFEST" ] || {
+    echo "corpus manifest is not a regular file: $CORPUS_MANIFEST" >&2
+    exit 66
+  }
+fi
 TOOL="$SCRIPT_DIR/quality_gate_v4.py"
 CAPTURE_SOURCE="$SCRIPT_DIR/QualityGateCaptureTests.swift"
 OUTPUT=$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve())' "$OUTPUT")
@@ -63,7 +89,10 @@ rsync -a \
   --exclude 'docs/v4/evidence/m3-quality-calibration-*' \
   "$REPOSITORY/" "$PROJECT/"
 
-python3 "$TOOL" generate --contract "$CONTRACT" --output "$CORPUS"
+if [ -z "$CORPUS_MANIFEST" ]; then
+  python3 "$TOOL" generate --contract "$CONTRACT" --output "$CORPUS"
+  CORPUS_MANIFEST="$CORPUS/corpus-manifest.json"
+fi
 
 python3 - "$PROJECT/Mirmir.xcodeproj/project.pbxproj" "$PROJECT/script/v4/QualityGateCaptureTests.swift" <<'PY'
 from pathlib import Path
@@ -85,27 +114,35 @@ file_line = (
 )
 build_marker = "/* End PBXBuildFile section */"
 file_marker = "/* End PBXFileReference section */"
-source_anchor = (
-    "\t\t\t\t32000000000000000000004E "
-    "/* DeterministicMetalBackendTests.swift in Sources */,\n"
+source_phase_id = "400000000000000000000004 /* Sources */ = {"
+source_token = (
+    "32000000000000000000004E "
+    "/* DeterministicMetalBackendTests.swift in Sources */"
 )
 if text.count(build_marker) != 1 or text.count(file_marker) != 1:
     raise SystemExit("cannot locate unique PBX sections")
-if text.count(source_anchor) != 1:
+phase_start = text.find(source_phase_id)
+if phase_start < 0:
     raise SystemExit("cannot locate unique MirmirTests source phase")
+files_start = text.find("files = (", phase_start)
+files_end = text.find(");", files_start)
+if files_start < 0 or files_end < 0:
+    raise SystemExit("cannot locate MirmirTests source files")
+source_files = text[files_start:files_end]
+if source_files.count(source_token) != 1:
+    raise SystemExit("cannot locate MirmirTests source anchor")
+if "\n" in source_files:
+    insertion = f"\n\t\t\t\t{build_id} /* QualityGateCaptureTests.swift in Sources */,"
+else:
+    insertion = f" {build_id} /* QualityGateCaptureTests.swift in Sources */,"
+text = text[:files_end] + insertion + text[files_end:]
 text = text.replace(build_marker, build_line + build_marker)
 text = text.replace(file_marker, file_line + file_marker)
-text = text.replace(
-    source_anchor,
-    source_anchor
-    + f"\t\t\t\t{build_id} /* QualityGateCaptureTests.swift in Sources */,\n",
-)
 project.write_text(text)
 PY
 plutil -lint "$PROJECT/Mirmir.xcodeproj/project.pbxproj" >/dev/null
 
 CONTRACT_SHA=$(shasum -a 256 "$CONTRACT" | awk '{print $1}')
-CORPUS_MANIFEST="$CORPUS/corpus-manifest.json"
 CORPUS_SHA=$(shasum -a 256 "$CORPUS_MANIFEST" | awk '{print $1}')
 SOURCE_COMMIT=$(git -C "$REPOSITORY" rev-parse HEAD)
 SOURCE_TREE_SHA=$(python3 - "$PROJECT" <<'PY'
@@ -201,7 +238,9 @@ python3 "$TOOL" evaluate \
   --corpus "$CORPUS_MANIFEST" \
   --capture "$CAPTURE/capture-manifest.json" \
   --output "$OUTPUT/quality-gate-report.json"
-python3 "$TOOL" verify --report "$OUTPUT/quality-gate-report.json"
+python3 "$TOOL" verify \
+  --contract "$CONTRACT" \
+  --report "$OUTPUT/quality-gate-report.json"
 
 cp "$CONTRACT" "$OUTPUT/quality-gate-contract-v1.json"
 cp "$CORPUS_MANIFEST" "$OUTPUT/corpus-manifest.json"
