@@ -133,8 +133,15 @@ enum AVFoundationHDRMetadataAdapterV4 {
         from sampleBuffer: CMSampleBuffer
     ) throws -> HDRDynamicMetadataV4? {
         let sampleCount = CMSampleBufferGetNumSamples(sampleBuffer)
-        guard sampleCount == 1 else {
+        guard sampleCount <= 1 else {
             throw HDRMetadataV4Error.unsupportedSampleCount(sampleCount)
+        }
+        // Image-backed buffers created by Core Media can report zero packet
+        // samples even though they represent one decoded video frame. In that
+        // representation the per-frame metadata lives on the image buffer.
+        if sampleCount == 0,
+           let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
+            return try probeDynamicMetadata(from: pixelBuffer)
         }
         guard let dictionary = try sampleAttachmentDictionary(
             sampleBuffer,
@@ -149,6 +156,11 @@ enum AVFoundationHDRMetadataAdapterV4 {
         _ metadata: HDRDynamicMetadataV4,
         to sampleBuffer: CMSampleBuffer
     ) throws {
+        if CMSampleBufferGetNumSamples(sampleBuffer) == 0,
+           let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
+            try migrate(metadata, to: pixelBuffer)
+            return
+        }
         let existing = try probeDynamicMetadata(from: sampleBuffer)
         if let existing, existing != metadata {
             throw HDRMetadataV4Error.contradictoryMetadata(
@@ -595,6 +607,13 @@ enum AVFoundationHDRMetadataAdapterV4 {
             return nil
         }
         let count = CFArrayGetCount(array)
+        // Core Media may represent a single image sample with no attachments
+        // as an existing, empty attachment array. That is semantically the
+        // same as no attachment array when probing; it is not a malformed
+        // multi-sample buffer.
+        if count == 0, !createIfNecessary {
+            return nil
+        }
         guard count == 1 else {
             throw HDRMetadataV4Error.unsupportedSampleCount(count)
         }

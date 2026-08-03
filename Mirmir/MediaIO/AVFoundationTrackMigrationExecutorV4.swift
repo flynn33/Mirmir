@@ -1697,21 +1697,32 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             throw AVFoundationTrackMigrationExecutorV4Error
                 .sourceTrackInventoryMismatch
         }
-        let trackByID = Dictionary(
-            uniqueKeysWithValues: zip(pipes, outputTracks).map {
-                ($0.trackID, $1)
-            }
-        )
-        var digests: [MediaTrackStableIDV4: ASHSHA256V4] = [:]
-        for pipe in pipes where pipe.verifiesEncodedSampleStream
-            || pipe.verifiesDynamicHDRStream {
+
+        struct OutputStreamIdentity {
+            let ordinal: Int
+            let mediaType: AVMediaType
+            let encoded: SampleStreamAccumulatorV4
+            let dynamicHDR: DynamicHDRMetadataStreamAccumulatorV4
+        }
+
+        let verifiedPipes = pipes.filter {
+            $0.verifiesEncodedSampleStream || $0.verifiesDynamicHDRStream
+        }
+        var outputIdentities: [OutputStreamIdentity] = []
+        outputIdentities.reserveCapacity(outputTracks.count)
+        for (ordinal, outputTrack) in outputTracks.enumerated() {
             try cancellation.check()
-            guard let outputTrack = trackByID[pipe.trackID] else {
-                throw AVFoundationTrackMigrationExecutorV4Error
-                    .sampleStreamReadFailed(
-                        trackID: pipe.trackID,
-                        failure: .init(nil)
-                    )
+            let mediaType = outputTrack.mediaType
+            let matchingPipes = verifiedPipes.filter {
+                $0.writerInput.mediaType == mediaType
+            }
+            guard !matchingPipes.isEmpty else { continue }
+
+            let verifiesEncoded = matchingPipes.contains {
+                $0.verifiesEncodedSampleStream
+            }
+            let verifiesDynamicHDR = matchingPipes.contains {
+                $0.verifiesDynamicHDRStream
             }
             let reader: AVAssetReader
             do {
@@ -1719,7 +1730,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             } catch {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .sampleStreamReadFailed(
-                        trackID: pipe.trackID,
+                        trackID: matchingPipes[0].trackID,
                         failure: .init(error)
                     )
             }
@@ -1731,7 +1742,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             guard reader.canAdd(output) else {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .sampleStreamReadFailed(
-                        trackID: pipe.trackID,
+                        trackID: matchingPipes[0].trackID,
                         failure: .init(nil)
                     )
             }
@@ -1739,26 +1750,26 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             guard reader.startReading() else {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .sampleStreamReadFailed(
-                        trackID: pipe.trackID,
+                        trackID: matchingPipes[0].trackID,
                         failure: .init(reader.error)
                     )
             }
-            var accumulator = SampleStreamAccumulatorV4()
-            var dynamicHDRAccumulator = DynamicHDRMetadataStreamAccumulatorV4()
+            var encoded = SampleStreamAccumulatorV4()
+            var dynamicHDR = DynamicHDRMetadataStreamAccumulatorV4()
             while let sample = output.copyNextSampleBuffer() {
                 try cancellation.check()
                 do {
-                    if pipe.verifiesEncodedSampleStream {
-                        try accumulator.append(sample)
+                    if verifiesEncoded {
+                        try encoded.append(sample)
                     }
-                    if pipe.verifiesDynamicHDRStream {
-                        try dynamicHDRAccumulator.append(sample)
+                    if verifiesDynamicHDR {
+                        try dynamicHDR.append(sample)
                     }
                 } catch let error as SampleStreamAccumulatorV4.Error {
                     reader.cancelReading()
                     throw AVFoundationTrackMigrationExecutorV4Error
                         .sampleStreamUnrepresentable(
-                            trackID: pipe.trackID,
+                            trackID: matchingPipes[0].trackID,
                             status: error.status
                         )
                 }
@@ -1766,28 +1777,51 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             guard reader.status == .completed else {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .sampleStreamReadFailed(
-                        trackID: pipe.trackID,
+                        trackID: matchingPipes[0].trackID,
                         failure: .init(reader.error)
                     )
             }
-            if pipe.verifiesEncodedSampleStream {
-                let expected = pipe.sampleStream.digest
-                let actual = accumulator.digest
-                guard actual == expected else {
+            outputIdentities.append(OutputStreamIdentity(
+                ordinal: ordinal,
+                mediaType: mediaType,
+                encoded: encoded,
+                dynamicHDR: dynamicHDR
+            ))
+        }
+
+        var digests: [MediaTrackStableIDV4: ASHSHA256V4] = [:]
+        var claimedOutputOrdinals = Set<Int>()
+        for pipe in verifiedPipes {
+            try cancellation.check()
+            let candidates = outputIdentities.filter {
+                !claimedOutputOrdinals.contains($0.ordinal)
+                    && $0.mediaType == pipe.writerInput.mediaType
+                    && (!pipe.verifiesEncodedSampleStream
+                        || $0.encoded.digest == pipe.sampleStream.digest)
+                    && (!pipe.verifiesDynamicHDRStream
+                        || $0.dynamicHDR == pipe.dynamicHDRStream)
+            }
+            guard let matched = candidates.min(by: {
+                $0.ordinal < $1.ordinal
+            }) else {
+                if pipe.verifiesEncodedSampleStream,
+                   let actual = outputIdentities.first(where: {
+                       !claimedOutputOrdinals.contains($0.ordinal)
+                           && $0.mediaType == pipe.writerInput.mediaType
+                   })?.encoded.digest {
                     throw AVFoundationTrackMigrationExecutorV4Error
                         .sampleStreamDigestMismatch(
                             trackID: pipe.trackID,
-                            expected: expected,
+                            expected: pipe.sampleStream.digest,
                             actual: actual
                         )
                 }
-                digests[pipe.trackID] = actual
+                throw VideoWriterFormatContractV4Error
+                    .dynamicHDRMetadataMismatch
             }
-            if pipe.verifiesDynamicHDRStream {
-                guard dynamicHDRAccumulator == pipe.dynamicHDRStream else {
-                    throw VideoWriterFormatContractV4Error
-                        .dynamicHDRMetadataMismatch
-                }
+            claimedOutputOrdinals.insert(matched.ordinal)
+            if pipe.verifiesEncodedSampleStream {
+                digests[pipe.trackID] = matched.encoded.digest
             }
         }
         return digests
@@ -2229,23 +2263,26 @@ private struct SampleStreamAccumulatorV4 {
     }
 }
 
-/// Streaming identity for frame-bound HDR10+ and post-decode metadata. It
-/// includes exact timing and a value for every sample (including absence), so
-/// an encoder cannot drop, invent, shift, or duplicate metadata unnoticed.
+/// Identity for frame-bound HDR10+ and post-decode metadata. Encoders may emit
+/// samples in decode order and insert empty control buffers, so the manifest
+/// canonicalizes real media frames by exact presentation time before comparing
+/// a metadata value for every frame (including absence).
 struct DynamicHDRMetadataStreamAccumulatorV4: Equatable {
-    private var hasher = SHA256()
+    private var recordDigests: [Data] = []
     private(set) var sampleCount: UInt64 = 0
 
     mutating func append(_ sample: CMSampleBuffer) throws {
+        guard CMSampleBufferGetImageBuffer(sample) != nil
+                || CMSampleBufferGetTotalSampleSize(sample) > 0 else {
+            return
+        }
         let metadata = try AVFoundationHDRMetadataAdapterV4
             .probeDynamicMetadata(from: sample)
         var bytes = Data()
-        appendTime(
+        try appendTime(
             CMSampleBufferGetPresentationTimeStamp(sample),
             to: &bytes
         )
-        appendTime(CMSampleBufferGetDecodeTimeStamp(sample), to: &bytes)
-        appendTime(CMSampleBufferGetDuration(sample), to: &bytes)
         if let metadata {
             bytes.append(1)
             appendData(metadata.hdr10Plus?.ituTT35Payload, to: &bytes)
@@ -2256,7 +2293,7 @@ struct DynamicHDRMetadataStreamAccumulatorV4: Equatable {
         } else {
             bytes.append(0)
         }
-        hasher.update(data: bytes)
+        recordDigests.append(Data(SHA256.hash(data: bytes)))
         sampleCount += 1
     }
 
@@ -2268,14 +2305,33 @@ struct DynamicHDRMetadataStreamAccumulatorV4: Equatable {
     }
 
     var digest: String {
-        let copy = hasher
-        return copy.finalize().map { String(format: "%02x", $0) }.joined()
+        var hasher = SHA256()
+        for record in sortedRecordDigests {
+            hasher.update(data: record)
+        }
+        return hasher.finalize().map {
+            String(format: "%02x", $0)
+        }.joined()
     }
 
-    private func appendTime(_ time: CMTime, to bytes: inout Data) {
-        appendInteger(time.value, to: &bytes)
-        appendInteger(time.timescale, to: &bytes)
-        appendInteger(time.flags.rawValue, to: &bytes)
+    private var sortedRecordDigests: [Data] {
+        recordDigests.sorted { left, right in
+            left.lexicographicallyPrecedes(right)
+        }
+    }
+
+    private func appendTime(_ time: CMTime, to bytes: inout Data) throws {
+        guard time.isNumeric, time.timescale != 0 else {
+            bytes.append(0)
+            return
+        }
+        let exact = try ExactRationalV4(
+            time.value,
+            Int64(time.timescale)
+        )
+        bytes.append(1)
+        appendInteger(exact.numerator, to: &bytes)
+        appendInteger(exact.denominator, to: &bytes)
         appendInteger(time.epoch, to: &bytes)
     }
 
