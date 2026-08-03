@@ -110,72 +110,35 @@ if ! diff -rq -- "${first_artifacts}" "${second_artifacts}" \
     exit 65
 fi
 
-# This is the complete, ordered implementation set whose bytes define the P06
-# engine. Deployment-only trust-root constants are intentionally outside this
-# set because they authenticate the resulting manifest and would otherwise
-# create a circular identity.
-production_sources=(
-    "Mirmir/Domain/CanonicalMediaStateV4.swift"
-    "Mirmir/Domain/MediaTrackGraphV4.swift"
-    "Mirmir/Modules/UpscalerEngine/RationalPresentationGeometryV4.swift"
-    "Mirmir/Modules/UpscalerEngine/SpatialScalePlanV4.swift"
-    "Mirmir/Modules/UpscalerEngine/FixedPointKernelV4.swift"
-    "Mirmir/Modules/UpscalerEngine/FixedPointMetalExecutorV4.swift"
-    "Mirmir/Modules/UpscalerEngine/FixedPointMetalKernelsV4.metal"
-    "Mirmir/Modules/UpscalerEngine/P010BufferAccessV4.swift"
-    "Mirmir/Modules/UpscalerEngine/HDRMetadataV4.swift"
-    "Mirmir/Modules/UpscalerEngine/AVFoundationHDRMetadataAdapterV4.swift"
-    "Mirmir/Modules/UpscalerEngine/DeterministicDeinterlacerV4.swift"
-    "Mirmir/Modules/UpscalerEngine/FixedPointPixelBufferScalerV4.swift"
-    "Mirmir/Modules/UpscalerEngine/ASHTemporalReconstructionV4.swift"
-    "Mirmir/Modules/UpscalerEngine/Alpha4444FixedPointScalerV4.swift"
-    "Mirmir/Modules/UpscalerEngine/PixelBufferSignalCodecV4.swift"
-    "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift"
-    "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift"
-    "Mirmir/Modules/UpscalerEngine/ASH/ASHCoreV4.swift"
-    "Mirmir/Modules/UpscalerEngine/ASH/ASHCoreCertificateV4.swift"
-    "Mirmir/Modules/UpscalerEngine/ASH/ASHCanonicalJSONV4.swift"
-    "Mirmir/Modules/UpscalerEngine/ASH/ASHRuntimeManifestV4.swift"
-    "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalLibraryValidatorV4.swift"
-    "Mirmir/Modules/UpscalerEngine/ASH/ASHMeasurementContractV4.swift"
-    "Mirmir/Modules/UpscalerEngine/ASH/ASHMeasurementExtractorV4.swift"
-    "Mirmir/Modules/UpscalerEngine/ASH/ASHDepthFourBranchProgramV4.swift"
-    "Mirmir/Modules/UpscalerEngine/ASH/ASHP06RuntimeBundleV4.swift"
-    "Mirmir/Modules/UpscalerEngine/ASH/ASHExecutionPlanV4.swift"
-    "Mirmir/Modules/UpscalerEngine/ASH/ASHDiagnosticEnvelopeV4.swift"
-    "Mirmir/Upscaling/Deterministic/PreparedDeterministicV4Upscaler.swift"
-    "Mirmir/Upscaling/Deterministic/DeterministicCPUBackend.swift"
-    "Mirmir/Upscaling/Deterministic/DeterministicMetalBackend.swift"
-    "Mirmir/MediaIO/CanonicalMediaAVFoundationSupportV4.swift"
-    "Mirmir/MediaIO/AVCanonicalMediaStateAdapterV4.swift"
-    "Mirmir/MediaIO/AVFoundationTrackMigrationExecutorV4.swift"
-    "Mirmir/MediaIO/PreparedFrameUpscalerTrackHookV4.swift"
-    "Mirmir/MediaIO/VideoWriterFormatContractV4.swift"
-    "Mirmir/MediaIO/AlphaVideoWriterContractV4.swift"
-    "Mirmir/MediaIO/AVFoundationVideoFormatCalibratorV4.swift"
-    "Mirmir/MediaIO/AVFoundationSegmentAssemblerV4.swift"
-    "Mirmir/MediaIO/DeterministicV4WholeAssetPlanner.swift"
-    "Mirmir/MediaIO/DeterministicV4MediaProcessingSession.swift"
-)
+# The source contract is a closed inventory of the complete v4 engine, media,
+# and durable-workflow implementation. The identity tool fails if a new V4
+# production source appears under a covered root without being added to that
+# inventory. It normalizes only the three deployment trust-root assignments,
+# which authenticate the result and would otherwise make the identity circular.
+source_contract="${script_directory}/p06-source-provenance-v1.json"
+source_identity_tool="${script_directory}/p06_source_identity_v4.py"
 builder_sources=(
     "script/v4/P06RuntimeInputGeneratorMain.swift"
     "script/v4/P06RuntimeBuilderMain.swift"
     "script/v4/build_p06_runtime.sh"
     "script/v4/build_p06_semantic_candidate.sh"
     "script/v4/build_p06_release_runtime.sh"
+    "script/v4/p06-source-provenance-v1.json"
+    "script/v4/p06_source_identity_v4.py"
 )
 
-for relative_path in "${production_sources[@]}" "${builder_sources[@]}"; do
+for relative_path in "${builder_sources[@]}"; do
     if [[ ! -f "${repository_root}/${relative_path}" ]]; then
         print -u2 "Missing locked P06 source: ${relative_path}"
         exit 66
     fi
 done
 
-source_revision="$({
-    cd "${repository_root}"
-    shasum -a 256 "${production_sources[@]}"
-} | shasum -a 256 | awk '{print $1}')"
+source_revision="$(
+    python3 "${source_identity_tool}" identity \
+        --repository "${repository_root}" \
+        --contract "${source_contract}"
+)"
 builder_source_sha256="$({
     cd "${repository_root}"
     shasum -a 256 "${builder_sources[@]}"
@@ -226,6 +189,20 @@ mv -- "${first_artifacts}" "${artifact_output}"
 mv -- "${release_bundle}" "${bundle_output}"
 if [[ -n "${provenance_output}" ]]; then
     mkdir -- "${provenance_output}"
+    python3 "${source_identity_tool}" manifest \
+        --repository "${repository_root}" \
+        --contract "${source_contract}" \
+        >"${provenance_output}/production-source-manifest.json"
+    reproduced_source_revision="$(
+        python3 "${source_identity_tool}" verify-manifest \
+            --repository "${repository_root}" \
+            --contract "${source_contract}" \
+            --manifest "${provenance_output}/production-source-manifest.json"
+    )"
+    if [[ "${reproduced_source_revision}" != "${source_revision}" ]]; then
+        print -u2 "Production source manifest identity mismatch"
+        exit 65
+    fi
     {
         cd "${repository_root}"
         shasum -a 256 "${builder_sources[@]}"

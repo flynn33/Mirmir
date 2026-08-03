@@ -219,6 +219,11 @@ def validate_contract(path: Path) -> tuple[dict[str, Any], str]:
     require(contract.get("buildConfiguration") == "Release", "P06 contract must require Release")
     require(contract.get("sourceCheckoutState") == "clean", "P06 contract must require clean checkouts")
     require_integer(contract.get("cleanBuildCount"), "contract.cleanBuildCount", 2)
+    require_integer(
+        contract.get("productionSourceCount"),
+        "contract.productionSourceCount",
+        1,
+    )
     build_ids = require_list(contract.get("cleanBuildIDs"), "contract.cleanBuildIDs")
     require(len(build_ids) == contract["cleanBuildCount"] and len(set(build_ids)) == len(build_ids), "P06 build IDs are incomplete or repeated")
     for index, value in enumerate(build_ids):
@@ -239,6 +244,8 @@ def validate_contract(path: Path) -> tuple[dict[str, Any], str]:
             "runnerSHA256",
             "runtimeLoadCheckRunnerSHA256",
             "runtimeLoadCheckSourceSHA256",
+            "sourceIdentityToolSHA256",
+            "sourceProvenanceContractSHA256",
         ),
         "contract.capture",
     )
@@ -362,6 +369,85 @@ def parse_loader_transcript(path: Path, candidate: Mapping[str, Any], builder_id
     require(values["same_length_artifact_tamper_rejection"] == "pass", "production loader did not reject same-length tamper")
 
 
+def validate_production_source_manifest(
+    path: Path,
+    source_contract: Mapping[str, Any],
+    candidate: Mapping[str, Any],
+    required_count: int,
+) -> tuple[str, str]:
+    document = require_mapping(load_json(path), "production source manifest")
+    require_exact_keys(
+        document,
+        (
+            "schemaVersion",
+            "contractSemanticSHA256",
+            "identityDomain",
+            "sourceCount",
+            "sourceRevision",
+            "sources",
+        ),
+        "production source manifest",
+    )
+    require(
+        document.get("schemaVersion")
+        == "mirmir-ash-v4-p06-production-source-manifest-v1",
+        "production source manifest schema mismatch",
+    )
+    require(path.read_bytes() == canonical_bytes(document), "production source manifest is not canonical JSON")
+    require(
+        document.get("contractSemanticSHA256")
+        == sha256_bytes(canonical_bytes(source_contract)),
+        "production source manifest contract identity mismatch",
+    )
+    require(document.get("identityDomain") == "ash-p06-production-source-v1", "production source domain mismatch")
+    require_integer(document.get("sourceCount"), "production source count", 1)
+    require(document["sourceCount"] == required_count, "production source count differs from P06 contract")
+    revision = require_hex(document.get("sourceRevision"), (64,), "production source revision")
+    require(revision == candidate["runtimeSourceRevision"], "production source revision differs from candidate")
+    sources = require_list(document.get("sources"), "production sources")
+    require(len(sources) == required_count, "production source manifest entry count mismatch")
+    declared_paths = require_list(source_contract.get("sources"), "source provenance contract sources")
+    require(len(declared_paths) == required_count, "source provenance contract count mismatch")
+    observed_paths: list[str] = []
+    normalized_path = require_mapping(
+        source_contract.get("normalizedDeploymentTrustRoot"),
+        "source provenance normalized trust root",
+    ).get("path")
+    for index, raw in enumerate(sources):
+        entry = require_mapping(raw, f"production source[{index}]")
+        require_exact_keys(
+            entry,
+            (
+                "path",
+                "byteCount",
+                "sha256",
+                "normalizedByteCount",
+                "normalizedSHA256",
+                "normalizations",
+            ),
+            f"production source[{index}]",
+        )
+        relative = require_safe_relative(entry["path"], f"production source[{index}].path")
+        observed_paths.append(relative)
+        require_integer(entry["byteCount"], f"production source[{index}].byteCount", 1)
+        require_hex(entry["sha256"], (64,), f"production source[{index}].sha256")
+        require_integer(entry["normalizedByteCount"], f"production source[{index}].normalizedByteCount", 1)
+        require_hex(entry["normalizedSHA256"], (64,), f"production source[{index}].normalizedSHA256")
+        normalizations = require_list(entry["normalizations"], f"production source[{index}].normalizations")
+        if relative == normalized_path:
+            require(
+                normalizations
+                == ["builderSourceSHA256", "manifestSHA256", "sourceRevision"],
+                "deployment trust-root normalization is incomplete",
+            )
+        else:
+            require(not normalizations, f"unexpected source normalization: {relative}")
+            require(entry["byteCount"] == entry["normalizedByteCount"], f"unmodified source byte count changed: {relative}")
+            require(entry["sha256"] == entry["normalizedSHA256"], f"unmodified source identity changed: {relative}")
+    require(observed_paths == declared_paths, "production source paths/order differ from locked provenance contract")
+    return revision, sha256_file(path)
+
+
 def validate_build(
     root: Path,
     sealed: set[Path],
@@ -369,6 +455,7 @@ def validate_build(
     index: int,
     candidate: Mapping[str, Any],
     contract: Mapping[str, Any],
+    source_contract: Mapping[str, Any],
 ) -> dict[str, str]:
     label = f"build[{index}]"
     build = require_mapping(raw, label)
@@ -379,10 +466,13 @@ def validate_build(
             "runtimeArtifactSetSHA256",
             "runtimeManifestSHA256",
             "builderSHA256",
+            "productionSourceRevision",
+            "productionSourceManifestSHA256",
             "toolchainImageSHA256",
             "artifactManifest",
             "runtimeManifestArtifact",
             "builderArtifact",
+            "productionSourceArtifact",
             "toolchainImageArtifact",
             "loaderEvidenceArtifact",
             "releaseQualifiedStatus",
@@ -396,6 +486,14 @@ def validate_build(
     artifact_set_claim = require_hex(build["runtimeArtifactSetSHA256"], (64,), f"{label}.runtimeArtifactSetSHA256")
     manifest_claim = require_hex(build["runtimeManifestSHA256"], (64,), f"{label}.runtimeManifestSHA256")
     builder_claim = require_hex(build["builderSHA256"], (64,), f"{label}.builderSHA256")
+    source_revision_claim = require_hex(
+        build["productionSourceRevision"], (64,), f"{label}.productionSourceRevision"
+    )
+    source_manifest_claim = require_hex(
+        build["productionSourceManifestSHA256"],
+        (64,),
+        f"{label}.productionSourceManifestSHA256",
+    )
     toolchain_claim = require_hex(build["toolchainImageSHA256"], (64,), f"{label}.toolchainImageSHA256")
 
     artifact_manifest_path, _ = require_sealed_descriptor(root, sealed, build["artifactManifest"], f"{label}.artifactManifest")
@@ -430,6 +528,21 @@ def validate_build(
     require(provenance.get("builderSourceSHA256") == builder_identity, f"{label} builder provenance mismatch")
     require(builder_path.stat().st_size > 0, f"{label} builder source manifest is empty")
 
+    production_source_path, production_source_identity = require_sealed_descriptor(
+        root,
+        sealed,
+        build["productionSourceArtifact"],
+        f"{label}.productionSourceArtifact",
+    )
+    source_revision, source_manifest_identity = validate_production_source_manifest(
+        production_source_path,
+        source_contract,
+        candidate,
+        contract["productionSourceCount"],
+    )
+    require(source_revision == source_revision_claim, f"{label} production source revision claim mismatch")
+    require(production_source_identity == source_manifest_claim == source_manifest_identity, f"{label} production source manifest claim mismatch")
+
     toolchain_path, toolchain_identity = require_sealed_descriptor(root, sealed, build["toolchainImageArtifact"], f"{label}.toolchainImageArtifact")
     require(toolchain_identity == toolchain_claim, f"{label} toolchain claim mismatch")
     toolchain = require_mapping(load_json(toolchain_path), f"{label} toolchain image")
@@ -447,6 +560,7 @@ def validate_build(
         "artifactSet": artifact_set_claim,
         "manifest": semantic_identity,
         "builder": builder_identity,
+        "sourceManifest": source_manifest_identity,
         "toolchain": toolchain_identity,
     }
 
@@ -492,6 +606,8 @@ def verify(evidence_root: Path, candidate_path: Path, contract_path: Path) -> di
         "runnerSHA256": "runner.sh",
         "runtimeLoadCheckRunnerSHA256": "runtime-load-check-runner.sh",
         "runtimeLoadCheckSourceSHA256": "runtime-load-check.swift",
+        "sourceIdentityToolSHA256": "source-identity-tool.py",
+        "sourceProvenanceContractSHA256": "source-provenance-contract.json",
     }
     identities = require_mapping(report.get("identities"), "report.identities")
     require_exact_keys(identities, base_artifacts, "report.identities")
@@ -509,14 +625,25 @@ def verify(evidence_root: Path, candidate_path: Path, contract_path: Path) -> di
     root_runtime = checked_file(root, "runtime-manifest.json", "sealed shipping runtime manifest")
     require(root_runtime in sealed, "shipping runtime manifest is not sealed")
     validate_runtime_manifest(root_runtime, candidate, contract["requiredRuntimeArtifactRoles"], sealed)
+    source_contract_path = checked_file(
+        root, "source-provenance-contract.json", "sealed source provenance contract"
+    )
+    source_contract = require_mapping(
+        load_json(source_contract_path), "source provenance contract"
+    )
+    require(
+        source_contract.get("schemaVersion")
+        == "mirmir-ash-v4-p06-source-provenance-contract-v1",
+        "source provenance contract schema mismatch",
+    )
 
     builds = require_list(report.get("builds"), "report.builds")
     require(len(builds) == contract["cleanBuildCount"], "P06 clean-build count mismatch")
     summaries = [
-        validate_build(root, sealed, raw, index, candidate, contract)
+        validate_build(root, sealed, raw, index, candidate, contract, source_contract)
         for index, raw in enumerate(builds)
     ]
-    for key in ("artifactSet", "manifest", "builder", "toolchain"):
+    for key in ("artifactSet", "manifest", "builder", "sourceManifest", "toolchain"):
         require(len({summary[key] for summary in summaries}) == 1, f"clean builds differ in {key}")
     require_bool(report.get("productionLoaderAcceptancePass"), "report.productionLoaderAcceptancePass", True)
     require_bool(report.get("tamperRejectionPass"), "report.tamperRejectionPass", True)
@@ -528,6 +655,8 @@ def verify(evidence_root: Path, candidate_path: Path, contract_path: Path) -> di
         "runtimeArtifactSetSHA256": summaries[0]["artifactSet"],
         "runtimeManifestSHA256": summaries[0]["manifest"],
         "builderSHA256": summaries[0]["builder"],
+        "productionSourceManifestSHA256": summaries[0]["sourceManifest"],
+        "productionSourceCount": contract["productionSourceCount"],
         "toolchainImageSHA256": summaries[0]["toolchain"],
         "productionLoaderAcceptancePass": True,
         "sameLengthArtifactTamperRejectionPass": True,

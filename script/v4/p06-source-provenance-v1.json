@@ -1,0 +1,89 @@
+{
+  "coverage": {
+    "fileExtensions": [
+      ".metal",
+      ".swift"
+    ],
+    "fileNameToken": "V4",
+    "roots": [
+      "Mirmir/Domain",
+      "Mirmir/MediaIO",
+      "Mirmir/Modules/UpscalerEngine",
+      "Mirmir/Persistence"
+    ]
+  },
+  "identityDomain": "ash-p06-production-source-v1",
+  "normalizedDeploymentTrustRoot": {
+    "assignments": [
+      "builderSourceSHA256",
+      "manifestSHA256",
+      "sourceRevision"
+    ],
+    "path": "Mirmir/Upscaling/Deterministic/DeterministicEngineV4Support.swift"
+  },
+  "requiredAdditionalSources": [
+    "Mirmir/App/WorkflowApplicationCoordinatorV4.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift",
+    "Mirmir/Upscaling/Deterministic/DeterministicCPUBackend.swift",
+    "Mirmir/Upscaling/Deterministic/DeterministicEngineV4Support.swift",
+    "Mirmir/Upscaling/Deterministic/DeterministicMetalBackend.swift",
+    "Mirmir/Upscaling/Deterministic/PreparedDeterministicV4Upscaler.swift"
+  ],
+  "schemaVersion": "mirmir-ash-v4-p06-source-provenance-contract-v1",
+  "sources": [
+    "Mirmir/App/WorkflowApplicationCoordinatorV4.swift",
+    "Mirmir/Domain/CanonicalMediaStateV4.swift",
+    "Mirmir/Domain/MediaTrackGraphPlannerV4.swift",
+    "Mirmir/Domain/MediaTrackGraphV4.swift",
+    "Mirmir/MediaIO/AVCanonicalMediaStateAdapterV4.swift",
+    "Mirmir/MediaIO/AVFoundationSegmentAssemblerV4.swift",
+    "Mirmir/MediaIO/AVFoundationTrackGraphAdapterV4.swift",
+    "Mirmir/MediaIO/AVFoundationTrackMigrationExecutorV4.swift",
+    "Mirmir/MediaIO/AVFoundationVideoFormatCalibratorV4.swift",
+    "Mirmir/MediaIO/AlphaVideoWriterContractV4.swift",
+    "Mirmir/MediaIO/CanonicalMediaAVFoundationSupportV4.swift",
+    "Mirmir/MediaIO/DeterministicV4MediaProcessingSession.swift",
+    "Mirmir/MediaIO/DeterministicV4WholeAssetPlanner.swift",
+    "Mirmir/MediaIO/PreparedFrameUpscalerTrackHookV4.swift",
+    "Mirmir/MediaIO/VideoWriterFormatContractV4.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHCanonicalJSONV4.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHCoreCertificateV4.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHCoreV4.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHDepthFourBranchProgramV4.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHDiagnosticEnvelopeV4.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHExecutionPlanV4.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHMeasurementContractV4.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHMeasurementExtractorV4.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalLibraryValidatorV4.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHP06RuntimeBundleV4.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHRuntimeManifestV4.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift",
+    "Mirmir/Modules/UpscalerEngine/ASHTemporalReconstructionV4.swift",
+    "Mirmir/Modules/UpscalerEngine/AVFoundationHDRMetadataAdapterV4.swift",
+    "Mirmir/Modules/UpscalerEngine/Alpha4444FixedPointScalerV4.swift",
+    "Mirmir/Modules/UpscalerEngine/AlphaProcessingV4.swift",
+    "Mirmir/Modules/UpscalerEngine/DeterministicDeinterlacerV4.swift",
+    "Mirmir/Modules/UpscalerEngine/FixedPointKernelV4.swift",
+    "Mirmir/Modules/UpscalerEngine/FixedPointMetalExecutorV4.swift",
+    "Mirmir/Modules/UpscalerEngine/FixedPointMetalKernelsV4.metal",
+    "Mirmir/Modules/UpscalerEngine/FixedPointPixelBufferScalerV4.swift",
+    "Mirmir/Modules/UpscalerEngine/HDRMetadataV4.swift",
+    "Mirmir/Modules/UpscalerEngine/P010BufferAccessV4.swift",
+    "Mirmir/Modules/UpscalerEngine/PixelBufferSignalCodecV4.swift",
+    "Mirmir/Modules/UpscalerEngine/PixelLayoutV4.swift",
+    "Mirmir/Modules/UpscalerEngine/RationalPresentationGeometryV4.swift",
+    "Mirmir/Modules/UpscalerEngine/SpatialScalePlanV4.swift",
+    "Mirmir/Persistence/WorkflowApplicationQueueV4.swift",
+    "Mirmir/Persistence/WorkflowDurableCoordinatorV4.swift",
+    "Mirmir/Persistence/WorkflowPartialArtifactReconcilerV4.swift",
+    "Mirmir/Persistence/WorkflowQueueDispatcherV4.swift",
+    "Mirmir/Persistence/WorkflowSecurityScopedBookmarkStoreV4.swift",
+    "Mirmir/Persistence/WorkflowSegmentCheckpointStoreV4.swift",
+    "Mirmir/Upscaling/Deterministic/DeterministicCPUBackend.swift",
+    "Mirmir/Upscaling/Deterministic/DeterministicEngineV4Support.swift",
+    "Mirmir/Upscaling/Deterministic/DeterministicMetalBackend.swift",
+    "Mirmir/Upscaling/Deterministic/PreparedDeterministicV4Upscaler.swift"
+  ]
+}

@@ -259,6 +259,7 @@ def capture_build(
     temporary_root: Path,
     candidate_runtime: Path,
     candidate: Mapping[str, Any],
+    production_source_count: int,
 ) -> dict[str, Any]:
     worktree = temporary_root / f"{identifier}-worktree"
     build_root = temporary_root / f"{identifier}-outputs"
@@ -317,9 +318,23 @@ def capture_build(
     shutil.copytree(provenance_output, evidence_build / "provenance")
 
     builder_path = evidence_build / "provenance/builder-source-manifest.txt"
+    production_source_path = (
+        evidence_build / "provenance/production-source-manifest.json"
+    )
     toolchain_path = evidence_build / "provenance/toolchain-image.json"
     if sha256(builder_path) != runtime["builderSHA256"]:
         raise CaptureError(f"{identifier} builder artifact does not reproduce provenance")
+    production_source = load_json(production_source_path)
+    if (
+        not isinstance(production_source, dict)
+        or production_source_path.read_bytes() != canonical_bytes(production_source)
+        or production_source.get("sourceRevision")
+        != candidate["runtimeSourceRevision"]
+        or production_source.get("sourceCount") != production_source_count
+    ):
+        raise CaptureError(
+            f"{identifier} production source manifest does not reproduce provenance"
+        )
     if toolchain_path.read_bytes() != canonical_bytes(runtime["toolchain"]):
         raise CaptureError(f"{identifier} toolchain artifact differs from runtime provenance")
 
@@ -357,12 +372,17 @@ def capture_build(
         "runtimeArtifactSetSHA256": computed_artifact_set,
         "runtimeManifestSHA256": candidate["runtimeManifestSHA256"],
         "builderSHA256": sha256(builder_path),
+        "productionSourceRevision": production_source["sourceRevision"],
+        "productionSourceManifestSHA256": sha256(production_source_path),
         "toolchainImageSHA256": sha256(toolchain_path),
         "artifactManifest": descriptor(artifact_manifest_path, staging_root),
         "runtimeManifestArtifact": descriptor(
             evidence_build / "runtime-manifest.json", staging_root
         ),
         "builderArtifact": descriptor(builder_path, staging_root),
+        "productionSourceArtifact": descriptor(
+            production_source_path, staging_root
+        ),
         "toolchainImageArtifact": descriptor(toolchain_path, staging_root),
         "loaderEvidenceArtifact": descriptor(load_transcript, staging_root),
         "releaseQualifiedStatus": True,
@@ -391,6 +411,10 @@ def capture(arguments: argparse.Namespace) -> Path:
         != "mirmir-ash-v4-p06-reproduction-contract-v1"
     ):
         raise CaptureError("unsupported P06 reproduction contract")
+    if type(contract.get("productionSourceCount")) is not int or contract[
+        "productionSourceCount"
+    ] < 1:
+        raise CaptureError("P06 reproduction contract source count is invalid")
     capture_contract = contract.get("capture")
     required_capture_identities = {
         "captureSourceSHA256": Path(__file__).resolve(),
@@ -400,6 +424,10 @@ def capture(arguments: argparse.Namespace) -> Path:
         / "script/v4/run_p06_runtime_load_check.sh",
         "runtimeLoadCheckSourceSHA256": repository
         / "script/v4/P06RuntimeLoadCheckMain.swift",
+        "sourceIdentityToolSHA256": repository
+        / "script/v4/p06_source_identity_v4.py",
+        "sourceProvenanceContractSHA256": repository
+        / "script/v4/p06-source-provenance-v1.json",
     }
     if not isinstance(capture_contract, dict) or set(capture_contract) != set(
         required_capture_identities
@@ -422,6 +450,10 @@ def capture(arguments: argparse.Namespace) -> Path:
         / "script/v4/run_p06_runtime_load_check.sh",
         "script/v4/P06RuntimeLoadCheckMain.swift": repository
         / "script/v4/P06RuntimeLoadCheckMain.swift",
+        "script/v4/p06_source_identity_v4.py": repository
+        / "script/v4/p06_source_identity_v4.py",
+        "script/v4/p06-source-provenance-v1.json": repository
+        / "script/v4/p06-source-provenance-v1.json",
         "script/v4/p06-reproduction-contract-v1.json": contract_path,
     }
     for relative_path, local_path in locked_tools.items():
@@ -455,6 +487,14 @@ def capture(arguments: argparse.Namespace) -> Path:
             repository / "script/v4/P06RuntimeLoadCheckMain.swift",
             staging / "runtime-load-check.swift",
         )
+        shutil.copy2(
+            repository / "script/v4/p06_source_identity_v4.py",
+            staging / "source-identity-tool.py",
+        )
+        shutil.copy2(
+            repository / "script/v4/p06-source-provenance-v1.json",
+            staging / "source-provenance-contract.json",
+        )
 
         builds = [
             capture_build(
@@ -465,6 +505,7 @@ def capture(arguments: argparse.Namespace) -> Path:
                 temporary_root=temporary_root,
                 candidate_runtime=candidate_runtime,
                 candidate=candidate,
+                production_source_count=contract.get("productionSourceCount"),
             )
             for identifier in contract.get("cleanBuildIDs", ())
         ]
@@ -489,6 +530,12 @@ def capture(arguments: argparse.Namespace) -> Path:
                 ),
                 "runtimeLoadCheckSourceSHA256": sha256(
                     staging / "runtime-load-check.swift"
+                ),
+                "sourceIdentityToolSHA256": sha256(
+                    staging / "source-identity-tool.py"
+                ),
+                "sourceProvenanceContractSHA256": sha256(
+                    staging / "source-provenance-contract.json"
                 ),
             },
             "buildConfiguration": "Release",

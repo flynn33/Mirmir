@@ -504,7 +504,7 @@ enum ASHP06LockedPerformanceGateV4 {
         try identity(
             "script/v4/performance-gate-contract-v1.json",
             3_869,
-            "da14c8d106c88aa12b23b10ac4016329c64e0f151c5faf0181cf18f0314aadba"
+            "605b53a02ca19d574c24422663178ee4e8596e84316a17dfea60a34b8ce24286"
         )
     }
 
@@ -530,8 +530,8 @@ enum ASHP06LockedPerformanceGateV4 {
         -> ASHP06LockedFileIdentityV4 {
         try identity(
             "script/v4/run_performance_gate_v4.sh",
-            22_581,
-            "0ab49d8932e0b2898fc0d956aa3885a5fbfa9d323a3de0941798b2d43e199422"
+            22_932,
+            "354224dbade28480a89f765ed1131713cc75e1d489eb73e9619b920c7d0ef6ff"
         )
     }
 

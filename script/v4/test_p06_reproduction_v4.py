@@ -62,6 +62,19 @@ class EvidenceFixture:
         self.contract_path = parent / "contract.json"
         self.toolchain = {"sdk": "macosx99A1", "swift": "Swift 99.0"}
         self.builder_bytes = b"builder manifest\n"
+        self.source_contract = {
+            "schemaVersion": "mirmir-ash-v4-p06-source-provenance-contract-v1",
+            "identityDomain": "ash-p06-production-source-v1",
+            "normalizedDeploymentTrustRoot": {
+                "path": "Sources/TrustV4.swift",
+                "assignments": [
+                    "builderSourceSHA256",
+                    "manifestSHA256",
+                    "sourceRevision",
+                ],
+            },
+            "sources": ["Sources/TrustV4.swift"],
+        }
 
         tool_files = {
             "captureSourceSHA256": ("capture-tool.py", b"capture\n"),
@@ -69,6 +82,11 @@ class EvidenceFixture:
             "runnerSHA256": ("runner.sh", b"runner\n"),
             "runtimeLoadCheckRunnerSHA256": ("runtime-load-check-runner.sh", b"load runner\n"),
             "runtimeLoadCheckSourceSHA256": ("runtime-load-check.swift", b"load source\n"),
+            "sourceIdentityToolSHA256": ("source-identity-tool.py", b"source identity\n"),
+            "sourceProvenanceContractSHA256": (
+                "source-provenance-contract.json",
+                p06.canonical_bytes(self.source_contract),
+            ),
         }
         capture_identities: dict[str, str] = {}
         for key, (relative, contents) in tool_files.items():
@@ -87,6 +105,7 @@ class EvidenceFixture:
             "cleanBuildIDs": ["clean-build-a", "clean-build-b"],
             "developmentArtifactDependencyCount": 0,
             "p05ProductionDependencyCount": 0,
+            "productionSourceCount": 1,
             "requiredRuntimeArtifactRoles": ROLES,
             "runtimeID": p06.RUNTIME_ID,
             "runtimeReleaseStatus": "release_qualified",
@@ -179,6 +198,34 @@ class EvidenceFixture:
             builder.write_bytes(self.builder_bytes)
             toolchain = provenance / "toolchain-image.json"
             write_canonical(toolchain, self.toolchain)
+            production_source = provenance / "production-source-manifest.json"
+            source_bytes = b"normalized trust source\n"
+            write_canonical(
+                production_source,
+                {
+                    "schemaVersion": "mirmir-ash-v4-p06-production-source-manifest-v1",
+                    "contractSemanticSHA256": p06.sha256_bytes(
+                        p06.canonical_bytes(self.source_contract)
+                    ),
+                    "identityDomain": "ash-p06-production-source-v1",
+                    "sourceCount": 1,
+                    "sourceRevision": source_revision,
+                    "sources": [
+                        {
+                            "path": "Sources/TrustV4.swift",
+                            "byteCount": len(source_bytes),
+                            "sha256": p06.sha256_bytes(source_bytes),
+                            "normalizedByteCount": len(source_bytes),
+                            "normalizedSHA256": p06.sha256_bytes(source_bytes),
+                            "normalizations": [
+                                "builderSourceSHA256",
+                                "manifestSHA256",
+                                "sourceRevision",
+                            ],
+                        }
+                    ],
+                },
+            )
             loader = build_root / "runtime-load-and-tamper-check.log"
             loader.write_text(
                 "\n".join(
@@ -210,10 +257,13 @@ class EvidenceFixture:
                     "runtimeArtifactSetSHA256": artifact_set,
                     "runtimeManifestSHA256": semantic_identity,
                     "builderSHA256": builder_identity,
+                    "productionSourceRevision": source_revision,
+                    "productionSourceManifestSHA256": p06.sha256_file(production_source),
                     "toolchainImageSHA256": p06.sha256_file(toolchain),
                     "artifactManifest": descriptor(artifact_manifest, self.root),
                     "runtimeManifestArtifact": descriptor(build_root / "runtime-manifest.json", self.root),
                     "builderArtifact": descriptor(builder, self.root),
+                    "productionSourceArtifact": descriptor(production_source, self.root),
                     "toolchainImageArtifact": descriptor(toolchain, self.root),
                     "loaderEvidenceArtifact": descriptor(loader, self.root),
                     "releaseQualifiedStatus": True,

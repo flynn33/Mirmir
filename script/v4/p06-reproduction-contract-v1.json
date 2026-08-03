@@ -3,11 +3,13 @@
   "builderID": "ash-p06-release-builder-v4-1",
   "canonicalManifestIdentityDomain": "ash-p06-runtime-manifest-v4",
   "capture": {
-    "captureSourceSHA256": "00af7bda48e643dbc76b9f0b95a435a5d6033d2af699c03fc1283a64c49c81ae",
-    "evaluatorSHA256": "ac7c7754e79da4d736e1bc12c59e4bdb8098816f74bc8bbe2531774905a7181a",
+    "captureSourceSHA256": "58f176fe77a3a6f2e7a1dacad46d08a2ebe22596e5058b4da2398b5b935463bb",
+    "evaluatorSHA256": "56183722c5849dd64f6dfa4c38b4dcd14061f02080cb26f1e02f7c89b1eb7017",
     "runnerSHA256": "9fcce0ef62e1e4a2801e66ffd349ff334788ecea714c9cddd210f09745ba441d",
     "runtimeLoadCheckRunnerSHA256": "85bd88ff2726e9f32a4443f93ce30c5a61a2686be55c5cd27044f0aff5c890bd",
-    "runtimeLoadCheckSourceSHA256": "cefd336a6504aeae8074c8a8a01ec6a0fda21116cd05a5b67b5b614549fac0d6"
+    "runtimeLoadCheckSourceSHA256": "cefd336a6504aeae8074c8a8a01ec6a0fda21116cd05a5b67b5b614549fac0d6",
+    "sourceIdentityToolSHA256": "dfafb4d914d3fa77781c1d5c0950cf79af3973b942c4c895f1196ff48f5329b7",
+    "sourceProvenanceContractSHA256": "b2e5ce18ed61541061b3933f36e8b60458482a0ae4968079f7f09c650341b7d8"
   },
   "cleanBuildCount": 2,
   "cleanBuildIDs": [
@@ -16,6 +18,7 @@
   ],
   "developmentArtifactDependencyCount": 0,
   "p05ProductionDependencyCount": 0,
+  "productionSourceCount": 53,
   "requiredRuntimeArtifactRoles": [
     "benchmark_corpus_identity",
     "branch_aggregation",
