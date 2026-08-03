@@ -459,6 +459,7 @@ final class DeterministicMetalBackendTests: XCTestCase {
             contract.maximumRetainedTileSampleCount,
             contract.targetFullFrameSampleCount
         )
+#if DEBUG
         let diagnostics = await prepared.workspaceDiagnostics()
         XCTAssertEqual(
             diagnostics.scalerFullPlaneSwiftArrayStagingSampleCount,
@@ -473,6 +474,7 @@ final class DeterministicMetalBackendTests: XCTestCase {
             diagnostics.scalerCPUReusableHorizontalSampleCount,
             contract.targetFullFrameSampleCount
         )
+#endif
         let misalignedPolicy = try ASHTemporalTilePolicyV4(
             policyID: "ash.test.misaligned-production-tiles",
             tileWidth: 10,
@@ -541,6 +543,7 @@ final class DeterministicMetalBackendTests: XCTestCase {
         )
         XCTAssertEqual(outputs.count, 1)
         XCTAssertEqual(outputs[0].temporalResetReason, .streamStart)
+#if DEBUG
         let diagnostics = await prepared.workspaceDiagnostics()
         let contract = try XCTUnwrap(prepared.tiledAllocationContract)
         XCTAssertEqual(diagnostics.tiledTemporalHistoryCount, 1)
@@ -570,6 +573,7 @@ final class DeterministicMetalBackendTests: XCTestCase {
             diagnostics.tiledLargestContiguousSampleAllocation,
             contract.maximumRetainedTileSampleCount
         )
+#endif
     }
 
     func testForcedTiledPreparedPathIsCPUAndMetalExactAndResumable()
@@ -741,6 +745,7 @@ final class DeterministicMetalBackendTests: XCTestCase {
             }
         }
         XCTAssertNotNil(checkpoint)
+#if DEBUG
         let diagnostics = await tiledCPU.workspaceDiagnostics()
         XCTAssertTrue(diagnostics.usesBoundedTiledTemporalPath)
         XCTAssertEqual(diagnostics.temporalHistoryCount, 0)
@@ -772,8 +777,10 @@ final class DeterministicMetalBackendTests: XCTestCase {
             diagnostics.tiledLargestContiguousSampleAllocation,
             policy.maximumRetainedTileSampleCount
         )
+#endif
     }
 
+#if DEBUG
     func testTiledCancellationLeavesCanonicalStateAndSeekRetryExact()
         async throws {
         let policy = try forcedPreparedTilePolicy()
@@ -886,6 +893,7 @@ final class DeterministicMetalBackendTests: XCTestCase {
             try visibleBytes(cleanOutput)
         )
     }
+#endif
 
     func testForcedTiledInterlacedStateDoesNotRestartAndResumesExactly()
         async throws {
