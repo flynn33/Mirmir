@@ -7,6 +7,7 @@ import argparse
 import base64
 from fractions import Fraction
 import hashlib
+import importlib.util
 import json
 import math
 from pathlib import Path
@@ -62,6 +63,25 @@ REQUIRED_PARITY_COVERAGE = (
     "tile_schedule",
 )
 EXPECTED_SCHEDULES = ("row_major", "reverse", "even_then_odd")
+PACKAGED_CAPTURE_FIELDS = (
+    "evidenceRequestSHA256",
+    "packagedCandidateIdentity",
+)
+
+
+def packaged_evidence_module():
+    path = Path(__file__).resolve().with_name("packaged_candidate_evidence_v4.py")
+    spec = importlib.util.spec_from_file_location(
+        "parity_packaged_candidate_evidence_v4", path
+    )
+    if spec is None or spec.loader is None:
+        raise ParityEvidenceError(
+            "cannot load packaged-candidate evidence verifier"
+        )
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 class ParityEvidenceError(ValueError):
@@ -1303,7 +1323,10 @@ def validate_captured_case(
 
 
 def validate_capture(
-    directory: Path, contract: dict[str, Any], contract_sha: str
+    directory: Path,
+    contract: dict[str, Any],
+    contract_sha: str,
+    allow_unbound_fixture: bool = False,
 ) -> dict[str, Any]:
     require(directory.is_dir() and not directory.is_symlink(), "capture directory missing/symbolic")
     sealed, manifest_sha = validate_capture_manifest(directory)
@@ -1313,19 +1336,21 @@ def validate_capture(
         "capture.json is not sealed",
     )
     capture = require_object(load_json(capture_path), "capture")
-    require_exact_keys(
-        capture,
-        (
-            "schemaVersion",
-            "contractSHA256",
-            "captureSourceSHA256",
-            "sourceRevision",
-            "buildConfiguration",
-            "processRunID",
-            "runtime",
-            "cases",
-        ),
-        "capture",
+    base_fields = {
+        "schemaVersion",
+        "contractSHA256",
+        "captureSourceSHA256",
+        "sourceRevision",
+        "buildConfiguration",
+        "processRunID",
+        "runtime",
+        "cases",
+    }
+    observed_fields = set(capture)
+    packaged_fields = set(PACKAGED_CAPTURE_FIELDS)
+    require(
+        observed_fields in (base_fields, base_fields | packaged_fields),
+        "capture field set differs",
     )
     require(capture["schemaVersion"] == CAPTURE_SCHEMA, "capture schema mismatch")
     require(capture["contractSHA256"] == contract_sha, "capture contract identity mismatch")
@@ -1334,6 +1359,21 @@ def validate_capture(
     require(capture["buildConfiguration"] == "Release", "capture is not Release")
     require_text(capture["processRunID"], "capture.processRunID")
     runtime = validate_runtime(capture["runtime"])
+    if observed_fields == base_fields | packaged_fields:
+        require_sha256(
+            capture["evidenceRequestSHA256"], "capture.evidenceRequestSHA256"
+        )
+        require_object(
+            capture["packagedCandidateIdentity"],
+            "capture.packagedCandidateIdentity",
+        )
+    else:
+        require(
+            runtime["mode"] == "fixture" or allow_unbound_fixture,
+            "production capture omits exact packaged-candidate identities",
+        )
+        capture["evidenceRequestSHA256"] = None
+        capture["packagedCandidateIdentity"] = None
     contract_by_id = {case["id"]: case for case in contract["cases"]}
     cases: dict[str, dict[str, Any]] = {}
     for index, raw in enumerate(require_array(capture["cases"], "capture.cases")):
@@ -1394,6 +1434,17 @@ def cross_process_compare(first: dict[str, Any], second: dict[str, Any]) -> None
     left_capture = first["capture"]
     right_capture = second["capture"]
     require(left_capture["processRunID"] != right_capture["processRunID"], "cross-process run IDs not distinct")
+    left_request = left_capture["evidenceRequestSHA256"]
+    right_request = right_capture["evidenceRequestSHA256"]
+    require(
+        (left_request is None and right_request is None)
+        or (
+            isinstance(left_request, str)
+            and isinstance(right_request, str)
+            and left_request != right_request
+        ),
+        "cross-process packaged evidence request IDs are not distinct",
+    )
     for key in (
         "schemaVersion",
         "contractSHA256",
@@ -1401,6 +1452,7 @@ def cross_process_compare(first: dict[str, Any], second: dict[str, Any]) -> None
         "sourceRevision",
         "buildConfiguration",
         "runtime",
+        "packagedCandidateIdentity",
     ):
         require(left_capture[key] == right_capture[key], f"cross-process capture identity differs: {key}")
     require(set(first["cases"]) == set(second["cases"]), "cross-process case set differs")
@@ -1422,6 +1474,62 @@ def cross_process_compare(first: dict[str, Any], second: dict[str, Any]) -> None
         require(left["metadata"] == right["metadata"], f"cross-process metadata differs: {identifier}")
 
 
+def validate_packaged_parity_captures(
+    packaged_evidence_a: Path | None,
+    packaged_evidence_b: Path | None,
+    repository: Path | None,
+    runtime_path: Path | None,
+    first: Mapping[str, Any],
+    second: Mapping[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    supplied = (
+        packaged_evidence_a is not None,
+        packaged_evidence_b is not None,
+        repository is not None,
+        runtime_path is not None,
+    )
+    require(
+        not any(supplied) or all(supplied),
+        "packaged parity evidence requires both captures, repository, and runtime",
+    )
+    if not all(supplied):
+        return None
+    assert packaged_evidence_a is not None
+    assert packaged_evidence_b is not None
+    assert repository is not None
+    assert runtime_path is not None
+    verifier = packaged_evidence_module()
+    try:
+        first_binding = verifier.validate_capture_binding(
+            packaged_evidence_a, repository, runtime_path
+        )
+        second_binding = verifier.validate_capture_binding(
+            packaged_evidence_b, repository, runtime_path
+        )
+    except (ValueError, OSError) as error:
+        raise ParityEvidenceError(
+            f"packaged parity evidence failed: {error}"
+        ) from error
+    require(
+        first_binding.get("lane") == second_binding.get("lane") == "parity",
+        "packaged evidence is not parity evidence",
+    )
+    require(
+        first_binding["packageIdentity"] == second_binding["packageIdentity"],
+        "packaged parity application identities differ",
+    )
+    require(
+        first_binding["requestSHA256"] != second_binding["requestSHA256"],
+        "packaged parity requests are not independently fresh",
+    )
+    require(
+        first_binding["captureManifest"] == first["capture"]
+        and second_binding["captureManifest"] == second["capture"],
+        "evaluated parity capture differs from exact packaged observer output",
+    )
+    return first_binding, second_binding
+
+
 def evaluate(
     contract_path: Path,
     capture_a_path: Path,
@@ -1432,11 +1540,27 @@ def evaluate(
     runner: Path,
     evidence_root: Path,
     allow_fixture_runtime: bool = False,
+    packaged_evidence_a: Path | None = None,
+    packaged_evidence_b: Path | None = None,
+    repository: Path | None = None,
+    packaged_runtime: Path | None = None,
 ) -> dict[str, Any]:
     contract, contract_sha = validate_contract(contract_path, capture_source, evaluator, runner)
-    first = validate_capture(capture_a_path, contract, contract_sha)
-    second = validate_capture(capture_b_path, contract, contract_sha)
+    first = validate_capture(
+        capture_a_path, contract, contract_sha, allow_fixture_runtime
+    )
+    second = validate_capture(
+        capture_b_path, contract, contract_sha, allow_fixture_runtime
+    )
     cross_process_compare(first, second)
+    packaged_bindings = validate_packaged_parity_captures(
+        packaged_evidence_a,
+        packaged_evidence_b,
+        repository,
+        packaged_runtime,
+        first,
+        second,
+    )
     candidate = load_candidate(candidate_path)
     require(first["capture"]["sourceRevision"] == candidate["sourceCommit"], "capture source revision differs from candidate")
     runtime = first["runtime"]
@@ -1447,6 +1571,10 @@ def evaluate(
     if not allow_fixture_runtime:
         require(production, "final parity qualification requires the production runtime")
         require_bool(runtime["trustRootConfigured"], "runtime.trustRootConfigured", True)
+        require(
+            packaged_bindings is not None,
+            "final parity qualification requires exact packaged-candidate evidence",
+        )
     cases: list[dict[str, Any]] = []
     covered: set[str] = set()
     for definition in sorted(contract["cases"], key=lambda item: item["id"]):
@@ -1474,20 +1602,44 @@ def evaluate(
             }
         )
     require(covered == set(REQUIRED_PARITY_COVERAGE), "evaluated coverage is not exact")
+    exact_packaged = packaged_bindings is not None
+    packaged_identity = (
+        packaged_bindings[0]["packageIdentity"] if packaged_bindings else None
+    )
+    if exact_packaged:
+        require(
+            packaged_identity == first["capture"]["packagedCandidateIdentity"],
+            "capture packaged identity differs from verified archive",
+        )
+        require(
+            packaged_identity["applicationArchiveSHA256"]
+            == candidate["appBundleSHA256"],
+            "packaged parity archive differs from candidate",
+        )
     return {
         "schemaVersion": contract["reportSchemaVersion"],
         "contractSHA256": contract_sha,
         "candidate": candidate,
-        "releaseEligible": production,
+        "releaseEligible": production and exact_packaged,
         "identities": {
             "captureSourceSHA256": contract["tools"]["captureSourceSHA256"],
             "evaluatorSHA256": contract["tools"]["evaluatorSHA256"],
             "runnerSHA256": contract["tools"]["runnerSHA256"],
+            "packagedCandidateIdentity": packaged_identity,
+            "evidenceRequestSHA256": [
+                packaged_bindings[0]["requestSHA256"],
+                packaged_bindings[1]["requestSHA256"],
+            ] if packaged_bindings else None,
+            "packagedCaptureTreeSHA256": [
+                packaged_bindings[0]["captureTree"]["sha256"],
+                packaged_bindings[1]["captureTree"]["sha256"],
+            ] if packaged_bindings else None,
         },
         "comparison": contract["comparison"],
         "coverage": list(REQUIRED_PARITY_COVERAGE),
         "cases": cases,
-        "byteParityGatePass": production,
+        "exactPackagedCandidatePass": exact_packaged,
+        "byteParityGatePass": production and exact_packaged,
     }
 
 
@@ -1524,7 +1676,19 @@ def command_evaluate(arguments: argparse.Namespace) -> None:
         arguments.evaluator.resolve(),
         arguments.runner.resolve(),
         root,
-        arguments.allow_fixture_runtime,
+        False,
+        getattr(arguments, "packaged_evidence_a", None).resolve()
+        if getattr(arguments, "packaged_evidence_a", None) is not None
+        else None,
+        getattr(arguments, "packaged_evidence_b", None).resolve()
+        if getattr(arguments, "packaged_evidence_b", None) is not None
+        else None,
+        getattr(arguments, "repository", None).resolve()
+        if getattr(arguments, "repository", None) is not None
+        else None,
+        getattr(arguments, "runtime", None).resolve()
+        if getattr(arguments, "runtime", None) is not None
+        else None,
     )
     write_json(output, report)
     write_json(manifest, make_root_manifest(root, manifest))
@@ -1541,7 +1705,19 @@ def command_verify(arguments: argparse.Namespace) -> None:
         arguments.evaluator.resolve(),
         arguments.runner.resolve(),
         root,
-        arguments.allow_fixture_runtime,
+        False,
+        getattr(arguments, "packaged_evidence_a", None).resolve()
+        if getattr(arguments, "packaged_evidence_a", None) is not None
+        else None,
+        getattr(arguments, "packaged_evidence_b", None).resolve()
+        if getattr(arguments, "packaged_evidence_b", None) is not None
+        else None,
+        getattr(arguments, "repository", None).resolve()
+        if getattr(arguments, "repository", None) is not None
+        else None,
+        getattr(arguments, "runtime", None).resolve()
+        if getattr(arguments, "runtime", None) is not None
+        else None,
     )
     observed = load_json(arguments.report.resolve())
     require(canonical_json(observed) == canonical_json(expected), "published parity report differs from recomputed evidence")
@@ -1562,7 +1738,10 @@ def parser() -> argparse.ArgumentParser:
         subparser.add_argument("--runner", type=Path, required=True)
         subparser.add_argument("--evidence-root", type=Path, required=True)
         subparser.add_argument("--manifest", type=Path, required=True)
-        subparser.add_argument("--allow-fixture-runtime", action="store_true")
+        subparser.add_argument("--packaged-evidence-a", type=Path)
+        subparser.add_argument("--packaged-evidence-b", type=Path)
+        subparser.add_argument("--repository", type=Path)
+        subparser.add_argument("--runtime", type=Path)
         if name == "evaluate":
             subparser.add_argument("--output", type=Path, required=True)
             subparser.set_defaults(function=command_evaluate)

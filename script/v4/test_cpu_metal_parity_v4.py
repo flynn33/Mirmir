@@ -5,13 +5,16 @@ from __future__ import annotations
 
 import argparse
 import base64
+import contextlib
 import copy
 import importlib.util
+import io
 import json
 from pathlib import Path
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 
 
 SCRIPT_DIRECTORY = Path(__file__).resolve().parent
@@ -42,7 +45,7 @@ def typed(kind: str, value: object) -> dict[str, object]:
 class ParityEvidenceFixture:
     TOOL_NAMES = (
         "cpu-metal-parity-contract-v2.json",
-        "ParityQualificationCaptureTests.swift",
+        "MirmirApp.swift",
         "cpu_metal_parity_v4.py",
         "run_cpu_metal_parity_v4.sh",
     )
@@ -64,7 +67,12 @@ class ParityEvidenceFixture:
         self.tools = root / "sealed-tools"
         self.tools.mkdir(parents=True)
         for name in self.TOOL_NAMES:
-            shutil.copy2(SCRIPT_DIRECTORY / name, self.tools / name)
+            source = (
+                SCRIPT_DIRECTORY.parent.parent / "Mirmir/App/MirmirApp.swift"
+                if name == "MirmirApp.swift"
+                else SCRIPT_DIRECTORY / name
+            )
+            shutil.copy2(source, self.tools / name)
         self.contract_path = self.tools / self.TOOL_NAMES[0]
         self.capture_source = self.tools / self.TOOL_NAMES[1]
         self.evaluator = self.tools / self.TOOL_NAMES[2]
@@ -656,7 +664,6 @@ class ParityEvidenceFixture:
             evidence_root=self.root,
             report=report,
             manifest=manifest,
-            allow_fixture_runtime=True,
         )
 
 
@@ -687,6 +694,21 @@ class CPUMetalParityQualificationTests(unittest.TestCase):
 
     def test_final_gate_rejects_fixture_runtime(self) -> None:
         with self.assertRaisesRegex(parity.ParityEvidenceError, "production runtime"):
+            self.fixture.evaluate(allow_fixture_runtime=False)
+
+    def test_final_gate_rejects_unbound_production_capture(self) -> None:
+        for directory in (self.fixture.capture_a, self.fixture.capture_b):
+            self.fixture.mutate_capture(
+                lambda capture: capture["runtime"].update({
+                    "mode": "production",
+                    "trustRootConfigured": True,
+                }),
+                directory,
+            )
+        with self.assertRaisesRegex(
+            parity.ParityEvidenceError,
+            "production capture omits exact packaged-candidate identities",
+        ):
             self.fixture.evaluate(allow_fixture_runtime=False)
 
     def test_evaluator_owned_coverage_cannot_be_removed_from_contract(self) -> None:
@@ -993,6 +1015,25 @@ class CPUMetalParityQualificationTests(unittest.TestCase):
         with self.assertRaisesRegex(parity.ParityEvidenceError, "runtime manifest"):
             self.fixture.evaluate()
 
+    def test_packaged_archive_verification_failure_is_normative(self) -> None:
+        verifier = mock.Mock()
+        verifier.validate_capture_binding.side_effect = ValueError(
+            "candidate record differs from the verified application archive"
+        )
+        with mock.patch.object(
+            parity, "packaged_evidence_module", return_value=verifier
+        ), self.assertRaisesRegex(
+            parity.ParityEvidenceError, "verified application archive"
+        ):
+            parity.validate_packaged_parity_captures(
+                self.root / "packaged-a",
+                self.root / "packaged-b",
+                self.root,
+                self.root / "runtime",
+                {"capture": {}},
+                {"capture": {}},
+            )
+
     def test_duplicate_json_keys_are_rejected(self) -> None:
         self.fixture.candidate_path.write_text(
             '{"sourceCommit":"' + self.fixture.source_revision
@@ -1004,14 +1045,52 @@ class CPUMetalParityQualificationTests(unittest.TestCase):
 
     def test_published_report_and_root_seal_are_recomputed(self) -> None:
         report_path, manifest_path = self.fixture.publish()
-        parity.command_verify(self.fixture.verify_arguments(report_path, manifest_path))
-        report = parity.load_json(report_path)
-        report["byteParityGatePass"] = True
-        parity.write_json(report_path, report)
-        with self.assertRaisesRegex(parity.ParityEvidenceError, "published parity report"):
+        expected = parity.load_json(report_path)
+        with mock.patch.object(parity, "evaluate", return_value=expected) as evaluator:
             parity.command_verify(
                 self.fixture.verify_arguments(report_path, manifest_path)
             )
+            self.assertFalse(evaluator.call_args.args[8])
+            report = parity.load_json(report_path)
+            report["byteParityGatePass"] = True
+            parity.write_json(report_path, report)
+            with self.assertRaisesRegex(
+                parity.ParityEvidenceError, "published parity report"
+            ):
+                parity.command_verify(
+                    self.fixture.verify_arguments(report_path, manifest_path)
+                )
+
+    def test_cli_has_no_fixture_runtime_escape_hatch(self) -> None:
+        value = str(self.root / "fixture")
+        arguments = [
+            "verify",
+            "--contract",
+            value,
+            "--capture-a",
+            value,
+            "--capture-b",
+            value,
+            "--candidate",
+            value,
+            "--capture-source",
+            value,
+            "--evaluator",
+            value,
+            "--runner",
+            value,
+            "--evidence-root",
+            value,
+            "--manifest",
+            value,
+            "--report",
+            value,
+            "--allow-fixture-runtime",
+        ]
+        error = io.StringIO()
+        with contextlib.redirect_stderr(error), self.assertRaises(SystemExit):
+            parity.parser().parse_args(arguments)
+        self.assertIn("unrecognized arguments: --allow-fixture-runtime", error.getvalue())
 
 
 if __name__ == "__main__":
