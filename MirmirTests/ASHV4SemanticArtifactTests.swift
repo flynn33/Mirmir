@@ -61,6 +61,14 @@ final class ASHV4SemanticArtifactTests: XCTestCase {
             try ASHV4SemanticArtifactTestSupport.bundleFiles(at: secondURL)
         )
         XCTAssertEqual(first.manifestSHA256, second.manifestSHA256)
+        XCTAssertEqual(
+            try first.measurementContract(),
+            ASHMeasurementContractV4.canonicalP06
+        )
+        XCTAssertEqual(
+            try first.branchProgram(),
+            try ASHDepthFourBranchCompilerV4.compileCanonical()
+        )
         let firstPlanHash = try ASHV4SemanticArtifactTestSupport.planHash(runtime: first)
         let secondPlanHash = try ASHV4SemanticArtifactTestSupport.planHash(runtime: second)
         XCTAssertEqual(firstPlanHash, secondPlanHash)
@@ -131,6 +139,78 @@ final class ASHV4SemanticArtifactTests: XCTestCase {
                 error as? ASHExecutionPlanV4Error,
                 .missingTrackDirective("captions-en")
             )
+        }
+    }
+
+    func testSemanticArtifactsAndContractIdentitiesFailClosed() throws {
+        let canonical = try ASHP06MeasurementContractArtifactV4.canonical()
+        let replacement = String(
+            canonical.canonicalBinaryHex.dropLast(2)
+        ) + "00"
+        let tampered = ASHP06MeasurementContractArtifactV4(
+            schemaID: canonical.schemaID,
+            artifactRole: canonical.artifactRole,
+            contractID: canonical.contractID,
+            canonicalBinarySHA256: canonical.canonicalBinarySHA256,
+            canonicalBinaryHex: replacement
+        )
+        let original = try ASHV4SemanticArtifactTestSupport.completeRequest()
+        let request = ASHP06RuntimeBuildRequestV4(
+            releaseStatus: original.releaseStatus,
+            provenance: original.provenance,
+            artifacts: try original.artifacts.map { artifact in
+                guard artifact.role == .measurementContract else {
+                    return artifact
+                }
+                return ASHP06RuntimeArtifactInputV4(
+                    role: artifact.role,
+                    data: try ASHCanonicalJSONV4.encode(tampered)
+                )
+            }
+        )
+        XCTAssertThrowsError(
+            try ASHP06RuntimeBundleBuilderV4.build(
+                request,
+                at: temporaryDirectory.appendingPathComponent("semantic-tamper"),
+                metalLibraryValidator: ASHV4FixtureMetalValidator()
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? ASHP06RuntimeBundleV4Error,
+                .measurementContractMismatch
+            )
+        }
+
+        let runtime = try ASHV4SemanticArtifactTestSupport.buildAndLoad(
+            at: temporaryDirectory.appendingPathComponent("identity-runtime")
+        )
+        let valid = ASHV4SemanticArtifactTestSupport.executionRequest()
+        for invalid in [
+            ASHExecutionRequestV4(
+                executor: valid.executor,
+                measurementContractID: valid.measurementContractID + ".wrong",
+                kernelContractID: valid.kernelContractID,
+                directives: valid.directives
+            ),
+            ASHExecutionRequestV4(
+                executor: valid.executor,
+                measurementContractID: valid.measurementContractID,
+                kernelContractID: valid.kernelContractID + ".wrong",
+                directives: valid.directives
+            )
+        ] {
+            XCTAssertThrowsError(
+                try ASHExecutionPlannerV4.makePlan(
+                    media: ASHV4SemanticArtifactTestSupport.mediaState(),
+                    request: invalid,
+                    runtime: runtime
+                )
+            ) { error in
+                XCTAssertEqual(
+                    error as? ASHExecutionPlanV4Error,
+                    .runtimeIdentityMismatch
+                )
+            }
         }
     }
 

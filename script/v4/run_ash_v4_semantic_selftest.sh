@@ -25,6 +25,8 @@ production_sources=(
     "${repository_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHCanonicalJSONV4.swift"
     "${repository_root}/Mirmir/Domain/CanonicalMediaStateV4.swift"
     "${repository_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHRuntimeManifestV4.swift"
+    "${repository_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHMeasurementContractV4.swift"
+    "${repository_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHDepthFourBranchProgramV4.swift"
     "${repository_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHP06RuntimeBundleV4.swift"
     "${repository_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHExecutionPlanV4.swift"
     "${repository_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHDiagnosticEnvelopeV4.swift"

@@ -24,6 +24,8 @@ xcrun swiftc \
     "${repository_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHCoreV4.swift" \
     "${repository_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHCanonicalJSONV4.swift" \
     "${repository_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHRuntimeManifestV4.swift" \
+    "${repository_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHMeasurementContractV4.swift" \
+    "${repository_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHDepthFourBranchProgramV4.swift" \
     "${repository_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHP06RuntimeBundleV4.swift" \
     "${repository_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHMetalLibraryValidatorV4.swift" \
     "${script_directory}/P06RuntimeBuilderMain.swift" \

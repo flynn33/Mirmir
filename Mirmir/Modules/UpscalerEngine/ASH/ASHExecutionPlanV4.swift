@@ -51,6 +51,10 @@ struct ASHTrackDirectiveV4: Codable, Equatable, Hashable, Sendable {
 
 struct ASHExecutionRequestV4: Codable, Equatable, Hashable, Sendable {
     static let currentSchemaID = "ash.execution-request.v4.1"
+    static let canonicalMeasurementContractID =
+        ASHMeasurementContractV4.canonicalContractID
+    static let canonicalKernelContractID =
+        "ash-p06-catmull-rom-q14-largest-remainder-v1"
 
     let schemaID: String
     let executor: ASHExecutorV4
@@ -160,6 +164,7 @@ struct ASHExecutionPlanV4: Codable, Equatable, Hashable, Sendable {
     let measurementContractID: String
     let measurementContractSHA256: ASHSHA256V4
     let kernelContractID: String
+    let branchAggregationSHA256: ASHSHA256V4
     let operatorBankSHA256: ASHSHA256V4
     let phaseCoefficientProcedureSHA256: ASHSHA256V4
     let tracks: [ASHPlannedTrackV4]
@@ -173,6 +178,7 @@ struct ASHExecutionPlanV4: Codable, Equatable, Hashable, Sendable {
         measurementContractID: String,
         measurementContractSHA256: ASHSHA256V4,
         kernelContractID: String,
+        branchAggregationSHA256: ASHSHA256V4,
         operatorBankSHA256: ASHSHA256V4,
         phaseCoefficientProcedureSHA256: ASHSHA256V4,
         tracks: [ASHPlannedTrackV4],
@@ -186,6 +192,7 @@ struct ASHExecutionPlanV4: Codable, Equatable, Hashable, Sendable {
         self.measurementContractID = measurementContractID
         self.measurementContractSHA256 = measurementContractSHA256
         self.kernelContractID = kernelContractID
+        self.branchAggregationSHA256 = branchAggregationSHA256
         self.operatorBankSHA256 = operatorBankSHA256
         self.phaseCoefficientProcedureSHA256 = phaseCoefficientProcedureSHA256
         self.tracks = tracks
@@ -288,9 +295,13 @@ enum ASHExecutionPlannerV4 {
 
         let manifest = runtime.manifest
         let measurementArtifact = manifest.artifact(for: .measurementContract)
+        let branchArtifact = manifest.artifact(for: .branchAggregation)
         let operatorArtifact = manifest.artifact(for: .operatorBank)
         let phaseArtifact = manifest.artifact(for: .phaseCoefficientProcedure)
-        guard request.measurementContractID == measurementArtifact.schemaID else {
+        guard request.measurementContractID
+                == ASHExecutionRequestV4.canonicalMeasurementContractID,
+              request.kernelContractID
+                == ASHExecutionRequestV4.canonicalKernelContractID else {
             throw ASHExecutionPlanV4Error.runtimeIdentityMismatch
         }
 
@@ -303,6 +314,7 @@ enum ASHExecutionPlannerV4 {
             measurementContractID: request.measurementContractID,
             measurementContractSHA256: measurementArtifact.contentSHA256,
             kernelContractID: request.kernelContractID,
+            branchAggregationSHA256: branchArtifact.contentSHA256,
             operatorBankSHA256: operatorArtifact.contentSHA256,
             phaseCoefficientProcedureSHA256: phaseArtifact.contentSHA256,
             tracks: plannedTracks,

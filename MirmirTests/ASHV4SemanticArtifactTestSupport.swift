@@ -19,7 +19,7 @@ struct ASHV4FixtureArtifactDocument: Codable {
 enum ASHV4SemanticArtifactTestSupport {
     static let sourceRevision = String(repeating: "a", count: 40)
     static let expectedPlanSHA256 =
-        "3b37df923d1c423cd47c7a4fbd6b25d63b3ec0c49725ddb181da5524049fb210"
+        "99fabf6c4f3efde96c29376af66ff95738765c0a2972d0739942589fe658f819"
     static let builderHash = ASHSHA256V4(
         rawData: Data("ash-p06-builder-source-v1".utf8)
     )
@@ -43,6 +43,12 @@ enum ASHV4SemanticArtifactTestSupport {
         let certificate = ASHP06CoreCertificateArtifactV4.canonical(
             codewordTablesSHA256: ASHSHA256V4(rawData: codewordData)
         )
+        let measurement = try ASHP06MeasurementContractArtifactV4.canonical()
+        let branchAggregation = try ASHP06BranchAggregationArtifactV4
+            .canonical()
+        let operatorBank = ASHP06OperatorBankArtifactV4.canonical(
+            branchProgramSHA256: branchAggregation.canonicalBinarySHA256
+        )
         let metalContract = ASHP06MetalCompilerContractArtifactV4(
             schemaID: ASHRuntimeArtifactRoleV4.metalCompilerContract
                 .expectedSchemaID,
@@ -63,6 +69,18 @@ enum ASHV4SemanticArtifactTestSupport {
             try .init(
                 role: .coreCertificate,
                 data: ASHCanonicalJSONV4.encode(certificate)
+            ),
+            try .init(
+                role: .measurementContract,
+                data: ASHCanonicalJSONV4.encode(measurement)
+            ),
+            try .init(
+                role: .branchAggregation,
+                data: ASHCanonicalJSONV4.encode(branchAggregation)
+            ),
+            try .init(
+                role: .operatorBank,
+                data: ASHCanonicalJSONV4.encode(operatorBank)
             ),
             try .init(
                 role: .metalCompilerContract,
@@ -231,8 +249,8 @@ enum ASHV4SemanticArtifactTestSupport {
         ASHExecutionRequestV4(
             executor: .metalFixedPoint,
             measurementContractID:
-                ASHRuntimeArtifactRoleV4.measurementContract.expectedSchemaID,
-            kernelContractID: "ash-p06-fixed-point-kernel-ir-v1",
+                ASHExecutionRequestV4.canonicalMeasurementContractID,
+            kernelContractID: ASHExecutionRequestV4.canonicalKernelContractID,
             directives: [
                 ASHTrackDirectiveV4(
                     trackID: "audio-en",

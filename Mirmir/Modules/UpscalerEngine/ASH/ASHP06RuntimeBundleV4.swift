@@ -33,6 +33,10 @@ enum ASHP06RuntimeBundleV4Error: Error, Equatable, Sendable {
     )
     case codewordTableMismatch
     case coreCertificateMismatch
+    case measurementContractMismatch
+    case branchAggregationMismatch
+    case operatorBankMismatch
+    case branchOperatorBindingMismatch
     case metalCompilerBindingMismatch
     case verifiedBindingInvalid
 }
@@ -126,6 +130,22 @@ struct ASHVerifiedRuntimeBundleV4: @unchecked Sendable {
     func artifactData(for role: ASHRuntimeArtifactRoleV4) -> Data {
         // Loader completeness makes this total.
         artifactsByRole[role]!
+    }
+
+    func measurementContract() throws -> ASHMeasurementContractV4 {
+        let artifact = try ASHCanonicalJSONV4.decode(
+            ASHP06MeasurementContractArtifactV4.self,
+            from: artifactData(for: .measurementContract)
+        )
+        return try artifact.validatedContract()
+    }
+
+    func branchProgram() throws -> ASHDepthFourBranchProgramV4 {
+        let artifact = try ASHCanonicalJSONV4.decode(
+            ASHP06BranchAggregationArtifactV4.self,
+            from: artifactData(for: .branchAggregation)
+        )
+        return try artifact.validatedProgram()
     }
 
     func verifyBinding() throws {
@@ -230,6 +250,144 @@ struct ASHP06CoreCertificateArtifactV4: Codable, Equatable, Sendable {
             codewordTablesSHA256: codewordTablesSHA256
         ) else {
             throw ASHP06RuntimeBundleV4Error.coreCertificateMismatch
+        }
+    }
+}
+
+struct ASHP06MeasurementContractArtifactV4: Codable, Equatable, Sendable {
+    let schemaID: String
+    let artifactRole: String
+    let contractID: String
+    let canonicalBinarySHA256: ASHSHA256V4
+    let canonicalBinaryHex: String
+
+    static func canonical() throws -> Self {
+        let bytes = try ASHMeasurementContractV4.canonicalP06
+            .serializedCanonical()
+        return Self(
+            schemaID: ASHRuntimeArtifactRoleV4.measurementContract
+                .expectedSchemaID,
+            artifactRole: ASHRuntimeArtifactRoleV4.measurementContract.rawValue,
+            contractID: ASHMeasurementContractV4.canonicalContractID,
+            canonicalBinarySHA256: ASHSHA256V4(rawData: bytes),
+            canonicalBinaryHex: ASHP06ArtifactHexV4.encode(bytes)
+        )
+    }
+
+    func validatedContract() throws -> ASHMeasurementContractV4 {
+        guard schemaID
+                == ASHRuntimeArtifactRoleV4.measurementContract.expectedSchemaID,
+              artifactRole
+                == ASHRuntimeArtifactRoleV4.measurementContract.rawValue,
+              contractID == ASHMeasurementContractV4.canonicalContractID,
+              let bytes = ASHP06ArtifactHexV4.decode(canonicalBinaryHex),
+              ASHSHA256V4(rawData: bytes) == canonicalBinarySHA256,
+              let contract = try? ASHMeasurementContractV4.decodeCanonical(
+                  from: bytes
+              ),
+              contract == .canonicalP06 else {
+            throw ASHP06RuntimeBundleV4Error.measurementContractMismatch
+        }
+        return contract
+    }
+
+    func validate() throws {
+        _ = try validatedContract()
+    }
+}
+
+struct ASHP06BranchAggregationArtifactV4: Codable, Equatable, Sendable {
+    let schemaID: String
+    let artifactRole: String
+    let programID: String
+    let operatorManifestID: String
+    let canonicalBinarySHA256: ASHSHA256V4
+    let canonicalBinaryHex: String
+
+    static func canonical() throws -> Self {
+        let program = try ASHDepthFourBranchCompilerV4.compileCanonical()
+        let bytes = try program.serializedCanonical()
+        return Self(
+            schemaID: ASHRuntimeArtifactRoleV4.branchAggregation
+                .expectedSchemaID,
+            artifactRole: ASHRuntimeArtifactRoleV4.branchAggregation.rawValue,
+            programID: program.programID,
+            operatorManifestID: program.operatorManifest.manifestID,
+            canonicalBinarySHA256: ASHSHA256V4(rawData: bytes),
+            canonicalBinaryHex: ASHP06ArtifactHexV4.encode(bytes)
+        )
+    }
+
+    func validatedProgram() throws -> ASHDepthFourBranchProgramV4 {
+        guard schemaID
+                == ASHRuntimeArtifactRoleV4.branchAggregation.expectedSchemaID,
+              artifactRole == ASHRuntimeArtifactRoleV4.branchAggregation.rawValue,
+              programID == ASHDepthFourBranchProgramV4.canonicalProgramID,
+              operatorManifestID
+                == ASHOperatorManifestV4.canonicalP06.manifestID,
+              let bytes = ASHP06ArtifactHexV4.decode(canonicalBinaryHex),
+              ASHSHA256V4(rawData: bytes) == canonicalBinarySHA256,
+              let program = try? ASHDepthFourBranchProgramV4.decodeCanonical(
+                  from: bytes
+              ) else {
+            throw ASHP06RuntimeBundleV4Error.branchAggregationMismatch
+        }
+        do {
+            try program.validateCanonical()
+        } catch {
+            throw ASHP06RuntimeBundleV4Error.branchAggregationMismatch
+        }
+        return program
+    }
+}
+
+struct ASHP06OperatorBankEntryArtifactV4: Codable, Equatable, Sendable {
+    let messageRawValue: UInt8
+    let coefficients: [Int16]
+}
+
+struct ASHP06OperatorBankArtifactV4: Codable, Equatable, Sendable {
+    let schemaID: String
+    let artifactRole: String
+    let manifestID: String
+    let basisIDs: [String]
+    let entries: [ASHP06OperatorBankEntryArtifactV4]
+    let branchProgramSHA256: ASHSHA256V4
+
+    static func canonical(
+        branchProgramSHA256: ASHSHA256V4
+    ) -> Self {
+        let manifest = ASHOperatorManifestV4.canonicalP06
+        return Self(
+            schemaID: ASHRuntimeArtifactRoleV4.operatorBank.expectedSchemaID,
+            artifactRole: ASHRuntimeArtifactRoleV4.operatorBank.rawValue,
+            manifestID: manifest.manifestID,
+            basisIDs: manifest.basisIDs,
+            entries: manifest.entries.map {
+                ASHP06OperatorBankEntryArtifactV4(
+                    messageRawValue: $0.messageRawValue,
+                    coefficients: $0.coefficients
+                )
+            },
+            branchProgramSHA256: branchProgramSHA256
+        )
+    }
+
+    func validate(
+        program: ASHDepthFourBranchProgramV4,
+        branchProgramSHA256: ASHSHA256V4
+    ) throws {
+        let canonical = Self.canonical(
+            branchProgramSHA256: branchProgramSHA256
+        )
+        guard self == canonical,
+              manifestID == program.operatorManifest.manifestID,
+              basisIDs == program.operatorManifest.basisIDs,
+              entries.map(\.messageRawValue)
+                == program.operatorManifest.entries.map(\.messageRawValue),
+              entries.map(\.coefficients)
+                == program.operatorManifest.entries.map(\.coefficients) else {
+            throw ASHP06RuntimeBundleV4Error.operatorBankMismatch
         }
     }
 }
@@ -456,11 +614,63 @@ enum ASHP06RuntimeBundleBuilderV4 {
         try certificate.validate(
             codewordTablesSHA256: ASHSHA256V4(rawData: codewordData)
         )
+        let measurement = try ASHCanonicalJSONV4.decode(
+            ASHP06MeasurementContractArtifactV4.self,
+            from: byRole[.measurementContract]!
+        )
+        try measurement.validate()
+        let branch = try ASHCanonicalJSONV4.decode(
+            ASHP06BranchAggregationArtifactV4.self,
+            from: byRole[.branchAggregation]!
+        )
+        let program = try branch.validatedProgram()
+        let operatorBank = try ASHCanonicalJSONV4.decode(
+            ASHP06OperatorBankArtifactV4.self,
+            from: byRole[.operatorBank]!
+        )
+        try operatorBank.validate(
+            program: program,
+            branchProgramSHA256: branch.canonicalBinarySHA256
+        )
         let metalContract = try ASHCanonicalJSONV4.decode(
             ASHP06MetalCompilerContractArtifactV4.self,
             from: byRole[.metalCompilerContract]!
         )
         try metalContract.validate(provenance: manifest.provenance)
+    }
+}
+
+private enum ASHP06ArtifactHexV4 {
+    static func encode(_ data: Data) -> String {
+        data.map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func decode(_ value: String) -> Data? {
+        let bytes = Array(value.utf8)
+        guard !bytes.isEmpty, bytes.count.isMultiple(of: 2) else {
+            return nil
+        }
+        var result = Data()
+        result.reserveCapacity(bytes.count / 2)
+        var index = 0
+        while index < bytes.count {
+            guard let high = nibble(bytes[index]),
+                  let low = nibble(bytes[index + 1]) else {
+                return nil
+            }
+            result.append((high << 4) | low)
+            index += 2
+        }
+        guard encode(result) == value else { return nil }
+        return result
+    }
+
+    private static func nibble(_ byte: UInt8) -> UInt8? {
+        switch byte {
+        case 0x30...0x39: byte - 0x30
+        case 0x61...0x66: byte - 0x61 + 10
+        default: nil
+        }
     }
 }
 
