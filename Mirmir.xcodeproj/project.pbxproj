@@ -168,6 +168,8 @@
 		B42000000000000000000062 /* WorkflowSecurityScopedBookmarkStoreV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41000000000000000000062 /* WorkflowSecurityScopedBookmarkStoreV4.swift */; };
 		B42000000000000000000063 /* WorkflowQueueDispatcherV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41000000000000000000063 /* WorkflowQueueDispatcherV4.swift */; };
 		B42000000000000000000064 /* WorkflowQueueDispatcherV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41000000000000000000064 /* WorkflowQueueDispatcherV4Tests.swift */; };
+		D42000000000000000000065 /* WorkflowApplicationQueueV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = D41000000000000000000065 /* WorkflowApplicationQueueV4.swift */; };
+		D42000000000000000000066 /* WorkflowApplicationCoordinatorV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = D41000000000000000000066 /* WorkflowApplicationCoordinatorV4.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -346,6 +348,8 @@
 		B41000000000000000000062 /* WorkflowSecurityScopedBookmarkStoreV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowSecurityScopedBookmarkStoreV4.swift; sourceTree = "<group>"; };
 		B41000000000000000000063 /* WorkflowQueueDispatcherV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowQueueDispatcherV4.swift; sourceTree = "<group>"; };
 		B41000000000000000000064 /* WorkflowQueueDispatcherV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowQueueDispatcherV4Tests.swift; sourceTree = "<group>"; };
+		D41000000000000000000065 /* WorkflowApplicationQueueV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowApplicationQueueV4.swift; sourceTree = "<group>"; };
+		D41000000000000000000066 /* WorkflowApplicationCoordinatorV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowApplicationCoordinatorV4.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -400,6 +404,7 @@
 				310000000000000000000051 /* MirmirUpscaleWorkspace.swift */,
 				31000000000000000000004F /* MirmirWorkspaceSupport.swift */,
 				310000000000000000000052 /* MirmirTheme.swift */,
+				D41000000000000000000066 /* WorkflowApplicationCoordinatorV4.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -470,6 +475,7 @@
 				B4100000000000000000004B /* WorkflowSegmentCheckpointStoreV4.swift */,
 				B41000000000000000000062 /* WorkflowSecurityScopedBookmarkStoreV4.swift */,
 				B41000000000000000000063 /* WorkflowQueueDispatcherV4.swift */,
+				D41000000000000000000065 /* WorkflowApplicationQueueV4.swift */,
 			);
 			path = Persistence;
 			sourceTree = "<group>";
@@ -872,6 +878,8 @@
 				B42000000000000000000061 /* DeterministicV4MediaProcessingSession.swift in Sources */,
 				B42000000000000000000062 /* WorkflowSecurityScopedBookmarkStoreV4.swift in Sources */,
 				B42000000000000000000063 /* WorkflowQueueDispatcherV4.swift in Sources */,
+				D42000000000000000000065 /* WorkflowApplicationQueueV4.swift in Sources */,
+				D42000000000000000000066 /* WorkflowApplicationCoordinatorV4.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
