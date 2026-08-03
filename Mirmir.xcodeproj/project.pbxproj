@@ -100,6 +100,13 @@
 		B4200000000000000000000B /* RationalPresentationGeometryV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4100000000000000000000B /* RationalPresentationGeometryV4Tests.swift */; };
 		B4200000000000000000000C /* AlphaProcessingV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4100000000000000000000C /* AlphaProcessingV4Tests.swift */; };
 		B4200000000000000000000D /* WorkflowReducerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4100000000000000000000D /* WorkflowReducerTests.swift */; };
+		B4200000000000000000000E /* SpatialScalePlanV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4100000000000000000000E /* SpatialScalePlanV4.swift */; };
+		B4200000000000000000000F /* FixedPointKernelV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4100000000000000000000F /* FixedPointKernelV4.swift */; };
+		B42000000000000000000010 /* FixedPointMetalExecutorV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41000000000000000000010 /* FixedPointMetalExecutorV4.swift */; };
+		B42000000000000000000011 /* FixedPointMetalKernelsV4.metal in Sources */ = {isa = PBXBuildFile; fileRef = B41000000000000000000011 /* FixedPointMetalKernelsV4.metal */; };
+		B42000000000000000000012 /* SpatialScalePlanV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41000000000000000000012 /* SpatialScalePlanV4Tests.swift */; };
+		B42000000000000000000013 /* FixedPointKernelV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41000000000000000000013 /* FixedPointKernelV4Tests.swift */; };
+		B42000000000000000000014 /* FixedPointMetalExecutorV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41000000000000000000014 /* FixedPointMetalExecutorV4Tests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -210,6 +217,13 @@
 		B4100000000000000000000B /* RationalPresentationGeometryV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RationalPresentationGeometryV4Tests.swift; sourceTree = "<group>"; };
 		B4100000000000000000000C /* AlphaProcessingV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlphaProcessingV4Tests.swift; sourceTree = "<group>"; };
 		B4100000000000000000000D /* WorkflowReducerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowReducerTests.swift; sourceTree = "<group>"; };
+		B4100000000000000000000E /* SpatialScalePlanV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialScalePlanV4.swift; sourceTree = "<group>"; };
+		B4100000000000000000000F /* FixedPointKernelV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixedPointKernelV4.swift; sourceTree = "<group>"; };
+		B41000000000000000000010 /* FixedPointMetalExecutorV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixedPointMetalExecutorV4.swift; sourceTree = "<group>"; };
+		B41000000000000000000011 /* FixedPointMetalKernelsV4.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = FixedPointMetalKernelsV4.metal; sourceTree = "<group>"; };
+		B41000000000000000000012 /* SpatialScalePlanV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpatialScalePlanV4Tests.swift; sourceTree = "<group>"; };
+		B41000000000000000000013 /* FixedPointKernelV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixedPointKernelV4Tests.swift; sourceTree = "<group>"; };
+		B41000000000000000000014 /* FixedPointMetalExecutorV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixedPointMetalExecutorV4Tests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -367,6 +381,10 @@
 				B41000000000000000000003 /* PixelLayoutV4.swift */,
 				B41000000000000000000004 /* RationalPresentationGeometryV4.swift */,
 				B41000000000000000000005 /* AlphaProcessingV4.swift */,
+				B4100000000000000000000E /* SpatialScalePlanV4.swift */,
+				B4100000000000000000000F /* FixedPointKernelV4.swift */,
+				B41000000000000000000010 /* FixedPointMetalExecutorV4.swift */,
+				B41000000000000000000011 /* FixedPointMetalKernelsV4.metal */,
 			);
 			name = "Engine v4";
 			path = ../Modules/UpscalerEngine;
@@ -447,6 +465,9 @@
 					B4100000000000000000000B /* RationalPresentationGeometryV4Tests.swift */,
 					B4100000000000000000000C /* AlphaProcessingV4Tests.swift */,
 					B4100000000000000000000D /* WorkflowReducerTests.swift */,
+					B41000000000000000000012 /* SpatialScalePlanV4Tests.swift */,
+					B41000000000000000000013 /* FixedPointKernelV4Tests.swift */,
+					B41000000000000000000014 /* FixedPointMetalExecutorV4Tests.swift */,
 					10000000000000000000000D /* Support */,
 				);
 				path = MirmirTests;
@@ -615,10 +636,14 @@
 				B42000000000000000000006 /* WorkflowEvent.swift in Sources */,
 				B42000000000000000000007 /* WorkflowJob.swift in Sources */,
 				B42000000000000000000008 /* WorkflowState.swift in Sources */,
+				B4200000000000000000000E /* SpatialScalePlanV4.swift in Sources */,
+				B4200000000000000000000F /* FixedPointKernelV4.swift in Sources */,
+				B42000000000000000000010 /* FixedPointMetalExecutorV4.swift in Sources */,
+				B42000000000000000000011 /* FixedPointMetalKernelsV4.metal in Sources */,
 				);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-			400000000000000000000004 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (32000000000000000000000E /* MirmirTests.swift in Sources */, 320000000000000000000014 /* VideoProbeTests.swift in Sources */, 320000000000000000000015 /* SecurityScopedAccessTests.swift in Sources */, 32000000000000000000001B /* BackendCatalogTests.swift in Sources */, 32000000000000000000001D /* VImageScalerTests.swift in Sources */, 32000000000000000000001E /* SyntheticNV12PixelBuffer.swift in Sources */, 320000000000000000000026 /* VideoProcessingSessionTests.swift in Sources */, 32000000000000000000003F /* DeterministicCPUBackendTests.swift in Sources */, 32000000000000000000004E /* DeterministicMetalBackendTests.swift in Sources */, B42000000000000000000009 /* ASHCoreV4Tests.swift in Sources */, B4200000000000000000000A /* PixelLayoutV4Tests.swift in Sources */, B4200000000000000000000B /* RationalPresentationGeometryV4Tests.swift in Sources */, B4200000000000000000000C /* AlphaProcessingV4Tests.swift in Sources */, B4200000000000000000000D /* WorkflowReducerTests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
+			400000000000000000000004 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (32000000000000000000000E /* MirmirTests.swift in Sources */, 320000000000000000000014 /* VideoProbeTests.swift in Sources */, 320000000000000000000015 /* SecurityScopedAccessTests.swift in Sources */, 32000000000000000000001B /* BackendCatalogTests.swift in Sources */, 32000000000000000000001D /* VImageScalerTests.swift in Sources */, 32000000000000000000001E /* SyntheticNV12PixelBuffer.swift in Sources */, 320000000000000000000026 /* VideoProcessingSessionTests.swift in Sources */, 32000000000000000000003F /* DeterministicCPUBackendTests.swift in Sources */, 32000000000000000000004E /* DeterministicMetalBackendTests.swift in Sources */, B42000000000000000000009 /* ASHCoreV4Tests.swift in Sources */, B4200000000000000000000A /* PixelLayoutV4Tests.swift in Sources */, B4200000000000000000000B /* RationalPresentationGeometryV4Tests.swift in Sources */, B4200000000000000000000C /* AlphaProcessingV4Tests.swift in Sources */, B4200000000000000000000D /* WorkflowReducerTests.swift in Sources */, B42000000000000000000012 /* SpatialScalePlanV4Tests.swift in Sources */, B42000000000000000000013 /* FixedPointKernelV4Tests.swift in Sources */, B42000000000000000000014 /* FixedPointMetalExecutorV4Tests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
