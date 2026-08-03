@@ -78,7 +78,20 @@ enum AVFoundationTrackMigrationExecutorV4Error: Error, Equatable, Sendable {
         trackID: MediaTrackStableIDV4,
         failure: AVFoundationTrackMigrationFailureV4
     )
+    case processedSampleCountMismatch(
+        MediaTrackStableIDV4,
+        expected: Int,
+        actual: Int
+    )
     case processedSampleChangedTiming(MediaTrackStableIDV4)
+    case processedSampleTimingContractViolation(
+        MediaTrackStableIDV4,
+        outputOrdinal: Int,
+        field: String
+    )
+    case processedSampleTimestampsNotStrictlyIncreasing(
+        MediaTrackStableIDV4
+    )
     case processedSampleIsNotVideo(MediaTrackStableIDV4)
     case appendFailed(
         trackID: MediaTrackStableIDV4,
@@ -128,29 +141,79 @@ struct AVFoundationVideoSampleV4: @unchecked Sendable {
     let sampleBuffer: CMSampleBuffer
 }
 
+/// Declares the only timing transformations a deterministic video hook may
+/// perform. The executor verifies the declaration against every emitted
+/// sample before appending it, so frame-rate changes cannot be smuggled in as
+/// an implementation detail of a processor closure.
+enum AVFoundationVideoOutputTimingContractV4: Equatable, Hashable, Sendable {
+    case preserveSourceSample
+    case uniformlySubdivideSourceInterval(
+        outputCount: Int,
+        invalidSourceDurationFallback: ExactRationalV4?
+    )
+
+    var outputCount: Int {
+        switch self {
+        case .preserveSourceSample:
+            1
+        case .uniformlySubdivideSourceInterval(let outputCount, _):
+            outputCount
+        }
+    }
+}
+
 struct AVFoundationVideoTrackProcessingHookV4: @unchecked Sendable {
     typealias Processor = @Sendable (
         AVFoundationVideoSampleV4
     ) async throws -> AVFoundationVideoSampleV4
+    typealias TemporalProcessor = @Sendable (
+        AVFoundationVideoSampleV4
+    ) async throws -> [AVFoundationVideoSampleV4]
+    typealias Finalizer = @Sendable () async throws -> Void
 
     let trackID: MediaTrackStableIDV4
     let readerOutputSettings: [String: Any]
     let writerOutputSettings: [String: Any]
     let declaredOutputFormats: [MediaTrackFormatDescriptorV4]
-    let process: Processor
+    let outputTimingContract: AVFoundationVideoOutputTimingContractV4
+    let processTemporal: TemporalProcessor
+    let finish: Finalizer
 
     init(
         trackID: MediaTrackStableIDV4,
         readerOutputSettings: [String: Any],
         writerOutputSettings: [String: Any],
         declaredOutputFormats: [MediaTrackFormatDescriptorV4],
-        process: @escaping Processor
+        process: @escaping Processor,
+        finish: @escaping Finalizer = {}
     ) {
         self.trackID = trackID
         self.readerOutputSettings = readerOutputSettings
         self.writerOutputSettings = writerOutputSettings
         self.declaredOutputFormats = declaredOutputFormats
-        self.process = process
+        self.outputTimingContract = .preserveSourceSample
+        self.processTemporal = { sample in
+            [try await process(sample)]
+        }
+        self.finish = finish
+    }
+
+    init(
+        trackID: MediaTrackStableIDV4,
+        readerOutputSettings: [String: Any],
+        writerOutputSettings: [String: Any],
+        declaredOutputFormats: [MediaTrackFormatDescriptorV4],
+        outputTimingContract: AVFoundationVideoOutputTimingContractV4,
+        processTemporal: @escaping TemporalProcessor,
+        finish: @escaping Finalizer = {}
+    ) {
+        self.trackID = trackID
+        self.readerOutputSettings = readerOutputSettings
+        self.writerOutputSettings = writerOutputSettings
+        self.declaredOutputFormats = declaredOutputFormats
+        self.outputTimingContract = outputTimingContract
+        self.processTemporal = processTemporal
+        self.finish = finish
     }
 }
 
@@ -421,6 +484,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         let hook: AVFoundationVideoTrackProcessingHookV4?
         var isFinished = false
         var sampleCount: Int64 = 0
+        var lastOutputPresentationTime: CMTime?
         var sampleStream = SampleStreamAccumulatorV4()
     }
 
@@ -598,6 +662,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                   let hook = hooks[id],
                   !hook.readerOutputSettings.isEmpty,
                   !hook.writerOutputSettings.isEmpty,
+                  hook.outputTimingContract.outputCount > 0,
                   hook.declaredOutputFormats == expected.formatDescriptors,
                   expected.formatDescriptors.count == 1 else {
                 throw AVFoundationTrackMigrationExecutorV4Error
@@ -984,6 +1049,20 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 }
                 guard let sourceSample = pipes[index].readerOutput
                     .copyNextSampleBuffer() else {
+                    if let hook = pipes[index].hook {
+                        do {
+                            try await hook.finish()
+                        } catch is CancellationError {
+                            throw CancellationError()
+                        } catch {
+                            throw AVFoundationTrackMigrationExecutorV4Error
+                                .processorFailed(
+                                    trackID: pipes[index].trackID,
+                                    failure: .init(error)
+                                )
+                        }
+                        try cancellation.check()
+                    }
                     pipes[index].writerInput.markAsFinished()
                     pipes[index].isFinished = true
                     finishedCount += 1
@@ -1001,14 +1080,14 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     continue
                 }
 
-                let outputSample: CMSampleBuffer
+                let outputSamples: [CMSampleBuffer]
                 if let hook = pipes[index].hook {
                     do {
-                        outputSample = try await hook.process(
+                        outputSamples = try await hook.processTemporal(
                             AVFoundationVideoSampleV4(
                                 sampleBuffer: sourceSample
                             )
-                        ).sampleBuffer
+                        ).map(\.sampleBuffer)
                     } catch is CancellationError {
                         throw CancellationError()
                     } catch {
@@ -1019,27 +1098,16 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                             )
                     }
                     try cancellation.check()
-                    guard sampleTimingEqual(sourceSample, outputSample) else {
-                        throw AVFoundationTrackMigrationExecutorV4Error
-                            .processedSampleChangedTiming(
-                                pipes[index].trackID
-                            )
-                    }
-                    if let format = CMSampleBufferGetFormatDescription(
-                        outputSample
-                    ), CMFormatDescriptionGetMediaType(format)
-                        != kCMMediaType_Video {
-                        throw AVFoundationTrackMigrationExecutorV4Error
-                            .processedSampleIsNotVideo(pipes[index].trackID)
-                    }
-                    try await waitUntilReady(
-                        pipes[index].writerInput,
-                        reader: reader,
-                        writer: writer,
-                        cancellation: cancellation
+                    try validateProcessedSamples(
+                        source: sourceSample,
+                        outputs: outputSamples,
+                        contract: hook.outputTimingContract,
+                        trackID: pipes[index].trackID,
+                        previousPresentationTime:
+                            pipes[index].lastOutputPresentationTime
                     )
                 } else {
-                    outputSample = sourceSample
+                    outputSamples = [sourceSample]
                     do {
                         try pipes[index].sampleStream.append(sourceSample)
                     } catch let error as SampleStreamAccumulatorV4.Error {
@@ -1047,28 +1115,38 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                             .sampleStreamUnrepresentable(
                                 trackID: pipes[index].trackID,
                                 status: error.status
-                            )
+                        )
                     }
                 }
-                guard pipes[index].writerInput.append(outputSample) else {
-                    throw AVFoundationTrackMigrationExecutorV4Error
-                        .appendFailed(
-                            trackID: pipes[index].trackID,
-                            failure: .init(writer.error)
-                        )
+                for outputSample in outputSamples {
+                    try await waitUntilReady(
+                        pipes[index].writerInput,
+                        reader: reader,
+                        writer: writer,
+                        cancellation: cancellation
+                    )
+                    guard pipes[index].writerInput.append(outputSample) else {
+                        throw AVFoundationTrackMigrationExecutorV4Error
+                            .appendFailed(
+                                trackID: pipes[index].trackID,
+                                failure: .init(writer.error)
+                            )
+                    }
+                    pipes[index].sampleCount += 1
+                    pipes[index].lastOutputPresentationTime
+                        = CMSampleBufferGetPresentationTimeStamp(outputSample)
+                    emit(
+                        .migrating,
+                        trackID: pipes[index].trackID,
+                        migratedSampleCount: pipes.reduce(0) {
+                            $0 + $1.sampleCount
+                        },
+                        finishedTrackCount: finishedCount,
+                        totalTrackCount: pipes.count,
+                        progress: progress
+                    )
+                    advanced = true
                 }
-                pipes[index].sampleCount += 1
-                advanced = true
-                emit(
-                    .migrating,
-                    trackID: pipes[index].trackID,
-                    migratedSampleCount: pipes.reduce(0) {
-                        $0 + $1.sampleCount
-                    },
-                    finishedTrackCount: finishedCount,
-                    totalTrackCount: pipes.count,
-                    progress: progress
-                )
             }
             if !advanced {
                 try await Task.sleep(for: .milliseconds(1))
@@ -1225,6 +1303,137 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             CMSampleBufferGetDuration(source),
             CMSampleBufferGetDuration(output)
         ) == 0
+    }
+
+    func validateProcessedSamples(
+        source: CMSampleBuffer,
+        outputs: [CMSampleBuffer],
+        contract: AVFoundationVideoOutputTimingContractV4,
+        trackID: MediaTrackStableIDV4,
+        previousPresentationTime: CMTime?
+    ) throws {
+        let expectedCount = contract.outputCount
+        guard outputs.count == expectedCount else {
+            throw AVFoundationTrackMigrationExecutorV4Error
+                .processedSampleCountMismatch(
+                    trackID,
+                    expected: expectedCount,
+                    actual: outputs.count
+                )
+        }
+        for output in outputs {
+            guard let format = CMSampleBufferGetFormatDescription(output),
+                  CMFormatDescriptionGetMediaType(format)
+                    == kCMMediaType_Video else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .processedSampleIsNotVideo(trackID)
+            }
+        }
+
+        switch contract {
+        case .preserveSourceSample:
+            guard let output = outputs.first,
+                  sampleTimingEqual(source, output) else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .processedSampleChangedTiming(trackID)
+            }
+        case .uniformlySubdivideSourceInterval(
+            let outputCount,
+            let invalidSourceDurationFallback
+        ):
+            let sourcePTS = CMSampleBufferGetPresentationTimeStamp(source)
+            let sourceDTS = CMSampleBufferGetDecodeTimeStamp(source)
+            let observedDuration = CMSampleBufferGetDuration(source)
+            let sourceDuration: CMTime
+            if observedDuration.isNumeric, observedDuration.value > 0 {
+                sourceDuration = observedDuration
+            } else if let fallback = invalidSourceDurationFallback,
+                      fallback.numerator > 0,
+                      fallback.denominator <= Int64(Int32.max) {
+                sourceDuration = CMTime(
+                    value: fallback.numerator,
+                    timescale: Int32(fallback.denominator)
+                )
+            } else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .processedSampleTimingContractViolation(
+                        trackID,
+                        outputOrdinal: 0,
+                        field: "source_interval"
+                    )
+            }
+            guard sourcePTS.isNumeric,
+                  outputCount <= Int(Int32.max) else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .processedSampleTimingContractViolation(
+                        trackID,
+                        outputOrdinal: 0,
+                        field: "source_interval"
+                    )
+            }
+            let subduration = CMTimeMultiplyByRatio(
+                sourceDuration,
+                multiplier: 1,
+                divisor: Int32(outputCount)
+            )
+            guard subduration.isNumeric, subduration.value > 0 else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .processedSampleTimingContractViolation(
+                        trackID,
+                        outputOrdinal: 0,
+                        field: "subduration"
+                    )
+            }
+            for (ordinal, output) in outputs.enumerated() {
+                let offset = CMTimeMultiply(
+                    subduration,
+                    multiplier: Int32(ordinal)
+                )
+                let expectedPTS = CMTimeAdd(sourcePTS, offset)
+                let outputPTS = CMSampleBufferGetPresentationTimeStamp(output)
+                let outputDTS = CMSampleBufferGetDecodeTimeStamp(output)
+                let outputDuration = CMSampleBufferGetDuration(output)
+                let expectedDTS = sourceDTS.isNumeric
+                    ? CMTimeAdd(sourceDTS, offset)
+                    : sourceDTS
+                guard CMTimeCompare(outputPTS, expectedPTS) == 0 else {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .processedSampleTimingContractViolation(
+                            trackID,
+                            outputOrdinal: ordinal,
+                            field: "presentation_time"
+                        )
+                }
+                guard CMTimeCompare(outputDTS, expectedDTS) == 0 else {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .processedSampleTimingContractViolation(
+                            trackID,
+                            outputOrdinal: ordinal,
+                            field: "decode_time"
+                        )
+                }
+                guard CMTimeCompare(outputDuration, subduration) == 0 else {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .processedSampleTimingContractViolation(
+                            trackID,
+                            outputOrdinal: ordinal,
+                            field: "duration"
+                        )
+                }
+            }
+        }
+
+        var prior = previousPresentationTime
+        for output in outputs {
+            let presentation = CMSampleBufferGetPresentationTimeStamp(output)
+            guard presentation.isNumeric,
+                  prior.map({ CMTimeCompare(presentation, $0) > 0 })
+                    ?? true else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .processedSampleTimestampsNotStrictlyIncreasing(trackID)
+            }
+            prior = presentation
+        }
     }
 
     func finishWriting(_ box: AssetWriterBoxV4) async {

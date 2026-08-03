@@ -426,6 +426,194 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
+    func testTemporalHookUniformlySubdividesEverySourceIntervalAndPreservesAllTracks()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("temporal-source.mov")
+        let calibrationURL = directory.url("temporal-calibration.mov")
+        let destinationURL = directory.url("temporal-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: false
+        )
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL)
+        )
+        let video = try XCTUnwrap(source.tracks.first {
+            $0.kind == .video
+        })
+        try await TrackMigrationFixtureFactoryV4.makeReencodedVideo(
+            source: sourceURL,
+            at: calibrationURL
+        )
+        let calibration = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: calibrationURL)
+        )
+        let targetFormats = try XCTUnwrap(calibration.tracks.first)
+            .formatDescriptors
+        let plan = try processingPlan(
+            source: source,
+            video: video,
+            targetFormats: targetFormats
+        )
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+        let hook = try temporalProcessingHook(
+            for: video,
+            declaredOutputFormats: targetFormats,
+            outputCount: 2
+        ) { sample in
+            let sourceBuffer = sample.sampleBuffer
+            let observedDuration = CMSampleBufferGetDuration(sourceBuffer)
+            let duration = observedDuration.isNumeric
+                && observedDuration.value > 0
+                ? observedDuration
+                : CMTime(value: 1, timescale: 30)
+            let sourcePTS = CMSampleBufferGetPresentationTimeStamp(sourceBuffer)
+            let sourceDTS = CMSampleBufferGetDecodeTimeStamp(sourceBuffer)
+            let subduration = CMTimeMultiplyByRatio(
+                duration,
+                multiplier: 1,
+                divisor: 2
+            )
+            return try (0..<2).map { ordinal in
+                let offset = CMTimeMultiply(
+                    subduration,
+                    multiplier: Int32(ordinal)
+                )
+                var timing = CMSampleTimingInfo(
+                    duration: subduration,
+                    presentationTimeStamp: CMTimeAdd(sourcePTS, offset),
+                    decodeTimeStamp: sourceDTS.isNumeric
+                        ? CMTimeAdd(sourceDTS, offset)
+                        : sourceDTS
+                )
+                var copy: CMSampleBuffer?
+                let status = CMSampleBufferCreateCopyWithNewTiming(
+                    allocator: kCFAllocatorDefault,
+                    sampleBuffer: sourceBuffer,
+                    sampleTimingEntryCount: 1,
+                    sampleTimingArray: &timing,
+                    sampleBufferOut: &copy
+                )
+                guard status == noErr, let copy else {
+                    throw TrackMigrationFixtureErrorV4.coreMedia(status)
+                }
+                return AVFoundationVideoSampleV4(sampleBuffer: copy)
+            }
+        }
+
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(
+            .init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint,
+                videoProcessingHooks: [hook]
+            )
+        )
+
+        XCTAssertTrue(result.verificationReport.isConformant)
+        XCTAssertEqual(result.trackResults.count, source.tracks.count)
+        XCTAssertEqual(
+            result.trackResults.first {
+                $0.trackID == video.identity.stableID
+            }?.migratedSampleCount,
+            16
+        )
+        XCTAssertTrue(result.trackResults.filter {
+            $0.action == .passThrough
+        }.allSatisfy {
+            $0.sourceSampleStreamSHA256 == $0.outputSampleStreamSHA256
+        })
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+    func testPreparedTemporalBackendAdapterOwnsBuffersTimingAndFinalization()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("prepared-source.mov")
+        let calibrationURL = directory.url("prepared-calibration.mov")
+        let destinationURL = directory.url("prepared-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: false
+        )
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL)
+        )
+        let video = try XCTUnwrap(source.tracks.first {
+            $0.kind == .video
+        })
+        try await TrackMigrationFixtureFactoryV4.makeReencodedVideo(
+            source: sourceURL,
+            at: calibrationURL
+        )
+        let calibration = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: calibrationURL)
+        )
+        let targetFormats = try XCTUnwrap(calibration.tracks.first)
+            .formatDescriptors
+        let plan = try processingPlan(
+            source: source,
+            video: video,
+            targetFormats: targetFormats
+        )
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+        let settings = try processingHook(
+            for: video,
+            declaredOutputFormats: targetFormats
+        ) { $0 }.writerOutputSettings
+        let backend = TrackMigrationDoubleRateCopyBackendV4(
+            width: TrackMigrationFixtureFactoryV4.width,
+            height: TrackMigrationFixtureFactoryV4.height
+        )
+        let hook = try PreparedFrameUpscalerTrackHookV4.make(
+            trackID: video.identity.stableID,
+            preparedBackend: backend,
+            writerOutputSettings: settings,
+            declaredOutputFormats: targetFormats,
+            nominalSourceFrameDuration: ExactRationalV4(1, 30)
+        )
+
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(
+            .init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint,
+                videoProcessingHooks: [hook]
+            )
+        )
+
+        XCTAssertTrue(result.verificationReport.isConformant)
+        XCTAssertEqual(
+            result.trackResults.first {
+                $0.trackID == video.identity.stableID
+            }?.migratedSampleCount,
+            16
+        )
+        let processedInputCount = await backend.processedInputCount()
+        let wasFinished = await backend.wasFinished()
+        XCTAssertEqual(processedInputCount, 8)
+        XCTAssertTrue(wasFinished)
+        XCTAssertTrue(result.trackResults.filter {
+            $0.action == .passThrough
+        }.allSatisfy {
+            $0.sourceSampleStreamSHA256 == $0.outputSampleStreamSHA256
+        })
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
     func testNontrivialEditFailsBeforeDestinationCreation() async throws {
         let directory = try TrackMigrationFixtureDirectoryV4()
         defer { directory.remove() }
@@ -568,6 +756,43 @@ private extension AVFoundationTrackMigrationExecutorV4Tests {
         )
     }
 
+    func temporalProcessingHook(
+        for video: MediaTrackNodeV4,
+        declaredOutputFormats: [MediaTrackFormatDescriptorV4]? = nil,
+        outputCount: Int,
+        process: @escaping AVFoundationVideoTrackProcessingHookV4
+            .TemporalProcessor
+    ) throws -> AVFoundationVideoTrackProcessingHookV4 {
+        guard video.formatDescriptors.count == 1 else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Expected one video format description."
+            )
+        }
+        return AVFoundationVideoTrackProcessingHookV4(
+            trackID: video.identity.stableID,
+            readerOutputSettings: [
+                kCVPixelBufferPixelFormatTypeKey as String:
+                    Int(kCVPixelFormatType_32BGRA)
+            ],
+            writerOutputSettings: [
+                AVVideoCodecKey: AVVideoCodecType.h264,
+                AVVideoWidthKey: TrackMigrationFixtureFactoryV4.width,
+                AVVideoHeightKey: TrackMigrationFixtureFactoryV4.height,
+                AVVideoCompressionPropertiesKey: [
+                    AVVideoExpectedSourceFrameRateKey: 30,
+                    AVVideoMaxKeyFrameIntervalKey: 8
+                ]
+            ],
+            declaredOutputFormats: declaredOutputFormats
+                ?? video.formatDescriptors,
+            outputTimingContract: .uniformlySubdivideSourceInterval(
+                outputCount: outputCount,
+                invalidSourceDurationFallback: try ExactRationalV4(1, 30)
+            ),
+            processTemporal: process
+        )
+    }
+
     func graphWithEmptyEdit(
         _ source: MediaTrackGraphV4
     ) throws -> MediaTrackGraphV4 {
@@ -689,6 +914,120 @@ private enum TrackMigrationFixtureErrorV4: Error {
     case invalidFixture(String)
     case writer(String)
     case coreMedia(OSStatus)
+}
+
+private actor TrackMigrationDoubleRateCopyBackendV4:
+    PreparedTemporalFrameUpscaler {
+    nonisolated let sourcePixelBufferAttributes: PixelBufferAttributes
+    nonisolated let destinationPixelBufferAttributes: PixelBufferAttributes
+    nonisolated let actualBackendID = UpscaleBackendID.mirmirDeterministicCPU
+    nonisolated let maximumOutputFramesPerInput = 2
+
+    private let width: Int
+    private let height: Int
+    private var processedCount = 0
+    private var finished = false
+
+    init(width: Int, height: Int) {
+        self.width = width
+        self.height = height
+        let attributes = PixelBufferAttributes([
+            kCVPixelBufferPixelFormatTypeKey as String:
+                Int(kCVPixelFormatType_32BGRA),
+            kCVPixelBufferWidthKey as String: width,
+            kCVPixelBufferHeightKey as String: height,
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:]
+        ])
+        sourcePixelBufferAttributes = attributes
+        destinationPixelBufferAttributes = attributes
+    }
+
+    func process(
+        source: FramePixelBuffer,
+        destination: FramePixelBuffer,
+        timing: FrameTiming
+    ) async throws {
+        try copy(source.value, to: destination.value)
+    }
+
+    func processTemporal(
+        source: FramePixelBuffer,
+        destinations: [FramePixelBuffer],
+        timing: FrameTiming
+    ) async throws -> [TemporalOutputFrame] {
+        guard destinations.count >= 2 else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "The temporal adapter did not allocate two destinations."
+            )
+        }
+        try copy(source.value, to: destinations[0].value)
+        try copy(source.value, to: destinations[1].value)
+        let halfDuration = CMTimeMultiplyByRatio(
+            timing.duration,
+            multiplier: 1,
+            divisor: 2
+        )
+        processedCount += 1
+        return [
+            TemporalOutputFrame(
+                pixelBuffer: destinations[0],
+                presentationTime: timing.presentationTime
+            ),
+            TemporalOutputFrame(
+                pixelBuffer: destinations[1],
+                presentationTime: CMTimeAdd(
+                    timing.presentationTime,
+                    halfDuration
+                )
+            )
+        ]
+    }
+
+    func finish() async throws {
+        finished = true
+    }
+
+    func processedInputCount() -> Int { processedCount }
+    func wasFinished() -> Bool { finished }
+
+    private func copy(_ source: CVPixelBuffer, to destination: CVPixelBuffer)
+        throws {
+        guard CVPixelBufferGetPixelFormatType(source)
+                == kCVPixelFormatType_32BGRA,
+              CVPixelBufferGetPixelFormatType(destination)
+                == kCVPixelFormatType_32BGRA,
+              CVPixelBufferGetWidth(source) == width,
+              CVPixelBufferGetHeight(source) == height,
+              CVPixelBufferGetWidth(destination) == width,
+              CVPixelBufferGetHeight(destination) == height else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Unexpected copy-buffer geometry."
+            )
+        }
+        CVPixelBufferLockBaseAddress(source, .readOnly)
+        CVPixelBufferLockBaseAddress(destination, [])
+        defer {
+            CVPixelBufferUnlockBaseAddress(destination, [])
+            CVPixelBufferUnlockBaseAddress(source, .readOnly)
+        }
+        guard let sourceBase = CVPixelBufferGetBaseAddress(source),
+              let destinationBase = CVPixelBufferGetBaseAddress(destination)
+        else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Copy buffer has no base address."
+            )
+        }
+        let sourceStride = CVPixelBufferGetBytesPerRow(source)
+        let destinationStride = CVPixelBufferGetBytesPerRow(destination)
+        for row in 0..<height {
+            memcpy(
+                destinationBase.advanced(by: row * destinationStride),
+                sourceBase.advanced(by: row * sourceStride),
+                width * 4
+            )
+        }
+        CVBufferPropagateAttachments(source, destination)
+    }
 }
 
 private enum TrackMigrationFixtureFactoryV4 {
