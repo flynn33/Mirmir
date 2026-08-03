@@ -74,6 +74,33 @@ class SupportMatrixCaptureTests(unittest.TestCase):
         with self.assertRaisesRegex(support.SupportCaptureError, "every unexpected skip"):
             support.validate_contract(invalid)
 
+    def test_code_signature_summary_requires_team_architecture_and_runtime(self) -> None:
+        detail = "\n".join(
+            (
+                "Identifier=com.mirmir.app",
+                "Format=app bundle with Mach-O thin (x86_64)",
+                "CodeDirectory v=20500 flags=0x10000(runtime)",
+                "Authority=Apple Development: Release Operator (TEAM)",
+                "Authority=Apple Root CA",
+                "TeamIdentifier=9AQ2C2838M",
+            )
+        )
+        observed = support.code_signature_summary(
+            detail,
+            expected_identifier="com.mirmir.app",
+            expected_team="9AQ2C2838M",
+            expected_architecture="x86_64",
+        )
+        self.assertTrue(observed["hardenedRuntime"])
+        self.assertEqual(observed["executionArchitecture"], "x86_64")
+        with self.assertRaisesRegex(support.SupportCaptureError, "team differs"):
+            support.code_signature_summary(
+                detail,
+                expected_identifier="com.mirmir.app",
+                expected_team="OTHERTEAM0",
+                expected_architecture="x86_64",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

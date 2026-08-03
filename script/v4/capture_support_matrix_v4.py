@@ -93,6 +93,45 @@ def summary_counts(summary: Mapping[str, Any]) -> tuple[int, int, int, str]:
     return integer("passedTests"), integer("failedTests"), integer("skippedTests"), result
 
 
+def code_signature_summary(
+    detail: str,
+    *,
+    expected_identifier: str,
+    expected_team: str,
+    expected_architecture: str,
+) -> dict[str, Any]:
+    fields: dict[str, list[str]] = {}
+    for line in detail.splitlines():
+        key, separator, value = line.partition("=")
+        if separator and key and value:
+            fields.setdefault(key, []).append(value)
+    identifier = fields.get("Identifier", [])
+    format_value = fields.get("Format", [])
+    team = fields.get("TeamIdentifier", [])
+    code_directory = [
+        line for line in detail.splitlines() if line.startswith("CodeDirectory ")
+    ]
+    authorities = fields.get("Authority", [])
+    if identifier != [expected_identifier]:
+        raise SupportCaptureError("support test code-signing identifier differs")
+    if team != [expected_team]:
+        raise SupportCaptureError("support test code-signing team differs")
+    if len(format_value) != 1 or f"({expected_architecture})" not in format_value[0]:
+        raise SupportCaptureError("support test code-signing architecture differs")
+    if len(code_directory) != 1 or "flags=0x10000(runtime)" not in code_directory[0]:
+        raise SupportCaptureError("support test build lacks hardened runtime")
+    if not authorities or not authorities[0].startswith("Apple Development:"):
+        raise SupportCaptureError("support test build lacks Apple Development signing")
+    return {
+        "identifier": identifier[0],
+        "format": format_value[0],
+        "teamIdentifier": team[0],
+        "leafAuthority": authorities[0],
+        "hardenedRuntime": True,
+        "executionArchitecture": expected_architecture,
+    }
+
+
 def environment_documents(machine_class: str, architecture: str) -> tuple[dict[str, Any], dict[str, Any]]:
     def output(command: list[str]) -> str:
         return run(command, cwd=Path.cwd()).stdout.strip()
@@ -264,6 +303,53 @@ def capture_row(
     process = run(command, cwd=worktree, transcript=transcript, require_success=False)
     if not result_bundle.is_dir():
         raise SupportCaptureError(f"{machine_class} did not produce an xcresult bundle")
+    product = derived_data / "Build" / "Products" / "Release" / "Mirmir.app"
+    test_bundle = product / "Contents" / "PlugIns" / "MirmirTests.xctest"
+    if not product.is_dir() or not test_bundle.is_dir():
+        raise SupportCaptureError(f"{machine_class} test products are missing")
+    signature_verification = row_root / "codesign-verification.log"
+    run(
+        ["codesign", "--verify", "--deep", "--strict", "--verbose=4", str(product)],
+        cwd=worktree,
+        transcript=signature_verification,
+    )
+    app_signature_path = row_root / "app-signature.txt"
+    app_signature = run(
+        ["codesign", "--display", "--verbose=4", str(product)],
+        cwd=worktree,
+        transcript=app_signature_path,
+    ).stdout
+    test_signature_path = row_root / "test-signature.txt"
+    test_signature = run(
+        ["codesign", "--display", "--verbose=4", str(test_bundle)],
+        cwd=worktree,
+        transcript=test_signature_path,
+    ).stdout
+    app_identity = code_signature_summary(
+        app_signature,
+        expected_identifier="com.mirmir.app",
+        expected_team=str(contract["developmentTeam"]),
+        expected_architecture=str(architecture),
+    )
+    test_identity = code_signature_summary(
+        test_signature,
+        expected_identifier="com.mirmir.app.tests",
+        expected_team=str(contract["developmentTeam"]),
+        expected_architecture=str(architecture),
+    )
+    signing_summary_path = row_root / "signing-summary.json"
+    p06.write_json(
+        signing_summary_path,
+        {
+            "schemaVersion": "mirmir-ash-v4-support-test-signing-v1",
+            "developmentTeam": contract["developmentTeam"],
+            "app": app_identity,
+            "testBundle": test_identity,
+            "sameTeamIdentity": app_identity["teamIdentifier"]
+                == test_identity["teamIdentifier"],
+            "codeSignatureVerificationPass": True,
+        },
+    )
     summary_process = run(
         [
             "xcrun",
@@ -363,6 +449,12 @@ def capture_row(
             "summaryArtifact": descriptor(summary_path, staging),
             "testTreeArtifact": descriptor(tests_path, staging),
             "transcriptArtifact": descriptor(transcript, staging),
+            "codeSignatureVerificationArtifact": descriptor(
+                signature_verification, staging
+            ),
+            "appSignatureArtifact": descriptor(app_signature_path, staging),
+            "testSignatureArtifact": descriptor(test_signature_path, staging),
+            "signingSummaryArtifact": descriptor(signing_summary_path, staging),
             "fullQualificationMatrixPass": True,
         },
     )
