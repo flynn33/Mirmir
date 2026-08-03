@@ -5,6 +5,93 @@ import XCTest
 @testable import Mirmir
 
 final class AVCanonicalMediaStateAdapterV4Tests: XCTestCase {
+    func testCanonicalScanDescriptionAdmitsDeclaredInterlacedCadence() throws {
+        let topFirst: NSDictionary = [
+            kCMFormatDescriptionExtension_FieldCount as String: 2,
+            kCMFormatDescriptionExtension_FieldDetail as String:
+                kCMFormatDescriptionFieldDetail_TemporalTopFirst
+        ]
+        let bottomFirst: NSDictionary = [
+            kCMFormatDescriptionExtension_FieldCount as String: 2,
+            kCMFormatDescriptionExtension_FieldDetail as String:
+                kCMFormatDescriptionFieldDetail_TemporalBottomFirst
+        ]
+
+        XCTAssertEqual(
+            try AVCanonicalScanDescriptionV4(
+                extensions: topFirst
+            ).state,
+            CanonicalScanStateV4(
+                fieldCount: 2,
+                dominance: .topFieldFirst,
+                cadence: .interlaced
+            )
+        )
+        XCTAssertEqual(
+            try AVCanonicalScanDescriptionV4(
+                extensions: bottomFirst
+            ).state,
+            CanonicalScanStateV4(
+                fieldCount: 2,
+                dominance: .bottomFieldFirst,
+                cadence: .interlaced
+            )
+        )
+    }
+
+    func testCanonicalScanDescriptionMapsSpatialFieldDetailsDeterministically()
+        throws {
+        let early: NSDictionary = [
+            kCMFormatDescriptionExtension_FieldCount as String: 2,
+            kCMFormatDescriptionExtension_FieldDetail as String:
+                kCMFormatDescriptionFieldDetail_SpatialFirstLineEarly
+        ]
+        let late: NSDictionary = [
+            kCMFormatDescriptionExtension_FieldCount as String: 2,
+            kCMFormatDescriptionExtension_FieldDetail as String:
+                kCMFormatDescriptionFieldDetail_SpatialFirstLineLate
+        ]
+
+        XCTAssertEqual(
+            try AVCanonicalScanDescriptionV4(extensions: early)
+                .state.dominance,
+            .topFieldFirst
+        )
+        XCTAssertEqual(
+            try AVCanonicalScanDescriptionV4(extensions: late)
+                .state.dominance,
+            .bottomFieldFirst
+        )
+    }
+
+    func testCanonicalScanDescriptionFailsClosedOnIncompleteDeclarations() {
+        XCTAssertThrowsError(
+            try AVCanonicalScanDescriptionV4(extensions: [:])
+        ) { error in
+            XCTAssertEqual(
+                error as? AVCanonicalScanDescriptionV4Error,
+                .invalidFieldCount(nil)
+            )
+        }
+        XCTAssertThrowsError(
+            try AVCanonicalScanDescriptionV4(extensions: [
+                kCMFormatDescriptionExtension_FieldCount as String: 2
+            ])
+        ) { error in
+            XCTAssertEqual(
+                error as? AVCanonicalScanDescriptionV4Error,
+                .unsupportedFieldDetail(nil)
+            )
+        }
+        XCTAssertThrowsError(
+            try AVCanonicalScanDescriptionV4(extensions: [
+                kCMFormatDescriptionExtension_FieldCount as String: 1,
+                kCMFormatDescriptionExtension_FieldDetail as String:
+                    kCMFormatDescriptionFieldDetail_TemporalTopFirst
+            ])
+        )
+    }
+
     func testExactBinaryRationalDoesNotRoundGeometry() throws {
         XCTAssertEqual(
             try ASHExactBinaryRationalV4.convert(0.5, path: "half"),

@@ -46,6 +46,66 @@ struct AVCanonicalMediaStateProbeRequestV4: Sendable {
     }
 }
 
+enum AVCanonicalScanDescriptionV4Error: Error, Equatable, Sendable {
+    case invalidFieldCount(Int?)
+    case contradictoryProgressiveFieldDetail(String)
+    case unsupportedFieldDetail(String?)
+}
+
+/// Canonical interpretation of the Core Media field-description contract.
+/// A declared two-field format is a complete interlaced cadence declaration;
+/// it does not require guessing cadence from decoded image content. Per-frame
+/// discontinuities remain a temporal reset concern for the prepared backend.
+struct AVCanonicalScanDescriptionV4: Equatable, Sendable {
+    let state: CanonicalScanStateV4
+
+    init(extensions: NSDictionary) throws {
+        let declaredCount = (extensions[
+            kCMFormatDescriptionExtension_FieldCount as String
+        ] as? NSNumber)?.intValue
+        let detail = extensions[
+            kCMFormatDescriptionExtension_FieldDetail as String
+        ] as? String
+
+        switch declaredCount {
+        case 1:
+            if let detail {
+                throw AVCanonicalScanDescriptionV4Error
+                    .contradictoryProgressiveFieldDetail(detail)
+            }
+            state = CanonicalScanStateV4(
+                fieldCount: 1,
+                dominance: .none,
+                cadence: .progressive
+            )
+        case 2:
+            let dominance: CanonicalFieldDominanceV4
+            if detail
+                == kCMFormatDescriptionFieldDetail_TemporalTopFirst as String
+                || detail
+                == kCMFormatDescriptionFieldDetail_SpatialFirstLineEarly as String {
+                dominance = .topFieldFirst
+            } else if detail
+                == kCMFormatDescriptionFieldDetail_TemporalBottomFirst as String
+                || detail
+                == kCMFormatDescriptionFieldDetail_SpatialFirstLineLate as String {
+                dominance = .bottomFieldFirst
+            } else {
+                throw AVCanonicalScanDescriptionV4Error
+                    .unsupportedFieldDetail(detail)
+            }
+            state = CanonicalScanStateV4(
+                fieldCount: 2,
+                dominance: dominance,
+                cadence: .interlaced
+            )
+        default:
+            throw AVCanonicalScanDescriptionV4Error
+                .invalidFieldCount(declaredCount)
+        }
+    }
+}
+
 /// AVFoundation observation boundary for deterministic engine v4. Every value
 /// crossing this boundary is copied into an immutable Foundation-only record.
 /// The track array is never filtered or re-sorted: ordinals are the exact
@@ -574,7 +634,6 @@ private extension AVCanonicalMediaStateAdapterV4 {
         )
         let scan = scanState(
             extensions,
-            characteristics: characteristics,
             root: root,
             observations: &observations
         )
@@ -1116,17 +1175,16 @@ private extension AVCanonicalMediaStateAdapterV4 {
 
     func scanState(
         _ extensions: NSDictionary,
-        characteristics: [AVMediaCharacteristic],
         root: String,
         observations: inout [CanonicalMediaObservationV4]
     ) -> CanonicalScanStateV4 {
-        let declaredCount = (extensions[
-            kCMFormatDescriptionExtension_FieldCount as String
-        ] as? NSNumber)?.intValue
-        let fieldCount: UInt8
-        if let declaredCount, declaredCount == 1 || declaredCount == 2 {
-            fieldCount = UInt8(declaredCount)
-        } else {
+        do {
+            return try AVCanonicalScanDescriptionV4(
+                extensions: extensions
+            ).state
+        } catch AVCanonicalScanDescriptionV4Error.invalidFieldCount(
+            let declaredCount
+        ) {
             observations.append(
                 observation(
                     severity: .error,
@@ -1135,26 +1193,29 @@ private extension AVCanonicalMediaStateAdapterV4 {
                     value: declaredCount.map(String.init) ?? "absent"
                 )
             )
-            fieldCount = 1
-        }
-        guard fieldCount == 2 else {
             return CanonicalScanStateV4(
                 fieldCount: 1,
                 dominance: .none,
-                cadence: .progressive
+                cadence: .unknown
             )
-        }
-        let detail = extensions[
-            kCMFormatDescriptionExtension_FieldDetail as String
-        ] as? String
-        let dominance: CanonicalFieldDominanceV4
-        if detail == kCMFormatDescriptionFieldDetail_TemporalTopFirst as String {
-            dominance = .topFieldFirst
-        } else if detail
-            == kCMFormatDescriptionFieldDetail_TemporalBottomFirst as String {
-            dominance = .bottomFieldFirst
-        } else {
-            dominance = .unknown
+        } catch AVCanonicalScanDescriptionV4Error
+            .contradictoryProgressiveFieldDetail(let detail) {
+            observations.append(
+                observation(
+                    severity: .error,
+                    code: .contradictory,
+                    path: "\(root).field_dominance",
+                    value: detail
+                )
+            )
+            return CanonicalScanStateV4(
+                fieldCount: 1,
+                dominance: .unknown,
+                cadence: .unknown
+            )
+        } catch AVCanonicalScanDescriptionV4Error.unsupportedFieldDetail(
+            let detail
+        ) {
             observations.append(
                 observation(
                     severity: .unsupported,
@@ -1163,20 +1224,26 @@ private extension AVCanonicalMediaStateAdapterV4 {
                     value: detail ?? "absent"
                 )
             )
-        }
-        observations.append(
-            observation(
-                severity: .unsupported,
-                code: .unknownValue,
-                path: "\(root).cadence",
-                value: "interlaced cadence requires temporal sample analysis"
+            return CanonicalScanStateV4(
+                fieldCount: 2,
+                dominance: .unknown,
+                cadence: .unknown
             )
-        )
-        return CanonicalScanStateV4(
-            fieldCount: 2,
-            dominance: dominance,
-            cadence: .unknown
-        )
+        } catch {
+            observations.append(
+                observation(
+                    severity: .error,
+                    code: .malformed,
+                    path: "\(root).scan",
+                    value: String(describing: error)
+                )
+            )
+            return CanonicalScanStateV4(
+                fieldCount: 1,
+                dominance: .unknown,
+                cadence: .unknown
+            )
+        }
     }
 
     func canonicalEdits(
