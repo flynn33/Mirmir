@@ -240,6 +240,204 @@ final class VideoWriterFormatContractV4Tests: XCTestCase {
         }
     }
 
+    func testProRes422ContractUsesAPCNWithoutInterframeProfileSettings()
+        async throws {
+        let contract = try VideoWriterFormatContractV4(
+            codec: .proRes422,
+            storage: .nv12VideoRange8Bit,
+            color: .sdrBT709,
+            sourceGeometry: try sourceGeometry(width: 64, height: 48),
+            outputWidth: 128,
+            outputHeight: 96,
+            frameOperation: .spatialResampling
+        )
+
+        XCTAssertEqual(contract.codec.avVideoCodecType, .proRes422)
+        XCTAssertEqual(
+            contract.codec.encodedMediaSubtype,
+            kCMVideoCodecType_AppleProRes422
+        )
+        let settings = try contract.outputSettings
+        XCTAssertEqual(
+            settings[AVVideoCodecKey] as? AVVideoCodecType,
+            .proRes422
+        )
+        let compression = try XCTUnwrap(
+            settings[AVVideoCompressionPropertiesKey] as? [String: Any]
+        )
+        XCTAssertNil(compression[AVVideoProfileLevelKey])
+        XCTAssertEqual(
+            (compression[
+                kVTCompressionPropertyKey_FieldCount as String
+            ] as? NSNumber)?.intValue,
+            1
+        )
+        let expectedExtensions = try contract
+            .expectedFormatDescriptionExtensions
+        XCTAssertEqual(
+            (expectedExtensions[
+                kCMFormatDescriptionExtension_BitsPerComponent
+            ] as? NSNumber)?.intValue,
+            12
+        )
+
+        let descriptor = try await AVFoundationVideoFormatCalibratorV4()
+            .formatDescriptor(for: contract)
+        XCTAssertEqual(descriptor.mediaTypeID, "fourcc_76696465")
+        XCTAssertEqual(descriptor.mediaSubtypeID, "fourcc_6170636e")
+        XCTAssertEqual(
+            descriptor.videoRaster,
+            CanonicalRasterV4(width: 128, height: 96)
+        )
+
+        let p010Contract = try VideoWriterFormatContractV4(
+            codec: .proRes422,
+            storage: .p010VideoRange10Bit,
+            color: .sdrBT709,
+            sourceGeometry: try sourceGeometry(width: 64, height: 48),
+            outputWidth: 128,
+            outputHeight: 96,
+            frameOperation: .spatialResampling
+        )
+        let p010Descriptor = try await AVFoundationVideoFormatCalibratorV4()
+            .formatDescriptor(for: p010Contract)
+        XCTAssertEqual(p010Descriptor.mediaSubtypeID, "fourcc_6170636e")
+        XCTAssertEqual(
+            p010Descriptor.videoRaster,
+            CanonicalRasterV4(width: 128, height: 96)
+        )
+    }
+
+    func testProRes422KeepsEven420RasterPolicyAndRejectsUnqualifiedStorage()
+        throws {
+        let geometry = try sourceGeometry(width: 64, height: 48)
+        XCTAssertNoThrow(try VideoWriterFormatContractV4(
+            codec: .proRes422,
+            storage: .nv12VideoRange8Bit,
+            color: .sdrBT709,
+            sourceGeometry: geometry,
+            outputWidth: 128,
+            outputHeight: 96,
+            frameOperation: .spatialResampling
+        ))
+
+        for dimensions in [(127, 96), (128, 95)] {
+            XCTAssertThrowsError(try VideoWriterFormatContractV4(
+                codec: .proRes422,
+                storage: .nv12VideoRange8Bit,
+                color: .sdrBT709,
+                sourceGeometry: geometry,
+                outputWidth: dimensions.0,
+                outputHeight: dimensions.1,
+                frameOperation: .spatialResampling
+            )) { error in
+                XCTAssertEqual(
+                    error as? VideoWriterFormatContractV4Error,
+                    .subsampledDimensionsMustBeEven(
+                        width: dimensions.0,
+                        height: dimensions.1
+                    )
+                )
+            }
+        }
+
+        for storage in [
+            PixelStorageV4.nv12FullRange8Bit,
+            .p010FullRange10Bit
+        ] {
+            XCTAssertThrowsError(try VideoWriterFormatContractV4(
+                codec: .proRes422,
+                storage: storage,
+                color: .sdrBT709,
+                sourceGeometry: geometry,
+                outputWidth: 128,
+                outputHeight: 96,
+                frameOperation: .spatialResampling
+            )) { error in
+                XCTAssertEqual(
+                    error as? VideoWriterFormatContractV4Error,
+                    .incompatibleCodecAndStorage(
+                        codec: .proRes422,
+                        storage: storage
+                    )
+                )
+            }
+        }
+
+        XCTAssertThrowsError(try VideoWriterFormatContractV4(
+            codec: .proRes422,
+            storage: .p010VideoRange10Bit,
+            color: .hdr(try hdrMetadata(transfer: .pq)),
+            sourceGeometry: geometry,
+            outputWidth: 128,
+            outputHeight: 96,
+            frameOperation: .spatialResampling
+        )) { error in
+            XCTAssertEqual(
+                error as? VideoWriterFormatContractV4Error,
+                .hdrRequiresHEVC(codec: .proRes422)
+            )
+        }
+    }
+
+    func testWholeAssetPlannerCreatesOpaqueProRes422Delivery() async throws {
+        let video = CanonicalVideoStateV4(
+            encodedRaster: CanonicalRasterV4(width: 64, height: 48),
+            presentationRaster: CanonicalRasterV4(width: 64, height: 48),
+            preferredTransform: .identity,
+            cleanAperture: nil,
+            pixelAspectRatio: .one,
+            pixel: CanonicalPixelStateV4(
+                formatID: "nv12_video_range",
+                bitDepth: 8,
+                range: .video,
+                chromaSubsampling: .yuv420,
+                chromaSiting: .left,
+                alphaModel: .none
+            ),
+            color: CanonicalColorStateV4(
+                primaries:
+                    kCMFormatDescriptionColorPrimaries_ITU_R_709_2 as String,
+                transferFunction:
+                    kCMFormatDescriptionTransferFunction_ITU_R_709_2 as String,
+                matrix:
+                    kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2 as String,
+                masteringDisplay: nil,
+                contentLightLevel: nil,
+                dynamicHDRMetadata: []
+            ),
+            scan: CanonicalScanStateV4(
+                fieldCount: 1,
+                dominance: .none,
+                cadence: .progressive
+            )
+        )
+        let request = UpscaleRequest(
+            inputURL: temporaryMovieURL(),
+            outputURL: temporaryMovieURL(),
+            backendID: .mirmirDeterministicCPU,
+            targetWidth: 128,
+            targetHeight: 96,
+            outputCodec: .proRes422,
+            preserveAudio: false,
+            overwriteExistingFile: false
+        )
+
+        let delivery = try await DeterministicV4WholeAssetPlanner()
+            .prepareVideoDelivery(
+                request: request,
+                video: video,
+                backend: NV12PlanningBackendStub(),
+                outputFrameCount: 1
+            )
+        guard case .opaque(let contract) = delivery else {
+            return XCTFail("Expected opaque ProRes 422 delivery")
+        }
+        XCTAssertEqual(contract.codec, .proRes422)
+        XCTAssertEqual(contract.storage, .nv12VideoRange8Bit)
+        XCTAssertEqual(contract.frameOperation, .spatialResampling)
+    }
+
     func testPQAndHLGEmitMain10StaticAndDynamicHDRContracts() throws {
         let geometry = try sourceGeometry(width: 64, height: 48)
         for transfer in [HDRTransferFunctionV4.pq, .hlg] {
@@ -978,6 +1176,30 @@ private struct P010PlanningBackendStub:
     let actualBackendID = UpscaleBackendID.mirmirDeterministicCPU
     let deterministicExecutor = ASHExecutorV4.cpuFixedPoint
     let deterministicStorage = PixelStorageV4.p010VideoRange10Bit
+
+    func process(
+        source: FramePixelBuffer,
+        destination: FramePixelBuffer,
+        timing: FrameTiming
+    ) async throws {}
+
+    func finish() async throws {}
+
+    func makeASHExecutionPlan(
+        media: CanonicalMediaStateV4,
+        request: ASHExecutionRequestV4
+    ) async throws -> ASHIdentifiedExecutionPlanV4 {
+        throw P010PlanningBackendStubError.ashPlanningMustNotRun
+    }
+}
+
+private struct NV12PlanningBackendStub:
+    PreparedDeterministicV4PlanningBackend {
+    let sourcePixelBufferAttributes = PixelBufferAttributes()
+    let destinationPixelBufferAttributes = PixelBufferAttributes()
+    let actualBackendID = UpscaleBackendID.mirmirDeterministicCPU
+    let deterministicExecutor = ASHExecutorV4.cpuFixedPoint
+    let deterministicStorage = PixelStorageV4.nv12VideoRange8Bit
 
     func process(
         source: FramePixelBuffer,

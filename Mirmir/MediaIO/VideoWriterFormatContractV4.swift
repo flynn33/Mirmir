@@ -8,11 +8,13 @@ import VideoToolbox
 enum VideoWriterCodecV4: String, CaseIterable, Hashable, Sendable {
     case h264
     case hevc
+    case proRes422
 
     var avVideoCodecType: AVVideoCodecType {
         switch self {
         case .h264: .h264
         case .hevc: .hevc
+        case .proRes422: .proRes422
         }
     }
 
@@ -20,6 +22,7 @@ enum VideoWriterCodecV4: String, CaseIterable, Hashable, Sendable {
         switch self {
         case .h264: kCMVideoCodecType_H264
         case .hevc: kCMVideoCodecType_HEVC
+        case .proRes422: kCMVideoCodecType_AppleProRes422
         }
     }
 }
@@ -293,7 +296,20 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
                     height: outputHeight
                 )
         }
-        if storage.signalBitDepth == 10, codec != .hevc {
+        if storage.signalBitDepth == 10,
+           codec != .hevc,
+           codec != .proRes422 {
+            throw VideoWriterFormatContractV4Error
+                .incompatibleCodecAndStorage(codec: codec, storage: storage)
+        }
+        // The deterministic opaque engine currently emits bi-planar 4:2:0
+        // buffers. Apple ProRes 422 is a video-range delivery codec, and the
+        // calibrated bridge is intentionally limited to video-range NV12 and
+        // P010 input. Admit full-range storage only after it has its own exact
+        // range qualification contract.
+        if codec == .proRes422,
+           storage != .nv12VideoRange8Bit,
+           storage != .p010VideoRange10Bit {
             throw VideoWriterFormatContractV4Error
                 .incompatibleCodecAndStorage(codec: codec, storage: storage)
         }
@@ -377,9 +393,11 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
         get throws {
             var compression: [String: Any] = [
                 kVTCompressionPropertyKey_FieldCount as String:
-                    NSNumber(value: 1),
-                AVVideoProfileLevelKey: profileLevel
+                    NSNumber(value: 1)
             ]
+            if let profileLevel {
+                compression[AVVideoProfileLevelKey] = profileLevel
+            }
             if case .hdr(let metadata) = color {
                 compression.merge(
                     try AVFoundationHDRMetadataAdapterV4
@@ -439,7 +457,7 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
                 kCMFormatDescriptionExtension_FullRangeVideo:
                     NSNumber(value: storage.codeRange == .full),
                 kCMFormatDescriptionExtension_BitsPerComponent:
-                    NSNumber(value: storage.signalBitDepth)
+                    NSNumber(value: expectedFormatDescriptionBitDepth)
             ]
             switch color {
             case .sdrBT709:
@@ -607,11 +625,33 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
         }
     }
 
-    private var profileLevel: CFString {
+    private var profileLevel: CFString? {
         switch (codec, storage.signalBitDepth) {
         case (.h264, _): kVTProfileLevel_H264_High_AutoLevel
         case (.hevc, 10): kVTProfileLevel_HEVC_Main10_AutoLevel
         case (.hevc, _): kVTProfileLevel_HEVC_Main_AutoLevel
+        case (.proRes422, _): nil
+        }
+    }
+
+    /// ProRes 422 always stores a 10-bit encoded Y'CbCr signal even when its
+    /// deterministic writer input is the currently qualified 8-bit NV12
+    /// route. Keep encoded precision distinct from the processing buffer.
+    private var encodedSignalBitDepth: Int {
+        switch codec {
+        case .proRes422: 10
+        case .h264, .hevc: storage.signalBitDepth
+        }
+    }
+
+    /// Core Media describes Apple's `apcn` decoder surface as 12 bits per
+    /// component even though ProRes 422 carries a 10-bit signal. Bind and
+    /// verify the actual AVFoundation description separately from the logical
+    /// encoded precision so a runtime that changes this behavior fails closed.
+    private var expectedFormatDescriptionBitDepth: Int {
+        switch codec {
+        case .proRes422: 12
+        case .h264, .hevc: encodedSignalBitDepth
         }
     }
 
@@ -875,9 +915,9 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
         if let bitDepth = (extensions[
             kCMFormatDescriptionExtension_BitsPerComponent as String
         ] as? NSNumber)?.intValue,
-           bitDepth != storage.signalBitDepth {
+           bitDepth != expectedFormatDescriptionBitDepth {
             throw VideoWriterFormatContractV4Error.encodedBitDepthMismatch(
-                expected: storage.signalBitDepth,
+                expected: expectedFormatDescriptionBitDepth,
                 actual: bitDepth
             )
         }

@@ -523,6 +523,7 @@ enum ASHExecutionPlannerV4 {
         switch codecID {
         case "h264": "fourcc_61766331"
         case "hevc": "fourcc_68766331"
+        case "proRes422": "fourcc_6170636e"
         case "proRes4444": "fourcc_61703468"
         default: nil
         }

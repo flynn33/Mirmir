@@ -801,9 +801,7 @@ private extension DeterministicV4WholeAssetPlanner {
         switch request.outputCodec {
         case .h264: codec = .h264
         case .hevc: codec = .hevc
-        case .proRes422:
-            throw DeterministicV4WholeAssetPlannerError
-                .unsupportedOutputCodec(.proRes422)
+        case .proRes422: codec = .proRes422
         case .proRes4444:
             throw DeterministicV4WholeAssetPlannerError
                 .proRes4444RequiresAlphaSource

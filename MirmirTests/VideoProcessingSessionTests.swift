@@ -266,6 +266,50 @@ final class VideoProcessingSessionTests: XCTestCase {
         XCTAssertFalse(try directoryContainsPartialFile(fixtures.rootURL))
     }
 
+    func testDeterministicCPUAndMetalProduceVerifiedProRes422WholeAssets()
+        async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let inputURL = fixtures.url(for: "deterministic-prores-input.mov")
+        try await VideoProbeFixtureFactory.makeVideo(
+            at: inputURL,
+            transform: .identity
+        )
+        let catalog = try deterministicCatalog()
+
+        for backendID in [
+            UpscaleBackendID.mirmirDeterministicCPU,
+            .mirmirDeterministicMetal
+        ] {
+            let outputURL = fixtures.url(
+                for: "\(backendID.rawValue)-prores422.mov"
+            )
+            let result = try await UpscaleCoordinator(
+                backendCatalog: catalog
+            ).process(
+                UpscaleRequest(
+                    inputURL: inputURL,
+                    outputURL: outputURL,
+                    backendID: backendID,
+                    targetWidth: 128,
+                    targetHeight: 96,
+                    outputCodec: .proRes422,
+                    preserveAudio: false,
+                    overwriteExistingFile: false
+                ),
+                progress: { _ in }
+            )
+
+            XCTAssertEqual(result.actualBackendID, backendID)
+            XCTAssertEqual(result.outputCodec, .proRes422)
+            XCTAssertEqual(result.encodedWidth, 128)
+            XCTAssertEqual(result.encodedHeight, 96)
+            XCTAssertEqual(result.processedFrameCount, 3)
+            try await verifyProRes422Output(at: outputURL)
+        }
+        XCTAssertFalse(try directoryContainsPartialFile(fixtures.rootURL))
+    }
+
     func testVideoToolboxSuperResolutionContractsRunOrReportExactUnavailability() async throws {
         let fixtures = try TemporaryFixtureDirectory()
         defer { fixtures.remove() }
@@ -705,6 +749,57 @@ final class VideoProcessingSessionTests: XCTestCase {
             at: url,
             includingPropertiesForKeys: nil
         ).contains { $0.lastPathComponent.hasPrefix(".mirmir-") }
+    }
+
+    private func verifyProRes422Output(at url: URL) async throws {
+        let contract = try VideoWriterFormatContractV4(
+            codec: .proRes422,
+            storage: .nv12VideoRange8Bit,
+            color: .sdrBT709,
+            sourceGeometry: try RationalPresentationGeometryV4(
+                codedWidth: 64,
+                codedHeight: 48,
+                cleanAperture: .fullRaster(width: 64, height: 48)
+            ),
+            outputWidth: 128,
+            outputHeight: 96,
+            frameOperation: .spatialResampling
+        )
+        let asset = AVURLAsset(
+            url: url,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(tracks.first)
+        let formats = try await track.load(.formatDescriptions)
+        let format = try XCTUnwrap(formats.first)
+        try contract.verifyReopenedFormat(
+            format,
+            preferredTransform: try await track.load(.preferredTransform)
+        )
+
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(
+            track: track,
+            outputSettings: contract.sourcePixelBufferAttributes
+        )
+        XCTAssertTrue(reader.canAdd(output))
+        reader.add(output)
+        XCTAssertTrue(
+            reader.startReading(),
+            reader.error?.localizedDescription ?? "reader start failed"
+        )
+        var decodedFrameCount = 0
+        while let sample = output.copyNextSampleBuffer() {
+            let pixelBuffer = try XCTUnwrap(
+                CMSampleBufferGetImageBuffer(sample)
+            )
+            try contract.verifyDecodedPixelBuffer(pixelBuffer)
+            decodedFrameCount += 1
+        }
+        XCTAssertEqual(reader.status, .completed)
+        XCTAssertNil(reader.error)
+        XCTAssertEqual(decodedFrameCount, 3)
     }
 
     private func deterministicCatalog() throws -> UpscaleBackendCatalog {

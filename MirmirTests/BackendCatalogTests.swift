@@ -514,6 +514,67 @@ final class BackendCatalogTests: XCTestCase {
             "A durable job is active. Add this request to the queue."
         )
     }
+
+    @MainActor
+    func testProRes422SelectionRoundTripsIntoDurableRequest() async throws {
+        let sourceURL = URL(
+            fileURLWithPath: "/tmp/catalog-prores422-source.mov"
+        )
+        let outputURL = URL(
+            fileURLWithPath: "/tmp/catalog-prores422-output.mov"
+        )
+        let source = makeVideoInfo(url: sourceURL)
+        let generatedAt = WorkflowWallClockInstantV4(
+            nanosecondsSinceUnixEpoch: 43
+        )
+        let controller = CatalogQueueStateControllerV4(
+            queue: WorkflowApplicationQueueSnapshotV4(
+                generatedAt: generatedAt,
+                items: []
+            ),
+            recovery: WorkflowLaunchRecoverySnapshotV4(
+                generatedAt: generatedAt,
+                items: []
+            )
+        )
+        let values = Dictionary(
+            uniqueKeysWithValues: BackendDescriptor.concrete.map {
+                ($0.id, BackendAvailability.available)
+            }
+        )
+        let viewModel = MirmirViewModel(
+            videoProbe: ImmediateCatalogVideoProbe(info: source),
+            backendCatalog: UpscaleBackendCatalog(
+                backends: makeStubBackends(values: values)
+            ),
+            runtimeEnvironment: testEnvironment,
+            workflowController: controller
+        )
+
+        await viewModel.initializeWorkflow()
+        viewModel.selectBackend(.mirmirDeterministicCPU)
+        viewModel.selectVideo(sourceURL)
+        await viewModel.waitForCurrentProbe()
+        await viewModel.waitForBackendAvailability()
+        viewModel.setOutputCodec(.proRes422)
+        viewModel.setPreserveAudio(false)
+        viewModel.setOutputURL(outputURL)
+        XCTAssertTrue(viewModel.canStart)
+
+        viewModel.startUpscale()
+        await viewModel.waitForProcessing()
+
+        let submittedRequest = await controller.latestSubmittedRequest()
+        let request = try XCTUnwrap(submittedRequest)
+        XCTAssertEqual(request.inputURL, sourceURL)
+        XCTAssertEqual(request.outputURL, outputURL)
+        XCTAssertEqual(request.backendID, .mirmirDeterministicCPU)
+        XCTAssertEqual(request.targetWidth, 640)
+        XCTAssertEqual(request.targetHeight, 360)
+        XCTAssertEqual(request.outputCodec, .proRes422)
+        XCTAssertEqual(request.preserveAudio, false)
+        XCTAssertEqual(request.overwriteExistingFile, false)
+    }
 }
 
 private let testEnvironment = RuntimeEnvironment(
@@ -625,6 +686,7 @@ private actor CatalogQueueStateControllerV4:
     private var queue: WorkflowApplicationQueueSnapshotV4
     private let recovery: WorkflowLaunchRecoverySnapshotV4
     private var observer = WorkflowApplicationObserverV4.none
+    private var submittedRequests: [UpscaleRequest] = []
 
     init(
         queue: WorkflowApplicationQueueSnapshotV4,
@@ -653,13 +715,18 @@ private actor CatalogQueueStateControllerV4:
     }
 
     func submit(
-        request _: UpscaleRequest,
+        request: UpscaleRequest,
         progress _: @escaping @Sendable (UpscaleProgress) -> Void,
         snapshot _: @escaping @Sendable (
             WorkflowApplicationQueueSnapshotV4
         ) -> Void
     ) async throws -> WorkflowApplicationRunOutcomeV4 {
+        submittedRequests.append(request)
         throw CatalogQueueStateControllerErrorV4.unsupported
+    }
+
+    func latestSubmittedRequest() -> UpscaleRequest? {
+        submittedRequests.last
     }
 
     func requestPause() async throws {

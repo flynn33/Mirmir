@@ -129,6 +129,121 @@ final class ASHV4SemanticArtifactTests: XCTestCase {
         )
     }
 
+    func testProRes422SubtypeIsBoundIntoVerifiedPlanIdentity() throws {
+        let runtime = try ASHV4SemanticArtifactTestSupport.buildAndLoad(
+            at: temporaryDirectory.appendingPathComponent("prores-plan-runtime")
+        )
+        let original = ASHV4SemanticArtifactTestSupport.executionRequest()
+        let raster = CanonicalRasterV4(width: 1_000, height: 562)
+        let proResOutput = ASHVideoOutputContractV4(
+            raster: raster,
+            codecID: OutputCodec.proRes422.rawValue,
+            encodedFormatDescriptor: try MediaTrackFormatDescriptorV4(
+                ordinal: 0,
+                mediaTypeID: "fourcc_76696465",
+                mediaSubtypeID: "fourcc_6170636e",
+                canonicalFingerprint: ASHSHA256V4(
+                    rawData: Data("semantic-prores422-format".utf8)
+                ),
+                completeness: .complete,
+                videoRaster: raster
+            ),
+            pixelFormatID: PixelStorageV4.nv12VideoRange8Bit.rawValue,
+            bitDepth: 8,
+            range: .video,
+            chromaSubsampling: .yuv420,
+            chromaSiting: .left,
+            alphaModel: .none,
+            color: try ASHV4SemanticArtifactTestSupport.mediaState()
+                .tracks[0].video!.color
+        )
+        let request = ASHExecutionRequestV4(
+            executor: original.executor,
+            measurementContractID: original.measurementContractID,
+            kernelContractID: original.kernelContractID,
+            directives: original.directives.map { directive in
+                guard directive.trackID == "video-main" else {
+                    return directive
+                }
+                return ASHTrackDirectiveV4(
+                    trackID: directive.trackID,
+                    action: .processVideo,
+                    videoOutput: proResOutput,
+                    outputCodecID: nil,
+                    dropReasonID: nil,
+                    dropApprovalSHA256: nil
+                )
+            }
+        )
+
+        let plan = try ASHExecutionPlannerV4.makePlan(
+            media: ASHV4SemanticArtifactTestSupport.mediaState(),
+            request: request,
+            runtime: runtime
+        )
+        try plan.verify()
+        let processed = try XCTUnwrap(plan.plan.tracks.first {
+            $0.sourceIdentity.persistentID == "video-main"
+        })
+        XCTAssertEqual(processed.outputCodecID, "proRes422")
+        XCTAssertEqual(
+            processed.videoOutput?.encodedFormatDescriptor.mediaSubtypeID,
+            "fourcc_6170636e"
+        )
+        XCTAssertNotEqual(
+            plan.planSHA256,
+            try ASHExecutionPlannerV4.makePlan(
+                media: ASHV4SemanticArtifactTestSupport.mediaState(),
+                request: original,
+                runtime: runtime
+            ).planSHA256
+        )
+
+        let mismatchedOutput = ASHVideoOutputContractV4(
+            raster: raster,
+            codecID: proResOutput.codecID,
+            encodedFormatDescriptor: try MediaTrackFormatDescriptorV4(
+                ordinal: 0,
+                mediaTypeID: "fourcc_76696465",
+                mediaSubtypeID: "fourcc_68766331",
+                canonicalFingerprint:
+                    proResOutput.encodedFormatDescriptor.canonicalFingerprint,
+                completeness: .complete,
+                videoRaster: raster
+            ),
+            pixelFormatID: proResOutput.pixelFormatID,
+            bitDepth: proResOutput.bitDepth,
+            range: proResOutput.range,
+            chromaSubsampling: proResOutput.chromaSubsampling,
+            chromaSiting: proResOutput.chromaSiting,
+            alphaModel: proResOutput.alphaModel,
+            color: proResOutput.color
+        )
+        let mismatchedRequest = ASHExecutionRequestV4(
+            executor: request.executor,
+            measurementContractID: request.measurementContractID,
+            kernelContractID: request.kernelContractID,
+            directives: request.directives.map { directive in
+                guard directive.trackID == "video-main" else {
+                    return directive
+                }
+                return ASHTrackDirectiveV4(
+                    trackID: directive.trackID,
+                    action: directive.action,
+                    videoOutput: mismatchedOutput,
+                    outputCodecID: nil,
+                    dropReasonID: nil,
+                    dropApprovalSHA256: nil
+                )
+            }
+        )
+        XCTAssertThrowsError(try ASHExecutionPlannerV4.makePlan(
+            media: ASHV4SemanticArtifactTestSupport.mediaState(),
+            request: mismatchedRequest,
+            runtime: runtime
+        ))
+    }
+
     func testIncompleteBuildAndUnplannedTrackFailClosed() throws {
         var request = try ASHV4SemanticArtifactTestSupport.completeRequest()
         request = ASHP06RuntimeBuildRequestV4(
