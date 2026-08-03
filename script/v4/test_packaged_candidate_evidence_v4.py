@@ -83,7 +83,7 @@ class PackagedCandidateEvidenceV4Tests(unittest.TestCase):
             primary = fixture.make_sealed_archive("primary")
             alternate = fixture.make_sealed_archive(
                 "alternate",
-                executable_source=Path("/usr/bin/false"),
+                executable_source=fixture.alternate_executable,
                 source_build_runner=fixture.self_asserting_build_runner,
             )
             candidate_path = root / "candidate.json"
