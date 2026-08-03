@@ -37,7 +37,7 @@ enum PixelLayoutV4Error: Error, Equatable, Sendable {
     case arithmeticOverflow
 }
 
-enum PixelStorageV4: String, CaseIterable, Hashable, Sendable {
+enum PixelStorageV4: String, CaseIterable, Codable, Hashable, Sendable {
     case nv12VideoRange8Bit = "nv12_video_range_8_bit"
     case nv12FullRange8Bit = "nv12_full_range_8_bit"
     case p010VideoRange10Bit = "p010_video_range_10_bit"
@@ -118,7 +118,7 @@ enum PixelElementByteOrderV4: String, Hashable, Sendable {
     case littleEndianUInt16
 }
 
-struct PixelCodeBoundsV4: Equatable, Hashable, Sendable {
+struct PixelCodeBoundsV4: Codable, Equatable, Hashable, Sendable {
     let minimum: UInt16
     let maximum: UInt16
 

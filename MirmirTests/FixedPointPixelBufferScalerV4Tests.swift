@@ -122,7 +122,7 @@ final class FixedPointPixelBufferScalerV4Tests: XCTestCase {
         XCTAssertEqual(mode, .shouldNotPropagate)
     }
 
-    func testModifiedPixelsRejectDynamicHDRInsteadOfSilentlyCopyingIt() async throws {
+    func testSpatialResamplingPreservesFrameBoundDynamicHDRMetadata() async throws {
         let storage = PixelStorageV4.p010VideoRange10Bit
         let source = try makeBuffer(storage: storage, width: 4, height: 4)
         let destination = try makeBuffer(storage: storage, width: 8, height: 8)
@@ -141,14 +141,15 @@ final class FixedPointPixelBufferScalerV4Tests: XCTestCase {
             targetWidth: 8,
             targetHeight: 8
         )
-        await XCTAssertThrowsErrorAsync(
-            try await scaler.process(source: source, destination: destination)
-        ) { error in
-            XCTAssertEqual(
-                error as? HDRMetadataV4Error,
-                .dynamicMetadataRequiresRegeneration
+        try await scaler.process(source: source, destination: destination)
+        XCTAssertEqual(
+            try AVFoundationHDRMetadataAdapterV4.probeDynamicMetadata(
+                from: destination
+            ),
+            try AVFoundationHDRMetadataAdapterV4.probeDynamicMetadata(
+                from: source
             )
-        }
+        )
     }
 
     func testAliasingFormatAndOutOfRangeInputFailClosed() async throws {

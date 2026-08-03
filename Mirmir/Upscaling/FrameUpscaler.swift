@@ -103,6 +103,22 @@ protocol PreparedTemporalFrameUpscaler: PreparedFrameUpscaler {
     ) async throws -> [TemporalOutputFrame]
 }
 
+/// A temporal backend whose complete deterministic state can be persisted at
+/// an independently committed media-segment boundary. The payload is opaque to
+/// the workflow layer and is identity-bound by the backend itself.
+protocol PreparedCheckpointableTemporalFrameUpscaler:
+    PreparedTemporalFrameUpscaler {
+    func makeTemporalCheckpoint(
+        planSHA256: ASHSHA256V4,
+        lastCompletedInputOrdinal: Int64
+    ) async throws -> Data
+
+    func restoreTemporalCheckpoint(
+        _ data: Data,
+        planSHA256: ASHSHA256V4
+    ) async throws
+}
+
 enum BackendPreparationError: LocalizedError, Equatable, Sendable {
     case unavailable(UpscaleBackendID, BackendUnavailableReason)
 

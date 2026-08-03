@@ -1,4 +1,5 @@
 import Foundation
+import Metal
 @testable import Mirmir
 
 struct ASHV4FixtureMetalValidator: ASHMetalLibraryValidatingV4 {
@@ -18,9 +19,9 @@ enum ASHV4SemanticArtifactTestSupport {
     )
 
     static func completeRequest(
-        releaseStatus: ASHRuntimeReleaseStatusV4 = .releaseQualified
+        releaseStatus: ASHRuntimeReleaseStatusV4 = .releaseQualified,
+        metalLibrary: Data = Data("MTLB-fixture-executable-v1".utf8)
     ) throws -> ASHP06RuntimeBuildRequestV4 {
-        let metalData = Data("MTLB-fixture-executable-v1".utf8)
         let toolchain = ASHRuntimeToolchainV4(
             swiftCompilerIdentity: "apple-swift-6.2.0",
             metalCompilerIdentity: "apple-metal-32023.98",
@@ -31,7 +32,7 @@ enum ASHV4SemanticArtifactTestSupport {
         )
 
         var artifacts = try ASHP06CanonicalRuntimeArtifactsV4.make(
-            metalLibrary: metalData,
+            metalLibrary: metalLibrary,
             toolchain: toolchain
         )
         // Deliberately reverse input order. Bundle order comes only from the
@@ -66,6 +67,41 @@ enum ASHV4SemanticArtifactTestSupport {
                 allowedBuilderSourceSHA256: [builderHash]
             ),
             metalLibraryValidator: ASHV4FixtureMetalValidator()
+        )
+    }
+
+    /// Builds a release-status fixture around the exact metallib produced by
+    /// the current app target. This exercises the same byte loader used in
+    /// production while keeping test trust roots explicit and ephemeral.
+    static func executableSystemMetalRuntime() throws
+        -> ASHVerifiedRuntimeBundleV4 {
+        guard let libraryURL = Bundle.main.url(
+            forResource: "default",
+            withExtension: "metallib"
+        ) else {
+            throw ASHP06RuntimeBundleV4Error.missingBundleEntry(
+                "default.metallib"
+            )
+        }
+        let metalLibrary = try Data(contentsOf: libraryURL)
+        let validator = try ASHSystemMetalLibraryValidatorV4()
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ash-p06-system-metal-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let request = try completeRequest(metalLibrary: metalLibrary)
+        let result = try ASHP06RuntimeBundleBuilderV4.build(
+            request,
+            at: directory,
+            metalLibraryValidator: validator
+        )
+        return try ASHP06RuntimeBundleLoaderV4.load(
+            at: directory,
+            trustPolicy: ASHRuntimeTrustPolicyV4(
+                expectedManifestSHA256: result.manifestSHA256,
+                allowedSourceRevisions: [sourceRevision],
+                allowedBuilderSourceSHA256: [builderHash]
+            ),
+            metalLibraryValidator: validator
         )
     }
 

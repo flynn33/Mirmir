@@ -1,5 +1,6 @@
 import CoreVideo
 import Foundation
+import Metal
 
 enum FixedPointPixelBufferScalerV4Error: Error, Equatable, Sendable {
     case sourceAndDestinationAlias
@@ -43,7 +44,9 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
         sourceHeight: Int,
         targetWidth: Int,
         targetHeight: Int,
-        borderRule: SpatialBorderRuleV4 = .clamp
+        borderRule: SpatialBorderRuleV4 = .clamp,
+        metalDevice: MTLDevice? = nil,
+        metalLibrary: MTLLibrary? = nil
     ) throws {
         let layout = PixelLayoutV4(storage: storage)
         try layout.validateGeometry(width: sourceWidth, height: sourceHeight)
@@ -80,9 +83,22 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
         self.targetHeight = targetHeight
         self.layout = layout
         self.planes = prepared
-        self.metalExecutor = backend == .metal
-            ? try FixedPointMetalExecutorV4()
-            : nil
+        if backend == .metal {
+            let device: MTLDevice
+            if let metalDevice {
+                device = metalDevice
+            } else if let systemDevice = MTLCreateSystemDefaultDevice() {
+                device = systemDevice
+            } else {
+                throw FixedPointMetalExecutorV4Error.metalUnavailable
+            }
+            self.metalExecutor = try FixedPointMetalExecutorV4(
+                device: device,
+                library: metalLibrary
+            )
+        } else {
+            self.metalExecutor = nil
+        }
     }
 
     func process(
@@ -105,10 +121,6 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
 
         let dynamicMetadata = try AVFoundationHDRMetadataAdapterV4
             .probeDynamicMetadata(from: source)
-        if dynamicMetadata != nil,
-           (sourceWidth != targetWidth || sourceHeight != targetHeight) {
-            throw HDRMetadataV4Error.dynamicMetadataRequiresRegeneration
-        }
 
         let sourceComponents = try extractComponents(from: source)
         var outputComponents: [[[UInt16]]] = []
@@ -378,9 +390,7 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
                 to: destination
             )
         }
-        if sourceWidth == targetWidth,
-           sourceHeight == targetHeight,
-           let dynamicMetadata {
+        if let dynamicMetadata {
             try AVFoundationHDRMetadataAdapterV4.migrate(
                 dynamicMetadata,
                 to: destination

@@ -2,10 +2,19 @@ import CoreMedia
 import CoreVideo
 import Darwin
 import Foundation
+import Metal
 import XCTest
 @testable import Mirmir
 
 final class DeterministicMetalBackendTests: XCTestCase {
+    private var verifiedRuntime: ASHVerifiedRuntimeBundleV4!
+
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        verifiedRuntime = try ASHV4SemanticArtifactTestSupport
+            .executableSystemMetalRuntime()
+    }
+
     private enum Pattern: String, CaseIterable {
         case constant
         case ramp
@@ -99,44 +108,30 @@ final class DeterministicMetalBackendTests: XCTestCase {
         let performance: [BaselinePerformanceRecord]
     }
 
-    func testPreviewLUTUsesSourceP05ValuesWithoutLockMetadata() throws {
-        let lut = try ASHMetalDevelopmentRuntimeFactoryV3.makeLUT(
-            route: .direct2x
-        )
-        let source = ASHSpatialRuntimeConfigurationV2.developmentP05
-        let parameters = ASHSpatialDevelopmentParametersV2.p05DevelopmentOnly
-        let encoded = lut.configuration.operatorParameters
-
+    func testVerifiedP06RuntimeContainsEveryBoundArtifactAndRealMetalKernel()
+        throws {
+        try verifiedRuntime.verifyBinding()
         XCTAssertEqual(
-            encoded.detailGainQ12,
-            UInt16((parameters.controlledDetailGain * 4_096).rounded())
+            verifiedRuntime.manifest.runtimeID,
+            ASHRuntimeManifestV4.runtimeIdentity
         )
         XCTAssertEqual(
-            encoded.relaxedLimiterAlphaQ12,
-            UInt16((parameters.relaxedLimiterAlpha * 4_096).rounded())
-        )
-        XCTAssertEqual(lut.configuration.boundaryMode, source.boundaryMode)
-        XCTAssertEqual(
-            lut.configuration.direct2x.lumaCoordinatePolicy,
-            source.coordinatePolicy
-        )
-        XCTAssertNil(lut.configuration.direct2x.spatialPolicyID)
-        XCTAssertEqual(
-            Array(lut.immutableBytes[64..<96]),
-            try ASHLUTHashV3(hex: source.mappingSHA256).bytes
+            verifiedRuntime.manifest.releaseStatus,
+            .releaseQualified
         )
         XCTAssertEqual(
-            Array(lut.immutableBytes[96..<128]),
-            try ASHLUTHashV3(hex: source.operatorBankSHA256).bytes
+            Set(verifiedRuntime.manifest.artifacts.map(\.role)),
+            Set(ASHRuntimeArtifactRoleV4.allCases)
         )
-        XCTAssertEqual(
-            Array(lut.immutableBytes[128..<256]),
-            [UInt8](repeating: 0, count: 128)
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        let library = try ASHP06MetalLibraryFactoryV4.makeLibrary(
+            runtime: verifiedRuntime,
+            device: device
         )
-        XCTAssertEqual(lut.immutableBytes[300], UInt8.max)
+        XCTAssertNotNil(library.makeFunction(name: "ashFixedPointScaleV4"))
     }
 
-    func testMetalPreviewIsAvailableAndKeepsItsExactBackendIdentity() async throws {
+    func testMetalP06IsAvailableAndKeepsItsExactBackendIdentity() async throws {
         let backend = try makeMetalBackend()
         let source = makeSourceInfo(
             pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
@@ -160,8 +155,13 @@ final class DeterministicMetalBackendTests: XCTestCase {
         )
         XCTAssertEqual(
             concrete.deterministicConfiguration.implementationVersion,
-            "ash-p05-metal-v3-preview"
+            ASHRuntimeManifestV4.runtimeIdentity
         )
+        XCTAssertEqual(
+            concrete.deterministicConfiguration.runtimeManifestSHA256,
+            verifiedRuntime.manifestSHA256.rawValue
+        )
+        XCTAssertTrue(concrete.deterministicConfiguration.stateInputEnabled)
         try await prepared.finish()
         try await prepared.finish()
 
@@ -193,29 +193,34 @@ final class DeterministicMetalBackendTests: XCTestCase {
         }
     }
 
-    func testRealMetalJobsAreRepeatableAndReportCPUReferenceDifferences() async throws {
+    func testCPUAndMetalAreByteIdenticalAcrossRangesRoutesAndPatterns()
+        async throws {
         for pixelFormat in [
             kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
             kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
         ] {
-            for route in ASHSpatialRouteV2.allCases {
-                let target = CGSize(
-                    width: try route.destinationExtent(for: 16),
-                    height: try route.destinationExtent(for: 12)
-                )
+            for target in [
+                CGSize(width: 24, height: 18),
+                CGSize(width: 32, height: 24),
+                CGSize(width: 29, height: 21)
+            ] {
                 let sourceInfo = makeSourceInfo(pixelFormat: pixelFormat)
-                let metal = try await makeMetalBackend().prepare(
-                    request: BackendPreparationRequest(
-                        source: sourceInfo,
-                        targetSize: target
-                    ),
-                    environment: deterministicMetalTestEnvironment
-                )
-                let concreteMetal = try XCTUnwrap(
-                    metal as? PreparedDeterministicMetalUpscaler
-                )
                 for (frameIndex, pattern) in Pattern.allCases.enumerated() {
                     let cpu = try await makeCPUBackend().prepare(
+                        request: BackendPreparationRequest(
+                            source: sourceInfo,
+                            targetSize: target
+                        ),
+                        environment: deterministicMetalTestEnvironment
+                    )
+                    let firstMetal = try await makeMetalBackend().prepare(
+                        request: BackendPreparationRequest(
+                            source: sourceInfo,
+                            targetSize: target
+                        ),
+                        environment: deterministicMetalTestEnvironment
+                    )
+                    let repeatedMetal = try await makeMetalBackend().prepare(
                         request: BackendPreparationRequest(
                             source: sourceInfo,
                             targetSize: target
@@ -242,52 +247,38 @@ final class DeterministicMetalBackendTests: XCTestCase {
                         destination: cpuOutput,
                         timing: timing
                     )
-                    try await metal.process(
+                    try await firstMetal.process(
                         source: source,
                         destination: firstMetalOutput,
                         timing: timing
                     )
-                    try await metal.process(
+                    try await repeatedMetal.process(
                         source: source,
                         destination: repeatMetalOutput,
-                        timing: FrameTiming(
-                            frameIndex: frameIndex + 100,
-                            presentationTime: CMTime(
-                                value: Int64(frameIndex + 100),
-                                timescale: 30
-                            ),
-                            duration: timing.duration
-                        )
+                        timing: timing
                     )
 
+                    let cpuBytes = try visibleBytes(cpuOutput)
                     let firstBytes = try visibleBytes(firstMetalOutput)
                     let repeatBytes = try visibleBytes(repeatMetalOutput)
                     XCTAssertEqual(
                         firstBytes,
                         repeatBytes,
-                        "Metal output changed for \(route.rawValue), \(pattern.rawValue)"
+                        "Metal output changed for \(target), \(pattern.rawValue)"
                     )
-                    let difference = compare(
-                        try visibleBytes(cpuOutput),
-                        firstBytes
+                    XCTAssertEqual(
+                        cpuBytes,
+                        firstBytes,
+                        "CPU/Metal mismatch for \(target), \(pattern.rawValue)"
                     )
-                    print(
-                        "ASH_METAL_CPU_COMPARISON route=\(route.rawValue) "
-                            + "range=\(FourCC.string(from: pixelFormat) ?? String(pixelFormat)) "
-                            + "pattern=\(pattern.rawValue) samples=\(difference.sampleCount) "
-                            + "differing=\(difference.differingSamples) "
-                            + "max_abs_code_difference="
-                            + "\(difference.maximumAbsoluteCodeDifference)"
+                    XCTAssertEqual(
+                        firstMetal.actualBackendID,
+                        .mirmirDeterministicMetal
                     )
-                    XCTAssertEqual(metal.actualBackendID, .mirmirDeterministicMetal)
-                    let lastSummary = await concreteMetal.developmentLastFrameSummary()
-                    let summary = try XCTUnwrap(lastSummary)
-                    XCTAssertGreaterThan(summary.dispatchCount, 0)
-                    XCTAssertGreaterThan(summary.actualOperatorInvocationCount, 0)
-                    XCTAssertEqual(summary.fatalFaultCount, 0)
-                    XCTAssertEqual(summary.affineFallbackCount, 0)
+                    try await cpu.finish()
+                    try await firstMetal.finish()
+                    try await repeatedMetal.finish()
                 }
-                try await metal.finish()
             }
         }
     }
@@ -542,14 +533,20 @@ final class DeterministicMetalBackendTests: XCTestCase {
         let descriptor = try XCTUnwrap(
             BackendDescriptor.descriptor(for: .mirmirDeterministicMetal)
         )
-        return try XCTUnwrap(DeterministicMetalBackend(descriptor: descriptor))
+        return try XCTUnwrap(DeterministicMetalBackend(
+            descriptor: descriptor,
+            runtimeProvider: .fixed(verifiedRuntime)
+        ))
     }
 
     private func makeCPUBackend() throws -> DeterministicCPUBackend {
         let descriptor = try XCTUnwrap(
             BackendDescriptor.descriptor(for: .mirmirDeterministicCPU)
         )
-        return try XCTUnwrap(DeterministicCPUBackend(descriptor: descriptor))
+        return try XCTUnwrap(DeterministicCPUBackend(
+            descriptor: descriptor,
+            runtimeProvider: .fixed(verifiedRuntime)
+        ))
     }
 
     private func makeSourceInfo(pixelFormat: OSType) -> VideoInfo {

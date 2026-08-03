@@ -255,6 +255,20 @@ final class HDRMetadataV4Tests: XCTestCase {
                 AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_2020
             ]
         )
+
+        let spatialProperties = try AVFoundationHDRMetadataAdapterV4
+            .videoToolboxCompressionProperties(
+                for: metadata,
+                dynamicPolicy:
+                    .preserveSourceSceneMetadataAcrossSpatialResampling,
+                pixelsWereModified: true
+            )
+        XCTAssertEqual(
+            spatialProperties[
+                kVTCompressionPropertyKey_PreserveDynamicHDRMetadata as String
+            ] as? Bool,
+            true
+        )
     }
 
     private func makeFormatMetadata(

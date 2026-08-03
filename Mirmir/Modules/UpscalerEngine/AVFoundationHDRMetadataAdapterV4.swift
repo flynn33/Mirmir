@@ -295,7 +295,9 @@ enum AVFoundationHDRMetadataAdapterV4 {
                 kVTCompressionPropertyKey_ContentLightLevelInfo as String
             ] = contentLight.payload
         }
-        if dynamicPolicy == .preserveSourceWhenPixelsAreUnmodified {
+        if dynamicPolicy == .preserveSourceWhenPixelsAreUnmodified
+            || dynamicPolicy
+                == .preserveSourceSceneMetadataAcrossSpatialResampling {
             properties[
                 kVTCompressionPropertyKey_PreserveDynamicHDRMetadata as String
             ] = true

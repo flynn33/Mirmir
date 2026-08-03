@@ -421,4 +421,10 @@ struct HDRDynamicMetadataV4: Equatable, Hashable, Sendable {
 enum HDRDynamicEncodingPolicyV4: String, Hashable, Sendable {
     case absent
     case preserveSourceWhenPixelsAreUnmodified
+
+    /// HDR10+ and post-decode metadata describe the source scene and remain
+    /// bound to the same presentation sample during a spatial-only transform.
+    /// This route is invalid for tone mapping, temporal synthesis, frame-rate
+    /// conversion, or any operation that changes presentation-sample identity.
+    case preserveSourceSceneMetadataAcrossSpatialResampling
 }

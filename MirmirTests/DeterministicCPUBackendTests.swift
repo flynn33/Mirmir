@@ -83,7 +83,7 @@ final class DeterministicCPUBackendTests: XCTestCase {
         }
     }
 
-    func testRouteAvailabilityAcceptsOnlyExistingReferenceRoutes() async throws {
+    func testRouteAvailabilityAcceptsArbitraryRationalUpscaleRoutes() async throws {
         let backend = try makeBackend()
         let source = makeSourceInfo(pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange)
 
@@ -99,19 +99,12 @@ final class DeterministicCPUBackendTests: XCTestCase {
         )
         XCTAssertEqual(direct2x, .available)
         XCTAssertEqual(direct3Over2, .available)
-        guard case .unavailable(let reason) = await backend.availability(
+        let arbitrary = await backend.availability(
             for: source,
             targetSize: CGSize(width: 28, height: 20),
             environment: deterministicTestEnvironment
-        ) else {
-            return XCTFail("An arbitrary deterministic geometry was accepted.")
-        }
-        XCTAssertEqual(
-            reason,
-            .unsupportedScaleFactor(
-                details: "the CPU reference exposes only exact 2× and 3:2 ASH routes"
-            )
         )
+        XCTAssertEqual(arbitrary, .available)
     }
 
     func testRepeatedCPUReferenceFramesAreByteIdenticalForBothNV12Ranges() async throws {
@@ -178,7 +171,7 @@ final class DeterministicCPUBackendTests: XCTestCase {
         }
     }
 
-    func testMissingProgressiveChromaLocationFailsWithoutFallback() async throws {
+    func testMissingChromaLocationDoesNotInventOrRequireAHiddenFallback() async throws {
         let sourceInfo = makeSourceInfo(
             pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
         )
@@ -193,24 +186,28 @@ final class DeterministicCPUBackendTests: XCTestCase {
         let source = try SyntheticNV12PixelBuffer.make(width: 16, height: 12)
         let destination = try SyntheticNV12PixelBuffer.make(width: 32, height: 24)
 
-        do {
-            try await prepared.process(
-                source: source,
-                destination: destination,
-                timing: FrameTiming(
-                    frameIndex: 0,
-                    presentationTime: .zero,
-                    duration: CMTime(value: 1, timescale: 30)
-                )
+        try SyntheticNV12PixelBuffer.fill(
+            source,
+            luma: 91,
+            cb: 117,
+            cr: 143
+        )
+        try await prepared.process(
+            source: source,
+            destination: destination,
+            timing: FrameTiming(
+                frameIndex: 0,
+                presentationTime: .zero,
+                duration: CMTime(value: 1, timescale: 30)
             )
-            XCTFail("Expected an explicit chroma-location failure.")
-        } catch let error as MirmirError {
-            guard case .backendProcessingFailed(let backendID, _, let details) = error else {
-                return XCTFail("Unexpected error: \(error)")
-            }
-            XCTAssertEqual(backendID, .mirmirDeterministicCPU)
-            XCTAssertTrue(details.contains("no explicit progressive chroma location"))
-        }
+        )
+        XCTAssertNil(
+            CVBufferCopyAttachment(
+                destination,
+                kCVImageBufferChromaLocationTopFieldKey,
+                nil
+            )
+        )
     }
 
     func testFinishIsIdempotentAndPreventsFurtherCPUProcessing() async throws {
@@ -254,6 +251,303 @@ final class DeterministicCPUBackendTests: XCTestCase {
         }
     }
 
+    func testPreparedCheckpointProducesByteIdenticalProgressiveResume()
+        async throws {
+        let sourceInfo = makeSourceInfo(
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        )
+        let backend = try makeBackend()
+        let request = BackendPreparationRequest(
+            source: sourceInfo,
+            targetSize: CGSize(width: 28, height: 20)
+        )
+        let continuousPrepared = try await backend.prepare(
+            request: request,
+            environment: deterministicTestEnvironment
+        )
+        let checkpointPrepared = try await backend.prepare(
+            request: request,
+            environment: deterministicTestEnvironment
+        )
+        let resumedPrepared = try await backend.prepare(
+            request: request,
+            environment: deterministicTestEnvironment
+        )
+        let continuous = try XCTUnwrap(
+            continuousPrepared as? PreparedDeterministicV4Upscaler
+        )
+        let checkpointSource = try XCTUnwrap(
+            checkpointPrepared as? PreparedDeterministicV4Upscaler
+        )
+        let resumed = try XCTUnwrap(
+            resumedPrepared as? PreparedDeterministicV4Upscaler
+        )
+        let sources = try (0..<3).map { frameIndex in
+            let buffer = try SyntheticNV12PixelBuffer.make(
+                width: 16,
+                height: 12
+            )
+            try writeMovingPattern(frameIndex: frameIndex, to: buffer)
+            attachProgressiveBT709(to: buffer)
+            return buffer
+        }
+        let timings = (0..<3).map { frameIndex in
+            FrameTiming(
+                frameIndex: frameIndex,
+                presentationTime: CMTime(
+                    value: Int64(frameIndex),
+                    timescale: 30
+                ),
+                duration: CMTime(value: 1, timescale: 30)
+            )
+        }
+        var continuousOutputs: [CVPixelBuffer] = []
+        for frameIndex in sources.indices {
+            let destination = try SyntheticNV12PixelBuffer.make(
+                width: 28,
+                height: 20
+            )
+            try await continuous.process(
+                source: sources[frameIndex],
+                destination: destination,
+                timing: timings[frameIndex]
+            )
+            continuousOutputs.append(destination)
+        }
+
+        for frameIndex in 0...1 {
+            let destination = try SyntheticNV12PixelBuffer.make(
+                width: 28,
+                height: 20
+            )
+            try await checkpointSource.process(
+                source: sources[frameIndex],
+                destination: destination,
+                timing: timings[frameIndex]
+            )
+        }
+        let planIdentity = ASHSHA256V4(
+            rawData: Data("resume-plan-progressive".utf8)
+        )
+        let checkpointData = try await checkpointSource
+            .makeTemporalCheckpoint(
+                planSHA256: planIdentity,
+                lastCompletedInputOrdinal: 1
+            )
+        let repeatedCheckpointData = try await checkpointSource
+            .makeTemporalCheckpoint(
+                planSHA256: planIdentity,
+                lastCompletedInputOrdinal: 1
+            )
+        XCTAssertEqual(
+            checkpointData,
+            repeatedCheckpointData
+        )
+        try await resumed.restoreTemporalCheckpoint(
+            checkpointData,
+            planSHA256: planIdentity
+        )
+        let resumedOutput = try SyntheticNV12PixelBuffer.make(
+            width: 28,
+            height: 20
+        )
+        try await resumed.process(
+            source: sources[2],
+            destination: resumedOutput,
+            timing: timings[2]
+        )
+        for plane in 0..<2 {
+            XCTAssertEqual(
+                try SyntheticNV12PixelBuffer.visibleBytes(
+                    continuousOutputs[2],
+                    plane: plane
+                ),
+                try SyntheticNV12PixelBuffer.visibleBytes(
+                    resumedOutput,
+                    plane: plane
+                )
+            )
+        }
+
+        let wrongPlan = ASHSHA256V4(rawData: Data("wrong-plan".utf8))
+        await XCTAssertThrowsErrorAsync(
+            try await resumed.restoreTemporalCheckpoint(
+                checkpointData,
+                planSHA256: wrongPlan
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? ASHPreparedTemporalCheckpointV4Error,
+                .identityMismatch
+            )
+        }
+    }
+
+    func testInterlacedPreparedPathUsesExactDoubleRateTimingAndResume()
+        async throws {
+        let sourceInfo = makeSourceInfo(
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            fieldCount: 2,
+            fieldDetail: kCVImageBufferFieldDetailTemporalTopFirst as String
+        )
+        let backend = try makeBackend()
+        let request = BackendPreparationRequest(
+            source: sourceInfo,
+            targetSize: CGSize(width: 32, height: 24)
+        )
+        let continuousPrepared = try await backend.prepare(
+            request: request,
+            environment: deterministicTestEnvironment
+        )
+        let checkpointPrepared = try await backend.prepare(
+            request: request,
+            environment: deterministicTestEnvironment
+        )
+        let resumedPrepared = try await backend.prepare(
+            request: request,
+            environment: deterministicTestEnvironment
+        )
+        let continuous = try XCTUnwrap(
+            continuousPrepared as? PreparedDeterministicV4Upscaler
+        )
+        let checkpointSource = try XCTUnwrap(
+            checkpointPrepared as? PreparedDeterministicV4Upscaler
+        )
+        let resumed = try XCTUnwrap(
+            resumedPrepared as? PreparedDeterministicV4Upscaler
+        )
+        XCTAssertEqual(continuous.maximumOutputFramesPerInput, 2)
+        let sources = try (0..<2).map { frameIndex in
+            let buffer = try SyntheticNV12PixelBuffer.make(
+                width: 16,
+                height: 12
+            )
+            try writeFieldPattern(frameIndex: frameIndex, to: buffer)
+            attachProgressiveBT709(to: buffer)
+            CVBufferSetAttachment(
+                buffer,
+                kCVImageBufferFieldCountKey,
+                NSNumber(value: 2),
+                .shouldPropagate
+            )
+            CVBufferSetAttachment(
+                buffer,
+                kCVImageBufferFieldDetailKey,
+                kCVImageBufferFieldDetailTemporalTopFirst,
+                .shouldPropagate
+            )
+            return buffer
+        }
+        let duration = CMTime(value: 1_001, timescale: 30_000)
+        let timings = [
+            FrameTiming(
+                frameIndex: 0,
+                presentationTime: CMTime(value: 1_001, timescale: 30_000),
+                duration: duration
+            ),
+            FrameTiming(
+                frameIndex: 1,
+                presentationTime: CMTime(value: 2_002, timescale: 30_000),
+                duration: duration
+            )
+        ]
+        let firstContinuousDestinations = try makeDestinations(
+            count: 2,
+            width: 32,
+            height: 24
+        )
+        let firstOutputs = try await continuous.processTemporal(
+            source: FramePixelBuffer(sources[0]),
+            destinations: firstContinuousDestinations.map(FramePixelBuffer.init),
+            timing: timings[0]
+        )
+        XCTAssertEqual(firstOutputs.count, 2)
+        XCTAssertEqual(
+            firstOutputs[0].presentationTime,
+            CMTime(value: 1_001, timescale: 30_000)
+        )
+        XCTAssertEqual(
+            firstOutputs[1].presentationTime,
+            CMTime(value: 1_001, timescale: 20_000)
+        )
+        for output in firstOutputs {
+            XCTAssertEqual(
+                (CVBufferCopyAttachment(
+                    output.pixelBuffer.value,
+                    kCVImageBufferFieldCountKey,
+                    nil
+                ) as? NSNumber)?.intValue,
+                1
+            )
+            XCTAssertNil(CVBufferCopyAttachment(
+                output.pixelBuffer.value,
+                kCVImageBufferFieldDetailKey,
+                nil
+            ))
+        }
+
+        let secondContinuousDestinations = try makeDestinations(
+            count: 2,
+            width: 32,
+            height: 24
+        )
+        let secondContinuousOutputs = try await continuous.processTemporal(
+            source: FramePixelBuffer(sources[1]),
+            destinations: secondContinuousDestinations.map(FramePixelBuffer.init),
+            timing: timings[1]
+        )
+
+        _ = try await checkpointSource.processTemporal(
+            source: FramePixelBuffer(sources[0]),
+            destinations: try makeDestinations(
+                count: 2,
+                width: 32,
+                height: 24
+            ).map(FramePixelBuffer.init),
+            timing: timings[0]
+        )
+        let planIdentity = ASHSHA256V4(
+            rawData: Data("resume-plan-interlaced".utf8)
+        )
+        let checkpointData = try await checkpointSource
+            .makeTemporalCheckpoint(
+                planSHA256: planIdentity,
+                lastCompletedInputOrdinal: 0
+            )
+        try await resumed.restoreTemporalCheckpoint(
+            checkpointData,
+            planSHA256: planIdentity
+        )
+        let resumedDestinations = try makeDestinations(
+            count: 2,
+            width: 32,
+            height: 24
+        )
+        let resumedOutputs = try await resumed.processTemporal(
+            source: FramePixelBuffer(sources[1]),
+            destinations: resumedDestinations.map(FramePixelBuffer.init),
+            timing: timings[1]
+        )
+        XCTAssertEqual(
+            secondContinuousOutputs.map(\.presentationTime),
+            resumedOutputs.map(\.presentationTime)
+        )
+        for outputIndex in 0..<2 {
+            for plane in 0..<2 {
+                XCTAssertEqual(
+                    try SyntheticNV12PixelBuffer.visibleBytes(
+                        secondContinuousOutputs[outputIndex].pixelBuffer.value,
+                        plane: plane
+                    ),
+                    try SyntheticNV12PixelBuffer.visibleBytes(
+                        resumedOutputs[outputIndex].pixelBuffer.value,
+                        plane: plane
+                    )
+                )
+            }
+        }
+    }
+
     private func bruteForceDecode(_ received: ASHState) -> ASHDecodeResult {
         let distances = ASHCode.codewords.map { codeword in
             (distance: received.hammingDistance(to: codeword), codeword: codeword)
@@ -286,10 +580,23 @@ final class DeterministicCPUBackendTests: XCTestCase {
         let descriptor = try XCTUnwrap(
             BackendDescriptor.descriptor(for: .mirmirDeterministicCPU)
         )
-        return try XCTUnwrap(DeterministicCPUBackend(descriptor: descriptor))
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ash-p06-cpu-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let runtime = try ASHV4SemanticArtifactTestSupport.buildAndLoad(
+            at: directory
+        )
+        return try XCTUnwrap(DeterministicCPUBackend(
+            descriptor: descriptor,
+            runtimeProvider: .fixed(runtime)
+        ))
     }
 
-    private func makeSourceInfo(pixelFormat: OSType) -> VideoInfo {
+    private func makeSourceInfo(
+        pixelFormat: OSType,
+        fieldCount: Int = 1,
+        fieldDetail: String? = nil
+    ) -> VideoInfo {
         let fullRange = pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
         return VideoInfo(
             url: URL(fileURLWithPath: "/tmp/deterministic-source.mov"),
@@ -324,8 +631,8 @@ final class DeterministicCPUBackendTests: XCTestCase {
                 bitDepth: 8,
                 pixelFormat: pixelFormat,
                 isFullRange: fullRange,
-                fieldCount: 1,
-                fieldDetail: nil,
+                fieldCount: fieldCount,
+                fieldDetail: fieldDetail,
                 hasMasteringDisplayMetadata: false,
                 hasContentLightLevelMetadata: false,
                 dynamicRange: .sdr
@@ -358,6 +665,127 @@ final class DeterministicCPUBackendTests: XCTestCase {
             kCVImageBufferYCbCrMatrix_ITU_R_709_2,
             .shouldPropagate
         )
+    }
+
+    private func makeDestinations(
+        count: Int,
+        width: Int,
+        height: Int
+    ) throws -> [CVPixelBuffer] {
+        try (0..<count).map { _ in
+            try SyntheticNV12PixelBuffer.make(width: width, height: height)
+        }
+    }
+
+    private func writeMovingPattern(
+        frameIndex: Int,
+        to buffer: CVPixelBuffer
+    ) throws {
+        try SyntheticNV12PixelBuffer.fill(
+            buffer,
+            luma: 16,
+            cb: 128,
+            cr: 128
+        )
+        let frame = try PixelBufferSignalCodecV4.read(
+            buffer,
+            storage: .nv12VideoRange8Bit
+        )
+        let luma = frame.planes[0]
+        var lumaValues: [UInt16] = []
+        lumaValues.reserveCapacity(luma.width * luma.height)
+        for index in 0..<(luma.width * luma.height) {
+            let x = index % luma.width
+            let y = index / luma.width
+            let code = 16 + ((x * 13 + y * 7 + frameIndex * 29) % 220)
+            lumaValues.append(UInt16(code))
+        }
+        let chroma = frame.planes[1]
+        var chromaValues: [UInt16] = []
+        chromaValues.reserveCapacity(chroma.samples.count)
+        for index in 0..<(chroma.width * chroma.height) {
+            chromaValues.append(UInt16(32 + ((index * 5 + frameIndex * 11) % 190)))
+            chromaValues.append(UInt16(32 + ((index * 9 + frameIndex * 17) % 190)))
+        }
+        try PixelBufferSignalCodecV4.write(
+            PixelBufferSignalFrameV4(
+                storage: frame.storage,
+                width: frame.width,
+                height: frame.height,
+                planes: [
+                    try luma.replacingComponent(0, with: lumaValues),
+                    try PixelBufferSignalPlaneV4(
+                        width: chroma.width,
+                        height: chroma.height,
+                        componentsPerElement: chroma.componentsPerElement,
+                        componentBounds: chroma.componentBounds,
+                        samples: chromaValues
+                    )
+                ]
+            ),
+            to: buffer
+        )
+    }
+
+    private func writeFieldPattern(
+        frameIndex: Int,
+        to buffer: CVPixelBuffer
+    ) throws {
+        try SyntheticNV12PixelBuffer.fill(
+            buffer,
+            luma: 16,
+            cb: 128,
+            cr: 128
+        )
+        let frame = try PixelBufferSignalCodecV4.read(
+            buffer,
+            storage: .nv12VideoRange8Bit
+        )
+        var planes: [PixelBufferSignalPlaneV4] = []
+        for (planeIndex, plane) in frame.planes.enumerated() {
+            var samples = plane.samples
+            for y in 0..<plane.height {
+                for x in 0..<plane.width {
+                    for component in 0..<plane.componentsPerElement {
+                        let index = ((y * plane.width) + x)
+                            * plane.componentsPerElement + component
+                        let base = y.isMultiple(of: 2) ? 48 : 196
+                        samples[index] = UInt16(
+                            min(235, base + ((x + component * 7
+                                + planeIndex * 11 + frameIndex * 13) % 24))
+                        )
+                    }
+                }
+            }
+            planes.append(try PixelBufferSignalPlaneV4(
+                width: plane.width,
+                height: plane.height,
+                componentsPerElement: plane.componentsPerElement,
+                componentBounds: plane.componentBounds,
+                samples: samples
+            ))
+        }
+        try PixelBufferSignalCodecV4.write(
+            PixelBufferSignalFrameV4(
+                storage: frame.storage,
+                width: frame.width,
+                height: frame.height,
+                planes: planes
+            ),
+            to: buffer
+        )
+    }
+}
+
+private func XCTAssertThrowsErrorAsync<T>(
+    _ expression: @autoclosure () async throws -> T,
+    _ errorHandler: (Error) -> Void = { _ in }
+) async {
+    do {
+        _ = try await expression()
+        XCTFail("Expected expression to throw")
+    } catch {
+        errorHandler(error)
     }
 }
 

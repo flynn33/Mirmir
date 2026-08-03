@@ -1,5 +1,3 @@
-import CoreMedia
-import CoreVideo
 import Foundation
 
 struct DeterministicConfiguration: Equatable, Sendable {
@@ -10,14 +8,22 @@ struct DeterministicConfiguration: Equatable, Sendable {
     let stateInputEnabled: Bool
     let mappingSchemaVersion: String
     let operatorBankSchemaVersion: String
+    let runtimeManifestSHA256: String
+    let fixedPointKernelID: String
+    let temporalPolicyID: String
 }
 
 struct DeterministicCPUBackend: UpscaleBackend {
     let descriptor: BackendDescriptor
+    private let runtimeProvider: ASHP06RuntimeProviderV4
 
-    init?(descriptor: BackendDescriptor) {
+    init?(
+        descriptor: BackendDescriptor,
+        runtimeProvider: ASHP06RuntimeProviderV4 = .production()
+    ) {
         guard descriptor.id == .mirmirDeterministicCPU else { return nil }
         self.descriptor = descriptor
+        self.runtimeProvider = runtimeProvider
     }
 
     func availability(
@@ -26,10 +32,19 @@ struct DeterministicCPUBackend: UpscaleBackend {
         environment _: RuntimeEnvironment
     ) async -> BackendAvailability {
         switch validatedConfiguration(source: source, targetSize: targetSize) {
-        case .success:
-            return .available
         case .failure(let reason):
             return .unavailable(reason: reason)
+        case .success:
+            do {
+                let runtime = try runtimeProvider.load()
+                _ = try runtime.measurementContract()
+                _ = try runtime.branchProgram()
+                return .available
+            } catch {
+                return .unavailable(reason: .deterministicAssetsIncomplete(
+                    details: "P06 verification failed: \(error)"
+                ))
+            }
         }
     }
 
@@ -37,179 +52,41 @@ struct DeterministicCPUBackend: UpscaleBackend {
         request: BackendPreparationRequest,
         environment _: RuntimeEnvironment
     ) async throws -> any PreparedFrameUpscaler {
+        let configuration: DeterministicPreparedConfigurationV4
         switch validatedConfiguration(
             source: request.source,
             targetSize: request.targetSize
         ) {
-        case .success(let prepared):
-            return PreparedDeterministicCPUUpscaler(configuration: prepared)
+        case .success(let value):
+            configuration = value
         case .failure(let reason):
             throw BackendPreparationError.unavailable(descriptor.id, reason)
+        }
+        do {
+            return try PreparedDeterministicV4Upscaler(
+                configuration: configuration,
+                runtime: runtimeProvider.load()
+            )
+        } catch {
+            throw BackendPreparationError.unavailable(
+                descriptor.id,
+                .deterministicAssetsIncomplete(
+                    details: "the release-qualified P06 runtime could not be "
+                        + "prepared: \(String(describing: error))"
+                )
+            )
         }
     }
 
     private func validatedConfiguration(
         source: VideoInfo,
         targetSize: CGSize
-    ) -> Result<DeterministicPreparedConfiguration, BackendUnavailableReason> {
-        if let fieldCount = source.color.fieldCount, fieldCount != 1 {
-            return .failure(.unsupportedPixelFormatOrBitDepth(
-                details: "Mirmir Deterministic has no deinterlace stage; the source reports \(fieldCount) fields"
-            ))
-        }
-        if source.color.fieldDetail != nil {
-            return .failure(.unsupportedPixelFormatOrBitDepth(
-                details: "Mirmir Deterministic supports progressive video only; the source carries interlaced field detail"
-            ))
-        }
-
-        let nv12: NV12ScalerConfiguration
-        switch NV12ScalerConfiguration.validate(
+    ) -> Result<DeterministicPreparedConfigurationV4, BackendUnavailableReason> {
+        DeterministicConfigurationValidatorV4.validate(
             source: source,
             targetSize: targetSize,
-            backendID: descriptor.id
-        ) {
-        case .valid(let value):
-            nv12 = value
-        case .unavailable(let reason):
-            return .failure(reason)
-        }
-
-        guard let route = ASHSpatialRouteV2.allCases.first(where: { route in
-            guard let expectedWidth = try? route.destinationExtent(for: nv12.sourceWidth),
-                  let expectedHeight = try? route.destinationExtent(for: nv12.sourceHeight) else {
-                return false
-            }
-            return expectedWidth == nv12.targetWidth && expectedHeight == nv12.targetHeight
-        }) else {
-            return .failure(.unsupportedScaleFactor(
-                details: "the CPU reference exposes only exact 2× and 3:2 ASH routes"
-            ))
-        }
-
-        return .success(DeterministicPreparedConfiguration(
-            nv12: nv12,
-            route: route,
-            publicConfiguration: DeterministicConfiguration(
-                implementationVersion: "ash-p05-cpu-reference-preview",
-                scaleRoute: route.rawValue,
-                sourcePixelFormat: nv12.pixelFormat,
-                destinationPixelFormat: nv12.pixelFormat,
-                stateInputEnabled: true,
-                mappingSchemaVersion: ASHSpatialRuntimeConfigurationV2
-                    .developmentP05.mappingSchemaVersion,
-                operatorBankSchemaVersion: ASHSpatialRuntimeConfigurationV2
-                    .developmentP05.operatorBankSchemaVersion
-            )
-        ))
-    }
-}
-
-private struct DeterministicPreparedConfiguration: Sendable {
-    let nv12: NV12ScalerConfiguration
-    let route: ASHSpatialRouteV2
-    let publicConfiguration: DeterministicConfiguration
-}
-
-actor PreparedDeterministicCPUUpscaler: PreparedFrameUpscaler {
-    nonisolated let sourcePixelBufferAttributes: PixelBufferAttributes
-    nonisolated let destinationPixelBufferAttributes: PixelBufferAttributes
-    nonisolated let actualBackendID = UpscaleBackendID.mirmirDeterministicCPU
-    nonisolated let deterministicConfiguration: DeterministicConfiguration
-
-    private let configuration: NV12ScalerConfiguration
-    private let engine: ASHDeterministicUpscaleBackend
-    private var finished = false
-
-    fileprivate init(configuration prepared: DeterministicPreparedConfiguration) {
-        configuration = prepared.nv12
-        deterministicConfiguration = prepared.publicConfiguration
-        sourcePixelBufferAttributes = prepared.nv12.attributes(
-            width: prepared.nv12.sourceWidth,
-            height: prepared.nv12.sourceHeight
+            backendID: descriptor.id,
+            executionBackend: .cpu
         )
-        destinationPixelBufferAttributes = prepared.nv12.attributes(
-            width: prepared.nv12.targetWidth,
-            height: prepared.nv12.targetHeight
-        )
-        engine = ASHDeterministicUpscaleBackend(
-            route: prepared.route,
-            runtimeConfiguration: .developmentP05,
-            operatorParameters: .p05DevelopmentOnly,
-            stateInputEnabled: true,
-            telemetry: ASHNoopTelemetryRecorder.shared
-        )
-        engine.reset()
-    }
-
-    func process(
-        source: FramePixelBuffer,
-        destination: FramePixelBuffer,
-        timing: FrameTiming
-    ) async throws {
-        let source = source.value
-        let destination = destination.value
-        do {
-            guard !finished else {
-                throw configuration.processingError(
-                    "the prepared deterministic CPU adapter is already finished",
-                    frameIndex: timing.frameIndex
-                )
-            }
-            try Task.checkCancellation()
-            try configuration.validate(source, source: true)
-            try configuration.validate(destination, source: false)
-            try validateProgressiveChromaLocation(source)
-            NV12FrameAttachments.copy(from: source, to: destination)
-            let completion = try await engine.process(
-                source: source,
-                into: destination,
-                context: ASHUpscaleFrameContext(
-                    frameIndex: timing.frameIndex,
-                    presentationTimestampValue: timing.presentationTime.value,
-                    presentationTimestampTimescale: timing.presentationTime.timescale
-                )
-            )
-            completion.finishAfterAppend()
-        } catch is CancellationError {
-            throw CancellationError()
-        } catch {
-            throw configuration.processingError(
-                "the fixed ASH CPU reference failed: \(String(describing: error))",
-                frameIndex: timing.frameIndex
-            )
-        }
-    }
-
-    func finish() async throws {
-        guard !finished else { return }
-        try Task.checkCancellation()
-        engine.reset()
-        finished = true
-    }
-
-    private func validateProgressiveChromaLocation(_ buffer: CVPixelBuffer) throws {
-        guard let rawLocation = CVBufferCopyAttachment(
-            buffer,
-            kCVImageBufferChromaLocationTopFieldKey,
-            nil
-        ) as? String else {
-            throw configuration.processingError(
-                "the source frame has no explicit progressive chroma location"
-            )
-        }
-        let supported = [
-            kCVImageBufferChromaLocation_Center,
-            kCVImageBufferChromaLocation_Left,
-            kCVImageBufferChromaLocation_TopLeft,
-            kCVImageBufferChromaLocation_Top,
-            kCVImageBufferChromaLocation_BottomLeft,
-            kCVImageBufferChromaLocation_Bottom
-        ].map { $0 as String }
-        guard supported.contains(rawLocation) else {
-            throw configuration.processingError(
-                "the source chroma location \(rawLocation) is not represented by the ASH reference"
-            )
-        }
     }
 }
