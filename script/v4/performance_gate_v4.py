@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import math
 from pathlib import Path
@@ -27,10 +28,28 @@ ARTIFACT_MANIFEST_SCHEMA = "mirmir-v4-performance-capture-artifacts-v1"
 REPORT_SCHEMA = "mirmir-v4-performance-gate-report-v1"
 EVIDENCE_MANIFEST_SCHEMA = "mirmir-v4-performance-evidence-manifest-v1"
 SHA256_LENGTH = 64
+PACKAGED_CAPTURE_FIELDS = {
+    "evidenceRequestSHA256",
+    "observerSourceSHA256",
+    "packagedCandidateIdentity",
+}
 
 
 class EvidenceError(ValueError):
     """Raised whenever evidence is missing, ambiguous, or not identity-bound."""
+
+
+def packaged_evidence_module():
+    path = Path(__file__).resolve().with_name("packaged_candidate_evidence_v4.py")
+    spec = importlib.util.spec_from_file_location(
+        "performance_packaged_candidate_evidence_v4", path
+    )
+    if spec is None or spec.loader is None:
+        raise EvidenceError("cannot load packaged-candidate evidence verifier")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def _reject_duplicate_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -246,7 +265,9 @@ def load_contract(path: Path) -> tuple[dict[str, Any], str]:
     return contract, sha256_file(path)
 
 
-def verify_artifact_manifest(directory: Path) -> tuple[dict[str, Any], str]:
+def verify_artifact_manifest(
+    directory: Path, variant: str | None = None
+) -> tuple[dict[str, Any], str]:
     manifest_path = directory / "artifact-manifest.json"
     manifest = require_object(load_json(manifest_path), "artifact manifest")
     require(manifest.get("schemaVersion") == ARTIFACT_MANIFEST_SCHEMA, "unsupported artifact-manifest schema")
@@ -275,8 +296,16 @@ def verify_artifact_manifest(directory: Path) -> tuple[dict[str, Any], str]:
         "environment-after.json",
         "environment-before.json",
         "source-identity.json",
-        "xcodebuild.log",
     }
+    if variant == "baseline_p05":
+        required.add("xcodebuild.log")
+    elif variant == "candidate_p06":
+        required.add("packaged-observer.log")
+    else:
+        require(
+            {"xcodebuild.log", "packaged-observer.log"} & seen,
+            "capture artifacts omit their capture producer log",
+        )
     require(required.issubset(seen), f"capture artifacts are missing: {sorted(required - seen)}")
     actual_files = {
         path.name
@@ -389,13 +418,57 @@ def validate_capture(
     variant: str,
     contract: dict[str, Any],
     contract_sha256: str,
+    allow_unbound_fixture: bool = False,
 ) -> dict[str, Any]:
-    _, artifact_manifest_sha = verify_artifact_manifest(directory)
+    _, artifact_manifest_sha = verify_artifact_manifest(directory, variant)
     source_path = directory / "source-identity.json"
     source_identity = validate_source_identity(load_json(source_path), variant, contract)
     before = validate_environment(load_json(directory / "environment-before.json"), f"{variant} environment before")
     after = validate_environment(load_json(directory / "environment-after.json"), f"{variant} environment after")
     capture = require_object(load_json(directory / "capture.json"), f"{variant} capture")
+    base_fields = {
+        "schemaVersion",
+        "variant",
+        "contractSHA256",
+        "captureSourceSHA256",
+        "sourceIdentitySHA256",
+        "sourceRevision",
+        "sourceTreeSHA256",
+        "buildConfiguration",
+        "warmupCount",
+        "sampleCount",
+        "input",
+        "cases",
+    }
+    observed_fields = set(capture)
+    if variant == "baseline_p05":
+        require(observed_fields == base_fields, "baseline capture field set differs")
+    else:
+        require(
+            observed_fields in (base_fields, base_fields | PACKAGED_CAPTURE_FIELDS),
+            "candidate capture field set differs",
+        )
+        if observed_fields == base_fields | PACKAGED_CAPTURE_FIELDS:
+            require_sha256(
+                capture["evidenceRequestSHA256"],
+                "candidate capture evidence request",
+            )
+            require_sha256(
+                capture["observerSourceSHA256"],
+                "candidate capture observer source",
+            )
+            require_object(
+                capture["packagedCandidateIdentity"],
+                "candidate capture packaged identity",
+            )
+        else:
+            require(
+                allow_unbound_fixture,
+                "candidate capture omits exact packaged-candidate identities",
+            )
+            capture["evidenceRequestSHA256"] = None
+            capture["observerSourceSHA256"] = None
+            capture["packagedCandidateIdentity"] = None
     require(capture.get("schemaVersion") == CAPTURE_SCHEMA, "capture schema differs")
     require(capture.get("variant") == variant, "capture variant differs")
     require_sha256(capture.get("contractSHA256"), "capture contract SHA-256")
@@ -588,14 +661,115 @@ def _environment_gate(
     }
 
 
+def validate_packaged_performance_capture(
+    packaged_evidence_path: Path | None,
+    repository: Path | None,
+    runtime: Path | None,
+    contract_sha256: str,
+    candidate_directory: Path,
+    candidate: dict[str, Any],
+) -> dict[str, Any] | None:
+    supplied = (
+        packaged_evidence_path is not None,
+        repository is not None,
+        runtime is not None,
+    )
+    require(
+        all(supplied) or not any(supplied),
+        "packaged performance evidence requires --packaged-evidence, "
+        "--repository, and --runtime together",
+    )
+    if not any(supplied):
+        return None
+    assert packaged_evidence_path is not None
+    assert repository is not None
+    assert runtime is not None
+    verifier = packaged_evidence_module()
+    try:
+        binding = verifier.validate_capture_binding(
+            packaged_evidence_path, repository, runtime
+        )
+    except verifier.PackagedEvidenceError as error:
+        raise EvidenceError(
+            f"packaged performance evidence failed: {error}"
+        ) from error
+    require(binding.get("lane") == "performance", "packaged evidence is not performance evidence")
+    require(
+        binding.get("contractSHA256") == contract_sha256,
+        "packaged performance contract identity differs",
+    )
+    exact_capture = require_object(
+        binding.get("captureManifest"), "packaged performance capture"
+    )
+    scored_capture = require_object(
+        load_json(candidate_directory / "capture.json"),
+        "candidate performance capture",
+    )
+    require(
+        exact_capture == scored_capture,
+        "evaluated performance capture differs from exact packaged observer output",
+    )
+    package = require_object(
+        binding.get("packageIdentity"), "packaged candidate identity"
+    )
+    source_identity = candidate["_validated"]["sourceIdentity"]
+    source_runtime = source_identity["runtime"]
+    require(
+        candidate.get("evidenceRequestSHA256") == binding.get("requestSHA256")
+        and candidate.get("observerSourceSHA256")
+            == binding.get("observerSourceSHA256")
+        and candidate.get("packagedCandidateIdentity") == package,
+        "performance capture packaged identities differ",
+    )
+    require(
+        package.get("sourceCommit") == candidate.get("sourceRevision")
+        and package.get("sourceTreeIdentitySHA256")
+            == candidate.get("sourceTreeSHA256")
+        and package.get("runtimeManifestSHA256")
+            == source_runtime.get("manifestSHA256")
+        and package.get("runtimeSourceRevision")
+            == source_runtime.get("manifestSourceRevision"),
+        "performance capture source/runtime differs from packaged candidate",
+    )
+    return binding
+
+
 def evaluate(
     contract_path: Path,
     baseline_directory: Path,
     candidate_directory: Path,
+    packaged_evidence_path: Path | None = None,
+    repository: Path | None = None,
+    runtime: Path | None = None,
+    allow_fixture_runtime: bool = False,
 ) -> dict[str, Any]:
     contract, contract_sha = load_contract(contract_path)
-    baseline = validate_capture(baseline_directory, "baseline_p05", contract, contract_sha)
-    candidate = validate_capture(candidate_directory, "candidate_p06", contract, contract_sha)
+    baseline = validate_capture(
+        baseline_directory,
+        "baseline_p05",
+        contract,
+        contract_sha,
+        allow_fixture_runtime,
+    )
+    candidate = validate_capture(
+        candidate_directory,
+        "candidate_p06",
+        contract,
+        contract_sha,
+        allow_fixture_runtime,
+    )
+    packaged_binding = validate_packaged_performance_capture(
+        packaged_evidence_path,
+        repository,
+        runtime,
+        contract_sha,
+        candidate_directory,
+        candidate,
+    )
+    require(
+        packaged_binding is not None or allow_fixture_runtime,
+        "final performance qualification requires exact packaged-candidate evidence",
+    )
     require(baseline["warmupCount"] == candidate["warmupCount"], "paired warmup counts differ")
     require(baseline["sampleCount"] == candidate["sampleCount"], "paired sample counts differ")
 
@@ -698,11 +872,13 @@ def evaluate(
         }
         for name, ratio, interval in metric_rows
     }
-    gate_pass = (
+    measurement_pass = (
         all(row["pass"] for row in metric_gates.values())
         and memory_pass
         and environment["pass"]
     )
+    exact_packaged = packaged_binding is not None
+    gate_pass = measurement_pass and (exact_packaged or allow_fixture_runtime)
     report: dict[str, Any] = {
         "schemaVersion": REPORT_SCHEMA,
         "gateID": contract["gateID"],
@@ -719,6 +895,16 @@ def evaluate(
             "sourceIdentitySHA256": candidate["sourceIdentitySHA256"],
             "runtimeManifestSHA256": candidate["_validated"]["sourceIdentity"]["runtime"]["manifestSHA256"],
             "artifactManifestSHA256": candidate["_validated"]["artifactManifestSHA256"],
+            "evidenceRequestSHA256": candidate.get("evidenceRequestSHA256"),
+            "observerSourceSHA256": candidate.get("observerSourceSHA256"),
+            "packagedCaptureTreeSHA256": (
+                packaged_binding["captureTree"]["sha256"]
+                if packaged_binding is not None
+                else None
+            ),
+            "packagedCandidateIdentity": candidate.get(
+                "packagedCandidateIdentity"
+            ),
         },
         "measurement": {
             "buildConfiguration": "Release",
@@ -754,13 +940,28 @@ def evaluate(
         },
         "environmentGate": environment,
         "semanticVerificationPass": True,
+        "exactPackagedCandidatePass": exact_packaged,
+        "qualificationMode": (
+            "release" if exact_packaged else "diagnostic_fixture"
+        ),
+        "releaseEligible": exact_packaged and measurement_pass,
         "gatePass": gate_pass,
     }
     report["reportSHA256"] = sha256_bytes(canonical_json(report))
     return report
 
 
-def verify_report(report: Any, contract_path: Path) -> dict[str, Any]:
+def verify_report(
+    report: Any,
+    contract_path: Path,
+    *,
+    baseline_directory: Path | None = None,
+    candidate_directory: Path | None = None,
+    packaged_evidence_path: Path | None = None,
+    repository: Path | None = None,
+    runtime: Path | None = None,
+    allow_fixture_runtime: bool = False,
+) -> dict[str, Any]:
     contract, contract_sha = load_contract(contract_path)
     value = require_object(report, "performance report")
     require(value.get("schemaVersion") == REPORT_SCHEMA, "performance report schema differs")
@@ -845,14 +1046,83 @@ def verify_report(report: Any, contract_path: Path) -> dict[str, Any]:
         "environment gate result is inconsistent",
     )
     semantic_pass = require_bool(value.get("semanticVerificationPass"), "semantic verification result")
-    expected_gate = (
+    measurement_pass = (
         all(raw["pass"] is True for raw in metric_gates.values())
         and memory_pass
         and environment_pass
         and semantic_pass
     )
+    exact_packaged = require_bool(
+        value.get("exactPackagedCandidatePass"),
+        "exact packaged-candidate result",
+    )
+    candidate_identity = require_object(value.get("candidate"), "report candidate")
+    packaged_fields = (
+        "evidenceRequestSHA256",
+        "observerSourceSHA256",
+        "packagedCaptureTreeSHA256",
+        "packagedCandidateIdentity",
+    )
+    present = [candidate_identity.get(field) is not None for field in packaged_fields]
+    require(
+        all(present) == exact_packaged and not (any(present) and not all(present)),
+        "performance packaged identity set is inconsistent",
+    )
+    if exact_packaged:
+        for field in packaged_fields[:-1]:
+            require_sha256(candidate_identity[field], f"candidate.{field}")
+        require_object(
+            candidate_identity["packagedCandidateIdentity"],
+            "candidate.packagedCandidateIdentity",
+        )
+    else:
+        require(
+            allow_fixture_runtime,
+            "final performance report omits exact packaged-candidate evidence",
+        )
+    require(
+        value.get("qualificationMode")
+            == ("release" if exact_packaged else "diagnostic_fixture"),
+        "performance qualification mode is inconsistent",
+    )
+    require(
+        value.get("releaseEligible") is (exact_packaged and measurement_pass),
+        "performance release eligibility is inconsistent",
+    )
+    expected_gate = measurement_pass and (exact_packaged or allow_fixture_runtime)
     require(value.get("gatePass") is expected_gate, "overall performance result is inconsistent")
     require(expected_gate, "deterministic-engine v4 performance gate did not pass")
+    if exact_packaged:
+        supplied_replay = (
+            baseline_directory is not None,
+            candidate_directory is not None,
+            packaged_evidence_path is not None,
+            repository is not None,
+            runtime is not None,
+        )
+        require(
+            all(supplied_replay),
+            "final performance report verification requires baseline, candidate, "
+            "packaged evidence, repository, and runtime",
+        )
+        assert baseline_directory is not None
+        assert candidate_directory is not None
+        assert packaged_evidence_path is not None
+        assert repository is not None
+        assert runtime is not None
+        replayed = evaluate(
+            contract_path,
+            baseline_directory,
+            candidate_directory,
+            packaged_evidence_path,
+            repository,
+            runtime,
+            False,
+        )
+        require(
+            canonical_json(replayed) == canonical_json(value),
+            "performance report differs from replayed exact evidence",
+        )
     return value
 
 
@@ -884,10 +1154,18 @@ def parse_arguments() -> argparse.Namespace:
     evaluate_parser.add_argument("--contract", type=Path, required=True)
     evaluate_parser.add_argument("--baseline", type=Path, required=True)
     evaluate_parser.add_argument("--candidate", type=Path, required=True)
+    evaluate_parser.add_argument("--packaged-evidence", type=Path, required=True)
+    evaluate_parser.add_argument("--repository", type=Path, required=True)
+    evaluate_parser.add_argument("--runtime", type=Path, required=True)
     evaluate_parser.add_argument("--output", type=Path, required=True)
     verify_parser = commands.add_parser("verify")
     verify_parser.add_argument("--contract", type=Path, required=True)
     verify_parser.add_argument("--report", type=Path, required=True)
+    verify_parser.add_argument("--baseline", type=Path, required=True)
+    verify_parser.add_argument("--candidate", type=Path, required=True)
+    verify_parser.add_argument("--packaged-evidence", type=Path, required=True)
+    verify_parser.add_argument("--repository", type=Path, required=True)
+    verify_parser.add_argument("--runtime", type=Path, required=True)
     seal_parser = commands.add_parser("seal")
     seal_parser.add_argument("--directory", type=Path, required=True)
     return parser.parse_args()
@@ -901,11 +1179,24 @@ def main() -> int:
                 arguments.contract.resolve(),
                 arguments.baseline.resolve(),
                 arguments.candidate.resolve(),
+                arguments.packaged_evidence.resolve(),
+                arguments.repository.resolve(),
+                arguments.runtime.resolve(),
+                False,
             )
             write_json(arguments.output.resolve(), report)
             return 0
         if arguments.command == "verify":
-            verify_report(load_json(arguments.report.resolve()), arguments.contract.resolve())
+            verify_report(
+                load_json(arguments.report.resolve()),
+                arguments.contract.resolve(),
+                baseline_directory=arguments.baseline.resolve(),
+                candidate_directory=arguments.candidate.resolve(),
+                packaged_evidence_path=arguments.packaged_evidence.resolve(),
+                repository=arguments.repository.resolve(),
+                runtime=arguments.runtime.resolve(),
+                allow_fixture_runtime=False,
+            )
             return 0
         if arguments.command == "seal":
             directory = arguments.directory.resolve()

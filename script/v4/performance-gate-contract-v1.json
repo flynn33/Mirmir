@@ -9,11 +9,11 @@
   },
   "capture": {
     "buildConfiguration": "Release",
-    "captureSourceSHA256": "c2406a7a8d96c9df8d24d956619ffbfe866638bff47585d64c7177174b91906c",
-    "evaluatorSourceSHA256": "2c3c915c0ea235619e3f17474aae697fe27c5c47f7c3e274bbabd8d5e6978949",
+    "captureSourceSHA256": "180a97cdd6e9cc3277db738c95261e85161ac48bde5336ccfd37089fbb8e6d39",
+    "evaluatorSourceSHA256": "97199617f75e5009aaed0e13f84bf070e8fff6bddec65f57a9df9d21bfdd33d8",
     "minimumMeasuredRuns": 10,
     "minimumWarmupRuns": 5,
-    "runnerSourceSHA256": "60c2af31549e1deaa6675cf7f8aaf0341e7e06a55e8dfb17b28965a80f05c8b0"
+    "runnerSourceSHA256": "91ec923eff8e5246445bf20d97b804a774732751355288da03bed54b71f2aaa7"
   },
   "candidate": {
     "bundleRepositoryPath": "Mirmir/Resources/ASH-P06.bundle",
@@ -93,7 +93,7 @@
       "frameCount": 3,
       "height": 48,
       "repositoryPath": "docs/v4/evidence/v3-p05-baseline-2026-08-02/end-to-end-input.mov",
-      "sha256": "8049c0bbd4e9e67796cea3e68767208715f4672cbe3e1db0dadc5db51da3eced",
+      "sha256": "1e2d65c2702dc3e47768293cf566ecd105282cb7d4ae58874dc313a77b53182d",
       "trackCount": 1,
       "width": 64
     },

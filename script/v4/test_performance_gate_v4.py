@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 
 SCRIPT_DIRECTORY = Path(__file__).resolve().parent
@@ -114,7 +115,12 @@ class PerformanceGateTests(unittest.TestCase):
         environment = self._environment()
         write_json(directory / "environment-before.json", environment)
         write_json(directory / "environment-after.json", environment)
-        (directory / "xcodebuild.log").write_text("Release test succeeded\n")
+        producer_log = (
+            "xcodebuild.log"
+            if variant == "baseline_p05"
+            else "packaged-observer.log"
+        )
+        (directory / producer_log).write_text("Release capture succeeded\n")
         cases = []
         for case_index, case in enumerate(self.contract["workload"]["cases"]):
             verification = {
@@ -204,16 +210,67 @@ class PerformanceGateTests(unittest.TestCase):
             | {"schemaVersion": gate.ARTIFACT_MANIFEST_SCHEMA},
         )
 
+    def _evaluate(self, candidate: Path | None = None) -> dict[str, object]:
+        return gate.evaluate(
+            self.contract_path,
+            self.baseline,
+            candidate or self.candidate,
+            allow_fixture_runtime=True,
+        )
+
+    def _verify(self, report: object) -> dict[str, object]:
+        return gate.verify_report(
+            report,
+            self.contract_path,
+            allow_fixture_runtime=True,
+        )
+
     def test_paired_release_evidence_passes_and_verifies(self) -> None:
-        report = gate.evaluate(self.contract_path, self.baseline, self.candidate)
+        report = self._evaluate()
         self.assertTrue(report["gatePass"])
+        self.assertFalse(report["exactPackagedCandidatePass"])
+        self.assertFalse(report["releaseEligible"])
         self.assertLess(report["metricGates"]["aggregateCorpusWall"]["ratio"], 0.51)
         self.assertLess(report["metricGates"]["engineFrameMedian"]["ratio"], 0.51)
         self.assertLess(report["metricGates"]["engineFrameP95"]["ratio"], 0.51)
         self.assertEqual(
-            gate.verify_report(report, self.contract_path)["reportSHA256"],
+            self._verify(report)["reportSHA256"],
             report["reportSHA256"],
         )
+
+    def test_final_gate_rejects_unbound_candidate_capture(self) -> None:
+        with self.assertRaisesRegex(
+            gate.EvidenceError,
+            "candidate capture omits exact packaged-candidate identities",
+        ):
+            gate.evaluate(self.contract_path, self.baseline, self.candidate)
+
+    def test_packaged_archive_verification_failure_is_normative(self) -> None:
+        candidate = json.loads((self.candidate / "capture.json").read_text())
+        candidate.update({
+            "evidenceRequestSHA256": "8" * 64,
+            "observerSourceSHA256": "9" * 64,
+            "packagedCandidateIdentity": {"fixture": True},
+        })
+        self._rewrite_and_reseal(self.candidate, "capture.json", candidate)
+        verifier = mock.Mock()
+        verifier.PackagedEvidenceError = ValueError
+        verifier.validate_capture_binding.side_effect = ValueError(
+            "candidate record differs from the verified application archive"
+        )
+        with mock.patch.object(
+            gate, "packaged_evidence_module", return_value=verifier
+        ), self.assertRaisesRegex(
+            gate.EvidenceError, "verified application archive"
+        ):
+            gate.evaluate(
+                self.contract_path,
+                self.baseline,
+                self.candidate,
+                Path("packaged"),
+                Path("repository"),
+                Path("runtime"),
+            )
 
     def test_artifact_tamper_is_rejected(self) -> None:
         with (self.candidate / "capture.json").open("a") as stream:
@@ -222,7 +279,7 @@ class PerformanceGateTests(unittest.TestCase):
             gate.EvidenceError,
             "byte count changed|SHA-256 changed",
         ):
-            gate.evaluate(self.contract_path, self.baseline, self.candidate)
+            self._evaluate()
 
     def test_capture_seal_uses_the_only_accepted_manifest_schema(self) -> None:
         manifest_path = self.candidate / "artifact-manifest.json"
@@ -243,7 +300,7 @@ class PerformanceGateTests(unittest.TestCase):
                 candidate[field] = replacement
                 self._rewrite_and_reseal(self.candidate, "capture.json", candidate)
                 with self.assertRaisesRegex(gate.EvidenceError, message):
-                    gate.evaluate(self.contract_path, self.baseline, self.candidate)
+                    self._evaluate()
                 candidate[field] = original
                 self._rewrite_and_reseal(self.candidate, "capture.json", candidate)
 
@@ -253,7 +310,7 @@ class PerformanceGateTests(unittest.TestCase):
         ] = False
         self._rewrite_and_reseal(self.candidate, "capture.json", candidate)
         with self.assertRaisesRegex(gate.EvidenceError, "allInputTracksAccounted failed"):
-            gate.evaluate(self.contract_path, self.baseline, self.candidate)
+            self._evaluate()
 
     def test_unlocked_runtime_and_environment_mismatch_are_rejected(self) -> None:
         source = json.loads((self.candidate / "source-identity.json").read_text())
@@ -265,7 +322,7 @@ class PerformanceGateTests(unittest.TestCase):
         )
         self._rewrite_and_reseal(self.candidate, "capture.json", capture)
         with self.assertRaisesRegex(gate.EvidenceError, "candidate release qualification"):
-            gate.evaluate(self.contract_path, self.baseline, self.candidate)
+            self._evaluate()
 
         self.candidate = self._fresh_candidate()
         environment = json.loads(
@@ -275,11 +332,11 @@ class PerformanceGateTests(unittest.TestCase):
         self._rewrite_and_reseal(
             self.candidate, "environment-after.json", environment
         )
-        report = gate.evaluate(self.contract_path, self.baseline, self.candidate)
+        report = self._evaluate()
         self.assertFalse(report["environmentGate"]["pass"])
         self.assertFalse(report["gatePass"])
         with self.assertRaisesRegex(gate.EvidenceError, "did not pass"):
-            gate.verify_report(report, self.contract_path)
+            self._verify(report)
 
     def test_candidate_provenance_revision_requires_40_or_64_hex(self) -> None:
         source = json.loads((self.candidate / "source-identity.json").read_text())
@@ -308,19 +365,15 @@ class PerformanceGateTests(unittest.TestCase):
             for run in case["endToEndRuns"]:
                 run["wallMilliseconds"] = 120.0
         self._rewrite_and_reseal(self.candidate, "capture.json", candidate)
-        report = gate.evaluate(self.contract_path, self.baseline, self.candidate)
+        report = self._evaluate()
         self.assertFalse(report["gatePass"])
         with self.assertRaisesRegex(gate.EvidenceError, "did not pass"):
-            gate.verify_report(report, self.contract_path)
+            self._verify(report)
 
-        report = gate.evaluate(
-            self.contract_path,
-            self.baseline,
-            self._fresh_candidate(),
-        )
+        report = self._evaluate(self._fresh_candidate())
         report["metricGates"]["engineFrameMedian"]["ratio"] = 0.1
         with self.assertRaisesRegex(gate.EvidenceError, "report seal differs"):
-            gate.verify_report(report, self.contract_path)
+            self._verify(report)
 
     def test_locked_runner_uses_semantic_p06_manifest_identity(self) -> None:
         runner = SCRIPT_DIRECTORY / "run_performance_gate_v4.sh"

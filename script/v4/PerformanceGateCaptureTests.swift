@@ -217,7 +217,7 @@ final class DeterministicEngineV4PerformanceCaptureTests: XCTestCase {
         )
         XCTAssertEqual(
             sha256(try Data(contentsOf: inputURL)),
-            "8049c0bbd4e9e67796cea3e68767208715f4672cbe3e1db0dadc5db51da3eced"
+            "1e2d65c2702dc3e47768293cf566ecd105282cb7d4ae58874dc313a77b53182d"
         )
 
         let source = try await VideoProbe().probe(url: inputURL)

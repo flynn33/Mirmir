@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-    print -u2 "usage: $0 --output DIRECTORY [--candidate-revision REVISION] [--derived-data DIRECTORY] [--warmups COUNT] [--samples COUNT] [--keep-work]"
+    print -u2 "usage: $0 --output DIRECTORY --candidate FILE --application-archive FILE --runtime DIRECTORY --release-configuration FILE [--derived-data DIRECTORY] [--warmups COUNT] [--samples COUNT] [--keep-work]"
     exit 64
 }
 
@@ -11,8 +11,12 @@ repository_root="${script_directory:h:h}"
 contract="${script_directory}/performance-gate-contract-v1.json"
 evaluator="${script_directory}/performance_gate_v4.py"
 capture_source="${script_directory}/PerformanceGateCaptureTests.swift"
+packaged_capture="${script_directory}/packaged_candidate_evidence_v4.py"
 output_directory=""
-candidate_revision="HEAD"
+candidate_path=""
+application_archive=""
+runtime_directory=""
+release_configuration=""
 derived_data_root=""
 warmup_count=5
 sample_count=10
@@ -25,9 +29,24 @@ while (( $# > 0 )); do
             output_directory="$2"
             shift 2
             ;;
-        --candidate-revision)
+        --candidate)
             (( $# >= 2 )) || usage
-            candidate_revision="$2"
+            candidate_path="$2"
+            shift 2
+            ;;
+        --application-archive)
+            (( $# >= 2 )) || usage
+            application_archive="$2"
+            shift 2
+            ;;
+        --runtime)
+            (( $# >= 2 )) || usage
+            runtime_directory="$2"
+            shift 2
+            ;;
+        --release-configuration)
+            (( $# >= 2 )) || usage
+            release_configuration="$2"
             shift 2
             ;;
         --derived-data)
@@ -54,10 +73,18 @@ while (( $# > 0 )); do
 done
 
 [[ -n "$output_directory" ]] || usage
+[[ -n "$candidate_path" ]] || usage
+[[ -n "$application_archive" ]] || usage
+[[ -n "$runtime_directory" ]] || usage
+[[ -n "$release_configuration" ]] || usage
 [[ "$warmup_count" == <-> && "$warmup_count" -ge 5 ]] || usage
 [[ "$sample_count" == <-> && "$sample_count" -ge 10 ]] || usage
 
 output_directory="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve())' "$output_directory")"
+candidate_path="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' "$candidate_path")"
+application_archive="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' "$application_archive")"
+runtime_directory="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' "$runtime_directory")"
+release_configuration="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' "$release_configuration")"
 if [[ -e "$output_directory" ]] && [[ -n "$(find "$output_directory" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]; then
     print -u2 "refusing to overwrite nonempty output directory: $output_directory"
     exit 65
@@ -82,6 +109,12 @@ import json,sys
 print(json.load(open(sys.argv[1]))["baseline"]["sourceRevision"])
 PY
 )"
+candidate_revision="$(python3 - "$candidate_path" <<'PY'
+import json,sys
+value=json.load(open(sys.argv[1]))
+print(value.get("candidate", value)["sourceCommit"])
+PY
+)"
 candidate_revision="$(git -C "$repository_root" rev-parse --verify "${candidate_revision}^{commit}")"
 contract_sha256="$(shasum -a 256 "$contract" | awk '{print $1}')"
 capture_source_sha256="$(shasum -a 256 "$capture_source" | awk '{print $1}')"
@@ -101,8 +134,11 @@ for field, digest in actual.items():
 PY
 
 for bound_path in \
+    Mirmir/App/MirmirApp.swift \
     script/v4/performance_gate_v4.py \
     script/v4/PerformanceGateCaptureTests.swift \
+    script/v4/packaged_candidate_evidence_v4.py \
+    script/v4/release_candidate_archive_v4.py \
     script/v4/run_performance_gate_v4.sh \
     script/v4/performance-gate-contract-v1.json; do
     git -C "$repository_root" cat-file -e "${candidate_revision}:${bound_path}" || {
@@ -139,7 +175,6 @@ git -C "$repository_root" archive --format=tar "$baseline_revision" \
 git -C "$repository_root" archive --format=tar "$candidate_revision" \
     | tar -xf - -C "$work_directory/candidate-project"
 cp "$capture_source" "$work_directory/baseline-project/script/v4/PerformanceGateCaptureTests.swift"
-cp "$capture_source" "$work_directory/candidate-project/script/v4/PerformanceGateCaptureTests.swift"
 
 inject_capture_source() {
     local project_root="$1"
@@ -188,7 +223,6 @@ PY
 }
 
 inject_capture_source "$work_directory/baseline-project"
-inject_capture_source "$work_directory/candidate-project"
 
 source_tree_identity() {
     local repository="$1"
@@ -557,21 +591,63 @@ run_capture \
     "$work_directory/baseline-project" \
     "$output_directory/baseline" \
     "$derived_data_root/baseline"
-run_capture \
+
+make_source_identity \
     candidate_p06 \
     "$candidate_revision" \
     "$work_directory/candidate-project" \
-    "$output_directory/candidate" \
-    "$derived_data_root/candidate"
+    "$output_directory/candidate/source-identity.json"
+capture_environment "$output_directory/candidate/environment-before.json"
+python3 "$packaged_capture" capture \
+    --repository "$repository_root" \
+    --candidate "$candidate_path" \
+    --application-archive "$application_archive" \
+    --runtime "$runtime_directory" \
+    --release-configuration "$release_configuration" \
+    --lane performance \
+    --contract "$contract" \
+    --performance-input "$locked_input" \
+    --performance-source-identity "$output_directory/candidate/source-identity.json" \
+    --warmups "$warmup_count" \
+    --samples "$sample_count" \
+    --output "$output_directory/packaged-candidate"
+cp "$output_directory/packaged-candidate/capture/capture.json" \
+    "$output_directory/candidate/capture.json"
+python3 - \
+    "$output_directory/packaged-candidate/capture-record.json" \
+    "$output_directory/candidate/packaged-observer.log" <<'PY'
+import json,pathlib,sys
+record_path, output_path = map(pathlib.Path, sys.argv[1:])
+record = json.loads(record_path.read_text())
+summary = {
+    "captureProducer": "exact_attested_application_observer",
+    "applicationArchiveSHA256": record["packageIdentity"]["applicationArchiveSHA256"],
+    "applicationExecutableSHA256": record["packageIdentity"]["applicationExecutableSHA256"],
+    "captureTreeSHA256": record["captureTree"]["sha256"],
+    "evidenceRequestSHA256": record["requestSHA256"],
+    "observerSourceSHA256": record["observerSourceSHA256"],
+}
+output_path.write_text(json.dumps(summary, separators=(",", ":"), sort_keys=True) + "\n")
+PY
+capture_environment "$output_directory/candidate/environment-after.json"
+python3 "$evaluator" seal --directory "$output_directory/candidate"
 
 python3 "$evaluator" evaluate \
     --contract "$contract" \
     --baseline "$output_directory/baseline" \
     --candidate "$output_directory/candidate" \
+    --packaged-evidence "$output_directory/packaged-candidate" \
+    --repository "$repository_root" \
+    --runtime "$runtime_directory" \
     --output "$output_directory/performance-gate-report.json"
 python3 "$evaluator" verify \
     --contract "$contract" \
-    --report "$output_directory/performance-gate-report.json"
+    --report "$output_directory/performance-gate-report.json" \
+    --baseline "$output_directory/baseline" \
+    --candidate "$output_directory/candidate" \
+    --packaged-evidence "$output_directory/packaged-candidate" \
+    --repository "$repository_root" \
+    --runtime "$runtime_directory"
 cp "$contract" "$output_directory/performance-gate-contract-v1.json"
 
 python3 - "$output_directory" <<'PY'
