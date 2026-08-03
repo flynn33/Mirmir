@@ -924,6 +924,29 @@ enum PreparedAlpha4444UpscalerV4Error: Error, Equatable, Sendable {
     case invalidPresentationTime(frameIndex: Int)
     case invalidDuration(frameIndex: Int)
     case frameIndexOverflow
+    case invalidDestinationCount(expected: Int, actual: Int)
+    case checkpointStateUnavailable
+    case checkpointIdentityMismatch
+    case checkpointStateMismatch
+}
+
+private struct PreparedAlpha4444PlanIdentityV4: Codable, Sendable {
+    let layout: Alpha4444PackedLayoutV4
+    let sourceAssociation: AlphaAssociationV4
+    let destinationAssociation: AlphaAssociationV4
+    let zeroAlphaPolicy: ZeroAlphaPolicyV4
+    let spatialPlan: SpatialScalePlanV4
+}
+
+private struct PreparedAlpha4444CheckpointV4: Codable, Sendable {
+    static let currentSchemaID = "ash.alpha4444-temporal-checkpoint.v4.1"
+
+    let schemaID: String
+    let planSHA256: ASHSHA256V4
+    let alphaPlanSHA256: ASHSHA256V4
+    let backendID: UpscaleBackendID
+    let lastCompletedInputOrdinal: Int64
+    let nextFrameIndex: Int
 }
 
 /// Stateful `PreparedFrameUpscaler` boundary for packed alpha media.
@@ -933,13 +956,16 @@ enum PreparedAlpha4444UpscalerV4Error: Error, Equatable, Sendable {
 /// layouts accepted by the alpha kernel. This lets the whole-asset migrator
 /// use the same bounded pixel-buffer-pool path as NV12/P010 without an
 /// unconditional Core Image or RGB bridge.
-actor PreparedAlpha4444UpscalerV4: PreparedFrameUpscaler {
+actor PreparedAlpha4444UpscalerV4:
+    PreparedCheckpointableTemporalFrameUpscaler {
     nonisolated let sourcePixelBufferAttributes: PixelBufferAttributes
     nonisolated let destinationPixelBufferAttributes: PixelBufferAttributes
     nonisolated let actualBackendID: UpscaleBackendID
     nonisolated let plan: Alpha4444ScalePlanV4
+    nonisolated let maximumOutputFramesPerInput = 1
 
     private let scaler: Alpha4444FixedPointScalerV4
+    private let alphaPlanSHA256: ASHSHA256V4
     private var nextFrameIndex: Int?
     private var finished = false
 
@@ -963,6 +989,7 @@ actor PreparedAlpha4444UpscalerV4: PreparedFrameUpscaler {
         self.actualBackendID = backend == .cpu
             ? .mirmirDeterministicCPU
             : .mirmirDeterministicMetal
+        self.alphaPlanSHA256 = try Self.planIdentitySHA256(plan)
         self.scaler = try Alpha4444FixedPointScalerV4(
             backend: backend,
             plan: plan,
@@ -1010,6 +1037,7 @@ actor PreparedAlpha4444UpscalerV4: PreparedFrameUpscaler {
         self.actualBackendID = backend == .cpu
             ? .mirmirDeterministicCPU
             : .mirmirDeterministicMetal
+        self.alphaPlanSHA256 = try Self.planIdentitySHA256(plan)
         self.scaler = try Alpha4444FixedPointScalerV4(
             backend: backend,
             plan: plan,
@@ -1069,6 +1097,80 @@ actor PreparedAlpha4444UpscalerV4: PreparedFrameUpscaler {
         finished = true
     }
 
+    func processTemporal(
+        source: FramePixelBuffer,
+        destinations: [FramePixelBuffer],
+        timing: FrameTiming
+    ) async throws -> [TemporalOutputFrame] {
+        guard destinations.count == maximumOutputFramesPerInput else {
+            throw PreparedAlpha4444UpscalerV4Error.invalidDestinationCount(
+                expected: maximumOutputFramesPerInput,
+                actual: destinations.count
+            )
+        }
+        try await process(
+            source: source,
+            destination: destinations[0],
+            timing: timing
+        )
+        return [TemporalOutputFrame(
+            pixelBuffer: destinations[0],
+            presentationTime: timing.presentationTime
+        )]
+    }
+
+    func makeTemporalCheckpoint(
+        planSHA256: ASHSHA256V4,
+        lastCompletedInputOrdinal: Int64
+    ) async throws -> Data {
+        guard !finished, let nextFrameIndex else {
+            throw PreparedAlpha4444UpscalerV4Error
+                .checkpointStateUnavailable
+        }
+        guard lastCompletedInputOrdinal >= 0,
+              Int64(nextFrameIndex) == lastCompletedInputOrdinal + 1 else {
+            throw PreparedAlpha4444UpscalerV4Error.checkpointStateMismatch
+        }
+        return try ASHCanonicalJSONV4.encode(
+            PreparedAlpha4444CheckpointV4(
+                schemaID: PreparedAlpha4444CheckpointV4.currentSchemaID,
+                planSHA256: planSHA256,
+                alphaPlanSHA256: alphaPlanSHA256,
+                backendID: actualBackendID,
+                lastCompletedInputOrdinal: lastCompletedInputOrdinal,
+                nextFrameIndex: nextFrameIndex
+            )
+        )
+    }
+
+    func restoreTemporalCheckpoint(
+        _ data: Data,
+        planSHA256: ASHSHA256V4
+    ) async throws {
+        guard !finished else {
+            throw PreparedAlpha4444UpscalerV4Error.alreadyFinished
+        }
+        let checkpoint = try ASHCanonicalJSONV4.decode(
+            PreparedAlpha4444CheckpointV4.self,
+            from: data
+        )
+        guard checkpoint.schemaID
+                == PreparedAlpha4444CheckpointV4.currentSchemaID,
+              checkpoint.planSHA256 == planSHA256,
+              checkpoint.alphaPlanSHA256 == alphaPlanSHA256,
+              checkpoint.backendID == actualBackendID else {
+            throw PreparedAlpha4444UpscalerV4Error
+                .checkpointIdentityMismatch
+        }
+        guard checkpoint.lastCompletedInputOrdinal >= 0,
+              checkpoint.nextFrameIndex > 0,
+              Int64(checkpoint.nextFrameIndex)
+                == checkpoint.lastCompletedInputOrdinal + 1 else {
+            throw PreparedAlpha4444UpscalerV4Error.checkpointStateMismatch
+        }
+        nextFrameIndex = checkpoint.nextFrameIndex
+    }
+
     private nonisolated static func attributes(
         layout: Alpha4444PackedLayoutV4,
         width: Int,
@@ -1081,6 +1183,21 @@ actor PreparedAlpha4444UpscalerV4: PreparedFrameUpscaler {
             kCVPixelBufferHeightKey as String: NSNumber(value: height),
             kCVPixelBufferIOSurfacePropertiesKey as String: [:]
         ])
+    }
+
+    private nonisolated static func planIdentitySHA256(
+        _ plan: Alpha4444ScalePlanV4
+    ) throws -> ASHSHA256V4 {
+        try ASHCanonicalJSONV4.hash(
+            PreparedAlpha4444PlanIdentityV4(
+                layout: plan.layout,
+                sourceAssociation: plan.sourceAssociation,
+                destinationAssociation: plan.destinationAssociation,
+                zeroAlphaPolicy: plan.zeroAlphaPolicy,
+                spatialPlan: plan.spatialPlan
+            ),
+            domain: "ash-alpha4444-plan-identity-v4"
+        )
     }
 }
 

@@ -5,6 +5,7 @@ import Foundation
 
 enum PreparedFrameUpscalerTrackHookV4Error: Error, Equatable, Sendable {
     case invalidNominalSourceFrameDuration
+    case invalidStartingFrameIndex(Int)
     case invalidMaximumOutputCount(Int)
     case destinationPoolCreationFailed(Int32)
     case destinationAllocationFailed(Int32)
@@ -41,17 +42,24 @@ actor PreparedFrameUpscalerTrackProcessorV4 {
     private let pool: CVPixelBufferPool
     private let nominalSourceFrameDuration: CMTime
     private let maximumOutputCount: Int
-    private var nextFrameIndex = 0
+    private let finishBackendAtEnd: Bool
+    private var nextFrameIndex: Int
     private var finished = false
 
     init(
         backend: any PreparedFrameUpscaler,
-        nominalSourceFrameDuration: ExactRationalV4
+        nominalSourceFrameDuration: ExactRationalV4,
+        startingFrameIndex: Int = 0,
+        finishBackendAtEnd: Bool = true
     ) throws {
         guard nominalSourceFrameDuration.numerator > 0,
               nominalSourceFrameDuration.denominator <= Int64(Int32.max) else {
             throw PreparedFrameUpscalerTrackHookV4Error
                 .invalidNominalSourceFrameDuration
+        }
+        guard startingFrameIndex >= 0 else {
+            throw PreparedFrameUpscalerTrackHookV4Error
+                .invalidStartingFrameIndex(startingFrameIndex)
         }
         let temporal = backend as? any PreparedTemporalFrameUpscaler
         let maximum = temporal?.maximumOutputFramesPerInput ?? 1
@@ -81,6 +89,8 @@ actor PreparedFrameUpscalerTrackProcessorV4 {
             timescale: Int32(nominalSourceFrameDuration.denominator)
         )
         self.maximumOutputCount = maximum
+        self.finishBackendAtEnd = finishBackendAtEnd
+        self.nextFrameIndex = startingFrameIndex
     }
 
     func process(
@@ -91,6 +101,8 @@ actor PreparedFrameUpscalerTrackProcessorV4 {
         }
         let frameIndex = nextFrameIndex
         let sourceSample = input.sampleBuffer
+        let sourceDynamicHDRMetadata = try AVFoundationHDRMetadataAdapterV4
+            .probeDynamicMetadata(from: sourceSample)
         guard let sourceBuffer = CMSampleBufferGetImageBuffer(sourceSample) else {
             throw PreparedFrameUpscalerTrackHookV4Error
                 .sourceSampleHasNoImageBuffer(frameIndex: frameIndex)
@@ -202,6 +214,12 @@ actor PreparedFrameUpscalerTrackProcessorV4 {
                         status: sampleStatus
                     )
             }
+            if let sourceDynamicHDRMetadata {
+                try AVFoundationHDRMetadataAdapterV4.migrate(
+                    sourceDynamicHDRMetadata,
+                    to: sample
+                )
+            }
             output.append(AVFoundationVideoSampleV4(sampleBuffer: sample))
         }
         nextFrameIndex += 1
@@ -210,7 +228,9 @@ actor PreparedFrameUpscalerTrackProcessorV4 {
 
     func finish() async throws {
         guard !finished else { return }
-        try await backend.finish()
+        if finishBackendAtEnd {
+            try await backend.finish()
+        }
         finished = true
     }
 
@@ -237,14 +257,18 @@ enum PreparedFrameUpscalerTrackHookV4 {
         declaredOutputFormats: [MediaTrackFormatDescriptorV4],
         nominalSourceFrameDuration: ExactRationalV4,
         outputPreferredTransform: CGAffineTransform? = nil,
-        outputNaturalSize: CGSize? = nil
+        outputNaturalSize: CGSize? = nil,
+        startingFrameIndex: Int = 0,
+        finishBackendAtEnd: Bool = true
     ) throws -> AVFoundationVideoTrackProcessingHookV4 {
         let outputCount = (preparedBackend
             as? any PreparedTemporalFrameUpscaler)?
             .maximumOutputFramesPerInput ?? 1
         let processor = try PreparedFrameUpscalerTrackProcessorV4(
             backend: preparedBackend,
-            nominalSourceFrameDuration: nominalSourceFrameDuration
+            nominalSourceFrameDuration: nominalSourceFrameDuration,
+            startingFrameIndex: startingFrameIndex,
+            finishBackendAtEnd: finishBackendAtEnd
         )
         return AVFoundationVideoTrackProcessingHookV4(
             trackID: trackID,

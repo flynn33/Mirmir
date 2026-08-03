@@ -42,7 +42,10 @@ struct DeterministicV4PreparedAssetPlan: Sendable {
     let nominalSourceFrameDuration: ExactRationalV4
 
     func makeProcessingHook(
-        backend: any PreparedFrameUpscaler
+        backend: any PreparedFrameUpscaler,
+        startingFrameIndex: Int = 0,
+        finishBackendAtEnd: Bool = true,
+        recordAlphaForFinalVerification: Bool = true
     ) throws -> AVFoundationVideoTrackProcessingHookV4 {
         switch videoDelivery {
         case .opaque(let writerContract):
@@ -57,7 +60,9 @@ struct DeterministicV4PreparedAssetPlan: Sendable {
                 outputNaturalSize: CGSize(
                     width: writerContract.geometry.codedWidth,
                     height: writerContract.geometry.codedHeight
-                )
+                ),
+                startingFrameIndex: startingFrameIndex,
+                finishBackendAtEnd: finishBackendAtEnd
             )
         case .alpha(let delivery):
             return try delivery.makeProcessingHook(
@@ -68,7 +73,10 @@ struct DeterministicV4PreparedAssetPlan: Sendable {
                 outputNaturalSize: CGSize(
                     width: delivery.writerContract.geometry.codedWidth,
                     height: delivery.writerContract.geometry.codedHeight
-                )
+                ),
+                startingFrameIndex: startingFrameIndex,
+                finishBackendAtEnd: finishBackendAtEnd,
+                recordForFinalVerification: recordAlphaForFinalVerification
             )
         }
     }
@@ -85,6 +93,31 @@ struct DeterministicV4PreparedAssetPlan: Sendable {
             at: url,
             videoTrackOrdinal: ordinal
         )
+    }
+
+    func checkpointableProcessingBackend(
+        planningBackend: any PreparedDeterministicV4RuntimePlanningBackend
+    ) throws -> any PreparedCheckpointableTemporalFrameUpscaler {
+        switch videoDelivery {
+        case .opaque:
+            guard let checkpointable = planningBackend
+                as? any PreparedCheckpointableTemporalFrameUpscaler else {
+                throw DeterministicV4WholeAssetPlannerError
+                    .deterministicPlanningBackendRequired
+            }
+            return checkpointable
+        case .alpha(let delivery):
+            return delivery.backend
+        }
+    }
+
+    func finishProcessingBackend(
+        planningBackend: any PreparedDeterministicV4RuntimePlanningBackend
+    ) async {
+        if case .alpha(let delivery) = videoDelivery {
+            try? await delivery.backend.finish()
+        }
+        try? await planningBackend.finish()
     }
 }
 

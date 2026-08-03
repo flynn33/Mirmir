@@ -1203,7 +1203,10 @@ struct PreparedAlphaVideoDeliveryV4: Sendable {
         trackID: MediaTrackStableIDV4,
         nominalSourceFrameDuration: ExactRationalV4,
         outputPreferredTransform: CGAffineTransform? = nil,
-        outputNaturalSize: CGSize? = nil
+        outputNaturalSize: CGSize? = nil,
+        startingFrameIndex: Int = 0,
+        finishBackendAtEnd: Bool = true,
+        recordForFinalVerification: Bool = true
     ) throws -> AVFoundationVideoTrackProcessingHookV4 {
         let base = try PreparedFrameUpscalerTrackHookV4.make(
             trackID: trackID,
@@ -1212,7 +1215,9 @@ struct PreparedAlphaVideoDeliveryV4: Sendable {
             declaredOutputFormats: [encodedFormatDescriptor],
             nominalSourceFrameDuration: nominalSourceFrameDuration,
             outputPreferredTransform: outputPreferredTransform,
-            outputNaturalSize: outputNaturalSize
+            outputNaturalSize: outputNaturalSize,
+            startingFrameIndex: startingFrameIndex,
+            finishBackendAtEnd: finishBackendAtEnd
         )
         let verifier = outputVerifier
         let sourceAlphaMode: String
@@ -1275,8 +1280,10 @@ struct PreparedAlphaVideoDeliveryV4: Sendable {
                     )
                 }
                 let outputs = try await base.processTemporal(input)
-                for output in outputs {
-                    try await verifier.record(output.sampleBuffer)
+                if recordForFinalVerification {
+                    for output in outputs {
+                        try await verifier.record(output.sampleBuffer)
+                    }
                 }
                 return outputs
             },

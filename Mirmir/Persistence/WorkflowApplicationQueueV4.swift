@@ -32,6 +32,8 @@ enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
     case dispatchJobMismatch(expected: WorkflowJobID, actual: WorkflowJobID)
     case preparedPlanChanged(WorkflowJobID)
     case terminalCheckpointMissing(WorkflowJobID)
+    case workingArtifactConflict(String)
+    case unsafeWorkingArtifact(String)
 
     var errorDescription: String? {
         switch self {
@@ -67,6 +69,10 @@ enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
             "The revalidated prepared plan for \(jobID) no longer matches its durable binding."
         case .terminalCheckpointMissing(let jobID):
             "The durable job \(jobID) has no compatible terminal segment checkpoint."
+        case .workingArtifactConflict(let path):
+            "A durable working artifact already exists at \(path)."
+        case .unsafeWorkingArtifact(let path):
+            "A durable working artifact is unsafe: \(path)."
         }
     }
 }
@@ -873,6 +879,7 @@ actor WorkflowApplicationQueueV4 {
         commandKey: WorkflowRecoveryCommandKeyV4,
         policy: WorkflowPartialScavengingPolicyV4 = .quarantineAllOwned
     ) async throws -> WorkflowApplicationLaunchSnapshotV4 {
+        try scavengeAbandonedApplicationWorkingArtifacts()
         let recovery = await recoverAtLaunch(
             commandKey: commandKey,
             policy: policy
@@ -1017,34 +1024,7 @@ private struct WorkflowApplicationMediaContractMaterialV4:
     }
 }
 
-private struct WorkflowApplicationTerminalBoundaryStateV4:
-    Codable,
-    Equatable,
-    Sendable
-{
-    static let currentSchemaVersion: UInt16 = 1
-
-    let schemaVersion: UInt16
-    let jobBinding: WorkflowJobBinding
-    let runtimeManifestID: WorkflowRuntimeManifestID
-    let planID: WorkflowPlanID
-    let lastCompletedInputOrdinal: Int64
-    let terminal: Bool
-
-    init(
-        specification: WorkflowJobSpecification,
-        lastCompletedInputOrdinal: Int64
-    ) {
-        schemaVersion = Self.currentSchemaVersion
-        jobBinding = specification.binding
-        runtimeManifestID = specification.runtimeBinding.runtimeManifestID
-        planID = specification.runtimeBinding.planID
-        self.lastCompletedInputOrdinal = lastCompletedInputOrdinal
-        terminal = true
-    }
-}
-
-struct WorkflowApplicationTerminalCheckpointV4: Sendable {
+struct WorkflowApplicationBoundaryCheckpointV4: Sendable {
     let checkpoint: WorkflowCheckpointDocumentV4
     let segmentIdentity: AVFoundationSegmentIdentityV4
 }
@@ -1177,13 +1157,15 @@ extension WorkflowApplicationQueueV4 {
         )
     }
 
-    func commitTerminalApplicationCheckpoint(
+    func commitApplicationCheckpointBoundary(
         dispatch: WorkflowQueueDispatchReceiptV4,
         specification: WorkflowJobSpecification,
-        segmentURL: URL,
+        segment: DeterministicV4MediaSegmentResultV4,
         outputContractID: WorkflowOutputContractID,
-        processedInputFrameCount: Int
-    ) async throws -> WorkflowApplicationTerminalCheckpointV4 {
+        previousCheckpoint: WorkflowCheckpointDocumentV4?,
+        trackProgress: [WorkflowTrackProgressV4],
+        temporalCheckpoint: Data
+    ) async throws -> WorkflowApplicationBoundaryCheckpointV4 {
         let current = try await dispatcher.refreshedDispatch(dispatch)
         guard current.claim.jobID == specification.jobID,
               current.claim.jobBinding == specification.binding else {
@@ -1194,38 +1176,29 @@ extension WorkflowApplicationQueueV4 {
         }
         let store = try WorkflowSegmentCheckpointStoreV4(rootURL: rootURL)
         let identity = try await AVFoundationSegmentProbeV4().probe(
-            url: segmentURL
+            url: segment.segmentURL
         )
-        let start = try WorkflowMediaTimeV4(
-            value: 0,
-            timescale: identity.duration.timescale
-        )
-        let end = identity.duration
-        let lastInputOrdinal = Int64(max(processedInputFrameCount - 1, 0))
+        let existingSegments = previousCheckpoint?.body.segments ?? []
+        guard previousCheckpoint?.body.compatibility == nil
+                || previousCheckpoint?.body.compatibility
+                    == WorkflowCheckpointCompatibilityBindingV4(
+                        specification: specification
+                    ) else {
+            throw WorkflowDurableCoordinatorErrorV4
+                .checkpointIncompatible([.jobBinding])
+        }
+        let boundaryOrdinal = UInt64(existingSegments.count)
         let token = try Self.boundaryToken(
             jobID: specification.jobID,
             planID: specification.runtimeBinding.planID,
             outputContractID: outputContractID,
-            segmentIdentity: identity
+            segmentIdentity: identity,
+            boundaryOrdinal: boundaryOrdinal
         )
-        let trackProgress = try identity.tracks.enumerated().map {
-            index,
-            track in
-            let sampleCount = track.sampleCount
-            return try WorkflowTrackProgressV4(
-                trackID: "track-\(index)-\(Self.checkpointKind(track.key).rawValue)",
-                kind: Self.checkpointKind(track.key),
-                nextInputSampleIndex: sampleCount,
-                nextOutputSampleIndex: sampleCount,
-                lastInputTime: track.endPresentationTimeExclusive,
-                lastOutputTime: track.endPresentationTimeExclusive,
-                isComplete: true
-            )
-        }
         let publication = try await store.publishBoundary(
             WorkflowSegmentCheckpointPublicationRequestV4(
                 checkpointID: try WorkflowCheckpointIDV4(
-                    "checkpoint-terminal-\(token)"
+                    "checkpoint-boundary-\(token)"
                 ),
                 segmentArtifactID: try WorkflowArtifactIDV4(
                     "artifact-segment-\(token)"
@@ -1236,28 +1209,24 @@ extension WorkflowApplicationQueueV4 {
                 measurementArtifactID: try WorkflowArtifactIDV4(
                     "artifact-measurement-\(token)"
                 ),
-                sourceSegmentURL: segmentURL,
-                existingSegments: [],
-                startTime: start,
-                endTimeExclusive: end,
+                sourceSegmentURL: segment.segmentURL,
+                existingSegments: existingSegments,
+                startTime: segment.startTime,
+                endTimeExclusive: segment.endTimeExclusive,
                 codecSettingsHash: outputContractID,
                 trackProgress: trackProgress,
                 committedAt: clock.now(),
-                lastCompletedInputOrdinal: lastInputOrdinal
+                lastCompletedInputOrdinal:
+                    segment.lastCompletedInputOrdinal
             ),
             using: current.claim,
-            temporalCheckpoint: try codec.canonicalData(
-                WorkflowApplicationTerminalBoundaryStateV4(
-                    specification: specification,
-                    lastCompletedInputOrdinal: lastInputOrdinal
-                )
-            )
+            temporalCheckpoint: temporalCheckpoint
         )
         let committed = try await coordinator.commitCheckpoint(
             publication.draft,
             using: current.claim
         )
-        return WorkflowApplicationTerminalCheckpointV4(
+        return WorkflowApplicationBoundaryCheckpointV4(
             checkpoint: committed.document,
             segmentIdentity: publication.segmentIdentity
         )
@@ -1268,6 +1237,84 @@ extension WorkflowApplicationQueueV4 {
     ) async throws -> WorkflowSegmentCheckpointVerificationV4 {
         let store = try WorkflowSegmentCheckpointStoreV4(rootURL: rootURL)
         return try await store.verifyCheckpoint(checkpoint)
+    }
+
+    func applicationCheckpointResumePayload(
+        _ checkpoint: WorkflowCheckpointDocumentV4
+    ) async throws -> WorkflowSegmentCheckpointResumePayloadV4 {
+        let store = try WorkflowSegmentCheckpointStoreV4(rootURL: rootURL)
+        return try await store.loadResumePayload(checkpoint)
+    }
+
+    func applicationWorkingSegmentURL(
+        jobID: WorkflowJobID,
+        boundaryOrdinal: UInt64
+    ) throws -> URL {
+        let directory = applicationWorkingDirectoryURL
+        try fileSystem.ensureDirectory(directory)
+        let url = directory.appendingPathComponent(
+            String(
+                format: ".mirmir-%@-boundary-%020llu.partial.segment.mov",
+                jobID.rawValue,
+                boundaryOrdinal
+            ),
+            isDirectory: false
+        )
+        guard Self.isApplicationWorkingArtifactName(url.lastPathComponent) else {
+            throw WorkflowApplicationQueueErrorV4
+                .unsafeWorkingArtifact(url.path)
+        }
+        guard !FileManager.default.fileExists(atPath: url.path) else {
+            throw WorkflowApplicationQueueErrorV4
+                .workingArtifactConflict(url.path)
+        }
+        return url
+    }
+
+    func applicationAssembledVideoURL(
+        jobID: WorkflowJobID,
+        checkpointID: WorkflowCheckpointIDV4
+    ) throws -> URL {
+        let directory = applicationWorkingDirectoryURL
+        try fileSystem.ensureDirectory(directory)
+        let url = directory.appendingPathComponent(
+            ".mirmir-\(jobID.rawValue)-\(checkpointID.rawValue).assembled-video.mov",
+            isDirectory: false
+        )
+        guard Self.isApplicationWorkingArtifactName(url.lastPathComponent) else {
+            throw WorkflowApplicationQueueErrorV4
+                .unsafeWorkingArtifact(url.path)
+        }
+        if FileManager.default.fileExists(atPath: url.path) {
+            try removeApplicationWorkingArtifact(url)
+        }
+        return url
+    }
+
+    func removeApplicationWorkingArtifact(_ url: URL) throws {
+        let standardized = url.standardizedFileURL
+        guard standardized.deletingLastPathComponent()
+                == applicationWorkingDirectoryURL,
+              Self.isApplicationWorkingArtifactName(
+                  standardized.lastPathComponent
+              ) else {
+            throw WorkflowApplicationQueueErrorV4
+                .unsafeWorkingArtifact(url.path)
+        }
+        var metadata = stat()
+        if lstat(standardized.path, &metadata) != 0 {
+            guard errno == ENOENT else {
+                throw WorkflowApplicationQueueErrorV4
+                    .unsafeWorkingArtifact(url.path)
+            }
+            return
+        }
+        guard (metadata.st_mode & S_IFMT) == S_IFREG,
+              metadata.st_nlink == 1 else {
+            throw WorkflowApplicationQueueErrorV4
+                .unsafeWorkingArtifact(url.path)
+        }
+        try FileManager.default.removeItem(at: standardized)
     }
 
     func assembleApplicationCheckpoint(
@@ -1286,20 +1333,59 @@ extension WorkflowApplicationQueueV4 {
 }
 
 private extension WorkflowApplicationQueueV4 {
+    var applicationWorkingDirectoryURL: URL {
+        cacheDirectoryURL.appendingPathComponent(
+            "application-working-media-v4",
+            isDirectory: true
+        )
+    }
+
+    func scavengeAbandonedApplicationWorkingArtifacts() throws {
+        let directory = applicationWorkingDirectoryURL
+        try fileSystem.ensureDirectory(directory)
+        let names = try FileManager.default.contentsOfDirectory(
+            atPath: directory.path
+        )
+        for name in names {
+            let url = directory.appendingPathComponent(name, isDirectory: false)
+            guard Self.isApplicationWorkingArtifactName(name) else {
+                // This namespace is private to the workflow bridge. Unknown
+                // entries are never deleted automatically.
+                continue
+            }
+            try removeApplicationWorkingArtifact(url)
+        }
+    }
+
+    nonisolated static func isApplicationWorkingArtifactName(
+        _ value: String
+    ) -> Bool {
+        guard value.utf8.count <= 240,
+              value.hasPrefix(".mirmir-job-"),
+              !value.contains("/"),
+              !value.contains("\\") else {
+            return false
+        }
+        return value.hasSuffix(".partial.segment.mov")
+            || value.hasSuffix(".assembled-video.mov")
+    }
+
     nonisolated static func boundaryToken(
         jobID: WorkflowJobID,
         planID: WorkflowPlanID,
         outputContractID: WorkflowOutputContractID,
-        segmentIdentity: AVFoundationSegmentIdentityV4
+        segmentIdentity: AVFoundationSegmentIdentityV4,
+        boundaryOrdinal: UInt64
     ) throws -> String {
         let data = Data([
             jobID.rawValue,
             planID.rawValue,
             outputContractID.rawValue,
+            String(boundaryOrdinal),
             try segmentIdentity.canonicalSHA256,
         ].joined(separator: "\u{0}").utf8)
         return String(WorkflowV4Validation.domainSeparatedSHA256(
-            domain: "Mirmir.WorkflowApplication.TerminalBoundary.v1\u{0}",
+            domain: "Mirmir.WorkflowApplication.Boundary.v2\u{0}",
             data: data
         ).prefix(40))
     }

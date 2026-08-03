@@ -113,6 +113,12 @@ struct WorkflowSegmentCheckpointVerificationV4: Equatable, Sendable {
     let verifiedSegments: [AVFoundationSegmentIdentityV4]
     let temporalCheckpointByteCount: UInt64
     let temporalCheckpointSHA256: WorkflowCheckpointArtifactHashV4
+    let lastCompletedInputOrdinal: Int64
+}
+
+struct WorkflowSegmentCheckpointResumePayloadV4: Sendable {
+    let verification: WorkflowSegmentCheckpointVerificationV4
+    let temporalCheckpoint: Data
 }
 
 struct WorkflowVerifiedSegmentArtifactV4: Equatable, Sendable {
@@ -356,7 +362,26 @@ actor WorkflowSegmentCheckpointStoreV4 {
         return WorkflowSegmentCheckpointVerificationV4(
             verifiedSegments: segmentIdentities,
             temporalCheckpointByteCount: temporal.byteCount,
-            temporalCheckpointSHA256: document.body.temporalHistory.sha256
+            temporalCheckpointSHA256: document.body.temporalHistory.sha256,
+            lastCompletedInputOrdinal: binding.lastCompletedInputOrdinal
+        )
+    }
+
+    func loadResumePayload(
+        _ document: WorkflowCheckpointDocumentV4
+    ) async throws -> WorkflowSegmentCheckpointResumePayloadV4 {
+        let verification = try await verifyCheckpoint(document)
+        // Reopen the exact hash-bound state after verifying the rest of the
+        // checkpoint. `verifyArtifact` uses O_NOFOLLOW and a descriptor-bound
+        // identity, so a pathname swap cannot substitute resume state.
+        let temporal = try await Self.verifyArtifact(
+            document.body.temporalHistory,
+            artifactRootURL: rootURL,
+            mediaIdentity: nil
+        )
+        return WorkflowSegmentCheckpointResumePayloadV4(
+            verification: verification,
+            temporalCheckpoint: temporal.data
         )
     }
 

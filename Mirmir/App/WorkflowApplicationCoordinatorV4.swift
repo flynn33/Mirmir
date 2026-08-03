@@ -59,7 +59,9 @@ struct WorkflowApplicationPreparedSubmissionV4: Sendable {
 
 struct WorkflowApplicationProcessedSegmentV4: Sendable {
     let source: VideoInfo
-    let result: UpscaleResult
+    let segment: DeterministicV4MediaSegmentResultV4
+    let temporalCheckpoint: Data
+    let trackProgress: [WorkflowTrackProgressV4]
 }
 
 struct WorkflowApplicationCompletionV4: Sendable {
@@ -86,9 +88,27 @@ protocol WorkflowApplicationDeterministicExecutingV4: Sendable {
     func processPrepared(
         jobID: WorkflowJobID,
         request: UpscaleRequest,
+        startingInputFrameIndex: Int,
+        startTime: WorkflowMediaTimeV4?,
+        maximumInputFrames: Int,
+        previousCheckpoint: WorkflowCheckpointDocumentV4?,
         cancellation: ProcessingCancellation,
         progress: @escaping @Sendable (UpscaleProgress) -> Void
     ) async throws -> WorkflowApplicationProcessedSegmentV4
+
+    func restorePrepared(
+        jobID: WorkflowJobID,
+        temporalCheckpoint: Data,
+        lastCompletedInputOrdinal: Int64
+    ) async throws
+
+    func finalizePreparedOutput(
+        jobID: WorkflowJobID,
+        request: UpscaleRequest,
+        assembledVideoURL: URL,
+        cancellation: ProcessingCancellation,
+        progress: @escaping @Sendable (UpscaleProgress) -> Void
+    ) async throws
 
     func inspectCompletion(
         request: UpscaleRequest,
@@ -130,7 +150,8 @@ actor WorkflowDeterministicApplicationEngineV4:
 {
     private struct PreparedExecution: Sendable {
         let source: VideoInfo
-        let backend: any PreparedDeterministicV4PlanningBackend
+        let backend: any PreparedDeterministicV4RuntimePlanningBackend
+        let plan: DeterministicV4PreparedAssetPlan
     }
 
     private let videoProbe: any VideoProbing
@@ -174,7 +195,7 @@ actor WorkflowDeterministicApplicationEngineV4:
                 request: resolved,
                 resolvedBackendID: resolved.backendID
             )
-            try await backend.finish()
+            await plan.finishProcessingBackend(planningBackend: backend)
             return WorkflowApplicationPreparedSubmissionV4(
                 request: resolved,
                 binding: binding
@@ -211,11 +232,14 @@ actor WorkflowDeterministicApplicationEngineV4:
                     .preparedPlanChanged(jobID)
             }
             if let previous = preparedByJobID.removeValue(forKey: jobID) {
-                try? await previous.backend.finish()
+                await previous.plan.finishProcessingBackend(
+                    planningBackend: previous.backend
+                )
             }
             preparedByJobID[jobID] = PreparedExecution(
                 source: source,
-                backend: backend
+                backend: backend,
+                plan: plan
             )
             return source
         } catch {
@@ -227,23 +251,126 @@ actor WorkflowDeterministicApplicationEngineV4:
     func processPrepared(
         jobID: WorkflowJobID,
         request: UpscaleRequest,
+        startingInputFrameIndex: Int,
+        startTime: WorkflowMediaTimeV4?,
+        maximumInputFrames: Int,
+        previousCheckpoint: WorkflowCheckpointDocumentV4?,
         cancellation: ProcessingCancellation,
         progress: @escaping @Sendable (UpscaleProgress) -> Void
     ) async throws -> WorkflowApplicationProcessedSegmentV4 {
-        guard let prepared = preparedByJobID.removeValue(forKey: jobID) else {
+        guard let prepared = preparedByJobID[jobID] else {
             throw WorkflowApplicationControllerErrorV4.noActiveJob
         }
-        let result = try await session.process(
+        let segment = try await session.processSegment(
             request: request,
             source: prepared.source,
+            preparedPlan: prepared.plan,
             preparedBackend: prepared.backend,
+            startingInputFrameIndex: startingInputFrameIndex,
+            startTime: startTime,
+            maximumInputFrames: maximumInputFrames,
+            segmentURL: request.outputURL,
             cancellation: cancellation,
             progress: progress
         )
+        let checkpointable = try prepared.plan
+            .checkpointableProcessingBackend(
+                planningBackend: prepared.backend
+            )
+        let temporalCheckpoint = try await checkpointable
+            .makeTemporalCheckpoint(
+                planSHA256: prepared.plan.ashPlan.planSHA256,
+                lastCompletedInputOrdinal:
+                    segment.lastCompletedInputOrdinal
+            )
+        let trackProgress = try await checkpointTrackProgress(
+            prepared: prepared,
+            segment: segment,
+            previousCheckpoint: previousCheckpoint
+        )
         return WorkflowApplicationProcessedSegmentV4(
             source: prepared.source,
-            result: result
+            segment: segment,
+            temporalCheckpoint: temporalCheckpoint,
+            trackProgress: trackProgress
         )
+    }
+
+    func restorePrepared(
+        jobID: WorkflowJobID,
+        temporalCheckpoint: Data,
+        lastCompletedInputOrdinal: Int64
+    ) async throws {
+        guard let prepared = preparedByJobID[jobID],
+              lastCompletedInputOrdinal >= 0 else {
+            throw WorkflowApplicationControllerErrorV4.noActiveJob
+        }
+        let checkpointable = try prepared.plan
+            .checkpointableProcessingBackend(
+                planningBackend: prepared.backend
+            )
+        try await checkpointable.restoreTemporalCheckpoint(
+            temporalCheckpoint,
+            planSHA256: prepared.plan.ashPlan.planSHA256
+        )
+    }
+
+    func finalizePreparedOutput(
+        jobID: WorkflowJobID,
+        request: UpscaleRequest,
+        assembledVideoURL: URL,
+        cancellation: ProcessingCancellation,
+        progress: @escaping @Sendable (UpscaleProgress) -> Void
+    ) async throws {
+        guard let prepared = preparedByJobID[jobID] else {
+            throw WorkflowApplicationControllerErrorV4.noActiveJob
+        }
+        let migrationCancellation = AVFoundationTrackMigrationCancellationV4()
+        let monitor = Task {
+            while !Task.isCancelled {
+                do {
+                    try cancellation.check()
+                } catch {
+                    migrationCancellation.cancel()
+                    return
+                }
+                try? await Task.sleep(for: .milliseconds(5))
+            }
+        }
+        defer { monitor.cancel() }
+        do {
+            _ = try await AVFoundationTrackMigrationExecutorV4().execute(
+                .init(
+                    sourceURL: request.inputURL,
+                    destinationURL: request.outputURL,
+                    outputFileType: .mov,
+                    overwriteExistingFile: request.overwriteExistingFile,
+                    sourceGraph: prepared.plan.sourceGraph,
+                    identifiedPlan: prepared.plan.trackPlan,
+                    blueprint: prepared.plan.migrationBlueprint,
+                    processedVideoReplacement: .init(
+                        trackID: prepared.plan.primaryGraphTrack.identity.stableID,
+                        sourceURL: assembledVideoURL
+                    )
+                ),
+                cancellation: migrationCancellation,
+                progress: { state in
+                    progress(UpscaleProgress(
+                        phase: state.stage == .completed
+                            ? .validatingOutput : .finalizing,
+                        fractionCompleted: state.stage == .completed ? 1 : nil,
+                        processedFrameCount: Int(
+                            clamping: state.migratedSampleCount
+                        ),
+                        processedTime: nil,
+                        duration: prepared.source.duration,
+                        actualBackendID: prepared.backend.actualBackendID
+                    ))
+                }
+            )
+        } catch AVFoundationTrackMigrationExecutorV4Error.cancelled {
+            throw MirmirError.cancelled
+        }
     }
 
     func inspectCompletion(
@@ -299,11 +426,132 @@ actor WorkflowDeterministicApplicationEngineV4:
         guard let prepared = preparedByJobID.removeValue(forKey: jobID) else {
             return
         }
-        try? await prepared.backend.finish()
+        await prepared.plan.finishProcessingBackend(
+            planningBackend: prepared.backend
+        )
     }
 }
 
 private extension WorkflowDeterministicApplicationEngineV4 {
+    private func checkpointTrackProgress(
+        prepared: PreparedExecution,
+        segment: DeterministicV4MediaSegmentResultV4,
+        previousCheckpoint: WorkflowCheckpointDocumentV4?
+    ) async throws -> [WorkflowTrackProgressV4] {
+        let previous = Dictionary(
+            uniqueKeysWithValues: (previousCheckpoint?.body.trackProgress ?? [])
+                .map { ($0.trackID, $0) }
+        )
+        let asset = AVURLAsset(
+            url: prepared.source.url,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let assetTracks = try await asset.load(.tracks)
+        guard assetTracks.count == prepared.plan.sourceGraph.tracks.count else {
+            throw WorkflowApplicationControllerErrorV4
+                .invalidAssembledOutput("source track inventory changed")
+        }
+        let plannedByID = Dictionary(
+            uniqueKeysWithValues: prepared.plan.trackPlan.plan.tracks.map {
+                ($0.source.identity.stableID, $0)
+            }
+        )
+        var result: [WorkflowTrackProgressV4] = []
+        for (node, track) in zip(
+            prepared.plan.sourceGraph.tracks,
+            assetTracks
+        ) {
+            let id = node.identity.stableID.rawValue
+            let kind = checkpointKind(node.kind)
+            if node.identity.stableID
+                == prepared.plan.primaryGraphTrack.identity.stableID {
+                let priorOutput = previous[id]?.nextOutputSampleIndex ?? 0
+                result.append(try WorkflowTrackProgressV4(
+                    trackID: id,
+                    kind: kind,
+                    nextInputSampleIndex: UInt64(
+                        segment.lastCompletedInputOrdinal + 1
+                    ),
+                    nextOutputSampleIndex: priorOutput + UInt64(
+                        segment.outputSampleCount
+                    ),
+                    lastInputTime: segment.endTimeExclusive,
+                    lastOutputTime: segment.endTimeExclusive,
+                    isComplete: segment.terminal
+                ))
+                continue
+            }
+            let observed = try await sourceProgress(
+                asset: asset,
+                track: track,
+                through: segment.endTimeExclusive
+            )
+            let action = plannedByID[node.identity.stableID]?.action
+            result.append(try WorkflowTrackProgressV4(
+                trackID: id,
+                kind: kind,
+                nextInputSampleIndex: observed.count,
+                nextOutputSampleIndex: 0,
+                lastInputTime: observed.lastEnd,
+                lastOutputTime: nil,
+                isComplete: segment.terminal && action == .dropWithConsent
+            ))
+        }
+        return result
+    }
+
+    func sourceProgress(
+        asset: AVAsset,
+        track: AVAssetTrack,
+        through boundary: WorkflowMediaTimeV4
+    ) async throws -> (count: UInt64, lastEnd: WorkflowMediaTimeV4?) {
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
+        output.alwaysCopiesSampleData = false
+        guard reader.canAdd(output) else {
+            throw WorkflowApplicationControllerErrorV4
+                .invalidAssembledOutput("source progress reader rejected a track")
+        }
+        reader.add(output)
+        guard reader.startReading() else {
+            throw WorkflowApplicationControllerErrorV4
+                .invalidAssembledOutput("source progress reader failed")
+        }
+        let end = CMTime(value: boundary.value, timescale: boundary.timescale)
+        var count: UInt64 = 0
+        var lastEnd: WorkflowMediaTimeV4?
+        while let sample = output.copyNextSampleBuffer() {
+            let presentation = CMSampleBufferGetPresentationTimeStamp(sample)
+            guard presentation.isNumeric else { continue }
+            if CMTimeCompare(presentation, end) >= 0 { break }
+            count += 1
+            let duration = CMSampleBufferGetDuration(sample)
+            let sampleEnd = duration.isNumeric && duration.value > 0
+                ? CMTimeAdd(presentation, duration) : presentation
+            lastEnd = try WorkflowMediaTimeV4(
+                value: sampleEnd.value,
+                timescale: sampleEnd.timescale
+            )
+        }
+        reader.cancelReading()
+        return (count, lastEnd)
+    }
+
+    nonisolated func checkpointKind(
+        _ kind: MediaTrackKindV4
+    ) -> WorkflowCheckpointTrackKindV4 {
+        switch kind {
+        case .video: .video
+        case .audio: .audio
+        case .subtitle: .subtitle
+        case .caption: .caption
+        case .timecode: .timecode
+        case .timedMetadata: .timedMetadata
+        case .chapter: .chapter
+        case .auxiliary, .unknown: .auxiliary
+        }
+    }
+
     func resolvedRequest(
         _ request: UpscaleRequest,
         source: VideoInfo
@@ -336,7 +584,7 @@ private extension WorkflowDeterministicApplicationEngineV4 {
     func preparedBackend(
         request: UpscaleRequest,
         source: VideoInfo
-    ) async throws -> any PreparedDeterministicV4PlanningBackend {
+    ) async throws -> any PreparedDeterministicV4RuntimePlanningBackend {
         guard request.backendID == .mirmirDeterministicCPU
                 || request.backendID == .mirmirDeterministicMetal else {
             throw WorkflowApplicationControllerErrorV4
@@ -352,7 +600,7 @@ private extension WorkflowDeterministicApplicationEngineV4 {
         )
         guard prepared.actualBackendID == request.backendID,
               let deterministic = prepared
-                as? any PreparedDeterministicV4PlanningBackend else {
+                as? any PreparedDeterministicV4RuntimePlanningBackend else {
             try? await prepared.finish()
             throw WorkflowApplicationControllerErrorV4
                 .preparedBackendMismatch(request.backendID)
@@ -377,15 +625,19 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
 
     private let queue: WorkflowApplicationQueueV4
     private let engine: any WorkflowApplicationDeterministicExecutingV4
+    private let maximumInputFramesPerBoundary: Int
     private var active: ActiveExecution?
     private var heartbeatTask: Task<Void, Never>?
 
     init(
         queue: WorkflowApplicationQueueV4,
-        engine: any WorkflowApplicationDeterministicExecutingV4
+        engine: any WorkflowApplicationDeterministicExecutingV4,
+        maximumInputFramesPerBoundary: Int = 60
     ) {
+        precondition(maximumInputFramesPerBoundary > 0)
         self.queue = queue
         self.engine = engine
+        self.maximumInputFramesPerBoundary = maximumInputFramesPerBoundary
     }
 
     static func live(
@@ -546,23 +798,36 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
                 throw WorkflowApplicationControllerErrorV4
                     .checkpointMissing(jobID)
             }
-            _ = try await queue.verifyApplicationCheckpoint(checkpoint)
-            progress(Self.resumeProgress(
+            let source = try await engine.revalidateAndPrepare(
+                jobID: jobID,
                 request: activated.request,
-                phase: .validatingOutput
-            ))
-            let completion = try await finalize(
+                expectedBinding: activated.preparedPlanBinding
+            )
+            let payload = try await queue
+                .applicationCheckpointResumePayload(checkpoint)
+            try await engine.restorePrepared(
+                jobID: jobID,
+                temporalCheckpoint: payload.temporalCheckpoint,
+                lastCompletedInputOrdinal:
+                    payload.verification.lastCompletedInputOrdinal
+            )
+            let outcome = try await continueProcessing(
                 dispatch: dispatch,
                 attemptID: attemptID,
                 activated: activated,
+                source: source,
                 checkpoint: checkpoint,
-                segmentResult: nil,
-                progress: progress
+                startingInputFrameIndex: Int(
+                    payload.verification.lastCompletedInputOrdinal + 1
+                ),
+                processingDurationSeconds: 0,
+                progress: progress,
+                snapshot: snapshot
             )
             stopHeartbeat()
             active = nil
             await emitSnapshot(to: snapshot)
-            return .completed(completion)
+            return outcome
         } catch {
             await terminateActive(
                 error: error,
@@ -666,22 +931,96 @@ private extension WorkflowApplicationCoordinatorV4 {
             }
             try throwIfActiveControlFailed()
 
-            let workingURL = try Self.workingSegmentURL(
-                request: activated.request,
-                jobID: jobID
+            let outcome = try await continueProcessing(
+                dispatch: dispatch,
+                attemptID: attemptID,
+                activated: activated,
+                source: source,
+                checkpoint: nil,
+                startingInputFrameIndex: 0,
+                processingDurationSeconds: 0,
+                progress: progress,
+                snapshot: snapshot
+            )
+            stopHeartbeat()
+            active = nil
+            await emitSnapshot(to: snapshot)
+            return ClaimedOutcome(
+                jobID: jobID,
+                outcome: outcome
+            )
+        } catch {
+            await engine.abandonPrepared(jobID: jobID)
+            await terminateActive(
+                error: error,
+                containmentRequired: Self.requiresContainment(error)
+            )
+            throw error
+        }
+    }
+
+    func continueProcessing(
+        dispatch: WorkflowQueueDispatchReceiptV4,
+        attemptID: WorkflowAttemptID,
+        activated: WorkflowActivatedUpscaleRequestV4,
+        source: VideoInfo,
+        checkpoint initialCheckpoint: WorkflowCheckpointDocumentV4?,
+        startingInputFrameIndex initialFrameIndex: Int,
+        processingDurationSeconds initialDuration: TimeInterval,
+        progress: @escaping @Sendable (UpscaleProgress) -> Void,
+        snapshot: @escaping @Sendable (
+            WorkflowApplicationQueueSnapshotV4
+        ) -> Void
+    ) async throws -> WorkflowApplicationRunOutcomeV4 {
+        let jobID = dispatch.claim.jobID
+        var checkpoint = initialCheckpoint
+        var nextFrameIndex = initialFrameIndex
+        var processingDuration = initialDuration
+        if checkpointIsTerminal(checkpoint) {
+            let completion = try await finalize(
+                dispatch: dispatch,
+                attemptID: attemptID,
+                activated: activated,
+                checkpoint: checkpoint!,
+                processingDurationSeconds: processingDuration,
+                progress: progress
+            )
+            return .completed(completion)
+        }
+
+        while true {
+            try throwIfActiveControlFailed()
+            guard let cancellation = active?.cancellation else {
+                throw WorkflowApplicationControllerErrorV4.noActiveJob
+            }
+            let ordinal = UInt64(checkpoint?.body.segments.count ?? 0)
+            let workingURL = try await queue.applicationWorkingSegmentURL(
+                jobID: jobID,
+                boundaryOrdinal: ordinal
             )
             let workingRequest = Self.request(
                 activated.request,
                 outputURL: workingURL,
                 overwriteExistingFile: false
             )
-            let startedAt = Date()
-            let segment = try await engine.processPrepared(
-                jobID: jobID,
-                request: workingRequest,
-                cancellation: cancellation,
-                progress: progress
-            )
+            let segment: WorkflowApplicationProcessedSegmentV4
+            do {
+                segment = try await engine.processPrepared(
+                    jobID: jobID,
+                    request: workingRequest,
+                    startingInputFrameIndex: nextFrameIndex,
+                    startTime: checkpoint?.body.segments.last?
+                        .endTimeExclusive,
+                    maximumInputFrames: maximumInputFramesPerBoundary,
+                    previousCheckpoint: checkpoint,
+                    cancellation: cancellation,
+                    progress: progress
+                )
+            } catch {
+                try? await queue.removeApplicationWorkingArtifact(workingURL)
+                throw error
+            }
+            processingDuration += segment.segment.processingDurationSeconds
             try throwIfActiveControlFailed()
             if active?.pauseRequested == true,
                active?.lifecycle == .running {
@@ -695,15 +1034,22 @@ private extension WorkflowApplicationCoordinatorV4 {
                 active?.lifecycle = .pausing
                 await emitSnapshot(to: snapshot)
             }
-            let checkpoint = try await queue.commitTerminalApplicationCheckpoint(
-                dispatch: dispatch,
-                specification: activated.specification,
-                segmentURL: workingURL,
-                outputContractID:
-                    activated.preparedPlanBinding.outputContractID,
-                processedInputFrameCount: segment.result.processedFrameCount
+            let committed = try await queue
+                .commitApplicationCheckpointBoundary(
+                    dispatch: dispatch,
+                    specification: activated.specification,
+                    segment: segment.segment,
+                    outputContractID:
+                        activated.preparedPlanBinding.outputContractID,
+                    previousCheckpoint: checkpoint,
+                    trackProgress: segment.trackProgress,
+                    temporalCheckpoint: segment.temporalCheckpoint
+                )
+            try await queue.removeApplicationWorkingArtifact(workingURL)
+            checkpoint = committed.checkpoint
+            nextFrameIndex = Int(
+                segment.segment.lastCompletedInputOrdinal + 1
             )
-            try Self.removeCommittedWorkingSegment(workingURL)
 
             if active?.lifecycle == .pausing {
                 _ = try await queue.completeApplicationPause(
@@ -713,39 +1059,31 @@ private extension WorkflowApplicationCoordinatorV4 {
                         jobID: jobID
                     )
                 )
-                stopHeartbeat()
-                active = nil
-                await emitSnapshot(to: snapshot)
-                return ClaimedOutcome(
-                    jobID: jobID,
-                    outcome: .paused(jobID: jobID, source: source)
-                )
+                await engine.abandonPrepared(jobID: jobID)
+                return .paused(jobID: jobID, source: source)
             }
-
-            let completion = try await finalize(
-                dispatch: dispatch,
-                attemptID: attemptID,
-                activated: activated,
-                checkpoint: checkpoint.checkpoint,
-                segmentResult: segment.result,
-                processingDurationSeconds: Date().timeIntervalSince(startedAt),
-                progress: progress
-            )
-            stopHeartbeat()
-            active = nil
-            await emitSnapshot(to: snapshot)
-            return ClaimedOutcome(
-                jobID: jobID,
-                outcome: .completed(completion)
-            )
-        } catch {
-            await engine.abandonPrepared(jobID: jobID)
-            await terminateActive(
-                error: error,
-                containmentRequired: Self.requiresContainment(error)
-            )
-            throw error
+            if segment.segment.terminal {
+                let completion = try await finalize(
+                    dispatch: dispatch,
+                    attemptID: attemptID,
+                    activated: activated,
+                    checkpoint: committed.checkpoint,
+                    processingDurationSeconds: processingDuration,
+                    progress: progress
+                )
+                return .completed(completion)
+            }
         }
+    }
+
+    func checkpointIsTerminal(
+        _ checkpoint: WorkflowCheckpointDocumentV4?
+    ) -> Bool {
+        checkpoint?.body.trackProgress.contains(where: {
+            $0.kind == .video
+                && $0.nextOutputSampleIndex > 0
+                && $0.isComplete
+        }) == true
     }
 
     func finalize(
@@ -753,7 +1091,6 @@ private extension WorkflowApplicationCoordinatorV4 {
         attemptID: WorkflowAttemptID,
         activated: WorkflowActivatedUpscaleRequestV4,
         checkpoint: WorkflowCheckpointDocumentV4,
-        segmentResult: UpscaleResult?,
         processingDurationSeconds: TimeInterval = 0,
         progress: @escaping @Sendable (UpscaleProgress) -> Void
     ) async throws -> WorkflowApplicationCompletionV4 {
@@ -775,15 +1112,35 @@ private extension WorkflowApplicationCoordinatorV4 {
             request: activated.request,
             phase: .finalizing
         ))
-        _ = try await queue.assembleApplicationCheckpoint(
-            checkpoint,
-            destinationURL: activated.request.outputURL,
-            overwriteExistingFile: activated.request.overwriteExistingFile
+        let assembledVideoURL = try await queue.applicationAssembledVideoURL(
+            jobID: dispatch.claim.jobID,
+            checkpointID: checkpoint.body.checkpointID
         )
+        do {
+            _ = try await queue.assembleApplicationCheckpoint(
+                checkpoint,
+                destinationURL: assembledVideoURL,
+                overwriteExistingFile: false
+            )
+            guard let cancellation = active?.cancellation else {
+                throw WorkflowApplicationControllerErrorV4.noActiveJob
+            }
+            try await engine.finalizePreparedOutput(
+                jobID: dispatch.claim.jobID,
+                request: activated.request,
+                assembledVideoURL: assembledVideoURL,
+                cancellation: cancellation,
+                progress: progress
+            )
+            try await queue.removeApplicationWorkingArtifact(assembledVideoURL)
+        } catch {
+            try? await queue.removeApplicationWorkingArtifact(assembledVideoURL)
+            throw error
+        }
         let completion = try await engine.inspectCompletion(
             request: activated.request,
             checkpoint: checkpoint,
-            segmentResult: segmentResult,
+            segmentResult: nil,
             processingDurationSeconds: processingDurationSeconds
         )
         try await transitionActive(
@@ -798,6 +1155,7 @@ private extension WorkflowApplicationCoordinatorV4 {
             phase: .completed,
             result: completion.result
         ))
+        await engine.abandonPrepared(jobID: dispatch.claim.jobID)
         return completion
     }
 
@@ -935,34 +1293,6 @@ private extension WorkflowApplicationCoordinatorV4 {
             preserveAudio: request.preserveAudio,
             overwriteExistingFile: overwriteExistingFile
         )
-    }
-
-    nonisolated static func workingSegmentURL(
-        request: UpscaleRequest,
-        jobID: WorkflowJobID
-    ) throws -> URL {
-        let url = request.outputURL.deletingLastPathComponent()
-            .appendingPathComponent(
-                ".mirmir-\(jobID.rawValue).partial.segment.mov",
-                isDirectory: false
-            )
-        guard !FileManager.default.fileExists(atPath: url.path) else {
-            throw WorkflowApplicationControllerErrorV4
-                .workingSegmentConflict(url.path)
-        }
-        return url
-    }
-
-    nonisolated static func removeCommittedWorkingSegment(_ url: URL) throws {
-        guard WorkflowV4Validation.isMirmirPartialFileName(
-            url.lastPathComponent
-        ) else {
-            throw WorkflowApplicationControllerErrorV4
-                .workingSegmentConflict(url.path)
-        }
-        if FileManager.default.fileExists(atPath: url.path) {
-            try FileManager.default.removeItem(at: url)
-        }
     }
 
     nonisolated static func cycleID() throws -> WorkflowDispatchCycleIDV4 {
