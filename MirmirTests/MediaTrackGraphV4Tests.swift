@@ -81,6 +81,201 @@ final class MediaTrackGraphPlannerV4Tests: XCTestCase {
         )
     }
 
+    func testTranscodePlanAllowsSourceOnlyPrimingEditAdjustment() throws {
+        let source = try makeMultiTrackGraph(multiEditTrackID: "audio-en")
+        let audio = try XCTUnwrap(source.tracks.first {
+            $0.identity.stableID.rawValue == "audio-en"
+        })
+        let base = try MediaTrackGraphPlannerV4.makePlan(
+            source: source,
+            request: .init(trackDirectives: [MediaTrackDirectiveV4(
+                trackID: audio.identity.stableID,
+                action: .transcode,
+                targetFormatDescriptors: [try makeFormat(seed: 701)],
+                dropConsent: nil
+            )])
+        )
+        let priming = try ExactRationalV4(2, 600)
+
+        let adjusted = try base.applyingTranscodePrimingDurations([
+            audio.identity.stableID: priming
+        ])
+
+        XCTAssertNoThrow(try adjusted.verify())
+        let output = try XCTUnwrap(adjusted.plan.tracks.first {
+            $0.source.identity.stableID == audio.identity.stableID
+        }?.expectedOutput)
+        XCTAssertEqual(output.timeRange, audio.timeRange)
+        XCTAssertEqual(output.edits.count, audio.edits.count)
+        for (source, derived) in zip(audio.edits, output.edits) {
+            XCTAssertEqual(derived.ordinal, source.ordinal)
+            XCTAssertEqual(derived.target, source.target)
+            XCTAssertEqual(derived.isEmpty, source.isEmpty)
+            XCTAssertEqual(
+                derived.source?.start,
+                try source.target.start.adding(priming)
+            )
+            XCTAssertEqual(derived.source?.duration, source.target.duration)
+        }
+    }
+
+    func testTranscodePlanRejectsNegativePrimingAndUnknownTrack() throws {
+        let source = try makeMultiTrackGraph(multiEditTrackID: "audio-en")
+        let audio = try XCTUnwrap(source.tracks.first {
+            $0.identity.stableID.rawValue == "audio-en"
+        })
+        let base = try MediaTrackGraphPlannerV4.makePlan(
+            source: source,
+            request: .init(trackDirectives: [MediaTrackDirectiveV4(
+                trackID: audio.identity.stableID,
+                action: .transcode,
+                targetFormatDescriptors: [try makeFormat(seed: 702)],
+                dropConsent: nil
+            )])
+        )
+        XCTAssertThrowsError(try base.applyingTranscodePrimingDurations([
+            audio.identity.stableID: ExactRationalV4(-1, 600)
+        ]))
+        XCTAssertThrowsError(try base.applyingTranscodePrimingDurations([
+            MediaTrackStableIDV4("missing-audio"): .zero
+        ]))
+    }
+
+    func testTranscodePlanRejectsRemapRescaleAndInconsistentPriming()
+        throws {
+        let source = try makeMultiTrackGraph(multiEditTrackID: "audio-en")
+        let audio = try XCTUnwrap(source.tracks.first {
+            $0.identity.stableID.rawValue == "audio-en"
+        })
+        let base = try MediaTrackGraphPlannerV4.makePlan(
+            source: source,
+            request: .init(trackDirectives: [MediaTrackDirectiveV4(
+                trackID: audio.identity.stableID,
+                action: .transcode,
+                targetFormatDescriptors: [try makeFormat(seed: 702)],
+                dropConsent: nil
+            )])
+        )
+        let priming = try ExactRationalV4(2, 600)
+        let adjusted = try base.applyingTranscodePrimingDurations([
+            audio.identity.stableID: priming
+        ])
+        let expected = try XCTUnwrap(adjusted.plan.tracks.first {
+            $0.source.identity.stableID == audio.identity.stableID
+        }?.expectedOutput)
+
+        var rescaled = expected.edits
+        let first = rescaled[0]
+        rescaled[0] = try MediaTrackEditV4(
+            ordinal: first.ordinal,
+            source: MediaExactTimeRangeV4(
+                start: try XCTUnwrap(first.source).start,
+                duration: try first.target.duration.adding(ExactRationalV4(1))
+            ),
+            target: first.target,
+            isEmpty: false
+        )
+        XCTAssertThrowsError(try planReplacingExpectedEdits(
+            adjusted,
+            trackID: audio.identity.stableID,
+            edits: rescaled
+        ))
+
+        var inconsistent = expected.edits
+        let second = inconsistent[1]
+        inconsistent[1] = try MediaTrackEditV4(
+            ordinal: second.ordinal,
+            source: MediaExactTimeRangeV4(
+                start: try XCTUnwrap(second.source).start.adding(
+                    ExactRationalV4(1, 600)
+                ),
+                duration: second.target.duration
+            ),
+            target: second.target,
+            isEmpty: false
+        )
+        XCTAssertThrowsError(try planReplacingExpectedEdits(
+            adjusted,
+            trackID: audio.identity.stableID,
+            edits: inconsistent
+        ))
+
+        var remapped = expected.edits
+        remapped[0] = try MediaTrackEditV4(
+            ordinal: first.ordinal,
+            source: MediaExactTimeRangeV4(
+                start: try first.target.start.subtracting(
+                    ExactRationalV4(1, 600)
+                ),
+                duration: first.target.duration
+            ),
+            target: first.target,
+            isEmpty: false
+        )
+        XCTAssertThrowsError(try planReplacingExpectedEdits(
+            adjusted,
+            trackID: audio.identity.stableID,
+            edits: remapped
+        ))
+    }
+
+    func testTranscodePlanRejectsOverallTimeRangeDrift() throws {
+        let source = try makeMultiTrackGraph()
+        let audio = try XCTUnwrap(source.tracks.first {
+            $0.identity.stableID.rawValue == "audio-en"
+        })
+        let base = try MediaTrackGraphPlannerV4.makePlan(
+            source: source,
+            request: .init(trackDirectives: [MediaTrackDirectiveV4(
+                trackID: audio.identity.stableID,
+                action: .transcode,
+                targetFormatDescriptors: [try makeFormat(seed: 703)],
+                dropConsent: nil
+            )])
+        )
+        let planned = try XCTUnwrap(base.plan.tracks.first {
+            $0.source.identity.stableID == audio.identity.stableID
+        })
+        let expected = try XCTUnwrap(planned.expectedOutput)
+        let driftedOutput = try MediaTrackNodeV4(
+            identity: expected.identity,
+            enabled: expected.enabled,
+            kind: expected.kind,
+            sourceMediaTypeID: expected.sourceMediaTypeID,
+            language: expected.language,
+            roleIDs: expected.roleIDs,
+            timebase: expected.timebase,
+            timeRange: MediaExactTimeRangeV4(
+                start: expected.timeRange.start,
+                duration: try expected.timeRange.duration.subtracting(
+                    ExactRationalV4(1)
+                )
+            ),
+            edits: expected.edits,
+            formatDescriptors: expected.formatDescriptors,
+            metadataFingerprint: expected.metadataFingerprint
+        )
+        let tracks = base.plan.tracks.map { candidate in
+            candidate.source.identity.stableID == audio.identity.stableID
+                ? MediaTrackPlannedTrackV4(
+                    source: candidate.source,
+                    action: candidate.action,
+                    origin: candidate.origin,
+                    expectedOutput: driftedOutput,
+                    dropConsent: candidate.dropConsent
+                )
+                : candidate
+        }
+
+        XCTAssertThrowsError(try MediaTrackGraphPlanV4(
+            sourceGraphSHA256: base.plan.sourceGraphSHA256,
+            tracks: tracks,
+            groups: base.plan.groups,
+            associations: base.plan.associations,
+            diagnostics: base.plan.diagnostics
+        ))
+    }
+
     func testDropRequiresSubjectBoundConsent() throws {
         let source = try makeMultiTrackGraph()
         let subtitleID = try MediaTrackStableIDV4("subtitle-en")
@@ -577,6 +772,46 @@ final class MediaTrackGraphPlannerV4Tests: XCTestCase {
                 && diagnostic.path == "tracks.av-track-1.kind"
         })
     }
+}
+
+private func planReplacingExpectedEdits(
+    _ identified: MediaTrackGraphIdentifiedPlanV4,
+    trackID: MediaTrackStableIDV4,
+    edits: [MediaTrackEditV4]
+) throws -> MediaTrackGraphPlanV4 {
+    let tracks = try identified.plan.tracks.map { planned in
+        guard planned.source.identity.stableID == trackID else {
+            return planned
+        }
+        let expected = try XCTUnwrap(planned.expectedOutput)
+        let output = try MediaTrackNodeV4(
+            identity: expected.identity,
+            enabled: expected.enabled,
+            kind: expected.kind,
+            sourceMediaTypeID: expected.sourceMediaTypeID,
+            language: expected.language,
+            roleIDs: expected.roleIDs,
+            timebase: expected.timebase,
+            timeRange: expected.timeRange,
+            edits: edits,
+            formatDescriptors: expected.formatDescriptors,
+            metadataFingerprint: expected.metadataFingerprint
+        )
+        return MediaTrackPlannedTrackV4(
+            source: planned.source,
+            action: planned.action,
+            origin: planned.origin,
+            expectedOutput: output,
+            dropConsent: planned.dropConsent
+        )
+    }
+    return try MediaTrackGraphPlanV4(
+        sourceGraphSHA256: identified.plan.sourceGraphSHA256,
+        tracks: tracks,
+        groups: identified.plan.groups,
+        associations: identified.plan.associations,
+        diagnostics: identified.plan.diagnostics
+    )
 }
 
 private func makeMultiTrackGraph(

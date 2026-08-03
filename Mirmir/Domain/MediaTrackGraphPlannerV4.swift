@@ -230,13 +230,22 @@ struct MediaTrackGraphPlanV4: Codable, Equatable, Hashable, Sendable {
                     "pass-through track \(trackID) must be unchanged"
                 )
             }
-        case .process, .transcode:
+        case .process:
             guard let output = track.expectedOutput,
                   track.dropConsent == nil,
                   track.source.semanticsExceptFormatsEqual(to: output),
                   !output.formatDescriptors.isEmpty else {
                 throw MediaTrackGraphPlannerV4Error.invalidPlan(
-                    "processed/transcoded track \(trackID) changed protected semantics"
+                    "processed track \(trackID) changed protected semantics"
+                )
+            }
+        case .transcode:
+            guard let output = track.expectedOutput,
+                  track.dropConsent == nil,
+                  track.source.transcodePresentationSemanticsEqual(to: output),
+                  !output.formatDescriptors.isEmpty else {
+                throw MediaTrackGraphPlannerV4Error.invalidPlan(
+                    "transcoded track \(trackID) changed protected presentation semantics"
                 )
             }
         case .dropWithConsent:
@@ -302,6 +311,69 @@ struct MediaTrackGraphIdentifiedPlanV4: Codable, Equatable, Hashable,
                 actual: actual
             )
         }
+    }
+
+    func applyingTranscodePrimingDurations(
+        _ primingByTrackID: [MediaTrackStableIDV4: ExactRationalV4]
+    ) throws -> MediaTrackGraphIdentifiedPlanV4 {
+        guard !primingByTrackID.isEmpty else { return self }
+        var consumed = Set<MediaTrackStableIDV4>()
+        let tracks = try plan.tracks.map { planned -> MediaTrackPlannedTrackV4 in
+            let id = planned.source.identity.stableID
+            guard let priming = primingByTrackID[id] else { return planned }
+            guard planned.action == .transcode,
+                  let expected = planned.expectedOutput,
+                  priming >= .zero else {
+                throw MediaTrackGraphPlannerV4Error.invalidPlan(
+                    "priming adjustment requires a transcoded track and nonnegative duration \(id.rawValue)"
+                )
+            }
+            let edits = try expected.edits.map { edit in
+                guard !edit.isEmpty else { return edit }
+                return try MediaTrackEditV4(
+                    ordinal: edit.ordinal,
+                    source: MediaExactTimeRangeV4(
+                        start: try edit.target.start.adding(priming),
+                        duration: edit.target.duration
+                    ),
+                    target: edit.target,
+                    isEmpty: false
+                )
+            }
+            consumed.insert(id)
+            let output = try MediaTrackNodeV4(
+                identity: expected.identity,
+                enabled: expected.enabled,
+                kind: expected.kind,
+                sourceMediaTypeID: expected.sourceMediaTypeID,
+                language: expected.language,
+                roleIDs: expected.roleIDs,
+                timebase: expected.timebase,
+                timeRange: expected.timeRange,
+                edits: edits,
+                formatDescriptors: expected.formatDescriptors,
+                metadataFingerprint: expected.metadataFingerprint
+            )
+            return MediaTrackPlannedTrackV4(
+                source: planned.source,
+                action: planned.action,
+                origin: planned.origin,
+                expectedOutput: output,
+                dropConsent: planned.dropConsent
+            )
+        }
+        guard consumed == Set(primingByTrackID.keys) else {
+            throw MediaTrackGraphPlannerV4Error.invalidPlan(
+                "priming adjustment references an unknown track"
+            )
+        }
+        return try MediaTrackGraphIdentifiedPlanV4(plan: .init(
+            sourceGraphSHA256: plan.sourceGraphSHA256,
+            tracks: tracks,
+            groups: plan.groups,
+            associations: plan.associations,
+            diagnostics: plan.diagnostics
+        ))
     }
 }
 
@@ -884,6 +956,51 @@ private extension MediaTrackNodeV4 {
             && timeRange == other.timeRange
             && edits == other.edits
             && metadataFingerprint == other.metadataFingerprint
+    }
+
+    func transcodePresentationSemanticsEqual(
+        to other: MediaTrackNodeV4
+    ) -> Bool {
+        guard identity == other.identity
+            && enabled == other.enabled
+            && kind == other.kind
+            && sourceMediaTypeID == other.sourceMediaTypeID
+            && language == other.language
+            && roleIDs == other.roleIDs
+            && timebase == other.timebase
+            && timeRange == other.timeRange
+            && edits.count == other.edits.count
+            && metadataFingerprint == other.metadataFingerprint else {
+            return false
+        }
+        if edits == other.edits { return true }
+
+        var observedPriming: ExactRationalV4?
+        for (source, output) in zip(edits, other.edits) {
+            guard source.ordinal == output.ordinal,
+                  source.target == output.target,
+                  source.isEmpty == output.isEmpty else {
+                return false
+            }
+            if source.isEmpty {
+                guard output.source == nil else { return false }
+                continue
+            }
+            guard let outputSource = output.source,
+                  outputSource.duration == output.target.duration,
+                  let priming = try? outputSource.start.subtracting(
+                      output.target.start
+                  ),
+                  priming >= .zero else {
+                return false
+            }
+            if let observedPriming {
+                guard observedPriming == priming else { return false }
+            } else {
+                observedPriming = priming
+            }
+        }
+        return observedPriming != nil
     }
 }
 

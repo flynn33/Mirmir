@@ -71,7 +71,8 @@ struct DeterministicV4MediaProcessingSession: Sendable {
             let preparedPlan = try await planner.prepare(
                 request: request,
                 source: source,
-                backend: preparedBackend
+                backend: preparedBackend,
+                cancellation: cancellation
             )
             try cancellation.check()
             let hook = try preparedPlan.makeProcessingHook(
@@ -104,7 +105,9 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                         sourceGraph: preparedPlan.sourceGraph,
                         identifiedPlan: preparedPlan.trackPlan,
                         blueprint: preparedPlan.migrationBlueprint,
-                        videoProcessingHooks: [hook]
+                        videoProcessingHooks: [hook],
+                        nonVideoTranscodeHooks:
+                            preparedPlan.nonVideoTranscodeHooks
                     ),
                     cancellation: migrationCancellation,
                     progress: { state in
@@ -157,7 +160,7 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                 outputCodec: request.outputCodec,
                 audioResult: audioResult(
                     request: request,
-                    sourceGraph: preparedPlan.sourceGraph
+                    preparedPlan: preparedPlan
                 ),
                 processedFrameCount: frameCount,
                 processingDurationSeconds: Date().timeIntervalSince(startedAt)
@@ -622,12 +625,16 @@ private extension DeterministicV4MediaProcessingSession {
 
     func audioResult(
         request: UpscaleRequest,
-        sourceGraph: MediaTrackGraphV4
+        preparedPlan: DeterministicV4PreparedAssetPlan
     ) -> AudioOutputResult {
         guard request.preserveAudio else { return .omitted }
-        return sourceGraph.tracks.contains { $0.kind == .audio }
-            ? .preserved
-            : .absent
+        let audioTracks = preparedPlan.trackPlan.plan.tracks.filter {
+            $0.source.kind == .audio && $0.expectedOutput != nil
+        }
+        guard !audioTracks.isEmpty else { return .absent }
+        return audioTracks.contains { $0.action == .transcode }
+            ? .transcoded
+            : .preserved
     }
 
     func event(

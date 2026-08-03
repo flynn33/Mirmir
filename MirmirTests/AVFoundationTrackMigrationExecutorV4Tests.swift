@@ -101,6 +101,79 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
+    func testDeterministicSessionAutomaticallyTranscodesIncompatibleAlternateAudio()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("deterministic-multiformat-source.mov")
+        let destinationURL = directory.url("deterministic-multiformat-output.mov")
+        let runtimeURL = directory.url("deterministic-multiformat-p06.bundle")
+        try await TrackMigrationFixtureFactoryV4
+            .makeRichMovieWithIncompatibleAudioTransitions(
+                at: sourceURL,
+                includeAudioGroup: true
+            )
+        let sourceAsset = AVURLAsset(url: sourceURL)
+        let sourceGraph = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: sourceAsset
+        )
+        let sourceAudio = sourceGraph.tracks.filter { $0.kind == .audio }
+        XCTAssertEqual(sourceAudio.count, 2)
+        XCTAssertTrue(sourceAudio.allSatisfy {
+            $0.formatDescriptors.count == 2
+        })
+        let sourceGroup = try XCTUnwrap(sourceGraph.groups.first)
+
+        let source = try await VideoProbe().probe(url: sourceURL)
+        let runtime = try ASHV4SemanticArtifactTestSupport.buildAndLoad(
+            at: runtimeURL
+        )
+        let descriptor = try XCTUnwrap(
+            BackendDescriptor.descriptor(for: .mirmirDeterministicCPU)
+        )
+        let backend = try XCTUnwrap(DeterministicCPUBackend(
+            descriptor: descriptor,
+            runtimeProvider: .fixed(runtime)
+        ))
+        let preparedBackend = try await backend.prepare(
+            request: BackendPreparationRequest(
+                source: source,
+                targetSize: CGSize(width: 96, height: 72)
+            ),
+            environment: .current()
+        )
+        let result = try await VideoProcessingSession().process(
+            request: UpscaleRequest(
+                inputURL: sourceURL,
+                outputURL: destinationURL,
+                backendID: .mirmirDeterministicCPU,
+                targetWidth: 96,
+                targetHeight: 72,
+                outputCodec: .h264,
+                preserveAudio: true,
+                overwriteExistingFile: false
+            ),
+            source: source,
+            preparedBackend: preparedBackend,
+            cancellation: ProcessingCancellation(),
+            progress: { _ in }
+        )
+
+        XCTAssertEqual(result.audioResult, .transcoded)
+        let outputGraph = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: destinationURL)
+        )
+        let outputAudio = outputGraph.tracks.filter { $0.kind == .audio }
+        XCTAssertEqual(outputAudio.count, 2)
+        XCTAssertTrue(outputAudio.allSatisfy {
+            $0.formatDescriptors.count == 1
+                && $0.formatDescriptors[0].mediaSubtypeID
+                    == "fourcc_61616320"
+        })
+        XCTAssertEqual(outputGraph.groups.first, sourceGroup)
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
     func testExecutableMigrationPreservesEveryEncodedTrackAndVerifiesOutput()
         async throws {
         let directory = try TrackMigrationFixtureDirectoryV4()
@@ -286,6 +359,58 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(
             atPath: destinationURL.path
         ))
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+    func testSameSemanticsAudioPayloadsRemainBoundToLogicalOrdinals()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("same-semantics-audio.mov")
+        let destinationURL = directory.url("same-semantics-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeTwinAudioPayloadMovie(
+            at: sourceURL
+        )
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL)
+        )
+        XCTAssertEqual(source.tracks.count, 2)
+        let first = source.tracks[0]
+        let second = source.tracks[1]
+        XCTAssertEqual(first.kind, second.kind)
+        XCTAssertEqual(first.enabled, second.enabled)
+        XCTAssertEqual(first.language, second.language)
+        XCTAssertEqual(first.roleIDs, second.roleIDs)
+        XCTAssertEqual(first.timebase, second.timebase)
+        XCTAssertEqual(first.timeRange, second.timeRange)
+        XCTAssertEqual(first.edits, second.edits)
+        XCTAssertEqual(first.formatDescriptors, second.formatDescriptors)
+        XCTAssertEqual(first.metadataFingerprint, second.metadataFingerprint)
+        let plan = try MediaTrackGraphPlannerV4.makePlan(source: source)
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(
+            .init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint
+            )
+        )
+
+        XCTAssertEqual(result.outputGraph, source)
+        XCTAssertEqual(result.trackResults.count, 2)
+        let sourceDigests = result.trackResults.compactMap(
+            \.sourceSampleStreamSHA256
+        )
+        XCTAssertEqual(Set(sourceDigests).count, 2)
+        XCTAssertTrue(result.trackResults.allSatisfy {
+            $0.sourceSampleStreamSHA256 == $0.outputSampleStreamSHA256
+        })
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
@@ -486,6 +611,427 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
+    func testEveryTranscodedAudioTrackRequiresAnExplicitTrackBoundHook()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("audio-hook-source.mov")
+        let destinationURL = directory.url("audio-hook-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: false
+        )
+        let asset = AVURLAsset(url: sourceURL)
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: asset
+        )
+        let audio = try XCTUnwrap(source.tracks.first { $0.kind == .audio })
+        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+        let sourceAudio = try XCTUnwrap(audioTracks.first)
+        let calibration = try await AVFoundationAACFormatCalibratorV4()
+            .calibrate(
+                asset: asset,
+                track: sourceAudio,
+                trackID: audio.identity.stableID
+            )
+        let basePlan = try MediaTrackGraphPlannerV4.makePlan(
+            source: source,
+            request: .init(trackDirectives: [MediaTrackDirectiveV4(
+                trackID: audio.identity.stableID,
+                action: .transcode,
+                targetFormatDescriptors: [calibration.targetFormat],
+                dropConsent: nil
+            )])
+        )
+        let plan = try basePlan.applyingTranscodePrimingDurations([
+            audio.identity.stableID: calibration.encoderPrimingDuration
+        ])
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+
+        await XCTAssertThrowsErrorAsyncV4(
+            try await AVFoundationTrackMigrationExecutorV4().execute(.init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint
+            ))
+        ) { error in
+            XCTAssertEqual(
+                error as? AVFoundationTrackMigrationExecutorV4Error,
+                .missingProcessingHook(audio.identity.stableID)
+            )
+        }
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: destinationURL.path
+        ))
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+    func testTrackBoundAudioHookTranscodesPCMToAACAndPreservesOtherTracks()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("audio-transcode-source.mov")
+        let destinationURL = directory.url("audio-transcode-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: false
+        )
+        let asset = AVURLAsset(url: sourceURL)
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: asset
+        )
+        let audio = try XCTUnwrap(source.tracks.first { $0.kind == .audio })
+        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+        let sourceAudio = try XCTUnwrap(audioTracks.first)
+        let calibration = try await AVFoundationAACFormatCalibratorV4()
+            .calibrate(
+                asset: asset,
+                track: sourceAudio,
+                trackID: audio.identity.stableID
+            )
+        XCTAssertEqual(
+            calibration.targetFormat.mediaSubtypeID,
+            "fourcc_61616320"
+        )
+        let basePlan = try MediaTrackGraphPlannerV4.makePlan(
+            source: source,
+            request: .init(trackDirectives: [MediaTrackDirectiveV4(
+                trackID: audio.identity.stableID,
+                action: .transcode,
+                targetFormatDescriptors: [calibration.targetFormat],
+                dropConsent: nil
+            )])
+        )
+        let plan = try basePlan.applyingTranscodePrimingDurations([
+            audio.identity.stableID: calibration.encoderPrimingDuration
+        ])
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(
+            .init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint,
+                nonVideoTranscodeHooks: [calibration.hook]
+            )
+        )
+
+        XCTAssertTrue(result.verificationReport.isConformant)
+        let outputAudio = try XCTUnwrap(result.outputGraph.track(
+            id: audio.identity.stableID
+        ))
+        XCTAssertEqual(
+            outputAudio.formatDescriptors,
+            [calibration.targetFormat]
+        )
+        let audioResult = try XCTUnwrap(result.trackResults.first {
+            $0.trackID == audio.identity.stableID
+        })
+        XCTAssertEqual(audioResult.action, .transcode)
+        XCTAssertNil(audioResult.sourceSampleStreamSHA256)
+        XCTAssertNil(audioResult.outputSampleStreamSHA256)
+        XCTAssertTrue(result.trackResults.filter {
+            $0.trackID != audio.identity.stableID
+        }.allSatisfy {
+            $0.action == .passThrough
+                && $0.sourceSampleStreamSHA256
+                    == $0.outputSampleStreamSHA256
+        })
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+    func testAACCalibrationPreservesRealFivePointOneAndSevenPointOneLayouts()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let calibrator = AVFoundationAACFormatCalibratorV4()
+        let cases: [(
+            String,
+            source: AudioChannelLayoutTag,
+            encoder: AudioChannelLayoutTag,
+            channels: UInt32
+        )] = [
+            (
+                "five-one",
+                kAudioChannelLayoutTag_MPEG_5_1_A,
+                kAudioChannelLayoutTag_AAC_5_1,
+                6
+            ),
+            (
+                "seven-one",
+                kAudioChannelLayoutTag_MPEG_7_1_C,
+                kAudioChannelLayoutTag_AAC_7_1_B,
+                8
+            )
+        ]
+
+        for (name, sourceLayout, encoderLayout, channelCount) in cases {
+            let sourceURL = directory.url("\(name)-source.mov")
+            try await TrackMigrationFixtureFactoryV4.makeAudioMovie(
+                at: sourceURL,
+                channelLayoutTag: sourceLayout,
+                amplitude: 500
+            )
+            let asset = AVURLAsset(url: sourceURL)
+            let graph = try await AVFoundationTrackGraphAdapterV4.probe(
+                asset: asset
+            )
+            let node = try XCTUnwrap(graph.tracks.first)
+            let audioTracks = try await asset.loadTracks(
+                withMediaType: .audio
+            )
+            let track = try XCTUnwrap(audioTracks.first)
+            let calibration = try await calibrator.calibrate(
+                asset: asset,
+                track: track,
+                trackID: node.identity.stableID
+            )
+
+            XCTAssertEqual(
+                calibration.targetFormat.mediaSubtypeID,
+                "fourcc_61616320"
+            )
+            XCTAssertEqual(
+                calibration.hook.writerOutputSettings[
+                    AVNumberOfChannelsKey
+                ] as? Int,
+                Int(channelCount)
+            )
+            let writerLayout = try XCTUnwrap(
+                calibration.hook.writerOutputSettings[
+                    AVChannelLayoutKey
+                ] as? Data
+            )
+            let readerLayout = try XCTUnwrap(
+                calibration.hook.readerOutputSettings[
+                    AVChannelLayoutKey
+                ] as? Data
+            )
+            XCTAssertEqual(writerLayout, readerLayout)
+            XCTAssertEqual(
+                channelLayoutTag(in: writerLayout),
+                encoderLayout
+            )
+        }
+        let cacheCount = await calibrator
+            .cachedOutputCountForQualification()
+        XCTAssertEqual(cacheCount, cases.count)
+    }
+
+    func testAACCalibrationCacheIsolatedByDistinctSixChannelLayouts()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let calibrator = AVFoundationAACFormatCalibratorV4()
+        var layoutData: [Data] = []
+        var sourceFingerprints: [ASHSHA256V4] = []
+        for (ordinal, tag) in [
+            kAudioChannelLayoutTag_MPEG_5_1_A,
+            kAudioChannelLayoutTag_MPEG_5_1_B
+        ].enumerated() {
+            let sourceURL = directory.url("cache-layout-\(ordinal).mov")
+            try await TrackMigrationFixtureFactoryV4.makeAudioMovie(
+                at: sourceURL,
+                channelLayoutTag: tag,
+                amplitude: Int16(400 + ordinal)
+            )
+            let asset = AVURLAsset(url: sourceURL)
+            let graph = try await AVFoundationTrackGraphAdapterV4.probe(
+                asset: asset
+            )
+            let sourceFormat = try XCTUnwrap(
+                graph.tracks.first?.formatDescriptors.first
+            )
+            sourceFingerprints.append(sourceFormat.canonicalFingerprint)
+            let audioTracks = try await asset.loadTracks(
+                withMediaType: .audio
+            )
+            let track = try XCTUnwrap(audioTracks.first)
+            let calibration = try await calibrator.calibrate(
+                asset: asset,
+                track: track,
+                trackID: try XCTUnwrap(graph.tracks.first).identity.stableID
+            )
+            layoutData.append(try XCTUnwrap(
+                calibration.hook.writerOutputSettings[
+                    AVChannelLayoutKey
+                ] as? Data
+            ))
+        }
+
+        XCTAssertEqual(layoutData[0], layoutData[1])
+        XCTAssertNotEqual(sourceFingerprints[0], sourceFingerprints[1])
+        let cacheCount = await calibrator
+            .cachedOutputCountForQualification()
+        XCTAssertEqual(cacheCount, 2)
+    }
+
+    func testCompatibleRealMultipleAudioDescriptionsRoundTripExactly()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("compatible-real-multidesc.mov")
+        let destinationURL = directory.url("compatible-real-output.mov")
+        try await TrackMigrationFixtureFactoryV4
+            .makeCompatibleMultiDescriptionAudioMovie(at: sourceURL)
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL)
+        )
+        let audio = try XCTUnwrap(source.tracks.first)
+        XCTAssertEqual(audio.kind, .audio)
+        XCTAssertEqual(audio.formatDescriptors.count, 2)
+        XCTAssertNotEqual(
+            audio.formatDescriptors[0].canonicalFingerprint,
+            audio.formatDescriptors[1].canonicalFingerprint
+        )
+        let plan = try MediaTrackGraphPlannerV4.makePlan(source: source)
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(
+            .init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint
+            )
+        )
+
+        XCTAssertTrue(result.verificationReport.isConformant)
+        XCTAssertEqual(result.outputGraph, source)
+        let trackResult = try XCTUnwrap(result.trackResults.first)
+        XCTAssertEqual(
+            trackResult.sourceSampleStreamSHA256,
+            trackResult.outputSampleStreamSHA256
+        )
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+    func testAACCalibrationCancellationIsNotRelabeledAsCodecFailure()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("cancel-calibration.mov")
+        try await TrackMigrationFixtureFactoryV4.makeAudioMovie(
+            at: sourceURL,
+            channelLayoutTag: kAudioChannelLayoutTag_MPEG_7_1_C,
+            amplitude: 450
+        )
+        let asset = AVURLAsset(url: sourceURL)
+        let graph = try await AVFoundationTrackGraphAdapterV4.probe(asset: asset)
+        let node = try XCTUnwrap(graph.tracks.first)
+        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+        let track = try XCTUnwrap(audioTracks.first)
+        let cancellation = ProcessingCancellation()
+        let task = Task {
+            try await AVFoundationAACFormatCalibratorV4().calibrate(
+                asset: asset,
+                track: track,
+                trackID: node.identity.stableID,
+                cancellation: cancellation
+            )
+        }
+        await Task.yield()
+        cancellation.cancel()
+
+        do {
+            _ = try await task.value
+            XCTFail("Calibration unexpectedly completed after cancellation.")
+        } catch is CancellationError {
+            // Exact error identity is the contract under test.
+        } catch {
+            XCTFail("Cancellation was relabeled as \(error).")
+        }
+    }
+
+    func testCompatibleMultipleAudioFormatDescriptionsArePassThroughEligible()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("multi-format-compatible.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: false
+        )
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL)
+        )
+        let audio = try XCTUnwrap(source.tracks.first { $0.kind == .audio })
+        let descriptions = try [
+            audioFormatDescription(sampleRate: 48_000, channels: 1),
+            audioFormatDescription(sampleRate: 48_000, channels: 1)
+        ]
+        let formats = try descriptions.enumerated().map { ordinal, value in
+            try AVFoundationTrackGraphAdapterV4.canonicalFormatDescriptor(
+                value,
+                ordinal: UInt32(ordinal)
+            )
+        }
+        let planned = try passThroughTrack(audio, formats: formats)
+
+        XCTAssertNoThrow(try AVFoundationTrackMigrationExecutorV4
+            .validatePassThroughFormatInventory(
+                descriptions,
+                planned: planned,
+                sourceMediaType: .audio
+            ))
+    }
+
+    func testIncompatibleMultipleAudioFormatDescriptionsRequireTranscodeHook()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("multi-format-incompatible.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: false
+        )
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL)
+        )
+        let audio = try XCTUnwrap(source.tracks.first { $0.kind == .audio })
+        let descriptions = try [
+            audioFormatDescription(sampleRate: 48_000, channels: 1),
+            audioFormatDescription(sampleRate: 44_100, channels: 1)
+        ]
+        let formats = try descriptions.enumerated().map { ordinal, value in
+            try AVFoundationTrackGraphAdapterV4.canonicalFormatDescriptor(
+                value,
+                ordinal: UInt32(ordinal)
+            )
+        }
+        let planned = try passThroughTrack(audio, formats: formats)
+
+        XCTAssertThrowsError(try AVFoundationTrackMigrationExecutorV4
+            .validatePassThroughFormatInventory(
+                descriptions,
+                planned: planned,
+                sourceMediaType: .audio
+            )) { error in
+                XCTAssertEqual(
+                    error as? AVFoundationTrackMigrationExecutorV4Error,
+                    .unsupportedTrack(
+                        audio.identity.stableID,
+                        reason:
+                            "incompatible_format_transition_requires_transcode_hook"
+                    )
+                )
+            }
+    }
+
     func testTrackBoundVideoHookReencodesOneVideoWhileEveryOtherTrackCopies()
         async throws {
         let directory = try TrackMigrationFixtureDirectoryV4()
@@ -663,6 +1209,158 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
+    func testCancellationEnteringSourceMetadataScanRemainsCancelled()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("metadata-cancel-source.mov")
+        let destinationURL = directory.url("metadata-cancel-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: false
+        )
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL)
+        )
+        let plan = try MediaTrackGraphPlannerV4.makePlan(source: source)
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+        let cancellation = AVFoundationTrackMigrationCancellationV4()
+
+        await XCTAssertThrowsErrorAsyncV4(
+            try await AVFoundationTrackMigrationExecutorV4().execute(
+                .init(
+                    sourceURL: sourceURL,
+                    destinationURL: destinationURL,
+                    sourceGraph: source,
+                    identifiedPlan: plan,
+                    blueprint: blueprint
+                ),
+                cancellation: cancellation,
+                progress: { event in
+                    if event.stage == .preparingReaderWriter,
+                       event.trackID == nil {
+                        cancellation.cancel()
+                    }
+                }
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? AVFoundationTrackMigrationExecutorV4Error,
+                .cancelled
+            )
+        }
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: destinationURL.path
+        ))
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+    func testCancellationEnteringOutputMetadataScanRemainsCancelled()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("output-metadata-cancel-source.mov")
+        let destinationURL = directory.url("output-metadata-cancel-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: false
+        )
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL)
+        )
+        let plan = try MediaTrackGraphPlannerV4.makePlan(source: source)
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+        let cancellation = AVFoundationTrackMigrationCancellationV4()
+
+        await XCTAssertThrowsErrorAsyncV4(
+            try await AVFoundationTrackMigrationExecutorV4().execute(
+                .init(
+                    sourceURL: sourceURL,
+                    destinationURL: destinationURL,
+                    sourceGraph: source,
+                    identifiedPlan: plan,
+                    blueprint: blueprint
+                ),
+                cancellation: cancellation,
+                progress: { event in
+                    if event.stage == .verifying {
+                        cancellation.cancel()
+                    }
+                }
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? AVFoundationTrackMigrationExecutorV4Error,
+                .cancelled
+            )
+        }
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: destinationURL.path
+        ))
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+    func testCancellationDuringScaledEditPrescanIsAtomic() async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let mediaURL = directory.url("prescan-media.mov")
+        let sourceURL = directory.url("prescan-scaled.mov")
+        let destinationURL = directory.url("prescan-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: mediaURL,
+            includeAudioGroup: false
+        )
+        try await TrackMigrationFixtureFactoryV4.makeScaledEditedMovie(
+            source: mediaURL,
+            at: sourceURL
+        )
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL)
+        )
+        let scaledTrack = try XCTUnwrap(source.tracks.first)
+        let plan = try MediaTrackGraphPlannerV4.makePlan(source: source)
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+        let cancellation = AVFoundationTrackMigrationCancellationV4()
+
+        await XCTAssertThrowsErrorAsyncV4(
+            try await AVFoundationTrackMigrationExecutorV4().execute(
+                .init(
+                    sourceURL: sourceURL,
+                    destinationURL: destinationURL,
+                    sourceGraph: source,
+                    identifiedPlan: plan,
+                    blueprint: blueprint
+                ),
+                cancellation: cancellation,
+                progress: { event in
+                    if event.stage == .preparingReaderWriter,
+                       event.trackID == scaledTrack.identity.stableID,
+                       event.migratedSampleCount > 0 {
+                        cancellation.cancel()
+                    }
+                }
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? AVFoundationTrackMigrationExecutorV4Error,
+                .cancelled
+            )
+        }
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: destinationURL.path
+        ))
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
     func testProcessedSampleTimingMutationFailsAtomically() async throws {
         let directory = try TrackMigrationFixtureDirectoryV4()
         defer { directory.remove() }
@@ -722,6 +1420,118 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             XCTAssertEqual(
                 error as? AVFoundationTrackMigrationExecutorV4Error,
                 .processedSampleChangedTiming(video.identity.stableID)
+            )
+        }
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: destinationURL.path
+        ))
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+    func testNonVideoHookRejectsMiddleSampleTimingMutationWithSameEnvelope()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("audio-middle-timing-source.mov")
+        let destinationURL = directory.url("audio-middle-timing-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: false
+        )
+        let asset = AVURLAsset(url: sourceURL)
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: asset
+        )
+        let audio = try XCTUnwrap(source.tracks.first { $0.kind == .audio })
+        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+        let sourceTrack = try XCTUnwrap(audioTracks.first)
+        let calibration = try await AVFoundationAACFormatCalibratorV4()
+            .calibrate(
+                asset: asset,
+                track: sourceTrack,
+                trackID: audio.identity.stableID
+            )
+        let basePlan = try MediaTrackGraphPlannerV4.makePlan(
+            source: source,
+            request: .init(trackDirectives: [MediaTrackDirectiveV4(
+                trackID: audio.identity.stableID,
+                action: .transcode,
+                targetFormatDescriptors: [calibration.targetFormat],
+                dropConsent: nil
+            )])
+        )
+        let plan = try basePlan.applyingTranscodePrimingDurations([
+            audio.identity.stableID: calibration.encoderPrimingDuration
+        ])
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+        let hook = AVFoundationNonVideoTrackTranscodeHookV4(
+            trackID: audio.identity.stableID,
+            readerOutputSettings: calibration.hook.readerOutputSettings,
+            writerOutputSettings: calibration.hook.writerOutputSettings,
+            declaredOutputFormats: calibration.hook.declaredOutputFormats
+        ) { wrapped in
+            let sourceBuffer = wrapped.sampleBuffer
+            let sampleCount = CMSampleBufferGetNumSamples(sourceBuffer)
+            guard sampleCount > 2 else {
+                throw TrackMigrationFixtureErrorV4.invalidFixture(
+                    "Decoded audio buffer did not contain multiple samples."
+                )
+            }
+            var timings = try (0..<sampleCount).map { index in
+                var timing = CMSampleTimingInfo.invalid
+                let status = CMSampleBufferGetSampleTimingInfo(
+                    sourceBuffer,
+                    at: index,
+                    timingInfoOut: &timing
+                )
+                guard status == noErr else {
+                    throw TrackMigrationFixtureErrorV4.coreMedia(status)
+                }
+                return timing
+            }
+            let middle = sampleCount / 2
+            timings[middle].presentationTimeStamp = CMTimeAdd(
+                timings[middle].presentationTimeStamp,
+                CMTime(value: 1, timescale: 96_000)
+            )
+            var copy: CMSampleBuffer?
+            let status = CMSampleBufferCreateCopyWithNewTiming(
+                allocator: kCFAllocatorDefault,
+                sampleBuffer: sourceBuffer,
+                sampleTimingEntryCount: timings.count,
+                sampleTimingArray: &timings,
+                sampleBufferOut: &copy
+            )
+            guard status == noErr, let copy else {
+                throw TrackMigrationFixtureErrorV4.coreMedia(status)
+            }
+            XCTAssertEqual(
+                CMSampleBufferGetPresentationTimeStamp(copy),
+                CMSampleBufferGetPresentationTimeStamp(sourceBuffer)
+            )
+            XCTAssertEqual(
+                CMSampleBufferGetDuration(copy),
+                CMSampleBufferGetDuration(sourceBuffer)
+            )
+            return AVFoundationNonVideoSampleV4(sampleBuffer: copy)
+        }
+
+        await XCTAssertThrowsErrorAsyncV4(
+            try await AVFoundationTrackMigrationExecutorV4().execute(.init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint,
+                nonVideoTranscodeHooks: [hook]
+            ))
+        ) { error in
+            XCTAssertEqual(
+                error as? AVFoundationTrackMigrationExecutorV4Error,
+                .processedSampleChangedTiming(audio.identity.stableID)
             )
         }
         XCTAssertFalse(FileManager.default.fileExists(
@@ -968,50 +1778,255 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
-    func testScaledEditFailsClosedWithTypedProcessingRequirement()
+    func testScaledEditRoundTripsExactRationalMappingAndEncodedStream()
         async throws {
         let directory = try TrackMigrationFixtureDirectoryV4()
         defer { directory.remove() }
+        let mediaURL = directory.url("scaled-edit-media.mov")
         let sourceURL = directory.url("scaled-edit-source.mov")
         let destinationURL = directory.url("scaled-edit-output.mov")
         try await TrackMigrationFixtureFactoryV4.makeRichMovie(
-            at: sourceURL,
+            at: mediaURL,
             includeAudioGroup: false
         )
-        let observed = try await AVFoundationTrackGraphAdapterV4.probe(
+        try await TrackMigrationFixtureFactoryV4.makeScaledEditedMovie(
+            source: mediaURL,
+            at: sourceURL
+        )
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
             asset: AVURLAsset(url: sourceURL)
         )
-        let source = try graphWithScaledEdit(observed)
-        let scaledTrackID = try XCTUnwrap(source.tracks.first)
-            .identity.stableID
+        let scaledTrack = try XCTUnwrap(source.tracks.first)
+        XCTAssertTrue(scaledTrack.edits.contains { edit in
+            edit.source?.duration != edit.target.duration
+        })
         let plan = try MediaTrackGraphPlannerV4.makePlan(source: source)
         let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
             source: source,
             plan: plan
         )
 
-        await XCTAssertThrowsErrorAsyncV4(
-            try await AVFoundationTrackMigrationExecutorV4().execute(
-                .init(
-                    sourceURL: sourceURL,
-                    destinationURL: destinationURL,
-                    sourceGraph: source,
-                    identifiedPlan: plan,
-                    blueprint: blueprint
-                )
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(
+            .init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint
             )
-        ) { error in
-            XCTAssertEqual(
-                error as? AVFoundationTrackMigrationExecutorV4Error,
-                .unsupportedTrack(
-                    scaledTrackID,
-                    reason: "scaled_edit_requires_processing"
-                )
-            )
-        }
-        XCTAssertFalse(FileManager.default.fileExists(
+        )
+
+        XCTAssertTrue(result.verificationReport.isConformant)
+        XCTAssertEqual(result.outputGraph, source)
+        XCTAssertEqual(
+            result.trackResults.first?.sourceSampleStreamSHA256,
+            result.trackResults.first?.outputSampleStreamSHA256
+        )
+        XCTAssertTrue(FileManager.default.fileExists(
             atPath: destinationURL.path
         ))
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+    func testScaledDiscontiguousEmptyEditsCoexistWithAudioTranscoding()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let mediaURL = directory.url("combined-edit-media.mov")
+        let sourceURL = directory.url("combined-edit-source.mov")
+        let destinationURL = directory.url("combined-edit-output.mov")
+        try await TrackMigrationFixtureFactoryV4
+            .makeRichMovieWithIncompatibleAudioTransitions(
+                at: mediaURL,
+                includeAudioGroup: false
+            )
+        try await TrackMigrationFixtureFactoryV4
+            .makeScaledDiscontiguousEditedMovie(
+                source: mediaURL,
+                at: sourceURL
+            )
+        let asset = AVURLAsset(url: sourceURL)
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: asset
+        )
+        let editedVideo = try XCTUnwrap(source.tracks.first {
+            $0.kind == .video
+        })
+        XCTAssertTrue(editedVideo.edits.contains(where: \.isEmpty))
+        XCTAssertGreaterThan(
+            editedVideo.edits.filter { !$0.isEmpty }.count,
+            1
+        )
+        XCTAssertTrue(editedVideo.edits.contains { edit in
+            edit.source?.duration != edit.target.duration
+        })
+
+        let assetTracks = try await asset.load(.tracks)
+        let calibrator = AVFoundationAACFormatCalibratorV4()
+        var directives: [MediaTrackDirectiveV4] = []
+        var hooks: [AVFoundationNonVideoTrackTranscodeHookV4] = []
+        var primingDurations: [
+            MediaTrackStableIDV4: ExactRationalV4
+        ] = [:]
+        for audio in source.tracks.filter({ $0.kind == .audio }) {
+            let sourceTrack = assetTracks[Int(audio.identity.ordinal)]
+            let calibration = try await calibrator.calibrate(
+                asset: asset,
+                track: sourceTrack,
+                trackID: audio.identity.stableID
+            )
+            directives.append(MediaTrackDirectiveV4(
+                trackID: audio.identity.stableID,
+                action: .transcode,
+                targetFormatDescriptors: [calibration.targetFormat],
+                dropConsent: nil
+            ))
+            hooks.append(calibration.hook)
+            primingDurations[audio.identity.stableID] = calibration
+                .encoderPrimingDuration
+        }
+        let basePlan = try MediaTrackGraphPlannerV4.makePlan(
+            source: source,
+            request: .init(trackDirectives: directives)
+        )
+        let plan = try basePlan.applyingTranscodePrimingDurations(
+            primingDurations
+        )
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(
+            .init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint,
+                nonVideoTranscodeHooks: hooks
+            )
+        )
+
+        XCTAssertTrue(result.verificationReport.isConformant)
+        XCTAssertTrue(result.trackResults.filter {
+            $0.action == .passThrough
+        }.allSatisfy {
+            $0.sourceSampleStreamSHA256 == $0.outputSampleStreamSHA256
+        })
+        XCTAssertEqual(
+            result.trackResults.filter { $0.action == .transcode }.count,
+            2
+        )
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+    func testDiscontiguousAudioEditsSurviveAACTranscodeRoundTrip()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let mediaURL = directory.url("audio-edit-media.mov")
+        let sourceURL = directory.url("audio-edit-source.mov")
+        let destinationURL = directory.url("audio-edit-output.mov")
+        try await TrackMigrationFixtureFactoryV4
+            .makeRichMovieWithIncompatibleAudioTransitions(
+                at: mediaURL,
+                includeAudioGroup: false
+            )
+        try await TrackMigrationFixtureFactoryV4
+            .makeDiscontiguousAudioEditedMovie(
+                source: mediaURL,
+                at: sourceURL
+            )
+        let asset = AVURLAsset(url: sourceURL)
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: asset
+        )
+        let sourceAudio = source.tracks.filter { $0.kind == .audio }
+        XCTAssertEqual(sourceAudio.count, 2)
+        for audio in sourceAudio {
+            XCTAssertEqual(audio.edits.filter(\.isEmpty).count, 2)
+            let mediaEdits = audio.edits.filter { !$0.isEmpty }
+            XCTAssertEqual(mediaEdits.count, 2)
+            let firstSource = try XCTUnwrap(mediaEdits[0].source)
+            let secondSource = try XCTUnwrap(mediaEdits[1].source)
+            XCTAssertGreaterThan(
+                secondSource.start,
+                try firstSource.start.adding(firstSource.duration)
+            )
+        }
+
+        let assetTracks = try await asset.load(.tracks)
+        let calibrator = AVFoundationAACFormatCalibratorV4()
+        var directives: [MediaTrackDirectiveV4] = []
+        var hooks: [AVFoundationNonVideoTrackTranscodeHookV4] = []
+        var primingDurations: [
+            MediaTrackStableIDV4: ExactRationalV4
+        ] = [:]
+        for audio in sourceAudio {
+            let sourceTrack = assetTracks[Int(audio.identity.ordinal)]
+            let calibration = try await calibrator.calibrate(
+                asset: asset,
+                track: sourceTrack,
+                trackID: audio.identity.stableID
+            )
+            directives.append(MediaTrackDirectiveV4(
+                trackID: audio.identity.stableID,
+                action: .transcode,
+                targetFormatDescriptors: [calibration.targetFormat],
+                dropConsent: nil
+            ))
+            hooks.append(calibration.hook)
+            primingDurations[audio.identity.stableID] = calibration
+                .encoderPrimingDuration
+        }
+        let basePlan = try MediaTrackGraphPlannerV4.makePlan(
+            source: source,
+            request: .init(trackDirectives: directives)
+        )
+        let plan = try basePlan.applyingTranscodePrimingDurations(
+            primingDurations
+        )
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(
+            .init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint,
+                nonVideoTranscodeHooks: hooks
+            )
+        )
+
+        XCTAssertTrue(result.verificationReport.isConformant)
+        XCTAssertTrue(result.trackResults.filter {
+            $0.action == .passThrough
+        }.allSatisfy {
+            $0.sourceSampleStreamSHA256 == $0.outputSampleStreamSHA256
+        })
+        XCTAssertEqual(
+            result.trackResults.filter { $0.action == .transcode }.count,
+            2
+        )
+        for sourceTrack in sourceAudio {
+            let expected = try XCTUnwrap(plan.plan.tracks.first {
+                $0.source.identity.stableID == sourceTrack.identity.stableID
+            }?.expectedOutput)
+            let output = try XCTUnwrap(result.outputGraph.tracks.first {
+                $0.identity.stableID == sourceTrack.identity.stableID
+            })
+            XCTAssertEqual(output.edits, expected.edits)
+            XCTAssertEqual(output.formatDescriptors.count, 1)
+            XCTAssertEqual(
+                output.formatDescriptors[0].mediaSubtypeID,
+                "fourcc_61616320"
+            )
+        }
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
@@ -1103,9 +2118,351 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         ))
         XCTAssertFalse(try directory.containsPartialMovie())
     }
+
+    func testSampleStreamAccumulatorIncrementalDigestMatchesReferenceBytes()
+        throws {
+        let duration = CMTime(value: 1, timescale: 30)
+        let first = try sampleStreamQualificationBuffer(
+            payloads: [
+                Data([0x00, 0x00, 0x00, 0x01]),
+                Data([0x10, 0x20, 0x30, 0x40])
+            ],
+            start: .zero,
+            duration: duration
+        )
+        let second = try sampleStreamQualificationBuffer(
+            payloads: [
+                Data([0xaa, 0xbb, 0xcc, 0xdd]),
+                Data([0x7f, 0x00, 0x80, 0xff]),
+                Data([0xde, 0xad, 0xbe, 0xef])
+            ],
+            start: CMTime(value: 2, timescale: 30),
+            duration: duration
+        )
+
+        var accumulator = SampleStreamAccumulatorV4()
+        try accumulator.append(first)
+        let firstDigest = accumulator.digest
+        XCTAssertEqual(accumulator.digest, firstDigest)
+
+        try accumulator.append(second)
+        let referenceBytes = try referenceSampleStreamCanonicalBytes([
+            first,
+            second
+        ])
+        var domainSeparated = Data(
+            "ash-avfoundation-sample-stream-v4".utf8
+        )
+        domainSeparated.append(0)
+        domainSeparated.append(referenceBytes)
+        let expectedDigest = ASHSHA256V4(rawData: domainSeparated)
+
+        XCTAssertNotEqual(accumulator.digest, firstDigest)
+        XCTAssertEqual(accumulator.digest, expectedDigest)
+        XCTAssertEqual(accumulator.digest, expectedDigest)
+        XCTAssertEqual(
+            accumulator.retentionDiagnosticForQualification
+                .processedCanonicalByteCount,
+            UInt64(referenceBytes.count)
+        )
+    }
+
+    func testSampleStreamAccumulatorRetainsOnlyFixedHashState() throws {
+        let buffer = try sampleStreamQualificationBuffer(
+            payloads: [
+                Data([0x00, 0x00, 0x00, 0x01]),
+                Data([0x00, 0x00, 0x00, 0x02]),
+                Data([0x00, 0x00, 0x00, 0x03]),
+                Data([0x00, 0x00, 0x00, 0x04])
+            ],
+            start: .zero,
+            duration: CMTime(value: 1, timescale: 30)
+        )
+        let bytesPerBuffer = try referenceSampleStreamCanonicalBytes([
+            buffer
+        ]).count
+        var accumulator = SampleStreamAccumulatorV4()
+        let initial = accumulator.retentionDiagnosticForQualification
+
+        let appendCount = 2_048
+        for _ in 0..<appendCount {
+            try accumulator.append(buffer)
+        }
+
+        let diagnostic = accumulator.retentionDiagnosticForQualification
+        XCTAssertEqual(
+            diagnostic.processedCanonicalByteCount,
+            UInt64(bytesPerBuffer * appendCount)
+        )
+        XCTAssertGreaterThan(diagnostic.processedCanonicalByteCount, 1_000_000)
+        XCTAssertEqual(diagnostic.retainedCanonicalByteCount, 0)
+        XCTAssertEqual(
+            diagnostic.fixedStateByteCount,
+            initial.fixedStateByteCount
+        )
+        XCTAssertGreaterThan(diagnostic.fixedStateByteCount, 0)
+        XCTAssertLessThan(diagnostic.fixedStateByteCount, 4_096)
+        XCTAssertEqual(accumulator.digest, accumulator.digest)
+    }
 }
 
 private extension AVFoundationTrackMigrationExecutorV4Tests {
+    func channelLayoutTag(in data: Data) -> AudioChannelLayoutTag {
+        data.withUnsafeBytes {
+            $0.loadUnaligned(as: AudioChannelLayoutTag.self)
+        }
+    }
+
+    func sampleStreamQualificationBuffer(
+        payloads: [Data],
+        start: CMTime,
+        duration: CMTime
+    ) throws -> CMSampleBuffer {
+        guard !payloads.isEmpty,
+              payloads.allSatisfy({ $0.count == MemoryLayout<Int32>.size })
+        else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Qualification timecode samples must be four bytes."
+            )
+        }
+        var format: CMTimeCodeFormatDescription?
+        var status = CMTimeCodeFormatDescriptionCreate(
+            allocator: kCFAllocatorDefault,
+            timeCodeFormatType: kCMTimeCodeFormatType_TimeCode32,
+            frameDuration: duration,
+            frameQuanta: 30,
+            flags: 0,
+            extensions: nil,
+            formatDescriptionOut: &format
+        )
+        guard status == noErr, let format else {
+            throw TrackMigrationFixtureErrorV4.coreMedia(status)
+        }
+
+        let payload = payloads.reduce(into: Data()) { bytes, sample in
+            bytes.append(sample)
+        }
+        var blockBuffer: CMBlockBuffer?
+        status = CMBlockBufferCreateWithMemoryBlock(
+            allocator: kCFAllocatorDefault,
+            memoryBlock: nil,
+            blockLength: payload.count,
+            blockAllocator: kCFAllocatorDefault,
+            customBlockSource: nil,
+            offsetToData: 0,
+            dataLength: payload.count,
+            flags: 0,
+            blockBufferOut: &blockBuffer
+        )
+        guard status == kCMBlockBufferNoErr, let blockBuffer else {
+            throw TrackMigrationFixtureErrorV4.coreMedia(status)
+        }
+        status = payload.withUnsafeBytes { bytes in
+            CMBlockBufferReplaceDataBytes(
+                with: bytes.baseAddress!,
+                blockBuffer: blockBuffer,
+                offsetIntoDestination: 0,
+                dataLength: payload.count
+            )
+        }
+        guard status == kCMBlockBufferNoErr else {
+            throw TrackMigrationFixtureErrorV4.coreMedia(status)
+        }
+
+        let timings = payloads.indices.map { index in
+            CMSampleTimingInfo(
+                duration: duration,
+                presentationTimeStamp: CMTimeAdd(
+                    start,
+                    CMTimeMultiply(duration, multiplier: Int32(index))
+                ),
+                decodeTimeStamp: .invalid
+            )
+        }
+        let sampleSizes = payloads.map(\.count)
+        var sampleBuffer: CMSampleBuffer?
+        status = timings.withUnsafeBufferPointer { timingBuffer in
+            sampleSizes.withUnsafeBufferPointer { sizeBuffer in
+                CMSampleBufferCreate(
+                    allocator: kCFAllocatorDefault,
+                    dataBuffer: blockBuffer,
+                    dataReady: true,
+                    makeDataReadyCallback: nil,
+                    refcon: nil,
+                    formatDescription: format,
+                    sampleCount: payloads.count,
+                    sampleTimingEntryCount: timings.count,
+                    sampleTimingArray: timingBuffer.baseAddress,
+                    sampleSizeEntryCount: sampleSizes.count,
+                    sampleSizeArray: sizeBuffer.baseAddress,
+                    sampleBufferOut: &sampleBuffer
+                )
+            }
+        }
+        guard status == noErr, let sampleBuffer else {
+            throw TrackMigrationFixtureErrorV4.coreMedia(status)
+        }
+        return sampleBuffer
+    }
+
+    func referenceSampleStreamCanonicalBytes(
+        _ buffers: [CMSampleBuffer]
+    ) throws -> Data {
+        var canonicalBytes = Data()
+        for sample in buffers {
+            let sampleCount = CMSampleBufferGetNumSamples(sample)
+            if sampleCount == 0 {
+                continue
+            }
+            guard let format = CMSampleBufferGetFormatDescription(sample)
+            else {
+                throw TrackMigrationFixtureErrorV4.invalidFixture(
+                    "Qualification sample has no format description."
+                )
+            }
+            let formatFingerprint = try AVFoundationTrackGraphAdapterV4
+                .canonicalFormatDescriptor(format).canonicalFingerprint
+            let mediaType = CMFormatDescriptionGetMediaType(format)
+            let mediaSubtype = CMFormatDescriptionGetMediaSubType(format)
+            let dataBuffer = CMSampleBufferGetDataBuffer(sample)
+            var dataOffset = 0
+
+            for index in 0..<sampleCount {
+                var timing = CMSampleTimingInfo()
+                let timingStatus = CMSampleBufferGetSampleTimingInfo(
+                    sample,
+                    at: index,
+                    timingInfoOut: &timing
+                )
+                guard timingStatus == noErr else {
+                    throw TrackMigrationFixtureErrorV4.coreMedia(timingStatus)
+                }
+                let sampleSize = CMSampleBufferGetSampleSize(sample, at: index)
+                let payload: Data
+                if sampleSize == 0 {
+                    payload = Data()
+                } else {
+                    guard let dataBuffer else {
+                        throw TrackMigrationFixtureErrorV4.invalidFixture(
+                            "Qualification sample has no data buffer."
+                        )
+                    }
+                    var bytes = Data(count: sampleSize)
+                    let copyStatus = bytes.withUnsafeMutableBytes { destination in
+                        CMBlockBufferCopyDataBytes(
+                            dataBuffer,
+                            atOffset: dataOffset,
+                            dataLength: sampleSize,
+                            destination: destination.baseAddress!
+                        )
+                    }
+                    guard copyStatus == kCMBlockBufferNoErr else {
+                        throw TrackMigrationFixtureErrorV4.coreMedia(copyStatus)
+                    }
+                    payload = bytes
+                }
+
+                canonicalBytes.append(1)
+                appendReferenceTime(
+                    timing.presentationTimeStamp,
+                    to: &canonicalBytes
+                )
+                appendReferenceTime(
+                    timing.decodeTimeStamp,
+                    to: &canonicalBytes
+                )
+                appendReferenceTime(timing.duration, to: &canonicalBytes)
+                appendReferenceInteger(mediaType, to: &canonicalBytes)
+                appendReferenceInteger(mediaSubtype, to: &canonicalBytes)
+                canonicalBytes.append(
+                    contentsOf: formatFingerprint.rawValue.utf8
+                )
+                appendReferenceInteger(UInt64(sampleSize), to: &canonicalBytes)
+                canonicalBytes.append(contentsOf: ASHSHA256V4(
+                    rawData: payload
+                ).rawValue.utf8)
+                dataOffset += sampleSize
+            }
+        }
+        return canonicalBytes
+    }
+
+    func appendReferenceTime(_ time: CMTime, to bytes: inout Data) {
+        appendReferenceInteger(time.value, to: &bytes)
+        appendReferenceInteger(time.timescale, to: &bytes)
+        appendReferenceInteger(time.flags.rawValue, to: &bytes)
+        appendReferenceInteger(time.epoch, to: &bytes)
+    }
+
+    func appendReferenceInteger<T: FixedWidthInteger>(
+        _ value: T,
+        to bytes: inout Data
+    ) {
+        var bigEndian = value.bigEndian
+        withUnsafeBytes(of: &bigEndian) {
+            bytes.append(contentsOf: $0)
+        }
+    }
+
+    func passThroughTrack(
+        _ track: MediaTrackNodeV4,
+        formats: [MediaTrackFormatDescriptorV4]
+    ) throws -> MediaTrackPlannedTrackV4 {
+        let node = try MediaTrackNodeV4(
+            identity: track.identity,
+            enabled: track.enabled,
+            kind: track.kind,
+            sourceMediaTypeID: track.sourceMediaTypeID,
+            language: track.language,
+            roleIDs: track.roleIDs,
+            timebase: track.timebase,
+            timeRange: track.timeRange,
+            edits: track.edits,
+            formatDescriptors: formats,
+            metadataFingerprint: track.metadataFingerprint
+        )
+        return MediaTrackPlannedTrackV4(
+            source: node,
+            action: .passThrough,
+            origin: .defaultPreservation,
+            expectedOutput: node,
+            dropConsent: nil
+        )
+    }
+
+    func audioFormatDescription(
+        sampleRate: Double,
+        channels: UInt32
+    ) throws -> CMAudioFormatDescription {
+        var asbd = AudioStreamBasicDescription(
+            mSampleRate: sampleRate,
+            mFormatID: kAudioFormatLinearPCM,
+            mFormatFlags: kAudioFormatFlagIsSignedInteger
+                | kAudioFormatFlagIsPacked,
+            mBytesPerPacket: 2 * channels,
+            mFramesPerPacket: 1,
+            mBytesPerFrame: 2 * channels,
+            mChannelsPerFrame: channels,
+            mBitsPerChannel: 16,
+            mReserved: 0
+        )
+        var result: CMAudioFormatDescription?
+        let status = CMAudioFormatDescriptionCreate(
+            allocator: kCFAllocatorDefault,
+            asbd: &asbd,
+            layoutSize: 0,
+            layout: nil,
+            magicCookieSize: 0,
+            magicCookie: nil,
+            extensions: nil,
+            formatDescriptionOut: &result
+        )
+        guard status == noErr, let result else {
+            throw TrackMigrationFixtureErrorV4.coreMedia(status)
+        }
+        return result
+    }
+
     func processingPlan(
         source: MediaTrackGraphV4,
         video: MediaTrackNodeV4,
@@ -1188,47 +2545,6 @@ private extension AVFoundationTrackMigrationExecutorV4Tests {
                 invalidSourceDurationFallback: try ExactRationalV4(1, 30)
             ),
             processTemporal: process
-        )
-    }
-
-    func graphWithScaledEdit(
-        _ source: MediaTrackGraphV4
-    ) throws -> MediaTrackGraphV4 {
-        guard let first = source.tracks.first else {
-            throw TrackMigrationFixtureErrorV4.invalidFixture("No tracks.")
-        }
-        let sourceDuration = try first.timeRange.duration.divided(
-            by: ExactRationalV4(2)
-        )
-        let scaledEdit = try MediaTrackEditV4(
-            ordinal: 0,
-            source: MediaExactTimeRangeV4(
-                start: first.timeRange.start,
-                duration: sourceDuration
-            ),
-            target: first.timeRange,
-            isEmpty: false
-        )
-        let replacement = try MediaTrackNodeV4(
-            identity: first.identity,
-            enabled: first.enabled,
-            kind: first.kind,
-            sourceMediaTypeID: first.sourceMediaTypeID,
-            language: first.language,
-            roleIDs: first.roleIDs,
-            timebase: first.timebase,
-            timeRange: first.timeRange,
-            edits: [scaledEdit],
-            formatDescriptors: first.formatDescriptors,
-            metadataFingerprint: first.metadataFingerprint
-        )
-        var tracks = source.tracks
-        tracks[0] = replacement
-        return try MediaTrackGraphV4(
-            tracks: tracks,
-            groups: source.groups,
-            associations: source.associations,
-            diagnostics: source.diagnostics
         )
     }
 
@@ -1572,6 +2888,158 @@ private enum TrackMigrationFixtureFactoryV4 {
         try await exporter.export(to: outputURL, as: .mov)
     }
 
+    static func makeScaledEditedMovie(
+        source sourceURL: URL,
+        at outputURL: URL
+    ) async throws {
+        try FileManager.default.copyItem(at: sourceURL, to: outputURL)
+        let movie = AVMutableMovie(
+            url: outputURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        guard let target = movie.tracks(withMediaType: .video).first else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Scaled-edit source has no video track."
+            )
+        }
+        let sourceRange = try await target.load(.timeRange)
+        target.scaleTimeRange(
+            sourceRange,
+            toDuration: CMTimeMultiplyByRatio(
+                sourceRange.duration,
+                multiplier: 2,
+                divisor: 1
+            )
+        )
+        try movie.writeHeader(
+            to: outputURL,
+            fileType: .mov,
+            options: .addMovieHeaderToDestination
+        )
+    }
+
+    static func makeScaledDiscontiguousEditedMovie(
+        source sourceURL: URL,
+        at outputURL: URL
+    ) async throws {
+        try FileManager.default.copyItem(at: sourceURL, to: outputURL)
+        let movie = AVMutableMovie(
+            url: outputURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        guard let target = movie.tracks(withMediaType: .video).first else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Combined-edit source has no video track."
+            )
+        }
+        let original = try await target.load(.timeRange)
+        let frame = CMTime(value: 1, timescale: frameRate)
+        target.insertEmptyTimeRange(CMTimeRange(
+            start: original.start,
+            duration: frame
+        ))
+        let shiftedMedia = CMTimeRange(
+            start: CMTimeAdd(original.start, frame),
+            duration: original.duration
+        )
+        target.scaleTimeRange(
+            shiftedMedia,
+            toDuration: CMTimeMultiplyByRatio(
+                shiftedMedia.duration,
+                multiplier: 2,
+                divisor: 1
+            )
+        )
+        target.removeTimeRange(CMTimeRange(
+            start: CMTimeAdd(
+                shiftedMedia.start,
+                CMTimeMultiply(frame, multiplier: 2)
+            ),
+            duration: frame
+        ))
+        try movie.writeHeader(
+            to: outputURL,
+            fileType: .mov,
+            options: .addMovieHeaderToDestination
+        )
+    }
+
+    static func makeDiscontiguousAudioEditedMovie(
+        source sourceURL: URL,
+        at outputURL: URL
+    ) async throws {
+        try FileManager.default.copyItem(at: sourceURL, to: outputURL)
+        let movie = AVMutableMovie(
+            url: outputURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let audioTracks = movie.tracks(withMediaType: .audio)
+        guard !audioTracks.isEmpty else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Audio-edit source has no audio tracks."
+            )
+        }
+        let emptyDuration = CMTime(value: 1, timescale: 20)
+        let mediaDuration = CMTime(value: 1, timescale: 10)
+        let firstSource = CMTimeRange(
+            start: .zero,
+            duration: mediaDuration
+        )
+        let secondSource = CMTimeRange(
+            start: CMTime(value: 3, timescale: 10),
+            duration: mediaDuration
+        )
+        let firstTarget = CMTimeRange(
+            start: emptyDuration,
+            duration: mediaDuration
+        )
+        let middleEmpty = CMTimeRange(
+            start: CMTime(value: 3, timescale: 20),
+            duration: emptyDuration
+        )
+        let secondTarget = CMTimeRange(
+            start: CMTime(value: 1, timescale: 5),
+            duration: mediaDuration
+        )
+        for track in audioTracks {
+            let mediaRange = track.mediaPresentationTimeRange
+            guard CMTimeRangeContainsTimeRange(
+                mediaRange,
+                otherRange: firstSource
+            ), CMTimeRangeContainsTimeRange(
+                mediaRange,
+                otherRange: secondSource
+            ) else {
+                throw TrackMigrationFixtureErrorV4.invalidFixture(
+                    "Audio-edit source media is too short."
+                )
+            }
+            track.removeTimeRange(track.timeRange)
+            track.insertEmptyTimeRange(CMTimeRange(
+                start: .zero,
+                duration: emptyDuration
+            ))
+            guard track.insertMediaTimeRange(firstSource, into: firstTarget)
+            else {
+                throw TrackMigrationFixtureErrorV4.invalidFixture(
+                    "Could not insert the first audio media edit."
+                )
+            }
+            track.insertEmptyTimeRange(middleEmpty)
+            guard track.insertMediaTimeRange(secondSource, into: secondTarget)
+            else {
+                throw TrackMigrationFixtureErrorV4.invalidFixture(
+                    "Could not insert the second audio media edit."
+                )
+            }
+        }
+        try movie.writeHeader(
+            to: outputURL,
+            fileType: .mov,
+            options: .addMovieHeaderToDestination
+        )
+    }
+
     static func makeAuxiliaryPictureMovie(at url: URL) async throws {
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
         writer.metadata = assetMetadata()
@@ -1720,7 +3188,8 @@ private enum TrackMigrationFixtureFactoryV4 {
     static func makeRichMovie(
         at url: URL,
         includeAudioGroup: Bool,
-        selectDefaultAudio: Bool = true
+        selectDefaultAudio: Bool = true,
+        incompatibleAudioTransition: Bool = false
     ) async throws {
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
         writer.metadata = assetMetadata()
@@ -1863,6 +3332,30 @@ private enum TrackMigrationFixtureFactoryV4 {
             to: spanishAudio,
             writer: writer
         )
+        if incompatibleAudioTransition {
+            let transitionFormat = try makeAudioFormatDescription(
+                sampleRate: 44_100
+            )
+            let transitionTime = CMTime(value: 1, timescale: 4)
+            try await append(
+                try makeAudioSampleBuffer(
+                    format: transitionFormat,
+                    amplitude: 350,
+                    presentationTimeStamp: transitionTime
+                ),
+                to: englishAudio,
+                writer: writer
+            )
+            try await append(
+                try makeAudioSampleBuffer(
+                    format: transitionFormat,
+                    amplitude: -350,
+                    presentationTimeStamp: transitionTime
+                ),
+                to: spanishAudio,
+                writer: writer
+            )
+        }
         englishAudio.markAsFinished()
         spanishAudio.markAsFinished()
 
@@ -1909,10 +3402,174 @@ private enum TrackMigrationFixtureFactoryV4 {
         }
         firstVideo.input.markAsFinished()
         secondVideo.input.markAsFinished()
-        writer.endSession(atSourceTime: CMTime(
-            value: CMTimeValue(frameCount),
-            timescale: frameRate
-        ))
+        writer.endSession(atSourceTime: incompatibleAudioTransition
+            ? CMTime(value: 1, timescale: 2)
+            : CMTime(
+                value: CMTimeValue(frameCount),
+                timescale: frameRate
+            ))
+        await withCheckedContinuation { continuation in
+            writer.finishWriting { continuation.resume() }
+        }
+        guard writer.status == .completed else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                writer.error?.localizedDescription ?? "finishWriting failed"
+            )
+        }
+    }
+
+    static func makeRichMovieWithIncompatibleAudioTransitions(
+        at url: URL,
+        includeAudioGroup: Bool
+    ) async throws {
+        try await makeRichMovie(
+            at: url,
+            includeAudioGroup: includeAudioGroup,
+            incompatibleAudioTransition: true
+        )
+    }
+
+    static func makeAudioMovie(
+        at url: URL,
+        channelLayoutTag: AudioChannelLayoutTag,
+        amplitude: Int16
+    ) async throws {
+        let channels = AudioChannelLayoutTag_GetNumberOfChannels(
+            channelLayoutTag
+        )
+        let format = try makeAudioFormatDescription(
+            channels: channels,
+            channelLayoutTag: channelLayoutTag
+        )
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+        let input = AVAssetWriterInput(
+            mediaType: .audio,
+            outputSettings: nil,
+            sourceFormatHint: format
+        )
+        guard writer.canAdd(input) else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                "Writer rejected multichannel PCM input."
+            )
+        }
+        writer.add(input)
+        guard writer.startWriting() else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                writer.error?.localizedDescription ?? "startWriting failed"
+            )
+        }
+        writer.startSession(atSourceTime: .zero)
+        try await append(
+            try makeAudioSampleBuffer(format: format, amplitude: amplitude),
+            to: input,
+            writer: writer
+        )
+        input.markAsFinished()
+        writer.endSession(atSourceTime: CMTime(value: 1, timescale: 4))
+        await withCheckedContinuation { continuation in
+            writer.finishWriting { continuation.resume() }
+        }
+        guard writer.status == .completed else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                writer.error?.localizedDescription ?? "finishWriting failed"
+            )
+        }
+    }
+
+    static func makeTwinAudioPayloadMovie(at url: URL) async throws {
+        let format = try makeAudioFormatDescription()
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+        let first = AVAssetWriterInput(
+            mediaType: .audio,
+            outputSettings: nil,
+            sourceFormatHint: format
+        )
+        let second = AVAssetWriterInput(
+            mediaType: .audio,
+            outputSettings: nil,
+            sourceFormatHint: format
+        )
+        for input in [first, second] {
+            guard writer.canAdd(input) else {
+                throw TrackMigrationFixtureErrorV4.writer(
+                    "Writer rejected twin PCM input."
+                )
+            }
+            writer.add(input)
+        }
+        guard writer.startWriting() else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                writer.error?.localizedDescription ?? "startWriting failed"
+            )
+        }
+        writer.startSession(atSourceTime: .zero)
+        try await append(
+            try makeAudioSampleBuffer(format: format, amplitude: 600),
+            to: first,
+            writer: writer
+        )
+        try await append(
+            try makeAudioSampleBuffer(format: format, amplitude: -600),
+            to: second,
+            writer: writer
+        )
+        first.markAsFinished()
+        second.markAsFinished()
+        writer.endSession(atSourceTime: CMTime(value: 1, timescale: 4))
+        await withCheckedContinuation { continuation in
+            writer.finishWriting { continuation.resume() }
+        }
+        guard writer.status == .completed else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                writer.error?.localizedDescription ?? "finishWriting failed"
+            )
+        }
+    }
+
+    static func makeCompatibleMultiDescriptionAudioMovie(
+        at url: URL
+    ) async throws {
+        let first = try makeAudioFormatDescription(
+            channels: 6,
+            channelLayoutTag: kAudioChannelLayoutTag_MPEG_5_1_A
+        )
+        let second = try makeAudioFormatDescription(
+            channels: 6,
+            channelLayoutTag: kAudioChannelLayoutTag_MPEG_5_1_B
+        )
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+        let input = AVAssetWriterInput(
+            mediaType: .audio,
+            outputSettings: nil
+        )
+        guard writer.canAdd(input) else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                "Writer rejected multi-description PCM input."
+            )
+        }
+        writer.add(input)
+        guard writer.startWriting() else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                writer.error?.localizedDescription ?? "startWriting failed"
+            )
+        }
+        writer.startSession(atSourceTime: .zero)
+        try await append(
+            try makeAudioSampleBuffer(format: first, amplitude: 300),
+            to: input,
+            writer: writer
+        )
+        try await append(
+            try makeAudioSampleBuffer(
+                format: second,
+                amplitude: -300,
+                presentationTimeStamp: CMTime(value: 1, timescale: 4)
+            ),
+            to: input,
+            writer: writer
+        )
+        input.markAsFinished()
+        writer.endSession(atSourceTime: CMTime(value: 1, timescale: 2))
         await withCheckedContinuation { continuation in
             writer.finishWriting { continuation.resume() }
         }
@@ -1988,31 +3645,56 @@ private enum TrackMigrationFixtureFactoryV4 {
         return input
     }
 
-    private static func makeAudioFormatDescription() throws
+    private static func makeAudioFormatDescription(
+        sampleRate: Double = 48_000,
+        channels: UInt32 = 1,
+        channelLayoutTag: AudioChannelLayoutTag? = nil
+    ) throws
         -> CMAudioFormatDescription {
+        let bytesPerFrame = 2 * channels
         var asbd = AudioStreamBasicDescription(
-            mSampleRate: 48_000,
+            mSampleRate: sampleRate,
             mFormatID: kAudioFormatLinearPCM,
             mFormatFlags: kAudioFormatFlagIsSignedInteger
                 | kAudioFormatFlagIsPacked,
-            mBytesPerPacket: 2,
+            mBytesPerPacket: bytesPerFrame,
             mFramesPerPacket: 1,
-            mBytesPerFrame: 2,
-            mChannelsPerFrame: 1,
+            mBytesPerFrame: bytesPerFrame,
+            mChannelsPerFrame: channels,
             mBitsPerChannel: 16,
             mReserved: 0
         )
         var format: CMAudioFormatDescription?
-        let status = CMAudioFormatDescriptionCreate(
-            allocator: kCFAllocatorDefault,
-            asbd: &asbd,
-            layoutSize: 0,
-            layout: nil,
-            magicCookieSize: 0,
-            magicCookie: nil,
-            extensions: nil,
-            formatDescriptionOut: &format
-        )
+        let status: OSStatus
+        if let channelLayoutTag {
+            var layout = AudioChannelLayout()
+            layout.mChannelLayoutTag = channelLayoutTag
+            let layoutSize = MemoryLayout<AudioChannelLayout>.size
+                - MemoryLayout<AudioChannelDescription>.size
+            status = withUnsafePointer(to: &layout) { pointer in
+                CMAudioFormatDescriptionCreate(
+                    allocator: kCFAllocatorDefault,
+                    asbd: &asbd,
+                    layoutSize: layoutSize,
+                    layout: pointer,
+                    magicCookieSize: 0,
+                    magicCookie: nil,
+                    extensions: nil,
+                    formatDescriptionOut: &format
+                )
+            }
+        } else {
+            status = CMAudioFormatDescriptionCreate(
+                allocator: kCFAllocatorDefault,
+                asbd: &asbd,
+                layoutSize: 0,
+                layout: nil,
+                magicCookieSize: 0,
+                magicCookie: nil,
+                extensions: nil,
+                formatDescriptionOut: &format
+            )
+        }
         guard status == noErr, let format else {
             throw TrackMigrationFixtureErrorV4.coreMedia(status)
         }
@@ -2144,10 +3826,26 @@ private enum TrackMigrationFixtureFactoryV4 {
 
     private static func makeAudioSampleBuffer(
         format: CMAudioFormatDescription,
-        amplitude: Int16
+        amplitude: Int16,
+        presentationTimeStamp: CMTime = .zero
     ) throws -> CMSampleBuffer {
-        let frameCount = 12_000
-        let samples = [Int16](repeating: amplitude, count: frameCount)
+        guard let stream = CMAudioFormatDescriptionGetStreamBasicDescription(
+            format
+        )?.pointee,
+        stream.mSampleRate.isFinite,
+        let integralRate = Int(exactly: stream.mSampleRate),
+        let timeScale = Int32(exactly: integralRate),
+        timeScale > 0 else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Audio sample rate is invalid."
+            )
+        }
+        let frameCount = Int(timeScale) / 4
+        let channelCount = Int(stream.mChannelsPerFrame)
+        let samples = [Int16](
+            repeating: amplitude,
+            count: frameCount * channelCount
+        )
         let byteCount = samples.count * MemoryLayout<Int16>.size
         var blockBuffer: CMBlockBuffer?
         var status = CMBlockBufferCreateWithMemoryBlock(
@@ -2176,11 +3874,11 @@ private enum TrackMigrationFixtureFactoryV4 {
             throw TrackMigrationFixtureErrorV4.coreMedia(status)
         }
         var timing = CMSampleTimingInfo(
-            duration: CMTime(value: 1, timescale: 48_000),
-            presentationTimeStamp: .zero,
+            duration: CMTime(value: 1, timescale: timeScale),
+            presentationTimeStamp: presentationTimeStamp,
             decodeTimeStamp: .invalid
         )
-        var sampleSize = MemoryLayout<Int16>.size
+        var sampleSize = MemoryLayout<Int16>.size * channelCount
         var sampleBuffer: CMSampleBuffer?
         status = CMSampleBufferCreate(
             allocator: kCFAllocatorDefault,

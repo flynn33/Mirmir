@@ -1,4 +1,5 @@
 import AVFoundation
+import AudioToolbox
 import CoreGraphics
 import CoreMedia
 import Foundation
@@ -17,6 +18,11 @@ enum DeterministicV4WholeAssetPlannerError: Error, Equatable, Sendable {
     case unsupportedSourceColorContract(String)
     case invalidHDRStaticMetadata(String)
     case migrationBlueprintContainsIncompatibility
+    case nonVideoTrackRequiresExplicitTranscode(
+        trackID: MediaTrackStableIDV4,
+        mediaSubtypeID: String
+    )
+    case audioTranscodeCalibrationFailed(MediaTrackStableIDV4, reason: String)
     case ashAndTrackPlansDisagree(ordinal: UInt32)
     case invalidNominalFrameDuration
 }
@@ -40,6 +46,9 @@ struct DeterministicV4PreparedAssetPlan: Sendable {
     let videoDelivery: DeterministicV4VideoDeliveryPlan
     let encodedFormatDescriptor: MediaTrackFormatDescriptorV4
     let nominalSourceFrameDuration: ExactRationalV4
+    let nonVideoTranscodeHooks: [
+        AVFoundationNonVideoTrackTranscodeHookV4
+    ]
 
     func makeProcessingHook(
         backend: any PreparedFrameUpscaler,
@@ -130,22 +139,27 @@ actor DeterministicV4WholeAssetPlanner {
     private let canonicalAdapter: AVCanonicalMediaStateAdapterV4
     private let formatCalibrator: AVFoundationVideoFormatCalibratorV4
     private let alphaDeliveryPlanner: DeterministicAlphaVideoDeliveryPlannerV4
+    private let audioFormatCalibrator: AVFoundationAACFormatCalibratorV4
 
     init(
         canonicalAdapter: AVCanonicalMediaStateAdapterV4 = .init(),
         formatCalibrator: AVFoundationVideoFormatCalibratorV4 = .init(),
-        alphaDeliveryPlanner: DeterministicAlphaVideoDeliveryPlannerV4 = .init()
+        alphaDeliveryPlanner: DeterministicAlphaVideoDeliveryPlannerV4 = .init(),
+        audioFormatCalibrator: AVFoundationAACFormatCalibratorV4 = .init()
     ) {
         self.canonicalAdapter = canonicalAdapter
         self.formatCalibrator = formatCalibrator
         self.alphaDeliveryPlanner = alphaDeliveryPlanner
+        self.audioFormatCalibrator = audioFormatCalibrator
     }
 
     func prepare(
         request: UpscaleRequest,
         source: VideoInfo,
-        backend: any PreparedDeterministicV4RuntimePlanningBackend
+        backend: any PreparedDeterministicV4RuntimePlanningBackend,
+        cancellation: ProcessingCancellation? = nil
     ) async throws -> DeterministicV4PreparedAssetPlan {
+        try checkCancellation(cancellation)
         let bookmarkDocumentSHA256 = ASHSHA256V4(rawData: Data(
             (Self.ephemeralBookmarkReference + "|v1").utf8
         ))
@@ -155,6 +169,7 @@ actor DeterministicV4WholeAssetPlanner {
             bookmarkDocumentSHA256: bookmarkDocumentSHA256,
             scanDynamicHDRMetadata: true
         ))
+        try checkCancellation(cancellation)
         let canonicalMedia = try canonicalProbe.requireAdmittedState()
         let asset = AVURLAsset(
             url: request.inputURL,
@@ -163,6 +178,7 @@ actor DeterministicV4WholeAssetPlanner {
         let graph = try await AVFoundationTrackGraphAdapterV4.probe(
             asset: asset
         )
+        try checkCancellation(cancellation)
         let pairings = try reconcile(canonicalMedia: canonicalMedia, graph: graph)
         guard let primaryPair = pairings.first(where: {
             $0.canonical.enabled && $0.canonical.kind == .video
@@ -172,6 +188,14 @@ actor DeterministicV4WholeAssetPlanner {
         guard let sourceVideo = primaryPair.canonical.video else {
             throw DeterministicV4WholeAssetPlannerError.primaryVideoMissing
         }
+
+        let nonVideoPolicy = try await makeNonVideoPolicy(
+            asset: asset,
+            pairings: pairings,
+            preserveAudio: request.preserveAudio,
+            cancellation: cancellation
+        )
+        try checkCancellation(cancellation)
 
         let videoDelivery = try await prepareVideoDelivery(
             request: request,
@@ -200,7 +224,9 @@ actor DeterministicV4WholeAssetPlanner {
             backend: backend,
             videoDelivery: videoDelivery,
             encodedDescriptor: encodedDescriptor,
-            approvalSHA256: approvalSHA256
+            approvalSHA256: approvalSHA256,
+            transcodeByCanonicalOrdinal:
+                nonVideoPolicy.transcodeByCanonicalOrdinal
         )
         let ashPlan = try await backend.makeASHExecutionPlan(
             media: canonicalMedia,
@@ -213,11 +239,17 @@ actor DeterministicV4WholeAssetPlanner {
             primaryTrackID: primaryPair.graph.identity.stableID,
             encodedDescriptor: encodedDescriptor,
             preserveAudio: request.preserveAudio,
-            approvalSHA256: approvalSHA256
+            approvalSHA256: approvalSHA256,
+            transcodeByGraphTrackID: nonVideoPolicy.transcodeByGraphTrackID
         )
-        let trackPlan = try MediaTrackGraphPlannerV4.makePlan(
+        let baseTrackPlan = try MediaTrackGraphPlannerV4.makePlan(
             source: graph,
             request: graphRequest
+        )
+        let trackPlan = try baseTrackPlan.applyingTranscodePrimingDurations(
+            nonVideoPolicy.transcodeByGraphTrackID.mapValues(
+                \.encoderPrimingDuration
+            )
         )
         let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
             source: graph,
@@ -247,7 +279,8 @@ actor DeterministicV4WholeAssetPlanner {
             nominalSourceFrameDuration: try nominalFrameDuration(
                 source: source,
                 track: primaryPair.graph
-            )
+            ),
+            nonVideoTranscodeHooks: nonVideoPolicy.hooks
         )
     }
 
@@ -273,6 +306,23 @@ private extension DeterministicV4WholeAssetPlanner {
     struct TrackPair {
         let canonical: CanonicalMediaTrackV4
         let graph: MediaTrackNodeV4
+    }
+
+    struct NonVideoTranscodeDecision {
+        let codecID: String
+        let targetFormat: MediaTrackFormatDescriptorV4
+        let encoderPrimingDuration: ExactRationalV4
+        let hook: AVFoundationNonVideoTrackTranscodeHookV4
+    }
+
+    struct NonVideoPolicy {
+        let transcodeByCanonicalOrdinal: [
+            UInt32: NonVideoTranscodeDecision
+        ]
+        let transcodeByGraphTrackID: [
+            MediaTrackStableIDV4: NonVideoTranscodeDecision
+        ]
+        let hooks: [AVFoundationNonVideoTrackTranscodeHookV4]
     }
 
     func reconcile(
@@ -301,6 +351,178 @@ private extension DeterministicV4WholeAssetPlanner {
         }
     }
 
+    func makeNonVideoPolicy(
+        asset: AVAsset,
+        pairings: [TrackPair],
+        preserveAudio: Bool,
+        cancellation: ProcessingCancellation? = nil
+    ) async throws -> NonVideoPolicy {
+        try checkCancellation(cancellation)
+        let assetTracks = try await asset.load(.tracks)
+        try checkCancellation(cancellation)
+        guard assetTracks.count == pairings.count else {
+            throw DeterministicV4WholeAssetPlannerError
+                .canonicalAndTrackGraphInventoriesDiffer
+        }
+        var byCanonical: [UInt32: NonVideoTranscodeDecision] = [:]
+        var byGraph: [
+            MediaTrackStableIDV4: NonVideoTranscodeDecision
+        ] = [:]
+        var hooks: [AVFoundationNonVideoTrackTranscodeHookV4] = []
+        for (pairing, assetTrack) in zip(pairings, assetTracks) {
+            try checkCancellation(cancellation)
+            guard pairing.graph.kind != .video else { continue }
+            if pairing.graph.kind == .audio, !preserveAudio {
+                // An explicitly approved audio omission wins over migration
+                // policy; do not decode or calibrate a lane that will not be
+                // present in the output.
+                continue
+            }
+            if try await isMOVPassThroughCompatible(
+                assetTrack,
+                graphTrack: pairing.graph
+            ) {
+                continue
+            }
+            guard pairing.graph.kind == .audio else {
+                throw DeterministicV4WholeAssetPlannerError
+                    .nonVideoTrackRequiresExplicitTranscode(
+                        trackID: pairing.graph.identity.stableID,
+                        mediaSubtypeID: pairing.graph.formatDescriptors
+                            .first?.mediaSubtypeID ?? "missing"
+                    )
+            }
+            let calibration = try await audioFormatCalibrator.calibrate(
+                asset: asset,
+                track: assetTrack,
+                trackID: pairing.graph.identity.stableID,
+                cancellation: cancellation
+            )
+            let decision = NonVideoTranscodeDecision(
+                codecID: "aac",
+                targetFormat: calibration.targetFormat,
+                encoderPrimingDuration: calibration.encoderPrimingDuration,
+                hook: calibration.hook
+            )
+            byCanonical[pairing.canonical.identity.ordinal] = decision
+            byGraph[pairing.graph.identity.stableID] = decision
+            hooks.append(calibration.hook)
+        }
+        return NonVideoPolicy(
+            transcodeByCanonicalOrdinal: byCanonical,
+            transcodeByGraphTrackID: byGraph,
+            hooks: hooks
+        )
+    }
+
+    func checkCancellation(
+        _ cancellation: ProcessingCancellation?
+    ) throws {
+        try cancellation?.check()
+        try Task.checkCancellation()
+    }
+
+    func isMOVPassThroughCompatible(
+        _ track: AVAssetTrack,
+        graphTrack: MediaTrackNodeV4
+    ) async throws -> Bool {
+        let descriptions = try await track.load(.formatDescriptions)
+        guard !descriptions.isEmpty,
+              descriptions.count == graphTrack.formatDescriptors.count,
+              graphTrack.formatDescriptors.allSatisfy({
+                  $0.completeness == .complete
+              }),
+              descriptionsAreCompatible(descriptions) else {
+            return false
+        }
+        if track.mediaType == .auxiliaryPicture {
+            return try writerAccepts(
+                mediaType: track.mediaType,
+                sourceFormatHint: nil
+            )
+        }
+        let formatType = CMFormatDescriptionGetMediaType(descriptions[0])
+        guard track.mediaType.rawValue == fourCCString(formatType) else {
+            return false
+        }
+        return try writerAccepts(
+            mediaType: track.mediaType,
+            sourceFormatHint: descriptions.count == 1 ? descriptions[0] : nil
+        )
+    }
+
+    func descriptionsAreCompatible(
+        _ descriptions: [CMFormatDescription]
+    ) -> Bool {
+        guard let reference = descriptions.first else { return false }
+        let mediaType = CMFormatDescriptionGetMediaType(reference)
+        let subtype = CMFormatDescriptionGetMediaSubType(reference)
+        return descriptions.dropFirst().allSatisfy { description in
+            guard CMFormatDescriptionGetMediaType(description) == mediaType,
+                  CMFormatDescriptionGetMediaSubType(description) == subtype
+            else { return false }
+            switch mediaType {
+            case kCMMediaType_Video:
+                let lhs = CMVideoFormatDescriptionGetDimensions(reference)
+                let rhs = CMVideoFormatDescriptionGetDimensions(description)
+                return lhs.width == rhs.width && lhs.height == rhs.height
+            case kCMMediaType_Audio:
+                guard let lhs =
+                        CMAudioFormatDescriptionGetStreamBasicDescription(
+                            reference
+                        )?.pointee,
+                      let rhs =
+                        CMAudioFormatDescriptionGetStreamBasicDescription(
+                            description
+                        )?.pointee else {
+                    return false
+                }
+                return lhs.mSampleRate == rhs.mSampleRate
+                    && lhs.mChannelsPerFrame == rhs.mChannelsPerFrame
+            default:
+                return true
+            }
+        }
+    }
+
+    func writerAccepts(
+        mediaType: AVMediaType,
+        sourceFormatHint: CMFormatDescription?
+    ) throws -> Bool {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "mirmir-v4-mov-preflight-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: false
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let writer = try AVAssetWriter(
+            outputURL: directory.appendingPathComponent("preflight.mov"),
+            fileType: .mov
+        )
+        guard writer.availableMediaTypes.contains(mediaType) else {
+            return false
+        }
+        let input = AVAssetWriterInput(
+            mediaType: mediaType,
+            outputSettings: nil,
+            sourceFormatHint: sourceFormatHint
+        )
+        return writer.canAdd(input)
+    }
+
+    func fourCCString(_ value: FourCharCode) -> String {
+        String(bytes: [
+            UInt8((value >> 24) & 0xff),
+            UInt8((value >> 16) & 0xff),
+            UInt8((value >> 8) & 0xff),
+            UInt8(value & 0xff)
+        ], encoding: .macOSRoman) ?? ""
+    }
+
     func makeASHRequest(
         canonicalMedia: CanonicalMediaStateV4,
         primaryOrdinal: UInt32,
@@ -308,7 +530,10 @@ private extension DeterministicV4WholeAssetPlanner {
         backend: any PreparedDeterministicV4RuntimePlanningBackend,
         videoDelivery: DeterministicV4VideoDeliveryPlan,
         encodedDescriptor: MediaTrackFormatDescriptorV4,
-        approvalSHA256: ASHSHA256V4
+        approvalSHA256: ASHSHA256V4,
+        transcodeByCanonicalOrdinal: [
+            UInt32: NonVideoTranscodeDecision
+        ]
     ) throws -> ASHExecutionRequestV4 {
         let directives = try canonicalMedia.tracks
             .filter(\.enabled)
@@ -342,6 +567,17 @@ private extension DeterministicV4WholeAssetPlanner {
                         dropApprovalSHA256: approvalSHA256
                     )
                 }
+                if let transcode =
+                    transcodeByCanonicalOrdinal[track.identity.ordinal] {
+                    return ASHTrackDirectiveV4(
+                        trackID: track.identity.persistentID,
+                        action: .transcode,
+                        videoOutput: nil,
+                        outputCodecID: transcode.codecID,
+                        dropReasonID: nil,
+                        dropApprovalSHA256: nil
+                    )
+                }
                 return ASHTrackDirectiveV4(
                     trackID: track.identity.persistentID,
                     action: .passThrough,
@@ -366,7 +602,10 @@ private extension DeterministicV4WholeAssetPlanner {
         primaryTrackID: MediaTrackStableIDV4,
         encodedDescriptor: MediaTrackFormatDescriptorV4,
         preserveAudio: Bool,
-        approvalSHA256: ASHSHA256V4
+        approvalSHA256: ASHSHA256V4,
+        transcodeByGraphTrackID: [
+            MediaTrackStableIDV4: NonVideoTranscodeDecision
+        ]
     ) throws -> MediaTrackGraphPlanningRequestV4 {
         var consents: [MediaTrackStableIDV4: MediaTrackDropConsentV4] = [:]
         let trackDirectives = try graph.tracks.map { track in
@@ -390,6 +629,15 @@ private extension DeterministicV4WholeAssetPlanner {
                     action: .dropWithConsent,
                     targetFormatDescriptors: [],
                     dropConsent: consent
+                )
+            }
+            if let transcode =
+                transcodeByGraphTrackID[track.identity.stableID] {
+                return MediaTrackDirectiveV4(
+                    trackID: track.identity.stableID,
+                    action: .transcode,
+                    targetFormatDescriptors: [transcode.targetFormat],
+                    dropConsent: nil
                 )
             }
             return MediaTrackDirectiveV4(
@@ -935,6 +1183,522 @@ private extension ASHTrackActionV4 {
             true
         default:
             false
+        }
+    }
+}
+
+struct AVFoundationAACCalibrationV4: @unchecked Sendable {
+    let targetFormat: MediaTrackFormatDescriptorV4
+    let encoderPrimingDuration: ExactRationalV4
+    let hook: AVFoundationNonVideoTrackTranscodeHookV4
+}
+
+actor AVFoundationAACFormatCalibratorV4 {
+    private struct CacheKey: Hashable {
+        let sampleRateBitPattern: UInt64
+        let channels: UInt32
+        let sourceFormatFingerprints: [ASHSHA256V4]
+        let channelLayoutSHA256: ASHSHA256V4?
+    }
+
+    private struct CachedOutput {
+        let targetFormat: MediaTrackFormatDescriptorV4
+        let encoderPrimingDuration: ExactRationalV4
+    }
+
+    private var outputs: [CacheKey: CachedOutput] = [:]
+
+    /// Release-qualification visibility for proving that materially distinct
+    /// source layouts never share an encoder calibration result.
+    func cachedOutputCountForQualification() -> Int {
+        outputs.count
+    }
+
+    func calibrate(
+        asset: AVAsset,
+        track: AVAssetTrack,
+        trackID: MediaTrackStableIDV4,
+        cancellation: ProcessingCancellation? = nil
+    ) async throws -> AVFoundationAACCalibrationV4 {
+        try checkCancellation(cancellation)
+        let descriptions = try await track.load(.formatDescriptions)
+        try checkCancellation(cancellation)
+        guard let description = descriptions.first,
+              let stream =
+                CMAudioFormatDescriptionGetStreamBasicDescription(
+                    description
+                )?.pointee,
+              stream.mSampleRate.isFinite,
+              stream.mSampleRate > 0,
+              (1...8).contains(Int(stream.mChannelsPerFrame)) else {
+            throw DeterministicV4WholeAssetPlannerError
+                .audioTranscodeCalibrationFailed(
+                    trackID,
+                    reason: "unsupported_source_audio_layout"
+                )
+        }
+        let sampleRate = stream.mSampleRate
+        let channels = stream.mChannelsPerFrame
+        let sourceChannelLayout = try canonicalChannelLayout(
+            description,
+            channels: channels,
+            trackID: trackID
+        )
+        let encoderChannelLayout = try canonicalAACChannelLayout(
+            sourceLayout: sourceChannelLayout,
+            channels: channels,
+            trackID: trackID
+        )
+        let sourceFormatFingerprints = try descriptions.enumerated().map {
+            ordinal, description in
+            try AVFoundationTrackGraphAdapterV4.canonicalFormatDescriptor(
+                description,
+                ordinal: UInt32(ordinal)
+            ).canonicalFingerprint
+        }
+        var readerSettings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVSampleRateKey: sampleRate,
+            AVNumberOfChannelsKey: Int(channels),
+            AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true,
+            AVLinearPCMIsBigEndianKey: false,
+            AVLinearPCMIsNonInterleaved: false
+        ]
+        var writerSettings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatMPEG4AAC,
+            AVSampleRateKey: sampleRate,
+            AVNumberOfChannelsKey: Int(channels),
+            AVEncoderBitRateKey: min(
+                512_000,
+                max(64_000, 96_000 * Int(channels))
+            )
+        ]
+        if let encoderChannelLayout {
+            // Request PCM in the AAC encoder's canonical channel order. The
+            // audio converter performs a pure reorder from the source layout;
+            // no speaker is mixed, synthesized, or discarded.
+            readerSettings[AVChannelLayoutKey] = encoderChannelLayout
+            writerSettings[AVChannelLayoutKey] = encoderChannelLayout
+        }
+        let key = CacheKey(
+            sampleRateBitPattern: sampleRate.bitPattern,
+            channels: channels,
+            sourceFormatFingerprints: sourceFormatFingerprints,
+            channelLayoutSHA256: sourceChannelLayout.map(
+                ASHSHA256V4.init(rawData:)
+            )
+        )
+        let output: CachedOutput
+        if let cached = outputs[key] {
+            output = cached
+        } else {
+            output = try await encodeCalibration(
+                asset: asset,
+                track: track,
+                trackID: trackID,
+                readerSettings: readerSettings,
+                writerSettings: writerSettings,
+                cancellation: cancellation
+            )
+            outputs[key] = output
+        }
+        return AVFoundationAACCalibrationV4(
+            targetFormat: output.targetFormat,
+            encoderPrimingDuration: output.encoderPrimingDuration,
+            hook: AVFoundationNonVideoTrackTranscodeHookV4(
+                trackID: trackID,
+                readerOutputSettings: readerSettings,
+                writerOutputSettings: writerSettings,
+                declaredOutputFormats: [output.targetFormat]
+            )
+        )
+    }
+
+    private func encodeCalibration(
+        asset: AVAsset,
+        track: AVAssetTrack,
+        trackID: MediaTrackStableIDV4,
+        readerSettings: [String: Any],
+        writerSettings: [String: Any],
+        cancellation: ProcessingCancellation?
+    ) async throws -> CachedOutput {
+        try checkCancellation(cancellation)
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "mirmir-v4-aac-calibration-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        do {
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: false
+            )
+        } catch {
+            throw DeterministicV4WholeAssetPlannerError
+                .audioTranscodeCalibrationFailed(
+                    trackID,
+                    reason: "temporary_directory_creation_failed"
+                )
+        }
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let outputURL = directory.appendingPathComponent("calibration.mov")
+
+        var activeReader: AVAssetReader?
+        var activeWriter: AVAssetWriter?
+        do {
+            try checkCancellation(cancellation)
+            let reader = try AVAssetReader(asset: asset)
+            activeReader = reader
+            let output = AVAssetReaderTrackOutput(
+                track: track,
+                outputSettings: readerSettings
+            )
+            output.alwaysCopiesSampleData = true
+            guard reader.canAdd(output) else {
+                throw DeterministicV4WholeAssetPlannerError
+                    .audioTranscodeCalibrationFailed(
+                        trackID,
+                        reason: "reader_rejected_linear_pcm_settings"
+                    )
+            }
+            reader.add(output)
+            guard reader.startReading(),
+                  let first = output.copyNextSampleBuffer() else {
+                throw DeterministicV4WholeAssetPlannerError
+                    .audioTranscodeCalibrationFailed(
+                        trackID,
+                        reason: "reader_produced_no_calibration_sample"
+                    )
+            }
+            try checkCancellation(cancellation)
+
+            let writer = try AVAssetWriter(
+                outputURL: outputURL,
+                fileType: .mov
+            )
+            activeWriter = writer
+            guard writer.canApply(
+                outputSettings: writerSettings,
+                forMediaType: .audio
+            ) else {
+                throw DeterministicV4WholeAssetPlannerError
+                    .audioTranscodeCalibrationFailed(
+                        trackID,
+                        reason: "writer_rejected_aac_settings"
+                    )
+            }
+            let input = AVAssetWriterInput(
+                mediaType: .audio,
+                outputSettings: writerSettings
+            )
+            input.expectsMediaDataInRealTime = false
+            guard writer.canAdd(input) else {
+                throw DeterministicV4WholeAssetPlannerError
+                    .audioTranscodeCalibrationFailed(
+                        trackID,
+                        reason: "writer_rejected_audio_input"
+                    )
+            }
+            writer.add(input)
+            guard writer.startWriting() else {
+                throw DeterministicV4WholeAssetPlannerError
+                    .audioTranscodeCalibrationFailed(
+                        trackID,
+                        reason: "writer_start_failed"
+                    )
+            }
+            let start = CMSampleBufferGetPresentationTimeStamp(first)
+            writer.startSession(atSourceTime: start.isNumeric ? start : .zero)
+            var sample: CMSampleBuffer? = first
+            var appended = 0
+            while let current = sample, appended < 32 {
+                try checkCancellation(cancellation)
+                while !input.isReadyForMoreMediaData {
+                    try checkCancellation(cancellation)
+                    guard writer.status != .failed,
+                          reader.status != .failed else {
+                        throw DeterministicV4WholeAssetPlannerError
+                            .audioTranscodeCalibrationFailed(
+                                trackID,
+                                reason: "calibration_io_failed"
+                            )
+                    }
+                    try await Task.sleep(for: .milliseconds(1))
+                }
+                guard input.append(current) else {
+                    throw DeterministicV4WholeAssetPlannerError
+                        .audioTranscodeCalibrationFailed(
+                            trackID,
+                            reason: "calibration_append_failed"
+                        )
+                }
+                appended += 1
+                if appended < 32 {
+                    sample = output.copyNextSampleBuffer()
+                }
+            }
+            if appended == 32 {
+                if reader.status == .reading { reader.cancelReading() }
+            } else {
+                guard reader.status == .completed else {
+                    throw DeterministicV4WholeAssetPlannerError
+                        .audioTranscodeCalibrationFailed(
+                            trackID,
+                            reason: "calibration_reader_failed"
+                        )
+                }
+            }
+            try checkCancellation(cancellation)
+            input.markAsFinished()
+            await withCheckedContinuation { continuation in
+                writer.finishWriting { continuation.resume() }
+            }
+            try checkCancellation(cancellation)
+            guard writer.status == .completed else {
+                throw DeterministicV4WholeAssetPlannerError
+                    .audioTranscodeCalibrationFailed(
+                        trackID,
+                        reason: "calibration_finish_failed"
+                    )
+            }
+            let graph = try await AVFoundationTrackGraphAdapterV4.probe(
+                asset: AVURLAsset(url: outputURL)
+            )
+            try checkCancellation(cancellation)
+            guard let audio = graph.tracks.first(where: {
+                $0.kind == .audio
+            }),
+            let target = audio.formatDescriptors.first,
+            target.completeness == .complete,
+            target.mediaSubtypeID == "fourcc_61616320",
+            let firstMediaEdit = audio.edits.first(where: { !$0.isEmpty }),
+            let mediaRange = firstMediaEdit.source else {
+                throw DeterministicV4WholeAssetPlannerError
+                    .audioTranscodeCalibrationFailed(
+                        trackID,
+                        reason: "aac_descriptor_probe_failed"
+                    )
+            }
+            let priming = try mediaRange.start.subtracting(
+                firstMediaEdit.target.start
+            )
+            guard priming.numerator >= 0 else {
+                throw DeterministicV4WholeAssetPlannerError
+                    .audioTranscodeCalibrationFailed(
+                        trackID,
+                        reason: "aac_priming_probe_failed"
+                    )
+            }
+            return CachedOutput(
+                targetFormat: target,
+                encoderPrimingDuration: priming
+            )
+        } catch is CancellationError {
+            activeReader?.cancelReading()
+            activeWriter?.cancelWriting()
+            throw CancellationError()
+        } catch let error as DeterministicV4WholeAssetPlannerError {
+            throw error
+        } catch {
+            throw DeterministicV4WholeAssetPlannerError
+                .audioTranscodeCalibrationFailed(
+                    trackID,
+                    reason: "avfoundation_calibration_failed"
+                )
+        }
+    }
+
+    private func checkCancellation(
+        _ cancellation: ProcessingCancellation?
+    ) throws {
+        try cancellation?.check()
+        try Task.checkCancellation()
+    }
+
+    private func canonicalChannelLayout(
+        _ description: CMAudioFormatDescription,
+        channels: UInt32,
+        trackID: MediaTrackStableIDV4
+    ) throws -> Data? {
+        var byteCount = 0
+        guard let layout = CMAudioFormatDescriptionGetChannelLayout(
+            description,
+            sizeOut: &byteCount
+        ) else {
+            guard byteCount == 0, channels <= 2 else {
+                throw DeterministicV4WholeAssetPlannerError
+                    .audioTranscodeCalibrationFailed(
+                        trackID,
+                        reason: "multichannel_source_requires_channel_layout"
+                    )
+            }
+            return nil
+        }
+        let minimumSize = MemoryLayout<AudioChannelLayout>.size
+            - MemoryLayout<AudioChannelDescription>.size
+        guard byteCount >= minimumSize else {
+            throw DeterministicV4WholeAssetPlannerError
+                .audioTranscodeCalibrationFailed(
+                    trackID,
+                    reason: "source_channel_layout_is_malformed"
+                )
+        }
+        let tag = layout.pointee.mChannelLayoutTag
+        let declaredChannels: UInt32
+        if tag == kAudioChannelLayoutTag_UseChannelDescriptions {
+            declaredChannels = layout.pointee.mNumberChannelDescriptions
+            let descriptionBytes = Int(declaredChannels)
+                * MemoryLayout<AudioChannelDescription>.stride
+            guard byteCount >= minimumSize + descriptionBytes else {
+                throw DeterministicV4WholeAssetPlannerError
+                    .audioTranscodeCalibrationFailed(
+                        trackID,
+                        reason: "source_channel_layout_is_malformed"
+                    )
+            }
+        } else if tag == kAudioChannelLayoutTag_UseChannelBitmap {
+            declaredChannels = UInt32(
+                layout.pointee.mChannelBitmap.rawValue.nonzeroBitCount
+            )
+        } else {
+            declaredChannels = AudioChannelLayoutTag_GetNumberOfChannels(tag)
+        }
+        guard declaredChannels == channels else {
+            throw DeterministicV4WholeAssetPlannerError
+                .audioTranscodeCalibrationFailed(
+                    trackID,
+                    reason: "source_channel_layout_count_mismatch"
+                )
+        }
+        return Data(bytes: layout, count: byteCount)
+    }
+
+    private func canonicalAACChannelLayout(
+        sourceLayout: Data?,
+        channels: UInt32,
+        trackID: MediaTrackStableIDV4
+    ) throws -> Data? {
+        guard channels > 2 else { return sourceLayout }
+        guard let sourceLayout,
+              sourceLayout.count >= MemoryLayout<AudioChannelLayoutTag>.size
+        else {
+            throw DeterministicV4WholeAssetPlannerError
+                .audioTranscodeCalibrationFailed(
+                    trackID,
+                    reason: "multichannel_source_requires_channel_layout"
+                )
+        }
+        let sourceTag = sourceLayout.withUnsafeBytes {
+            $0.loadUnaligned(as: AudioChannelLayoutTag.self)
+        }
+        let targetTag: AudioChannelLayoutTag?
+        switch channels {
+        case 3:
+            targetTag = kAudioChannelLayoutTag_AAC_3_0
+        case 4:
+            targetTag = sourceTag == kAudioChannelLayoutTag_Quadraphonic
+                ? kAudioChannelLayoutTag_AAC_Quadraphonic
+                : kAudioChannelLayoutTag_AAC_4_0
+        case 5:
+            targetTag = kAudioChannelLayoutTag_AAC_5_0
+        case 6:
+            targetTag = sourceTag == kAudioChannelLayoutTag_AAC_6_0
+                ? kAudioChannelLayoutTag_AAC_6_0
+                : kAudioChannelLayoutTag_AAC_5_1
+        case 7:
+            targetTag = sourceTag == kAudioChannelLayoutTag_AAC_7_0
+                ? kAudioChannelLayoutTag_AAC_7_0
+                : kAudioChannelLayoutTag_AAC_6_1
+        case 8:
+            if sourceTag == kAudioChannelLayoutTag_MPEG_7_1_C
+                || sourceTag == kAudioChannelLayoutTag_AAC_7_1_B {
+                targetTag = kAudioChannelLayoutTag_AAC_7_1_B
+            } else if sourceTag == kAudioChannelLayoutTag_AAC_7_1_C {
+                targetTag = kAudioChannelLayoutTag_AAC_7_1_C
+            } else if sourceTag == kAudioChannelLayoutTag_Octagonal
+                || sourceTag == kAudioChannelLayoutTag_AAC_Octagonal {
+                targetTag = kAudioChannelLayoutTag_AAC_Octagonal
+            } else {
+                targetTag = kAudioChannelLayoutTag_AAC_7_1
+            }
+        default:
+            targetTag = nil
+        }
+        guard let targetTag else {
+            throw DeterministicV4WholeAssetPlannerError
+                .audioTranscodeCalibrationFailed(
+                    trackID,
+                    reason: "source_channel_layout_has_no_aac_mapping"
+                )
+        }
+        var layout = AudioChannelLayout()
+        layout.mChannelLayoutTag = targetTag
+        let byteCount = MemoryLayout<AudioChannelLayout>.size
+            - MemoryLayout<AudioChannelDescription>.size
+        let targetLayout = withUnsafePointer(to: &layout) {
+            Data(bytes: $0, count: byteCount)
+        }
+        guard losslessChannelMapExists(
+            from: sourceLayout,
+            to: targetLayout,
+            channels: channels
+        ) else {
+            throw DeterministicV4WholeAssetPlannerError
+                .audioTranscodeCalibrationFailed(
+                    trackID,
+                    reason: "source_channel_layout_has_no_lossless_aac_mapping"
+                )
+        }
+        return targetLayout
+    }
+
+    private func losslessChannelMapExists(
+        from source: Data,
+        to target: Data,
+        channels: UInt32
+    ) -> Bool {
+        source.withUnsafeBytes { sourceBytes in
+            target.withUnsafeBytes { targetBytes in
+                guard let sourceBase = sourceBytes.baseAddress,
+                      let targetBase = targetBytes.baseAddress else {
+                    return false
+                }
+                let sourceLayout = sourceBase.assumingMemoryBound(
+                    to: AudioChannelLayout.self
+                )
+                let targetLayout = targetBase.assumingMemoryBound(
+                    to: AudioChannelLayout.self
+                )
+                let layouts = [sourceLayout, targetLayout]
+                var channelMap = [Int32](
+                    repeating: -1,
+                    count: Int(channels)
+                )
+                var mapSize = UInt32(
+                    channelMap.count * MemoryLayout<Int32>.size
+                )
+                let status = layouts.withUnsafeBytes { layoutBytes in
+                    channelMap.withUnsafeMutableBytes { mapBytes in
+                        AudioFormatGetProperty(
+                            kAudioFormatProperty_ChannelMap,
+                            UInt32(layoutBytes.count),
+                            layoutBytes.baseAddress,
+                            &mapSize,
+                            mapBytes.baseAddress!
+                        )
+                    }
+                }
+                guard status == noErr,
+                      mapSize == UInt32(
+                          channelMap.count * MemoryLayout<Int32>.size
+                      ) else {
+                    return false
+                }
+                return Set(channelMap) == Set(
+                    (0..<Int32(channels)).map { $0 }
+                )
+            }
         }
     }
 }
