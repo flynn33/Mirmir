@@ -11,11 +11,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
+import stat
 import sys
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
 
 CONTRACT_SCHEMA = "mirmir-v4-recovery-qualification-contract-v1"
@@ -26,6 +28,7 @@ SCENARIO_SCHEMA = "mirmir-v4-recovery-scenario-evidence-v1"
 SEMANTIC_SCHEMA = "mirmir-v4-recovery-semantic-output-v1"
 SUITE_MANIFEST_SCHEMA = "mirmir-v4-recovery-evidence-manifest-v1"
 TRANSCRIPT_SCHEMA = "mirmir-v4-recovery-fault-transcript-v1"
+SOURCE_EXPORT_SCHEMA = "mirmir-v4-recovery-source-export-v1"
 
 REQUIRED_COVERAGE = (
     "append_only_event_boundary",
@@ -45,7 +48,22 @@ REQUIRED_COVERAGE = (
     "unowned_artifact_rejection",
 )
 
+# Bound release evidence must not acquire path-dependent Python bytecode files.
+sys.dont_write_bytecode = True
+
 SCRIPT_DIRECTORY = Path(__file__).resolve().parent
+PACKAGED_EVIDENCE_SPEC = importlib.util.spec_from_file_location(
+    "recovery_packaged_candidate_evidence_v4",
+    SCRIPT_DIRECTORY / "packaged_candidate_evidence_v4.py",
+)
+if PACKAGED_EVIDENCE_SPEC is None or PACKAGED_EVIDENCE_SPEC.loader is None:
+    raise RuntimeError("cannot load packaged-candidate evidence implementation")
+packaged_evidence = importlib.util.module_from_spec(PACKAGED_EVIDENCE_SPEC)
+sys.modules[PACKAGED_EVIDENCE_SPEC.name] = packaged_evidence
+PACKAGED_EVIDENCE_SPEC.loader.exec_module(packaged_evidence)
+
+PACKAGE_SCHEMA = "mirmir-v4-packaged-candidate-identity-v1"
+ATTESTATION_SCHEMA = "mirmir-v4-release-build-attestation-v1"
 
 
 class RecoveryEvidenceError(ValueError):
@@ -102,9 +120,83 @@ def canonical_json(value: Any) -> bytes:
     ).encode()
 
 
+def write_exclusive_regular(path: Path, value: bytes, label: str) -> None:
+    """Create one artifact through held no-follow file and directory handles."""
+
+    require(path.name not in {"", ".", ".."}, f"invalid {label} path")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        no_follow = os.O_NOFOLLOW
+        directory_flags = os.O_RDONLY | os.O_DIRECTORY | no_follow
+        file_flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | no_follow
+        directory_fd = os.open(path.parent, directory_flags)
+    except (AttributeError, OSError) as error:
+        raise RecoveryEvidenceError(
+            f"cannot open {label} parent safely: {error}"
+        ) from error
+
+    artifact_fd: int | None = None
+    try:
+        directory_metadata = os.fstat(directory_fd)
+        require(
+            stat.S_ISDIR(directory_metadata.st_mode),
+            f"{label} parent is not a directory",
+        )
+        try:
+            artifact_fd = os.open(
+                path.name,
+                file_flags,
+                0o600,
+                dir_fd=directory_fd,
+            )
+        except FileExistsError as error:
+            raise RecoveryEvidenceError(
+                f"refusing to overwrite package artifact: {path}"
+            ) from error
+        except OSError as error:
+            raise RecoveryEvidenceError(
+                f"cannot create {label} safely: {error}"
+            ) from error
+
+        before = os.fstat(artifact_fd)
+        require(
+            stat.S_ISREG(before.st_mode) and before.st_nlink == 1,
+            f"{label} is not a single-link regular file",
+        )
+        pending = memoryview(value)
+        while pending:
+            written = os.write(artifact_fd, pending)
+            require(written > 0, f"short write while creating {label}")
+            pending = pending[written:]
+        os.fchmod(artifact_fd, 0o600)
+        os.fsync(artifact_fd)
+        after = os.fstat(artifact_fd)
+        require(
+            stat.S_ISREG(after.st_mode)
+            and after.st_nlink == 1
+            and after.st_dev == before.st_dev
+            and after.st_ino == before.st_ino
+            and after.st_size == len(value),
+            f"{label} identity changed while writing",
+        )
+    except OSError as error:
+        raise RecoveryEvidenceError(f"cannot write {label}: {error}") from error
+    finally:
+        if artifact_fd is not None:
+            os.close(artifact_fd)
+        os.close(directory_fd)
+
+
 def write_json(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(pretty_json(value))
+    write_exclusive_regular(path, pretty_json(value), "recovery JSON artifact")
+
+
+def write_canonical_artifact(path: Path, value: Any) -> None:
+    write_exclusive_regular(
+        path,
+        packaged_evidence.canonical_bytes(value),
+        "recovery package artifact",
+    )
 
 
 def sha256_bytes(value: bytes) -> str:
@@ -125,6 +217,29 @@ def sha256_file(path: Path) -> str:
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise RecoveryEvidenceError(message)
+
+
+def role_artifact_path(
+    role_root: Path,
+    path: Path,
+    label: str,
+    *,
+    must_exist: bool,
+) -> Path:
+    """Resolve and confine one packaged-candidate artifact to its role root."""
+
+    try:
+        root = role_root.expanduser().resolve(strict=True)
+        resolved = path.expanduser().resolve(strict=must_exist)
+    except OSError as error:
+        raise RecoveryEvidenceError(
+            f"cannot resolve recovery {label}: {error}"
+        ) from error
+    require(
+        resolved != root and root in resolved.parents,
+        f"recovery {label} must remain inside the role root",
+    )
+    return resolved
 
 
 def require_mapping(value: Any, label: str) -> dict[str, Any]:
@@ -273,6 +388,467 @@ def load_candidate(path: Path) -> dict[str, Any]:
     return validate_candidate(value)
 
 
+PackageVerifier = Callable[
+    [Path, Path, Path, Path, Path],
+    Mapping[str, Any],
+]
+
+
+def export_verified_candidate_source(
+    repository: Path,
+    revision: str,
+    destination: Path,
+) -> dict[str, Any]:
+    """Export only committed bytes/modes and prove the resulting workspace."""
+
+    provenance = packaged_evidence.archive_provenance
+    repository = repository.expanduser()
+    require(
+        repository.is_dir() and not repository.is_symlink(),
+        "recovery source repository must be a non-symlink directory",
+    )
+    repository = repository.resolve(strict=True)
+    require(
+        isinstance(revision, str)
+        and revision != ""
+        and "\x00" not in revision
+        and "\n" not in revision
+        and "\r" not in revision,
+        "recovery source revision is invalid",
+    )
+    try:
+        commit = provenance.git_output(
+            repository,
+            [
+                "rev-parse",
+                "--verify",
+                "--end-of-options",
+                f"{revision}^{{commit}}",
+            ],
+        )
+        provenance.require_hex(commit, (40,), "recovery source commit")
+        committed = provenance.source_manifest_summary(
+            provenance.committed_source_manifest(repository, commit)
+        )
+        exported = provenance.verified_git_archive_source(
+            {
+                "repositoryAbsolutePath": str(repository),
+                "sourceCommit": commit,
+            },
+            destination,
+        )
+        observed = provenance.directory_source_manifest(destination)
+    except (OSError, provenance.ArchiveProvenanceError) as error:
+        raise RecoveryEvidenceError(
+            f"cannot export verified recovery source: {error}"
+        ) from error
+    require(
+        committed == exported == observed,
+        "verified recovery source manifest differs from the candidate commit",
+    )
+    return {
+        "schemaVersion": SOURCE_EXPORT_SCHEMA,
+        "sourceCommit": commit,
+        "sourceTreeIdentitySHA256": provenance.source_tree_identity(
+            repository,
+            commit,
+        ),
+        "sourceManifest": observed,
+    }
+
+
+def export_source_command(arguments: argparse.Namespace) -> None:
+    result = export_verified_candidate_source(
+        Path(arguments.repository),
+        arguments.revision,
+        Path(arguments.destination),
+    )
+    sys.stdout.buffer.write(canonical_json(result))
+
+
+def inspect_exact_package(
+    repository: Path,
+    candidate_path: Path,
+    application_archive: Path,
+    runtime: Path,
+    release_configuration: Path,
+) -> dict[str, Any]:
+    """Verify the sealed Release application against committed provenance."""
+
+    try:
+        repository = repository.expanduser().resolve(strict=True)
+        candidate_path = packaged_evidence.safe_regular(
+            candidate_path,
+            "recovery candidate identity",
+        )
+        application_archive = packaged_evidence.safe_regular(
+            application_archive,
+            "recovery application archive",
+        )
+        release_configuration = packaged_evidence.safe_regular(
+            release_configuration,
+            "recovery Release configuration",
+        )
+        runtime = runtime.expanduser()
+        require(
+            runtime.is_dir() and not runtime.is_symlink(),
+            "recovery P06 runtime must be a non-symlink directory",
+        )
+        runtime = runtime.resolve(strict=True)
+        candidate = packaged_evidence.parse_candidate(candidate_path)
+        provenance = packaged_evidence.archive_provenance
+        context = provenance.release_context(
+            repository,
+            candidate["sourceCommit"],
+            runtime,
+            release_configuration,
+        )
+        tools = provenance.tool_descriptors(
+            repository,
+            context["sourceCommit"],
+        )
+        inspection = provenance.inspect_archive(
+            application_archive,
+            context,
+            tools,
+            require_attestation=True,
+        )
+        identity = packaged_evidence.package_identity(candidate, inspection)
+    except (
+        OSError,
+        packaged_evidence.PackagedEvidenceError,
+        packaged_evidence.archive_provenance.ArchiveProvenanceError,
+    ) as error:
+        raise RecoveryEvidenceError(
+            f"exact packaged candidate verification failed: {error}"
+        ) from error
+    return {
+        "candidate": candidate,
+        "identity": identity,
+        "attestation": inspection["attestation"],
+    }
+
+
+def validate_inspected_package(
+    value: Mapping[str, Any],
+    candidate: Mapping[str, Any],
+    contract: Mapping[str, Any],
+) -> dict[str, Any]:
+    inspected = require_mapping(value, "inspected packaged candidate")
+    require_exact_keys(
+        inspected,
+        {"attestation", "candidate", "identity"},
+        "inspected packaged candidate",
+    )
+    inspected_candidate = validate_candidate(inspected["candidate"])
+    require(
+        inspected_candidate == candidate,
+        "verified archive candidate differs from recovery candidate",
+    )
+    try:
+        identity = packaged_evidence.validate_package_identity(
+            inspected["identity"]
+        )
+    except packaged_evidence.PackagedEvidenceError as error:
+        raise RecoveryEvidenceError(
+            f"packaged candidate identity is invalid: {error}"
+        ) from error
+    candidate_projection = {
+        "sourceCommit": identity["sourceCommit"],
+        "sourceTreeIdentitySHA256": identity["sourceTreeIdentitySHA256"],
+        "runtimeManifestSHA256": identity["runtimeManifestSHA256"],
+        "runtimeManifestFileSHA256": identity["runtimeManifestFileSHA256"],
+        "runtimeArtifactSetSHA256": identity["runtimeArtifactSetSHA256"],
+        "runtimeSourceRevision": identity["runtimeSourceRevision"],
+        "releaseConfigurationSHA256": identity["releaseConfigurationSHA256"],
+        "appBundleSHA256": identity["applicationArchiveSHA256"],
+        "bundleIdentifier": identity["bundleIdentifier"],
+        "productVersion": identity["productVersion"],
+        "productBuild": identity["productBuild"],
+    }
+    require(
+        candidate_projection == candidate,
+        "packaged candidate projection differs from recovery candidate",
+    )
+
+    policy = require_mapping(
+        contract["packagedCandidate"],
+        "contract.packagedCandidate",
+    )
+    required_architectures = require_list(
+        policy["requiredArchitectures"],
+        "contract.packagedCandidate.requiredArchitectures",
+    )
+    observed_architectures = [
+        row["architecture"]
+        for row in identity["codeDirectories"]
+    ]
+    require(
+        observed_architectures == required_architectures,
+        "packaged candidate architecture set differs",
+    )
+
+    attestation = require_mapping(
+        inspected["attestation"],
+        "release build attestation",
+    )
+    require(
+        attestation.get("schemaVersion") == ATTESTATION_SCHEMA
+        and attestation.get("buildConfiguration") == "Release",
+        "release build attestation header differs",
+    )
+    source = require_mapping(attestation.get("source"), "attested source")
+    require(
+        source.get("commit") == candidate["sourceCommit"]
+        and source.get("treeIdentitySHA256")
+        == candidate["sourceTreeIdentitySHA256"],
+        "release build attestation source differs",
+    )
+    runtime = require_mapping(attestation.get("runtime"), "attested runtime")
+    require(
+        runtime
+        == {
+            "artifactSetSHA256": candidate["runtimeArtifactSetSHA256"],
+            "bundleRepositoryRelativePath": runtime.get(
+                "bundleRepositoryRelativePath"
+            ),
+            "manifestFileSHA256": candidate["runtimeManifestFileSHA256"],
+            "manifestSHA256": candidate["runtimeManifestSHA256"],
+            "sourceRevision": candidate["runtimeSourceRevision"],
+        }
+        and isinstance(runtime["bundleRepositoryRelativePath"], str)
+        and runtime["bundleRepositoryRelativePath"],
+        "release build attestation runtime differs",
+    )
+    release = require_mapping(
+        attestation.get("releaseConfiguration"),
+        "attested Release configuration",
+    )
+    require(
+        release.get("sha256") == candidate["releaseConfigurationSHA256"],
+        "release build attestation configuration differs",
+    )
+    application = require_mapping(
+        attestation.get("application"),
+        "attested application",
+    )
+    require(
+        application.get("bundleIdentifier") == candidate["bundleIdentifier"]
+        and application.get("productVersion") == candidate["productVersion"]
+        and application.get("productBuild") == candidate["productBuild"]
+        and application.get("codeDirectories") == identity["codeDirectories"],
+        "release build attestation application differs",
+    )
+
+    source_build = require_mapping(
+        attestation.get("sourceBuild"),
+        "attested clean-source build",
+    )
+    build = require_mapping(
+        source_build.get("build"),
+        "attested clean-source build invocation",
+    )
+    require(
+        build.get("configuration") == "Release"
+        and build.get("destination") == "generic/platform=macOS",
+        "attested application is not the locked Release build",
+    )
+    settings = require_mapping(
+        build.get("settings"),
+        "attested clean-source build settings",
+    )
+    command = require_list(
+        build.get("command"),
+        "attested clean-source build command",
+    )
+    testability_arguments = [
+        argument
+        for argument in command
+        if isinstance(argument, str)
+        and argument.startswith("ENABLE_TESTABILITY=")
+    ]
+    require(
+        settings.get("ENABLE_TESTABILITY") == "NO"
+        and testability_arguments == ["ENABLE_TESTABILITY=NO"],
+        "testability-enabled rebuild cannot satisfy packaged recovery evidence",
+    )
+    return {
+        "candidate": inspected_candidate,
+        "identity": identity,
+        "attestation": attestation,
+    }
+
+
+def bind_or_verify_package_evidence(
+    *,
+    repository: Path,
+    candidate_path: Path,
+    application_archive: Path,
+    runtime: Path,
+    release_configuration: Path,
+    release_configuration_artifact: Path,
+    runtime_manifest_artifact: Path,
+    package_identity_path: Path,
+    attestation_path: Path,
+    contract: Mapping[str, Any],
+    write_artifacts: bool,
+    verifier: PackageVerifier = inspect_exact_package,
+) -> dict[str, Any]:
+    candidate_path = packaged_evidence.safe_regular(
+        candidate_path,
+        "recovery candidate identity",
+    )
+    application_archive = packaged_evidence.safe_regular(
+        application_archive,
+        "recovery application archive",
+    )
+    release_configuration = packaged_evidence.safe_regular(
+        release_configuration,
+        "recovery Release configuration",
+    )
+    release_configuration_artifact = packaged_evidence.safe_regular(
+        release_configuration_artifact,
+        "sealed recovery Release configuration",
+    )
+    runtime_manifest_artifact = packaged_evidence.safe_regular(
+        runtime_manifest_artifact,
+        "sealed recovery P06 runtime manifest",
+    )
+    runtime = packaged_evidence.safe_directory(
+        runtime,
+        "recovery P06 runtime",
+    )
+    inspected = validate_inspected_package(
+        verifier(
+            repository,
+            candidate_path,
+            application_archive,
+            runtime,
+            release_configuration,
+        ),
+        load_candidate(candidate_path),
+        contract,
+    )
+    identity = inspected["identity"]
+    attestation = inspected["attestation"]
+    package_bytes = packaged_evidence.canonical_bytes(identity)
+    attestation_bytes = packaged_evidence.canonical_bytes(attestation)
+    if write_artifacts:
+        write_canonical_artifact(package_identity_path, identity)
+        write_canonical_artifact(attestation_path, attestation)
+    package_identity_path = packaged_evidence.safe_regular(
+        package_identity_path,
+        "recovery package identity artifact",
+    )
+    attestation_path = packaged_evidence.safe_regular(
+        attestation_path,
+        "recovery attestation artifact",
+    )
+    require(
+        package_identity_path.read_bytes() == package_bytes,
+        "recovery package identity artifact differs",
+    )
+    require(
+        attestation_path.read_bytes() == attestation_bytes
+        and sha256_bytes(attestation_bytes) == identity["attestationSHA256"],
+        "recovery attestation artifact differs",
+    )
+    require(
+        sha256_file(application_archive)
+        == identity["applicationArchiveSHA256"],
+        "recovery application archive differs after provenance verification",
+    )
+    runtime_manifest = packaged_evidence.safe_regular(
+        runtime / "runtime-manifest.json",
+        "recovery P06 runtime manifest",
+    )
+    require(
+        sha256_file(runtime_manifest) == identity["runtimeManifestFileSHA256"]
+        and sha256_file(release_configuration)
+        == identity["releaseConfigurationSHA256"],
+        "recovery runtime or Release configuration differs after verification",
+    )
+    require(
+        runtime_manifest_artifact.read_bytes() == runtime_manifest.read_bytes()
+        and release_configuration_artifact.read_bytes()
+        == release_configuration.read_bytes(),
+        "sealed recovery runtime or Release configuration artifact differs",
+    )
+    return {
+        "identity": identity,
+        "applicationArchiveSHA256": identity["applicationArchiveSHA256"],
+        "attestationSHA256": identity["attestationSHA256"],
+        "candidateIdentitySHA256": sha256_file(candidate_path),
+        "packageIdentitySHA256": sha256_file(package_identity_path),
+        "requiredArchitectures": list(
+            contract["packagedCandidate"]["requiredArchitectures"]
+        ),
+        "exactApplicationArchivePass": True,
+        "releaseAttestationPass": True,
+        "packageIdentityTestabilitySubstitutionRejected": True,
+    }
+
+
+def validate_packaged_report(
+    value: Any,
+    candidate: Mapping[str, Any],
+    contract: Mapping[str, Any],
+) -> dict[str, Any]:
+    packaged = require_mapping(value, "packaged recovery candidate")
+    require_exact_keys(
+        packaged,
+        {
+            "applicationArchiveSHA256",
+            "attestationSHA256",
+            "candidateIdentitySHA256",
+            "exactApplicationArchivePass",
+            "identity",
+            "packageIdentitySHA256",
+            "releaseAttestationPass",
+            "requiredArchitectures",
+            "packageIdentityTestabilitySubstitutionRejected",
+        },
+        "packaged recovery candidate",
+    )
+    try:
+        identity = packaged_evidence.validate_package_identity(
+            packaged["identity"]
+        )
+    except packaged_evidence.PackagedEvidenceError as error:
+        raise RecoveryEvidenceError(
+            f"packaged recovery identity is invalid: {error}"
+        ) from error
+    require(
+        identity["applicationArchiveSHA256"]
+        == packaged["applicationArchiveSHA256"]
+        == candidate["appBundleSHA256"],
+        "packaged recovery archive identity differs",
+    )
+    require(
+        identity["attestationSHA256"] == packaged["attestationSHA256"],
+        "packaged recovery attestation identity differs",
+    )
+    for key in (
+        "applicationArchiveSHA256",
+        "attestationSHA256",
+        "candidateIdentitySHA256",
+        "packageIdentitySHA256",
+    ):
+        require_sha256(packaged[key], f"packaged recovery candidate.{key}")
+    for key in (
+        "exactApplicationArchivePass",
+        "releaseAttestationPass",
+        "packageIdentityTestabilitySubstitutionRejected",
+    ):
+        require_bool(packaged[key], f"packaged recovery candidate.{key}", True)
+    require(
+        packaged["requiredArchitectures"]
+        == contract["packagedCandidate"]["requiredArchitectures"],
+        "packaged recovery architecture contract differs",
+    )
+    return dict(packaged)
+
+
 def load_contract(path: Path, verify_tools: bool = True) -> tuple[dict[str, Any], str]:
     contract = require_mapping(load_json(path), "contract")
     require_exact_keys(
@@ -282,6 +858,7 @@ def load_contract(path: Path, verify_tools: bool = True) -> tuple[dict[str, Any]
             "buildConfiguration",
             "capture",
             "hashAlgorithm",
+            "packagedCandidate",
             "scenarios",
             "schemaVersion",
             "semanticVerification",
@@ -296,12 +873,24 @@ def load_contract(path: Path, verify_tools: bool = True) -> tuple[dict[str, Any]
     schemas = require_mapping(contract["artifactSchemas"], "contract.artifactSchemas")
     require_exact_keys(
         schemas,
-        {"capture", "captureManifest", "report", "scenarioEvidence", "semanticManifest", "suiteManifest", "transcript"},
+        {
+            "capture",
+            "captureManifest",
+            "packageIdentity",
+            "releaseAttestation",
+            "report",
+            "scenarioEvidence",
+            "semanticManifest",
+            "suiteManifest",
+            "transcript",
+        },
         "contract.artifactSchemas",
     )
     expected_schemas = {
         "capture": CAPTURE_SCHEMA,
         "captureManifest": CAPTURE_MANIFEST_SCHEMA,
+        "packageIdentity": PACKAGE_SCHEMA,
+        "releaseAttestation": ATTESTATION_SCHEMA,
         "report": REPORT_SCHEMA,
         "scenarioEvidence": SCENARIO_SCHEMA,
         "semanticManifest": SEMANTIC_SCHEMA,
@@ -309,6 +898,38 @@ def load_contract(path: Path, verify_tools: bool = True) -> tuple[dict[str, Any]
         "transcript": TRANSCRIPT_SCHEMA,
     }
     require(schemas == expected_schemas, "contract artifact schemas differ")
+    packaged = require_mapping(
+        contract["packagedCandidate"],
+        "contract.packagedCandidate",
+    )
+    require_exact_keys(
+        packaged,
+        {
+            "requireExactApplicationArchive",
+            "requireReleaseAttestation",
+            "requireTestabilityDisabled",
+            "requiredArchitectures",
+        },
+        "contract.packagedCandidate",
+    )
+    for key in (
+        "requireExactApplicationArchive",
+        "requireReleaseAttestation",
+        "requireTestabilityDisabled",
+    ):
+        require_bool(
+            packaged[key],
+            f"contract.packagedCandidate.{key}",
+            True,
+        )
+    architectures = require_list(
+        packaged["requiredArchitectures"],
+        "contract.packagedCandidate.requiredArchitectures",
+    )
+    require(
+        architectures == ["arm64", "x86_64"],
+        "contract packaged-candidate architectures differ",
+    )
     semantic = require_mapping(contract["semanticVerification"], "contract.semanticVerification")
     require_exact_keys(
         semantic,
@@ -344,15 +965,25 @@ def load_contract(path: Path, verify_tools: bool = True) -> tuple[dict[str, Any]
     capture = require_mapping(contract["capture"], "contract.capture")
     require_exact_keys(
         capture,
-        {"captureSourceSHA256", "evaluatorSourceSHA256", "runnerSourceSHA256"},
+        {
+            "archiveProvenanceSourceSHA256",
+            "captureSourceSHA256",
+            "evaluatorSourceSHA256",
+            "packagedEvidenceSourceSHA256",
+            "runnerSourceSHA256",
+        },
         "contract.capture",
     )
     for key in capture:
         require_sha256(capture[key], f"contract.capture.{key}")
     if verify_tools:
         tool_paths = {
+            "archiveProvenanceSourceSHA256": SCRIPT_DIRECTORY
+            / "release_candidate_archive_v4.py",
             "captureSourceSHA256": SCRIPT_DIRECTORY / "RecoveryQualificationCaptureTests.swift",
             "evaluatorSourceSHA256": SCRIPT_DIRECTORY / "recovery_qualification_v4.py",
+            "packagedEvidenceSourceSHA256": SCRIPT_DIRECTORY
+            / "packaged_candidate_evidence_v4.py",
             "runnerSourceSHA256": SCRIPT_DIRECTORY / "run_recovery_qualification_v4.sh",
         }
         for field, tool_path in tool_paths.items():
@@ -432,6 +1063,7 @@ def evaluate_capture(
     capture_path: Path,
     candidate_path: Path,
     evidence_root: Path,
+    packaged_candidate: Mapping[str, Any],
     verify_tools: bool = True,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     evidence_root = evidence_root.resolve(strict=True)
@@ -440,6 +1072,11 @@ def evaluate_capture(
     require(evidence_root == capture_root or evidence_root in capture_root.parents, "capture is outside evidence root")
     contract, contract_sha = load_contract(contract_path, verify_tools=verify_tools)
     candidate = load_candidate(candidate_path)
+    packaged_candidate = validate_packaged_report(
+        packaged_candidate,
+        candidate,
+        contract,
+    )
     capture = require_mapping(load_json(capture_path), "capture")
     require_exact_keys(
         capture,
@@ -620,17 +1257,29 @@ def evaluate_capture(
         "candidate": candidate,
         "releaseEligible": True,
         "identities": {
+            "archiveProvenanceSHA256": contract["capture"][
+                "archiveProvenanceSourceSHA256"
+            ],
             "captureSourceSHA256": contract["capture"]["captureSourceSHA256"],
             "evaluatorSHA256": contract["capture"]["evaluatorSourceSHA256"],
+            "packagedEvidenceSHA256": contract["capture"][
+                "packagedEvidenceSourceSHA256"
+            ],
             "runnerSHA256": contract["capture"]["runnerSourceSHA256"],
         },
         "capture": {
             "artifactManifestSHA256": "__CAPTURE_MANIFEST_SHA256__",
             "artifactSetSHA256": capture_manifest["artifactSetSHA256"],
             "buildConfiguration": capture["buildConfiguration"],
+            "execution": {
+                "applicationArchiveExecuted": False,
+                "kind": "source_bound_xctest_host",
+                "sourceBoundToCandidate": True,
+            },
             "sourceCommit": capture["sourceCommit"],
             "sourceTreeSHA256": capture["sourceTreeSHA256"],
         },
+        "packagedCandidate": packaged_candidate,
         "scenarios": report_scenarios,
         "recoveryGatePass": True,
     }
@@ -657,19 +1306,72 @@ def make_suite_manifest(role_root: Path, manifest_path: Path) -> dict[str, Any]:
 def evaluate_command(arguments: argparse.Namespace) -> None:
     evidence_root = Path(arguments.evidence_root).expanduser().resolve(strict=True)
     capture_path = Path(arguments.capture).expanduser().resolve(strict=True)
+    contract_path = Path(arguments.contract).expanduser().resolve(strict=True)
+    candidate_path = Path(arguments.candidate).expanduser().resolve(strict=True)
     report_path = Path(arguments.output).expanduser().resolve()
     capture_manifest_path = Path(arguments.capture_manifest).expanduser().resolve()
     suite_manifest_path = Path(arguments.sealed_manifest).expanduser().resolve()
+    role_root = report_path.parent.resolve(strict=True)
+    package_identity_path = role_artifact_path(
+        role_root,
+        Path(arguments.package_identity),
+        "package identity output",
+        must_exist=False,
+    )
+    attestation_path = role_artifact_path(
+        role_root,
+        Path(arguments.attestation),
+        "attestation output",
+        must_exist=False,
+    )
+    application_archive = role_artifact_path(
+        role_root,
+        Path(arguments.application_archive),
+        "application archive",
+        must_exist=True,
+    )
+    candidate_path = role_artifact_path(
+        role_root,
+        candidate_path,
+        "candidate identity",
+        must_exist=True,
+    )
+    release_configuration_artifact = role_artifact_path(
+        role_root,
+        Path(arguments.release_configuration_artifact),
+        "Release configuration artifact",
+        must_exist=True,
+    )
+    runtime_manifest_artifact = role_artifact_path(
+        role_root,
+        Path(arguments.runtime_manifest_artifact),
+        "runtime manifest artifact",
+        must_exist=True,
+    )
+    contract, _ = load_contract(contract_path)
+    packaged_candidate = bind_or_verify_package_evidence(
+        repository=Path(arguments.repository),
+        candidate_path=candidate_path,
+        application_archive=application_archive,
+        runtime=Path(arguments.runtime),
+        release_configuration=Path(arguments.release_configuration),
+        release_configuration_artifact=release_configuration_artifact,
+        runtime_manifest_artifact=runtime_manifest_artifact,
+        package_identity_path=package_identity_path,
+        attestation_path=attestation_path,
+        contract=contract,
+        write_artifacts=True,
+    )
     report, capture_manifest = evaluate_capture(
-        Path(arguments.contract),
+        contract_path,
         capture_path,
-        Path(arguments.candidate),
+        candidate_path,
         evidence_root,
+        packaged_candidate,
     )
     write_json(capture_manifest_path, capture_manifest)
     report["capture"]["artifactManifestSHA256"] = sha256_file(capture_manifest_path)
     write_json(report_path, report)
-    role_root = report_path.parent.resolve(strict=True)
     write_json(
         suite_manifest_path,
         make_suite_manifest(role_root, suite_manifest_path),
@@ -678,14 +1380,68 @@ def evaluate_command(arguments: argparse.Namespace) -> None:
 
 def verify_command(arguments: argparse.Namespace) -> None:
     evidence_root = Path(arguments.evidence_root).expanduser().resolve(strict=True)
+    contract_path = Path(arguments.contract).expanduser().resolve(strict=True)
+    candidate_path = Path(arguments.candidate).expanduser().resolve(strict=True)
     capture_manifest_path = Path(arguments.capture_manifest).expanduser().resolve(strict=True)
     report_path = Path(arguments.report).expanduser().resolve(strict=True)
     suite_manifest_path = Path(arguments.sealed_manifest).expanduser().resolve(strict=True)
+    role_root = report_path.parent.resolve(strict=True)
+    candidate_path = role_artifact_path(
+        role_root,
+        candidate_path,
+        "candidate identity",
+        must_exist=True,
+    )
+    application_archive = role_artifact_path(
+        role_root,
+        Path(arguments.application_archive),
+        "application archive",
+        must_exist=True,
+    )
+    package_identity_path = role_artifact_path(
+        role_root,
+        Path(arguments.package_identity),
+        "package identity artifact",
+        must_exist=True,
+    )
+    attestation_path = role_artifact_path(
+        role_root,
+        Path(arguments.attestation),
+        "attestation artifact",
+        must_exist=True,
+    )
+    release_configuration_artifact = role_artifact_path(
+        role_root,
+        Path(arguments.release_configuration_artifact),
+        "Release configuration artifact",
+        must_exist=True,
+    )
+    runtime_manifest_artifact = role_artifact_path(
+        role_root,
+        Path(arguments.runtime_manifest_artifact),
+        "runtime manifest artifact",
+        must_exist=True,
+    )
+    contract, _ = load_contract(contract_path)
+    packaged_candidate = bind_or_verify_package_evidence(
+        repository=Path(arguments.repository),
+        candidate_path=candidate_path,
+        application_archive=application_archive,
+        runtime=Path(arguments.runtime),
+        release_configuration=Path(arguments.release_configuration),
+        release_configuration_artifact=release_configuration_artifact,
+        runtime_manifest_artifact=runtime_manifest_artifact,
+        package_identity_path=package_identity_path,
+        attestation_path=attestation_path,
+        contract=contract,
+        write_artifacts=False,
+    )
     expected_report, expected_capture_manifest = evaluate_capture(
-        Path(arguments.contract),
+        contract_path,
         Path(arguments.capture),
-        Path(arguments.candidate),
+        candidate_path,
         evidence_root,
+        packaged_candidate,
     )
     require(
         load_json(capture_manifest_path) == expected_capture_manifest
@@ -712,13 +1468,28 @@ def verify_command(arguments: argparse.Namespace) -> None:
 def parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser(description=__doc__)
     subparsers = value.add_subparsers(dest="command", required=True)
+    export_source = subparsers.add_parser(
+        "export-source",
+        help="export and verify the exact committed recovery source",
+    )
     evaluate = subparsers.add_parser("evaluate", help="validate capture and write sealed recovery evidence")
     verify = subparsers.add_parser("verify", help="recompute and verify existing recovery evidence")
+    export_source.add_argument("--destination", required=True)
+    export_source.add_argument("--repository", required=True)
+    export_source.add_argument("--revision", required=True)
     for command in (evaluate, verify):
+        command.add_argument("--application-archive", required=True)
+        command.add_argument("--attestation", required=True)
         command.add_argument("--contract", required=True)
         command.add_argument("--capture", required=True)
         command.add_argument("--candidate", required=True)
         command.add_argument("--evidence-root", required=True)
+        command.add_argument("--package-identity", required=True)
+        command.add_argument("--release-configuration", required=True)
+        command.add_argument("--release-configuration-artifact", required=True)
+        command.add_argument("--repository", required=True)
+        command.add_argument("--runtime", required=True)
+        command.add_argument("--runtime-manifest-artifact", required=True)
         command.add_argument("--capture-manifest", required=True)
         command.add_argument("--sealed-manifest", required=True)
     evaluate.add_argument("--output", required=True)
@@ -729,11 +1500,17 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     arguments = parser().parse_args(argv)
     try:
-        if arguments.command == "evaluate":
+        if arguments.command == "export-source":
+            export_source_command(arguments)
+        elif arguments.command == "evaluate":
             evaluate_command(arguments)
         else:
             verify_command(arguments)
-    except RecoveryEvidenceError as error:
+    except (
+        RecoveryEvidenceError,
+        packaged_evidence.PackagedEvidenceError,
+        packaged_evidence.archive_provenance.ArchiveProvenanceError,
+    ) as error:
         print(f"recovery qualification failed: {error}", file=sys.stderr)
         return 1
     return 0

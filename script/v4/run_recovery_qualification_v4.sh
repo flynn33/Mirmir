@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-    print -u2 "usage: $0 --output EVIDENCE_ROOT/recovery --candidate CANDIDATE.json --release-configuration Release.xcconfig [--candidate-revision REV] [--derived-data DIR] [--keep-work]"
+    print -u2 "usage: $0 --output EVIDENCE_ROOT/recovery --candidate CANDIDATE.json --application-archive Mirmir.zip --release-configuration Release.xcconfig [--candidate-revision REV] [--derived-data DIR] [--keep-work]"
     print -u2 "       $0 --compile-only [--candidate-revision REV] [--derived-data DIR] [--keep-work]"
     exit 64
 }
@@ -13,38 +13,27 @@ contract_source="${script_directory}/recovery-qualification-contract-v1.json"
 capture_source="${script_directory}/RecoveryQualificationCaptureTests.swift"
 evaluator_source="${script_directory}/recovery_qualification_v4.py"
 runner_source="${0:A}"
+archive_provenance_source="${script_directory}/release_candidate_archive_v4.py"
+packaged_evidence_source="${script_directory}/packaged_candidate_evidence_v4.py"
 
 output_directory=""
 candidate_source=""
+application_archive=""
 release_configuration=""
 candidate_revision="HEAD"
 derived_data=""
 keep_work=0
 compile_only=0
 
-source_tree_identity() {
-    local repository="$1"
-    local revision="$2"
-    python3 - "$repository" "$revision" <<'PY'
-import hashlib
-import subprocess
-import sys
-
-repository, revision = sys.argv[1:]
-process = subprocess.run(
-    ["git", "ls-tree", "-r", "-z", "--full-tree", revision],
-    cwd=repository,
-    stdout=subprocess.PIPE,
-    stderr=subprocess.PIPE,
-    check=False,
-)
-if process.returncode != 0:
-    raise SystemExit(
-        "cannot resolve source tree: "
-        + process.stderr.decode("utf-8", errors="replace").strip()
-    )
-print(hashlib.sha256(b"mirmir-source-tree-v1\0" + process.stdout).hexdigest())
-PY
+bound_git() {
+    GIT_ATTR_NOSYSTEM=1 \
+    GIT_CONFIG_GLOBAL=/dev/null \
+    GIT_CONFIG_NOSYSTEM=1 \
+    GIT_CONFIG_SYSTEM=/dev/null \
+    LANG=C \
+    LC_ALL=C \
+    PATH=/usr/bin:/bin:/usr/sbin:/sbin \
+        /usr/bin/git --no-replace-objects -C "${repository_root}" "$@"
 }
 
 while (( $# > 0 )); do
@@ -57,6 +46,11 @@ while (( $# > 0 )); do
         --candidate)
             (( $# >= 2 )) || usage
             candidate_source="$2"
+            shift 2
+            ;;
+        --application-archive)
+            (( $# >= 2 )) || usage
+            application_archive="$2"
             shift 2
             ;;
         --release-configuration)
@@ -86,9 +80,6 @@ while (( $# > 0 )); do
     esac
 done
 
-candidate_revision="$(
-    git -C "${repository_root}" rev-parse --verify "${candidate_revision}^{commit}"
-)"
 work_directory="$(
     mktemp -d "${TMPDIR:-/tmp}/mirmir-v4-recovery.XXXXXX"
 )"
@@ -106,11 +97,26 @@ trap cleanup_recovery_work EXIT INT TERM
 
 project_root="${work_directory}/project"
 mkdir -p -- "${project_root}"
-git -C "${repository_root}" archive --format=tar "${candidate_revision}" \
-    | tar -xf - -C "${project_root}"
+source_export_manifest="${work_directory}/source-export.json"
+python3 "${evaluator_source}" export-source \
+    --repository "${repository_root}" \
+    --revision "${candidate_revision}" \
+    --destination "${project_root}" \
+    > "${source_export_manifest}"
+candidate_revision="$(
+    python3 -c \
+        'import json,sys; print(json.load(open(sys.argv[1]))["sourceCommit"])' \
+        "${source_export_manifest}"
+)"
+candidate_source_tree_identity="$(
+    python3 -c \
+        'import json,sys; print(json.load(open(sys.argv[1]))["sourceTreeIdentitySHA256"])' \
+        "${source_export_manifest}"
+)"
 
 # Keep qualification-only code outside the shipping repository targets. The
-# committed capture is appended only inside the archived candidate workspace.
+# committed capture is appended only after every exported byte and executable
+# mode has been verified against the exact candidate commit.
 python3 - \
     "${project_root}/MirmirTests/WorkflowEventJournalTests.swift" \
     "${capture_source}" <<'PY'
@@ -131,7 +137,12 @@ fi
 
 if (( compile_only == 1 )); then
     [[ -z "${output_directory}" && -z "${candidate_source}" \
+        && -z "${application_archive}" \
         && -z "${release_configuration}" ]] || usage
+    # This testability-enabled product exists only to host the fault-injection
+    # XCTest. It is compiled from the candidate source tree, but it is not the
+    # archived executable. Package identity is independently derived from the
+    # supplied clean Release archive and rejects this build as a substitute.
     xcodebuild build-for-testing \
         -project "${project_root}/Mirmir.xcodeproj" \
         -scheme Mirmir \
@@ -147,6 +158,7 @@ if (( compile_only == 1 )); then
 fi
 
 [[ -n "${output_directory}" && -n "${candidate_source}" \
+    && -n "${application_archive}" \
     && -n "${release_configuration}" ]] || usage
 output_directory="$(
     python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve())' \
@@ -155,6 +167,10 @@ output_directory="$(
 candidate_source="$(
     python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' \
         "${candidate_source}"
+)"
+application_archive="$(
+    python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' \
+        "${application_archive}"
 )"
 release_configuration="$(
     python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' \
@@ -175,15 +191,17 @@ evidence_root="${output_directory:h}"
 for bound_path in \
     script/v4/recovery-qualification-contract-v1.json \
     script/v4/RecoveryQualificationCaptureTests.swift \
+    script/v4/release_candidate_archive_v4.py \
+    script/v4/packaged_candidate_evidence_v4.py \
     script/v4/recovery_qualification_v4.py \
     script/v4/run_recovery_qualification_v4.sh; do
-    git -C "${repository_root}" cat-file -e \
+    bound_git cat-file -e \
         "${candidate_revision}:${bound_path}" || {
         print -u2 "candidate revision omits recovery harness: ${bound_path}"
         exit 66
     }
     committed_hash="$(
-        git -C "${repository_root}" show "${candidate_revision}:${bound_path}" \
+        bound_git show "${candidate_revision}:${bound_path}" \
             | shasum -a 256 | awk '{print $1}'
     )"
     working_hash="$(
@@ -201,27 +219,50 @@ cp -- "${contract_source}" \
     "${binding_directory}/recovery-qualification-contract-v1.json"
 cp -- "${capture_source}" \
     "${binding_directory}/RecoveryQualificationCaptureTests.swift"
+cp -- "${archive_provenance_source}" \
+    "${binding_directory}/release_candidate_archive_v4.py"
+cp -- "${packaged_evidence_source}" \
+    "${binding_directory}/packaged_candidate_evidence_v4.py"
 cp -- "${evaluator_source}" \
     "${binding_directory}/recovery_qualification_v4.py"
 cp -- "${runner_source}" \
     "${binding_directory}/run_recovery_qualification_v4.sh"
-cp -- "${release_configuration}" "${binding_directory}/Release.xcconfig"
+cp -- "${release_configuration}" \
+    "${binding_directory}/release-candidate-v4.xcconfig"
+cp -- "${application_archive}" \
+    "${binding_directory}/application-archive.zip"
 
 contract="${binding_directory}/recovery-qualification-contract-v1.json"
 capture="${binding_directory}/RecoveryQualificationCaptureTests.swift"
+archive_provenance="${binding_directory}/release_candidate_archive_v4.py"
+packaged_evidence="${binding_directory}/packaged_candidate_evidence_v4.py"
 evaluator="${binding_directory}/recovery_qualification_v4.py"
 runner="${binding_directory}/run_recovery_qualification_v4.sh"
+bound_application_archive="${binding_directory}/application-archive.zip"
+bound_release_configuration="${binding_directory}/release-candidate-v4.xcconfig"
 runtime_root="${project_root}/Mirmir/Resources/ASH-P06.bundle"
 runtime_manifest="${runtime_root}/runtime-manifest.json"
 cp -- "${runtime_manifest}" "${binding_directory}/runtime-manifest.json"
+bound_runtime_manifest="${binding_directory}/runtime-manifest.json"
 
-python3 - "${contract}" "${capture}" "${evaluator}" "${runner}" <<'PY'
+python3 - \
+    "${contract}" "${capture}" "${archive_provenance}" \
+    "${packaged_evidence}" "${evaluator}" "${runner}" <<'PY'
 import hashlib,json,pathlib,sys
-contract_path,capture_path,evaluator_path,runner_path = map(pathlib.Path,sys.argv[1:])
+(
+    contract_path,
+    capture_path,
+    archive_provenance_path,
+    packaged_evidence_path,
+    evaluator_path,
+    runner_path,
+) = map(pathlib.Path,sys.argv[1:])
 contract = json.loads(contract_path.read_text())
 observed = {
+    "archiveProvenanceSourceSHA256": hashlib.sha256(archive_provenance_path.read_bytes()).hexdigest(),
     "captureSourceSHA256": hashlib.sha256(capture_path.read_bytes()).hexdigest(),
     "evaluatorSourceSHA256": hashlib.sha256(evaluator_path.read_bytes()).hexdigest(),
+    "packagedEvidenceSourceSHA256": hashlib.sha256(packaged_evidence_path.read_bytes()).hexdigest(),
     "runnerSourceSHA256": hashlib.sha256(runner_path.read_bytes()).hexdigest(),
 }
 for key,value in observed.items():
@@ -229,9 +270,6 @@ for key,value in observed.items():
         raise SystemExit(f"recovery tool identity mismatch for {key}: {value}")
 PY
 
-candidate_source_tree_identity="$(
-    source_tree_identity "${repository_root}" "${candidate_revision}"
-)"
 candidate="${binding_directory}/candidate.json"
 python3 - \
     "${candidate_source}" "${candidate}" "${candidate_revision}" \
@@ -366,6 +404,9 @@ for name,value in zip(sentinels, values):
 path.write_text(text)
 PY
 
+# The fault-injection host is source-bound to the candidate and intentionally
+# testable. It is not the archived executable and never supplies the application
+# identity recorded by the packaged-candidate binding below.
 result_bundle="${work_directory}/recovery-capture.xcresult"
 xcodebuild test \
     -project "${project_root}/Mirmir.xcodeproj" \
@@ -390,18 +431,37 @@ xcodebuild test \
 report="${output_directory}/recovery-report.json"
 capture_manifest="${capture_directory}/artifact-manifest.json"
 sealed_manifest="${output_directory}/artifact-manifest.json"
+package_identity="${binding_directory}/package-identity.json"
+attestation="${binding_directory}/MirmirV4ReleaseBuildAttestation.json"
+provenance_runtime_root="${repository_root}/Mirmir/Resources/ASH-P06.bundle"
 python3 "${evaluator}" evaluate \
+    --repository "${repository_root}" \
     --contract "${contract}" \
     --capture "${capture_directory}/capture.json" \
     --candidate "${candidate}" \
+    --application-archive "${bound_application_archive}" \
+    --runtime "${provenance_runtime_root}" \
+    --runtime-manifest-artifact "${bound_runtime_manifest}" \
+    --release-configuration "${release_configuration}" \
+    --release-configuration-artifact "${bound_release_configuration}" \
+    --package-identity "${package_identity}" \
+    --attestation "${attestation}" \
     --evidence-root "${evidence_root}" \
     --capture-manifest "${capture_manifest}" \
     --sealed-manifest "${sealed_manifest}" \
     --output "${report}"
 python3 "${evaluator}" verify \
+    --repository "${repository_root}" \
     --contract "${contract}" \
     --capture "${capture_directory}/capture.json" \
     --candidate "${candidate}" \
+    --application-archive "${bound_application_archive}" \
+    --runtime "${provenance_runtime_root}" \
+    --runtime-manifest-artifact "${bound_runtime_manifest}" \
+    --release-configuration "${release_configuration}" \
+    --release-configuration-artifact "${bound_release_configuration}" \
+    --package-identity "${package_identity}" \
+    --attestation "${attestation}" \
     --evidence-root "${evidence_root}" \
     --capture-manifest "${capture_manifest}" \
     --sealed-manifest "${sealed_manifest}" \
