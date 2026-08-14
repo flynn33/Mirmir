@@ -1,0 +1,48 @@
+{
+  "buildConfiguration": "Release",
+  "builderID": "ash-p06-release-builder-v4-1",
+  "canonicalManifestIdentityDomain": "ash-p06-runtime-manifest-v4",
+  "capture": {
+    "captureSourceSHA256": "58f176fe77a3a6f2e7a1dacad46d08a2ebe22596e5058b4da2398b5b935463bb",
+    "evaluatorSHA256": "56183722c5849dd64f6dfa4c38b4dcd14061f02080cb26f1e02f7c89b1eb7017",
+    "runnerSHA256": "9fcce0ef62e1e4a2801e66ffd349ff334788ecea714c9cddd210f09745ba441d",
+    "runtimeLoadCheckRunnerSHA256": "85bd88ff2726e9f32a4443f93ce30c5a61a2686be55c5cd27044f0aff5c890bd",
+    "runtimeLoadCheckSourceSHA256": "cefd336a6504aeae8074c8a8a01ec6a0fda21116cd05a5b67b5b614549fac0d6",
+    "sourceIdentityToolSHA256": "6b5cc88f43dfed48870015e80ab12dfeaea9b80e4b9ebc6a7792bc8133c185f7",
+    "sourceProvenanceContractSHA256": "2f7cbf83331e6894f8e0581dad1b169acc968d4b9cb09568145b999eb04c6f8a"
+  },
+  "cleanBuildCount": 2,
+  "cleanBuildIDs": [
+    "clean-build-a",
+    "clean-build-b"
+  ],
+  "developmentArtifactDependencyCount": 0,
+  "p05ProductionDependencyCount": 0,
+  "productionSourceCount": 397,
+  "requiredRuntimeArtifactRoles": [
+    "benchmark_corpus_identity",
+    "branch_aggregation",
+    "codeword_tables",
+    "core_certificate",
+    "measurement_contract",
+    "metal_compiler_contract",
+    "metal_library",
+    "metric_contract",
+    "operator_bank",
+    "phase_coefficient_procedure",
+    "quality_corpus_identity",
+    "verification_contract"
+  ],
+  "runtimeID": "ash-p06-deterministic-v4",
+  "runtimeReleaseStatus": "release_qualified",
+  "schemaVersion": "mirmir-ash-v4-p06-reproduction-contract-v1",
+  "sourceCheckoutState": "clean",
+  "suiteID": "mirmir-ash-v4-p06-reproduction-v1",
+  "verification": {
+    "byteIdenticalToShippingBundle": true,
+    "productionLoaderAcceptanceRequired": true,
+    "sameLengthArtifactTamperRejectionRequired": true,
+    "sealedClosureRequired": true,
+    "toolchainProvenanceEqualityRequired": true
+  }
+}

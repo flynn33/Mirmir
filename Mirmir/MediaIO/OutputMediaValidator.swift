@@ -49,11 +49,30 @@ struct OutputMediaValidator: Sendable {
                 "the completed movie contains no video track"
             )
         }
-        let naturalSize = try await videoTrack.load(.naturalSize)
-        guard Int(naturalSize.width.rounded()) == expectedWidth,
-              Int(naturalSize.height.rounded()) == expectedHeight else {
+        let formatDescriptions = try await videoTrack.load(.formatDescriptions)
+        guard let firstFormat = formatDescriptions.first else {
             throw MirmirError.outputFinalizeFailed(
-                "the completed movie is \(Int(naturalSize.width.rounded())) × \(Int(naturalSize.height.rounded())) instead of \(expectedWidth) × \(expectedHeight)"
+                "the completed movie has no video format description"
+            )
+        }
+        let encodedDimensions = CMVideoFormatDescriptionGetDimensions(
+            firstFormat
+        )
+        let encodedWidth = Int(encodedDimensions.width)
+        let encodedHeight = Int(encodedDimensions.height)
+        guard encodedWidth == expectedWidth,
+              encodedHeight == expectedHeight,
+              formatDescriptions.allSatisfy({ description in
+                  guard CMFormatDescriptionGetMediaType(description)
+                    == kCMMediaType_Video else { return false }
+                  let dimensions = CMVideoFormatDescriptionGetDimensions(
+                      description
+                  )
+                  return Int(dimensions.width) == expectedWidth
+                    && Int(dimensions.height) == expectedHeight
+              }) else {
+            throw MirmirError.outputFinalizeFailed(
+                "the completed movie's encoded raster is \(encodedWidth) × \(encodedHeight) instead of \(expectedWidth) × \(expectedHeight)"
             )
         }
 
@@ -67,8 +86,8 @@ struct OutputMediaValidator: Sendable {
 
         return OutputMediaFacts(
             duration: duration,
-            encodedWidth: expectedWidth,
-            encodedHeight: expectedHeight,
+            encodedWidth: encodedWidth,
+            encodedHeight: encodedHeight,
             hasAudio: hasAudio
         )
     }

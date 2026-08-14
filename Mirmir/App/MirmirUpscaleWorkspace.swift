@@ -402,25 +402,57 @@ struct MirmirProductUpscaleWorkspace: View {
     private var actionControls: some View {
         VStack(alignment: .leading, spacing: theme.spacing.space2) {
             if viewModel.isProcessing {
-                Button(role: .destructive) {
-                    viewModel.cancelProcessing()
-                } label: {
-                    Label("Cancel", systemImage: "stop.fill")
-                        .frame(maxWidth: .infinity)
+                HStack(spacing: theme.spacing.space2) {
+                    if viewModel.canPauseWorkflow {
+                        Button {
+                            viewModel.pauseProcessing()
+                        } label: {
+                            Label("Pause", systemImage: "pause.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(
+                            MirmirProductSecondaryButtonStyle(theme: theme)
+                        )
+                        .accessibilityIdentifier("mirmir.pauseProcessing")
+                    }
+                    Button(role: .destructive) {
+                        viewModel.cancelProcessing()
+                    } label: {
+                        Label("Cancel", systemImage: "stop.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(
+                        MirmirProductSecondaryButtonStyle(theme: theme)
+                    )
+                    .keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier("mirmir.cancelProcessing")
                 }
-                .buttonStyle(MirmirProductSecondaryButtonStyle(theme: theme))
-                .keyboardShortcut(.cancelAction)
-                .accessibilityIdentifier("mirmir.cancelProcessing")
             } else {
-                Button {
-                    viewModel.startUpscale()
-                } label: {
-                    Label("Start Upscale", systemImage: "play.fill")
+                HStack(spacing: theme.spacing.space2) {
+                    Button {
+                        viewModel.startUpscale()
+                    } label: {
+                        Label("Start Upscale", systemImage: "play.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(MirmirProductPrimaryButtonStyle(theme: theme))
+                    .disabled(!viewModel.canStart)
+                    .keyboardShortcut(.defaultAction)
+                    .accessibilityIdentifier("mirmir.startUpscale")
+
+                    if viewModel.canEnqueueWorkflow {
+                        Button {
+                            viewModel.enqueueUpscale()
+                        } label: {
+                            Label("Add to Queue", systemImage: "text.badge.plus")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(
+                            MirmirProductSecondaryButtonStyle(theme: theme)
+                        )
+                        .accessibilityIdentifier("mirmir.enqueueUpscale")
+                    }
                 }
-                .buttonStyle(MirmirProductPrimaryButtonStyle(theme: theme))
-                .disabled(!viewModel.canStart)
-                .keyboardShortcut(.defaultAction)
-                .accessibilityIdentifier("mirmir.startUpscale")
             }
 
             Text(viewModel.startValidationMessage ?? "Ready to process.")

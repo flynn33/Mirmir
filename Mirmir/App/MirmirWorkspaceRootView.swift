@@ -18,6 +18,7 @@ struct MirmirWorkspaceRootView: View {
         .frame(minWidth: 960, minHeight: 680)
         .preferredColorScheme(preferredColorScheme)
         .task {
+            await viewModel.initializeWorkflow()
             await dashboardTelemetry.monitor()
         }
     }
@@ -850,76 +851,242 @@ private struct MirmirProductQueue: View {
     let theme: MirmirThemeTokens
 
     var body: some View {
-        VStack(alignment: .leading, spacing: theme.spacing.space5) {
-            MirmirProductPanel(theme: theme) {
-                HStack(spacing: theme.spacing.space4) {
-                    Image(systemName: queueSymbol)
-                        .font(.system(size: 34, weight: .light))
-                        .foregroundStyle(queueTone.color(theme: theme))
-                    VStack(alignment: .leading, spacing: theme.spacing.space2) {
-                        Text(queueTitle).font(theme.typography.subtitle)
-                        Text(queueDetail)
-                            .font(theme.typography.body)
-                            .foregroundStyle(theme.textSecondary)
-                    }
-                    Spacer()
-                    if viewModel.isProcessing {
-                        Button("Cancel", role: .destructive) {
-                            viewModel.cancelProcessing()
+        ScrollView {
+            VStack(alignment: .leading, spacing: theme.spacing.space5) {
+                MirmirProductPanel(theme: theme) {
+                    HStack(spacing: theme.spacing.space4) {
+                        Image(systemName: queueSymbol)
+                            .font(.system(size: 34, weight: .light))
+                            .foregroundStyle(queueTone.color(theme: theme))
+                        VStack(
+                            alignment: .leading,
+                            spacing: theme.spacing.space2
+                        ) {
+                            Text(queueTitle).font(theme.typography.subtitle)
+                            Text(queueDetail)
+                                .font(theme.typography.body)
+                                .foregroundStyle(theme.textSecondary)
                         }
-                        .buttonStyle(MirmirProductSecondaryButtonStyle(theme: theme))
+                        Spacer()
+                        if viewModel.canPauseWorkflow {
+                            Button("Pause") { viewModel.pauseProcessing() }
+                                .buttonStyle(
+                                    MirmirProductSecondaryButtonStyle(
+                                        theme: theme
+                                    )
+                                )
+                        }
+                        if viewModel.isWorkflowProcessing {
+                            Button("Cancel", role: .destructive) {
+                                viewModel.cancelProcessing()
+                            }
+                            .buttonStyle(
+                                MirmirProductSecondaryButtonStyle(theme: theme)
+                            )
+                        }
                     }
                 }
+
+                if let error = viewModel.workflowErrorMessage {
+                    MirmirProductPanel(theme: theme) {
+                        Label(error, systemImage: "exclamationmark.shield")
+                            .font(theme.typography.body)
+                            .foregroundStyle(theme.danger)
+                    }
+                }
+
+                if let snapshot = viewModel.workflowQueueSnapshot,
+                   !snapshot.items.isEmpty {
+                    VStack(spacing: theme.spacing.space3) {
+                        ForEach(snapshot.items, id: \.jobID) { item in
+                            queueRow(item)
+                        }
+                    }
+                } else {
+                    MirmirProductPanel(theme: theme) {
+                        Text(
+                            viewModel.isInitializingWorkflow
+                                ? "Reconciling durable jobs and partial artifacts…"
+                                : "The durable queue is empty."
+                        )
+                        .font(theme.typography.body)
+                        .foregroundStyle(theme.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+
+                if let recovery = viewModel.workflowRecoverySnapshot,
+                   !recovery.items.isEmpty {
+                    MirmirProductPanel(theme: theme) {
+                        VStack(
+                            alignment: .leading,
+                            spacing: theme.spacing.space2
+                        ) {
+                            Text("Launch recovery")
+                                .font(theme.typography.headline)
+                            ForEach(recovery.items, id: \.jobID) { item in
+                                Text(
+                                    "\(item.jobID.rawValue): "
+                                        + "\(item.status.rawValue) → "
+                                        + item.presentedLifecycle.rawValue
+                                )
+                                .font(theme.typography.caption.monospaced())
+                                .foregroundStyle(
+                                    item.containedFailureCount > 0
+                                        ? theme.danger
+                                        : theme.textSecondary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Text(
+                    "Jobs, bookmark authority, lifecycle transitions, checkpoint "
+                        + "segments, and recovery decisions are retained across launches."
+                )
+                .font(theme.typography.caption)
+                .foregroundStyle(theme.textTertiary)
             }
-            Text(
-                "Mirmir intentionally runs one bounded job at a time; this screen "
-                    + "shows the live job and does not imply a persistent queue."
-            )
-            .font(theme.typography.caption)
-            .foregroundStyle(theme.textTertiary)
-            Spacer()
+            .padding(theme.spacing.space6)
         }
-        .padding(theme.spacing.space6)
         .background(theme.background)
     }
 
-    private var queueTitle: String {
-        switch viewModel.state {
-        case .processing: "One job is processing"
-        case .completed: "The last job completed"
-        case .failed: "The last job needs attention"
-        default: "No active job"
+    private func queueRow(
+        _ item: WorkflowApplicationQueueItemV4
+    ) -> some View {
+        MirmirProductPanel(theme: theme) {
+            HStack(spacing: theme.spacing.space3) {
+                Image(systemName: symbol(for: item.lifecycle))
+                    .foregroundStyle(tone(for: item.lifecycle).color(theme: theme))
+                    .frame(width: 24)
+                VStack(alignment: .leading, spacing: theme.spacing.space1) {
+                    Text(item.request?.outputFileName.rawValue ?? item.jobID.rawValue)
+                        .font(theme.typography.bodyEmphasis)
+                    Text(
+                        "\(item.lifecycle.rawValue) · "
+                            + "\(item.request?.backendID.rawValue ?? "request unavailable")"
+                            + " · priority \(item.priority)"
+                    )
+                    .font(theme.typography.caption)
+                    .foregroundStyle(theme.textSecondary)
+                }
+                Spacer()
+                if item.lifecycle == .queued {
+                    HStack(spacing: theme.spacing.space1) {
+                        Button {
+                            viewModel.moveWorkflowJob(
+                                item.jobID,
+                                direction: .earlier
+                            )
+                        } label: {
+                            Image(systemName: "arrow.up")
+                        }
+                        .help("Move earlier among jobs at this priority")
+                        Button {
+                            viewModel.moveWorkflowJob(
+                                item.jobID,
+                                direction: .later
+                            )
+                        } label: {
+                            Image(systemName: "arrow.down")
+                        }
+                        .help("Move later among jobs at this priority")
+                        Button {
+                            viewModel.adjustWorkflowPriority(
+                                item.jobID,
+                                delta: 10
+                            )
+                        } label: {
+                            Image(systemName: "plus")
+                        }
+                        .help("Increase dispatch priority")
+                        Button {
+                            viewModel.adjustWorkflowPriority(
+                                item.jobID,
+                                delta: -10
+                            )
+                        } label: {
+                            Image(systemName: "minus")
+                        }
+                        .help("Decrease dispatch priority")
+                    }
+                    .buttonStyle(
+                        MirmirProductSecondaryButtonStyle(theme: theme)
+                    )
+                }
+                if item.lifecycle == .paused {
+                    Button("Resume") {
+                        viewModel.resumeWorkflowJob(item.jobID)
+                    }
+                    .buttonStyle(
+                        MirmirProductSecondaryButtonStyle(theme: theme)
+                    )
+                    .disabled(
+                        viewModel.isProcessing
+                            || viewModel.isWorkflowProcessing
+                    )
+                }
+            }
         }
+    }
+
+    private var queueTitle: String {
+        let items = viewModel.workflowQueueSnapshot?.items ?? []
+        let active = items.filter {
+            !$0.lifecycle.isTerminal && $0.lifecycle != .paused
+        }.count
+        let paused = items.filter { $0.lifecycle == .paused }.count
+        return "\(items.count) durable job\(items.count == 1 ? "" : "s") · "
+            + "\(active) active · \(paused) paused"
     }
 
     private var queueDetail: String {
-        switch viewModel.state {
-        case .processing(let source, let progress):
-            return "\(source.filename) · \(progress.processedFrameCount) frames"
-        case .completed(_, let result):
-            return result.outputURL.lastPathComponent
-        case .failed(let error):
-            return error.localizedDescription
-        default:
-            return "Configure a job in the Upscale workspace."
-        }
+        let ready = viewModel.workflowQueueSnapshot?.items.filter {
+            $0.requestRecordStatus == .ready
+        }.count ?? 0
+        return "\(ready) request record\(ready == 1 ? "" : "s") verified"
     }
 
     private var queueSymbol: String {
-        switch viewModel.state {
-        case .processing: "gearshape.2"
-        case .completed: "checkmark.circle"
-        case .failed: "exclamationmark.triangle"
-        default: "tray"
-        }
+        viewModel.workflowErrorMessage == nil
+            ? "list.bullet.rectangle.portrait"
+            : "exclamationmark.triangle"
     }
 
     private var queueTone: MirmirProductStatusTone {
-        switch viewModel.state {
-        case .processing: .active
-        case .completed: .success
-        case .failed: .danger
-        default: .neutral
+        if viewModel.workflowErrorMessage != nil { return .danger }
+        return viewModel.isWorkflowProcessing ? .active : .neutral
+    }
+
+    private func symbol(for lifecycle: WorkflowJobLifecycle) -> String {
+        switch lifecycle {
+        case .queued: "clock"
+        case .probing, .planned: "waveform"
+        case .running, .pausing: "gearshape.2"
+        case .paused: "pause.circle"
+        case .verifying, .committing: "checkmark.shield"
+        case .recovering: "arrow.clockwise"
+        case .completed: "checkmark.circle"
+        case .cancelled: "stop.circle"
+        case .contained, .failed, .safeHalt: "exclamationmark.triangle"
+        }
+    }
+
+    private func tone(
+        for lifecycle: WorkflowJobLifecycle
+    ) -> MirmirProductStatusTone {
+        switch lifecycle {
+        case .running, .pausing, .probing, .planned, .verifying, .committing,
+             .recovering:
+            .active
+        case .completed:
+            .success
+        case .paused, .queued, .cancelled:
+            .neutral
+        case .contained, .failed, .safeHalt:
+            .danger
         }
     }
 }
@@ -971,8 +1138,9 @@ private struct MirmirProductSettings: View {
                 }
 
                 Text(
-                    "Source URLs are not persisted without security-scoped bookmarks. "
-                        + "Backend selection remains explicit and never silently falls back."
+                    "Durable jobs retain security-scoped bookmarks in Application "
+                        + "Support. Backend selection remains explicit and never "
+                        + "silently falls back."
                 )
                 .font(theme.typography.caption)
                 .foregroundStyle(theme.textTertiary)
@@ -1189,10 +1357,11 @@ private struct MirmirProductDiagnostics: View {
                     )
                     Divider().overlay(theme.borderSubtle)
                     Text(
-                        "The deterministic Metal preview creates its P05 runtime ABI "
-                            + "in memory, compiles with precise FP32 functions, and never "
-                            + "substitutes the CPU backend. It is not represented as a "
-                            + "release-locked artifact."
+                        "Both deterministic routes load the verified bundled ASH P06 "
+                            + "runtime and consume one canonical fixed-point execution "
+                            + "plan. Trust, format, or preservation mismatches fail "
+                            + "closed, and the selected CPU or Metal identity is never "
+                            + "silently substituted."
                     )
                     .font(theme.typography.body)
                     .foregroundStyle(theme.textSecondary)

@@ -1,0 +1,41 @@
+name: Verify deterministic v4 identities
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-v4-identities:
+    name: Replay corpus, runtime, and evidence identities
+    runs-on: macos-15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install locked Python test runtime
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install corpus-test dependency
+        run: python3 -m pip install 'numpy==2.0.2'
+
+      - name: Test identity contracts
+        run: |
+          python3 script/v4/test_p06_source_identity_v4.py
+          python3 script/v4/test_natural_quality_corpus.py
+          python3 script/v4/test_repository_identity_v4.py
+
+      - name: Verify checked-in identities
+        run: python3 script/v4/repository_identity_v4.py --repository "$PWD"
+
+      - name: Load the production P06 bundle
+        run: script/v4/run_p06_runtime_load_check.sh
+
+      - name: Replay the ASH algebra certificate
+        run: script/v4/run_ash_v4_semantic_selftest.sh

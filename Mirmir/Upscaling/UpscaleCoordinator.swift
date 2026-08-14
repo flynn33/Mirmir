@@ -148,11 +148,16 @@ private extension UpscaleCoordinator {
             )
         }
         guard request.targetWidth > 0,
-              request.targetHeight > 0,
-              request.targetWidth.isMultiple(of: 2),
-              request.targetHeight.isMultiple(of: 2) else {
+              request.targetHeight > 0 else {
             throw MirmirError.invalidRequest(
-                "4:2:0 output requires positive even encoded dimensions."
+                "Output dimensions must be positive."
+            )
+        }
+        if request.outputCodec.requiresEvenEncodedDimensions,
+           (!request.targetWidth.isMultiple(of: 2)
+            || !request.targetHeight.isMultiple(of: 2)) {
+            throw MirmirError.invalidRequest(
+                "4:2:0 output requires even encoded dimensions."
             )
         }
     }

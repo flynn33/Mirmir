@@ -1,0 +1,49 @@
+{
+  "aggregate": {
+    "cpuMedianMilliseconds": 8.3929165,
+    "cpuP95Milliseconds": 11.0884226,
+    "cpuSampleCount": 40,
+    "metalMedianMilliseconds": 2.0451040000000003,
+    "metalP95Milliseconds": 6.77534165,
+    "metalSampleCount": 40
+  },
+  "cases": [
+    {
+      "cpuMedianMilliseconds": 10.6435625,
+      "cpuP95Milliseconds": 10.83368735,
+      "id": "420f-direct_2x-radial_detail",
+      "metalMedianMilliseconds": 2.114,
+      "metalP95Milliseconds": 6.794039799999999,
+      "sampleCount": 10,
+      "warmupCount": 5
+    },
+    {
+      "cpuMedianMilliseconds": 10.9742705,
+      "cpuP95Milliseconds": 11.2233356,
+      "id": "420f-direct_3_over_2-radial_detail",
+      "metalMedianMilliseconds": 1.8977499999999998,
+      "metalP95Milliseconds": 6.1706292,
+      "sampleCount": 10,
+      "warmupCount": 5
+    },
+    {
+      "cpuMedianMilliseconds": 6.315896,
+      "cpuP95Milliseconds": 6.4063734,
+      "id": "420v-direct_2x-radial_detail",
+      "metalMedianMilliseconds": 2.253479,
+      "metalP95Milliseconds": 4.572941999999997,
+      "sampleCount": 10,
+      "warmupCount": 5
+    },
+    {
+      "cpuMedianMilliseconds": 6.246916000000001,
+      "cpuP95Milliseconds": 6.3516606,
+      "id": "420v-direct_3_over_2-radial_detail",
+      "metalMedianMilliseconds": 1.8728120000000001,
+      "metalP95Milliseconds": 6.1182727,
+      "sampleCount": 10,
+      "warmupCount": 5
+    }
+  ],
+  "schemaVersion": "mirmir-v4-performance-baseline-v1"
+}

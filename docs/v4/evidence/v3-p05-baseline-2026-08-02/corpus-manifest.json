@@ -1,0 +1,412 @@
+{
+  "artifactSetSHA256": "4d0595e953b847c6be5c7383af45e9012729ca091af13887a53f180c963f0204",
+  "artifacts": [
+    {
+      "byteCount": 1152,
+      "path": "420f-direct_2x-checkerboard-reference.bin",
+      "sha256": "0ea34da3539b057fc45e523067540f72d58217cbea1bf5fa6291177bcba2edfe"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_2x-checkerboard-source.bin",
+      "sha256": "8434c7691faddb978d67a9922cdbe15bb981854b691a40f42a383250c85a935f"
+    },
+    {
+      "byteCount": 1152,
+      "path": "420f-direct_2x-constant-reference.bin",
+      "sha256": "e2648013d5058ec5cac072f1aeeeab134977a73a80309ff77e5d837c985ea8d5"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_2x-constant-source.bin",
+      "sha256": "c5285e69770929d8ff74149fc43728578a904ca65ec881a285c6a3b44f345941"
+    },
+    {
+      "byteCount": 1152,
+      "path": "420f-direct_2x-diagonal_edge-reference.bin",
+      "sha256": "5ed0f191175be7c03e5aac575fdaf59056d1d11a1d9e3d94165a3e1fadb31cb6"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_2x-diagonal_edge-source.bin",
+      "sha256": "4c196bb7b2b8b261b82255c8f7480f8bf27060860232ce70d8158e9b7a7e0d0e"
+    },
+    {
+      "byteCount": 1152,
+      "path": "420f-direct_2x-horizontal_ramp-reference.bin",
+      "sha256": "8232647a2ad7806388e8d72972231b86df5821251c6082ef0a788fbb31078249"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_2x-horizontal_ramp-source.bin",
+      "sha256": "ed4d00298c83218da251922f47044cf566513423a3827cc9754da0f789edc5c1"
+    },
+    {
+      "byteCount": 1152,
+      "path": "420f-direct_2x-impulse-reference.bin",
+      "sha256": "08553ce16c9a05b6d913dc0702deedf6939b093ff95ee8b5b930524049e35b14"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_2x-impulse-source.bin",
+      "sha256": "a4e09e162128e39849ee24235c636eec7cf8e3cacca6add016d55c0222789913"
+    },
+    {
+      "byteCount": 1152,
+      "path": "420f-direct_2x-moving_edge_0-reference.bin",
+      "sha256": "fd7b099b0eda9b49f61224a44130dce97d94a162e7021b758775240f3ee22645"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_2x-moving_edge_0-source.bin",
+      "sha256": "dbef89de4f8a01e64b7135638d796c541f9def89e085b3474f2a660ea230279e"
+    },
+    {
+      "byteCount": 1152,
+      "path": "420f-direct_2x-moving_edge_1-reference.bin",
+      "sha256": "b4eeacf3c46b3e3cfcdb39cb14176e710721bfdad5e8b63f0462b6950626733e"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_2x-moving_edge_1-source.bin",
+      "sha256": "142ba0805a2fd0f1501a32decc5d47ea8ff3fd9e437ced2a7aa4376f40a2ec41"
+    },
+    {
+      "byteCount": 1152,
+      "path": "420f-direct_2x-moving_edge_2-reference.bin",
+      "sha256": "7c0564c7f9c41bf64c9b8e65ca8118fad0a4cffec1785cbe0f745ae8e13ec94f"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_2x-moving_edge_2-source.bin",
+      "sha256": "fd6c0181379904657fd3e7ee9ed9afd697f1ae0890f92f7099c18eb2ff614f9c"
+    },
+    {
+      "byteCount": 1152,
+      "path": "420f-direct_2x-moving_edge_3-reference.bin",
+      "sha256": "f43b187ebe08e06fb0fd720dda71badbca6447b3cf2116e3bdb29553d6f9ded4"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_2x-moving_edge_3-source.bin",
+      "sha256": "2ae797213a3a2229b5cc0b0bdeff5acd289c1ecb82761927cae7b4547ccd058a"
+    },
+    {
+      "byteCount": 1152,
+      "path": "420f-direct_2x-radial_detail-reference.bin",
+      "sha256": "aa90a0c0fc62b53320e19d5c8cbcdc9de47a056d07789e879f36ae44f46aa9aa"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_2x-radial_detail-source.bin",
+      "sha256": "87dc513caa392105a02425704e15b9fbd0fa81f92c1a552daa37550822225024"
+    },
+    {
+      "byteCount": 648,
+      "path": "420f-direct_3_over_2-checkerboard-reference.bin",
+      "sha256": "71524bc075ab94f1e889ee6f154b2b34774bb8df00b578c49ade17f438f33b59"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_3_over_2-checkerboard-source.bin",
+      "sha256": "8434c7691faddb978d67a9922cdbe15bb981854b691a40f42a383250c85a935f"
+    },
+    {
+      "byteCount": 648,
+      "path": "420f-direct_3_over_2-constant-reference.bin",
+      "sha256": "11338d90691f7ee7d29ee4d6d25a035ecb45253d6685269e9993f70dc92809e6"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_3_over_2-constant-source.bin",
+      "sha256": "c5285e69770929d8ff74149fc43728578a904ca65ec881a285c6a3b44f345941"
+    },
+    {
+      "byteCount": 648,
+      "path": "420f-direct_3_over_2-diagonal_edge-reference.bin",
+      "sha256": "e7fadcf958b08212fe9a535862fdb85512b5f3e773723d479de277b143fccdc3"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_3_over_2-diagonal_edge-source.bin",
+      "sha256": "4c196bb7b2b8b261b82255c8f7480f8bf27060860232ce70d8158e9b7a7e0d0e"
+    },
+    {
+      "byteCount": 648,
+      "path": "420f-direct_3_over_2-horizontal_ramp-reference.bin",
+      "sha256": "439106cd6b82fed3449b0f4e4ad00e52951fdbf8f0b2e6c5125d3a95213a575f"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_3_over_2-horizontal_ramp-source.bin",
+      "sha256": "ed4d00298c83218da251922f47044cf566513423a3827cc9754da0f789edc5c1"
+    },
+    {
+      "byteCount": 648,
+      "path": "420f-direct_3_over_2-impulse-reference.bin",
+      "sha256": "c29a95946849e097f12d01615ea8ce9db3f3c8f5bd8607d3295b3415c46b5ca6"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_3_over_2-impulse-source.bin",
+      "sha256": "a4e09e162128e39849ee24235c636eec7cf8e3cacca6add016d55c0222789913"
+    },
+    {
+      "byteCount": 648,
+      "path": "420f-direct_3_over_2-moving_edge_0-reference.bin",
+      "sha256": "0158637353fbeacacf8322c2535c0fb3c1e14d35c8b4acdab35209b1c699b5e9"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_3_over_2-moving_edge_0-source.bin",
+      "sha256": "dbef89de4f8a01e64b7135638d796c541f9def89e085b3474f2a660ea230279e"
+    },
+    {
+      "byteCount": 648,
+      "path": "420f-direct_3_over_2-moving_edge_1-reference.bin",
+      "sha256": "0e2d6b46149e87f83fd2b7187432aff762516bb3deb1a22c64f1c5cd2293061d"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_3_over_2-moving_edge_1-source.bin",
+      "sha256": "142ba0805a2fd0f1501a32decc5d47ea8ff3fd9e437ced2a7aa4376f40a2ec41"
+    },
+    {
+      "byteCount": 648,
+      "path": "420f-direct_3_over_2-moving_edge_2-reference.bin",
+      "sha256": "ec2868eb307a6d2c03c7660120da67610440a1c49369720d8c1599ba40851b74"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_3_over_2-moving_edge_2-source.bin",
+      "sha256": "fd6c0181379904657fd3e7ee9ed9afd697f1ae0890f92f7099c18eb2ff614f9c"
+    },
+    {
+      "byteCount": 648,
+      "path": "420f-direct_3_over_2-moving_edge_3-reference.bin",
+      "sha256": "1f829a78b1e504028bed46e9dd9d4ce9f8b8ea8d1d5bf44cc1194855d6dce473"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_3_over_2-moving_edge_3-source.bin",
+      "sha256": "2ae797213a3a2229b5cc0b0bdeff5acd289c1ecb82761927cae7b4547ccd058a"
+    },
+    {
+      "byteCount": 648,
+      "path": "420f-direct_3_over_2-radial_detail-reference.bin",
+      "sha256": "508626e1f6864e3eadb5c1995591c3e3c71519fbd92ac9d63acd3e282b670a66"
+    },
+    {
+      "byteCount": 288,
+      "path": "420f-direct_3_over_2-radial_detail-source.bin",
+      "sha256": "87dc513caa392105a02425704e15b9fbd0fa81f92c1a552daa37550822225024"
+    },
+    {
+      "byteCount": 1152,
+      "path": "420v-direct_2x-checkerboard-reference.bin",
+      "sha256": "0ea34da3539b057fc45e523067540f72d58217cbea1bf5fa6291177bcba2edfe"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_2x-checkerboard-source.bin",
+      "sha256": "8434c7691faddb978d67a9922cdbe15bb981854b691a40f42a383250c85a935f"
+    },
+    {
+      "byteCount": 1152,
+      "path": "420v-direct_2x-constant-reference.bin",
+      "sha256": "e2648013d5058ec5cac072f1aeeeab134977a73a80309ff77e5d837c985ea8d5"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_2x-constant-source.bin",
+      "sha256": "c5285e69770929d8ff74149fc43728578a904ca65ec881a285c6a3b44f345941"
+    },
+    {
+      "byteCount": 1152,
+      "path": "420v-direct_2x-diagonal_edge-reference.bin",
+      "sha256": "5ed0f191175be7c03e5aac575fdaf59056d1d11a1d9e3d94165a3e1fadb31cb6"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_2x-diagonal_edge-source.bin",
+      "sha256": "4c196bb7b2b8b261b82255c8f7480f8bf27060860232ce70d8158e9b7a7e0d0e"
+    },
+    {
+      "byteCount": 1152,
+      "path": "420v-direct_2x-horizontal_ramp-reference.bin",
+      "sha256": "8232647a2ad7806388e8d72972231b86df5821251c6082ef0a788fbb31078249"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_2x-horizontal_ramp-source.bin",
+      "sha256": "ed4d00298c83218da251922f47044cf566513423a3827cc9754da0f789edc5c1"
+    },
+    {
+      "byteCount": 1152,
+      "path": "420v-direct_2x-impulse-reference.bin",
+      "sha256": "08553ce16c9a05b6d913dc0702deedf6939b093ff95ee8b5b930524049e35b14"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_2x-impulse-source.bin",
+      "sha256": "a4e09e162128e39849ee24235c636eec7cf8e3cacca6add016d55c0222789913"
+    },
+    {
+      "byteCount": 1152,
+      "path": "420v-direct_2x-moving_edge_0-reference.bin",
+      "sha256": "fd7b099b0eda9b49f61224a44130dce97d94a162e7021b758775240f3ee22645"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_2x-moving_edge_0-source.bin",
+      "sha256": "dbef89de4f8a01e64b7135638d796c541f9def89e085b3474f2a660ea230279e"
+    },
+    {
+      "byteCount": 1152,
+      "path": "420v-direct_2x-moving_edge_1-reference.bin",
+      "sha256": "b4eeacf3c46b3e3cfcdb39cb14176e710721bfdad5e8b63f0462b6950626733e"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_2x-moving_edge_1-source.bin",
+      "sha256": "142ba0805a2fd0f1501a32decc5d47ea8ff3fd9e437ced2a7aa4376f40a2ec41"
+    },
+    {
+      "byteCount": 1152,
+      "path": "420v-direct_2x-moving_edge_2-reference.bin",
+      "sha256": "7c0564c7f9c41bf64c9b8e65ca8118fad0a4cffec1785cbe0f745ae8e13ec94f"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_2x-moving_edge_2-source.bin",
+      "sha256": "fd6c0181379904657fd3e7ee9ed9afd697f1ae0890f92f7099c18eb2ff614f9c"
+    },
+    {
+      "byteCount": 1152,
+      "path": "420v-direct_2x-moving_edge_3-reference.bin",
+      "sha256": "f43b187ebe08e06fb0fd720dda71badbca6447b3cf2116e3bdb29553d6f9ded4"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_2x-moving_edge_3-source.bin",
+      "sha256": "2ae797213a3a2229b5cc0b0bdeff5acd289c1ecb82761927cae7b4547ccd058a"
+    },
+    {
+      "byteCount": 1152,
+      "path": "420v-direct_2x-radial_detail-reference.bin",
+      "sha256": "aa90a0c0fc62b53320e19d5c8cbcdc9de47a056d07789e879f36ae44f46aa9aa"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_2x-radial_detail-source.bin",
+      "sha256": "87dc513caa392105a02425704e15b9fbd0fa81f92c1a552daa37550822225024"
+    },
+    {
+      "byteCount": 648,
+      "path": "420v-direct_3_over_2-checkerboard-reference.bin",
+      "sha256": "71524bc075ab94f1e889ee6f154b2b34774bb8df00b578c49ade17f438f33b59"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_3_over_2-checkerboard-source.bin",
+      "sha256": "8434c7691faddb978d67a9922cdbe15bb981854b691a40f42a383250c85a935f"
+    },
+    {
+      "byteCount": 648,
+      "path": "420v-direct_3_over_2-constant-reference.bin",
+      "sha256": "11338d90691f7ee7d29ee4d6d25a035ecb45253d6685269e9993f70dc92809e6"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_3_over_2-constant-source.bin",
+      "sha256": "c5285e69770929d8ff74149fc43728578a904ca65ec881a285c6a3b44f345941"
+    },
+    {
+      "byteCount": 648,
+      "path": "420v-direct_3_over_2-diagonal_edge-reference.bin",
+      "sha256": "e7fadcf958b08212fe9a535862fdb85512b5f3e773723d479de277b143fccdc3"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_3_over_2-diagonal_edge-source.bin",
+      "sha256": "4c196bb7b2b8b261b82255c8f7480f8bf27060860232ce70d8158e9b7a7e0d0e"
+    },
+    {
+      "byteCount": 648,
+      "path": "420v-direct_3_over_2-horizontal_ramp-reference.bin",
+      "sha256": "439106cd6b82fed3449b0f4e4ad00e52951fdbf8f0b2e6c5125d3a95213a575f"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_3_over_2-horizontal_ramp-source.bin",
+      "sha256": "ed4d00298c83218da251922f47044cf566513423a3827cc9754da0f789edc5c1"
+    },
+    {
+      "byteCount": 648,
+      "path": "420v-direct_3_over_2-impulse-reference.bin",
+      "sha256": "c29a95946849e097f12d01615ea8ce9db3f3c8f5bd8607d3295b3415c46b5ca6"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_3_over_2-impulse-source.bin",
+      "sha256": "a4e09e162128e39849ee24235c636eec7cf8e3cacca6add016d55c0222789913"
+    },
+    {
+      "byteCount": 648,
+      "path": "420v-direct_3_over_2-moving_edge_0-reference.bin",
+      "sha256": "0158637353fbeacacf8322c2535c0fb3c1e14d35c8b4acdab35209b1c699b5e9"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_3_over_2-moving_edge_0-source.bin",
+      "sha256": "dbef89de4f8a01e64b7135638d796c541f9def89e085b3474f2a660ea230279e"
+    },
+    {
+      "byteCount": 648,
+      "path": "420v-direct_3_over_2-moving_edge_1-reference.bin",
+      "sha256": "0e2d6b46149e87f83fd2b7187432aff762516bb3deb1a22c64f1c5cd2293061d"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_3_over_2-moving_edge_1-source.bin",
+      "sha256": "142ba0805a2fd0f1501a32decc5d47ea8ff3fd9e437ced2a7aa4376f40a2ec41"
+    },
+    {
+      "byteCount": 648,
+      "path": "420v-direct_3_over_2-moving_edge_2-reference.bin",
+      "sha256": "ec2868eb307a6d2c03c7660120da67610440a1c49369720d8c1599ba40851b74"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_3_over_2-moving_edge_2-source.bin",
+      "sha256": "fd6c0181379904657fd3e7ee9ed9afd697f1ae0890f92f7099c18eb2ff614f9c"
+    },
+    {
+      "byteCount": 648,
+      "path": "420v-direct_3_over_2-moving_edge_3-reference.bin",
+      "sha256": "1f829a78b1e504028bed46e9dd9d4ce9f8b8ea8d1d5bf44cc1194855d6dce473"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_3_over_2-moving_edge_3-source.bin",
+      "sha256": "2ae797213a3a2229b5cc0b0bdeff5acd289c1ecb82761927cae7b4547ccd058a"
+    },
+    {
+      "byteCount": 648,
+      "path": "420v-direct_3_over_2-radial_detail-reference.bin",
+      "sha256": "508626e1f6864e3eadb5c1995591c3e3c71519fbd92ac9d63acd3e282b670a66"
+    },
+    {
+      "byteCount": 288,
+      "path": "420v-direct_3_over_2-radial_detail-source.bin",
+      "sha256": "87dc513caa392105a02425704e15b9fbd0fa81f92c1a552daa37550822225024"
+    },
+    {
+      "byteCount": 1158,
+      "path": "end-to-end-input.mov",
+      "sha256": "1e2d65c2702dc3e47768293cf566ecd105282cb7d4ae58874dc313a77b53182d"
+    }
+  ],
+  "caseCount": 40,
+  "schemaVersion": "mirmir-v4-p05-corpus-manifest-v1"
+}

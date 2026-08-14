@@ -1,0 +1,65 @@
+xcodebuild(98373) MallocStackLogging: could not tag MSL-related memory as no_footprint, so those pages will be included in process footprint - No such file or directory (2)
+xcodebuild(98373) MallocStackLogging: stack logs being written to /private/tmp/stack-logs.98373.102458000.LKn8iv.index
+xcodebuild(98373) MallocStackLogging: recording malloc and VM allocation stacks to disk using standard recorder
+xcodebuild(98373) MallocStackLogging: could not tag MSL-related memory as no_footprint, so those pages will be included in process footprint - No such file or directory (2)
+xcodebuild(98373) MallocStackLogging: stack logs being written to /private/tmp/stack-logs.98373.102f14000.zXHcQt.index
+xcodebuild(98373) MallocStackLogging: recording malloc and VM allocation stacks to disk using standard recorder
+xcodebuild(98373) MallocStackLogging: stack logs deleted from /tmp/stack-logs.98373.102458000.LKn8iv.index
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project Mirmir.xcodeproj -scheme Mirmir-P05-Allocations -configuration Release -destination platform=macOS -derivedDataPath /private/tmp/mirmir-v3-p05-profiler-derived-20260803d -parallel-testing-enabled NO test-without-building "-only-testing:MirmirTests/DeterministicMetalBackendTests/testCaptureV3BaselineWhenRequested" "-only-testing:MirmirTests/VideoProcessingSessionTests/testCaptureV3EndToEndBaselineWhenRequested" CODE_SIGNING_ALLOWED=NO ENABLE_TESTABILITY=YES ONLY_ACTIVE_ARCH=YES MIRMIR_V4_BASELINE_DIR=/private/tmp/mirmir-v3-p05-profiler-derived-20260803d/P05Profiler/allocations/capture MIRMIR_V4_WARMUP_COUNT=5 MIRMIR_V4_SAMPLE_COUNT=10 MallocStackLogging=full MallocStackLoggingDirectory=/private/tmp/mirmir-v3-p05-profiler-derived-20260803d/P05Profiler/allocations/stack-logs
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+    ENABLE_TESTABILITY = YES
+    MallocStackLogging = full
+    MallocStackLoggingDirectory = /private/tmp/mirmir-v3-p05-profiler-derived-20260803d/P05Profiler/allocations/stack-logs
+    MIRMIR_V4_BASELINE_DIR = /private/tmp/mirmir-v3-p05-profiler-derived-20260803d/P05Profiler/allocations/capture
+    MIRMIR_V4_SAMPLE_COUNT = 10
+    MIRMIR_V4_WARMUP_COUNT = 5
+    ONLY_ACTIVE_ARCH = YES
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:macOS, arch:arm64, id:<redacted-device-id>, name:My Mac }
+{ platform:macOS, arch:x86_64, id:<redacted-device-id>, name:My Mac }
+Mirmir(98417) MallocStackLogging: could not tag MSL-related memory as no_footprint, so those pages will be included in process footprint - No such file or directory (2)
+Mirmir(98417) MallocStackLogging: stack logs being written to /private/tmp/mirmir-v3-p05-profiler-derived-20260803d/P05Profiler/allocations/stack-logs/stack-logs.98417.101064000.tzV64a.index
+Mirmir(98417) MallocStackLogging: recording malloc and VM allocation stacks to disk using standard recorder
+2026-08-03 07:18:20.151282-0500 Mirmir[98417:3762757] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-08-03 07:18:20.151552-0500 Mirmir[98417:3762757] [Application] Error registering app with intents framework: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-08-03 07:18:20.155660-0500 Mirmir[98417:3762764] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-08-03 07:18:20.155735-0500 Mirmir[98417:3762764] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-08-03 07:18:20.160393-0500 Mirmir[98417:3762756] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-08-03 07:18:20.160653-0500 Mirmir[98417:3762756] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-08-03 07:18:20.164468-0500 Mirmir[98417:3762756] [Connection] Will NOT re-try to establish the connection
+2026-08-03 07:18:20.164694-0500 Mirmir[98417:3762757] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-08-03 07:18:20.164840-0500 Mirmir[98417:3762757] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-08-03 07:18:20.190336-0500 Mirmir[98417:3762734] ApplePersistenceIgnoreState: Existing state will not be touched. New state will be written to /var/folders/tz/42vs04ls56q51168sddqb5940000gn/T/com.mirmir.app.savedState
+Test Suite 'Selected tests' started at 2026-08-03 07:18:20.704.
+Test Suite 'MirmirTests.xctest' started at 2026-08-03 07:18:20.705.
+Test Suite 'DeterministicMetalBackendTests' started at 2026-08-03 07:18:20.706.
+Test Case '-[MirmirTests.DeterministicMetalBackendTests testCaptureV3BaselineWhenRequested]' started.
+Test Case '-[MirmirTests.DeterministicMetalBackendTests testCaptureV3BaselineWhenRequested]' passed (2.246 seconds).
+Test Suite 'DeterministicMetalBackendTests' passed at 2026-08-03 07:18:22.954.
+	 Executed 1 test, with 0 failures (0 unexpected) in 2.246 (2.248) seconds
+Test Suite 'VideoProcessingSessionTests' started at 2026-08-03 07:18:22.955.
+Test Case '-[MirmirTests.VideoProcessingSessionTests testCaptureV3EndToEndBaselineWhenRequested]' started.
+2026-08-03 07:18:22.962383-0500 Mirmir[98417:3762786] [] (Fig) signalled err=0 at <>:85
+Test Case '-[MirmirTests.VideoProcessingSessionTests testCaptureV3EndToEndBaselineWhenRequested]' passed (11.725 seconds).
+Test Suite 'VideoProcessingSessionTests' passed at 2026-08-03 07:18:34.681.
+	 Executed 1 test, with 0 failures (0 unexpected) in 11.725 (11.727) seconds
+Test Suite 'MirmirTests.xctest' passed at 2026-08-03 07:18:34.682.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 13.971 (13.977) seconds
+Test Suite 'Selected tests' passed at 2026-08-03 07:18:34.683.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 13.971 (13.979) seconds
+Mirmir(98417) MallocStackLogging: stack logs deleted from /private/tmp/mirmir-v3-p05-profiler-derived-20260803d/P05Profiler/allocations/stack-logs/stack-logs.98417.101064000.tzV64a.index
+2026-08-03 07:18:34.965 xcodebuild[98373:3762563] [MT] IDETestOperationsObserverDebug: 15.485 elapsed -- Testing started completed.
+2026-08-03 07:18:34.965 xcodebuild[98373:3762563] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-08-03 07:18:34.965 xcodebuild[98373:3762563] [MT] IDETestOperationsObserverDebug: 15.485 sec, +15.485 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/mirmir-v3-p05-profiler-derived-20260803d/Logs/Test/Test-Mirmir-P05-Allocations-2026.08.03_07-18-19--0500.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started
+xcodebuild(98373) MallocStackLogging: stack logs deleted from /private/tmp/stack-logs.98373.102f14000.zXHcQt.index

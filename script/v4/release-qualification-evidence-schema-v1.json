@@ -1,0 +1,200 @@
+{
+  "$id": "https://mirmir.invalid/schema/ash-v4-release-qualification-evidence-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "artifact": {
+      "additionalProperties": false,
+      "properties": {
+        "byteCount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "byteCount",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "candidate": {
+      "additionalProperties": false,
+      "properties": {
+        "appBundleSHA256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "bundleIdentifier": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "productBuild": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "productVersion": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "releaseConfigurationSHA256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "runtimeArtifactSetSHA256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "runtimeManifestSHA256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "runtimeManifestFileSHA256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "runtimeSourceRevision": {
+          "pattern": "^[0-9a-f]{40,64}$",
+          "type": "string"
+        },
+        "sourceCommit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "sourceTreeIdentitySHA256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceCommit",
+        "sourceTreeIdentitySHA256",
+        "runtimeManifestSHA256",
+        "runtimeManifestFileSHA256",
+        "runtimeArtifactSetSHA256",
+        "runtimeSourceRevision",
+        "releaseConfigurationSHA256",
+        "appBundleSHA256",
+        "bundleIdentifier",
+        "productVersion",
+        "productBuild"
+      ],
+      "type": "object"
+    },
+    "identityBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "byteCount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "jsonPointer": {
+          "pattern": "^/",
+          "type": "string"
+        },
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "jsonPointer",
+        "path",
+        "byteCount",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "evidenceEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "byteCount": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "contractSHA256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "identityBindings": {
+          "items": {
+            "$ref": "#/$defs/identityBinding"
+          },
+          "type": "array"
+        },
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "quality",
+            "same_scope_performance",
+            "cpu_metal_parity",
+            "media_preservation",
+            "recovery",
+            "p06_reproduction",
+            "support_matrix",
+            "notarized_smoke"
+          ]
+        },
+        "sealedManifest": {
+          "$ref": "#/$defs/artifact"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "path",
+        "byteCount",
+        "sha256",
+        "contractSHA256",
+        "sealedManifest",
+        "identityBindings"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "candidate": {
+      "$ref": "#/$defs/candidate"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/evidenceEntry"
+      },
+      "minItems": 8,
+      "type": "array"
+    },
+    "schemaVersion": {
+      "const": "mirmir-ash-v4-release-candidate-evidence-v1"
+    },
+    "waivers": {
+      "maxItems": 0,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "candidate",
+    "waivers",
+    "evidence"
+  ],
+  "title": "Mirmir ASH deterministic engine v4 release-candidate evidence index",
+  "type": "object"
+}

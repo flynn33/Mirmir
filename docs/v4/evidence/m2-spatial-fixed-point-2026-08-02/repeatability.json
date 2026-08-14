@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "mirmir-v4-fixed-point-spatial-repeatability-v1",
+  "runCount": 4,
+  "runs": [
+    {
+      "run": 1,
+      "cpuMedianMilliseconds": 0.0046045000000000001,
+      "cpuP95Milliseconds": 0.0066068499999999983,
+      "metalMedianMilliseconds": 0.21197949999999999,
+      "metalP95Milliseconds": 0.22432080000000001,
+      "ratiosVersusCommittedFixedKernel": {
+        "cpuMedian": 0.15369851124908207,
+        "cpuP95": 0.17158510107830707,
+        "metalMedian": 0.34176461104393391,
+        "metalP95": 0.17160044227959115
+      }
+    },
+    {
+      "run": 2,
+      "cpuMedianMilliseconds": 0.0041669999999999997,
+      "cpuP95Milliseconds": 0.007331599999999998,
+      "metalMedianMilliseconds": 0.21641650000000001,
+      "metalP95Milliseconds": 0.23477114999999998,
+      "ratiosVersusCommittedFixedKernel": {
+        "cpuMedian": 0.13909473262567595,
+        "cpuP95": 0.19040742972304747,
+        "metalMedian": 0.34891817815397019,
+        "metalP95": 0.1795947285070677
+      }
+    },
+    {
+      "run": 3,
+      "cpuMedianMilliseconds": 0.0046670000000000001,
+      "cpuP95Milliseconds": 0.0056746999999999952,
+      "metalMedianMilliseconds": 0.19404199999999999,
+      "metalP95Milliseconds": 0.2028035,
+      "ratiosVersusCommittedFixedKernel": {
+        "cpuMedian": 0.15578476533814006,
+        "cpuP95": 0.14737643099042186,
+        "metalMedian": 0.31284482063683999,
+        "metalP95": 0.15514018448511713
+      }
+    },
+    {
+      "run": 4,
+      "cpuMedianMilliseconds": 0.0042290000000000001,
+      "cpuP95Milliseconds": 0.0051291499999999999,
+      "metalMedianMilliseconds": 0.20624999999999999,
+      "metalP95Milliseconds": 0.22503064999999997,
+      "ratiosVersusCommittedFixedKernel": {
+        "cpuMedian": 0.14116429668202152,
+        "cpuP95": 0.13320806756560222,
+        "metalMedian": 0.33252720677146314,
+        "metalP95": 0.1721434618032027
+      }
+    }
+  ],
+  "ranges": {
+    "cpuMedianMilliseconds": {
+      "minimum": 0.0041669999999999997,
+      "maximum": 0.0046670000000000001
+    },
+    "cpuP95Milliseconds": {
+      "minimum": 0.0051291499999999999,
+      "maximum": 0.007331599999999998
+    },
+    "metalMedianMilliseconds": {
+      "minimum": 0.19404199999999999,
+      "maximum": 0.21641650000000001
+    },
+    "metalP95Milliseconds": {
+      "minimum": 0.2028035,
+      "maximum": 0.23477114999999998
+    }
+  }
+}

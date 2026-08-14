@@ -3,6 +3,137 @@ import XCTest
 @testable import Mirmir
 
 final class VideoProcessingSessionTests: XCTestCase {
+    private struct EndToEndBaselineRun: Codable {
+        let backendID: String
+        let sampleIndex: Int
+        let wallMilliseconds: Double
+        let sessionMilliseconds: Double
+        let processedFrameCount: Int
+        let outputByteCount: Int
+        let stageMilliseconds: [String: Double]
+        let stageSampleCounts: [String: Int]
+    }
+
+    private struct EndToEndBaselineCapture: Codable {
+        let schemaVersion: String
+        let inputFile: String
+        let inputByteCount: Int
+        let targetWidth: Int
+        let targetHeight: Int
+        let outputCodec: String
+        let warmupCount: Int
+        let sampleCount: Int
+        let runs: [EndToEndBaselineRun]
+    }
+
+    func testCaptureV3EndToEndBaselineWhenRequested() async throws {
+        guard let requestedDirectory = ProcessInfo.processInfo.environment[
+            "MIRMIR_V4_BASELINE_DIR"
+        ], !requestedDirectory.isEmpty else {
+            throw XCTSkip("Set MIRMIR_V4_BASELINE_DIR to capture end-to-end timing.")
+        }
+
+        let outputDirectory = URL(fileURLWithPath: requestedDirectory, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: outputDirectory,
+            withIntermediateDirectories: true
+        )
+        let warmupCount = max(
+            0,
+            Int(ProcessInfo.processInfo.environment["MIRMIR_V4_WARMUP_COUNT"] ?? "5")
+                ?? 5
+        )
+        let sampleCount = max(
+            1,
+            Int(ProcessInfo.processInfo.environment["MIRMIR_V4_SAMPLE_COUNT"] ?? "10")
+                ?? 10
+        )
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let inputURL = fixtures.url(for: "v3-end-to-end-input.mov")
+        try await VideoProbeFixtureFactory.makeVideo(at: inputURL, transform: .identity)
+        let deterministicCatalog = try deterministicCatalog()
+        let archivedInputName = "end-to-end-input.mov"
+        let archivedInput = outputDirectory.appendingPathComponent(archivedInputName)
+        try FileManager.default.copyItem(at: inputURL, to: archivedInput)
+
+        let targetWidth = 128
+        let targetHeight = 96
+        var runs: [EndToEndBaselineRun] = []
+        for backendID in [
+            UpscaleBackendID.mirmirDeterministicCPU,
+            .mirmirDeterministicMetal
+        ] {
+            for iteration in 0..<(warmupCount + sampleCount) {
+                let timingRecorder = BaselineVideoTimingRecorder()
+                let coordinator = UpscaleCoordinator(
+                    backendCatalog: deterministicCatalog,
+                    processingSession: VideoProcessingSession(
+                        timingHandler: { event in
+                            timingRecorder.record(event)
+                        }
+                    )
+                )
+                let outputURL = fixtures.url(
+                    for: "\(backendID.rawValue)-\(iteration).mov"
+                )
+                let startedAt = DispatchTime.now().uptimeNanoseconds
+                let result = try await coordinator.process(
+                    UpscaleRequest(
+                        inputURL: inputURL,
+                        outputURL: outputURL,
+                        backendID: backendID,
+                        targetWidth: targetWidth,
+                        targetHeight: targetHeight,
+                        outputCodec: .h264,
+                        preserveAudio: false,
+                        overwriteExistingFile: false
+                    ),
+                    progress: { _ in }
+                )
+                let finishedAt = DispatchTime.now().uptimeNanoseconds
+                guard iteration >= warmupCount else {
+                    continue
+                }
+                let timing = timingRecorder.snapshot()
+                let attributes = try FileManager.default.attributesOfItem(
+                    atPath: outputURL.path
+                )
+                runs.append(EndToEndBaselineRun(
+                    backendID: backendID.rawValue,
+                    sampleIndex: iteration - warmupCount,
+                    wallMilliseconds: Double(finishedAt - startedAt) / 1_000_000.0,
+                    sessionMilliseconds: result.processingDurationSeconds * 1_000.0,
+                    processedFrameCount: result.processedFrameCount,
+                    outputByteCount: (attributes[.size] as? NSNumber)?.intValue ?? 0,
+                    stageMilliseconds: timing.milliseconds,
+                    stageSampleCounts: timing.counts
+                ))
+            }
+        }
+
+        let inputAttributes = try FileManager.default.attributesOfItem(
+            atPath: archivedInput.path
+        )
+        let capture = EndToEndBaselineCapture(
+            schemaVersion: "mirmir-v4-end-to-end-baseline-v1",
+            inputFile: archivedInputName,
+            inputByteCount: (inputAttributes[.size] as? NSNumber)?.intValue ?? 0,
+            targetWidth: targetWidth,
+            targetHeight: targetHeight,
+            outputCodec: OutputCodec.h264.rawValue,
+            warmupCount: warmupCount,
+            sampleCount: sampleCount,
+            runs: runs
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        try encoder.encode(capture).write(
+            to: outputDirectory.appendingPathComponent("end-to-end-results.json"),
+            options: .atomic
+        )
+    }
+
     func testConventionalAppleBackendsProduceReadableOutputWhenAvailable() async throws {
         let fixtures = try TemporaryFixtureDirectory()
         defer { fixtures.remove() }
@@ -78,8 +209,11 @@ final class VideoProcessingSessionTests: XCTestCase {
         let inputURL = fixtures.url(for: "deterministic-input.mov")
         let outputURL = fixtures.url(for: "deterministic-output.mov")
         try await VideoProbeFixtureFactory.makeVideo(at: inputURL, transform: .identity)
+        let coordinator = UpscaleCoordinator(
+            backendCatalog: try deterministicCatalog()
+        )
 
-        let result = try await UpscaleCoordinator().process(
+        let result = try await coordinator.process(
             UpscaleRequest(
                 inputURL: inputURL,
                 outputURL: outputURL,
@@ -106,8 +240,11 @@ final class VideoProcessingSessionTests: XCTestCase {
         let inputURL = fixtures.url(for: "deterministic-metal-input.mov")
         let outputURL = fixtures.url(for: "deterministic-metal-output.mov")
         try await VideoProbeFixtureFactory.makeVideo(at: inputURL, transform: .identity)
+        let coordinator = UpscaleCoordinator(
+            backendCatalog: try deterministicCatalog()
+        )
 
-        let result = try await UpscaleCoordinator().process(
+        let result = try await coordinator.process(
             UpscaleRequest(
                 inputURL: inputURL,
                 outputURL: outputURL,
@@ -126,6 +263,50 @@ final class VideoProcessingSessionTests: XCTestCase {
         XCTAssertEqual(result.encodedHeight, 96)
         XCTAssertEqual(result.processedFrameCount, 3)
         XCTAssertTrue(FileManager.default.fileExists(atPath: outputURL.path))
+        XCTAssertFalse(try directoryContainsPartialFile(fixtures.rootURL))
+    }
+
+    func testDeterministicCPUAndMetalProduceVerifiedProRes422WholeAssets()
+        async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let inputURL = fixtures.url(for: "deterministic-prores-input.mov")
+        try await VideoProbeFixtureFactory.makeVideo(
+            at: inputURL,
+            transform: .identity
+        )
+        let catalog = try deterministicCatalog()
+
+        for backendID in [
+            UpscaleBackendID.mirmirDeterministicCPU,
+            .mirmirDeterministicMetal
+        ] {
+            let outputURL = fixtures.url(
+                for: "\(backendID.rawValue)-prores422.mov"
+            )
+            let result = try await UpscaleCoordinator(
+                backendCatalog: catalog
+            ).process(
+                UpscaleRequest(
+                    inputURL: inputURL,
+                    outputURL: outputURL,
+                    backendID: backendID,
+                    targetWidth: 128,
+                    targetHeight: 96,
+                    outputCodec: .proRes422,
+                    preserveAudio: false,
+                    overwriteExistingFile: false
+                ),
+                progress: { _ in }
+            )
+
+            XCTAssertEqual(result.actualBackendID, backendID)
+            XCTAssertEqual(result.outputCodec, .proRes422)
+            XCTAssertEqual(result.encodedWidth, 128)
+            XCTAssertEqual(result.encodedHeight, 96)
+            XCTAssertEqual(result.processedFrameCount, 3)
+            try await verifyProRes422Output(at: outputURL)
+        }
         XCTAssertFalse(try directoryContainsPartialFile(fixtures.rootURL))
     }
 
@@ -570,6 +751,78 @@ final class VideoProcessingSessionTests: XCTestCase {
         ).contains { $0.lastPathComponent.hasPrefix(".mirmir-") }
     }
 
+    private func verifyProRes422Output(at url: URL) async throws {
+        let contract = try VideoWriterFormatContractV4(
+            codec: .proRes422,
+            storage: .nv12VideoRange8Bit,
+            color: .sdrBT709,
+            sourceGeometry: try RationalPresentationGeometryV4(
+                codedWidth: 64,
+                codedHeight: 48,
+                cleanAperture: .fullRaster(width: 64, height: 48)
+            ),
+            outputWidth: 128,
+            outputHeight: 96,
+            frameOperation: .spatialResampling
+        )
+        let asset = AVURLAsset(
+            url: url,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(tracks.first)
+        let formats = try await track.load(.formatDescriptions)
+        let format = try XCTUnwrap(formats.first)
+        try contract.verifyReopenedFormat(
+            format,
+            preferredTransform: try await track.load(.preferredTransform)
+        )
+
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(
+            track: track,
+            outputSettings: contract.sourcePixelBufferAttributes
+        )
+        XCTAssertTrue(reader.canAdd(output))
+        reader.add(output)
+        XCTAssertTrue(
+            reader.startReading(),
+            reader.error?.localizedDescription ?? "reader start failed"
+        )
+        var decodedFrameCount = 0
+        while let sample = output.copyNextSampleBuffer() {
+            let pixelBuffer = try XCTUnwrap(
+                CMSampleBufferGetImageBuffer(sample)
+            )
+            try contract.verifyDecodedPixelBuffer(pixelBuffer)
+            decodedFrameCount += 1
+        }
+        XCTAssertEqual(reader.status, .completed)
+        XCTAssertNil(reader.error)
+        XCTAssertEqual(decodedFrameCount, 3)
+    }
+
+    private func deterministicCatalog() throws -> UpscaleBackendCatalog {
+        let runtime = try ASHV4SemanticArtifactTestSupport
+            .executableSystemMetalRuntime()
+        let cpuDescriptor = try XCTUnwrap(
+            BackendDescriptor.descriptor(for: .mirmirDeterministicCPU)
+        )
+        let metalDescriptor = try XCTUnwrap(
+            BackendDescriptor.descriptor(for: .mirmirDeterministicMetal)
+        )
+        return UpscaleBackendCatalog(backends: [
+            try XCTUnwrap(DeterministicCPUBackend(
+                descriptor: cpuDescriptor,
+                runtimeProvider: .fixed(runtime)
+            )),
+            try XCTUnwrap(DeterministicMetalBackend(
+                descriptor: metalDescriptor,
+                runtimeProvider: .fixed(runtime)
+            ))
+        ])
+    }
+
     private func decodedPresentationTimes(at url: URL) async throws -> [CMTime] {
         let asset = AVURLAsset(url: url)
         let tracks = try await asset.loadTracks(withMediaType: .video)
@@ -596,6 +849,39 @@ final class VideoProcessingSessionTests: XCTestCase {
             values.append(CMSampleBufferGetPresentationTimeStamp(sample))
         }
         return values
+    }
+}
+
+private final class BaselineVideoTimingRecorder: @unchecked Sendable {
+    struct Snapshot {
+        let milliseconds: [String: Double]
+        let counts: [String: Int]
+    }
+
+    private let lock = NSLock()
+    private var nanoseconds: [VideoProcessingStage: UInt64] = [:]
+    private var counts: [VideoProcessingStage: Int] = [:]
+
+    func record(_ event: VideoProcessingTimingEvent) {
+        lock.lock()
+        nanoseconds[event.stage, default: 0] += event.durationNanoseconds
+        counts[event.stage, default: 0] += 1
+        lock.unlock()
+    }
+
+    func snapshot() -> Snapshot {
+        lock.lock()
+        let capturedNanoseconds = nanoseconds
+        let capturedCounts = counts
+        lock.unlock()
+        return Snapshot(
+            milliseconds: Dictionary(uniqueKeysWithValues: VideoProcessingStage.allCases.map {
+                ($0.rawValue, Double(capturedNanoseconds[$0, default: 0]) / 1_000_000.0)
+            }),
+            counts: Dictionary(uniqueKeysWithValues: VideoProcessingStage.allCases.map {
+                ($0.rawValue, capturedCounts[$0, default: 0])
+            })
+        )
     }
 }
 

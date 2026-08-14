@@ -1275,6 +1275,7 @@ private func makeVImageVideoInfo(
             isFullRange: range?.isFullRange,
             fieldCount: 1,
             fieldDetail: nil,
+            alphaModel: .none,
             hasMasteringDisplayMetadata: false,
             hasContentLightLevelMetadata: false,
             dynamicRange: dynamicRange

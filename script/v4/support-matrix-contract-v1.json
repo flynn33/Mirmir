@@ -1,0 +1,32 @@
+{
+  "buildConfiguration": "Release",
+  "developmentTeam": "9AQ2C2838M",
+  "expectedSkippedTests": [
+    "DeterministicMetalBackendTests/testCaptureV3BaselineWhenRequested()",
+    "VideoProcessingSessionTests/testCaptureV3EndToEndBaselineWhenRequested()"
+  ],
+  "machineClasses": [
+    {
+      "destinationArchitecture": "arm64",
+      "id": "reference",
+      "runtimeMode": "native_apple_silicon"
+    },
+    {
+      "destinationArchitecture": "x86_64",
+      "id": "supported",
+      "runtimeMode": "rosetta_2_compatibility"
+    }
+  ],
+  "minimumPassingTestCount": 300,
+  "project": "Mirmir.xcodeproj",
+  "releaseConfigurationPath": "script/v4/release-candidate-v4.xcconfig",
+  "runtimeResourcePath": "Mirmir/Resources/ASH-P06.bundle",
+  "schemaVersion": "mirmir-ash-v4-support-matrix-contract-v1",
+  "scheme": "Mirmir",
+  "tools": {
+    "captureSourceSHA256": "bf87dc0d6d28cecb359828e35911e8a54f43324f4ff9fdc610e5d79077ede80d",
+    "evaluatorSHA256": "23c0d874e27b7eb37702d18612a969ede2cfda61ed0f968e7c078fd402511403",
+    "runnerSHA256": "748ab74ed2d62a5cbe5f624eb67aa53398ad1ca897547df3b1e9b7a42738aadc"
+  },
+  "unexpectedSkipAllowance": 0
+}

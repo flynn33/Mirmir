@@ -58,12 +58,9 @@ struct VideoProbe: VideoProbing {
             guard !enabledVideoTracks.isEmpty else {
                 throw MirmirError.noEnabledVideoTrack
             }
-            guard enabledVideoTracks.count == 1 else {
-                throw MirmirError.multipleEnabledVideoTracks(
-                    enabledVideoTracks.count
-                )
-            }
-
+            // Asset track order is the deterministic primary-track rule used
+            // by the v4 whole-asset planner. Alternate enabled video tracks
+            // remain in the media inventory and are migrated unchanged.
             let videoTrack = enabledVideoTracks[0]
             let (
                 naturalSize,
@@ -213,6 +210,9 @@ private extension VideoProbe {
             ? rawPresentationSize
             : nil
         let extensions = description.extensions
+        let rawExtensions = (
+            CMFormatDescriptionGetExtensions(description) as NSDictionary?
+        ) ?? [:]
         let cleanAperture = extensions[.cleanAperture] == nil
             ? nil
             : valid(rect: description.cleanAperture(originIsAtTopLeft: false))
@@ -225,6 +225,10 @@ private extension VideoProbe {
             pixelAspectRatio: pixelAspectRatio(from: extensions),
             color: colorInfo(
                 from: extensions,
+                alphaModel: alphaModel(
+                    from: rawExtensions,
+                    subtype: description.mediaSubType.rawValue
+                ),
                 mediaCharacteristics: mediaCharacteristics
             )
         )
@@ -232,6 +236,7 @@ private extension VideoProbe {
 
     static func colorInfo(
         from extensions: CMFormatDescription.Extensions,
+        alphaModel: CanonicalAlphaModelV4,
         mediaCharacteristics: [AVMediaCharacteristic]
     ) -> VideoColorInfo {
         let colorPrimaries = stringValue(extensions[.colorPrimaries])
@@ -281,10 +286,32 @@ private extension VideoProbe {
             isFullRange: booleanValue(extensions[.fullRangeVideo]),
             fieldCount: positiveInteger(extensions[.fieldCount]),
             fieldDetail: stringValue(extensions[.fieldDetail]),
+            alphaModel: alphaModel,
             hasMasteringDisplayMetadata: hasMasteringDisplayMetadata,
             hasContentLightLevelMetadata: hasContentLightLevelMetadata,
             dynamicRange: dynamicRange
         )
+    }
+
+    static func alphaModel(
+        from extensions: NSDictionary,
+        subtype: FourCharCode
+    ) -> CanonicalAlphaModelV4 {
+        let containsAlpha = (extensions[
+            kCMFormatDescriptionExtension_ContainsAlphaChannel as String
+        ] as? NSNumber)?.boolValue ?? (subtype == kCMVideoCodecType_HEVCWithAlpha)
+        let mode = extensions[
+            kCMFormatDescriptionExtension_AlphaChannelMode as String
+        ] as? String
+        guard containsAlpha || mode != nil else { return .none }
+        if mode == kCMFormatDescriptionAlphaChannelMode_StraightAlpha as String {
+            return .straight
+        }
+        if mode
+            == kCMFormatDescriptionAlphaChannelMode_PremultipliedAlpha as String {
+            return .premultiplied
+        }
+        return .unknown
     }
 
     static func pixelAspectRatio(

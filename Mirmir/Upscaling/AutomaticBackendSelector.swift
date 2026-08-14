@@ -10,9 +10,16 @@ struct AutomaticBackendSelector: Sendable {
     ]
 
     func proposedBackend(
-        from availabilityByID: [UpscaleBackendID: BackendAvailability]
+        from availabilityByID: [UpscaleBackendID: BackendAvailability],
+        requiresDeterministicAlpha: Bool = false
     ) -> UpscaleBackendID? {
-        Self.orderedBackendIDs.first {
+        let ordered = requiresDeterministicAlpha
+            ? [
+                UpscaleBackendID.mirmirDeterministicMetal,
+                .mirmirDeterministicCPU
+            ]
+            : Self.orderedBackendIDs
+        return ordered.first {
             availabilityByID[$0] == .available
         }
     }

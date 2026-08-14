@@ -31,16 +31,16 @@ struct BackendDescriptor: Equatable, Sendable {
     static let all: [BackendDescriptor] = [
         BackendDescriptor(
             id: .mirmirDeterministicCPU,
-            title: "Mirmir Deterministic — CPU Reference (Preview)",
-            summary: "Mirmir's fixed custom reference pipeline. Explicit selection, supported routes and formats only, with no hidden fallback.",
+            title: "Mirmir Deterministic — CPU Reference",
+            summary: "Release-qualified ASH P06 fixed-point spatial and temporal reconstruction with explicit format and preservation contracts. No hidden fallback.",
             group: .mirmir,
             operationClass: .deterministicReference,
             isAutomaticEligible: false
         ),
         BackendDescriptor(
             id: .mirmirDeterministicMetal,
-            title: "Mirmir Deterministic — Metal Accelerated (Preview)",
-            summary: "Mirmir's existing Metal V3 engine using deterministic in-memory P05 development inputs. Explicit selection only; no release-lock claim or hidden fallback.",
+            title: "Mirmir Deterministic — Metal Accelerated",
+            summary: "Release-qualified ASH P06 Metal execution of the shared fixed-point plan. Explicit selection only, with no backend substitution or hidden fallback.",
             group: .mirmir,
             operationClass: .deterministicGPU,
             isAutomaticEligible: false

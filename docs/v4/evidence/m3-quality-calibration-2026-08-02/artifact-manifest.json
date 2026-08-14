@@ -1,0 +1,30 @@
+{
+  "artifacts": [
+    {
+      "byteCount": 152456,
+      "path": "capture-manifest.json",
+      "sha256": "4bee5e39b90dccb77deab7978d243d7d40217ae24495b0183296e3b849033626"
+    },
+    {
+      "byteCount": 176879,
+      "path": "corpus-manifest.json",
+      "sha256": "cb26e240aebec44eea9b6755aae2d7d47c3a1c553435e907875e6ed9218ac749"
+    },
+    {
+      "byteCount": 4930,
+      "path": "quality-gate-contract-v1.json",
+      "sha256": "08aac234c7507172d5db8b398d3d65dfdf4d0e68d03a9d270386405b139f0fa1"
+    },
+    {
+      "byteCount": 100241,
+      "path": "quality-gate-report.json",
+      "sha256": "f65c54649232ec71e74d0d20aee7c0054ac1dd35dc575f79392b366a58ac3442"
+    },
+    {
+      "byteCount": 206614,
+      "path": "xcodebuild.log",
+      "sha256": "b86634df98dd8bd575f4c95b4612d009f5c43a08b8c089d50ec82a5d8a643b32"
+    }
+  ],
+  "schemaVersion": "mirmir-ash-v4-quality-evidence-manifest-v1"
+}

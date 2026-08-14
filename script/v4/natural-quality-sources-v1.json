@@ -1,0 +1,145 @@
+{
+  "assets": [
+    {
+      "byteCount": 8616489,
+      "creator": "Vidyo / Xiph.Org test media collection",
+      "file": "FourPeople_1280x720_60.webm",
+      "frameRateDenominator": 1,
+      "frameRateNumerator": 60,
+      "height": 720,
+      "id": "four_people",
+      "licenseID": "public-domain",
+      "licenseURL": "https://media.xiph.org/video/derf/",
+      "sha256": "1e4a5df7e67ae985370321cc2c91b8595f7e3433ad8ee1e84da7a26ff5254deb",
+      "sourceURL": "https://media.xiph.org/video/derf/webm/FourPeople_1280x720_60.webm",
+      "width": 1280
+    },
+    {
+      "byteCount": 6654698,
+      "creator": "Vidyo / Xiph.Org test media collection",
+      "file": "Johnny_1280x720_60.webm",
+      "frameRateDenominator": 1,
+      "frameRateNumerator": 60,
+      "height": 720,
+      "id": "johnny",
+      "licenseID": "public-domain",
+      "licenseURL": "https://media.xiph.org/video/derf/",
+      "sha256": "58e58fb9d7f980b241123b04146058b12f386f59a6a56db6f293199824772ace",
+      "sourceURL": "https://media.xiph.org/video/derf/webm/Johnny_1280x720_60.webm",
+      "width": 1280
+    },
+    {
+      "byteCount": 7132374,
+      "creator": "Vidyo / Xiph.Org test media collection",
+      "file": "KristenAndSara_1280x720_60.webm",
+      "frameRateDenominator": 1,
+      "frameRateNumerator": 60,
+      "height": 720,
+      "id": "kristen_sara",
+      "licenseID": "public-domain",
+      "licenseURL": "https://media.xiph.org/video/derf/",
+      "sha256": "7d32a6d6864804b986832272ed570a2e4b43552d5958fc1f614d1e7e0fbd2436",
+      "sourceURL": "https://media.xiph.org/video/derf/webm/KristenAndSara_1280x720_60.webm",
+      "width": 1280
+    },
+    {
+      "byteCount": 8147493,
+      "creator": "Vidyo / Xiph.Org test media collection",
+      "file": "vidyo1_720p_60fps.webm",
+      "frameRateDenominator": 1,
+      "frameRateNumerator": 60,
+      "height": 720,
+      "id": "vidyo1",
+      "licenseID": "public-domain",
+      "licenseURL": "https://media.xiph.org/video/derf/",
+      "sha256": "a090e17dd2c781f16604b2a56989482db05249dd1ac92d36ec0050ea516e36c3",
+      "sourceURL": "https://media.xiph.org/video/derf/webm/vidyo1_720p_60fps.webm",
+      "width": 1280
+    },
+    {
+      "byteCount": 9070124,
+      "creator": "Vidyo / Xiph.Org test media collection",
+      "file": "vidyo3_720p_60fps.webm",
+      "frameRateDenominator": 1,
+      "frameRateNumerator": 60,
+      "height": 720,
+      "id": "vidyo3",
+      "licenseID": "public-domain",
+      "licenseURL": "https://media.xiph.org/video/derf/",
+      "sha256": "3257e93c21e91abc7b6a5b58e59d89d9fccfa14d98dd15dfb4a1dd07b7e3c70e",
+      "sourceURL": "https://media.xiph.org/video/derf/webm/vidyo3_720p_60fps.webm",
+      "width": 1280
+    },
+    {
+      "byteCount": 8037978,
+      "creator": "Vidyo / Xiph.Org test media collection",
+      "file": "vidyo4_720p_60fps.webm",
+      "frameRateDenominator": 1,
+      "frameRateNumerator": 60,
+      "height": 720,
+      "id": "vidyo4",
+      "licenseID": "public-domain",
+      "licenseURL": "https://media.xiph.org/video/derf/",
+      "sha256": "f27f1b8f5b817a98669b812376b9c08d987f5e7404fc4bab7b0ae27d60db8393",
+      "sourceURL": "https://media.xiph.org/video/derf/webm/vidyo4_720p_60fps.webm",
+      "width": 1280
+    },
+    {
+      "byteCount": 77410288,
+      "creator": "Blender Foundation",
+      "file": "sintel-2048-stereo_512kb.mp4",
+      "frameRateDenominator": 1,
+      "frameRateNumerator": 24,
+      "height": 240,
+      "id": "sintel",
+      "licenseID": "CC-BY-3.0",
+      "licenseURL": "https://creativecommons.org/licenses/by/3.0/",
+      "sha256": "93df4e31869e879354a5055a8549fb9335df0f5f73f4963c9bf0db2c888bb704",
+      "sourceURL": "https://archive.org/download/Sintel/sintel-2048-stereo_512kb.mp4",
+      "width": 564
+    }
+  ],
+  "decoder": {
+    "decodeProcedureID": "ffmpeg-accurate-input-seek-rgb24-center-crop-lanczos-v1",
+    "executable": "ffmpeg",
+    "executableSHA256": "dad4b30b36a1a999bfa4b6ffbde138bd17ee496c69e12eef638227dff2c6415c",
+    "version": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
+  },
+  "clips": [
+    {"cohort":"natural_detail","id":"natural-four-people","pixelFormat":"420v","segments":[{"assetID":"four_people","count":6,"startFrame":60,"step":2}]},
+    {"cohort":"natural_detail","id":"natural-vidyo-one","pixelFormat":"420f","segments":[{"assetID":"vidyo1","count":6,"startFrame":90,"step":2}]},
+    {"cohort":"natural_detail","id":"natural-vidyo-three","pixelFormat":"420v","segments":[{"assetID":"vidyo3","count":6,"startFrame":120,"step":2}]},
+    {"cohort":"natural_detail","id":"natural-sintel-landscape","pixelFormat":"420f","segments":[{"assetID":"sintel","count":6,"startFrame":1440,"step":1}]},
+
+    {"cohort":"text_graphics","id":"text-four-people-banner","pixelFormat":"420f","segments":[{"assetID":"four_people","count":6,"startFrame":180,"step":2}]},
+    {"cohort":"text_graphics","id":"text-johnny-poster","pixelFormat":"420v","segments":[{"assetID":"johnny","count":6,"startFrame":120,"step":2}]},
+    {"cohort":"text_graphics","id":"text-kristen-poster","pixelFormat":"420f","segments":[{"assetID":"kristen_sara","count":6,"startFrame":180,"step":2}]},
+    {"cohort":"text_graphics","id":"text-whiteboard","pixelFormat":"420v","segments":[{"assetID":"vidyo3","count":6,"startFrame":60,"step":2}]},
+
+    {"cohort":"animation","id":"animation-snow","pixelFormat":"420v","segments":[{"assetID":"sintel","count":6,"startFrame":240,"step":1}]},
+    {"cohort":"animation","id":"animation-dragon","pixelFormat":"420f","segments":[{"assetID":"sintel","count":6,"startFrame":4320,"step":1}]},
+    {"cohort":"animation","id":"animation-cave","pixelFormat":"420v","segments":[{"assetID":"sintel","count":6,"startFrame":10080,"step":1}]},
+    {"cohort":"animation","id":"animation-creature","pixelFormat":"420f","segments":[{"assetID":"sintel","count":6,"startFrame":18000,"step":1}]},
+
+    {"cohort":"faces","id":"faces-four-people","pixelFormat":"420f","segments":[{"assetID":"four_people","count":6,"startFrame":300,"step":2}]},
+    {"cohort":"faces","id":"faces-johnny","pixelFormat":"420v","segments":[{"assetID":"johnny","count":6,"startFrame":240,"step":2}]},
+    {"cohort":"faces","id":"faces-kristen-sara","pixelFormat":"420f","segments":[{"assetID":"kristen_sara","count":6,"startFrame":300,"step":2}]},
+    {"cohort":"faces","id":"faces-vidyo-four","pixelFormat":"420v","segments":[{"assetID":"vidyo4","count":6,"startFrame":180,"step":2}]},
+
+    {"cohort":"low_light_noise","id":"low-light-one","pixelFormat":"420v","segments":[{"assetID":"sintel","count":6,"startFrame":2880,"step":1}]},
+    {"cohort":"low_light_noise","id":"low-light-two","pixelFormat":"420f","segments":[{"assetID":"sintel","count":6,"startFrame":8640,"step":1}]},
+    {"cohort":"low_light_noise","id":"low-light-three","pixelFormat":"420v","segments":[{"assetID":"sintel","count":6,"startFrame":11520,"step":1}]},
+    {"cohort":"low_light_noise","id":"low-light-four","pixelFormat":"420f","segments":[{"assetID":"sintel","count":6,"startFrame":14400,"step":1}]},
+
+    {"cohort":"high_motion","id":"motion-four-people","pixelFormat":"420f","segments":[{"assetID":"four_people","count":6,"startFrame":360,"step":4}]},
+    {"cohort":"high_motion","id":"motion-kristen-sara","pixelFormat":"420v","segments":[{"assetID":"kristen_sara","count":6,"startFrame":240,"step":4}]},
+    {"cohort":"high_motion","id":"motion-vidyo-one","pixelFormat":"420f","segments":[{"assetID":"vidyo1","count":6,"startFrame":300,"step":4}]},
+    {"cohort":"high_motion","id":"motion-sintel","pixelFormat":"420v","segments":[{"assetID":"sintel","count":6,"startFrame":7200,"step":2}]},
+
+    {"cohort":"scene_cuts","id":"cut-four-people-to-johnny","pixelFormat":"420v","segments":[{"assetID":"four_people","count":3,"startFrame":420,"step":2},{"assetID":"johnny","count":3,"startFrame":360,"step":2}]},
+    {"cohort":"scene_cuts","id":"cut-kristen-to-vidyo-one","pixelFormat":"420f","segments":[{"assetID":"kristen_sara","count":3,"startFrame":420,"step":2},{"assetID":"vidyo1","count":3,"startFrame":420,"step":2}]},
+    {"cohort":"scene_cuts","id":"cut-whiteboard-to-vidyo-four","pixelFormat":"420v","segments":[{"assetID":"vidyo3","count":3,"startFrame":420,"step":2},{"assetID":"vidyo4","count":3,"startFrame":420,"step":2}]},
+    {"cohort":"scene_cuts","id":"cut-sintel-scenes","pixelFormat":"420f","segments":[{"assetID":"sintel","count":3,"startFrame":5760,"step":1},{"assetID":"sintel","count":3,"startFrame":12960,"step":1}]}
+  ],
+  "schemaVersion": "mirmir-ash-v4-natural-source-selection-v1"
+}

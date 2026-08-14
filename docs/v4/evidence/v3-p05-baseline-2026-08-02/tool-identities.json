@@ -1,0 +1,70 @@
+{
+  "artifactSetSHA256": "4ec291455ac19f13024328d060b540fa17d4241176e8a87d27f118a7d7dc93bc",
+  "hostToolSetSHA256": "71ee07dfafdc2e6786ddf5c45aac0ecdf9b26750bcc25a97ec3942d6b44fe1cb",
+  "hostTools": {
+    "git": {
+      "byteCount": 118640,
+      "path": "/usr/bin/git",
+      "sha256": "44a68ddc1983d6cff3fd35ba3f9ba5f82004216f1dcde69892b3d1b06e408698"
+    },
+    "mallocHistory": {
+      "byteCount": 296608,
+      "path": "/usr/bin/malloc_history",
+      "sha256": "e99e4ee3dc613916ed3f1bba50c956e6bd2c616466ede97426be6b5376bb13f6"
+    },
+    "numpyModule": {
+      "byteCount": 21817,
+      "path": "/Users/jimdaley/Library/Python/3.9/lib/python/site-packages/numpy/__init__.py",
+      "sha256": "c09e25b58f6b2f8e2cb3c158168f902d447f8171e5ea6513c0aca41ecbda7c2b"
+    },
+    "ps": {
+      "byteCount": 170432,
+      "path": "/bin/ps",
+      "sha256": "a1d8c4a0a96fb6159f09d8f520f54df829db5f2eae9b9f3448e18f0bee61115c"
+    },
+    "python": {
+      "byteCount": 102352,
+      "path": "/Applications/Xcode.app/Contents/Developer/Library/Frameworks/Python3.framework/Versions/3.9/bin/python3.9",
+      "sha256": "8e598855de9a6648bc670d5fe7a3a653f1fa967b74373ed7c4ca16fbc40c0de1"
+    },
+    "tar": {
+      "byteCount": 274448,
+      "path": "/usr/bin/bsdtar",
+      "sha256": "bc069dd7ef2ecea4c27ff9daa97f4ba4c5a1a41938bad8050e96bce5daa64346"
+    },
+    "xcodebuild": {
+      "byteCount": 135200,
+      "path": "/usr/bin/xcodebuild",
+      "sha256": "0b621959d22a5887087178e9488d291fd17c02d2317ee05c2d1c87430cfdc988"
+    },
+    "xcrun": {
+      "byteCount": 117104,
+      "path": "/usr/bin/xcrun",
+      "sha256": "4bc0cc7099775fbe35c653ceb09e0e393d2e5ada024db872e0eb8c43500b4dc6"
+    },
+    "xctrace": {
+      "byteCount": 121520,
+      "path": "/Applications/Xcode.app/Contents/Developer/usr/bin/xctrace",
+      "sha256": "175b0d81fef2dfedde502e37dce2e1f10442ca739b470937febfe35c457b8ec8"
+    }
+  },
+  "numpyVersion": "2.0.2",
+  "schemaVersion": "mirmir-v4-p05-tool-identities-v2",
+  "sealedTools": {
+    "captureTool": {
+      "byteCount": 89157,
+      "path": "capture_baseline.py",
+      "sha256": "4d631cf1ce0f8371af350407e07bebd3da59258a206a499d566b94abc8c5092f"
+    },
+    "identityTool": {
+      "byteCount": 11337,
+      "path": "p05_baseline_v4.py",
+      "sha256": "d79eff3f6bd7057460546b910cfa7654c9e846d4ff524e7b4ce78be78f6c929f"
+    },
+    "sourceManifest": {
+      "byteCount": 126437,
+      "path": "p05-baseline-source-manifest-v1.json",
+      "sha256": "880609bc2b4460814c63f2963042bee4fdb562eaa0b6376f84eb6aeb6a73ee69"
+    }
+  }
+}

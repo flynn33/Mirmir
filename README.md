@@ -3,9 +3,9 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-It combines deterministic CPU and Metal preview engines with supported Apple
-scaling frameworks, while keeping every backend choice and fallback boundary
-visible to the user.
+It combines the release-qualified deterministic ASH P06 CPU and Metal engine
+with supported Apple scaling frameworks, while keeping every backend choice,
+preservation decision, and fallback boundary visible to the user.
 
 The current application version is recorded in [`VERSION`](VERSION). Release
 packaging, signing, notarization, and publication remain manual operations.
@@ -16,15 +16,25 @@ packaging, signing, notarization, and publication remain manual operations.
   viewer for completed jobs.
 - Branded Dashboard and About surfaces with live, app-specific CPU, memory, and
   disk telemetry plus truthful explicit Metal-route activity.
-- Deterministic CPU and Metal preview routes for supported 2× and 3:2 NV12
-  inputs, with no silent backend substitution.
+- Deterministic CPU and Metal ASH P06 routes for arbitrary integral target
+  dimensions, with one canonical fixed-point plan and no silent backend
+  substitution.
+- Native 8-bit NV12 and 10-bit P010/HDR processing, field-aware deinterlacing,
+  rational sample-aspect/clean-aperture geometry, and ProRes 4444 alpha output.
+- State-conditioned spatial reconstruction plus bounded, motion-compensated
+  temporal history with deterministic checkpoint restoration.
 - Explicit Apple-native choices using VideoToolbox, MetalFX, Metal Performance
   Shaders, Core Image, Accelerate/vImage, and pixel transfer where available.
-- HEVC, H.264, and Apple ProRes 422 output in a QuickTime movie container.
-- Source timing, display orientation, supported SDR color metadata, and one
-  compatible audio track are preserved.
-- Output is validated before atomic publication; cancellation and failure remove
-  temporary output.
+- HEVC, H.264, Apple ProRes 422, and alpha-capable Apple ProRes 4444 output in
+  a QuickTime movie container.
+- Ordered video, audio, subtitle, caption, chapter, timecode, timed-metadata,
+  and auxiliary tracks are planned explicitly and preserved or transcoded
+  according to a verified whole-asset plan.
+- Durable bookmark-backed batch jobs survive relaunch. Pause/resume uses
+  segment and temporal checkpoints; launch recovery contains corrupt work and
+  reconciles registered partial artifacts.
+- Output is semantically validated before atomic publication; cancellation,
+  failure, and crash recovery account for temporary artifacts explicitly.
 
 See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.

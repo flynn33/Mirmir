@@ -5,6 +5,23 @@ import XCTest
 @testable import Mirmir
 
 final class BackendCatalogTests: XCTestCase {
+    func testDeterministicReleaseDescriptorsContainNoPreviewIdentity() {
+        for id in [
+            UpscaleBackendID.mirmirDeterministicCPU,
+            .mirmirDeterministicMetal
+        ] {
+            let descriptor = BackendDescriptor.descriptor(for: id)
+            let releaseText = [descriptor?.title, descriptor?.summary]
+                .compactMap { $0 }
+                .joined(separator: " ")
+                .lowercased()
+            XCTAssertFalse(releaseText.contains("preview"))
+            XCTAssertFalse(releaseText.contains("p05"))
+            XCTAssertFalse(releaseText.contains("development"))
+            XCTAssertTrue(releaseText.contains("p06"))
+        }
+    }
+
     func testDescriptorsContainEveryStablePickerIdentity() {
         XCTAssertEqual(BackendDescriptor.all.count, 14)
         XCTAssertEqual(
@@ -146,7 +163,8 @@ final class BackendCatalogTests: XCTestCase {
         )
     }
 
-    func testHDRIsUnavailableAcrossEveryEightBitBackendWithoutToneMapping() async {
+    func testHDRAvoidsEveryEightBitBackendAndAdmitsDeterministicP010()
+        async throws {
         let source = makeVideoInfo(
             url: URL(fileURLWithPath: "/tmp/catalog-hdr.mov"),
             bitDepth: 10,
@@ -159,13 +177,49 @@ final class BackendCatalogTests: XCTestCase {
             environment: .current()
         )
 
-        for descriptor in BackendDescriptor.concrete {
+        let deterministicIDs: Set<UpscaleBackendID> = [
+            .mirmirDeterministicCPU,
+            .mirmirDeterministicMetal
+        ]
+        for descriptor in BackendDescriptor.concrete
+            where !deterministicIDs.contains(descriptor.id) {
             XCTAssertEqual(
                 snapshot.entry(for: descriptor.id)?.availability,
                 .unavailable(reason: .hdrPreservationUnavailable),
                 "\(descriptor.title) must not silently convert HDR to SDR."
             )
         }
+        let runtime = try ASHV4SemanticArtifactTestSupport
+            .executableSystemMetalRuntime()
+        let cpuDescriptor = try XCTUnwrap(
+            BackendDescriptor.descriptor(for: .mirmirDeterministicCPU)
+        )
+        let cpu = try XCTUnwrap(DeterministicCPUBackend(
+            descriptor: cpuDescriptor,
+            runtimeProvider: .fixed(runtime)
+        ))
+        let cpuAvailability = await cpu.availability(
+            for: source,
+            targetSize: CGSize(width: 640, height: 360),
+            environment: .current()
+        )
+        XCTAssertEqual(cpuAvailability, .available)
+        let metalDescriptor = try XCTUnwrap(
+            BackendDescriptor.descriptor(for: .mirmirDeterministicMetal)
+        )
+        let metal = try XCTUnwrap(DeterministicMetalBackend(
+            descriptor: metalDescriptor,
+            runtimeProvider: .fixed(runtime)
+        ))
+        let metalAvailability = await metal.availability(
+            for: source,
+            targetSize: CGSize(width: 640, height: 360),
+            environment: .current()
+        )
+        XCTAssertTrue(
+            metalAvailability == .available
+                || metalAvailability == .unavailable(reason: .noMetalDevice)
+        )
         XCTAssertEqual(
             snapshot.entry(for: .automatic)?.availability,
             .unavailable(reason: .noCompatibleAutomaticBackend)
@@ -400,6 +454,187 @@ final class BackendCatalogTests: XCTestCase {
             XCTAssertNil(viewModel.backendSnapshot)
         }
     }
+
+    @MainActor
+    func testDurableQueueKeepsEnqueueAvailableWhileDisablingImmediateStart()
+        async throws {
+        let sourceURL = URL(fileURLWithPath: "/tmp/catalog-queued-source.mov")
+        let source = makeVideoInfo(url: sourceURL)
+        let generatedAt = WorkflowWallClockInstantV4(
+            nanosecondsSinceUnixEpoch: 42
+        )
+        let emptyQueue = WorkflowApplicationQueueSnapshotV4(
+            generatedAt: generatedAt,
+            items: []
+        )
+        let controller = CatalogQueueStateControllerV4(
+            queue: emptyQueue,
+            recovery: WorkflowLaunchRecoverySnapshotV4(
+                generatedAt: generatedAt,
+                items: []
+            )
+        )
+        let values = Dictionary(
+            uniqueKeysWithValues: BackendDescriptor.concrete.map {
+                ($0.id, BackendAvailability.available)
+            }
+        )
+        let viewModel = MirmirViewModel(
+            videoProbe: ImmediateCatalogVideoProbe(info: source),
+            backendCatalog: UpscaleBackendCatalog(
+                backends: makeStubBackends(values: values)
+            ),
+            runtimeEnvironment: testEnvironment,
+            workflowController: controller
+        )
+        await viewModel.initializeWorkflow()
+        viewModel.selectBackend(.mirmirDeterministicCPU)
+        viewModel.selectVideo(sourceURL)
+        await viewModel.waitForCurrentProbe()
+        await viewModel.waitForBackendAvailability()
+        viewModel.setOutputURL(
+            URL(fileURLWithPath: "/tmp/catalog-queued-output.mov")
+        )
+
+        XCTAssertTrue(viewModel.canStart)
+        XCTAssertTrue(viewModel.canEnqueueWorkflow)
+
+        let activeQueue = WorkflowApplicationQueueSnapshotV4(
+            generatedAt: generatedAt,
+            items: [try catalogQueueItem(lifecycle: .running)]
+        )
+        await controller.publish(activeQueue)
+        for _ in 0..<20 { await Task.yield() }
+
+        XCTAssertTrue(viewModel.isWorkflowProcessing)
+        XCTAssertFalse(viewModel.canStart)
+        XCTAssertTrue(viewModel.canEnqueueWorkflow)
+        XCTAssertEqual(
+            viewModel.startValidationMessage,
+            "A durable job is active. Add this request to the queue."
+        )
+    }
+
+    @MainActor
+    func testProRes422SelectionRoundTripsIntoDurableRequest() async throws {
+        let sourceURL = URL(
+            fileURLWithPath: "/tmp/catalog-prores422-source.mov"
+        )
+        let outputURL = URL(
+            fileURLWithPath: "/tmp/catalog-prores422-output.mov"
+        )
+        let source = makeVideoInfo(url: sourceURL)
+        let generatedAt = WorkflowWallClockInstantV4(
+            nanosecondsSinceUnixEpoch: 43
+        )
+        let controller = CatalogQueueStateControllerV4(
+            queue: WorkflowApplicationQueueSnapshotV4(
+                generatedAt: generatedAt,
+                items: []
+            ),
+            recovery: WorkflowLaunchRecoverySnapshotV4(
+                generatedAt: generatedAt,
+                items: []
+            )
+        )
+        let values = Dictionary(
+            uniqueKeysWithValues: BackendDescriptor.concrete.map {
+                ($0.id, BackendAvailability.available)
+            }
+        )
+        let viewModel = MirmirViewModel(
+            videoProbe: ImmediateCatalogVideoProbe(info: source),
+            backendCatalog: UpscaleBackendCatalog(
+                backends: makeStubBackends(values: values)
+            ),
+            runtimeEnvironment: testEnvironment,
+            workflowController: controller
+        )
+
+        await viewModel.initializeWorkflow()
+        viewModel.selectBackend(.mirmirDeterministicCPU)
+        viewModel.selectVideo(sourceURL)
+        await viewModel.waitForCurrentProbe()
+        await viewModel.waitForBackendAvailability()
+        viewModel.setOutputCodec(.proRes422)
+        viewModel.setPreserveAudio(false)
+        viewModel.setOutputURL(outputURL)
+        XCTAssertTrue(viewModel.canStart)
+
+        viewModel.startUpscale()
+        await viewModel.waitForProcessing()
+
+        let submittedRequest = await controller.latestSubmittedRequest()
+        let request = try XCTUnwrap(submittedRequest)
+        XCTAssertEqual(request.inputURL, sourceURL)
+        XCTAssertEqual(request.outputURL, outputURL)
+        XCTAssertEqual(request.backendID, .mirmirDeterministicCPU)
+        XCTAssertEqual(request.targetWidth, 640)
+        XCTAssertEqual(request.targetHeight, 360)
+        XCTAssertEqual(request.outputCodec, .proRes422)
+        XCTAssertEqual(request.preserveAudio, false)
+        XCTAssertEqual(request.overwriteExistingFile, false)
+    }
+
+    @MainActor
+    func testProRes4444AllowsOddIntegralAlphaGeometryInProductDraft()
+        async throws {
+        let sourceURL = URL(
+            fileURLWithPath: "/tmp/catalog-prores4444-alpha-source.mov"
+        )
+        let source = makeVideoInfo(
+            url: sourceURL,
+            alphaModel: .straight
+        )
+        let generatedAt = WorkflowWallClockInstantV4(
+            nanosecondsSinceUnixEpoch: 44
+        )
+        let controller = CatalogQueueStateControllerV4(
+            queue: WorkflowApplicationQueueSnapshotV4(
+                generatedAt: generatedAt,
+                items: []
+            ),
+            recovery: WorkflowLaunchRecoverySnapshotV4(
+                generatedAt: generatedAt,
+                items: []
+            )
+        )
+        let values = Dictionary(
+            uniqueKeysWithValues: BackendDescriptor.concrete.map {
+                ($0.id, BackendAvailability.available)
+            }
+        )
+        let viewModel = MirmirViewModel(
+            videoProbe: ImmediateCatalogVideoProbe(info: source),
+            backendCatalog: UpscaleBackendCatalog(
+                backends: makeStubBackends(values: values)
+            ),
+            runtimeEnvironment: testEnvironment,
+            workflowController: controller
+        )
+
+        await viewModel.initializeWorkflow()
+        viewModel.selectBackend(.mirmirDeterministicCPU)
+        viewModel.selectVideo(sourceURL)
+        await viewModel.waitForCurrentProbe()
+        viewModel.setTargetWidth(641)
+        viewModel.setTargetHeight(361)
+        await viewModel.waitForBackendAvailability()
+        viewModel.setOutputURL(
+            URL(fileURLWithPath: "/tmp/catalog-prores4444-alpha-output.mov")
+        )
+
+        viewModel.setOutputCodec(.proRes4444)
+        XCTAssertNil(viewModel.startValidationMessage)
+        XCTAssertTrue(viewModel.canStart)
+
+        viewModel.setOutputCodec(.h264)
+        XCTAssertEqual(
+            viewModel.startValidationMessage,
+            "4:2:0 output requires even encoded dimensions."
+        )
+        XCTAssertFalse(viewModel.canStart)
+    }
 }
 
 private let testEnvironment = RuntimeEnvironment(
@@ -501,6 +736,120 @@ private struct ImmediateCatalogVideoProbe: VideoProbing {
     }
 }
 
+private enum CatalogQueueStateControllerErrorV4: Error {
+    case unsupported
+}
+
+private actor CatalogQueueStateControllerV4:
+    WorkflowApplicationControllingV4
+{
+    private var queue: WorkflowApplicationQueueSnapshotV4
+    private let recovery: WorkflowLaunchRecoverySnapshotV4
+    private var observer = WorkflowApplicationObserverV4.none
+    private var submittedRequests: [UpscaleRequest] = []
+
+    init(
+        queue: WorkflowApplicationQueueSnapshotV4,
+        recovery: WorkflowLaunchRecoverySnapshotV4
+    ) {
+        self.queue = queue
+        self.recovery = recovery
+    }
+
+    func installObserver(_ observer: WorkflowApplicationObserverV4) async {
+        self.observer = observer
+    }
+
+    func launch() async throws -> WorkflowApplicationLaunchSnapshotV4 {
+        WorkflowApplicationLaunchSnapshotV4(
+            queue: queue,
+            recovery: recovery
+        )
+    }
+
+    func enqueue(
+        request _: UpscaleRequest,
+        priority _: Int32
+    ) async throws -> WorkflowApplicationEnqueueReceiptV4 {
+        throw CatalogQueueStateControllerErrorV4.unsupported
+    }
+
+    func submit(
+        request: UpscaleRequest,
+        progress _: @escaping @Sendable (UpscaleProgress) -> Void,
+        snapshot _: @escaping @Sendable (
+            WorkflowApplicationQueueSnapshotV4
+        ) -> Void
+    ) async throws -> WorkflowApplicationRunOutcomeV4 {
+        submittedRequests.append(request)
+        throw CatalogQueueStateControllerErrorV4.unsupported
+    }
+
+    func latestSubmittedRequest() -> UpscaleRequest? {
+        submittedRequests.last
+    }
+
+    func requestPause() async throws {
+        throw CatalogQueueStateControllerErrorV4.unsupported
+    }
+
+    func cancelActive() async throws {
+        throw CatalogQueueStateControllerErrorV4.unsupported
+    }
+
+    func resume(
+        jobID _: WorkflowJobID,
+        progress _: @escaping @Sendable (UpscaleProgress) -> Void,
+        snapshot _: @escaping @Sendable (
+            WorkflowApplicationQueueSnapshotV4
+        ) -> Void
+    ) async throws -> WorkflowApplicationRunOutcomeV4 {
+        throw CatalogQueueStateControllerErrorV4.unsupported
+    }
+
+    func queueSnapshot() async throws -> WorkflowApplicationQueueSnapshotV4 {
+        queue
+    }
+
+    func setPriority(jobID _: WorkflowJobID, value _: Int32) async throws {
+        throw CatalogQueueStateControllerErrorV4.unsupported
+    }
+
+    func move(
+        jobID _: WorkflowJobID,
+        direction _: WorkflowApplicationQueueMoveV4
+    ) async throws {
+        throw CatalogQueueStateControllerErrorV4.unsupported
+    }
+
+    func publish(_ queue: WorkflowApplicationQueueSnapshotV4) {
+        self.queue = queue
+        observer.snapshot(queue)
+    }
+}
+
+private func catalogQueueItem(
+    lifecycle: WorkflowJobLifecycle
+) throws -> WorkflowApplicationQueueItemV4 {
+    let digest = String(repeating: "a", count: 64)
+    return WorkflowApplicationQueueItemV4(
+        jobID: try WorkflowJobID("catalog-active-job"),
+        lifecycle: lifecycle,
+        queueOrdinal: nil,
+        priority: 0,
+        binding: WorkflowJobBinding(
+            jobID: try WorkflowJobID("catalog-active-job"),
+            requestID: try WorkflowRequestID(digest),
+            sourceIdentityID: try WorkflowSourceIdentityID(digest),
+            outputContractID: try WorkflowOutputContractID(digest),
+            planID: try WorkflowPlanID(digest),
+            runtimeBindingID: try WorkflowRuntimeBindingID(digest)
+        ),
+        requestRecordStatus: .missing,
+        request: nil
+    )
+}
+
 private func makeStubBackends(
     values: [UpscaleBackendID: BackendAvailability]
 ) -> [any UpscaleBackend] {
@@ -522,7 +871,8 @@ private func makeVideoInfo(
     encodedSize: CGSize = CGSize(width: 320, height: 180),
     bitDepth: Int = 8,
     pixelFormat: OSType = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
-    dynamicRange: VideoDynamicRange = .sdr
+    dynamicRange: VideoDynamicRange = .sdr,
+    alphaModel: CanonicalAlphaModelV4 = .none
 ) -> VideoInfo {
     VideoInfo(
         url: url,
@@ -559,6 +909,7 @@ private func makeVideoInfo(
             isFullRange: false,
             fieldCount: 1,
             fieldDetail: nil,
+            alphaModel: alphaModel,
             hasMasteringDisplayMetadata: false,
             hasContentLightLevelMetadata: false,
             dynamicRange: dynamicRange

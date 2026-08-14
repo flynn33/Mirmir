@@ -1,0 +1,1205 @@
+{
+  "maps": [
+    {
+      "caseID": "420f-direct_2x-checkerboard",
+      "comparison": "cpu-minus-reference",
+      "maximum": 111,
+      "minimum": -111,
+      "nonzeroCount": 703,
+      "path": "420f-direct_2x-checkerboard-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-checkerboard",
+      "comparison": "metal-minus-reference",
+      "maximum": 111,
+      "minimum": -111,
+      "nonzeroCount": 698,
+      "path": "420f-direct_2x-checkerboard-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-checkerboard",
+      "comparison": "cpu-minus-metal",
+      "maximum": 40,
+      "minimum": -40,
+      "nonzeroCount": 100,
+      "path": "420f-direct_2x-checkerboard-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-constant",
+      "comparison": "cpu-minus-reference",
+      "maximum": 0,
+      "minimum": 0,
+      "nonzeroCount": 0,
+      "path": "420f-direct_2x-constant-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-constant",
+      "comparison": "metal-minus-reference",
+      "maximum": 0,
+      "minimum": 0,
+      "nonzeroCount": 0,
+      "path": "420f-direct_2x-constant-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-constant",
+      "comparison": "cpu-minus-metal",
+      "maximum": 0,
+      "minimum": 0,
+      "nonzeroCount": 0,
+      "path": "420f-direct_2x-constant-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-diagonal_edge",
+      "comparison": "cpu-minus-reference",
+      "maximum": 229,
+      "minimum": -99,
+      "nonzeroCount": 294,
+      "path": "420f-direct_2x-diagonal_edge-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-diagonal_edge",
+      "comparison": "metal-minus-reference",
+      "maximum": 229,
+      "minimum": -99,
+      "nonzeroCount": 262,
+      "path": "420f-direct_2x-diagonal_edge-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-diagonal_edge",
+      "comparison": "cpu-minus-metal",
+      "maximum": 10,
+      "minimum": -34,
+      "nonzeroCount": 150,
+      "path": "420f-direct_2x-diagonal_edge-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-horizontal_ramp",
+      "comparison": "cpu-minus-reference",
+      "maximum": 9,
+      "minimum": -12,
+      "nonzeroCount": 1133,
+      "path": "420f-direct_2x-horizontal_ramp-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-horizontal_ramp",
+      "comparison": "metal-minus-reference",
+      "maximum": 9,
+      "minimum": -11,
+      "nonzeroCount": 1132,
+      "path": "420f-direct_2x-horizontal_ramp-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-horizontal_ramp",
+      "comparison": "cpu-minus-metal",
+      "maximum": 3,
+      "minimum": -6,
+      "nonzeroCount": 217,
+      "path": "420f-direct_2x-horizontal_ramp-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-impulse",
+      "comparison": "cpu-minus-reference",
+      "maximum": 58,
+      "minimum": -56,
+      "nonzeroCount": 208,
+      "path": "420f-direct_2x-impulse-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-impulse",
+      "comparison": "metal-minus-reference",
+      "maximum": 58,
+      "minimum": -56,
+      "nonzeroCount": 188,
+      "path": "420f-direct_2x-impulse-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-impulse",
+      "comparison": "cpu-minus-metal",
+      "maximum": 2,
+      "minimum": -4,
+      "nonzeroCount": 75,
+      "path": "420f-direct_2x-impulse-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-moving_edge_0",
+      "comparison": "cpu-minus-reference",
+      "maximum": 229,
+      "minimum": -108,
+      "nonzeroCount": 223,
+      "path": "420f-direct_2x-moving_edge_0-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-moving_edge_0",
+      "comparison": "metal-minus-reference",
+      "maximum": 229,
+      "minimum": -108,
+      "nonzeroCount": 201,
+      "path": "420f-direct_2x-moving_edge_0-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-moving_edge_0",
+      "comparison": "cpu-minus-metal",
+      "maximum": 15,
+      "minimum": -23,
+      "nonzeroCount": 114,
+      "path": "420f-direct_2x-moving_edge_0-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-moving_edge_1",
+      "comparison": "cpu-minus-reference",
+      "maximum": 229,
+      "minimum": -115,
+      "nonzeroCount": 256,
+      "path": "420f-direct_2x-moving_edge_1-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-moving_edge_1",
+      "comparison": "metal-minus-reference",
+      "maximum": 229,
+      "minimum": -115,
+      "nonzeroCount": 228,
+      "path": "420f-direct_2x-moving_edge_1-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-moving_edge_1",
+      "comparison": "cpu-minus-metal",
+      "maximum": 15,
+      "minimum": -13,
+      "nonzeroCount": 117,
+      "path": "420f-direct_2x-moving_edge_1-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-moving_edge_2",
+      "comparison": "cpu-minus-reference",
+      "maximum": 229,
+      "minimum": -74,
+      "nonzeroCount": 269,
+      "path": "420f-direct_2x-moving_edge_2-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-moving_edge_2",
+      "comparison": "metal-minus-reference",
+      "maximum": 229,
+      "minimum": -74,
+      "nonzeroCount": 247,
+      "path": "420f-direct_2x-moving_edge_2-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-moving_edge_2",
+      "comparison": "cpu-minus-metal",
+      "maximum": 34,
+      "minimum": -22,
+      "nonzeroCount": 119,
+      "path": "420f-direct_2x-moving_edge_2-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-moving_edge_3",
+      "comparison": "cpu-minus-reference",
+      "maximum": 229,
+      "minimum": -107,
+      "nonzeroCount": 276,
+      "path": "420f-direct_2x-moving_edge_3-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-moving_edge_3",
+      "comparison": "metal-minus-reference",
+      "maximum": 229,
+      "minimum": -107,
+      "nonzeroCount": 242,
+      "path": "420f-direct_2x-moving_edge_3-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-moving_edge_3",
+      "comparison": "cpu-minus-metal",
+      "maximum": 42,
+      "minimum": -48,
+      "nonzeroCount": 135,
+      "path": "420f-direct_2x-moving_edge_3-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-radial_detail",
+      "comparison": "cpu-minus-reference",
+      "maximum": 211,
+      "minimum": -210,
+      "nonzeroCount": 1138,
+      "path": "420f-direct_2x-radial_detail-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-radial_detail",
+      "comparison": "metal-minus-reference",
+      "maximum": 211,
+      "minimum": -210,
+      "nonzeroCount": 1138,
+      "path": "420f-direct_2x-radial_detail-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_2x-radial_detail",
+      "comparison": "cpu-minus-metal",
+      "maximum": 32,
+      "minimum": -26,
+      "nonzeroCount": 293,
+      "path": "420f-direct_2x-radial_detail-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-checkerboard",
+      "comparison": "cpu-minus-reference",
+      "maximum": 92,
+      "minimum": -92,
+      "nonzeroCount": 445,
+      "path": "420f-direct_3_over_2-checkerboard-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-checkerboard",
+      "comparison": "metal-minus-reference",
+      "maximum": 92,
+      "minimum": -92,
+      "nonzeroCount": 441,
+      "path": "420f-direct_3_over_2-checkerboard-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-checkerboard",
+      "comparison": "cpu-minus-metal",
+      "maximum": 42,
+      "minimum": -16,
+      "nonzeroCount": 77,
+      "path": "420f-direct_3_over_2-checkerboard-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-constant",
+      "comparison": "cpu-minus-reference",
+      "maximum": 0,
+      "minimum": 0,
+      "nonzeroCount": 0,
+      "path": "420f-direct_3_over_2-constant-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-constant",
+      "comparison": "metal-minus-reference",
+      "maximum": 0,
+      "minimum": 0,
+      "nonzeroCount": 0,
+      "path": "420f-direct_3_over_2-constant-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-constant",
+      "comparison": "cpu-minus-metal",
+      "maximum": 0,
+      "minimum": 0,
+      "nonzeroCount": 0,
+      "path": "420f-direct_3_over_2-constant-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-diagonal_edge",
+      "comparison": "cpu-minus-reference",
+      "maximum": 212,
+      "minimum": -70,
+      "nonzeroCount": 173,
+      "path": "420f-direct_3_over_2-diagonal_edge-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-diagonal_edge",
+      "comparison": "metal-minus-reference",
+      "maximum": 212,
+      "minimum": -70,
+      "nonzeroCount": 165,
+      "path": "420f-direct_3_over_2-diagonal_edge-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-diagonal_edge",
+      "comparison": "cpu-minus-metal",
+      "maximum": 9,
+      "minimum": -10,
+      "nonzeroCount": 29,
+      "path": "420f-direct_3_over_2-diagonal_edge-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-horizontal_ramp",
+      "comparison": "cpu-minus-reference",
+      "maximum": 11,
+      "minimum": -7,
+      "nonzeroCount": 585,
+      "path": "420f-direct_3_over_2-horizontal_ramp-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-horizontal_ramp",
+      "comparison": "metal-minus-reference",
+      "maximum": 11,
+      "minimum": -7,
+      "nonzeroCount": 591,
+      "path": "420f-direct_3_over_2-horizontal_ramp-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-horizontal_ramp",
+      "comparison": "cpu-minus-metal",
+      "maximum": 3,
+      "minimum": -6,
+      "nonzeroCount": 56,
+      "path": "420f-direct_3_over_2-horizontal_ramp-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-impulse",
+      "comparison": "cpu-minus-reference",
+      "maximum": 51,
+      "minimum": -70,
+      "nonzeroCount": 104,
+      "path": "420f-direct_3_over_2-impulse-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-impulse",
+      "comparison": "metal-minus-reference",
+      "maximum": 51,
+      "minimum": -70,
+      "nonzeroCount": 101,
+      "path": "420f-direct_3_over_2-impulse-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-impulse",
+      "comparison": "cpu-minus-metal",
+      "maximum": 1,
+      "minimum": -3,
+      "nonzeroCount": 14,
+      "path": "420f-direct_3_over_2-impulse-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-moving_edge_0",
+      "comparison": "cpu-minus-reference",
+      "maximum": 229,
+      "minimum": -62,
+      "nonzeroCount": 134,
+      "path": "420f-direct_3_over_2-moving_edge_0-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-moving_edge_0",
+      "comparison": "metal-minus-reference",
+      "maximum": 229,
+      "minimum": -62,
+      "nonzeroCount": 136,
+      "path": "420f-direct_3_over_2-moving_edge_0-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-moving_edge_0",
+      "comparison": "cpu-minus-metal",
+      "maximum": 10,
+      "minimum": -15,
+      "nonzeroCount": 31,
+      "path": "420f-direct_3_over_2-moving_edge_0-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-moving_edge_1",
+      "comparison": "cpu-minus-reference",
+      "maximum": 229,
+      "minimum": -145,
+      "nonzeroCount": 147,
+      "path": "420f-direct_3_over_2-moving_edge_1-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-moving_edge_1",
+      "comparison": "metal-minus-reference",
+      "maximum": 229,
+      "minimum": -145,
+      "nonzeroCount": 139,
+      "path": "420f-direct_3_over_2-moving_edge_1-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-moving_edge_1",
+      "comparison": "cpu-minus-metal",
+      "maximum": 10,
+      "minimum": -13,
+      "nonzeroCount": 33,
+      "path": "420f-direct_3_over_2-moving_edge_1-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-moving_edge_2",
+      "comparison": "cpu-minus-reference",
+      "maximum": 229,
+      "minimum": -145,
+      "nonzeroCount": 165,
+      "path": "420f-direct_3_over_2-moving_edge_2-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-moving_edge_2",
+      "comparison": "metal-minus-reference",
+      "maximum": 229,
+      "minimum": -145,
+      "nonzeroCount": 163,
+      "path": "420f-direct_3_over_2-moving_edge_2-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-moving_edge_2",
+      "comparison": "cpu-minus-metal",
+      "maximum": 10,
+      "minimum": -10,
+      "nonzeroCount": 39,
+      "path": "420f-direct_3_over_2-moving_edge_2-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-moving_edge_3",
+      "comparison": "cpu-minus-reference",
+      "maximum": 229,
+      "minimum": -101,
+      "nonzeroCount": 170,
+      "path": "420f-direct_3_over_2-moving_edge_3-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-moving_edge_3",
+      "comparison": "metal-minus-reference",
+      "maximum": 229,
+      "minimum": -91,
+      "nonzeroCount": 162,
+      "path": "420f-direct_3_over_2-moving_edge_3-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-moving_edge_3",
+      "comparison": "cpu-minus-metal",
+      "maximum": 44,
+      "minimum": -14,
+      "nonzeroCount": 46,
+      "path": "420f-direct_3_over_2-moving_edge_3-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-radial_detail",
+      "comparison": "cpu-minus-reference",
+      "maximum": 210,
+      "minimum": -212,
+      "nonzeroCount": 644,
+      "path": "420f-direct_3_over_2-radial_detail-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-radial_detail",
+      "comparison": "metal-minus-reference",
+      "maximum": 210,
+      "minimum": -212,
+      "nonzeroCount": 646,
+      "path": "420f-direct_3_over_2-radial_detail-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420f-direct_3_over_2-radial_detail",
+      "comparison": "cpu-minus-metal",
+      "maximum": 14,
+      "minimum": -11,
+      "nonzeroCount": 66,
+      "path": "420f-direct_3_over_2-radial_detail-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-checkerboard",
+      "comparison": "cpu-minus-reference",
+      "maximum": 111,
+      "minimum": -111,
+      "nonzeroCount": 677,
+      "path": "420v-direct_2x-checkerboard-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-checkerboard",
+      "comparison": "metal-minus-reference",
+      "maximum": 111,
+      "minimum": -111,
+      "nonzeroCount": 677,
+      "path": "420v-direct_2x-checkerboard-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-checkerboard",
+      "comparison": "cpu-minus-metal",
+      "maximum": 40,
+      "minimum": -40,
+      "nonzeroCount": 89,
+      "path": "420v-direct_2x-checkerboard-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-constant",
+      "comparison": "cpu-minus-reference",
+      "maximum": 0,
+      "minimum": 0,
+      "nonzeroCount": 0,
+      "path": "420v-direct_2x-constant-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-constant",
+      "comparison": "metal-minus-reference",
+      "maximum": 0,
+      "minimum": 0,
+      "nonzeroCount": 0,
+      "path": "420v-direct_2x-constant-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-constant",
+      "comparison": "cpu-minus-metal",
+      "maximum": 0,
+      "minimum": 0,
+      "nonzeroCount": 0,
+      "path": "420v-direct_2x-constant-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-diagonal_edge",
+      "comparison": "cpu-minus-reference",
+      "maximum": 215,
+      "minimum": -99,
+      "nonzeroCount": 276,
+      "path": "420v-direct_2x-diagonal_edge-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-diagonal_edge",
+      "comparison": "metal-minus-reference",
+      "maximum": 215,
+      "minimum": -99,
+      "nonzeroCount": 245,
+      "path": "420v-direct_2x-diagonal_edge-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-diagonal_edge",
+      "comparison": "cpu-minus-metal",
+      "maximum": 10,
+      "minimum": -34,
+      "nonzeroCount": 160,
+      "path": "420v-direct_2x-diagonal_edge-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-horizontal_ramp",
+      "comparison": "cpu-minus-reference",
+      "maximum": 9,
+      "minimum": -12,
+      "nonzeroCount": 1134,
+      "path": "420v-direct_2x-horizontal_ramp-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-horizontal_ramp",
+      "comparison": "metal-minus-reference",
+      "maximum": 9,
+      "minimum": -11,
+      "nonzeroCount": 1132,
+      "path": "420v-direct_2x-horizontal_ramp-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-horizontal_ramp",
+      "comparison": "cpu-minus-metal",
+      "maximum": 3,
+      "minimum": -6,
+      "nonzeroCount": 218,
+      "path": "420v-direct_2x-horizontal_ramp-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-impulse",
+      "comparison": "cpu-minus-reference",
+      "maximum": 58,
+      "minimum": -56,
+      "nonzeroCount": 209,
+      "path": "420v-direct_2x-impulse-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-impulse",
+      "comparison": "metal-minus-reference",
+      "maximum": 58,
+      "minimum": -56,
+      "nonzeroCount": 189,
+      "path": "420v-direct_2x-impulse-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-impulse",
+      "comparison": "cpu-minus-metal",
+      "maximum": 2,
+      "minimum": -4,
+      "nonzeroCount": 77,
+      "path": "420v-direct_2x-impulse-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-moving_edge_0",
+      "comparison": "cpu-minus-reference",
+      "maximum": 215,
+      "minimum": -108,
+      "nonzeroCount": 222,
+      "path": "420v-direct_2x-moving_edge_0-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-moving_edge_0",
+      "comparison": "metal-minus-reference",
+      "maximum": 215,
+      "minimum": -108,
+      "nonzeroCount": 200,
+      "path": "420v-direct_2x-moving_edge_0-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-moving_edge_0",
+      "comparison": "cpu-minus-metal",
+      "maximum": 15,
+      "minimum": -23,
+      "nonzeroCount": 127,
+      "path": "420v-direct_2x-moving_edge_0-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-moving_edge_1",
+      "comparison": "cpu-minus-reference",
+      "maximum": 215,
+      "minimum": -115,
+      "nonzeroCount": 254,
+      "path": "420v-direct_2x-moving_edge_1-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-moving_edge_1",
+      "comparison": "metal-minus-reference",
+      "maximum": 215,
+      "minimum": -115,
+      "nonzeroCount": 226,
+      "path": "420v-direct_2x-moving_edge_1-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-moving_edge_1",
+      "comparison": "cpu-minus-metal",
+      "maximum": 15,
+      "minimum": -13,
+      "nonzeroCount": 133,
+      "path": "420v-direct_2x-moving_edge_1-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-moving_edge_2",
+      "comparison": "cpu-minus-reference",
+      "maximum": 215,
+      "minimum": -74,
+      "nonzeroCount": 268,
+      "path": "420v-direct_2x-moving_edge_2-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-moving_edge_2",
+      "comparison": "metal-minus-reference",
+      "maximum": 215,
+      "minimum": -74,
+      "nonzeroCount": 246,
+      "path": "420v-direct_2x-moving_edge_2-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-moving_edge_2",
+      "comparison": "cpu-minus-metal",
+      "maximum": 34,
+      "minimum": -22,
+      "nonzeroCount": 152,
+      "path": "420v-direct_2x-moving_edge_2-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-moving_edge_3",
+      "comparison": "cpu-minus-reference",
+      "maximum": 215,
+      "minimum": -107,
+      "nonzeroCount": 275,
+      "path": "420v-direct_2x-moving_edge_3-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-moving_edge_3",
+      "comparison": "metal-minus-reference",
+      "maximum": 215,
+      "minimum": -107,
+      "nonzeroCount": 238,
+      "path": "420v-direct_2x-moving_edge_3-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-moving_edge_3",
+      "comparison": "cpu-minus-metal",
+      "maximum": 42,
+      "minimum": -48,
+      "nonzeroCount": 165,
+      "path": "420v-direct_2x-moving_edge_3-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-radial_detail",
+      "comparison": "cpu-minus-reference",
+      "maximum": 211,
+      "minimum": -210,
+      "nonzeroCount": 1139,
+      "path": "420v-direct_2x-radial_detail-cpu-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-radial_detail",
+      "comparison": "metal-minus-reference",
+      "maximum": 211,
+      "minimum": -210,
+      "nonzeroCount": 1139,
+      "path": "420v-direct_2x-radial_detail-metal-minus-reference.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_2x-radial_detail",
+      "comparison": "cpu-minus-metal",
+      "maximum": 32,
+      "minimum": -26,
+      "nonzeroCount": 286,
+      "path": "420v-direct_2x-radial_detail-cpu-minus-metal.s16le",
+      "sampleCount": 1152,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-checkerboard",
+      "comparison": "cpu-minus-reference",
+      "maximum": 92,
+      "minimum": -92,
+      "nonzeroCount": 427,
+      "path": "420v-direct_3_over_2-checkerboard-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-checkerboard",
+      "comparison": "metal-minus-reference",
+      "maximum": 92,
+      "minimum": -92,
+      "nonzeroCount": 427,
+      "path": "420v-direct_3_over_2-checkerboard-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-checkerboard",
+      "comparison": "cpu-minus-metal",
+      "maximum": 42,
+      "minimum": -4,
+      "nonzeroCount": 58,
+      "path": "420v-direct_3_over_2-checkerboard-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-constant",
+      "comparison": "cpu-minus-reference",
+      "maximum": 0,
+      "minimum": 0,
+      "nonzeroCount": 0,
+      "path": "420v-direct_3_over_2-constant-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-constant",
+      "comparison": "metal-minus-reference",
+      "maximum": 0,
+      "minimum": 0,
+      "nonzeroCount": 0,
+      "path": "420v-direct_3_over_2-constant-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-constant",
+      "comparison": "cpu-minus-metal",
+      "maximum": 0,
+      "minimum": 0,
+      "nonzeroCount": 0,
+      "path": "420v-direct_3_over_2-constant-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-diagonal_edge",
+      "comparison": "cpu-minus-reference",
+      "maximum": 212,
+      "minimum": -77,
+      "nonzeroCount": 160,
+      "path": "420v-direct_3_over_2-diagonal_edge-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-diagonal_edge",
+      "comparison": "metal-minus-reference",
+      "maximum": 212,
+      "minimum": -77,
+      "nonzeroCount": 150,
+      "path": "420v-direct_3_over_2-diagonal_edge-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-diagonal_edge",
+      "comparison": "cpu-minus-metal",
+      "maximum": 9,
+      "minimum": -10,
+      "nonzeroCount": 34,
+      "path": "420v-direct_3_over_2-diagonal_edge-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-horizontal_ramp",
+      "comparison": "cpu-minus-reference",
+      "maximum": 11,
+      "minimum": -7,
+      "nonzeroCount": 585,
+      "path": "420v-direct_3_over_2-horizontal_ramp-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-horizontal_ramp",
+      "comparison": "metal-minus-reference",
+      "maximum": 11,
+      "minimum": -7,
+      "nonzeroCount": 591,
+      "path": "420v-direct_3_over_2-horizontal_ramp-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-horizontal_ramp",
+      "comparison": "cpu-minus-metal",
+      "maximum": 3,
+      "minimum": -6,
+      "nonzeroCount": 56,
+      "path": "420v-direct_3_over_2-horizontal_ramp-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-impulse",
+      "comparison": "cpu-minus-reference",
+      "maximum": 51,
+      "minimum": -70,
+      "nonzeroCount": 104,
+      "path": "420v-direct_3_over_2-impulse-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-impulse",
+      "comparison": "metal-minus-reference",
+      "maximum": 51,
+      "minimum": -70,
+      "nonzeroCount": 102,
+      "path": "420v-direct_3_over_2-impulse-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-impulse",
+      "comparison": "cpu-minus-metal",
+      "maximum": 1,
+      "minimum": -3,
+      "nonzeroCount": 13,
+      "path": "420v-direct_3_over_2-impulse-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-moving_edge_0",
+      "comparison": "cpu-minus-reference",
+      "maximum": 215,
+      "minimum": -63,
+      "nonzeroCount": 134,
+      "path": "420v-direct_3_over_2-moving_edge_0-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-moving_edge_0",
+      "comparison": "metal-minus-reference",
+      "maximum": 215,
+      "minimum": -63,
+      "nonzeroCount": 132,
+      "path": "420v-direct_3_over_2-moving_edge_0-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-moving_edge_0",
+      "comparison": "cpu-minus-metal",
+      "maximum": 10,
+      "minimum": -15,
+      "nonzeroCount": 26,
+      "path": "420v-direct_3_over_2-moving_edge_0-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-moving_edge_1",
+      "comparison": "cpu-minus-reference",
+      "maximum": 215,
+      "minimum": -144,
+      "nonzeroCount": 149,
+      "path": "420v-direct_3_over_2-moving_edge_1-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-moving_edge_1",
+      "comparison": "metal-minus-reference",
+      "maximum": 215,
+      "minimum": -144,
+      "nonzeroCount": 137,
+      "path": "420v-direct_3_over_2-moving_edge_1-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-moving_edge_1",
+      "comparison": "cpu-minus-metal",
+      "maximum": 10,
+      "minimum": -14,
+      "nonzeroCount": 28,
+      "path": "420v-direct_3_over_2-moving_edge_1-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-moving_edge_2",
+      "comparison": "cpu-minus-reference",
+      "maximum": 215,
+      "minimum": -145,
+      "nonzeroCount": 163,
+      "path": "420v-direct_3_over_2-moving_edge_2-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-moving_edge_2",
+      "comparison": "metal-minus-reference",
+      "maximum": 215,
+      "minimum": -145,
+      "nonzeroCount": 159,
+      "path": "420v-direct_3_over_2-moving_edge_2-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-moving_edge_2",
+      "comparison": "cpu-minus-metal",
+      "maximum": 10,
+      "minimum": -10,
+      "nonzeroCount": 36,
+      "path": "420v-direct_3_over_2-moving_edge_2-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-moving_edge_3",
+      "comparison": "cpu-minus-reference",
+      "maximum": 215,
+      "minimum": -101,
+      "nonzeroCount": 169,
+      "path": "420v-direct_3_over_2-moving_edge_3-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-moving_edge_3",
+      "comparison": "metal-minus-reference",
+      "maximum": 215,
+      "minimum": -91,
+      "nonzeroCount": 159,
+      "path": "420v-direct_3_over_2-moving_edge_3-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-moving_edge_3",
+      "comparison": "cpu-minus-metal",
+      "maximum": 44,
+      "minimum": -14,
+      "nonzeroCount": 35,
+      "path": "420v-direct_3_over_2-moving_edge_3-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-radial_detail",
+      "comparison": "cpu-minus-reference",
+      "maximum": 210,
+      "minimum": -212,
+      "nonzeroCount": 644,
+      "path": "420v-direct_3_over_2-radial_detail-cpu-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-radial_detail",
+      "comparison": "metal-minus-reference",
+      "maximum": 210,
+      "minimum": -212,
+      "nonzeroCount": 646,
+      "path": "420v-direct_3_over_2-radial_detail-metal-minus-reference.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    },
+    {
+      "caseID": "420v-direct_3_over_2-radial_detail",
+      "comparison": "cpu-minus-metal",
+      "maximum": 14,
+      "minimum": -11,
+      "nonzeroCount": 65,
+      "path": "420v-direct_3_over_2-radial_detail-cpu-minus-metal.s16le",
+      "sampleCount": 648,
+      "storage": "signed little-endian 16-bit, luma then interleaved CbCr"
+    }
+  ],
+  "schemaVersion": "mirmir-v4-difference-maps-v1"
+}

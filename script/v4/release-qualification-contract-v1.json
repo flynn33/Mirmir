@@ -1,0 +1,285 @@
+{
+  "candidateIdentityFields": [
+    "sourceCommit",
+    "sourceTreeIdentitySHA256",
+    "runtimeManifestSHA256",
+    "runtimeManifestFileSHA256",
+    "runtimeArtifactSetSHA256",
+    "runtimeSourceRevision",
+    "releaseConfigurationSHA256",
+    "appBundleSHA256",
+    "bundleIdentifier",
+    "productVersion",
+    "productBuild"
+  ],
+  "evidenceSchemas": {
+    "cpu_metal_parity": "mirmir-ash-v4-cpu-metal-parity-report-v2",
+    "media_preservation": "mirmir-ash-v4-media-preservation-report-v1",
+    "notarized_smoke": "mirmir-ash-v4-notarized-smoke-report-v1",
+    "p06_reproduction": "mirmir-ash-v4-p06-reproduction-report-v1",
+    "quality": "mirmir-ash-v4-quality-report-v1",
+    "recovery": "mirmir-ash-v4-recovery-report-v1",
+    "same_scope_performance": "mirmir-v4-performance-gate-report-v1",
+    "support_matrix": "mirmir-ash-v4-support-matrix-report-v1"
+  },
+  "hashAlgorithm": "sha256",
+  "identityBindings": {
+    "common": [
+      "/contractSHA256",
+      "/candidate/runtimeManifestFileSHA256",
+      "/candidate/releaseConfigurationSHA256"
+    ],
+    "cpu_metal_parity": [
+      "/contractSHA256",
+      "/candidate/runtimeManifestFileSHA256",
+      "/candidate/releaseConfigurationSHA256",
+      "/identities/captureSourceSHA256",
+      "/identities/evidenceRequestSHA256/0",
+      "/identities/evidenceRequestSHA256/1",
+      "/identities/evaluatorSHA256",
+      "/identities/packagedCandidateIdentity/applicationArchiveSHA256",
+      "/identities/packagedCandidateIdentity/attestationSHA256",
+      "/identities/runnerSHA256"
+    ],
+    "media_preservation": [
+      "/contractSHA256",
+      "/candidate/runtimeManifestFileSHA256",
+      "/candidate/releaseConfigurationSHA256",
+      "/identities/laneContractSHA256",
+      "/identities/captureSourceSHA256",
+      "/identities/fixtureSourceSHA256",
+      "/identities/evaluatorSHA256",
+      "/identities/runnerSHA256",
+      "/identities/captureSHA256"
+    ],
+    "notarized_smoke": [
+      "/contractSHA256",
+      "/candidate/runtimeManifestFileSHA256",
+      "/candidate/releaseConfigurationSHA256",
+      "/candidate/appBundleSHA256",
+      "/identities/laneContractSHA256",
+      "/identities/observerSourceSHA256",
+      "/identities/evaluatorSHA256",
+      "/identities/runnerSHA256",
+      "/identities/rawCaptureSHA256",
+      "/identities/applicationExecutableSHA256",
+      "/identities/submittedArchiveSHA256",
+      "/identities/toolManifestSHA256",
+      "/identities/replayReceiptSHA256"
+    ],
+    "p06_reproduction": [
+      "/contractSHA256",
+      "/candidate/runtimeManifestFileSHA256",
+      "/candidate/releaseConfigurationSHA256",
+      "/identities/captureSourceSHA256",
+      "/identities/evaluatorSHA256",
+      "/identities/runnerSHA256",
+      "/identities/runtimeLoadCheckRunnerSHA256",
+      "/identities/runtimeLoadCheckSourceSHA256",
+      "/identities/sourceIdentityToolSHA256",
+      "/identities/sourceProvenanceContractSHA256"
+    ],
+    "quality": [
+      "/identities/contractSHA256",
+      "/identities/metricToolSHA256",
+      "/identities/corpusManifestSHA256",
+      "/identities/evidenceRequestSHA256",
+      "/identities/observerSourceSHA256",
+      "/identities/packagedCandidateIdentity/applicationArchiveSHA256",
+      "/identities/packagedCandidateIdentity/attestationSHA256",
+      "/identities/packagedCandidateIdentity/releaseConfigurationSHA256"
+    ],
+    "recovery": [
+      "/contractSHA256",
+      "/candidate/runtimeManifestFileSHA256",
+      "/candidate/releaseConfigurationSHA256",
+      "/identities/captureSourceSHA256",
+      "/identities/evaluatorSHA256",
+      "/identities/runnerSHA256",
+      "/capture/artifactManifestSHA256"
+    ],
+    "same_scope_performance": [
+      "/contractSHA256",
+      "/baseline/sourceIdentitySHA256",
+      "/baseline/artifactManifestSHA256",
+      "/candidate/sourceIdentitySHA256",
+      "/candidate/artifactManifestSHA256",
+      "/candidate/evidenceRequestSHA256",
+      "/candidate/observerSourceSHA256",
+      "/candidate/packagedCandidateIdentity/applicationArchiveSHA256",
+      "/candidate/packagedCandidateIdentity/attestationSHA256"
+    ],
+    "support_matrix": [
+      "/contractSHA256",
+      "/candidate/runtimeManifestFileSHA256",
+      "/candidate/releaseConfigurationSHA256",
+      "/candidate/appBundleSHA256",
+      "/identities/captureSourceSHA256",
+      "/identities/evaluatorSHA256",
+      "/identities/runnerSHA256"
+    ]
+  },
+  "mediaPreservationCoverage": [
+    "p010_hdr_static_dynamic",
+    "interlaced_field_order_cadence",
+    "non_square_pixel_aspect_ratio",
+    "clean_aperture",
+    "preferred_transform",
+    "straight_alpha",
+    "premultiplied_alpha",
+    "multiple_enabled_video_tracks",
+    "alternate_audio_tracks",
+    "subtitles",
+    "captions",
+    "chapters",
+    "timecode_tracks",
+    "timed_metadata",
+    "auxiliary_tracks",
+    "combined_p010_hdr_interlaced",
+    "combined_alpha_geometry"
+  ],
+  "nonWaivableRoles": [
+    "quality",
+    "same_scope_performance",
+    "cpu_metal_parity",
+    "media_preservation",
+    "recovery",
+    "p06_reproduction"
+  ],
+  "notarizedSmokeActions": [
+    "notarization_ticket_acceptance",
+    "gatekeeper_assessment",
+    "stapled_ticket_validation",
+    "code_signature_validation",
+    "launch",
+    "p06_runtime_load",
+    "media_probe",
+    "deterministic_process",
+    "semantic_output_verify",
+    "queue_relaunch_recovery"
+  ],
+  "notarizedSmokeEvidenceKinds": {
+    "code_signature_validation": "system_codesign_verification",
+    "deterministic_process": "notarized_app_observer",
+    "gatekeeper_assessment": "system_gatekeeper_assessment",
+    "launch": "notarized_app_observer",
+    "media_probe": "notarized_app_observer",
+    "notarization_ticket_acceptance": "apple_notary_service_acceptance",
+    "p06_runtime_load": "notarized_app_observer",
+    "queue_relaunch_recovery": "notarized_app_observer",
+    "semantic_output_verify": "notarized_app_observer",
+    "stapled_ticket_validation": "system_stapler_validation"
+  },
+  "notarizedSmokeLaneContractSHA256": "3c6b895bc397c1ac6a8238c1827ab053c20d07a872f4d7ad213aafe7c8f71d89",
+  "notarizedSmokeLockedSources": {
+    "evaluatorSHA256": "12cae408a52e5dc9b87f1d3afd50f90935c40cd69fa9b066fcf0d4dc2b4c7e30",
+    "observerSourceSHA256": "1e2da33aeca0faf51e193e112f4828d885a38b1630d9bb5a5c9156eb3776d65c",
+    "runnerSHA256": "ffad88657112d7a39bb259589a66d1cc267c87c3db7e041aa938b20e3880bbce"
+  },
+  "parityCoverage": [
+    "nv12_video_range",
+    "nv12_full_range",
+    "p010_video_range",
+    "p010_full_range",
+    "alpha_straight",
+    "alpha_premultiplied",
+    "hdr_attachment_semantics",
+    "odd_legal_dimensions",
+    "stride_padding_adversary",
+    "arbitrary_rational_phase",
+    "temporal_history",
+    "temporal_reset",
+    "scene_cut",
+    "interlaced_tff",
+    "interlaced_bff",
+    "double_rate_field_timing",
+    "combing_reconstruction",
+    "telecine_3_2",
+    "cadence_transition",
+    "dominance_transition",
+    "interlaced_scene_cut",
+    "checkpoint_resume",
+    "exact_timing_semantics",
+    "exact_attachment_semantics",
+    "progressive_attachment_normalization",
+    "repeat_execution",
+    "cross_process",
+    "tile_schedule"
+  ],
+  "parityLaneContractSHA256": "3a948539e3e0d3dcd41b1247f76ebf89255f99eff2e2ee753365a48c28b40ca9",
+  "parityLockedSources": {
+    "captureSourceSHA256": "1e2da33aeca0faf51e193e112f4828d885a38b1630d9bb5a5c9156eb3776d65c",
+    "evaluatorSHA256": "c78ffbb2ca2df90f92e5823b76dce78bf6f47bcb5fd9c508541b0b4dd4fd66fd",
+    "runnerSHA256": "e503c1de7379b73874bf8195b31d90378a720ce1b75172895fdc6df6b884c268"
+  },
+  "p06RuntimeArtifactRoles": [
+    "benchmark_corpus_identity",
+    "branch_aggregation",
+    "codeword_tables",
+    "core_certificate",
+    "measurement_contract",
+    "metal_compiler_contract",
+    "metal_library",
+    "metric_contract",
+    "operator_bank",
+    "phase_coefficient_procedure",
+    "quality_corpus_identity",
+    "verification_contract"
+  ],
+  "performance": {
+    "bootstrapConfidenceLevel": 0.95,
+    "maximumRatio": 0.8,
+    "minimumBootstrapReplicates": 10000,
+    "minimumMeasuredRuns": 10,
+    "minimumWarmups": 5,
+    "requiredMetrics": [
+      "aggregateWall",
+      "engineMedian",
+      "engineP95"
+    ]
+  },
+  "quality": {
+    "minimumBootstrapReplicates": 10000,
+    "minimumQualityIndex": 105.0,
+    "requiredAblations": [
+      "uniform_priors",
+      "randomized_state_message",
+      "temporal_hysteresis_off",
+      "motion_history_off"
+    ],
+    "requiredBackendID": "mirmir_deterministic_cpu",
+    "requiredCandidateImplementationVersion": "ash-p06-deterministic-v4"
+  },
+  "recoveryCoverage": [
+    "append_only_event_boundary",
+    "snapshot_publish_boundary",
+    "bookmark_resolution_and_toctou",
+    "segment_commit_boundary",
+    "checkpoint_publish_boundary",
+    "prepared_decision_boundary",
+    "final_assembly_boundary",
+    "atomic_output_publish_boundary",
+    "pause_resume",
+    "forced_termination_restart",
+    "disk_full",
+    "corrupt_journal",
+    "corrupt_checkpoint",
+    "orphan_partial_reconciliation",
+    "unowned_artifact_rejection"
+  ],
+  "requiredEvidenceRoles": [
+    "quality",
+    "same_scope_performance",
+    "cpu_metal_parity",
+    "media_preservation",
+    "recovery",
+    "p06_reproduction",
+    "support_matrix",
+    "notarized_smoke"
+  ],
+  "schemaVersion": "mirmir-ash-v4-release-qualification-contract-v1",
+  "supportMatrixRequiredClasses": [
+    "reference",
+    "supported"
+  ]
+}

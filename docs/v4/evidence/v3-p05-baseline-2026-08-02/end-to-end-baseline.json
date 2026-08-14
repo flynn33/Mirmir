@@ -1,0 +1,94 @@
+{
+  "backends": {
+    "mirmirDeterministicCPU": {
+      "sampleCount": 10,
+      "sessionMedianMilliseconds": 289.8854613304138,
+      "sessionP95Milliseconds": 298.9799499511719,
+      "stages": {
+        "atomicPublish": {
+          "medianMilliseconds": 0.1371455,
+          "p95Milliseconds": 0.15472339999999998
+        },
+        "backendProcessing": {
+          "medianMilliseconds": 269.4053955,
+          "p95Milliseconds": 277.00725205
+        },
+        "destinationAllocation": {
+          "medianMilliseconds": 0.1483545,
+          "p95Milliseconds": 0.19688345
+        },
+        "outputValidation": {
+          "medianMilliseconds": 2.835979,
+          "p95Milliseconds": 3.12821685
+        },
+        "readerSample": {
+          "medianMilliseconds": 0.1296665,
+          "p95Milliseconds": 0.1688895
+        },
+        "writerAppend": {
+          "medianMilliseconds": 0.12727,
+          "p95Milliseconds": 0.24800829999999993
+        },
+        "writerBackpressure": {
+          "medianMilliseconds": 0.0017705,
+          "p95Milliseconds": 0.006978799999999997
+        },
+        "writerFinalize": {
+          "medianMilliseconds": 1.0749585000000002,
+          "p95Milliseconds": 1.1907401
+        }
+      },
+      "wallMedianMilliseconds": 292.16062450000004,
+      "wallP95Milliseconds": 301.34350465
+    },
+    "mirmirDeterministicMetal": {
+      "sampleCount": 10,
+      "sessionMedianMilliseconds": 40.233492851257324,
+      "sessionP95Milliseconds": 49.88524317741394,
+      "stages": {
+        "atomicPublish": {
+          "medianMilliseconds": 0.12835449999999998,
+          "p95Milliseconds": 0.13132485
+        },
+        "backendProcessing": {
+          "medianMilliseconds": 14.0862715,
+          "p95Milliseconds": 25.71476495
+        },
+        "destinationAllocation": {
+          "medianMilliseconds": 0.1833545,
+          "p95Milliseconds": 0.22622089999999995
+        },
+        "outputValidation": {
+          "medianMilliseconds": 2.604625,
+          "p95Milliseconds": 2.6641814
+        },
+        "readerSample": {
+          "medianMilliseconds": 0.1278955,
+          "p95Milliseconds": 0.14126234999999998
+        },
+        "writerAppend": {
+          "medianMilliseconds": 0.04625,
+          "p95Milliseconds": 0.055337649999999995
+        },
+        "writerBackpressure": {
+          "medianMilliseconds": 0.002167,
+          "p95Milliseconds": 0.0026730999999999994
+        },
+        "writerFinalize": {
+          "medianMilliseconds": 1.018021,
+          "p95Milliseconds": 1.0667814
+        }
+      },
+      "wallMedianMilliseconds": 75.2283125,
+      "wallP95Milliseconds": 84.6915292
+    }
+  },
+  "inputByteCount": 1158,
+  "inputFile": "end-to-end-input.mov",
+  "outputCodec": "h264",
+  "sampleCount": 10,
+  "schemaVersion": "mirmir-v4-end-to-end-summary-v1",
+  "targetHeight": 96,
+  "targetWidth": 128,
+  "warmupCount": 5
+}

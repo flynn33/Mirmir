@@ -1,0 +1,150 @@
+{
+  "ablationRequirements": [
+    "uniform_priors",
+    "randomized_state_message",
+    "temporal_hysteresis_off",
+    "motion_history_off"
+  ],
+  "aggregate": {
+    "baselineError": 1.0,
+    "cohortAggregation": "equal_weight_mean",
+    "componentAggregation": "weighted_sum",
+    "qualityIndexFormula": "100*(2-E_candidate)",
+    "releaseThreshold": 105.0
+  },
+  "bootstrap": {
+    "confidenceLevel": 0.95,
+    "lowerBoundOrderStatistic": "sorted[floor(0.025*replicate_count)]",
+    "prng": "splitmix64-rejection-v1",
+    "replicateCount": 10000,
+    "resamplingUnit": "clip",
+    "seedUnsignedDecimal": 1095977012,
+    "stratification": "resample_with_replacement_within_each_cohort"
+  },
+  "cohortConstraints": {
+    "contentCohorts": [
+      "natural_detail",
+      "text_graphics",
+      "animation",
+      "faces",
+      "low_light_noise",
+      "high_motion",
+      "scene_cuts"
+    ],
+    "lumaStructuralMaximumCandidateToBaselineRatio": 1.01,
+    "minimumClipsPerCohort": 4,
+    "minimumFramesPerClip": 6,
+    "temporalNonRegressionCohorts": [
+      "high_motion",
+      "scene_cuts"
+    ],
+    "temporalStructuralMaximumCandidateToBaselineRatio": 1.0
+  },
+  "comparisonPopulation": {
+    "admittedDynamicRange": "sdr",
+    "admittedScanMode": "progressive",
+    "admittedStorage": [
+      "nv12_video_range_8_bit",
+      "nv12_full_range_8_bit"
+    ],
+    "candidateBackend": "mirmir_deterministic_cpu",
+    "forbidBackendSubstitution": true,
+    "nativeHighResolutionSourcesRequiredForRelease": true,
+    "primaryScale": "2/1"
+  },
+  "components": [
+    {
+      "crop": "four target-luma samples per edge before both scales",
+      "id": "luma_multiscale_structural_error",
+      "implementation": "one_minus_local_ssim; 7x7 valid windows; scales 1 and 2 weighted 0.6 and 0.4; scale-2 uses exact 2x2 arithmetic mean",
+      "lowerIsBetter": true,
+      "normalization": "candidate cohort mean divided by frozen-baseline cohort mean",
+      "weight": 0.35
+    },
+    {
+      "crop": "two target-chroma samples per edge before both scales",
+      "id": "chroma_multiscale_structural_error",
+      "implementation": "mean Cb/Cr one_minus_local_ssim; 5x5 valid windows; scales 1 and 2 weighted 0.6 and 0.4; scale-2 uses exact 2x2 arithmetic mean",
+      "lowerIsBetter": true,
+      "normalization": "candidate cohort mean divided by frozen-baseline cohort mean",
+      "weight": 0.15
+    },
+    {
+      "crop": "four target-luma samples per edge",
+      "id": "perceptual_feature_distance",
+      "implementation": "analytic-pfd-v1: mean absolute difference of normalized horizontal gradient, vertical gradient, and Laplacian features weighted 0.375, 0.375, and 0.25",
+      "lowerIsBetter": true,
+      "model": "no learned model; executable metric source is the model",
+      "normalization": "candidate cohort mean divided by frozen-baseline cohort mean",
+      "weight": 0.2
+    },
+    {
+      "crop": "four target-luma samples per edge after reference-domain motion admission",
+      "id": "motion_compensated_temporal_flicker_error",
+      "implementation": "reference-domain exhaustive 8x8 block matching with radius 4; tie order SAD, Manhattan distance, dy, dx; compare reference and observed aligned frame differences; histogram scene cuts use colocated differences",
+      "lowerIsBetter": true,
+      "normalization": "candidate cohort mean divided by frozen-baseline cohort mean",
+      "weight": 0.2
+    },
+    {
+      "crop": "four target-luma samples per edge",
+      "id": "edge_displacement_ringing_overshoot_error",
+      "implementation": "analytic-edge-v1: 0.40 nearest dominant-gradient displacement within radius 2 plus 0.35 normalized Laplacian difference plus 0.25 observed overshoot beyond the reference 5x5 local envelope",
+      "lowerIsBetter": true,
+      "normalization": "candidate cohort mean divided by frozen-baseline cohort mean",
+      "weight": 0.1
+    }
+  ],
+  "corpusConstruction": {
+    "chromaSiting": "left",
+    "decodedReferenceProcedure": "pinned-ffmpeg-rgb24-center-crop-lanczos-v1",
+    "declaredDownsampling": "independent visible-plane 2x2 box average with nearest-ties-to-even integer rounding",
+    "minimumDecodedSourceHeight": 240,
+    "minimumDecodedSourceWidth": 564,
+    "naturalClipCountPerCohort": 4,
+    "naturalFramesPerClip": 6,
+    "referenceHeight": 144,
+    "referenceWidth": 256,
+    "rgbToBT709Procedure": "mirmir-integer-bt709-nv12-v1",
+    "sourceHeight": 72,
+    "sourceWidth": 128,
+    "transferAndMatrix": "BT.709"
+  },
+  "frozenP05Baseline": {
+    "captureExecutableSHA256": "e278969c586a6cfb5fc5b973438f06141ab4ff05e3f2f37356013105a38decbc",
+    "captureSourceSHA256": "cc5a1e1ebb44e58d26399b23c054700357b8c668de9a8ce9c00dfe8f49583621",
+    "executableSHA256": "8a59608e68579bd33bbe8a18f5b2c0243beb24cbbf4e594eec18acd62015ce5f",
+    "implementationVersion": "ash-p05-cpu-reference-preview",
+    "schemaVersion": "mirmir-ash-v4-p05-baseline-identity-v1",
+    "sourceManifestPath": "script/v4/p05-baseline-source-manifest-v1.json",
+    "sourceManifestSHA256": "880609bc2b4460814c63f2963042bee4fdb562eaa0b6376f84eb6aeb6a73ee69",
+    "sourceRevision": "d3a4de55c08391ea8a08c00beb766b5650dc9f58",
+    "sourceTreeIdentitySHA256": "d9b89f1ca31c0d076826651b250459773bea0de11d7b0ffd12ac40451af7b69c"
+  },
+  "identityPolicy": {
+    "hash": "sha256",
+    "hashesRequired": [
+      "contract",
+      "metric_tool",
+      "capture_test_source",
+      "corpus_manifest",
+      "corpus_artifact_set",
+      "source_asset_set",
+      "source_license_set",
+      "decoder_toolchain",
+      "baseline_output_set",
+      "baseline_source_manifest",
+      "baseline_executable",
+      "candidate_output_set",
+      "each_ablation_output_set",
+      "runtime_manifest",
+      "source_revision",
+      "crop_rule",
+      "metric_model"
+    ],
+    "rejectMissingOrUnexpectedCases": true,
+    "rejectNonFiniteMetric": true,
+    "rejectNonPositiveBaselineNormalizer": true
+  },
+  "schemaVersion": "mirmir-ash-v4-quality-gate-contract-v1"
+}

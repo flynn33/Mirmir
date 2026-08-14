@@ -3,10 +3,38 @@ import CoreMedia
 import CoreVideo
 import Foundation
 
+enum VideoProcessingStage: String, Codable, CaseIterable, Sendable {
+    case readerSample
+    case destinationAllocation
+    case backendProcessing
+    case writerBackpressure
+    case writerAppend
+    case writerFinalize
+    case outputValidation
+    case atomicPublish
+}
+
+struct VideoProcessingTimingEvent: Sendable {
+    let stage: VideoProcessingStage
+    let frameIndex: Int?
+    let durationNanoseconds: UInt64
+}
+
 struct VideoProcessingSession: Sendable {
     typealias ProgressHandler = @Sendable (UpscaleProgress) -> Void
+    typealias TimingHandler = @Sendable (VideoProcessingTimingEvent) -> Void
 
     private let outputValidator = OutputMediaValidator()
+    private let deterministicV4Session: DeterministicV4MediaProcessingSession
+    private let timingHandler: TimingHandler?
+
+    init(
+        timingHandler: TimingHandler? = nil,
+        deterministicV4Session: DeterministicV4MediaProcessingSession = .init()
+    ) {
+        self.timingHandler = timingHandler
+        self.deterministicV4Session = deterministicV4Session
+    }
 
     func process(
         request: UpscaleRequest,
@@ -15,6 +43,24 @@ struct VideoProcessingSession: Sendable {
         cancellation: ProcessingCancellation,
         progress: @escaping ProgressHandler
     ) async throws -> UpscaleResult {
+        if let deterministicBackend = preparedBackend
+            as? any PreparedDeterministicV4RuntimePlanningBackend {
+            return try await deterministicV4Session.process(
+                request: request,
+                source: source,
+                preparedBackend: deterministicBackend,
+                cancellation: cancellation,
+                progress: progress
+            )
+        }
+        if source.color.alphaModel != .none {
+            throw DeterministicV4WholeAssetPlannerError
+                .alphaSourceRequiresProRes4444(request.outputCodec)
+        }
+        if request.outputCodec == .proRes4444 {
+            throw DeterministicV4WholeAssetPlannerError
+                .proRes4444RequiresAlphaSource
+        }
         let startedAt = Date()
         let atomicOutput = try AtomicOutputFile(
             finalURL: request.outputURL,
@@ -173,7 +219,13 @@ struct VideoProcessingSession: Sendable {
                 backendID: preparedBackend.actualBackendID,
                 frameCount: frameCount
             ))
+            let writerFinalizeStarted = timingStart()
             await finishWriting(writer)
+            recordTiming(
+                .writerFinalize,
+                frameIndex: nil,
+                startedAt: writerFinalizeStarted
+            )
             guard writer.status == .completed else {
                 throw MirmirError.writerFailed(
                     writer.error?.localizedDescription
@@ -187,14 +239,26 @@ struct VideoProcessingSession: Sendable {
                 backendID: preparedBackend.actualBackendID,
                 frameCount: frameCount
             ))
+            let validationStarted = timingStart()
             let facts = try await outputValidator.validate(
                 url: atomicOutput.temporaryURL,
                 expectedWidth: request.targetWidth,
                 expectedHeight: request.targetHeight,
                 requiresAudio: request.preserveAudio && source.hasAudio
             )
+            recordTiming(
+                .outputValidation,
+                frameIndex: nil,
+                startedAt: validationStarted
+            )
             try cancellation.check()
+            let publicationStarted = timingStart()
             try atomicOutput.publish()
+            recordTiming(
+                .atomicPublish,
+                frameIndex: nil,
+                startedAt: publicationStarted
+            )
 
             progress(event(
                 phase: .completed,
@@ -232,6 +296,26 @@ struct VideoProcessingSession: Sendable {
 }
 
 private extension VideoProcessingSession {
+    func recordTiming(
+        _ stage: VideoProcessingStage,
+        frameIndex: Int?,
+        startedAt: UInt64?
+    ) {
+        guard let timingHandler, let startedAt else {
+            return
+        }
+        let finishedAt = DispatchTime.now().uptimeNanoseconds
+        timingHandler(VideoProcessingTimingEvent(
+            stage: stage,
+            frameIndex: frameIndex,
+            durationNanoseconds: finishedAt - startedAt
+        ))
+    }
+
+    func timingStart() -> UInt64? {
+        timingHandler == nil ? nil : DispatchTime.now().uptimeNanoseconds
+    }
+
     struct AudioPath: @unchecked Sendable {
         let output: AVAssetReaderTrackOutput?
         let input: AVAssetWriterInput?
@@ -354,7 +438,16 @@ private extension VideoProcessingSession {
         var previousOutputPTS: CMTime?
         let temporalBackend = backend as? any PreparedTemporalFrameUpscaler
 
-        while let sample = output.copyNextSampleBuffer() {
+        while true {
+            let readerStarted = timingStart()
+            guard let sample = output.copyNextSampleBuffer() else {
+                break
+            }
+            recordTiming(
+                .readerSample,
+                frameIndex: sourceFrameIndex,
+                startedAt: readerStarted
+            )
             try cancellation.check()
             guard let pixelBuffer = CMSampleBufferGetImageBuffer(sample) else {
                 throw MirmirError.readerFailed(
@@ -387,19 +480,43 @@ private extension VideoProcessingSession {
                     temporalBackend.maximumOutputFramesPerInput
                 )
                 for _ in 0..<temporalBackend.maximumOutputFramesPerInput {
+                    let allocationStarted = timingStart()
                     destinations.append(try allocatePixelBuffer(from: pool))
+                    recordTiming(
+                        .destinationAllocation,
+                        frameIndex: sourceFrameIndex,
+                        startedAt: allocationStarted
+                    )
                 }
+                let backendStarted = timingStart()
                 outputFrames = try await temporalBackend.processTemporal(
                     source: FramePixelBuffer(pixelBuffer),
                     destinations: destinations.map(FramePixelBuffer.init),
                     timing: timing
                 )
+                recordTiming(
+                    .backendProcessing,
+                    frameIndex: sourceFrameIndex,
+                    startedAt: backendStarted
+                )
             } else {
+                let allocationStarted = timingStart()
                 let destination = try allocatePixelBuffer(from: pool)
+                recordTiming(
+                    .destinationAllocation,
+                    frameIndex: sourceFrameIndex,
+                    startedAt: allocationStarted
+                )
+                let backendStarted = timingStart()
                 try await backend.process(
                     source: pixelBuffer,
                     destination: destination,
                     timing: timing
+                )
+                recordTiming(
+                    .backendProcessing,
+                    frameIndex: sourceFrameIndex,
+                    startedAt: backendStarted
                 )
                 outputFrames = [TemporalOutputFrame(
                     pixelBuffer: FramePixelBuffer(destination),
@@ -417,16 +534,29 @@ private extension VideoProcessingSession {
                         "backend output timestamps are not strictly increasing at output frame \(outputFrameCount)"
                     )
                 }
+                let backpressureStarted = timingStart()
                 try await waitUntilReady(
                     input,
                     reader: reader,
                     writer: writer,
                     cancellation: cancellation
                 )
-                guard adaptor.append(
+                recordTiming(
+                    .writerBackpressure,
+                    frameIndex: outputFrameCount,
+                    startedAt: backpressureStarted
+                )
+                let appendStarted = timingStart()
+                let appended = adaptor.append(
                     outputFrame.pixelBuffer.value,
                     withPresentationTime: outputFrame.presentationTime
-                ) else {
+                )
+                recordTiming(
+                    .writerAppend,
+                    frameIndex: outputFrameCount,
+                    startedAt: appendStarted
+                )
+                guard appended else {
                     throw MirmirError.writerFailed(
                         writer.error?.localizedDescription
                             ?? "the video adaptor rejected output frame \(outputFrameCount) at \(CMTimeGetSeconds(outputFrame.presentationTime)) seconds"

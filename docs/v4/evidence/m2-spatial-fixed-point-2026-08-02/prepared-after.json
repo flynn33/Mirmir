@@ -1,0 +1,209 @@
+{
+  "aggregate" : {
+    "allChecksumsMatchCommittedBefore" : true,
+    "allCPUAndMetalChecksumsMatch" : true,
+    "cpuMedianMilliseconds" : 0.0046045000000000001,
+    "cpuP95Milliseconds" : 0.0066068499999999983,
+    "metalMedianMilliseconds" : 0.21197949999999999,
+    "metalP95Milliseconds" : 0.22432080000000001,
+    "ratiosVersusCommittedFixedKernel" : {
+      "cpuMedian" : 0.15369851124908207,
+      "cpuP95" : 0.17158510107830707,
+      "metalMedian" : 0.34176461104393391,
+      "metalP95" : 0.17160044227959115
+    },
+    "nonComparableRatiosVersusLockedP05WholeEngineReference" : {
+      "cpuMedian" : 0.00055216038973205912,
+      "cpuP95" : 0.00052169904932185837,
+      "metalMedian" : 0.10250560994439259,
+      "metalP95" : 0.033138518921340628
+    }
+  },
+  "baseline" : {
+    "committedFixedKernel" : {
+      "commit" : "bd2db59",
+      "cpuMedianMilliseconds" : 0.029957999999999999,
+      "cpuP95Milliseconds" : 0.038504799999999999,
+      "metalMedianMilliseconds" : 0.62024999999999997,
+      "metalP95Milliseconds" : 1.3072273999999999
+    },
+    "lockedP05WholeEngineReference" : {
+      "comparisonScope" : "non-comparable cross-scope reference",
+      "cpuMedianMilliseconds" : 8.3390625000000007,
+      "cpuP95Milliseconds" : 12.66410205,
+      "metalMedianMilliseconds" : 2.0679794999999999,
+      "metalP95Milliseconds" : 6.7691860500000001
+    }
+  },
+  "cases" : [
+    {
+      "cpuMedianMilliseconds" : 0.0055834999999999999,
+      "cpuMetalByteParity" : true,
+      "cpuMilliseconds" : [
+        0.011792,
+        0.0070410000000000004,
+        0.0055830000000000003,
+        0.005666,
+        0.0053330000000000001,
+        0.0055840000000000004,
+        0.0051669999999999997,
+        0.006208,
+        0.0049579999999999997,
+        0.0049170000000000004
+      ],
+      "cpuP95Milliseconds" : 0.0096540499999999956,
+      "expectedChecksum" : 153143,
+      "id" : "420f-direct_2x-radial_detail",
+      "metalMedianMilliseconds" : 0.20729150000000002,
+      "metalMilliseconds" : [
+        0.21329200000000001,
+        0.206708,
+        0.20508299999999999,
+        0.206958,
+        0.29087499999999999,
+        0.203875,
+        0.207625,
+        0.21479200000000001,
+        0.21008399999999999,
+        0.203375
+      ],
+      "metalP95Milliseconds" : 0.25663764999999994,
+      "outputChecksum" : 153143,
+      "reusableCPUHorizontalSamples" : 256,
+      "reusableMetalBuffers" : 21,
+      "sampleCount" : 10,
+      "warmupCount" : 5
+    },
+    {
+      "cpuMedianMilliseconds" : 0.0031665,
+      "cpuMetalByteParity" : true,
+      "cpuMilliseconds" : [
+        0.0032499999999999999,
+        0.0032499999999999999,
+        0.0031250000000000002,
+        0.0031250000000000002,
+        0.0031250000000000002,
+        0.003166,
+        0.0042919999999999998,
+        0.0031250000000000002,
+        0.0031670000000000001,
+        0.0031670000000000001
+      ],
+      "cpuP95Milliseconds" : 0.0038230999999999985,
+      "expectedChecksum" : 86154,
+      "id" : "420f-direct_3_over_2-radial_detail",
+      "metalMedianMilliseconds" : 0.21108349999999998,
+      "metalMilliseconds" : [
+        0.20895900000000001,
+        0.21320800000000001,
+        0.21058399999999999,
+        0.21325,
+        0.20883299999999999,
+        0.214584,
+        0.20958399999999999,
+        0.206458,
+        0.21162500000000001,
+        0.21158299999999999
+      ],
+      "metalP95Milliseconds" : 0.2139837,
+      "outputChecksum" : 86154,
+      "reusableCPUHorizontalSamples" : 192,
+      "reusableMetalBuffers" : 21,
+      "sampleCount" : 10,
+      "warmupCount" : 5
+    },
+    {
+      "cpuMedianMilliseconds" : 0.0057499999999999999,
+      "cpuMetalByteParity" : true,
+      "cpuMilliseconds" : [
+        0.0057920000000000003,
+        0.0057080000000000004,
+        0.0057499999999999999,
+        0.0057499999999999999,
+        0.0057089999999999997,
+        0.0057080000000000004,
+        0.0057080000000000004,
+        0.0057910000000000001,
+        0.0065839999999999996,
+        0.0059579999999999998
+      ],
+      "cpuP95Milliseconds" : 0.0063022999999999985,
+      "expectedChecksum" : 153145,
+      "id" : "420v-direct_2x-radial_detail",
+      "metalMedianMilliseconds" : 0.2227915,
+      "metalMilliseconds" : [
+        0.22375,
+        0.22275,
+        0.22425,
+        0.223,
+        0.21233399999999999,
+        0.222833,
+        0.22270799999999999,
+        0.21829200000000001,
+        0.22566600000000001,
+        0.21308299999999999
+      ],
+      "metalP95Milliseconds" : 0.2250288,
+      "outputChecksum" : 153145,
+      "reusableCPUHorizontalSamples" : 256,
+      "reusableMetalBuffers" : 21,
+      "sampleCount" : 10,
+      "warmupCount" : 5
+    },
+    {
+      "cpuMedianMilliseconds" : 0.0036670000000000001,
+      "cpuMetalByteParity" : true,
+      "cpuMilliseconds" : [
+        0.003833,
+        0.0037919999999999998,
+        0.0037079999999999999,
+        0.0036250000000000002,
+        0.003666,
+        0.0039160000000000002,
+        0.003666,
+        0.0036670000000000001,
+        0.0036670000000000001,
+        0.0036250000000000002
+      ],
+      "cpuP95Milliseconds" : 0.00387865,
+      "expectedChecksum" : 86175,
+      "id" : "420v-direct_3_over_2-radial_detail",
+      "metalMedianMilliseconds" : 0.21054200000000001,
+      "metalMilliseconds" : [
+        0.187917,
+        0.21529100000000001,
+        0.21495800000000001,
+        0.21512500000000001,
+        0.20966699999999999,
+        0.187,
+        0.21141699999999999,
+        0.21249999999999999,
+        0.207458,
+        0.20300000000000001
+      ],
+      "metalP95Milliseconds" : 0.2152163,
+      "outputChecksum" : 86175,
+      "reusableCPUHorizontalSamples" : 192,
+      "reusableMetalBuffers" : 21,
+      "sampleCount" : 10,
+      "warmupCount" : 5
+    }
+  ],
+  "configuration" : {
+    "compilerConfiguration" : "swiftc -O -whole-module-optimization -warnings-as-errors -strict-concurrency=complete",
+    "device" : "Apple M4 Pro",
+    "sampleCountPerCase" : 10,
+    "sourceByteCount" : 288,
+    "sourceSHA256" : "87dc513caa392105a02425704e15b9fbd0fa81f92c1a552daa37550822225024",
+    "timedSetupExcluded" : [
+      "scale-plan construction",
+      "fixed-point IR construction and validation",
+      "border-index and coefficient preparation",
+      "CPU workspace allocation",
+      "Metal pipeline, reusable buffer allocation, and immutable plan upload"
+    ],
+    "warmupCount" : 5
+  },
+  "schemaVersion" : "mirmir-v4-fixed-point-spatial-benchmark-v1",
+  "scope" : "prepared fixed-point spatial kernel only; luma plus deinterleaved chroma"
+}

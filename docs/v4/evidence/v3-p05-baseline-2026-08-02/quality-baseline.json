@@ -1,0 +1,36 @@
+{
+  "cpu": {
+    "baselineQualityIndex": 100.0,
+    "caseCount": 40,
+    "components": {
+      "chroma_multiscale_structural_error": 0.2383857671035261,
+      "edge_ringing_error": 0.052133289079520695,
+      "luma_multiscale_structural_error": 0.14256405906066613,
+      "perceptual_feature_error": 0.06869286005499378,
+      "temporal_flicker_error": 0.03960158330307432
+    },
+    "temporalPairCount": 12,
+    "weightedError": 0.11252750331632776
+  },
+  "metal": {
+    "baselineQualityIndex": 100.0,
+    "caseCount": 40,
+    "components": {
+      "chroma_multiscale_structural_error": 0.23891814150985163,
+      "edge_ringing_error": 0.05210897785039942,
+      "luma_multiscale_structural_error": 0.1425333591777008,
+      "perceptual_feature_error": 0.06866375191054201,
+      "temporal_flicker_error": 0.03960030675078673
+    },
+    "temporalPairCount": 12,
+    "weightedError": 0.11258810645597869
+  },
+  "schemaVersion": "mirmir-v4-quality-baseline-v1",
+  "weights": {
+    "chroma_multiscale_structural_error": 0.15,
+    "edge_ringing_error": 0.1,
+    "luma_multiscale_structural_error": 0.35,
+    "perceptual_feature_error": 0.2,
+    "temporal_flicker_error": 0.2
+  }
+}

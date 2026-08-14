@@ -1,0 +1,1399 @@
+{
+  "cases" : [
+    {
+      "cpuFile" : "420f-direct_2x-checkerboard-cpu.bin",
+      "id" : "420f-direct_2x-checkerboard",
+      "metalFile" : "420f-direct_2x-checkerboard-metal.bin",
+      "pattern" : "checkerboard",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_2x-checkerboard-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_2x-checkerboard-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420f-direct_2x-constant-cpu.bin",
+      "id" : "420f-direct_2x-constant",
+      "metalFile" : "420f-direct_2x-constant-metal.bin",
+      "pattern" : "constant",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_2x-constant-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_2x-constant-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420f-direct_2x-diagonal_edge-cpu.bin",
+      "id" : "420f-direct_2x-diagonal_edge",
+      "metalFile" : "420f-direct_2x-diagonal_edge-metal.bin",
+      "pattern" : "diagonal_edge",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_2x-diagonal_edge-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_2x-diagonal_edge-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420f-direct_2x-horizontal_ramp-cpu.bin",
+      "id" : "420f-direct_2x-horizontal_ramp",
+      "metalFile" : "420f-direct_2x-horizontal_ramp-metal.bin",
+      "pattern" : "horizontal_ramp",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_2x-horizontal_ramp-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_2x-horizontal_ramp-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420f-direct_2x-impulse-cpu.bin",
+      "id" : "420f-direct_2x-impulse",
+      "metalFile" : "420f-direct_2x-impulse-metal.bin",
+      "pattern" : "impulse",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_2x-impulse-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_2x-impulse-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420f-direct_2x-moving_edge_0-cpu.bin",
+      "id" : "420f-direct_2x-moving_edge_0",
+      "metalFile" : "420f-direct_2x-moving_edge_0-metal.bin",
+      "pattern" : "moving_edge_0",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_2x-moving_edge_0-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_2x-moving_edge_0-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420f-direct_2x-moving_edge_1-cpu.bin",
+      "id" : "420f-direct_2x-moving_edge_1",
+      "metalFile" : "420f-direct_2x-moving_edge_1-metal.bin",
+      "pattern" : "moving_edge_1",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_2x-moving_edge_1-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_2x-moving_edge_1-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420f-direct_2x-moving_edge_2-cpu.bin",
+      "id" : "420f-direct_2x-moving_edge_2",
+      "metalFile" : "420f-direct_2x-moving_edge_2-metal.bin",
+      "pattern" : "moving_edge_2",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_2x-moving_edge_2-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_2x-moving_edge_2-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420f-direct_2x-moving_edge_3-cpu.bin",
+      "id" : "420f-direct_2x-moving_edge_3",
+      "metalFile" : "420f-direct_2x-moving_edge_3-metal.bin",
+      "pattern" : "moving_edge_3",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_2x-moving_edge_3-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_2x-moving_edge_3-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420f-direct_2x-radial_detail-cpu.bin",
+      "id" : "420f-direct_2x-radial_detail",
+      "metalFile" : "420f-direct_2x-radial_detail-metal.bin",
+      "pattern" : "radial_detail",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_2x-radial_detail-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_2x-radial_detail-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420f-direct_3_over_2-checkerboard-cpu.bin",
+      "id" : "420f-direct_3_over_2-checkerboard",
+      "metalFile" : "420f-direct_3_over_2-checkerboard-metal.bin",
+      "pattern" : "checkerboard",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_3_over_2-checkerboard-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_3_over_2-checkerboard-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    },
+    {
+      "cpuFile" : "420f-direct_3_over_2-constant-cpu.bin",
+      "id" : "420f-direct_3_over_2-constant",
+      "metalFile" : "420f-direct_3_over_2-constant-metal.bin",
+      "pattern" : "constant",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_3_over_2-constant-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_3_over_2-constant-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    },
+    {
+      "cpuFile" : "420f-direct_3_over_2-diagonal_edge-cpu.bin",
+      "id" : "420f-direct_3_over_2-diagonal_edge",
+      "metalFile" : "420f-direct_3_over_2-diagonal_edge-metal.bin",
+      "pattern" : "diagonal_edge",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_3_over_2-diagonal_edge-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_3_over_2-diagonal_edge-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    },
+    {
+      "cpuFile" : "420f-direct_3_over_2-horizontal_ramp-cpu.bin",
+      "id" : "420f-direct_3_over_2-horizontal_ramp",
+      "metalFile" : "420f-direct_3_over_2-horizontal_ramp-metal.bin",
+      "pattern" : "horizontal_ramp",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_3_over_2-horizontal_ramp-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_3_over_2-horizontal_ramp-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    },
+    {
+      "cpuFile" : "420f-direct_3_over_2-impulse-cpu.bin",
+      "id" : "420f-direct_3_over_2-impulse",
+      "metalFile" : "420f-direct_3_over_2-impulse-metal.bin",
+      "pattern" : "impulse",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_3_over_2-impulse-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_3_over_2-impulse-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    },
+    {
+      "cpuFile" : "420f-direct_3_over_2-moving_edge_0-cpu.bin",
+      "id" : "420f-direct_3_over_2-moving_edge_0",
+      "metalFile" : "420f-direct_3_over_2-moving_edge_0-metal.bin",
+      "pattern" : "moving_edge_0",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_3_over_2-moving_edge_0-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_3_over_2-moving_edge_0-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    },
+    {
+      "cpuFile" : "420f-direct_3_over_2-moving_edge_1-cpu.bin",
+      "id" : "420f-direct_3_over_2-moving_edge_1",
+      "metalFile" : "420f-direct_3_over_2-moving_edge_1-metal.bin",
+      "pattern" : "moving_edge_1",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_3_over_2-moving_edge_1-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_3_over_2-moving_edge_1-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    },
+    {
+      "cpuFile" : "420f-direct_3_over_2-moving_edge_2-cpu.bin",
+      "id" : "420f-direct_3_over_2-moving_edge_2",
+      "metalFile" : "420f-direct_3_over_2-moving_edge_2-metal.bin",
+      "pattern" : "moving_edge_2",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_3_over_2-moving_edge_2-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_3_over_2-moving_edge_2-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    },
+    {
+      "cpuFile" : "420f-direct_3_over_2-moving_edge_3-cpu.bin",
+      "id" : "420f-direct_3_over_2-moving_edge_3",
+      "metalFile" : "420f-direct_3_over_2-moving_edge_3-metal.bin",
+      "pattern" : "moving_edge_3",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_3_over_2-moving_edge_3-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_3_over_2-moving_edge_3-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    },
+    {
+      "cpuFile" : "420f-direct_3_over_2-radial_detail-cpu.bin",
+      "id" : "420f-direct_3_over_2-radial_detail",
+      "metalFile" : "420f-direct_3_over_2-radial_detail-metal.bin",
+      "pattern" : "radial_detail",
+      "pixelFormat" : "420f",
+      "referenceFile" : "420f-direct_3_over_2-radial_detail-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420f-direct_3_over_2-radial_detail-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    },
+    {
+      "cpuFile" : "420v-direct_2x-checkerboard-cpu.bin",
+      "id" : "420v-direct_2x-checkerboard",
+      "metalFile" : "420v-direct_2x-checkerboard-metal.bin",
+      "pattern" : "checkerboard",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_2x-checkerboard-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_2x-checkerboard-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420v-direct_2x-constant-cpu.bin",
+      "id" : "420v-direct_2x-constant",
+      "metalFile" : "420v-direct_2x-constant-metal.bin",
+      "pattern" : "constant",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_2x-constant-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_2x-constant-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420v-direct_2x-diagonal_edge-cpu.bin",
+      "id" : "420v-direct_2x-diagonal_edge",
+      "metalFile" : "420v-direct_2x-diagonal_edge-metal.bin",
+      "pattern" : "diagonal_edge",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_2x-diagonal_edge-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_2x-diagonal_edge-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420v-direct_2x-horizontal_ramp-cpu.bin",
+      "id" : "420v-direct_2x-horizontal_ramp",
+      "metalFile" : "420v-direct_2x-horizontal_ramp-metal.bin",
+      "pattern" : "horizontal_ramp",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_2x-horizontal_ramp-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_2x-horizontal_ramp-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420v-direct_2x-impulse-cpu.bin",
+      "id" : "420v-direct_2x-impulse",
+      "metalFile" : "420v-direct_2x-impulse-metal.bin",
+      "pattern" : "impulse",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_2x-impulse-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_2x-impulse-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420v-direct_2x-moving_edge_0-cpu.bin",
+      "id" : "420v-direct_2x-moving_edge_0",
+      "metalFile" : "420v-direct_2x-moving_edge_0-metal.bin",
+      "pattern" : "moving_edge_0",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_2x-moving_edge_0-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_2x-moving_edge_0-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420v-direct_2x-moving_edge_1-cpu.bin",
+      "id" : "420v-direct_2x-moving_edge_1",
+      "metalFile" : "420v-direct_2x-moving_edge_1-metal.bin",
+      "pattern" : "moving_edge_1",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_2x-moving_edge_1-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_2x-moving_edge_1-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420v-direct_2x-moving_edge_2-cpu.bin",
+      "id" : "420v-direct_2x-moving_edge_2",
+      "metalFile" : "420v-direct_2x-moving_edge_2-metal.bin",
+      "pattern" : "moving_edge_2",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_2x-moving_edge_2-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_2x-moving_edge_2-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420v-direct_2x-moving_edge_3-cpu.bin",
+      "id" : "420v-direct_2x-moving_edge_3",
+      "metalFile" : "420v-direct_2x-moving_edge_3-metal.bin",
+      "pattern" : "moving_edge_3",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_2x-moving_edge_3-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_2x-moving_edge_3-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420v-direct_2x-radial_detail-cpu.bin",
+      "id" : "420v-direct_2x-radial_detail",
+      "metalFile" : "420v-direct_2x-radial_detail-metal.bin",
+      "pattern" : "radial_detail",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_2x-radial_detail-reference.bin",
+      "route" : "direct_2x",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_2x-radial_detail-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 384,
+      "targetHeight" : 24,
+      "targetLumaByteCount" : 768,
+      "targetWidth" : 32
+    },
+    {
+      "cpuFile" : "420v-direct_3_over_2-checkerboard-cpu.bin",
+      "id" : "420v-direct_3_over_2-checkerboard",
+      "metalFile" : "420v-direct_3_over_2-checkerboard-metal.bin",
+      "pattern" : "checkerboard",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_3_over_2-checkerboard-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_3_over_2-checkerboard-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    },
+    {
+      "cpuFile" : "420v-direct_3_over_2-constant-cpu.bin",
+      "id" : "420v-direct_3_over_2-constant",
+      "metalFile" : "420v-direct_3_over_2-constant-metal.bin",
+      "pattern" : "constant",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_3_over_2-constant-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_3_over_2-constant-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    },
+    {
+      "cpuFile" : "420v-direct_3_over_2-diagonal_edge-cpu.bin",
+      "id" : "420v-direct_3_over_2-diagonal_edge",
+      "metalFile" : "420v-direct_3_over_2-diagonal_edge-metal.bin",
+      "pattern" : "diagonal_edge",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_3_over_2-diagonal_edge-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_3_over_2-diagonal_edge-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    },
+    {
+      "cpuFile" : "420v-direct_3_over_2-horizontal_ramp-cpu.bin",
+      "id" : "420v-direct_3_over_2-horizontal_ramp",
+      "metalFile" : "420v-direct_3_over_2-horizontal_ramp-metal.bin",
+      "pattern" : "horizontal_ramp",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_3_over_2-horizontal_ramp-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_3_over_2-horizontal_ramp-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    },
+    {
+      "cpuFile" : "420v-direct_3_over_2-impulse-cpu.bin",
+      "id" : "420v-direct_3_over_2-impulse",
+      "metalFile" : "420v-direct_3_over_2-impulse-metal.bin",
+      "pattern" : "impulse",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_3_over_2-impulse-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_3_over_2-impulse-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    },
+    {
+      "cpuFile" : "420v-direct_3_over_2-moving_edge_0-cpu.bin",
+      "id" : "420v-direct_3_over_2-moving_edge_0",
+      "metalFile" : "420v-direct_3_over_2-moving_edge_0-metal.bin",
+      "pattern" : "moving_edge_0",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_3_over_2-moving_edge_0-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_3_over_2-moving_edge_0-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    },
+    {
+      "cpuFile" : "420v-direct_3_over_2-moving_edge_1-cpu.bin",
+      "id" : "420v-direct_3_over_2-moving_edge_1",
+      "metalFile" : "420v-direct_3_over_2-moving_edge_1-metal.bin",
+      "pattern" : "moving_edge_1",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_3_over_2-moving_edge_1-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_3_over_2-moving_edge_1-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    },
+    {
+      "cpuFile" : "420v-direct_3_over_2-moving_edge_2-cpu.bin",
+      "id" : "420v-direct_3_over_2-moving_edge_2",
+      "metalFile" : "420v-direct_3_over_2-moving_edge_2-metal.bin",
+      "pattern" : "moving_edge_2",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_3_over_2-moving_edge_2-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_3_over_2-moving_edge_2-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    },
+    {
+      "cpuFile" : "420v-direct_3_over_2-moving_edge_3-cpu.bin",
+      "id" : "420v-direct_3_over_2-moving_edge_3",
+      "metalFile" : "420v-direct_3_over_2-moving_edge_3-metal.bin",
+      "pattern" : "moving_edge_3",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_3_over_2-moving_edge_3-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_3_over_2-moving_edge_3-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    },
+    {
+      "cpuFile" : "420v-direct_3_over_2-radial_detail-cpu.bin",
+      "id" : "420v-direct_3_over_2-radial_detail",
+      "metalFile" : "420v-direct_3_over_2-radial_detail-metal.bin",
+      "pattern" : "radial_detail",
+      "pixelFormat" : "420v",
+      "referenceFile" : "420v-direct_3_over_2-radial_detail-reference.bin",
+      "route" : "direct_3_over_2",
+      "sourceChromaByteCount" : 96,
+      "sourceFile" : "420v-direct_3_over_2-radial_detail-source.bin",
+      "sourceHeight" : 12,
+      "sourceLumaByteCount" : 192,
+      "sourceWidth" : 16,
+      "targetChromaByteCount" : 216,
+      "targetHeight" : 18,
+      "targetLumaByteCount" : 432,
+      "targetWidth" : 24
+    }
+  ],
+  "cpuImplementationVersion" : "ash-p05-cpu-reference-preview",
+  "metalImplementationVersion" : "ash-p05-metal-v3-preview",
+  "performance" : [
+    {
+      "cpuMemoryDeltas" : [
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 176,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 16,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 32,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 78944,
+          "physicalFootprintBytes" : 65536,
+          "residentBytes" : 81920
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 64,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        }
+      ],
+      "cpuMilliseconds" : [
+        10.85525,
+        10.394125,
+        10.807333,
+        10.358666,
+        10.390459,
+        10.37975,
+        10.604542,
+        10.726417,
+        10.682583,
+        10.71075
+      ],
+      "id" : "420f-direct_2x-radial_detail",
+      "memoryAfterSamples" : {
+        "mallocSizeAllocatedBytes" : 58720256,
+        "mallocSizeInUseBytes" : 15201328,
+        "physicalFootprintBytes" : 133497744,
+        "residentBytes" : 122126336
+      },
+      "memoryBeforeWarmups" : {
+        "mallocSizeAllocatedBytes" : 58720256,
+        "mallocSizeInUseBytes" : 15111056,
+        "physicalFootprintBytes" : 133432208,
+        "residentBytes" : 122044416
+      },
+      "metalMemoryDeltas" : [
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -144,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -272,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -176,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -272,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -160,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -272,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -192,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -208,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -272,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        }
+      ],
+      "metalMilliseconds" : [
+        2.1075,
+        2.03125,
+        6.774875,
+        2.167209,
+        6.802084,
+        2.050583,
+        6.784208,
+        2.090958,
+        2.1205,
+        1.981334
+      ],
+      "pixelFormat" : "420f",
+      "route" : "direct_2x",
+      "sampleCount" : 10,
+      "warmupCount" : 5
+    },
+    {
+      "cpuMemoryDeltas" : [
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 48,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 16,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 32,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 64,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        }
+      ],
+      "cpuMilliseconds" : [
+        10.92375,
+        10.903667,
+        11.055375,
+        11.087583,
+        11.104375,
+        11.024791,
+        10.799792,
+        10.62,
+        10.843291,
+        11.320667
+      ],
+      "id" : "420f-direct_3_over_2-radial_detail",
+      "memoryAfterSamples" : {
+        "mallocSizeAllocatedBytes" : 58720256,
+        "mallocSizeInUseBytes" : 15522880,
+        "physicalFootprintBytes" : 133809040,
+        "residentBytes" : 122388480
+      },
+      "memoryBeforeWarmups" : {
+        "mallocSizeAllocatedBytes" : 58720256,
+        "mallocSizeInUseBytes" : 15509184,
+        "physicalFootprintBytes" : 133809040,
+        "residentBytes" : 122388480
+      },
+      "metalMemoryDeltas" : [
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 48,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 16,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -144,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 32,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -208,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        }
+      ],
+      "metalMilliseconds" : [
+        1.850583,
+        6.147208,
+        1.8865,
+        1.827167,
+        6.124292,
+        1.895042,
+        6.189792,
+        1.900458,
+        6.07425,
+        1.886834
+      ],
+      "pixelFormat" : "420f",
+      "route" : "direct_3_over_2",
+      "sampleCount" : 10,
+      "warmupCount" : 5
+    },
+    {
+      "cpuMemoryDeltas" : [
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 48,
+          "physicalFootprintBytes" : 16384,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 32672,
+          "physicalFootprintBytes" : 32768,
+          "residentBytes" : 32768
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 16400,
+          "physicalFootprintBytes" : 32768,
+          "residentBytes" : 32768
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 32,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 192,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        }
+      ],
+      "cpuMilliseconds" : [
+        6.31325,
+        6.040708,
+        6.246583,
+        6.318542,
+        6.427167,
+        6.227958,
+        6.324917,
+        6.3585,
+        6.288125,
+        6.380959
+      ],
+      "id" : "420v-direct_2x-radial_detail",
+      "memoryAfterSamples" : {
+        "mallocSizeAllocatedBytes" : 58720256,
+        "mallocSizeInUseBytes" : 14948992,
+        "physicalFootprintBytes" : 130007952,
+        "residentBytes" : 118587392
+      },
+      "memoryBeforeWarmups" : {
+        "mallocSizeAllocatedBytes" : 58720256,
+        "mallocSizeInUseBytes" : 14886352,
+        "physicalFootprintBytes" : 129876880,
+        "residentBytes" : 118456320
+      },
+      "metalMemoryDeltas" : [
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 48,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 16384
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 4192,
+          "physicalFootprintBytes" : 16384,
+          "residentBytes" : 16384
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 16,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -192,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 32,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -192,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 64,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -80,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        }
+      ],
+      "metalMilliseconds" : [
+        3.016167,
+        2.541834,
+        2.517375,
+        2.244083,
+        2.262875,
+        2.039625,
+        2.019041,
+        5.846667,
+        2.012958,
+        2.022083
+      ],
+      "pixelFormat" : "420v",
+      "route" : "direct_2x",
+      "sampleCount" : 10,
+      "warmupCount" : 5
+    },
+    {
+      "cpuMemoryDeltas" : [
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 48,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 16,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 32,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 64,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        }
+      ],
+      "cpuMilliseconds" : [
+        6.291125,
+        6.30475,
+        6.267917,
+        6.390042,
+        6.081125,
+        6.198584,
+        6.249416,
+        6.244416,
+        6.195792,
+        6.06875
+      ],
+      "id" : "420v-direct_3_over_2-radial_detail",
+      "memoryAfterSamples" : {
+        "mallocSizeAllocatedBytes" : 58720256,
+        "mallocSizeInUseBytes" : 15384560,
+        "physicalFootprintBytes" : 133694352,
+        "residentBytes" : 122257408
+      },
+      "memoryBeforeWarmups" : {
+        "mallocSizeAllocatedBytes" : 58720256,
+        "mallocSizeInUseBytes" : 15340208,
+        "physicalFootprintBytes" : 133661584,
+        "residentBytes" : 122224640
+      },
+      "metalMemoryDeltas" : [
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -224,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -192,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -256,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -192,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -240,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 128,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -192,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -208,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -192,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        }
+      ],
+      "metalMilliseconds" : [
+        1.878541,
+        1.861833,
+        1.902708,
+        6.112292,
+        6.123166,
+        1.854458,
+        1.935291,
+        1.867083,
+        1.80675,
+        1.845042
+      ],
+      "pixelFormat" : "420v",
+      "route" : "direct_3_over_2",
+      "sampleCount" : 10,
+      "warmupCount" : 5
+    }
+  ],
+  "schemaVersion" : "mirmir-v4-baseline-v1",
+  "sourceHeight" : 12,
+  "sourceWidth" : 16
+}

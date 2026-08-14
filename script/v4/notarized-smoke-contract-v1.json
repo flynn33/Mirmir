@@ -1,0 +1,156 @@
+{
+  "actions": [
+    {
+      "evidenceKind": "apple_notary_service_acceptance",
+      "id": "notarization_ticket_acceptance",
+      "producer": "apple_notary_service"
+    },
+    {
+      "evidenceKind": "system_gatekeeper_assessment",
+      "id": "gatekeeper_assessment",
+      "producer": "spctl"
+    },
+    {
+      "evidenceKind": "system_stapler_validation",
+      "id": "stapled_ticket_validation",
+      "producer": "stapler"
+    },
+    {
+      "evidenceKind": "system_codesign_verification",
+      "id": "code_signature_validation",
+      "producer": "codesign"
+    },
+    {
+      "evidenceKind": "notarized_app_observer",
+      "id": "launch",
+      "producer": "shipping_app"
+    },
+    {
+      "evidenceKind": "notarized_app_observer",
+      "id": "p06_runtime_load",
+      "producer": "shipping_app"
+    },
+    {
+      "evidenceKind": "notarized_app_observer",
+      "id": "media_probe",
+      "producer": "shipping_app"
+    },
+    {
+      "evidenceKind": "notarized_app_observer",
+      "id": "deterministic_process",
+      "producer": "shipping_app"
+    },
+    {
+      "evidenceKind": "notarized_app_observer",
+      "id": "semantic_output_verify",
+      "producer": "shipping_app"
+    },
+    {
+      "evidenceKind": "notarized_app_observer",
+      "id": "queue_relaunch_recovery",
+      "producer": "shipping_app"
+    }
+  ],
+  "acceptanceProviders": {
+    "notarytool": {
+      "requiredArtifacts": [],
+      "requiredCommandRecords": [
+        "notary_info",
+        "notary_log"
+      ],
+      "requiredTools": [
+        "notarytool"
+      ]
+    },
+    "xcode_archive": {
+      "requiredArtifacts": [
+        "xcodeArchiveInfo"
+      ],
+      "requiredCommandRecords": [
+        "xcode_export_notarized_app",
+        "xcode_export_archive"
+      ],
+      "requiredTools": [
+        "xcodebuild"
+      ]
+    }
+  },
+  "candidate": {
+    "requiredBundleIdentifier": "com.mirmir.app",
+    "requiredRuntimeID": "ash-p06-deterministic-v4",
+    "requiredRuntimeStatus": "release_qualified"
+  },
+  "capture": {
+    "appInvocationTimeoutSeconds": 900,
+    "buildConfiguration": "Release",
+    "evaluatorSHA256": "12cae408a52e5dc9b87f1d3afd50f90935c40cd69fa9b066fcf0d4dc2b4c7e30",
+    "maximumCaptureAgeSeconds": 3600,
+    "maximumNotarySubmissionAgeSeconds": 604800,
+    "maximumSandboxEvidenceBytes": 536870912,
+    "observerSourcePath": "Mirmir/App/MirmirApp.swift",
+    "observerSourceSHA256": "1e2da33aeca0faf51e193e112f4828d885a38b1630d9bb5a5c9156eb3776d65c",
+    "qualificationNamespace": "MirmirQualificationV4/notarized-smoke",
+    "runnerSHA256": "ffad88657112d7a39bb259589a66d1cc267c87c3db7e041aa938b20e3880bbce"
+  },
+  "codeSigning": {
+    "forbiddenEntitlement": "com.apple.security.get-task-allow",
+    "requiredCertificateClass": "Developer ID Application",
+    "requiredArchitectures": [
+      "arm64",
+      "x86_64"
+    ],
+    "requiredEntitlements": [
+      "com.apple.security.app-sandbox",
+      "com.apple.security.files.bookmarks.app-scope"
+    ],
+    "requiredHardenedRuntimeFlag": "runtime",
+    "requiredTeamIdentifier": "9AQ2C2838M",
+    "secureTimestampRequired": true
+  },
+  "releaseQualificationContractPath": "script/v4/release-qualification-contract-v1.json",
+  "requiredCommandRecords": [
+    "gatekeeper_assessment",
+    "stapled_ticket_validation",
+    "code_signature_validation",
+    "code_signature_display",
+    "code_signature_display_arm64",
+    "code_signature_display_x86_64",
+    "code_signature_entitlements",
+    "code_signature_requirements",
+    "submitted_signature_display",
+    "submitted_signature_display_arm64",
+    "submitted_signature_display_x86_64",
+    "submitted_signature_requirements",
+    "observer_prepare",
+    "observer_recover"
+  ],
+  "requiredObserverChecks": {
+    "prepare": [
+      "shippingExecutableIdentity",
+      "sandboxIsolation",
+      "productionP06Load",
+      "realMediaProbe",
+      "deterministicCPUProcess",
+      "durableCheckpointPause",
+      "userQueueUntouched"
+    ],
+    "recover": [
+      "shippingExecutableIdentity",
+      "sandboxIsolation",
+      "productionP06Load",
+      "phaseOneSealReplayVerified",
+      "durableQueueReopened",
+      "checkpointResumeCompleted",
+      "decodedSemanticEquality",
+      "userQueueUntouched"
+    ]
+  },
+  "schemaVersion": "mirmir-ash-v4-notarized-smoke-contract-v1",
+  "suiteID": "mirmir-ash-v4-notarized-smoke-v1",
+  "tools": {
+    "codesign": "/usr/bin/codesign",
+    "ditto": "/usr/bin/ditto",
+    "spctl": "/usr/sbin/spctl",
+    "xcrun": "/usr/bin/xcrun"
+  }
+}
