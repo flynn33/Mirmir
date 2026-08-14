@@ -3500,8 +3500,14 @@ enum ASHSpatialReconstructorV4 {
         func loadRow(_ sourceY: Int, into slot: Int) {
             let sourceStart = sourceY * width
             let destinationStart = slot * width
-            for x in 0..<width {
-                workspace.rows[destinationStart + x] = samples[sourceStart + x]
+            samples.withUnsafeBufferPointer { sourceBuffer in
+                workspace.rows.withUnsafeMutableBufferPointer {
+                    destinationBuffer in
+                    for x in 0..<width {
+                        destinationBuffer[destinationStart + x] =
+                            sourceBuffer[sourceStart + x]
+                    }
+                }
             }
         }
         loadRow(0, into: 0)

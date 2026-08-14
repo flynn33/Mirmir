@@ -998,8 +998,8 @@ enum ASHP06FixedPointSourceIdentityV4 {
     static func fixedPointKernel() throws -> ASHP06LockedFileIdentityV4 {
         try identity(
             "Mirmir/Modules/UpscalerEngine/FixedPointKernelV4.swift",
-            57_083,
-            "90945c453c81d8b2422b9b708f14a0b2882f0837442b88bd7b525766287f0a91"
+            57_116,
+            "1f3a23168eecb881db0daf63cda3475572a82b9b611876ef1742c9efaa4debe6"
         )
     }
 

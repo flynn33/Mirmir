@@ -98,6 +98,47 @@ final class ASHDepthFourBranchProgramV4Tests: XCTestCase {
         XCTAssertTrue(audit.isReleaseValid)
     }
 
+    func testPermutedToggleLevelsPreserveAuditWhileForcingLaterPivotSwap()
+        throws {
+        let canonical = try ASHDepthFourBranchCompilerV4.compileCanonical()
+        let permutedGrammar = try ASHDepthFourGrammarV4(
+            actionMassDenominator: 4,
+            actionMassNumerators: [2, 1, 1],
+            positiveToggleMasksByLevel: [
+                0b0100, 0b1000, 0b0010, 0b0001
+            ],
+            negativeToggleMasksByLevel: [
+                0b0010, 0b0100, 0b0001, 0b1000
+            ]
+        )
+        let permuted = try ASHDepthFourBranchCompilerV4.compile(
+            grammar: permutedGrammar,
+            messageCodewordMap: .canonical,
+            operatorManifest: .canonicalP06,
+            conditioningPolicy: .canonical,
+            programID: "ash.audit.permuted-toggle-levels"
+        )
+
+        let canonicalAudit = try canonical.audit()
+        let permutedAudit = try permuted.audit()
+        XCTAssertEqual(
+            permutedAudit.branchToggleRankProof,
+            ASHGF2RankProofV4(
+                rowCount: 4,
+                coordinateCount: 4,
+                rank: 4,
+                pivotCoordinates: [1, 2, 3, 4]
+            )
+        )
+        XCTAssertEqual(permutedAudit, canonicalAudit)
+        XCTAssertEqual(
+            permuted.baseWeightsByMessage,
+            canonical.baseWeightsByMessage
+        )
+        XCTAssertTrue(permutedAudit.isReleaseValid)
+        XCTAssertNoThrow(try permuted.validateRelease())
+    }
+
     func testDeclaredASHModelCancellationAndAccidentalCoalescenceAreSeparated() throws {
         let declaredManifest = try ASHOperatorManifestV4
             .declaredASHModelV1Reference()

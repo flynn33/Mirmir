@@ -165,22 +165,51 @@ file mode, Swift executable, and interpreter are revalidated after the build.
 
 Swift's same-process `-enable-deterministic-check` remains a fail-closed
 diagnostic, not a reproducibility proof. It compares compiler instances inside
-one process and cannot replace independent executions. Qualification found a
-real independent-process variance in the four clean-aperture values previously
-constructed through tuple-array iteration: optimized WMO objects differed, and
-the same four PHI nodes were already reordered in `-emit-irgen` output before
-LLVM optimization. The implementation now validates the four fields through
-explicit calls to a non-inlined helper, eliminating that unordered equivalent
-IR group without disabling broad optimizations or machine placement. On the
-post-change pre-freeze snapshot, three exact arm64 IRGen replays were identical
-at SHA-256
-`227065fa9ee04158edf5194c63c59017a21a86deb8a8e91c0b56cc6b86c906b8`;
-three exact arm64 WMO objects were identical at
-`101ddaad4b40fbcd01d60976fb56c8e3427f3de541f83530ba2b009ff7764aaa`;
-and three exact x86_64 WMO objects were identical at
-`a60e211d96b28e961f5494c2c90a754aff712509321d3b2ae55efd9f76fd9071`.
-Those targeted replays validate the repair but do not replace the final
-three-build gate from the integrated release commit.
+one process and cannot replace independent executions. An earlier qualification
+found that tuple-array iteration over the four clean-aperture values could
+reorder equivalent PHI nodes in `-emit-irgen` output. Explicit calls to a
+non-inlined field helper removed that independent pre-LLVM variance.
+
+The complete canonical replay then exposed four additional source-level loci.
+Slice, section, symbol, and normalized-disassembly comparisons first localized
+the differing machine code. Replaying the exact saved whole-module frontend
+commands with the locked nine-variable environment and all 131 compiler output
+paths absent proved that the remaining differences were already present in
+Swift IRGen, before LLVM optimization or linking:
+
+- `FixedPointCPUWorkspaceV4.prepare(targetWidth:)` now initializes its four
+  `sourceRowBySlot` entries with four explicit assignments instead of an
+  equivalent indexed loop.
+- `ASHDepthFourBranchProgramV4.gf2RankProof` now swaps rows through one scoped
+  mutable-buffer borrow and caches the selected pivot value instead of repeated
+  array subscripting.
+- `ASHDepthFourBranchProgramV4.exactRank` likewise performs a manual
+  mutable-buffer row swap and caches its pivot row. This removes the varying
+  specialized nested-`Array.swapAt` IR and symbol.
+- `ASHSpatialReconstructorV4.reconstructInPlace` now copies each retained row
+  through scoped source and destination buffer borrows. This fixes whether the
+  destination bounds check was emitted before or after the array uniqueness
+  test in the local `loadRow` loop.
+
+These repairs preserve the algorithms and normal `-O` optimization pipeline;
+they do not disable LLVM optimization, block placement, outlining, or function
+merging. On the repaired pre-freeze diagnostic snapshot, three independent
+arm64 IRGen executions were byte-identical at 246,470,545 bytes and SHA-256
+`37cd2e52df5c79f590a48ead972a1ad6e3f142de984d2c57bc6883f54ea2feb7`.
+Three independent optimized arm64 WMO objects were byte-identical at 20,610,736
+bytes and SHA-256
+`bc7aafbce736d6a1e34762b1020f08cc2dad14b4dda042effd3e41b3b43346d5`.
+Three independent optimized x86_64 WMO objects were byte-identical at
+20,314,944 bytes and SHA-256
+`b1155702f099888314f0f445c7ec9c94467dbc7028e951682022ebef4dd74a1f`.
+The removed nested swap specialization was absent from the final IR and both
+architecture object symbol tables.
+
+Those direct compiler replays are focused pre-freeze evidence only. Final
+acceptance still requires three complete sequential clean builds from the exact
+integrated post-commit git archive, with byte-identical normalized receipts and
+signer-independent application identities. No targeted IRGen or object replay
+can substitute for that canonical three-build gate.
 
 ## External Metal build
 
