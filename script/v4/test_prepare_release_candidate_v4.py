@@ -134,6 +134,24 @@ class Fixture:
             source_revision="b" * 64,
             artifact=b"alternate-runtime",
         )
+        self.entitlements = self.repository / provenance.METAL_ENTITLEMENTS_REPOSITORY_PATH
+        self.entitlements.parent.mkdir(parents=True, exist_ok=True)
+        self.entitlements.write_bytes(
+            plistlib.dumps(
+                {
+                    "com.apple.security.app-sandbox": True,
+                    "com.apple.security.files.user-selected.read-write": True,
+                },
+                sort_keys=True,
+            )
+        )
+        for relative, _ in provenance.METAL_SOURCE_SPECS:
+            metal_source = self.repository / relative
+            metal_source.parent.mkdir(parents=True, exist_ok=True)
+            metal_source.write_text(
+                "#include <metal_stdlib>\nusing namespace metal;\n",
+                encoding="utf-8",
+            )
         (self.repository / "source.txt").write_text("release source\n", encoding="utf-8")
         run("git", "add", ".", cwd=self.repository)
         run("git", "commit", "-qm", "release fixture", cwd=self.repository)
@@ -233,6 +251,7 @@ class Fixture:
         shutil.copyfile(executable_source, executable)
         executable.chmod(0o755)
         shutil.copytree(self.runtime, resources / "ASH-P06.bundle")
+        (resources / "default.metallib").write_bytes(b"fixture-default-metallib")
         plist: dict[str, object] = {
             "CFBundleExecutable": "Mirmir",
             "CFBundleIdentifier": "com.mirmir.app",
@@ -252,8 +271,14 @@ class Fixture:
             "--deep",
             "--sign",
             "-",
+            "--timestamp=none",
+            "--options",
+            "runtime",
+            "--generate-entitlement-der",
             "--identifier",
             "com.mirmir.app",
+            "--entitlements",
+            self.entitlements,
             application,
             cwd=directory,
         )
@@ -291,6 +316,160 @@ class Fixture:
             "sha256": "d" * 64,
             "version": ["fixture toolchain 1"],
         }
+        component = {
+            "assetIdentifier": "a" * 40 + ".asset",
+            "buildVersion": "fixture-metal-1",
+            "name": provenance.METAL_COMPONENT_NAME,
+            "queryCommand": [
+                "$XCODEBUILD",
+                "-showComponent",
+                provenance.METAL_COMPONENT_NAME,
+                "-json",
+            ],
+            "status": "installed",
+            "toolchainIdentifier": "fixture.metal.toolchain",
+            "toolchainRelativePath": "Metal.xctoolchain",
+        }
+        metal = {
+            "componentRelativePath": "usr/bin/metal",
+            "lookupCommand": ["/usr/bin/xcrun", "--find", "metal"],
+            "resolvedComponentRelativePath": "usr/bin/metal",
+            "sha256": "1" * 64,
+            "underlyingComponentRelativePath": "usr/metal/1/bin/metal",
+            "underlyingSHA256": "3" * 64,
+            "underlyingVersion": ["fixture underlying metal 1"],
+            "underlyingVersionCommand": ["$UNDERLYING_METAL", "--version"],
+            "version": ["fixture metal 1"],
+            "versionCommand": ["$METAL", "--version"],
+        }
+        metallib = {
+            "componentRelativePath": "usr/bin/metallib",
+            "lookupCommand": ["/usr/bin/xcrun", "--find", "metallib"],
+            "resolvedComponentRelativePath": "usr/bin/air-lld",
+            "sha256": "4" * 64,
+            "underlyingComponentRelativePath": "usr/metal/1/bin/air-lld",
+            "underlyingSHA256": "5" * 64,
+            "underlyingVersion": ["fixture underlying metallib 1"],
+            "underlyingVersionCommand": [
+                "$UNDERLYING_METALLIB",
+                "--version",
+            ],
+            "version": ["fixture metallib 1"],
+            "versionCommand": ["$METALLIB", "--version"],
+        }
+        metal_nm = {
+            "componentRelativePath": "usr/bin/metal-nm",
+            "lookupCommand": ["/usr/bin/xcrun", "--find", "metal-nm"],
+            "resolvedComponentRelativePath": "usr/bin/air-nm",
+            "sha256": "2" * 64,
+            "underlyingComponentRelativePath": "usr/metal/1/bin/air-nm",
+            "underlyingSHA256": "6" * 64,
+            "underlyingVersion": ["fixture underlying metal-nm 1"],
+            "underlyingVersionCommand": [
+                "$UNDERLYING_METAL_NM",
+                "--version",
+            ],
+            "version": ["fixture metal-nm 1"],
+            "versionCommand": ["$METAL_NM", "--version"],
+        }
+        resource_entries = [
+            {
+                "byteCount": index + 1,
+                "path": path,
+                "sha256": f"{index + 7:x}" * 64,
+                "unixMode": 0o644,
+            }
+            for index, path in enumerate(
+                provenance.REQUIRED_METAL_RESOURCE_PATHS
+            )
+        ]
+        resources = {
+            "componentRelativePath": "usr/metal/1/lib/clang/fixture-1",
+            "entries": resource_entries,
+            "entryCount": len(resource_entries),
+            "identitySHA256": provenance.sha256_bytes(
+                provenance.METAL_RESOURCE_SET_DOMAIN
+                + provenance.canonical_bytes(resource_entries)
+            ),
+            "queryCommand": [
+                "$UNDERLYING_METAL",
+                "-print-resource-dir",
+            ],
+            "schemaVersion": provenance.METAL_RESOURCE_MANIFEST_SCHEMA,
+            "totalByteCount": sum(
+                item["byteCount"] for item in resource_entries
+            ),
+        }
+        metal_records = {
+            "component": component,
+            "metal": metal,
+            "metallib": metallib,
+            "metalNM": metal_nm,
+            "resources": resources,
+        }
+        metal_toolchain = {
+            **metal_records,
+            "identitySHA256": provenance.sha256_bytes(
+                provenance.METAL_TOOL_SET_DOMAIN
+                + provenance.canonical_bytes(metal_records)
+            ),
+        }
+        swiftc = {**descriptor}
+        wrapper_records = {
+            "auditPath": provenance.canonical_clean_build_layout()[
+                "swiftDriverJobAudit"
+            ],
+            "interpreter": {
+                "path": "/bin/zsh",
+                "sha256": "b" * 64,
+                "version": ["zsh fixture"],
+            },
+            "path": provenance.canonical_clean_build_layout()[
+                "swiftDriverWrapper"
+            ],
+            "policy": {
+                "effectiveJobArguments": ["-j", "1"],
+                "effectiveJobArgumentsAreTerminal": True,
+                "effectiveLLVMRNGSeedArguments": [
+                    "-Xllvm",
+                    "-rng-seed=1",
+                ],
+                "effectiveNumThreadsArguments": ["-num-threads", "1"],
+                "projectedFrontendJobCountPerInvocation": 1,
+                "projectedLLVMRNGSeedArguments": [
+                    "-Xllvm",
+                    "-rng-seed=1",
+                ],
+                "projectedNumThreadsArguments": ["-num-threads", "1"],
+                "rejectMissingDuplicateOrSubstitutedControls": True,
+                "underlyingArgv0": "swiftc",
+                "rejectMalformedJobArguments": True,
+                "removeEveryPriorJobArgument": True,
+                "requiredTargets": list(
+                    provenance.SWIFT_DRIVER_REQUIRED_TARGETS
+                ),
+            },
+            "schemaVersion": provenance.SWIFT_DRIVER_WRAPPER_SCHEMA,
+            "sha256": provenance.sha256_bytes(
+                provenance.swift_driver_wrapper_bytes(
+                    Path(swiftc["path"]),
+                    Path(
+                        provenance.canonical_clean_build_layout()[
+                            "swiftDriverJobAudit"
+                        ]
+                    ),
+                )
+            ),
+            "underlyingSwiftc": swiftc,
+            "unixMode": 0o755,
+        }
+        swift_wrapper = {
+            **wrapper_records,
+            "identitySHA256": provenance.sha256_bytes(
+                provenance.SWIFT_DRIVER_WRAPPER_DOMAIN
+                + provenance.canonical_bytes(wrapper_records)
+            ),
+        }
         return {
             "clang": {**descriptor},
             "codesign": {**descriptor},
@@ -303,9 +482,147 @@ class Fixture:
                 "settingsPlistSHA256": "f" * 64,
                 "version": "26.0",
             },
-            "swiftc": {**descriptor},
+            "metal": metal_toolchain,
+            "swiftc": swiftc,
+            "swiftDriverWrapper": swift_wrapper,
             "xcodebuild": {**descriptor},
         }
+
+    def fixture_swift_driver_job_audit(self) -> dict[str, object]:
+        markers = sorted(provenance.SWIFT_DRIVER_JOB_AUDIT_MARKERS)
+        invocation_count = len(markers)
+        raw = ("\n".join(markers) + "\n").encode("utf-8")
+        records = {
+            "byteCount": len(raw),
+            "effectiveJobArguments": ["-j", "1"],
+            "effectiveJobArgumentsAreTerminal": True,
+            "effectiveLLVMRNGSeedArguments": [
+                "-Xllvm",
+                "-rng-seed=1",
+            ],
+            "effectiveNumThreadsArguments": ["-num-threads", "1"],
+            "invocationCount": invocation_count,
+            "markers": markers,
+            "path": provenance.canonical_clean_build_layout()[
+                "swiftDriverJobAudit"
+            ],
+            "projectedFrontendJobCountPerInvocation": 1,
+            "projectedLLVMRNGSeedArguments": [
+                "-Xllvm",
+                "-rng-seed=1",
+            ],
+            "projectedNumThreadsArguments": ["-num-threads", "1"],
+            "requiredTargets": list(
+                provenance.SWIFT_DRIVER_REQUIRED_TARGETS
+            ),
+            "schemaVersion": provenance.SWIFT_DRIVER_JOB_AUDIT_SCHEMA,
+            "sha256": provenance.sha256_bytes(raw),
+        }
+        return {
+            **records,
+            "identitySHA256": provenance.sha256_bytes(
+                provenance.SWIFT_DRIVER_JOB_AUDIT_DOMAIN
+                + provenance.canonical_bytes(records)
+            ),
+        }
+
+    def fixture_post_build(
+        self,
+        application: dict[str, object],
+        toolchain: dict[str, object],
+    ) -> dict[str, object]:
+        sources = provenance.metal_source_descriptors(self.repository)
+        compile_records: list[dict[str, object]] = []
+        outputs: list[dict[str, object]] = []
+        for index, source in enumerate(sources):
+            command = provenance.metal_compile_command_template(source)
+            raw_air = f"fixture-air-{index}".encode("utf-8")
+            output = {
+                "byteCount": len(raw_air),
+                "path": f"$METAL_INTERMEDIATES/{source['airOutput']}",
+                "sha256": provenance.sha256_bytes(raw_air),
+                "unixMode": 0o644,
+            }
+            outputs.append(output)
+            compile_records.append(
+                {
+                    "command": command,
+                    "commandSHA256": provenance.sha256_bytes(
+                        provenance.canonical_bytes(command)
+                    ),
+                    "exitStatus": 0,
+                    "normalizedTranscriptSHA256": provenance.sha256_bytes(b""),
+                    "output": output,
+                    "sourceRepositoryRelativePath": source[
+                        "repositoryRelativePath"
+                    ],
+                }
+            )
+        library = application["defaultMetalLibrary"]
+        assert isinstance(library, dict)
+        outputs.append(library)
+        link_command = provenance.metal_link_command_template(sources)
+        symbol_command = provenance.metal_symbol_command_template()
+        symbols = sorted(provenance.EXPECTED_METAL_SYMBOLS)
+        metal_receipt = {
+            "compile": compile_records,
+            "languageStandard": provenance.METAL_LANGUAGE_STANDARD,
+            "link": {
+                "command": link_command,
+                "commandSHA256": provenance.sha256_bytes(
+                    provenance.canonical_bytes(link_command)
+                ),
+                "exitStatus": 0,
+                "normalizedTranscriptSHA256": provenance.sha256_bytes(b""),
+                "output": library,
+            },
+            "optimizationLevel": provenance.METAL_OPTIMIZATION_LEVEL,
+            "outputSetIdentitySHA256": provenance.sha256_bytes(
+                provenance.METAL_OUTPUT_SET_DOMAIN
+                + provenance.canonical_bytes(outputs)
+            ),
+            "sourceSetIdentitySHA256": provenance.sha256_bytes(
+                provenance.METAL_SOURCE_SET_DOMAIN
+                + provenance.canonical_bytes(sources)
+            ),
+            "sources": sources,
+            "symbols": {
+                "command": symbol_command,
+                "commandSHA256": provenance.sha256_bytes(
+                    provenance.canonical_bytes(symbol_command)
+                ),
+                "inventory": symbols,
+                "inventorySHA256": provenance.sha256_bytes(
+                    provenance.METAL_SYMBOL_SET_DOMAIN
+                    + provenance.canonical_bytes(symbols)
+                ),
+            },
+            "targetTriple": provenance.METAL_TARGET_TRIPLE,
+            "toolSetIdentitySHA256": toolchain["metal"]["identitySHA256"],
+        }
+        signing_command = provenance.post_build_signing_command_template()
+        signing_receipt = {
+            "command": signing_command,
+            "commandSHA256": provenance.sha256_bytes(
+                provenance.canonical_bytes(signing_command)
+            ),
+            "entitlements": provenance._post_build_entitlements(self.repository),
+            "exitStatus": 0,
+            "normalizedTranscriptSHA256": provenance.sha256_bytes(b""),
+            "policy": {
+                "bundleIdentifier": provenance.CLEAN_BUILD_BUNDLE_IDENTIFIER,
+                "generateDEREntitlements": True,
+                "hardenedRuntime": True,
+                "identity": "-",
+                "mode": "ad-hoc",
+                "timestamp": "none",
+            },
+        }
+        return provenance.finalize_post_build_receipt(
+            metal_receipt,
+            signing_receipt,
+            application,
+        )
 
     def source_build_receipt(
         self,
@@ -323,11 +640,12 @@ class Fixture:
             context,
             self.release_configuration,
         ).replace(str(self.repository), "$SOURCE_ROOT")
+        toolchain = self.fixture_toolchain()
         return provenance.make_clean_build_receipt(
             context=context,
             source_manifest=manifest,
             settings=settings,
-            toolchain=self.fixture_toolchain(),
+            toolchain=toolchain,
             build_environment={
                 "CFFIXED_USER_HOME": provenance.canonical_clean_build_layout()[
                     "homeDirectory"
@@ -339,6 +657,7 @@ class Fixture:
                 "LANG": "C",
                 "LC_ALL": "C",
                 "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+                "SWIFT_DETERMINISTIC_HASHING": "1",
                 "SWIFTC_MAXIMUM_DETERMINISM": "1",
                 "TMPDIR": provenance.canonical_clean_build_layout()[
                     "temporaryDirectory"
@@ -348,7 +667,9 @@ class Fixture:
                 normalized_overlay.encode("utf-8")
             ),
             normalized_transcript_sha256=provenance.sha256_bytes(b"fixture build\n"),
+            swift_driver_job_audit=self.fixture_swift_driver_job_audit(),
             application=application,
+            post_build=self.fixture_post_build(application, toolchain),
         )
 
     def receipt_for_application(
@@ -493,6 +814,10 @@ class ReleaseCandidateTests(unittest.TestCase):
                 fixture.fixture_toolchain(),
                 provenance.CLEAN_REPLAY_BUILD_SETTINGS,
             )
+            overlay_text = provenance.build_settings_text(
+                fixture.context,
+                fixture.release_configuration,
+            )
         jobs_index = command.index("-jobs")
         self.assertEqual(command[jobs_index + 1], "1")
         self.assertIn("ENABLE_TESTABILITY=NO", command)
@@ -503,6 +828,8 @@ class ReleaseCandidateTests(unittest.TestCase):
         self.assertNotIn("-enable-misched=false", flags)
         self.assertNotIn("-enable-post-misched=false", flags)
         self.assertIn("-enable-single-module-llvm-emission", flags)
+        self.assertEqual(flags.count("-num-threads 1"), 1)
+        self.assertEqual(flags.count("-Xllvm -rng-seed=1"), 1)
         self.assertEqual(
             provenance.REPRODUCIBLE_SWIFT_BUILD_SETTINGS[
                 "SWIFT_COMPILATION_MODE"
@@ -511,10 +838,265 @@ class ReleaseCandidateTests(unittest.TestCase):
         )
         self.assertEqual(
             provenance.REPRODUCIBLE_SWIFT_BUILD_SETTINGS[
+                "SWIFT_EAGER_MODULE_EMISSION_IN_WMO"
+            ],
+            "NO",
+        )
+        self.assertEqual(
+            provenance.REPRODUCIBLE_SWIFT_BUILD_SETTINGS[
+                "SWIFT_USE_INTEGRATED_DRIVER"
+            ],
+            "NO",
+        )
+        self.assertEqual(
+            provenance.REPRODUCIBLE_SWIFT_BUILD_SETTINGS[
+                "SWIFT_ENABLE_EXPLICIT_MODULES"
+            ],
+            "NO",
+        )
+        self.assertEqual(
+            provenance.REPRODUCIBLE_SWIFT_BUILD_SETTINGS[
                 "COMPILATION_CACHE_ENABLE_CACHING"
             ],
             "NO",
         )
+        self.assertEqual(
+            provenance.REPRODUCIBLE_SWIFT_BUILD_SETTINGS[
+                "EXCLUDED_SOURCE_FILE_NAMES"
+            ],
+            "$(inherited) *.metal",
+        )
+        self.assertIn(
+            "SWIFT_EXEC = "
+            + provenance.canonical_clean_build_layout()["swiftDriverWrapper"],
+            overlay_text,
+        )
+        sources = [
+            {
+                "airOutput": air,
+                "repositoryRelativePath": relative,
+            }
+            for relative, air in provenance.METAL_SOURCE_SPECS
+        ]
+        for source in sources:
+            metal_command = provenance.metal_compile_command_template(source)
+            self.assertEqual(metal_command[0], "$UNDERLYING_METAL")
+            self.assertIn("-O3", metal_command)
+            self.assertIn("-std=metal3.2", metal_command)
+            self.assertIn(provenance.METAL_TARGET_TRIPLE, metal_command)
+        link_command = provenance.metal_link_command_template(sources)
+        self.assertEqual(link_command[0], "$METALLIB")
+        self.assertNotIn("$UNDERLYING_METAL", link_command)
+        self.assertNotIn("-target", link_command)
+
+    def test_swift_driver_wrapper_rewrites_every_job_option_to_one_terminal_pair(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mirmir-swift-wrapper-") as temporary:
+            root = Path(temporary)
+            audit = root / "audit.log"
+            audit.write_bytes(b"")
+            audit.chmod(0o600)
+            wrapper = root / "swiftc"
+            wrapper.write_bytes(
+                provenance.swift_driver_wrapper_bytes(
+                    Path("/usr/bin/python3"),
+                    audit,
+                )
+            )
+            wrapper.chmod(0o755)
+            program = (
+                "import json,os,sys\n"
+                "args=sys.argv[1:]\n"
+                "if '-driver-print-jobs' in args:\n"
+                "    target=args[args.index('-target')+1]\n"
+                "    mode=os.environ.get('MIRMIR_TEST_PROJECTION','valid')\n"
+                "    rng=['-Xllvm','-rng-seed=1']\n"
+                "    threads=['-num-threads','1']\n"
+                "    if mode == 'missing-rng': rng=[]\n"
+                "    elif mode == 'duplicate-rng': rng += rng\n"
+                "    elif mode == 'substituted-rng': rng[1]='-rng-seed=2'\n"
+                "    elif mode == 'missing-threads': threads=[]\n"
+                "    elif mode == 'duplicate-threads': threads += threads\n"
+                "    elif mode == 'substituted-threads': threads[1]='2'\n"
+                "    print(' '.join(['/usr/bin/python3','-frontend','-target',target,'-target-sdk-version','26.2','-target-sdk-name','macosx26.2']+rng+threads))\n"
+                "else:\n"
+                "    print(json.dumps(args))\n"
+            )
+            target = provenance.SWIFT_DRIVER_REQUIRED_TARGETS[0]
+            process = subprocess.run(
+                [
+                    str(wrapper),
+                    "-c",
+                    program,
+                    "before",
+                    "-num-threads",
+                    "1",
+                    "-Xllvm",
+                    "-rng-seed=1",
+                    "-target",
+                    target,
+                    "-j",
+                    "8",
+                    "middle",
+                    "-j14",
+                    "after",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(process.returncode, 0, process.stdout)
+            self.assertEqual(
+                json.loads(process.stdout),
+                [
+                    "before",
+                    "-num-threads",
+                    "1",
+                    "-Xllvm",
+                    "-rng-seed=1",
+                    "-target",
+                    target,
+                    "middle",
+                    "after",
+                    "-j",
+                    "1",
+                ],
+            )
+            self.assertEqual(
+                audit.read_text(encoding="utf-8"),
+                provenance.swift_driver_job_audit_marker(target) + "\n",
+            )
+            control_variants = {
+                "missing-threads": ["-Xllvm", "-rng-seed=1"],
+                "duplicate-threads": [
+                    "-num-threads",
+                    "1",
+                    "-num-threads",
+                    "1",
+                    "-Xllvm",
+                    "-rng-seed=1",
+                ],
+                "substituted-threads": [
+                    "-num-threads",
+                    "2",
+                    "-Xllvm",
+                    "-rng-seed=1",
+                ],
+                "missing-rng": ["-num-threads", "1"],
+                "duplicate-rng": [
+                    "-num-threads",
+                    "1",
+                    "-Xllvm",
+                    "-rng-seed=1",
+                    "-Xllvm",
+                    "-rng-seed=1",
+                ],
+                "substituted-rng": [
+                    "-num-threads",
+                    "1",
+                    "-Xllvm",
+                    "-rng-seed=2",
+                ],
+            }
+            for name, controls in control_variants.items():
+                with self.subTest(driver_control=name):
+                    rejected = subprocess.run(
+                        [
+                            str(wrapper),
+                            "-c",
+                            program,
+                            *controls,
+                            "-target",
+                            target,
+                            "-j14",
+                        ],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        check=False,
+                    )
+                    self.assertEqual(rejected.returncode, 64, rejected.stdout)
+            for mode in (
+                "missing-threads",
+                "duplicate-threads",
+                "substituted-threads",
+                "missing-rng",
+                "duplicate-rng",
+                "substituted-rng",
+            ):
+                with self.subTest(projected_control=mode):
+                    environment = os.environ.copy()
+                    environment["MIRMIR_TEST_PROJECTION"] = mode
+                    rejected = subprocess.run(
+                        [
+                            str(wrapper),
+                            "-c",
+                            program,
+                            "-num-threads",
+                            "1",
+                            "-Xllvm",
+                            "-rng-seed=1",
+                            "-target",
+                            target,
+                            "-j14",
+                        ],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        env=environment,
+                        check=False,
+                    )
+                    self.assertEqual(rejected.returncode, 64, rejected.stdout)
+            malformed = subprocess.run(
+                [str(wrapper), "-c", program, "-jbad"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(malformed.returncode, 64)
+
+    def test_swift_driver_job_audit_requires_both_targets_and_normalizes_order(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mirmir-swift-audit-") as temporary:
+            root = Path(temporary)
+            audit = root / "audit.log"
+            markers = list(reversed(provenance.SWIFT_DRIVER_JOB_AUDIT_MARKERS))
+            audit.write_text("\n".join(markers) + "\n", encoding="utf-8")
+            installation = provenance.SwiftDriverWrapperInstallation(
+                path=root / "swiftc",
+                identity=(),
+                audit_path=audit,
+                audit_identity=(),
+                receipt={},
+            )
+            receipt = provenance.swift_driver_job_audit(installation)
+            normalized = (
+                "\n".join(sorted(provenance.SWIFT_DRIVER_JOB_AUDIT_MARKERS))
+                + "\n"
+            ).encode("utf-8")
+            self.assertEqual(
+                receipt["requiredTargets"],
+                list(provenance.SWIFT_DRIVER_REQUIRED_TARGETS),
+            )
+            self.assertEqual(receipt["invocationCount"], 2)
+            self.assertEqual(receipt["sha256"], provenance.sha256_bytes(normalized))
+            invalid_lines = {
+                "missing": markers[:1],
+                "duplicate": [markers[0], markers[0]],
+                "substituted": [
+                    markers[0],
+                    markers[1].replace(
+                        "llvmRNGSeed=1",
+                        "llvmRNGSeed=2",
+                        1,
+                    ),
+                ],
+            }
+            for name, lines in invalid_lines.items():
+                with self.subTest(name=name):
+                    audit.write_text("\n".join(lines) + "\n", encoding="utf-8")
+                    with self.assertRaises(provenance.ArchiveProvenanceError):
+                        provenance.swift_driver_job_audit(installation)
 
     def test_clean_build_uses_isolated_canonical_home(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mirmir-clean-home-") as temporary:
@@ -537,6 +1119,8 @@ class ReleaseCandidateTests(unittest.TestCase):
             home = build_root / "home"
             self.assertEqual(environment["HOME"], str(home))
             self.assertEqual(environment["CFFIXED_USER_HOME"], str(home))
+            self.assertEqual(environment["SWIFT_DETERMINISTIC_HASHING"], "1")
+            self.assertEqual(environment["SWIFTC_MAXIMUM_DETERMINISM"], "1")
             self.assertEqual(layout["homeDirectory"], str(home))
             self.assertNotEqual(environment["HOME"], os.environ.get("HOME"))
             self.assertEqual(stat.S_IMODE(home.stat().st_mode), 0o700)
@@ -823,7 +1407,10 @@ class ReleaseCandidateTests(unittest.TestCase):
                     return ""
                 output = actual_run(command, label)
                 if label.startswith("CodeDirectory inspection"):
-                    return output.replace("flags=0x2(adhoc)", "flags=0x0(none)")
+                    return output.replace(
+                        "flags=0x10002(adhoc,runtime)",
+                        "flags=0x10000(runtime)",
+                    )
                 if label.startswith("designated-requirement inspection"):
                     architecture = command[command.index("--arch") + 1]
                     suffix = "arm" if architecture == "arm64" else "intel"
@@ -1381,7 +1968,7 @@ class ReleaseCandidateTests(unittest.TestCase):
                 "signing-policy": lambda application: self._resign_application(
                     fixture,
                     application,
-                    options="runtime",
+                    options=None,
                 ),
             }
             for name, mutation in mutations.items():
@@ -1392,6 +1979,18 @@ class ReleaseCandidateTests(unittest.TestCase):
                     mutation(application)
                     if name == "resource":
                         self._resign_application(fixture, application)
+                    if name in {"entitlement", "signing-policy"}:
+                        expected = (
+                            "entitlements differ"
+                            if name == "entitlement"
+                            else "hardened-runtime policy"
+                        )
+                        with self.assertRaisesRegex(
+                            provenance.ArchiveProvenanceError,
+                            expected,
+                        ):
+                            fixture.receipt_for_application(application)
+                        continue
                     unsealed = fixture.root / f"{name}-unsealed.zip"
                     sealed = fixture.root / f"{name}-sealed.zip"
                     zip_directory(application, unsealed)
@@ -1417,7 +2016,7 @@ class ReleaseCandidateTests(unittest.TestCase):
         application: Path,
         *,
         entitlements: dict[str, object] | None = None,
-        options: str | None = None,
+        options: str | None = "runtime",
     ) -> None:
         command: list[str | Path] = [
             "/usr/bin/codesign",
@@ -1428,7 +2027,10 @@ class ReleaseCandidateTests(unittest.TestCase):
             "--identifier",
             "com.mirmir.app",
         ]
-        if entitlements is not None:
+        if entitlements is None:
+            entitlements = plistlib.loads(fixture.entitlements.read_bytes())
+            assert isinstance(entitlements, dict)
+        if entitlements:
             entitlements_path = fixture.root / "unsourced.entitlements"
             entitlements_path.write_bytes(
                 plistlib.dumps(entitlements, sort_keys=True)
@@ -1540,6 +2142,360 @@ class ReleaseCandidateTests(unittest.TestCase):
                     )
                     with self.assertRaises(provenance.ArchiveProvenanceError):
                         fixture.prepare(changed)
+
+    def test_external_metal_receipt_mutations_and_mount_paths_fail_closed(self) -> None:
+        first_root = Path(
+            "/private/var/run/com.apple.security.cryptexd/mnt/"
+            "com.apple.MobileAsset.MetalToolchain-v17.3.fixture.A/Metal.xctoolchain"
+        )
+        second_root = Path(
+            "/private/var/run/com.apple.security.cryptexd/mnt/"
+            "com.apple.MobileAsset.MetalToolchain-v17.3.fixture.B/Metal.xctoolchain"
+        )
+        first = provenance._normalize_metal_tool_output(
+            f"InstalledDir: {first_root}/usr/metal/current/bin",
+            first_root,
+        )
+        second = provenance._normalize_metal_tool_output(
+            f"InstalledDir: {second_root}/usr/metal/current/bin",
+            second_root,
+        )
+        self.assertEqual(first, second)
+        self.assertEqual(
+            first,
+            "InstalledDir: $METAL_TOOLCHAIN/usr/metal/current/bin",
+        )
+
+        with tempfile.TemporaryDirectory(prefix="mirmir-candidate-") as temporary:
+            fixture = Fixture(Path(temporary))
+            app_root = fixture.root / "metal-receipt-app"
+            app_root.mkdir()
+            application = fixture.make_application(app_root)
+            observation = provenance.application_directory_observation(
+                application,
+                fixture.context,
+            )
+            receipt = fixture.receipt_for_application(application)
+            mutations: dict[str, callable] = {
+                "missing-tool": lambda value: value["toolchain"]["metal"].pop(
+                    "metalNM"
+                ),
+                "missing-metallib": lambda value: value["toolchain"][
+                    "metal"
+                ].pop("metallib"),
+                "tampered-tool": lambda value: value["toolchain"]["metal"][
+                    "metal"
+                ].update({"sha256": "0" * 64}),
+                "tampered-metallib-dispatcher": lambda value: value[
+                    "toolchain"
+                ]["metal"]["metallib"].update({"sha256": "0" * 64}),
+                "tampered-metallib-underlying": lambda value: value[
+                    "toolchain"
+                ]["metal"]["metallib"].update(
+                    {"underlyingSHA256": "0" * 64}
+                ),
+                "substituted-metallib-underlying": lambda value: value[
+                    "toolchain"
+                ]["metal"]["metallib"].update(
+                    {
+                        "underlyingComponentRelativePath":
+                        "usr/metal/1/bin/metal"
+                    }
+                ),
+                "missing-resource": lambda value: value["toolchain"][
+                    "metal"
+                ]["resources"]["entries"].pop(),
+                "tampered-resource": lambda value: value["toolchain"][
+                    "metal"
+                ]["resources"]["entries"][0].update(
+                    {"sha256": "0" * 64}
+                ),
+                "substituted-resource-root": lambda value: value[
+                    "toolchain"
+                ]["metal"]["resources"].update(
+                    {
+                        "componentRelativePath":
+                        "usr/metal/2/lib/clang/fixture-1"
+                    }
+                ),
+                "missing-source": lambda value: value["postBuild"]["metal"][
+                    "sources"
+                ].pop(),
+                "tampered-source": lambda value: value["postBuild"]["metal"][
+                    "sources"
+                ][0].update({"sha256": "0" * 64}),
+                "tampered-output": lambda value: value["postBuild"]["metal"][
+                    "link"
+                ]["output"].update({"sha256": "0" * 64}),
+                "missing-receipt": lambda value: value.pop("postBuild"),
+                "tampered-symbols": lambda value: value["postBuild"]["metal"][
+                    "symbols"
+                ]["inventory"].pop(),
+                "tampered-signing-command": lambda value: value["postBuild"][
+                    "signing"
+                ]["command"].append("--unlocked"),
+                "randomized-mount-bound": lambda value: value["toolchain"][
+                    "metal"
+                ]["metal"]["version"].append(
+                    "/var/run/com.apple.MobileAsset.MetalToolchain-random"
+                ),
+                "tampered-swift-wrapper": lambda value: value["toolchain"][
+                    "swiftDriverWrapper"
+                ].update({"sha256": "0" * 64}),
+                "substituted-wrapper-swiftc": lambda value: value[
+                    "toolchain"
+                ]["swiftDriverWrapper"]["underlyingSwiftc"].update(
+                    {"path": "/fixture/substituted/swiftc"}
+                ),
+                "tampered-swift-job-audit": lambda value: value[
+                    "build"
+                ]["swiftDriverJobAudit"].update(
+                    {"effectiveJobArgumentsAreTerminal": False}
+                ),
+                "missing-swift-thread-control": lambda value: value[
+                    "build"
+                ]["swiftDriverJobAudit"].pop(
+                    "effectiveNumThreadsArguments"
+                ),
+                "duplicated-swift-thread-control": lambda value: value[
+                    "build"
+                ]["swiftDriverJobAudit"].update(
+                    {
+                        "effectiveNumThreadsArguments": [
+                            "-num-threads",
+                            "1",
+                            "-num-threads",
+                            "1",
+                        ]
+                    }
+                ),
+                "substituted-swift-rng-control": lambda value: value[
+                    "build"
+                ]["swiftDriverJobAudit"].update(
+                    {
+                        "effectiveLLVMRNGSeedArguments": [
+                            "-Xllvm",
+                            "-rng-seed=2",
+                        ]
+                    }
+                ),
+                "missing-projected-swift-thread-control": lambda value: value[
+                    "build"
+                ]["swiftDriverJobAudit"].update(
+                    {"projectedNumThreadsArguments": []}
+                ),
+                "duplicated-projected-swift-rng-control": lambda value: value[
+                    "build"
+                ]["swiftDriverJobAudit"].update(
+                    {
+                        "projectedLLVMRNGSeedArguments": [
+                            "-Xllvm",
+                            "-rng-seed=1",
+                            "-Xllvm",
+                            "-rng-seed=1",
+                        ]
+                    }
+                ),
+                "substituted-projected-swift-target": lambda value: value[
+                    "build"
+                ]["swiftDriverJobAudit"]["markers"].__setitem__(
+                    0,
+                    value["build"]["swiftDriverJobAudit"]["markers"][0]
+                    .replace("arm64-apple", "armv7-apple"),
+                ),
+            }
+            for name, mutation in mutations.items():
+                with self.subTest(name=name):
+                    changed = copy.deepcopy(receipt)
+                    mutation(changed)
+                    with self.assertRaises(provenance.ArchiveProvenanceError):
+                        provenance.validate_clean_build_receipt(
+                            changed,
+                            fixture.context,
+                            observation,
+                        )
+
+    def test_external_metal_source_snapshot_rejects_missing_or_tampered_inputs(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mirmir-metal-source-") as temporary:
+            root = Path(temporary)
+            source_root = root / "source"
+            for relative, _ in provenance.METAL_SOURCE_SPECS:
+                source = source_root / relative
+                source.parent.mkdir(parents=True, exist_ok=True)
+                source.write_text(
+                    "#include <metal_stdlib>\nusing namespace metal;\n",
+                    encoding="utf-8",
+                )
+            expected = provenance.metal_source_descriptors(source_root)
+            dummy = provenance.MetalToolchainResolution(
+                component_root=root,
+                metal=root / "metal",
+                metallib=root / "metallib",
+                metal_nm=root / "metal-nm",
+                resource_root=root / "resources",
+                receipt={},
+            )
+            application = root / "Mirmir.app"
+            (application / "Contents/Resources").mkdir(parents=True)
+
+            first_source = source_root / provenance.METAL_SOURCE_SPECS[0][0]
+            original = first_source.read_bytes()
+            first_source.write_bytes(original + b"// tampered\n")
+            with self.assertRaisesRegex(
+                provenance.ArchiveProvenanceError,
+                "inputs changed",
+            ):
+                provenance.compile_external_metal_library(
+                    source_root=source_root,
+                    application=application,
+                    intermediates=root / "tampered-intermediates",
+                    expected_sources=expected,
+                    toolchain={"metal": {}, "macOSSDK": {"path": "/fixture/sdk"}},
+                    metal_resolution=dummy,
+                    environment={},
+                )
+            first_source.write_bytes(original)
+            (source_root / provenance.METAL_SOURCE_SPECS[1][0]).unlink()
+            with self.assertRaisesRegex(
+                provenance.ArchiveProvenanceError,
+                "omits deterministic Metal input",
+            ):
+                provenance.compile_external_metal_library(
+                    source_root=source_root,
+                    application=application,
+                    intermediates=root / "missing-intermediates",
+                    expected_sources=expected,
+                    toolchain={"metal": {}, "macOSSDK": {"path": "/fixture/sdk"}},
+                    metal_resolution=dummy,
+                    environment={},
+                )
+
+    def test_external_metal_execution_revalidation_rejects_substitution(self) -> None:
+        expected = provenance.MetalToolchainResolution(
+            component_root=Path("/fixture/Metal.xctoolchain"),
+            metal=Path("/fixture/Metal.xctoolchain/usr/metal/1/bin/metal"),
+            metallib=Path("/fixture/Metal.xctoolchain/usr/metal/1/bin/air-lld"),
+            metal_nm=Path("/fixture/Metal.xctoolchain/usr/metal/1/bin/air-nm"),
+            resource_root=Path(
+                "/fixture/Metal.xctoolchain/usr/metal/1/lib/clang/fixture"
+            ),
+            receipt={"identitySHA256": "1" * 64},
+        )
+        with mock.patch.object(
+            provenance,
+            "resolve_metal_toolchain",
+            return_value=expected,
+        ):
+            self.assertEqual(
+                provenance.revalidate_metal_toolchain(
+                    expected,
+                    {},
+                    "fixture execution",
+                ),
+                expected,
+            )
+
+        substituted = provenance.MetalToolchainResolution(
+            component_root=expected.component_root,
+            metal=expected.metal,
+            metallib=Path(
+                "/fixture/Metal.xctoolchain/usr/metal/2/bin/air-lld"
+            ),
+            metal_nm=expected.metal_nm,
+            resource_root=expected.resource_root,
+            receipt=expected.receipt,
+        )
+        with mock.patch.object(
+            provenance,
+            "resolve_metal_toolchain",
+            return_value=substituted,
+        ), self.assertRaisesRegex(
+            provenance.ArchiveProvenanceError,
+            "changed during fixture execution",
+        ):
+            provenance.revalidate_metal_toolchain(
+                expected,
+                {},
+                "fixture execution",
+            )
+
+        tampered_receipt = provenance.MetalToolchainResolution(
+            component_root=expected.component_root,
+            metal=expected.metal,
+            metallib=expected.metallib,
+            metal_nm=expected.metal_nm,
+            resource_root=expected.resource_root,
+            receipt={"identitySHA256": "0" * 64},
+        )
+        with mock.patch.object(
+            provenance,
+            "resolve_metal_toolchain",
+            return_value=tampered_receipt,
+        ), self.assertRaises(provenance.ArchiveProvenanceError):
+            provenance.revalidate_metal_toolchain(
+                expected,
+                {},
+                "fixture execution",
+            )
+
+    def test_external_metal_three_run_bytes_are_identical(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mirmir-metal-repeat-") as temporary:
+            root = Path(temporary)
+            home = root / "home"
+            task_tmp = root / "tmp"
+            home.mkdir(mode=0o700)
+            task_tmp.mkdir(mode=0o700)
+            developer = run("/usr/bin/xcode-select", "-p", cwd=root)
+            environment = {
+                "CFFIXED_USER_HOME": str(home),
+                "DEVELOPER_DIR": developer,
+                "HOME": str(home),
+                "LANG": "C",
+                "LC_ALL": "C",
+                "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+                "SWIFT_DETERMINISTIC_HASHING": "1",
+                "SWIFTC_MAXIMUM_DETERMINISM": "1",
+                "TMPDIR": str(task_tmp),
+            }
+            resolution = provenance.resolve_metal_toolchain(environment)
+            sdk = run(
+                "/usr/bin/xcrun",
+                "--sdk",
+                "macosx",
+                "--show-sdk-path",
+                cwd=root,
+            )
+            toolchain = {
+                "macOSSDK": {"path": sdk},
+                "metal": resolution.receipt,
+            }
+            repository = SCRIPT_DIRECTORY.parent.parent
+            sources = provenance.metal_source_descriptors(repository)
+            records: list[dict[str, object]] = []
+            libraries: list[bytes] = []
+            for index in range(3):
+                application = root / f"run-{index}/Mirmir.app"
+                (application / "Contents/Resources").mkdir(parents=True)
+                record = provenance.compile_external_metal_library(
+                    source_root=repository,
+                    application=application,
+                    intermediates=root / f"run-{index}/Metal",
+                    expected_sources=sources,
+                    toolchain=toolchain,
+                    metal_resolution=resolution,
+                    environment=environment,
+                )
+                records.append(record)
+                libraries.append(
+                    (
+                        application
+                        / provenance.DEFAULT_METAL_LIBRARY_RELATIVE_PATH
+                    ).read_bytes()
+                )
+            self.assertEqual(records[0], records[1])
+            self.assertEqual(records[0], records[2])
+            self.assertEqual(libraries[0], libraries[1])
+            self.assertEqual(libraries[0], libraries[2])
 
     def test_verified_git_archive_uses_commit_not_dirty_working_tree(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mirmir-candidate-") as temporary:

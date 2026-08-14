@@ -47,6 +47,26 @@ final class HDRMetadataV4Tests: XCTestCase {
             try HDRChromaticityV4(x: 40_000, y: 20_000, label: "invalid")
         )
         XCTAssertThrowsError(
+            try AmbientViewingEnvironmentV4(
+                ambientIlluminance: 0,
+                ambientLight: HDRChromaticityV4(
+                    x: 15_635,
+                    y: 16_450,
+                    label: "ambient"
+                )
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? HDRMetadataV4Error,
+                .invalidAmbientIlluminance(0)
+            )
+        }
+        XCTAssertThrowsError(
+            try AmbientViewingEnvironmentV4(
+                payload: Data([0, 0, 0, 0, 0x3D, 0x13, 0x40, 0x42])
+            )
+        )
+        XCTAssertThrowsError(
             try HDR10PlusMetadataV4(ituTT35Payload: Data([0x00, 0x01]))
         )
         XCTAssertThrowsError(
@@ -58,6 +78,71 @@ final class HDRMetadataV4Tests: XCTestCase {
                 transferFunction: .pq
             )
         )
+    }
+
+    func testHDR10PlusHeaderRejectsTruncationAndWrongIdentifiers() throws {
+        XCTAssertThrowsError(
+            try HDR10PlusMetadataV4(
+                ituTT35Payload: Data([0xB5, 0x00, 0x3C, 0x00, 0x01, 0x04])
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? HDRMetadataV4Error,
+                .invalidPayloadLength(
+                    kind: "HDR10+ ITU-T T.35 header",
+                    expected: 7,
+                    actual: 6
+                )
+            )
+        }
+        XCTAssertThrowsError(
+            try HDR10PlusMetadataV4(
+                ituTT35Payload: Data([
+                    0xB5, 0x00, 0x3D, 0x00, 0x01, 0x04, 0x01
+                ])
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? HDRMetadataV4Error,
+                .invalidHDR10PlusTerminalProviderCode(0x003D)
+            )
+        }
+        XCTAssertThrowsError(
+            try HDR10PlusMetadataV4(
+                ituTT35Payload: Data([
+                    0xB5, 0x00, 0x3C, 0x00, 0x02, 0x04, 0x01
+                ])
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? HDRMetadataV4Error,
+                .invalidHDR10PlusTerminalProviderOrientedCode(0x0002)
+            )
+        }
+        XCTAssertThrowsError(
+            try HDR10PlusMetadataV4(
+                ituTT35Payload: Data([
+                    0xB5, 0x00, 0x3C, 0x00, 0x01, 0x05, 0x01
+                ])
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? HDRMetadataV4Error,
+                .invalidHDR10PlusApplicationIdentifier(5)
+            )
+        }
+        XCTAssertThrowsError(
+            try HDR10PlusMetadataV4(
+                ituTT35Payload: Data([
+                    0xB5, 0x00, 0x3C, 0x00, 0x01, 0x04, 0x00
+                ])
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? HDRMetadataV4Error,
+                .invalidHDR10PlusApplicationVersion(0)
+            )
+        }
     }
 
     func testPQAndHLGFormatDescriptionProbeRequiresBT2020Tags() throws {
@@ -304,7 +389,7 @@ final class HDRMetadataV4Tests: XCTestCase {
                 maximumContentLightLevel: 1_000,
                 maximumFrameAverageLightLevel: 400
             ),
-            ambientViewingEnvironment: AmbientViewingEnvironmentV4(
+            ambientViewingEnvironment: try AmbientViewingEnvironmentV4(
                 ambientIlluminance: 123_456,
                 ambientLight: try HDRChromaticityV4(
                     x: 15_635,
@@ -320,7 +405,16 @@ final class HDRMetadataV4Tests: XCTestCase {
     ) throws -> HDRDynamicMetadataV4 {
         HDRDynamicMetadataV4(
             hdr10Plus: try HDR10PlusMetadataV4(
-                ituTT35Payload: Data([0xB5, 0x00, UInt8(version)])
+                ituTT35Payload: Data([
+                    0xB5, 0x00, 0x3C, 0x00, 0x01, 0x04, 0x01, 0x40,
+                    0x00, 0x0C, 0x80, 0x3C, 0xB0, 0x19, 0xBD, 0x0D,
+                    0x80, 0x00, 0x41, 0xE4, 0x08, 0x00, 0x00, 0x28,
+                    0x5F, 0x00, 0x50, 0x01, 0x70, 0xC8, 0x00, 0x05,
+                    0x90, 0x00, 0x12, 0x58, 0x01, 0xAE, 0xD0, 0x0B,
+                    0x5A, 0xF8, 0x1B, 0xE3, 0x18, 0x5B, 0x4C, 0x00,
+                    0x42, 0x90, 0x3C, 0x24, 0x8F, 0x4A, 0x9B, 0xF9,
+                    0x42, 0xDB, 0xD8, 0x37, 0xBE, 0x57, 0xAA, 0x00
+                ])
             ),
             postDecodeProcessing: try PostDecodeProcessingMetadataV4(
                 propertyList: NSDictionary(dictionary: [

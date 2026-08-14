@@ -102,6 +102,8 @@ private enum MirmirPackagedEvidenceLaneV4: String, Codable, Sendable {
     case quality
     case parity
     case performance
+    case media
+    case recovery
 }
 
 private struct MirmirPackagedCodeDirectoryV4:
@@ -283,6 +285,28 @@ private struct MirmirPackagedEvidenceRequestV4: Codable, Sendable {
                 "MIRMIR_V4_PERFORMANCE_WARMUPS",
                 "MIRMIR_V4_PERFORMANCE_SAMPLES"
             ]
+        case .media:
+            required = [
+                "MIRMIR_V4_MEDIA_CAPTURE_DIR",
+                "MIRMIR_V4_MEDIA_CONTRACT_PATH",
+                "MIRMIR_V4_MEDIA_CONTRACT_SHA256",
+                "MIRMIR_V4_MEDIA_FIXTURE_MANIFEST",
+                "MIRMIR_V4_MEDIA_FIXTURE_MANIFEST_SHA256",
+                "MIRMIR_V4_MEDIA_FIXTURE_TREE_SHA256",
+                "MIRMIR_V4_MEDIA_FIXTURE_SOURCE_SHA256",
+                "MIRMIR_V4_MEDIA_GENERATOR_SOURCE_SHA256",
+                "MIRMIR_V4_MEDIA_SOURCE_COMMIT",
+                "MIRMIR_V4_MEDIA_SOURCE_TREE_SHA256"
+            ]
+        case .recovery:
+            required = [
+                "MIRMIR_V4_RECOVERY_CAPTURE_DIR",
+                "MIRMIR_V4_RECOVERY_CONTRACT_PATH",
+                "MIRMIR_V4_RECOVERY_CONTRACT_SHA256",
+                "MIRMIR_V4_RECOVERY_PRODUCER_SOURCE_SHA256",
+                "MIRMIR_V4_RECOVERY_SOURCE_COMMIT",
+                "MIRMIR_V4_RECOVERY_SOURCE_TREE_SHA256"
+            ]
         }
         guard Set(captureEnvironment.keys) == required,
               captureEnvironment.values.allSatisfy({ !$0.isEmpty }) else {
@@ -334,6 +358,38 @@ private struct MirmirPackagedEvidenceRequestV4: Codable, Sendable {
                     "performance capture identity differs from the package"
                 )
             }
+        case .media:
+            guard captureEnvironment["MIRMIR_V4_MEDIA_CONTRACT_SHA256"]
+                    == contractSHA256,
+                  captureEnvironment["MIRMIR_V4_MEDIA_SOURCE_COMMIT"]
+                    == packageIdentity.sourceCommit,
+                  captureEnvironment["MIRMIR_V4_MEDIA_SOURCE_TREE_SHA256"]
+                    == packageIdentity.sourceTreeIdentitySHA256 else {
+                throw MirmirPackagedEvidenceErrorV4.invalidRequest(
+                    "media capture identity differs from the package"
+                )
+            }
+        case .recovery:
+            guard captureEnvironment[
+                    "MIRMIR_V4_RECOVERY_CONTRACT_SHA256"
+                  ] == contractSHA256,
+                  captureEnvironment[
+                    "MIRMIR_V4_RECOVERY_SOURCE_COMMIT"
+                  ] == packageIdentity.sourceCommit,
+                  captureEnvironment[
+                    "MIRMIR_V4_RECOVERY_SOURCE_TREE_SHA256"
+                  ] == packageIdentity.sourceTreeIdentitySHA256,
+                  let producerSourceSHA256 = captureEnvironment[
+                    "MIRMIR_V4_RECOVERY_PRODUCER_SOURCE_SHA256"
+                  ],
+                  producerSourceSHA256.utf8.count == 64,
+                  MirmirNotarizedSmokeFilesV4.isLowercaseHex(
+                    producerSourceSHA256
+                  ) else {
+                throw MirmirPackagedEvidenceErrorV4.invalidRequest(
+                    "recovery capture identity differs from the package"
+                )
+            }
         }
         try validatePaths()
     }
@@ -360,6 +416,10 @@ private struct MirmirPackagedEvidenceRequestV4: Codable, Sendable {
             outputKey = "MIRMIR_PARITY_CAPTURE_DIRECTORY"
         case .performance:
             outputKey = "MIRMIR_V4_PERFORMANCE_CAPTURE_DIR"
+        case .media:
+            outputKey = "MIRMIR_V4_MEDIA_CAPTURE_DIR"
+        case .recovery:
+            outputKey = "MIRMIR_V4_RECOVERY_CAPTURE_DIR"
         }
         guard let outputValue = captureEnvironment[outputKey] else {
             throw MirmirPackagedEvidenceErrorV4.unsafePath("output is absent")
@@ -380,6 +440,15 @@ private struct MirmirPackagedEvidenceRequestV4: Codable, Sendable {
             paths = [captureEnvironment["MIRMIR_PARITY_CONTRACT_PATH"]!]
         case .performance:
             paths = [captureEnvironment["MIRMIR_V4_PERFORMANCE_INPUT"]!]
+        case .media:
+            paths = [
+                captureEnvironment["MIRMIR_V4_MEDIA_CONTRACT_PATH"]!,
+                captureEnvironment["MIRMIR_V4_MEDIA_FIXTURE_MANIFEST"]!
+            ]
+        case .recovery:
+            paths = [
+                captureEnvironment["MIRMIR_V4_RECOVERY_CONTRACT_PATH"]!
+            ]
         }
         for value in paths {
             let url = URL(fileURLWithPath: value).standardizedFileURL
@@ -480,6 +549,27 @@ private enum MirmirPackagedEvidenceObserverV4 {
                 environment: request.captureEnvironment,
                 packageIdentity: request.packageIdentity,
                 requestSHA256: requestSHA256,
+                observerSourceSHA256: request.observerSourceSHA256
+            )
+        case .media:
+            manifestURL = try await MirmirPackagedMediaCaptureV4.capture(
+                environment: request.captureEnvironment,
+                packageIdentity: request.packageIdentity,
+                requestSHA256: requestSHA256,
+                nonceSHA256: MirmirNotarizedSmokeFilesV4.sha256(
+                    Data(request.nonce.utf8)
+                ),
+                observerSourceSHA256: request.observerSourceSHA256
+            )
+        case .recovery:
+            manifestURL = try await MirmirPackagedRecoveryCaptureV4.capture(
+                environment: request.captureEnvironment,
+                packageIdentity: request.packageIdentity,
+                requestID: request.requestID,
+                requestSHA256: requestSHA256,
+                nonceSHA256: MirmirNotarizedSmokeFilesV4.sha256(
+                    Data(request.nonce.utf8)
+                ),
                 observerSourceSHA256: request.observerSourceSHA256
             )
         }
@@ -695,6 +785,1689 @@ private enum MirmirPackagedEvidenceObserverV4 {
             fileCount: files,
             sha256: MirmirNotarizedSmokeFilesV4.hex(digest.finalize())
         )
+    }
+}
+
+// MARK: - Exact packaged-candidate media preservation observer
+
+private enum MirmirPackagedMediaErrorV4: Error {
+    case invalid(String)
+    case reader
+    case coreVideo(CVReturn)
+    case coreMedia(OSStatus)
+}
+
+private struct MirmirPackagedMediaAlphaOracleInputV4: Codable, Sendable {
+    let schemaVersion: String
+    let path: String
+    let byteCount: Int
+    let sha256: String
+    let frameSHA256: [String]
+    let frameCount: Int
+    let width: Int
+    let height: Int
+    let association: String
+}
+
+private struct MirmirPackagedMediaFixtureV4: Codable, Sendable {
+    let id: String
+    let policy: String
+    let coverage: [String]
+    let sourceFile: String
+    let sourceByteCount: Int
+    let sourceSHA256: String
+    let targetWidth: Int
+    let targetHeight: Int
+    let outputCodec: String
+    let expectedProcessedFrameCount: Int
+    let alphaOracleInput: MirmirPackagedMediaAlphaOracleInputV4?
+}
+
+private struct MirmirPackagedMediaFixturePackageV4: Codable, Sendable {
+    let schemaVersion: String
+    let suiteID: String
+    let fixtures: [MirmirPackagedMediaFixtureV4]
+}
+
+private struct MirmirPackagedMediaPreflightV4: Codable, Equatable,
+    Sendable {
+    static let schema = "mirmir-ash-v4-media-independent-preflight-v2"
+
+    let schemaVersion: String
+    let preparedBackendType: String
+    let executor: ASHExecutorV4
+    let requestedBackendID: UpscaleBackendID
+    let ashPlanSHA256: ASHSHA256V4
+    let runtimeManifestSHA256: ASHSHA256V4
+    let runtimeProvenanceSHA256: ASHSHA256V4
+    let trackPlanSHA256: ASHSHA256V4
+    let sourceGraphSHA256: ASHSHA256V4
+    let migrationBlueprintSHA256: ASHSHA256V4
+    let primaryTrackOrdinal: Int
+    let plannedTracks: [DeterministicV4MediaPlannedTrackReceiptV4]
+    let targetWidth: Int
+    let targetHeight: Int
+    let sourceVideoTrackCount: Int
+    let sourceAudioTrackCount: Int
+    let plannedEnabledTrackCount: Int
+
+    init(
+        request: UpscaleRequest,
+        backend: any PreparedDeterministicV4RuntimePlanningBackend,
+        plan: DeterministicV4PreparedAssetPlan
+    ) throws {
+        let enabled = plan.sourceGraph.tracks.filter(\.enabled)
+        schemaVersion = Self.schema
+        preparedBackendType = String(reflecting: type(of: backend))
+        executor = backend.deterministicExecutor
+        requestedBackendID = request.backendID
+        ashPlanSHA256 = plan.ashPlan.planSHA256
+        runtimeManifestSHA256 = plan.ashPlan.plan.runtimeManifestSHA256
+        runtimeProvenanceSHA256 = plan.ashPlan.plan.runtimeProvenanceSHA256
+        trackPlanSHA256 = plan.trackPlan.planSHA256
+        sourceGraphSHA256 = try plan.sourceGraph.canonicalSHA256
+        migrationBlueprintSHA256 = try plan.migrationBlueprint.canonicalSHA256
+        primaryTrackOrdinal = Int(plan.primaryGraphTrack.identity.ordinal)
+        plannedTracks = plan.trackPlan.plan.tracks.map {
+            DeterministicV4MediaPlannedTrackReceiptV4(
+                ordinal: Int($0.source.identity.ordinal),
+                stableID: $0.source.identity.stableID.rawValue,
+                kind: $0.source.kind.rawValue,
+                action: $0.action
+            )
+        }
+        targetWidth = request.targetWidth
+        targetHeight = request.targetHeight
+        sourceVideoTrackCount = enabled.filter { $0.kind == .video }.count
+        sourceAudioTrackCount = enabled.filter { $0.kind == .audio }.count
+        plannedEnabledTrackCount = enabled.count
+    }
+
+    func verify(
+        _ receipt: DeterministicV4MediaExecutionReceiptV4,
+        fixture: MirmirPackagedMediaFixtureV4
+    ) throws {
+        let expectedType = fixture.alphaOracleInput == nil
+            ? "Mirmir.PreparedDeterministicV4Upscaler"
+            : "Mirmir.PreparedDeterministicAlphaPlanningBackendV4"
+        let expectedMigratedTracks = plannedTracks.filter({
+            $0.action != .dropWithConsent
+        })
+        guard schemaVersion == Self.schema,
+              preparedBackendType == expectedType,
+              receipt.schemaID
+                == DeterministicV4MediaExecutionReceiptV4.currentSchemaID,
+              receipt.preparedBackendType == preparedBackendType,
+              receipt.executor == executor,
+              receipt.requestedBackendID == requestedBackendID,
+              receipt.actualBackendID == .mirmirDeterministicCPU,
+              receipt.ashPlanSHA256 == ashPlanSHA256,
+              receipt.runtimeManifestSHA256 == runtimeManifestSHA256,
+              receipt.runtimeProvenanceSHA256 == runtimeProvenanceSHA256,
+              receipt.trackPlanSHA256 == trackPlanSHA256,
+              receipt.sourceGraphSHA256 == sourceGraphSHA256,
+              receipt.migrationSourceGraphSHA256 == sourceGraphSHA256,
+              receipt.migrationPlanSHA256 == trackPlanSHA256,
+              receipt.migrationBlueprintSHA256
+                == migrationBlueprintSHA256,
+              receipt.primaryTrackOrdinal == primaryTrackOrdinal,
+              receipt.plannedTracks == plannedTracks,
+              receipt.migratedTracks.count == expectedMigratedTracks.count,
+              zip(
+                  receipt.migratedTracks,
+                  expectedMigratedTracks
+              ).allSatisfy({ migrated, planned in
+                  migrated.stableID == planned.stableID
+                      && migrated.action == planned.action
+              }),
+              receipt.targetWidth == targetWidth,
+              receipt.targetHeight == targetHeight,
+              receipt.encodedWidth == targetWidth,
+              receipt.encodedHeight == targetHeight,
+              receipt.processedFrameCount
+                == fixture.expectedProcessedFrameCount,
+              receipt.sourceVideoTrackCount == sourceVideoTrackCount,
+              receipt.sourceAudioTrackCount == sourceAudioTrackCount,
+              receipt.plannedEnabledTrackCount == plannedEnabledTrackCount,
+              receipt.sourceAssetMetadataSHA256
+                == receipt.outputAssetMetadataSHA256,
+              receipt.sourceChapterMetadataSHA256
+                == receipt.outputChapterMetadataSHA256,
+              (fixture.alphaOracleInput != nil)
+                == (receipt.alphaVerification != nil) else {
+            throw MirmirPackagedMediaErrorV4.invalid(
+                "actual session receipt differs from independent preflight: \(fixture.id)"
+            )
+        }
+    }
+}
+
+private enum MirmirPackagedMediaJSONV4 {
+    static func object(from data: Data) throws -> [String: Any] {
+        guard let value = try JSONSerialization.jsonObject(
+            with: data,
+            options: [.fragmentsAllowed]
+        ) as? [String: Any] else {
+            throw MirmirPackagedMediaErrorV4.invalid("JSON object")
+        }
+        return value
+    }
+
+    static func object<T: Encodable>(_ value: T) throws -> [String: Any] {
+        try object(from: JSONEncoder().encode(value))
+    }
+
+    static func data(_ value: Any) throws -> Data {
+        try JSONSerialization.data(
+            withJSONObject: value,
+            options: [.sortedKeys, .withoutEscapingSlashes]
+        )
+    }
+
+    static func write(_ value: Any, to url: URL) throws {
+        var bytes = try JSONSerialization.data(
+            withJSONObject: value,
+            options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        )
+        bytes.append(0x0A)
+        try bytes.write(to: url, options: .atomic)
+    }
+
+    static func hash(_ value: Any) throws -> String {
+        MirmirNotarizedSmokeFilesV4.sha256(try data(value))
+    }
+
+    static func requireExactKeys(
+        _ value: [String: Any],
+        _ expected: Set<String>,
+        _ label: String
+    ) throws {
+        guard Set(value.keys) == expected else {
+            throw MirmirPackagedMediaErrorV4.invalid(
+                "\(label) field set differs"
+            )
+        }
+    }
+}
+
+private enum MirmirPackagedRecoveryCaptureV4 {
+    static func capture(
+        environment: [String: String],
+        packageIdentity: MirmirPackagedCandidateIdentityV4,
+        requestID: String,
+        requestSHA256: String,
+        nonceSHA256: String,
+        observerSourceSHA256: String
+    ) async throws -> URL {
+        let captureRoot = try requiredURL(
+            environment,
+            "MIRMIR_V4_RECOVERY_CAPTURE_DIR"
+        )
+        let contractURL = try requiredURL(
+            environment,
+            "MIRMIR_V4_RECOVERY_CONTRACT_PATH"
+        )
+        guard let contractSHA256 = environment[
+                "MIRMIR_V4_RECOVERY_CONTRACT_SHA256"
+              ],
+              let producerSourceSHA256 = environment[
+                "MIRMIR_V4_RECOVERY_PRODUCER_SOURCE_SHA256"
+              ],
+              try MirmirNotarizedSmokeFilesV4.sha256(contractURL)
+                == contractSHA256 else {
+            throw MirmirPackagedEvidenceErrorV4.capture(
+                "the staged recovery contract identity differs"
+            )
+        }
+        let packaged = RecoveryQualificationPackageIdentityV4(
+            schemaVersion: packageIdentity.schemaVersion,
+            buildConfiguration: packageIdentity.buildConfiguration,
+            applicationArchiveSHA256:
+                packageIdentity.applicationArchiveSHA256,
+            applicationPayloadIdentitySHA256:
+                packageIdentity.applicationPayloadIdentitySHA256,
+            applicationInfoPlistSHA256:
+                packageIdentity.applicationInfoPlistSHA256,
+            applicationExecutableSHA256:
+                packageIdentity.applicationExecutableSHA256,
+            codeDirectories: packageIdentity.codeDirectories.map {
+                RecoveryQualificationCodeDirectoryV4(
+                    architecture: $0.architecture,
+                    sha256: $0.sha256
+                )
+            },
+            codeDirectorySetSHA256: packageIdentity.codeDirectorySetSHA256,
+            designatedRequirementSHA256:
+                packageIdentity.designatedRequirementSHA256,
+            releaseConfigurationSHA256:
+                packageIdentity.releaseConfigurationSHA256,
+            attestationSHA256: packageIdentity.attestationSHA256,
+            sourceCommit: packageIdentity.sourceCommit,
+            sourceTreeIdentitySHA256:
+                packageIdentity.sourceTreeIdentitySHA256,
+            runtimeManifestSHA256: packageIdentity.runtimeManifestSHA256,
+            runtimeManifestFileSHA256:
+                packageIdentity.runtimeManifestFileSHA256,
+            runtimeArtifactSetSHA256:
+                packageIdentity.runtimeArtifactSetSHA256,
+            runtimeSourceRevision: packageIdentity.runtimeSourceRevision,
+            bundleIdentifier: packageIdentity.bundleIdentifier,
+            productVersion: packageIdentity.productVersion,
+            productBuild: packageIdentity.productBuild
+        )
+        let execution = RecoveryQualificationPackagedExecutionV4(
+            requestID: requestID,
+            requestSHA256: requestSHA256,
+            nonceSHA256: nonceSHA256,
+            observerSourceSHA256: observerSourceSHA256,
+            packageIdentity: packaged
+        )
+        return try await RecoveryQualificationProducerV4().capture(.init(
+            captureRootURL: captureRoot,
+            contractURL: contractURL,
+            contractSHA256: contractSHA256,
+            producerSourceSHA256: producerSourceSHA256,
+            execution: execution
+        ))
+    }
+
+    private static func requiredURL(
+        _ environment: [String: String],
+        _ key: String
+    ) throws -> URL {
+        guard let value = environment[key], !value.isEmpty else {
+            throw MirmirPackagedEvidenceErrorV4.capture(
+                "the recovery path \(key) is absent"
+            )
+        }
+        return URL(fileURLWithPath: value).standardizedFileURL
+    }
+}
+
+private enum MirmirPackagedMediaCaptureV4 {
+    private struct Execution {
+        let preflight: MirmirPackagedMediaPreflightV4
+        let value: DeterministicV4MediaProcessingExecutionV4
+    }
+
+    static func capture(
+        environment: [String: String],
+        packageIdentity: MirmirPackagedCandidateIdentityV4,
+        requestSHA256: String,
+        nonceSHA256: String,
+        observerSourceSHA256: String
+    ) async throws -> URL {
+        let output = try requiredURL(
+            environment,
+            "MIRMIR_V4_MEDIA_CAPTURE_DIR"
+        )
+        let manifestURL = try requiredURL(
+            environment,
+            "MIRMIR_V4_MEDIA_FIXTURE_MANIFEST"
+        )
+        let contractURL = try requiredURL(
+            environment,
+            "MIRMIR_V4_MEDIA_CONTRACT_PATH"
+        )
+        let inputRoot = manifestURL.deletingLastPathComponent()
+        guard try MirmirNotarizedSmokeFilesV4.sha256(manifestURL)
+                == environment["MIRMIR_V4_MEDIA_FIXTURE_MANIFEST_SHA256"],
+              try MirmirNotarizedSmokeFilesV4.sha256(contractURL)
+                == environment["MIRMIR_V4_MEDIA_CONTRACT_SHA256"],
+              try inputTreeSHA256(inputRoot)
+                == environment["MIRMIR_V4_MEDIA_FIXTURE_TREE_SHA256"] else {
+            throw MirmirPackagedMediaErrorV4.invalid(
+                "staged media input identity differs"
+            )
+        }
+        let packageData = try Data(contentsOf: manifestURL)
+        let packageObject = try MirmirPackagedMediaJSONV4.object(
+            from: packageData
+        )
+        try validateFixturePackageKeys(packageObject)
+        let fixturePackage = try JSONDecoder().decode(
+            MirmirPackagedMediaFixturePackageV4.self,
+            from: packageData
+        )
+        let contractObject = try MirmirPackagedMediaJSONV4.object(
+            from: Data(contentsOf: contractURL)
+        )
+        try validate(
+            fixturePackage: fixturePackage,
+            contract: contractObject,
+            root: inputRoot
+        )
+        try FileManager.default.createDirectory(
+            at: output,
+            withIntermediateDirectories: false
+        )
+        var capturedFixtures: [[String: Any]] = []
+        for fixture in fixturePackage.fixtures {
+            capturedFixtures.append(try await captureFixture(
+                fixture,
+                inputRoot: inputRoot,
+                captureRoot: output,
+                packageIdentity: packageIdentity,
+                requestSHA256: requestSHA256,
+                nonceSHA256: nonceSHA256
+            ))
+        }
+        let capture: [String: Any] = [
+            "schemaVersion":
+                "mirmir-ash-v4-media-preservation-capture-v2",
+            "suiteID": fixturePackage.suiteID,
+            "evidenceRequestSHA256": requestSHA256,
+            "evidenceNonceSHA256": nonceSHA256,
+            "observerSourceSHA256": observerSourceSHA256,
+            "laneContractSHA256": environment[
+                "MIRMIR_V4_MEDIA_CONTRACT_SHA256"
+            ]!,
+            "fixtureManifestSHA256": environment[
+                "MIRMIR_V4_MEDIA_FIXTURE_MANIFEST_SHA256"
+            ]!,
+            "fixtureTreeSHA256": environment[
+                "MIRMIR_V4_MEDIA_FIXTURE_TREE_SHA256"
+            ]!,
+            "fixtureSourceSHA256": environment[
+                "MIRMIR_V4_MEDIA_FIXTURE_SOURCE_SHA256"
+            ]!,
+            "generatorSourceSHA256": environment[
+                "MIRMIR_V4_MEDIA_GENERATOR_SOURCE_SHA256"
+            ]!,
+            "packagedCandidateIdentity": try MirmirPackagedMediaJSONV4
+                .object(packageIdentity),
+            "buildConfiguration": "Release",
+            "fixtures": capturedFixtures
+        ]
+        let captureURL = output.appendingPathComponent("capture.json")
+        try MirmirPackagedMediaJSONV4.write(capture, to: captureURL)
+        return captureURL
+    }
+
+    private static func captureFixture(
+        _ fixture: MirmirPackagedMediaFixtureV4,
+        inputRoot: URL,
+        captureRoot: URL,
+        packageIdentity: MirmirPackagedCandidateIdentityV4,
+        requestSHA256: String,
+        nonceSHA256: String
+    ) async throws -> [String: Any] {
+        let fixtureRoot = captureRoot.appendingPathComponent(
+            "fixtures/\(fixture.id)",
+            isDirectory: true
+        )
+        let input = fixtureRoot.appendingPathComponent("input", isDirectory: true)
+        let output = fixtureRoot.appendingPathComponent("output", isDirectory: true)
+        let repeated = fixtureRoot.appendingPathComponent("repeat", isDirectory: true)
+        for directory in [input, output, repeated] {
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true
+            )
+        }
+        let stagedSource = try safeInput(
+            fixture.sourceFile,
+            root: inputRoot,
+            byteCount: fixture.sourceByteCount,
+            sha256: fixture.sourceSHA256
+        )
+        let sourceURL = input.appendingPathComponent("media.mov")
+        try FileManager.default.copyItem(at: stagedSource, to: sourceURL)
+        let outputURL = output.appendingPathComponent("media.mov")
+        let repeatURL = repeated.appendingPathComponent("media.mov")
+        guard let codec = OutputCodec(rawValue: fixture.outputCodec) else {
+            throw MirmirPackagedMediaErrorV4.invalid(
+                "unsupported fixture codec: \(fixture.id)"
+            )
+        }
+        let first = try await execute(
+            fixture: fixture,
+            sourceURL: sourceURL,
+            outputURL: outputURL,
+            codec: codec
+        )
+        let second = try await execute(
+            fixture: fixture,
+            sourceURL: sourceURL,
+            outputURL: repeatURL,
+            codec: codec
+        )
+        guard first.preflight == second.preflight,
+              first.value.receipt == second.value.receipt,
+              first.preflight.runtimeManifestSHA256.rawValue
+                == packageIdentity.runtimeManifestSHA256 else {
+            throw MirmirPackagedMediaErrorV4.invalid(
+                "preflight/execution/runtime receipt is not repeatable or bound: \(fixture.id)"
+            )
+        }
+        let firstAlpha = first.value.receipt.alphaVerification?.frames.map {
+            $0.sourceAlphaSHA256.rawValue
+        } ?? []
+        let repeatAlpha = second.value.receipt.alphaVerification?.frames.map {
+            $0.sourceAlphaSHA256.rawValue
+        } ?? []
+        guard firstAlpha == repeatAlpha else {
+            throw MirmirPackagedMediaErrorV4.invalid(
+                "actual pre-encode alpha is not repeatable: \(fixture.id)"
+            )
+        }
+        let repeatPixels = try await MirmirPackagedMediaObserverV4
+            .pixelIdentities(at: repeatURL)
+        let inputSide = try await MirmirPackagedMediaObserverV4.captureSide(
+            fixtureID: fixture.id,
+            side: "input",
+            mediaURL: sourceURL,
+            directory: input,
+            repeatVisibleSHA256: [:],
+            preEncodeAlphaFrameSHA256: [:],
+            repeatPreEncodeAlphaFrameSHA256: [:],
+            metadata: nil
+        )
+        let primary = first.value.receipt.primaryTrackOrdinal
+        let outputSide = try await MirmirPackagedMediaObserverV4.captureSide(
+            fixtureID: fixture.id,
+            side: "output",
+            mediaURL: outputURL,
+            directory: output,
+            repeatVisibleSHA256: repeatPixels,
+            preEncodeAlphaFrameSHA256: firstAlpha.isEmpty
+                ? [:] : [primary: firstAlpha],
+            repeatPreEncodeAlphaFrameSHA256: repeatAlpha.isEmpty
+                ? [:] : [primary: repeatAlpha],
+            metadata: nil
+        )
+        guard inputSide.enabledTrackCount == outputSide.enabledTrackCount,
+              MirmirPackagedMediaObserverV4.visibleIdentities(
+                outputSide.pixelObservation
+              ) == repeatPixels else {
+            throw MirmirPackagedMediaErrorV4.invalid(
+                "captured media is not repeatable/accounted: \(fixture.id)"
+            )
+        }
+        let preflightObject = try MirmirPackagedMediaJSONV4.object(
+            first.preflight
+        )
+        let repeatPreflightObject = try MirmirPackagedMediaJSONV4.object(
+            second.preflight
+        )
+        let receiptObject = try MirmirPackagedMediaJSONV4.object(
+            first.value.receipt
+        )
+        let repeatReceiptObject = try MirmirPackagedMediaJSONV4.object(
+            second.value.receipt
+        )
+        var route: [String: Any] = [
+            "schemaVersion":
+                "mirmir-ash-v4-media-production-route-receipt-v2",
+            "entryPoint":
+                "VideoProcessingSession.processWithDeterministicV4ExecutionReceipt",
+            "executionProducer": "exact_archived_mirmir_executable",
+            "dispatchRequirement":
+                "PreparedDeterministicV4RuntimePlanningBackend",
+            "planEvidenceBoundary":
+                "actual_session_receipt_matched_independent_preflight",
+            "evidenceRequestSHA256": requestSHA256,
+            "evidenceNonceSHA256": nonceSHA256,
+            "applicationArchiveSHA256":
+                packageIdentity.applicationArchiveSHA256,
+            "applicationExecutableSHA256":
+                packageIdentity.applicationExecutableSHA256,
+            "sourceTreeIdentitySHA256":
+                packageIdentity.sourceTreeIdentitySHA256,
+            "independentPreflight": preflightObject,
+            "repeatIndependentPreflight": repeatPreflightObject,
+            "executionReceipt": receiptObject,
+            "repeatExecutionReceipt": repeatReceiptObject,
+            "independentPreflightSHA256": try MirmirPackagedMediaJSONV4
+                .hash(preflightObject),
+            "repeatIndependentPreflightSHA256": try MirmirPackagedMediaJSONV4
+                .hash(repeatPreflightObject),
+            "executionReceiptSHA256": try MirmirPackagedMediaJSONV4
+                .hash(receiptObject),
+            "repeatExecutionReceiptSHA256": try MirmirPackagedMediaJSONV4
+                .hash(repeatReceiptObject),
+            "inputEnabledTrackCount": inputSide.enabledTrackCount,
+            "outputEnabledTrackCount": outputSide.enabledTrackCount
+        ]
+        route["routeProofSHA256"] = try MirmirPackagedMediaJSONV4.hash(route)
+
+        var alphaOracle: Any = NSNull()
+        if let oracle = fixture.alphaOracleInput {
+            let staged = try safeInput(
+                oracle.path,
+                root: inputRoot,
+                byteCount: oracle.byteCount,
+                sha256: oracle.sha256
+            )
+            let captured = input.appendingPathComponent("alpha-source.bin")
+            try FileManager.default.copyItem(at: staged, to: captured)
+            alphaOracle = [
+                "schemaVersion": oracle.schemaVersion,
+                "artifact": try MirmirPackagedMediaObserverV4.artifact(
+                    captured,
+                    root: captureRoot
+                ),
+                "frameSHA256": oracle.frameSHA256,
+                "frameCount": oracle.frameCount,
+                "width": oracle.width,
+                "height": oracle.height,
+                "association": oracle.association
+            ]
+        }
+        return [
+            "id": fixture.id,
+            "coverage": fixture.coverage,
+            "policy": fixture.policy,
+            "enabledInputTrackCount": inputSide.enabledTrackCount,
+            "accountedOutputTrackCount": outputSide.enabledTrackCount,
+            "alphaOracleInput": alphaOracle,
+            "production": [
+                "runtimeManifestSHA256":
+                    packageIdentity.runtimeManifestSHA256,
+                "routeReceipt": route
+            ],
+            "input": inputSide.descriptors,
+            "output": outputSide.descriptors
+        ]
+    }
+
+    private static func execute(
+        fixture: MirmirPackagedMediaFixtureV4,
+        sourceURL: URL,
+        outputURL: URL,
+        codec: OutputCodec
+    ) async throws -> Execution {
+        let source = try await VideoProbe().probe(url: sourceURL)
+        guard let descriptor = BackendDescriptor.descriptor(
+                for: .mirmirDeterministicCPU
+              ),
+              let backend = DeterministicCPUBackend(descriptor: descriptor)
+        else {
+            throw MirmirPackagedMediaErrorV4.invalid(
+                "deterministic CPU backend is unavailable"
+            )
+        }
+        let preparation = BackendPreparationRequest(
+            source: source,
+            targetSize: CGSize(
+                width: fixture.targetWidth,
+                height: fixture.targetHeight
+            )
+        )
+        let preflightPrepared = try await backend.prepare(
+            request: preparation,
+            environment: .current()
+        )
+        guard let preflightBackend = preflightPrepared
+                as? any PreparedDeterministicV4RuntimePlanningBackend else {
+            throw MirmirPackagedMediaErrorV4.invalid(
+                "preflight backend lacks deterministic planning"
+            )
+        }
+        let request = UpscaleRequest(
+            inputURL: sourceURL,
+            outputURL: outputURL,
+            backendID: .mirmirDeterministicCPU,
+            targetWidth: fixture.targetWidth,
+            targetHeight: fixture.targetHeight,
+            outputCodec: codec,
+            preserveAudio: true,
+            overwriteExistingFile: false
+        )
+        let plan = try await DeterministicV4WholeAssetPlanner().prepare(
+            request: request,
+            source: source,
+            backend: preflightBackend
+        )
+        try plan.ashPlan.verify()
+        try plan.trackPlan.verify()
+        let preflight = try MirmirPackagedMediaPreflightV4(
+            request: request,
+            backend: preflightBackend,
+            plan: plan
+        )
+        let productionPrepared = try await backend.prepare(
+            request: preparation,
+            environment: .current()
+        )
+        let execution = try await VideoProcessingSession()
+            .processWithDeterministicV4ExecutionReceipt(
+                request: request,
+                source: source,
+                preparedBackend: productionPrepared,
+                cancellation: ProcessingCancellation(),
+                progress: { _ in }
+            )
+        try preflight.verify(execution.receipt, fixture: fixture)
+        return Execution(preflight: preflight, value: execution)
+    }
+
+    private static func validateFixturePackageKeys(
+        _ package: [String: Any]
+    ) throws {
+        try MirmirPackagedMediaJSONV4.requireExactKeys(
+            package,
+            ["schemaVersion", "suiteID", "fixtures"],
+            "fixture package"
+        )
+        guard let fixtures = package["fixtures"] as? [[String: Any]] else {
+            throw MirmirPackagedMediaErrorV4.invalid("fixture package rows")
+        }
+        let keys: Set<String> = [
+            "id", "policy", "coverage", "sourceFile", "sourceByteCount",
+            "sourceSHA256", "targetWidth", "targetHeight", "outputCodec",
+            "expectedProcessedFrameCount", "alphaOracleInput"
+        ]
+        for fixture in fixtures {
+            try MirmirPackagedMediaJSONV4.requireExactKeys(
+                fixture,
+                keys,
+                "fixture package row"
+            )
+        }
+    }
+
+    private static func validate(
+        fixturePackage: MirmirPackagedMediaFixturePackageV4,
+        contract: [String: Any],
+        root: URL
+    ) throws {
+        guard fixturePackage.schemaVersion
+                == "mirmir-ash-v4-media-fixture-package-v2",
+              fixturePackage.suiteID
+                == "mirmir-ash-v4-media-preservation-v1",
+              fixturePackage.fixtures.count == 6,
+              Set(fixturePackage.fixtures.map(\.id)).count == 6,
+              contract["schemaVersion"] as? String
+                == "mirmir-ash-v4-media-preservation-contract-v1",
+              contract["suiteID"] as? String == fixturePackage.suiteID,
+              let contractFixtures = contract["fixtures"]
+                as? [[String: Any]],
+              contractFixtures.count == 6 else {
+            throw MirmirPackagedMediaErrorV4.invalid(
+                "fixture package or contract header differs"
+            )
+        }
+        for (fixture, locked) in zip(
+            fixturePackage.fixtures,
+            contractFixtures
+        ) {
+            guard locked["id"] as? String == fixture.id,
+                  locked["policy"] as? String == fixture.policy,
+                  locked["coverage"] as? [String] == fixture.coverage,
+                  fixture.targetWidth > 0,
+                  fixture.targetHeight > 0,
+                  fixture.expectedProcessedFrameCount > 0 else {
+                throw MirmirPackagedMediaErrorV4.invalid(
+                    "fixture differs from lane contract: \(fixture.id)"
+                )
+            }
+            _ = try safeInput(
+                fixture.sourceFile,
+                root: root,
+                byteCount: fixture.sourceByteCount,
+                sha256: fixture.sourceSHA256
+            )
+            if let alpha = fixture.alphaOracleInput {
+                guard alpha.schemaVersion
+                        == "mirmir-ash-v4-alpha-oracle-input-v1",
+                      alpha.width == 16,
+                      alpha.height == 16,
+                      alpha.frameCount == 3,
+                      alpha.frameSHA256.count == alpha.frameCount,
+                      alpha.byteCount
+                        == alpha.width * alpha.height * alpha.frameCount,
+                      ["straight", "premultiplied"].contains(
+                        alpha.association
+                      ) else {
+                    throw MirmirPackagedMediaErrorV4.invalid(
+                        "alpha oracle input differs: \(fixture.id)"
+                    )
+                }
+                _ = try safeInput(
+                    alpha.path,
+                    root: root,
+                    byteCount: alpha.byteCount,
+                    sha256: alpha.sha256
+                )
+            }
+        }
+    }
+
+    private static func requiredURL(
+        _ environment: [String: String],
+        _ key: String
+    ) throws -> URL {
+        guard let value = environment[key], !value.isEmpty else {
+            throw MirmirPackagedMediaErrorV4.invalid("missing \(key)")
+        }
+        return URL(fileURLWithPath: value).standardizedFileURL
+    }
+
+    private static func safeInput(
+        _ relative: String,
+        root: URL,
+        byteCount: Int,
+        sha256: String
+    ) throws -> URL {
+        guard !relative.isEmpty,
+              !relative.hasPrefix("/"),
+              !relative.split(separator: "/").contains("..") else {
+            throw MirmirPackagedMediaErrorV4.invalid("unsafe input path")
+        }
+        let url = root.appendingPathComponent(relative).standardizedFileURL
+        let values = try url.resourceValues(forKeys: [
+            .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey
+        ])
+        guard url.path.hasPrefix(root.standardizedFileURL.path + "/"),
+              values.isRegularFile == true,
+              values.isSymbolicLink != true,
+              values.fileSize == byteCount,
+              try MirmirNotarizedSmokeFilesV4.sha256(url) == sha256 else {
+            throw MirmirPackagedMediaErrorV4.invalid(
+                "input artifact identity differs"
+            )
+        }
+        return url
+    }
+
+    private static func inputTreeSHA256(_ root: URL) throws -> String {
+        let root = root.standardizedFileURL
+        guard let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: [
+                .isRegularFileKey, .isDirectoryKey, .isSymbolicLinkKey
+            ],
+            options: []
+        ) else {
+            throw MirmirPackagedMediaErrorV4.invalid("input tree")
+        }
+        let urls = (enumerator.allObjects as? [URL] ?? []).sorted {
+            $0.path < $1.path
+        }
+        var digest = SHA256()
+        digest.update(data: Data("mirmir-packaged-input-tree-v1\0".utf8))
+        for url in urls {
+            let values = try url.resourceValues(forKeys: [
+                .isRegularFileKey, .isDirectoryKey, .isSymbolicLinkKey
+            ])
+            guard values.isSymbolicLink != true else {
+                throw MirmirPackagedMediaErrorV4.invalid("input symlink")
+            }
+            let relative = String(url.path.dropFirst(root.path.count + 1))
+            digest.update(data: Data(relative.utf8))
+            digest.update(data: Data([0]))
+            if values.isDirectory == true {
+                digest.update(data: Data("directory\n".utf8))
+            } else if values.isRegularFile == true {
+                digest.update(data: Data("file\0".utf8))
+                digest.update(data: Data(
+                    try MirmirNotarizedSmokeFilesV4.sha256(url).utf8
+                ))
+                digest.update(data: Data("\n".utf8))
+            } else {
+                throw MirmirPackagedMediaErrorV4.invalid("special input")
+            }
+        }
+        return MirmirNotarizedSmokeFilesV4.hex(digest.finalize())
+    }
+}
+
+private enum MirmirPackagedMediaObserverV4 {
+    struct MetadataIdentities {
+        let asset: String
+        let chapter: String
+    }
+
+    struct SideCapture {
+        let enabledTrackCount: Int
+        let descriptors: [String: Any]
+        let pixelObservation: [String: Any]
+    }
+
+    static func captureSide(
+        fixtureID: String,
+        side: String,
+        mediaURL: URL,
+        directory: URL,
+        repeatVisibleSHA256: [Int: String],
+        preEncodeAlphaFrameSHA256: [Int: [String]],
+        repeatPreEncodeAlphaFrameSHA256: [Int: [String]],
+        metadata: MetadataIdentities?
+    ) async throws -> SideCapture {
+        let asset = AVURLAsset(
+            url: mediaURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let graph = try await AVFoundationTrackGraphAdapterV4.probe(asset: asset)
+        let observedMetadata: MetadataIdentities
+        if let metadata {
+            observedMetadata = metadata
+        } else {
+            observedMetadata = try await metadataIdentities(for: asset)
+        }
+        let tracks = try trackObservation(
+            fixtureID: fixtureID,
+            side: side,
+            graph: graph,
+            metadata: observedMetadata
+        )
+        let timing = try await timingObservation(
+            fixtureID: fixtureID,
+            side: side,
+            asset: asset
+        )
+        let pixelResult = try await pixelObservation(
+            fixtureID: fixtureID,
+            side: side,
+            asset: asset,
+            directory: directory,
+            repeatVisibleSHA256: repeatVisibleSHA256,
+            preEncodeAlphaFrameSHA256: preEncodeAlphaFrameSHA256,
+            repeatPreEncodeAlphaFrameSHA256:
+                repeatPreEncodeAlphaFrameSHA256
+        )
+        let attachments = try await attachmentObservation(
+            fixtureID: fixtureID,
+            side: side,
+            mediaURL: mediaURL,
+            asset: asset
+        )
+        let trackURL = directory.appendingPathComponent(
+            "track-observation.json"
+        )
+        let timingURL = directory.appendingPathComponent(
+            "timing-observation.json"
+        )
+        let pixelURL = directory.appendingPathComponent(
+            "pixel-observation.json"
+        )
+        let attachmentURL = directory.appendingPathComponent(
+            "attachment-observation.json"
+        )
+        try MirmirPackagedMediaJSONV4.write(tracks, to: trackURL)
+        try MirmirPackagedMediaJSONV4.write(timing, to: timingURL)
+        try MirmirPackagedMediaJSONV4.write(pixelResult.observation, to: pixelURL)
+        try MirmirPackagedMediaJSONV4.write(attachments, to: attachmentURL)
+        return SideCapture(
+            enabledTrackCount: tracks["enabledTrackCount"] as! Int,
+            descriptors: [
+                "media": try artifact(mediaURL, root: directory
+                    .deletingLastPathComponent().deletingLastPathComponent()
+                    .deletingLastPathComponent()),
+                "trackObservation": try artifact(trackURL, root: directory
+                    .deletingLastPathComponent().deletingLastPathComponent()
+                    .deletingLastPathComponent()),
+                "timingObservation": try artifact(timingURL, root: directory
+                    .deletingLastPathComponent().deletingLastPathComponent()
+                    .deletingLastPathComponent()),
+                "pixels": try artifact(pixelResult.url, root: directory
+                    .deletingLastPathComponent().deletingLastPathComponent()
+                    .deletingLastPathComponent()),
+                "pixelObservation": try artifact(pixelURL, root: directory
+                    .deletingLastPathComponent().deletingLastPathComponent()
+                    .deletingLastPathComponent()),
+                "attachmentObservation": try artifact(
+                    attachmentURL,
+                    root: directory.deletingLastPathComponent()
+                        .deletingLastPathComponent()
+                        .deletingLastPathComponent()
+                )
+            ],
+            pixelObservation: pixelResult.observation
+        )
+    }
+
+    static func pixelIdentities(at mediaURL: URL) async throws -> [Int: String] {
+        let temporary = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mirmir-m7-repeat-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(
+            at: temporary,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        let asset = AVURLAsset(url: mediaURL)
+        return try await pixelObservation(
+            fixtureID: "repeat",
+            side: "output",
+            asset: asset,
+            directory: temporary,
+            repeatVisibleSHA256: [:],
+            preEncodeAlphaFrameSHA256: [:],
+            repeatPreEncodeAlphaFrameSHA256: [:]
+        ).identities
+    }
+
+    static func visibleIdentities(_ observation: [String: Any]) -> [Int: String] {
+        guard let tracks = observation["tracks"] as? [[String: Any]] else {
+            return [:]
+        }
+        return Dictionary(uniqueKeysWithValues: tracks.compactMap { track in
+            guard let ordinal = track["ordinal"] as? Int,
+                  let identity = track["visibleSHA256"] as? String else {
+                return nil
+            }
+            return (ordinal, identity)
+        })
+    }
+
+    private static func metadataIdentities(
+        for asset: AVAsset
+    ) async throws -> MetadataIdentities {
+        let metadata = try await asset.load(.metadata)
+        let assetItems = try await canonicalMetadataRows(metadata)
+        let locales = try await asset.load(.availableChapterLocales)
+            .sorted { $0.identifier < $1.identifier }
+        var chapterRows: [[String: Any]] = []
+        for locale in locales {
+            let groups = try await asset.loadChapterMetadataGroups(
+                withTitleLocale: locale
+            )
+            for (ordinal, group) in groups.enumerated() {
+                chapterRows.append([
+                    "localeID": locale.identifier,
+                    "ordinal": ordinal,
+                    "start": rationalOrInvalid(group.timeRange.start),
+                    "duration": rationalOrInvalid(group.timeRange.duration),
+                    "items": try await canonicalMetadataRows(group.items)
+                ])
+            }
+        }
+        return MetadataIdentities(
+            asset: try MirmirPackagedMediaJSONV4.hash([
+                "items": assetItems
+            ]),
+            chapter: try MirmirPackagedMediaJSONV4.hash([
+                "groups": chapterRows
+            ])
+        )
+    }
+
+    private static func canonicalMetadataRows(
+        _ items: [AVMetadataItem]
+    ) async throws -> [[String: Any]] {
+        var rows: [[String: Any]] = []
+        for item in items {
+            let value = try await item.load(.value)
+            rows.append([
+                "identifier": item.identifier?.rawValue ?? NSNull(),
+                "keySpace": item.keySpace?.rawValue ?? NSNull(),
+                "commonKey": item.commonKey?.rawValue ?? NSNull(),
+                "key": try metadataJSONValue(item.key),
+                "extendedLanguageTag": item.extendedLanguageTag ?? NSNull(),
+                "localeID": item.locale?.identifier ?? NSNull(),
+                "startDateBitPattern": item.startDate.map {
+                    String($0.timeIntervalSinceReferenceDate.bitPattern)
+                } ?? NSNull(),
+                "dataType": item.dataType ?? NSNull(),
+                "time": rationalOrInvalid(item.time),
+                "duration": rationalOrInvalid(item.duration),
+                "value": try metadataJSONValue(value)
+            ])
+        }
+        return try rows.sorted {
+            try MirmirPackagedMediaJSONV4.hash($0)
+                < MirmirPackagedMediaJSONV4.hash($1)
+        }
+    }
+
+    private static func metadataJSONValue(_ value: Any?) throws -> Any {
+        guard let value else { return NSNull() }
+        if value is NSNull { return NSNull() }
+        if let string = value as? String {
+            return ["type": "string", "value": string]
+        }
+        if let data = value as? Data {
+            return [
+                "type": "data",
+                "byteCount": data.count,
+                "sha256": ASHSHA256V4(rawData: data).rawValue
+            ]
+        }
+        if let date = value as? Date {
+            return [
+                "type": "date",
+                "bitPattern": String(
+                    date.timeIntervalSinceReferenceDate.bitPattern
+                )
+            ]
+        }
+        if let number = value as? NSNumber {
+            if CFGetTypeID(number) == CFBooleanGetTypeID() {
+                return ["type": "boolean", "value": number.boolValue]
+            }
+            return [
+                "type": "number",
+                "objcType": String(cString: number.objCType),
+                "value": number.stringValue
+            ]
+        }
+        if let url = value as? URL {
+            return ["type": "url", "value": url.absoluteString]
+        }
+        if let array = value as? NSArray {
+            return [
+                "type": "array",
+                "value": try array.map(metadataJSONValue)
+            ]
+        }
+        if let dictionary = value as? NSDictionary {
+            var entries = try dictionary.map { key, item in
+                [
+                    "key": try metadataJSONValue(key),
+                    "value": try metadataJSONValue(item)
+                ]
+            }
+            entries = try entries.sorted {
+                try MirmirPackagedMediaJSONV4.hash($0)
+                    < MirmirPackagedMediaJSONV4.hash($1)
+            }
+            return ["type": "object", "value": entries]
+        }
+        throw MirmirPackagedMediaErrorV4.invalid(
+            "unsupported AVMetadataItem value"
+        )
+    }
+
+    private static func trackObservation(
+        fixtureID: String,
+        side: String,
+        graph: MediaTrackGraphV4,
+        metadata: MetadataIdentities?
+    ) throws -> [String: Any] {
+        let ordinalByID = Dictionary(
+            uniqueKeysWithValues: graph.tracks.map {
+                ($0.identity.stableID, Int($0.identity.ordinal))
+            }
+        )
+        let tracks: [[String: Any]] = try graph.tracks.map { track in
+            [
+                "ordinal": Int(track.identity.ordinal),
+                "stableID": track.identity.stableID.rawValue,
+                "kind": track.kind.rawValue,
+                "enabled": track.enabled,
+                "mediaTypeID": track.sourceMediaTypeID,
+                "codecID": track.formatDescriptors.first?.mediaSubtypeID
+                    ?? "unknown",
+                "languageCode": track.language.languageCode ?? NSNull(),
+                "extendedLanguageTag": track.language.extendedLanguageTag
+                    ?? NSNull(),
+                "roleIDs": track.roleIDs,
+                "timebase": track.timebase.description,
+                "timeRangeSHA256": try encodableHash(track.timeRange),
+                "editsSHA256": try encodableHash(track.edits),
+                "formatSHA256": try encodableHash(track.formatDescriptors),
+                "metadataSHA256": track.metadataFingerprint.rawValue
+            ]
+        }
+        let groups: [[String: Any]] = graph.groups.map { group in
+            [
+                "ordinal": Int(group.identity.ordinal),
+                "kind": group.kind.rawValue,
+                "memberOrdinals": group.memberTrackIDs.compactMap {
+                    ordinalByID[$0]
+                },
+                "defaultOrdinal": group.defaultTrackID.flatMap {
+                    ordinalByID[$0]
+                } ?? NSNull(),
+                "allowsEmptySelection": group.allowsEmptySelection
+            ]
+        }
+        let associations: [[String: Any]] = graph.associations.map {
+            association in
+            [
+                "ordinal": Int(association.ordinal),
+                "sourceOrdinal": ordinalByID[
+                    association.sourceTrackID
+                ]!,
+                "targetOrdinal": ordinalByID[
+                    association.targetTrackID
+                ]!,
+                "kind": association.kind.rawValue
+            ]
+        }
+        let empty = ASHSHA256V4(rawData: Data()).rawValue
+        return [
+            "schemaVersion": "mirmir-ash-v4-track-observation-v2",
+            "fixtureID": fixtureID,
+            "side": side,
+            "enabledTrackCount": graph.tracks.filter(\.enabled).count,
+            "tracks": tracks,
+            "groups": groups,
+            "associations": associations,
+            "assetMetadataSHA256": metadata?.asset ?? empty,
+            "chapterMetadataSHA256": metadata?.chapter ?? empty
+        ]
+    }
+
+    private static func timingObservation(
+        fixtureID: String,
+        side: String,
+        asset: AVAsset
+    ) async throws -> [String: Any] {
+        let assetTracks = try await asset.load(.tracks)
+        var rows: [[String: Any]] = []
+        for (ordinal, track) in assetTracks.enumerated() {
+            let reader = try AVAssetReader(asset: asset)
+            let output = AVAssetReaderTrackOutput(
+                track: track,
+                outputSettings: nil
+            )
+            output.alwaysCopiesSampleData = false
+            guard reader.canAdd(output) else {
+                throw MirmirPackagedMediaErrorV4.reader
+            }
+            reader.add(output)
+            guard reader.startReading() else {
+                throw MirmirPackagedMediaErrorV4.reader
+            }
+            var samples: [[String: Any]] = []
+            while let sample = output.copyNextSampleBuffer() {
+                let payload = try encodedPayload(sample)
+                samples.append([
+                    "pts": rational(
+                        CMSampleBufferGetPresentationTimeStamp(sample)
+                    ),
+                    "dts": rationalOrInvalid(
+                        CMSampleBufferGetDecodeTimeStamp(sample)
+                    ),
+                    "duration": rational(
+                        CMSampleBufferGetDuration(sample)
+                    ),
+                    "byteCount": payload.count,
+                    "payloadSHA256": ASHSHA256V4(rawData: payload).rawValue
+                ])
+            }
+            guard reader.status == .completed else {
+                throw MirmirPackagedMediaErrorV4.reader
+            }
+            let timings = samples.map { sample in
+                [
+                    "pts": sample["pts"]!,
+                    "dts": sample["dts"]!,
+                    "duration": sample["duration"]!
+                ]
+            }
+            rows.append([
+                "ordinal": ordinal,
+                "sampleCount": samples.count,
+                "timingSHA256": try MirmirPackagedMediaJSONV4.hash(timings),
+                "encodedPayloadSHA256": try MirmirPackagedMediaJSONV4.hash(
+                    samples.map { $0["payloadSHA256"]! }
+                ),
+                "samples": samples
+            ])
+        }
+        return [
+            "schemaVersion": "mirmir-ash-v4-timing-observation-v1",
+            "fixtureID": fixtureID,
+            "side": side,
+            "tracks": rows
+        ]
+    }
+
+    private struct PixelResult {
+        let url: URL
+        let observation: [String: Any]
+        let identities: [Int: String]
+    }
+
+    private static func pixelObservation(
+        fixtureID: String,
+        side: String,
+        asset: AVAsset,
+        directory: URL,
+        repeatVisibleSHA256: [Int: String],
+        preEncodeAlphaFrameSHA256: [Int: [String]],
+        repeatPreEncodeAlphaFrameSHA256: [Int: [String]]
+    ) async throws -> PixelResult {
+        let graph = try await AVFoundationTrackGraphAdapterV4.probe(asset: asset)
+        let canonical = try await AVCanonicalMediaStateAdapterV4().probe(
+            .init(
+                url: (asset as! AVURLAsset).url,
+                bookmarkReference: "m7-media-capture",
+                bookmarkDocumentSHA256: ASHSHA256V4(
+                    rawData: Data("m7-media-capture-bookmark".utf8)
+                ),
+                scanDynamicHDRMetadata: true
+            )
+        ).requireAdmittedState()
+        var artifact = Data()
+        var rows: [[String: Any]] = []
+        var identities: [Int: String] = [:]
+        let tracks = try await asset.load(.tracks)
+        for (ordinal, track) in tracks.enumerated() {
+            guard graph.tracks[ordinal].kind == .video else { continue }
+            let canonicalVideo = canonical.tracks[ordinal].video!
+            let pixelFormat: OSType = canonicalVideo.pixel.alphaModel == .none
+                ? (canonicalVideo.pixel.bitDepth == 10
+                    ? kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange
+                    : kCVPixelFormatType_32BGRA)
+                : kCVPixelFormatType_32BGRA
+            let reader = try AVAssetReader(asset: asset)
+            let output = AVAssetReaderTrackOutput(
+                track: track,
+                outputSettings: [
+                    kCVPixelBufferPixelFormatTypeKey as String: pixelFormat
+                ]
+            )
+            output.alwaysCopiesSampleData = true
+            guard reader.canAdd(output) else {
+                throw MirmirPackagedMediaErrorV4.reader
+            }
+            reader.add(output)
+            guard reader.startReading() else {
+                throw MirmirPackagedMediaErrorV4.reader
+            }
+            var visible = Data()
+            var alpha = Data()
+            var alphaFrameSHA256: [String] = []
+            var codes = Set<UInt16>()
+            var lowPaddingViolations = 0
+            var frameCount = 0
+            var width = 0
+            var height = 0
+            while let sample = output.copyNextSampleBuffer() {
+                guard let buffer = CMSampleBufferGetImageBuffer(sample) else {
+                    throw MirmirPackagedMediaErrorV4.reader
+                }
+                width = CVPixelBufferGetWidth(buffer)
+                height = CVPixelBufferGetHeight(buffer)
+                let bytes = try visibleBytes(buffer)
+                visible.append(bytes)
+                artifact.append(bytes)
+                if canonicalVideo.pixel.alphaModel != .none {
+                    let alphaFrame = try Alpha4444PixelBufferAccessV4
+                        .alphaPlaneBytes(buffer, layout: .bgra8)
+                    alpha.append(alphaFrame)
+                    alphaFrameSHA256.append(
+                        ASHSHA256V4(rawData: alphaFrame).rawValue
+                    )
+                }
+                if canonicalVideo.pixel.bitDepth == 10 {
+                    try collectP010(
+                        buffer,
+                        codes: &codes,
+                        lowPaddingViolations: &lowPaddingViolations
+                    )
+                }
+                frameCount += 1
+            }
+            guard reader.status == .completed else {
+                throw MirmirPackagedMediaErrorV4.reader
+            }
+            let visibleSHA = ASHSHA256V4(rawData: visible).rawValue
+            let alphaSHA = alpha.isEmpty
+                ? nil : ASHSHA256V4(rawData: alpha).rawValue
+            identities[ordinal] = visibleSHA
+            let preEncode = preEncodeAlphaFrameSHA256[ordinal] ?? []
+            let repeatPreEncode = repeatPreEncodeAlphaFrameSHA256[ordinal]
+                ?? []
+            rows.append([
+                "ordinal": ordinal,
+                "kind": "video",
+                "pixelFormat": fourCC(pixelFormat),
+                "bitDepth": Int(canonicalVideo.pixel.bitDepth),
+                "width": width,
+                "height": height,
+                "frameCount": frameCount,
+                "visibleSHA256": visibleSHA,
+                "repeatVisibleSHA256": repeatVisibleSHA256[ordinal]
+                    ?? visibleSHA,
+                "alphaSHA256": alphaSHA ?? NSNull(),
+                "alphaFrameSHA256": alphaFrameSHA256,
+                "preEncodeAlphaFrameSHA256": preEncode,
+                "repeatPreEncodeAlphaFrameSHA256": repeatPreEncode,
+                "decodedAlphaSHA256": alphaSHA ?? NSNull(),
+                "uniqueSignalCodeCount": canonicalVideo.pixel.bitDepth == 10
+                    ? codes.count : 0,
+                "lowPaddingBitViolationCount": lowPaddingViolations
+            ])
+        }
+        let artifactURL = directory.appendingPathComponent("pixels.bin")
+        try artifact.write(to: artifactURL, options: .atomic)
+        return PixelResult(
+            url: artifactURL,
+            observation: [
+                "schemaVersion": "mirmir-ash-v4-pixel-observation-v2",
+                "fixtureID": fixtureID,
+                "side": side,
+                "pixelArtifactSHA256": ASHSHA256V4(
+                    rawData: artifact
+                ).rawValue,
+                "pixelArtifactByteCount": artifact.count,
+                "tracks": rows
+            ],
+            identities: identities
+        )
+    }
+
+    private static func attachmentObservation(
+        fixtureID: String,
+        side: String,
+        mediaURL: URL,
+        asset: AVAsset
+    ) async throws -> [String: Any] {
+        let canonical = try await AVCanonicalMediaStateAdapterV4().probe(
+            .init(
+                url: mediaURL,
+                bookmarkReference: "m7-media-attachments",
+                bookmarkDocumentSHA256: ASHSHA256V4(
+                    rawData: Data("m7-media-attachments-bookmark".utf8)
+                ),
+                scanDynamicHDRMetadata: true
+            )
+        ).requireAdmittedState()
+        let tracks = try await asset.load(.tracks)
+        var rows: [[String: Any]] = []
+        for (ordinal, canonicalTrack) in canonical.tracks.enumerated() {
+            guard let video = canonicalTrack.video else { continue }
+            let dynamic = try await dynamicMetadata(
+                asset: asset,
+                track: tracks[ordinal],
+                pixelFormat: video.pixel.bitDepth == 10
+                    ? kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange
+                    : kCVPixelFormatType_32BGRA
+            )
+            let ambientViewingEnvironment = try await
+                ambientViewingEnvironmentPayload(track: tracks[ordinal])
+            let clean: CanonicalRationalRectV4
+            if let cleanAperture = video.cleanAperture {
+                clean = cleanAperture
+            } else {
+                clean = CanonicalRationalRectV4(
+                    origin: CanonicalRationalPointV4(x: .zero, y: .zero),
+                    size: CanonicalRationalSizeV4(
+                        width: try ExactRationalV4(video.encodedRaster.width),
+                        height: try ExactRationalV4(video.encodedRaster.height)
+                    )
+                )
+            }
+            let detail: String
+            let cadence: String
+            switch video.scan.dominance {
+            case .topFieldFirst:
+                detail = "temporal_top_first"
+                cadence = "interlaced_tff_2_fields_per_sample"
+            case .bottomFieldFirst:
+                detail = "temporal_bottom_first"
+                cadence = "interlaced_bff_2_fields_per_sample"
+            case .none:
+                detail = "progressive"
+                cadence = side == "output" && fixtureID
+                    == "combined-p010-hdr-interlaced"
+                    ? "progressive_double_rate" : "progressive"
+            case .unknown:
+                detail = "unknown"
+                cadence = "unknown"
+            }
+            rows.append([
+                "ordinal": ordinal,
+                "kind": "video",
+                "fieldCount": Int(video.scan.fieldCount),
+                "fieldDetail": detail,
+                "cadence": cadence,
+                "pixelAspectRatio": [
+                    "horizontal": Int(video.pixelAspectRatio.numerator),
+                    "vertical": Int(video.pixelAspectRatio.denominator)
+                ],
+                "cleanAperture": [
+                    "width": clean.size.width.description,
+                    "height": clean.size.height.description,
+                    "horizontalOffset": clean.origin.x.description,
+                    "verticalOffset": clean.origin.y.description
+                ],
+                "preferredTransform": [
+                    video.preferredTransform.a.description,
+                    video.preferredTransform.b.description,
+                    video.preferredTransform.c.description,
+                    video.preferredTransform.d.description,
+                    video.preferredTransform.tx.description,
+                    video.preferredTransform.ty.description
+                ],
+                "colorPrimaries": video.color.primaries,
+                "transferFunction": video.color.transferFunction,
+                "yCbCrMatrix": video.color.matrix,
+                "masteringDisplaySHA256": try video.color.masteringDisplay
+                    .map(encodableHash) ?? NSNull(),
+                "contentLightSHA256": try video.color.contentLightLevel
+                    .map(encodableHash) ?? NSNull(),
+                "ambientViewingEnvironmentSHA256":
+                    ambientViewingEnvironment.map {
+                        ASHSHA256V4(rawData: $0).rawValue
+                    } ?? NSNull(),
+                "dynamicHDRSamples": dynamic,
+                "alphaAssociation": video.pixel.alphaModel == .none
+                    ? NSNull() : video.pixel.alphaModel.rawValue
+            ])
+        }
+        return [
+            "schemaVersion": "mirmir-ash-v4-attachment-observation-v1",
+            "fixtureID": fixtureID,
+            "side": side,
+            "tracks": rows
+        ]
+    }
+
+    private static func ambientViewingEnvironmentPayload(
+        track: AVAssetTrack
+    ) async throws -> Data? {
+        let descriptions = try await track.load(.formatDescriptions)
+        var identity: Data?
+        for description in descriptions {
+            guard let rawExtensions =
+                CMFormatDescriptionGetExtensions(description) else {
+                continue
+            }
+            let extensions = rawExtensions as NSDictionary
+            guard let raw = extensions[
+                kCMFormatDescriptionExtension_AmbientViewingEnvironment
+                    as String
+            ] else { continue }
+            guard let payload = raw as? Data else {
+                throw MirmirPackagedMediaErrorV4.invalid(
+                    "ambient viewing environment is not CFData"
+                )
+            }
+            _ = try AmbientViewingEnvironmentV4(payload: payload)
+            if let identity, identity != payload {
+                throw MirmirPackagedMediaErrorV4.invalid(
+                    "ambient viewing environment differs across formats"
+                )
+            }
+            identity = payload
+        }
+        return identity
+    }
+
+    private static func dynamicMetadata(
+        asset: AVAsset,
+        track: AVAssetTrack,
+        pixelFormat: OSType
+    ) async throws -> [[String: Any]] {
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(
+            track: track,
+            outputSettings: [
+                kCVPixelBufferPixelFormatTypeKey as String: pixelFormat
+            ]
+        )
+        guard reader.canAdd(output) else { throw MirmirPackagedMediaErrorV4.reader }
+        reader.add(output)
+        guard reader.startReading() else { throw MirmirPackagedMediaErrorV4.reader }
+        var result: [[String: Any]] = []
+        var ordinal = 0
+        while let sample = output.copyNextSampleBuffer() {
+            if let value = try AVFoundationHDRMetadataAdapterV4
+                .probeDynamicMetadata(from: sample) {
+                result.append([
+                    "sampleOrdinal": ordinal,
+                    "pts": rational(
+                        CMSampleBufferGetPresentationTimeStamp(sample)
+                    ),
+                    "hdr10PlusSHA256": value.hdr10Plus.map {
+                        ASHSHA256V4(rawData: $0.ituTT35Payload).rawValue
+                    } ?? NSNull(),
+                    "postDecodeSHA256": value.postDecodeProcessing.map {
+                        ASHSHA256V4(
+                            rawData: $0.binaryPropertyList
+                        ).rawValue
+                    } ?? NSNull()
+                ])
+            }
+            ordinal += 1
+        }
+        guard reader.status == .completed else {
+            throw MirmirPackagedMediaErrorV4.reader
+        }
+        return result
+    }
+
+    static func artifact(_ url: URL, root: URL) throws
+        -> [String: Any] {
+        let data = try Data(contentsOf: url)
+        let rootPath = root.standardizedFileURL.path
+        let filePath = url.standardizedFileURL.path
+        guard filePath.hasPrefix(rootPath + "/") else {
+            throw MirmirPackagedMediaErrorV4.invalid("artifact path")
+        }
+        return [
+            "path": String(filePath.dropFirst(rootPath.count + 1)),
+            "byteCount": data.count,
+            "sha256": ASHSHA256V4(rawData: data).rawValue
+        ]
+    }
+
+    private static func encodableHash<T: Encodable>(_ value: T) throws
+        -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        return ASHSHA256V4(rawData: try encoder.encode(value)).rawValue
+    }
+
+    private static func encodedPayload(_ sample: CMSampleBuffer) throws
+        -> Data {
+        guard let block = CMSampleBufferGetDataBuffer(sample) else {
+            if let image = CMSampleBufferGetImageBuffer(sample) {
+                return try visibleBytes(image)
+            }
+            return Data()
+        }
+        let length = CMBlockBufferGetDataLength(block)
+        var data = Data(count: length)
+        let status = data.withUnsafeMutableBytes { bytes in
+            CMBlockBufferCopyDataBytes(
+                block,
+                atOffset: 0,
+                dataLength: length,
+                destination: bytes.baseAddress!
+            )
+        }
+        guard status == kCMBlockBufferNoErr else {
+            throw MirmirPackagedMediaErrorV4.coreMedia(status)
+        }
+        return data
+    }
+
+    private static func visibleBytes(_ buffer: CVPixelBuffer) throws -> Data {
+        let status = CVPixelBufferLockBaseAddress(buffer, .readOnly)
+        guard status == kCVReturnSuccess else {
+            throw MirmirPackagedMediaErrorV4.coreVideo(status)
+        }
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        var result = Data()
+        let planeCount = CVPixelBufferIsPlanar(buffer)
+            ? CVPixelBufferGetPlaneCount(buffer) : 1
+        for plane in 0..<planeCount {
+            let base: UnsafeMutableRawPointer?
+            let height: Int
+            let activeBytes: Int
+            let rowBytes: Int
+            if CVPixelBufferIsPlanar(buffer) {
+                base = CVPixelBufferGetBaseAddressOfPlane(buffer, plane)
+                height = CVPixelBufferGetHeightOfPlane(buffer, plane)
+                let width = CVPixelBufferGetWidthOfPlane(buffer, plane)
+                activeBytes = width * (plane == 0 ? 2 : 4)
+                rowBytes = CVPixelBufferGetBytesPerRowOfPlane(buffer, plane)
+            } else {
+                base = CVPixelBufferGetBaseAddress(buffer)
+                height = CVPixelBufferGetHeight(buffer)
+                activeBytes = CVPixelBufferGetWidth(buffer) * 4
+                rowBytes = CVPixelBufferGetBytesPerRow(buffer)
+            }
+            guard let base else { throw MirmirPackagedMediaErrorV4.reader }
+            for y in 0..<height {
+                result.append(
+                    base.advanced(by: y * rowBytes)
+                        .assumingMemoryBound(to: UInt8.self),
+                    count: activeBytes
+                )
+            }
+        }
+        return result
+    }
+
+    private static func collectP010(
+        _ buffer: CVPixelBuffer,
+        codes: inout Set<UInt16>,
+        lowPaddingViolations: inout Int
+    ) throws {
+        let status = CVPixelBufferLockBaseAddress(buffer, .readOnly)
+        guard status == kCVReturnSuccess else {
+            throw MirmirPackagedMediaErrorV4.coreVideo(status)
+        }
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        for plane in 0..<2 {
+            let width = CVPixelBufferGetWidthOfPlane(buffer, plane)
+            let height = CVPixelBufferGetHeightOfPlane(buffer, plane)
+            let stride = CVPixelBufferGetBytesPerRowOfPlane(buffer, plane) / 2
+            let components = width * (plane == 0 ? 1 : 2)
+            guard let base = CVPixelBufferGetBaseAddressOfPlane(buffer, plane)?
+                .assumingMemoryBound(to: UInt16.self) else {
+                throw MirmirPackagedMediaErrorV4.reader
+            }
+            for y in 0..<height {
+                for x in 0..<components {
+                    let word = base[y * stride + x]
+                    if word & 0x003F != 0 { lowPaddingViolations += 1 }
+                    codes.insert(word >> 6)
+                }
+            }
+        }
+    }
+
+    private static func rationalOrInvalid(_ time: CMTime) -> String {
+        time.isNumeric ? rational(time) : "invalid"
+    }
+
+    private static func rational(_ time: CMTime) -> String {
+        precondition(time.isNumeric && time.timescale > 0)
+        var numerator = time.value
+        var denominator = Int64(time.timescale)
+        let divisor = gcd(abs(numerator), denominator)
+        numerator /= divisor
+        denominator /= divisor
+        return denominator == 1 ? "\(numerator)" : "\(numerator)/\(denominator)"
+    }
+
+    private static func gcd(_ first: Int64, _ second: Int64) -> Int64 {
+        var left = first
+        var right = second
+        while right != 0 {
+            (left, right) = (right, left % right)
+        }
+        return max(left, 1)
+    }
+
+    private static func fourCC(_ value: OSType) -> String {
+        let bytes = [
+            UInt8((value >> 24) & 0xFF),
+            UInt8((value >> 16) & 0xFF),
+            UInt8((value >> 8) & 0xFF),
+            UInt8(value & 0xFF)
+        ]
+        return String(bytes: bytes, encoding: .macOSRoman)
+            ?? String(format: "%08x", value)
     }
 }
 
@@ -2585,6 +4358,9 @@ private enum MirmirPackagedParityCaptureV4 {
         let comparison: String
         let repeatExecutionCount: Int
         let crossProcessCaptureCount: Int
+        let boundedTemporalCaseID: String
+        let temporalTilePolicy: ParityTemporalTilePolicy
+        let schedulePairs: [ParitySchedulePair]
         let tileSchedules: [String]
         let parityCoverage: [String]
         let releaseRuntime: ParityReleaseRuntimeContract
@@ -2608,9 +4384,27 @@ private enum MirmirPackagedParityCaptureV4 {
                     == "exact_visible_plane_attachment_timeline_checkpoint_and_resume_bytes",
                   repeatExecutionCount == 2,
                   crossProcessCaptureCount == 2,
+                  boundedTemporalCaseID
+                    == "nv12-video-forced-tiled-temporal-16x12-to-32x24",
+                  temporalTilePolicy == .qualification,
+                  schedulePairs == [
+                    ParitySchedulePair(
+                        spatialSchedule: "row_major",
+                        temporalSchedule: "raster"
+                    ),
+                    ParitySchedulePair(
+                        spatialSchedule: "reverse",
+                        temporalSchedule: "reverse_raster"
+                    ),
+                    ParitySchedulePair(
+                        spatialSchedule: "even_then_odd",
+                        temporalSchedule: "even_then_odd"
+                    )
+                  ],
                   tileSchedules == ["row_major", "reverse", "even_then_odd"],
+                  parityCoverage.count == 32,
                   Set(parityCoverage).count == parityCoverage.count,
-                  cases.count >= 9,
+                  cases.count == 10,
                   Set(cases.map(\.id)).count == cases.count else {
                 throw ParityCaptureError.invalidContract("header or count mismatch")
             }
@@ -2627,7 +4421,54 @@ private enum MirmirPackagedParityCaptureV4 {
             for definition in cases {
                 try definition.validate(allowedCoverage: Set(parityCoverage))
             }
+            guard let bounded = cases.first(where: {
+                $0.id == boundedTemporalCaseID
+            }), bounded.kind == "pixel_temporal",
+            bounded.scanMode == "progressive",
+            bounded.sourceWidth == 16,
+            bounded.sourceHeight == 12,
+            bounded.targetWidth == 32,
+            bounded.targetHeight == 24,
+            bounded.checkpointBoundaries == [1] else {
+                throw ParityCaptureError.invalidContract(
+                    "bounded temporal case differs"
+                )
+            }
         }
+    }
+
+    private struct ParityTemporalTilePolicy: Codable, Equatable {
+        let policyID: String
+        let tileWidth: Int
+        let tileHeight: Int
+        let searchHalo: Int
+        let maximumFrameWidth: Int
+        let maximumFrameHeight: Int
+
+        static let qualification = Self(
+            policyID: "ash.release.parity.tiles.8x8-halo5-max64-v1",
+            tileWidth: 8,
+            tileHeight: 8,
+            searchHalo: 5,
+            maximumFrameWidth: 64,
+            maximumFrameHeight: 64
+        )
+
+        func enginePolicy() throws -> ASHTemporalTilePolicyV4 {
+            try ASHTemporalTilePolicyV4(
+                policyID: policyID,
+                tileWidth: tileWidth,
+                tileHeight: tileHeight,
+                searchHalo: searchHalo,
+                maximumFrameWidth: maximumFrameWidth,
+                maximumFrameHeight: maximumFrameHeight
+            )
+        }
+    }
+
+    private struct ParitySchedulePair: Codable, Equatable {
+        let spatialSchedule: String
+        let temporalSchedule: String
     }
 
     private struct ParityReleaseRuntimeContract: Decodable {
@@ -2799,10 +4640,12 @@ private enum MirmirPackagedParityCaptureV4 {
         let semantics: ParityArtifact
         let checkpoints: ParityArtifact
         let resume: ParityArtifact
+        let execution: ParityArtifact
     }
 
     private struct ParityScheduleRun: Codable, Equatable {
-        let schedule: String
+        let spatialSchedule: String
+        let temporalSchedule: String
         let run: ParityRunArtifacts
     }
 
@@ -3047,14 +4890,115 @@ private enum MirmirPackagedParityCaptureV4 {
         let entries: [ParityResumeEntry]
     }
 
+    private struct ParityExecutionGrid: Codable, Equatable {
+        let frameWidth: Int
+        let frameHeight: Int
+        let columns: Int
+        let rows: Int
+        let tileCount: Int
+        let fullFrameSampleCount: Int
+
+        init(_ grid: ASHTemporalTileGridV4) {
+            frameWidth = grid.frameWidth
+            frameHeight = grid.frameHeight
+            columns = grid.columns
+            rows = grid.rows
+            tileCount = grid.tileCount
+            fullFrameSampleCount = grid.fullFrameSampleCount
+        }
+    }
+
+    private struct ParityAllocationContract: Codable, Equatable {
+        let policyID: String
+        let sourceFullFrameSampleCount: Int
+        let sourceTileCount: Int
+        let targetFullFrameSampleCount: Int
+        let targetTileCount: Int
+        let maximumRetainedTileSampleCount: Int
+        let maximumOutputTileSampleCount: Int
+        let fullFrameSampleArrayAllocationCap: Int
+
+        init(_ value: ASHPreparedTiledAllocationContractV4) {
+            policyID = value.policyID
+            sourceFullFrameSampleCount = value.sourceFullFrameSampleCount
+            sourceTileCount = value.sourceTileCount
+            targetFullFrameSampleCount = value.targetFullFrameSampleCount
+            targetTileCount = value.targetTileCount
+            maximumRetainedTileSampleCount
+                = value.maximumRetainedTileSampleCount
+            maximumOutputTileSampleCount
+                = value.maximumOutputTileSampleCount
+            fullFrameSampleArrayAllocationCap
+                = value.fullFrameSampleArrayAllocationCap
+        }
+    }
+
+    private struct ParityBoundedRoute: Codable, Equatable {
+        let usesBoundedTiledTemporalPath: Bool
+        let tilePolicy: ParityTemporalTilePolicy
+        let sourceGrid: ParityExecutionGrid
+        let targetGrid: ParityExecutionGrid
+        let allocationContract: ParityAllocationContract
+    }
+
+    private struct ParityExecutionEvidence: Encodable, Equatable {
+        let schemaVersion = "mirmir-ash-v4-bounded-temporal-execution-v1"
+        let caseID: String
+        let backend: String
+        let spatialSchedule: String
+        let temporalSchedule: String
+        let checkpointSchemaID: String
+        let checkpointSHA256s: [String]
+        let boundedRoute: ParityBoundedRoute?
+
+        private enum CodingKeys: String, CodingKey {
+            case schemaVersion
+            case caseID
+            case backend
+            case spatialSchedule
+            case temporalSchedule
+            case checkpointSchemaID
+            case checkpointSHA256s
+            case boundedRoute
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(schemaVersion, forKey: .schemaVersion)
+            try container.encode(caseID, forKey: .caseID)
+            try container.encode(backend, forKey: .backend)
+            try container.encode(spatialSchedule, forKey: .spatialSchedule)
+            try container.encode(temporalSchedule, forKey: .temporalSchedule)
+            try container.encode(checkpointSchemaID, forKey: .checkpointSchemaID)
+            try container.encode(checkpointSHA256s, forKey: .checkpointSHA256s)
+            if let boundedRoute {
+                try container.encode(boundedRoute, forKey: .boundedRoute)
+            } else {
+                try container.encodeNil(forKey: .boundedRoute)
+            }
+        }
+    }
+
     private struct ParityRunBytes: Equatable {
         let visible: Data
         let semantics: Data
         let checkpoints: Data
         let resume: Data
+        let execution: Data
         let sourcePaddingByteCount: Int
         let destinationPaddingByteCount: Int
         let paddingSentinelPreserved: Bool
+
+        func hasIdenticalPayload(to other: Self) -> Bool {
+            visible == other.visible
+                && semantics == other.semantics
+                && checkpoints == other.checkpoints
+                && resume == other.resume
+                && sourcePaddingByteCount == other.sourcePaddingByteCount
+                && destinationPaddingByteCount
+                    == other.destinationPaddingByteCount
+                && paddingSentinelPreserved == other.paddingSentinelPreserved
+        }
     }
 
     private struct ParityProcessedPixelRange {
@@ -3077,7 +5021,9 @@ private enum MirmirPackagedParityCaptureV4 {
         let cpu = try await captureBackendRunSet(
             definition,
             backend: .cpu,
-            schedules: contract.tileSchedules,
+            schedulePairs: contract.schedulePairs,
+            tilePolicy: definition.id == contract.boundedTemporalCaseID
+                ? try contract.temporalTilePolicy.enginePolicy() : nil,
             runtime: runtime,
             outputRoot: outputRoot,
             directory: directory
@@ -3085,12 +5031,14 @@ private enum MirmirPackagedParityCaptureV4 {
         let metal = try await captureBackendRunSet(
             definition,
             backend: .metal,
-            schedules: contract.tileSchedules,
+            schedulePairs: contract.schedulePairs,
+            tilePolicy: definition.id == contract.boundedTemporalCaseID
+                ? try contract.temporalTilePolicy.enginePolicy() : nil,
             runtime: runtime,
             outputRoot: outputRoot,
             directory: directory
         )
-        guard cpu.bytes == metal.bytes else {
+        guard cpu.bytes.hasIdenticalPayload(to: metal.bytes) else {
             throw ParityCaptureError.parityFailure(
                 "\(definition.id) CPU/Metal run sets differ"
             )
@@ -3140,7 +5088,8 @@ private enum MirmirPackagedParityCaptureV4 {
     private static func captureBackendRunSet(
         _ definition: ParityCaseDefinition,
         backend: FixedPointExecutionBackendV4,
-        schedules: [String],
+        schedulePairs: [ParitySchedulePair],
+        tilePolicy: ASHTemporalTilePolicyV4?,
         runtime: ASHVerifiedRuntimeBundleV4,
         outputRoot: URL,
         directory: URL
@@ -3150,12 +5099,18 @@ private enum MirmirPackagedParityCaptureV4 {
             definition,
             backend: backend,
             schedule: .productionFullFrame,
+            spatialScheduleID: "production_full_frame",
+            temporalSchedule: .raster,
+            tilePolicy: tilePolicy,
             runtime: runtime
         )
         let repeatBytes = try await execute(
             definition,
             backend: backend,
             schedule: .productionFullFrame,
+            spatialScheduleID: "production_full_frame",
+            temporalSchedule: .raster,
+            tilePolicy: tilePolicy,
             runtime: runtime
         )
         guard canonicalBytes == repeatBytes else {
@@ -3176,23 +5131,32 @@ private enum MirmirPackagedParityCaptureV4 {
             directory: directory
         )
         var scheduled: [ParityScheduleRun] = []
-        for name in schedules {
+        for pair in schedulePairs {
             let bytes = try await execute(
                 definition,
                 backend: backend,
-                schedule: try executionSchedule(name),
+                schedule: try executionSchedule(pair.spatialSchedule),
+                spatialScheduleID: pair.spatialSchedule,
+                temporalSchedule: try temporalExecutionSchedule(
+                    pair.temporalSchedule
+                ),
+                tilePolicy: tilePolicy,
                 runtime: runtime
             )
-            guard bytes == canonicalBytes else {
+            guard bytes.hasIdenticalPayload(to: canonicalBytes) else {
                 throw ParityCaptureError.parityFailure(
-                    "\(definition.id)/\(backend.rawValue)/\(name) differs"
+                    "\(definition.id)/\(backend.rawValue)/" +
+                        "\(pair.spatialSchedule)/" +
+                        "\(pair.temporalSchedule) differs"
                 )
             }
             scheduled.append(ParityScheduleRun(
-                schedule: name,
+                spatialSchedule: pair.spatialSchedule,
+                temporalSchedule: pair.temporalSchedule,
                 run: try writeRunArtifacts(
                     bytes,
-                    prefix: "\(backend.rawValue)-schedule-\(name)",
+                    prefix: "\(backend.rawValue)-schedule-" +
+                        pair.spatialSchedule,
                     outputRoot: outputRoot,
                     directory: directory
                 )
@@ -3223,7 +5187,8 @@ private enum MirmirPackagedParityCaptureV4 {
             visible: write(bytes.visible, suffix: "visible.bin"),
             semantics: write(bytes.semantics, suffix: "semantics.json"),
             checkpoints: write(bytes.checkpoints, suffix: "checkpoints.json"),
-            resume: write(bytes.resume, suffix: "resume.json")
+            resume: write(bytes.resume, suffix: "resume.json"),
+            execution: write(bytes.execution, suffix: "execution.json")
         )
     }
 
@@ -3239,10 +5204,27 @@ private enum MirmirPackagedParityCaptureV4 {
         }
     }
 
+    private static func temporalExecutionSchedule(
+        _ value: String
+    ) throws -> ASHTemporalTileExecutionScheduleV4 {
+        switch value {
+        case "raster": .raster
+        case "reverse_raster": .reverseRaster
+        case "even_then_odd": .evenThenOdd
+        default:
+            throw ParityCaptureError.invalidContract(
+                "unknown temporal schedule \(value)"
+            )
+        }
+    }
+
     private static func execute(
         _ definition: ParityCaseDefinition,
         backend: FixedPointExecutionBackendV4,
         schedule: FixedPointExecutionScheduleV4,
+        spatialScheduleID: String,
+        temporalSchedule: ASHTemporalTileExecutionScheduleV4,
+        tilePolicy: ASHTemporalTilePolicyV4?,
         runtime: ASHVerifiedRuntimeBundleV4
     ) async throws -> ParityRunBytes {
         if definition.kind == "alpha_spatial" {
@@ -3250,6 +5232,8 @@ private enum MirmirPackagedParityCaptureV4 {
                 definition,
                 backend: backend,
                 schedule: schedule,
+                spatialScheduleID: spatialScheduleID,
+                temporalSchedule: temporalSchedule,
                 runtime: runtime
             )
         }
@@ -3257,6 +5241,9 @@ private enum MirmirPackagedParityCaptureV4 {
             definition,
             backend: backend,
             schedule: schedule,
+            spatialScheduleID: spatialScheduleID,
+            temporalSchedule: temporalSchedule,
+            tilePolicy: tilePolicy,
             runtime: runtime
         )
     }
@@ -3265,6 +5252,9 @@ private enum MirmirPackagedParityCaptureV4 {
         _ definition: ParityCaseDefinition,
         backend: FixedPointExecutionBackendV4,
         schedule: FixedPointExecutionScheduleV4,
+        spatialScheduleID: String,
+        temporalSchedule: ASHTemporalTileExecutionScheduleV4,
+        tilePolicy: ASHTemporalTilePolicyV4?,
         runtime: ASHVerifiedRuntimeBundleV4
     ) async throws -> ParityRunBytes {
         let configuration = try preparedConfiguration(definition, backend: backend)
@@ -3274,6 +5264,8 @@ private enum MirmirPackagedParityCaptureV4 {
         let prepared = try makePrepared(
             configuration: configuration,
             schedule: schedule,
+            tilePolicy: tilePolicy,
+            temporalSchedule: temporalSchedule,
             runtime: runtime
         )
         let complete = try await processPixelFrames(
@@ -3302,6 +5294,8 @@ private enum MirmirPackagedParityCaptureV4 {
             let prefixPrepared = try makePrepared(
                 configuration: configuration,
                 schedule: schedule,
+                tilePolicy: tilePolicy,
+                temporalSchedule: temporalSchedule,
                 runtime: runtime
             )
             let prefix = try await processPixelFrames(
@@ -3316,6 +5310,8 @@ private enum MirmirPackagedParityCaptureV4 {
             let resumedPrepared = try makePrepared(
                 configuration: configuration,
                 schedule: schedule,
+                tilePolicy: tilePolicy,
+                temporalSchedule: temporalSchedule,
                 runtime: runtime
             )
             try await resumedPrepared.restoreTemporalCheckpoint(
@@ -3362,11 +5358,27 @@ private enum MirmirPackagedParityCaptureV4 {
             caseID: definition.id,
             entries: resumeEntries
         ))
+        let execution = try canonicalJSON(ParityExecutionEvidence(
+            caseID: definition.id,
+            backend: backend.rawValue,
+            spatialSchedule: spatialScheduleID,
+            temporalSchedule: temporalSchedule.rawValue,
+            checkpointSchemaID: tilePolicy == nil
+                ? ASHPreparedTemporalCheckpointV4.currentSchemaID
+                : ASHPreparedTiledTemporalCheckpointV4.currentSchemaID,
+            checkpointSHA256s: complete.checkpoints.map(\.canonicalSHA256),
+            boundedRoute: try boundedRouteEvidence(
+                prepared: prepared,
+                definition: definition,
+                policy: tilePolicy
+            )
+        ))
         return ParityRunBytes(
             visible: visible,
             semantics: semantics,
             checkpoints: checkpoints,
             resume: resume,
+            execution: execution,
             sourcePaddingByteCount: complete.sourcePaddingByteCount,
             destinationPaddingByteCount: complete.destinationPaddingByteCount,
             paddingSentinelPreserved: complete.paddingSentinelPreserved
@@ -3401,6 +5413,8 @@ private enum MirmirPackagedParityCaptureV4 {
     private static func makePrepared(
         configuration: DeterministicPreparedConfigurationV4,
         schedule: FixedPointExecutionScheduleV4,
+        tilePolicy: ASHTemporalTilePolicyV4?,
+        temporalSchedule: ASHTemporalTileExecutionScheduleV4,
         runtime: ASHVerifiedRuntimeBundleV4
     ) throws -> PreparedDeterministicV4Upscaler {
         let device = configuration.executionBackend == .metal
@@ -3411,12 +5425,90 @@ private enum MirmirPackagedParityCaptureV4 {
                 device: $0
             )
         }
-        return try PreparedDeterministicV4Upscaler(
+        let prepared = try PreparedDeterministicV4Upscaler(
             configuration: configuration,
             runtime: runtime,
             executionSchedule: schedule,
+            temporalTilePolicy: tilePolicy,
+            temporalTileExecutionSchedule: temporalSchedule,
             metalDevice: device,
             metalLibrary: library
+        )
+        guard prepared.temporalTileExecutionSchedule == temporalSchedule,
+              prepared.temporalTilePolicy == tilePolicy else {
+            throw ParityCaptureError.invalidFixture(
+                "prepared temporal route differs from requested route"
+            )
+        }
+        if tilePolicy == nil {
+            guard !prepared.usesBoundedTiledTemporalPath,
+                  prepared.tiledAllocationContract == nil else {
+                throw ParityCaptureError.invalidFixture(
+                    "unforced case selected the bounded tiled route"
+                )
+            }
+        } else {
+            guard prepared.usesBoundedTiledTemporalPath,
+                  prepared.tiledAllocationContract != nil else {
+                throw ParityCaptureError.invalidFixture(
+                    "forced case did not select the bounded tiled route"
+                )
+            }
+        }
+        return prepared
+    }
+
+    private static func boundedRouteEvidence(
+        prepared: PreparedDeterministicV4Upscaler,
+        definition: ParityCaseDefinition,
+        policy: ASHTemporalTilePolicyV4?
+    ) throws -> ParityBoundedRoute? {
+        guard let policy else {
+            guard !prepared.usesBoundedTiledTemporalPath,
+                  prepared.tiledAllocationContract == nil else {
+                throw ParityCaptureError.invalidFixture(
+                    "unexpected bounded route diagnostics"
+                )
+            }
+            return nil
+        }
+        let sourceGrid = try ASHTemporalTileGridV4(
+            frameWidth: definition.sourceWidth,
+            frameHeight: definition.sourceHeight,
+            policy: policy
+        )
+        let targetGrid = try ASHTemporalTileGridV4(
+            frameWidth: definition.targetWidth,
+            frameHeight: definition.targetHeight,
+            policy: policy
+        )
+        guard sourceGrid.tileCount > 1,
+              targetGrid.tileCount > 1,
+              prepared.usesBoundedTiledTemporalPath,
+              prepared.temporalTilePolicy == policy,
+              let allocation = prepared.tiledAllocationContract,
+              allocation.policyID == policy.policyID,
+              allocation.sourceFullFrameSampleCount
+                == sourceGrid.fullFrameSampleCount,
+              allocation.sourceTileCount == sourceGrid.tileCount,
+              allocation.targetFullFrameSampleCount
+                == targetGrid.fullFrameSampleCount,
+              allocation.targetTileCount == targetGrid.tileCount,
+              allocation.maximumRetainedTileSampleCount
+                == policy.maximumRetainedTileSampleCount,
+              allocation.maximumOutputTileSampleCount
+                == policy.tileWidth * policy.tileHeight,
+              allocation.fullFrameSampleArrayAllocationCap == 0 else {
+            throw ParityCaptureError.invalidFixture(
+                "bounded route allocation diagnostics differ"
+            )
+        }
+        return ParityBoundedRoute(
+            usesBoundedTiledTemporalPath: true,
+            tilePolicy: .qualification,
+            sourceGrid: ParityExecutionGrid(sourceGrid),
+            targetGrid: ParityExecutionGrid(targetGrid),
+            allocationContract: ParityAllocationContract(allocation)
         )
     }
 
@@ -3497,45 +5589,80 @@ private enum MirmirPackagedParityCaptureV4 {
                 planSHA256: planSHA,
                 lastCompletedInputOrdinal: Int64(ordinal)
             )
-            let checkpoint = try ASHPreparedTemporalCheckpointV4.decodeCanonical(
-                finalCheckpoint,
-                expectedPlanSHA256: planSHA,
-                expectedRuntimeManifestSHA256: runtime.manifestSHA256,
-                expectedFormatIdentity: checkpointFormatIdentity(
-                    runtime: runtime,
-                    configuration: configuration
-                )
-            )
-            guard try checkpoint.canonicalData == finalCheckpoint,
-                  let latest = checkpoint.history.frames.last else {
-                throw ParityCaptureError.invalidFixture("noncanonical checkpoint")
+            let checkpointGeneration: UInt64
+            let checkpointCadenceID: String
+            let classification: String?
+            if let tilePolicy = prepared.temporalTilePolicy {
+                let checkpoint = try ASHPreparedTiledTemporalCheckpointV4
+                    .decodeCanonical(
+                        finalCheckpoint,
+                        expectedPlanSHA256: planSHA,
+                        expectedRuntimeManifestSHA256: runtime.manifestSHA256,
+                        expectedFormatIdentity: checkpointFormatIdentity(
+                            runtime: runtime,
+                            configuration: configuration
+                        ),
+                        expectedTilePolicy: tilePolicy
+                    )
+                guard try checkpoint.canonicalData == finalCheckpoint,
+                      let latest = checkpoint.history.entries.last?.frame,
+                      latest.grid.tileCount > 1,
+                      checkpoint.previousSourceTiledFrame.grid.tileCount > 1
+                else {
+                    throw ParityCaptureError.invalidFixture(
+                        "noncanonical or single-tile bounded checkpoint"
+                    )
+                }
+                checkpointGeneration = checkpoint.history.generation
+                checkpointCadenceID = latest.cadenceID
+                classification = checkpoint.fieldCadenceState?
+                    .classification.rawValue
+            } else {
+                let checkpoint = try ASHPreparedTemporalCheckpointV4
+                    .decodeCanonical(
+                        finalCheckpoint,
+                        expectedPlanSHA256: planSHA,
+                        expectedRuntimeManifestSHA256: runtime.manifestSHA256,
+                        expectedFormatIdentity: checkpointFormatIdentity(
+                            runtime: runtime,
+                            configuration: configuration
+                        )
+                    )
+                guard try checkpoint.canonicalData == finalCheckpoint,
+                      let latest = checkpoint.history.frames.last else {
+                    throw ParityCaptureError.invalidFixture(
+                        "noncanonical checkpoint"
+                    )
+                }
+                checkpointGeneration = checkpoint.history.generation
+                checkpointCadenceID = latest.cadenceID
+                classification = checkpoint.fieldCadenceState?
+                    .classification.rawValue
             }
             let expectedOutputStart = definition.scanMode == "progressive"
                 ? ordinal : ordinal * 2
-            let classification = checkpoint.fieldCadenceState?
-                .classification.rawValue
             let semantics = try outputs.enumerated().map { index, output in
                 let priorGeneration = index == 0
                     ? nil : outputs[index - 1].temporalGeneration
                 let isFinalOutput = index == outputs.count - 1
                 guard output.temporalGeneration > 0,
-                      output.temporalGeneration <= checkpoint.history.generation,
+                      output.temporalGeneration <= checkpointGeneration,
                       (!isFinalOutput
                         || output.temporalGeneration
-                            == checkpoint.history.generation),
+                            == checkpointGeneration),
                       priorGeneration.map({
                         output.temporalGeneration >= $0
                             && output.temporalGeneration - $0 <= 1
                       }) ?? true,
-                      output.cadenceID == latest.cadenceID else {
+                      output.cadenceID == checkpointCadenceID else {
                     throw ParityCaptureError.invalidFixture(
                         "typed output semantics differ from checkpoint " +
                         "case=\(definition.id) backend=\(backend.rawValue) " +
                         "input=\(ordinal) output=\(index) " +
                         "outputGeneration=\(output.temporalGeneration) " +
-                        "checkpointGeneration=\(checkpoint.history.generation) " +
+                        "checkpointGeneration=\(checkpointGeneration) " +
                         "outputCadence=\(output.cadenceID) " +
-                        "checkpointCadence=\(latest.cadenceID)"
+                        "checkpointCadence=\(checkpointCadenceID)"
                     )
                 }
                 return ParitySemanticOutput(
@@ -3617,6 +5744,8 @@ private enum MirmirPackagedParityCaptureV4 {
         _ definition: ParityCaseDefinition,
         backend: FixedPointExecutionBackendV4,
         schedule: FixedPointExecutionScheduleV4,
+        spatialScheduleID: String,
+        temporalSchedule: ASHTemporalTileExecutionScheduleV4,
         runtime: ASHVerifiedRuntimeBundleV4
     ) async throws -> ParityRunBytes {
         let layout = try alphaLayout(definition.storage)
@@ -3711,6 +5840,15 @@ private enum MirmirPackagedParityCaptureV4 {
             caseID: definition.id,
             entries: []
         ))
+        let execution = try canonicalJSON(ParityExecutionEvidence(
+            caseID: definition.id,
+            backend: backend.rawValue,
+            spatialSchedule: spatialScheduleID,
+            temporalSchedule: temporalSchedule.rawValue,
+            checkpointSchemaID: "none",
+            checkpointSHA256s: [],
+            boundedRoute: nil
+        ))
         let sourcePadding = try packedPaddingBytes(source, layout: layout)
         let destinationPadding = try packedPaddingBytes(destination, layout: layout)
         return ParityRunBytes(
@@ -3718,6 +5856,7 @@ private enum MirmirPackagedParityCaptureV4 {
             semantics: semantics,
             checkpoints: checkpoints,
             resume: resume,
+            execution: execution,
             sourcePaddingByteCount: sourcePadding.count,
             destinationPaddingByteCount: destinationPadding.count,
             paddingSentinelPreserved: sourcePadding == sourcePaddingBefore
@@ -3999,7 +6138,9 @@ private enum MirmirPackagedParityCaptureV4 {
             CVBufferSetAttachment(
                 buffer,
                 kCMSampleAttachmentKey_HDR10PlusPerFrameData,
-                Data([0xB5, 0x00, 0x3C, 0x00, 0x01]) as CFData,
+                Data([
+                    0xB5, 0x00, 0x3C, 0x00, 0x01, 0x04, 0x01
+                ]) as CFData,
                 .shouldPropagate
             )
             CVBufferSetAttachment(
@@ -4034,7 +6175,7 @@ private enum MirmirPackagedParityCaptureV4 {
                 maximumContentLightLevel: 1_000,
                 maximumFrameAverageLightLevel: 400
             ),
-            ambientViewingEnvironment: AmbientViewingEnvironmentV4(
+            ambientViewingEnvironment: try AmbientViewingEnvironmentV4(
                 ambientIlluminance: 123_456,
                 ambientLight: try HDRChromaticityV4(
                     x: 15_635,

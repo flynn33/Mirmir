@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Fail-closed evidence evaluator for deterministic-engine v4 recovery.
+"""Fail-closed evaluator for archived-executable recovery evidence.
 
-The XCTest capture performs the faults.  This evaluator distrusts its summary:
-it reopens every sealed artifact, recomputes byte and semantic identities,
-checks the locked scenario matrix, and emits the recovery role consumed by the
-final release-qualification aggregator.
+The exact application executable from the verified archive performs every
+fault scenario. This evaluator reopens both independently fresh packaged
+captures, recomputes their archive/process/request/runtime bindings and
+scenario semantics, then emits the recovery role consumed by M7.
 """
 
 from __future__ import annotations
@@ -20,15 +20,25 @@ import sys
 from typing import Any, Callable, Iterable, Mapping
 
 
-CONTRACT_SCHEMA = "mirmir-v4-recovery-qualification-contract-v1"
-CAPTURE_SCHEMA = "mirmir-v4-recovery-capture-v1"
-CAPTURE_MANIFEST_SCHEMA = "mirmir-v4-recovery-capture-artifacts-v1"
-REPORT_SCHEMA = "mirmir-ash-v4-recovery-report-v1"
+CONTRACT_SCHEMA = "mirmir-v4-recovery-qualification-contract-v2"
+CAPTURE_SCHEMA = "mirmir-v4-recovery-capture-v2"
+CAPTURE_MANIFEST_SCHEMA = "mirmir-v4-recovery-capture-artifacts-v2"
+REPORT_SCHEMA = "mirmir-ash-v4-recovery-report-v2"
 SCENARIO_SCHEMA = "mirmir-v4-recovery-scenario-evidence-v1"
 SEMANTIC_SCHEMA = "mirmir-v4-recovery-semantic-output-v1"
-SUITE_MANIFEST_SCHEMA = "mirmir-v4-recovery-evidence-manifest-v1"
+CAUSAL_BINDING_SCHEMA = "mirmir-v4-recovery-causal-binding-v1"
+STATE_DERIVATION_SCHEMA = "mirmir-v4-recovery-state-derivation-v1"
+STATE_MANIFEST_SCHEMA = "mirmir-v4-recovery-state-artifacts-v1"
+SUITE_MANIFEST_SCHEMA = "mirmir-v4-recovery-evidence-manifest-v2"
 TRANSCRIPT_SCHEMA = "mirmir-v4-recovery-fault-transcript-v1"
 SOURCE_EXPORT_SCHEMA = "mirmir-v4-recovery-source-export-v1"
+EXECUTION_SCHEMA = "mirmir-v4-recovery-archived-execution-v1"
+PACKAGED_REQUEST_SCHEMA = "mirmir-v4-packaged-evidence-request-v1"
+PACKAGED_RESULT_SCHEMA = "mirmir-v4-packaged-evidence-result-v1"
+PRODUCER_SOURCE_PATH = Path(
+    "Mirmir/App/WorkflowApplicationCoordinatorV4.swift"
+)
+OBSERVER_SOURCE_PATH = Path("Mirmir/App/MirmirApp.swift")
 
 REQUIRED_COVERAGE = (
     "append_only_event_boundary",
@@ -857,6 +867,7 @@ def load_contract(path: Path, verify_tools: bool = True) -> tuple[dict[str, Any]
             "artifactSchemas",
             "buildConfiguration",
             "capture",
+            "crossProcessCaptureCount",
             "hashAlgorithm",
             "packagedCandidate",
             "scenarios",
@@ -874,26 +885,38 @@ def load_contract(path: Path, verify_tools: bool = True) -> tuple[dict[str, Any]
     require_exact_keys(
         schemas,
         {
+            "archivedExecution",
+            "causalBinding",
             "capture",
             "captureManifest",
             "packageIdentity",
+            "packagedEvidenceRequest",
+            "packagedEvidenceResult",
             "releaseAttestation",
             "report",
             "scenarioEvidence",
             "semanticManifest",
+            "stateDerivation",
+            "stateManifest",
             "suiteManifest",
             "transcript",
         },
         "contract.artifactSchemas",
     )
     expected_schemas = {
+        "archivedExecution": EXECUTION_SCHEMA,
+        "causalBinding": CAUSAL_BINDING_SCHEMA,
         "capture": CAPTURE_SCHEMA,
         "captureManifest": CAPTURE_MANIFEST_SCHEMA,
         "packageIdentity": PACKAGE_SCHEMA,
+        "packagedEvidenceRequest": PACKAGED_REQUEST_SCHEMA,
+        "packagedEvidenceResult": PACKAGED_RESULT_SCHEMA,
         "releaseAttestation": ATTESTATION_SCHEMA,
         "report": REPORT_SCHEMA,
         "scenarioEvidence": SCENARIO_SCHEMA,
         "semanticManifest": SEMANTIC_SCHEMA,
+        "stateDerivation": STATE_DERIVATION_SCHEMA,
+        "stateManifest": STATE_MANIFEST_SCHEMA,
         "suiteManifest": SUITE_MANIFEST_SCHEMA,
         "transcript": TRANSCRIPT_SCHEMA,
     }
@@ -906,6 +929,8 @@ def load_contract(path: Path, verify_tools: bool = True) -> tuple[dict[str, Any]
         packaged,
         {
             "requireExactApplicationArchive",
+            "requireArchivedExecutableProducer",
+            "requireIndependentProcessCaptures",
             "requireReleaseAttestation",
             "requireTestabilityDisabled",
             "requiredArchitectures",
@@ -914,6 +939,7 @@ def load_contract(path: Path, verify_tools: bool = True) -> tuple[dict[str, Any]
     )
     for key in (
         "requireExactApplicationArchive",
+        "requireArchivedExecutableProducer",
         "requireReleaseAttestation",
         "requireTestabilityDisabled",
     ):
@@ -930,10 +956,27 @@ def load_contract(path: Path, verify_tools: bool = True) -> tuple[dict[str, Any]
         architectures == ["arm64", "x86_64"],
         "contract packaged-candidate architectures differ",
     )
+    require_integer(
+        packaged["requireIndependentProcessCaptures"],
+        "contract.packagedCandidate.requireIndependentProcessCaptures",
+        2,
+    )
+    require(
+        packaged["requireIndependentProcessCaptures"] == 2
+        and contract["crossProcessCaptureCount"] == 2,
+        "recovery requires exactly two independent process captures",
+    )
     semantic = require_mapping(contract["semanticVerification"], "contract.semanticVerification")
     require_exact_keys(
         semantic,
-        {"requireByteIdentity", "requireDecodedVisiblePixelIdentity", "requireExactPresentationTimeline", "requireTrackGraphIdentity"},
+        {
+            "requireByteIdentity",
+            "requireCrossProcessIdentity",
+            "requireDecodedVisiblePixelIdentity",
+            "requireExactPresentationTimeline",
+            "requireRepeatExecutionIdentity",
+            "requireTrackGraphIdentity",
+        },
         "contract.semanticVerification",
     )
     for key in semantic:
@@ -946,7 +989,14 @@ def load_contract(path: Path, verify_tools: bool = True) -> tuple[dict[str, Any]
         scenario = require_mapping(value, f"contract.scenarios[{index}]")
         require_exact_keys(
             scenario,
-            {"containedFailureCode", "coverageID", "id", "injectionPoint", "outcome"},
+            {
+                "containedFailureCode",
+                "coverageID",
+                "evidenceKind",
+                "id",
+                "injectionPoint",
+                "outcome",
+            },
             f"contract.scenarios[{index}]",
         )
         identifier = require_string(scenario["id"], f"contract scenario {index}.id")
@@ -959,17 +1009,27 @@ def load_contract(path: Path, verify_tools: bool = True) -> tuple[dict[str, Any]
         require(outcome in {"identical_resumed_output", "explicit_contained_failure"}, f"unsupported outcome: {identifier}")
         if outcome == "identical_resumed_output":
             require(scenario["containedFailureCode"] is None, f"identical scenario has failure code: {identifier}")
+            require(
+                scenario["evidenceKind"]
+                in {"durable_state_derivation", "scenario_media_output"},
+                f"identical scenario evidence kind differs: {identifier}",
+            )
         else:
             require_string(scenario["containedFailureCode"], f"contract scenario {index}.containedFailureCode")
+            require(
+                scenario["evidenceKind"] == "contained_state_derivation",
+                f"contained scenario evidence kind differs: {identifier}",
+            )
     require(tuple(seen_coverage) == REQUIRED_COVERAGE, "contract recovery coverage/order differs")
     capture = require_mapping(contract["capture"], "contract.capture")
     require_exact_keys(
         capture,
         {
             "archiveProvenanceSourceSHA256",
-            "captureSourceSHA256",
             "evaluatorSourceSHA256",
+            "observerSourceSHA256",
             "packagedEvidenceSourceSHA256",
+            "producerSourceSHA256",
             "runnerSourceSHA256",
         },
         "contract.capture",
@@ -980,10 +1040,13 @@ def load_contract(path: Path, verify_tools: bool = True) -> tuple[dict[str, Any]
         tool_paths = {
             "archiveProvenanceSourceSHA256": SCRIPT_DIRECTORY
             / "release_candidate_archive_v4.py",
-            "captureSourceSHA256": SCRIPT_DIRECTORY / "RecoveryQualificationCaptureTests.swift",
             "evaluatorSourceSHA256": SCRIPT_DIRECTORY / "recovery_qualification_v4.py",
+            "observerSourceSHA256": SCRIPT_DIRECTORY.parent.parent
+            / OBSERVER_SOURCE_PATH,
             "packagedEvidenceSourceSHA256": SCRIPT_DIRECTORY
             / "packaged_candidate_evidence_v4.py",
+            "producerSourceSHA256": SCRIPT_DIRECTORY.parent.parent
+            / PRODUCER_SOURCE_PATH,
             "runnerSourceSHA256": SCRIPT_DIRECTORY / "run_recovery_qualification_v4.sh",
         }
         for field, tool_path in tool_paths.items():
@@ -1056,6 +1119,910 @@ def artifact_set_sha(artifacts: Iterable[Mapping[str, Any]]) -> str:
     ]
     normalized.sort(key=lambda item: item["path"])
     return sha256_bytes(canonical_json(normalized))
+
+
+def compact_json(value: Any) -> bytes:
+    return json.dumps(
+        value,
+        allow_nan=False,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+
+
+EXPECTED_DERIVATION_VALUES: dict[str, dict[str, Any]] = {
+    "append_only_event_boundary": {
+        "appliedEventCount": 1,
+        "jobID": "job-11",
+    },
+    "snapshot_publish_boundary": {
+        "appliedEventCount": 1,
+        "jobID": "job-12",
+        "snapshotReopened": True,
+    },
+    "segment_commit_boundary": {
+        "checkpointID": "checkpoint-30",
+        "segmentCount": 1,
+        "temporalCheckpointSHA256": sha256_bytes(b"temporal-state-30"),
+    },
+    "checkpoint_publish_boundary": {
+        "checkpointID": "checkpoint-31",
+        "segmentCount": 1,
+        "temporalCheckpointSHA256": sha256_bytes(b"temporal-state-31"),
+    },
+    "prepared_decision_boundary": {
+        "jobID": "job-50",
+        "presentedLifecycle": "paused",
+        "status": "recovered",
+    },
+    "forced_termination_restart": {
+        "jobID": "job-51",
+        "lifecycle": "paused",
+        "recoveryCompleted": True,
+    },
+    "orphan_partial_reconciliation": {
+        "visiblePartialArtifactCount": 0,
+    },
+}
+
+
+def scenario_artifact(
+    capture_root: Path,
+    value: Any,
+    label: str,
+    scenario_prefix: str,
+    claimed_paths: set[Path],
+) -> tuple[Path, str]:
+    path, digest = validate_artifact(capture_root, value, label, capture_root)
+    require(
+        path.relative_to(capture_root).as_posix().startswith(
+            scenario_prefix + "/"
+        ),
+        f"{label} is not owned by its scenario",
+    )
+    require(path not in claimed_paths, f"scenario artifact is reused: {path}")
+    claimed_paths.add(path)
+    return path, digest
+
+
+def state_artifact_set(files: Iterable[Mapping[str, Any]]) -> str:
+    rows = sorted((str(item["path"]), str(item["sha256"])) for item in files)
+    return sha256_bytes(
+        "".join(f"{path}\0{digest}\n" for path, digest in rows).encode()
+    )
+
+
+def validate_state_manifest(
+    capture_root: Path,
+    manifest_path: Path,
+    scenario: Mapping[str, Any],
+    role: str,
+    claimed_paths: set[Path],
+) -> dict[str, Any]:
+    manifest = require_mapping(
+        load_json(manifest_path), f"{scenario['id']} {role} state manifest"
+    )
+    require_exact_keys(
+        manifest,
+        {
+            "artifactSetSHA256",
+            "coverageID",
+            "durableStateSHA256",
+            "files",
+            "id",
+            "role",
+            "schemaVersion",
+        },
+        f"{scenario['id']} {role} state manifest",
+    )
+    require(
+        manifest["schemaVersion"] == STATE_MANIFEST_SCHEMA
+        and manifest["id"] == scenario["id"]
+        and manifest["coverageID"] == scenario["coverageID"]
+        and manifest["role"] == role,
+        f"{scenario['id']} {role} state manifest binding differs",
+    )
+    files = require_list(
+        manifest["files"], f"{scenario['id']} {role} state files"
+    )
+    require(files, f"{scenario['id']} {role} state snapshot is empty")
+    state_root = manifest_path.parent / (
+        "recovered-state" if role == "recovered" else "uninterrupted-state"
+    )
+    require(
+        state_root.is_dir() and not state_root.is_symlink(),
+        f"{scenario['id']} {role} state directory is missing",
+    )
+    observed_paths: list[str] = []
+    for index, raw in enumerate(files):
+        item = require_mapping(
+            raw, f"{scenario['id']} {role} state files[{index}]"
+        )
+        require_exact_keys(
+            item,
+            {"byteCount", "path", "sha256"},
+            f"{scenario['id']} {role} state files[{index}]",
+        )
+        relative = Path(
+            require_string(
+                item["path"],
+                f"{scenario['id']} {role} state files[{index}].path",
+            )
+        )
+        require(
+            not relative.is_absolute()
+            and relative.parts
+            and ".." not in relative.parts,
+            f"{scenario['id']} {role} state path escapes",
+        )
+        path = checked_path(
+            state_root,
+            relative.as_posix(),
+            f"{scenario['id']} {role} state files[{index}]",
+        )
+        require(path not in claimed_paths, f"state artifact is reused: {path}")
+        claimed_paths.add(path)
+        require(
+            path.stat().st_size
+            == require_integer(
+                item["byteCount"],
+                f"{scenario['id']} {role} state files[{index}].byteCount",
+                0,
+            )
+            and sha256_file(path)
+            == require_sha256(
+                item["sha256"],
+                f"{scenario['id']} {role} state files[{index}].sha256",
+            ),
+            f"{scenario['id']} {role} state artifact differs",
+        )
+        observed_paths.append(relative.as_posix())
+    require(
+        observed_paths == sorted(set(observed_paths)),
+        f"{scenario['id']} {role} state file list is unsorted or repeated",
+    )
+    actual_files = {
+        path.resolve()
+        for path in state_root.rglob("*")
+        if path.is_file() and not path.is_symlink()
+    }
+    described_files = {
+        (state_root / item["path"]).resolve(strict=True) for item in files
+    }
+    require(
+        actual_files == described_files,
+        f"{scenario['id']} {role} state file set differs",
+    )
+    artifact_set = state_artifact_set(files)
+    require(
+        require_sha256(
+            manifest["artifactSetSHA256"],
+            f"{scenario['id']} {role} artifact set",
+        )
+        == artifact_set
+        == require_sha256(
+            manifest["durableStateSHA256"],
+            f"{scenario['id']} {role} durable state",
+        ),
+        f"{scenario['id']} {role} state identity differs",
+    )
+    return manifest
+
+
+def load_packaged_context(
+    root: Path,
+    repository: Path,
+    runtime: Path,
+    contract: Mapping[str, Any],
+    contract_sha: str,
+) -> dict[str, Any]:
+    root = root.expanduser().resolve(strict=True)
+    try:
+        binding = packaged_evidence.validate_capture_binding(
+            root, repository, runtime
+        )
+    except packaged_evidence.PackagedEvidenceError as error:
+        raise RecoveryEvidenceError(
+            f"packaged recovery capture binding failed: {error}"
+        ) from error
+    require(binding.get("lane") == "recovery", "packaged lane is not recovery")
+    require(
+        binding.get("contractSHA256") == contract_sha,
+        "packaged recovery contract identity differs",
+    )
+    record_path = root / "capture-record.json"
+    record = require_mapping(load_json(record_path), "packaged capture record")
+    artifacts = require_mapping(record.get("artifacts"), "packaged artifacts")
+    for required in ("request", "result", "producerSource"):
+        require(required in artifacts, f"packaged capture omits {required}")
+    request_path = packaged_evidence.checked_artifact(
+        root, artifacts["request"], "recovery request"
+    )
+    result_path = packaged_evidence.checked_artifact(
+        root, artifacts["result"], "recovery result"
+    )
+    producer_path = packaged_evidence.checked_artifact(
+        root, artifacts["producerSource"], "recovery producer source"
+    )
+    request = require_mapping(load_json(request_path), "packaged request")
+    result = require_mapping(load_json(result_path), "packaged result")
+    require(
+        request_path.read_bytes() == packaged_evidence.canonical_bytes(request)
+        and result_path.read_bytes() == packaged_evidence.canonical_bytes(result),
+        "packaged recovery request/result is not canonical",
+    )
+    require(
+        request.get("schemaVersion") == PACKAGED_REQUEST_SCHEMA
+        and result.get("schemaVersion") == PACKAGED_RESULT_SCHEMA
+        and request.get("lane") == result.get("lane") == "recovery",
+        "packaged recovery envelope schema or lane differs",
+    )
+    nonce = require_string(request.get("nonce"), "packaged request.nonce")
+    require(
+        len(nonce) == 64
+        and nonce == nonce.lower()
+        and all(character in "0123456789abcdef" for character in nonce),
+        "packaged recovery nonce is not 256-bit lowercase hexadecimal",
+    )
+    package = packaged_evidence.validate_package_identity(
+        request.get("packageIdentity")
+    )
+    require(
+        package == result.get("packageIdentity") == binding["packageIdentity"],
+        "packaged recovery package identities differ",
+    )
+    committed_producer = packaged_evidence.committed_bytes(
+        repository, package["sourceCommit"], PRODUCER_SOURCE_PATH
+    )
+    producer_sha = sha256_bytes(committed_producer)
+    require(
+        producer_path.read_bytes() == committed_producer
+        and producer_sha == contract["capture"]["producerSourceSHA256"],
+        "packaged recovery producer source binding differs",
+    )
+    capture_root = root / "capture"
+    capture_path = capture_root / "capture.json"
+    capture = require_mapping(load_json(capture_path), "recovery capture")
+    return {
+        "root": root,
+        "captureRoot": capture_root,
+        "capturePath": capture_path,
+        "capture": capture,
+        "record": record,
+        "request": request,
+        "result": result,
+        "package": package,
+        "producerSourceSHA256": producer_sha,
+        "nonceSHA256": sha256_bytes(nonce.encode()),
+    }
+
+
+def evaluate_packaged_capture(
+    context: Mapping[str, Any],
+    contract: Mapping[str, Any],
+    contract_sha: str,
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    capture_root = Path(context["captureRoot"])
+    capture_path = Path(context["capturePath"])
+    capture = require_mapping(context["capture"], "recovery capture")
+    request = require_mapping(context["request"], "packaged request")
+    result = require_mapping(context["result"], "packaged result")
+    package = require_mapping(context["package"], "packaged package")
+    require_exact_keys(
+        capture,
+        {
+            "buildConfiguration",
+            "contractSHA256",
+            "evidenceNonceSHA256",
+            "evidenceRequestSHA256",
+            "execution",
+            "observerSourceSHA256",
+            "packagedCandidateIdentity",
+            "producerSourceSHA256",
+            "scenarios",
+            "schemaVersion",
+            "sourceCommit",
+            "sourceTreeIdentitySHA256",
+        },
+        "recovery capture",
+    )
+    require(
+        capture["schemaVersion"] == CAPTURE_SCHEMA
+        and capture["buildConfiguration"] == "Release"
+        and capture["contractSHA256"] == contract_sha
+        and capture["evidenceRequestSHA256"] == result["requestSHA256"]
+        and capture["evidenceNonceSHA256"] == context["nonceSHA256"]
+        and capture["observerSourceSHA256"]
+        == contract["capture"]["observerSourceSHA256"]
+        == result["observerSourceSHA256"]
+        and capture["producerSourceSHA256"]
+        == contract["capture"]["producerSourceSHA256"]
+        == context["producerSourceSHA256"]
+        and capture["packagedCandidateIdentity"] == package
+        and capture["sourceCommit"] == package["sourceCommit"]
+        and capture["sourceTreeIdentitySHA256"]
+        == package["sourceTreeIdentitySHA256"],
+        "recovery capture identity binding differs",
+    )
+    execution = require_mapping(capture["execution"], "recovery execution")
+    require_exact_keys(
+        execution,
+        {
+            "applicationArchiveExecuted",
+            "applicationArchiveSHA256",
+            "applicationExecutableSHA256",
+            "applicationPayloadIdentitySHA256",
+            "kind",
+            "nonceSHA256",
+            "observerSourceSHA256",
+            "producerSourceSHA256",
+            "requestID",
+            "requestSHA256",
+            "runtimeArtifactSetSHA256",
+            "runtimeManifestFileSHA256",
+            "runtimeManifestSHA256",
+            "runtimeSourceRevision",
+            "schemaVersion",
+            "sourceCommit",
+            "sourceTreeIdentitySHA256",
+        },
+        "recovery execution",
+    )
+    expected_execution = {
+        "applicationArchiveSHA256": package["applicationArchiveSHA256"],
+        "applicationExecutableSHA256": package["applicationExecutableSHA256"],
+        "applicationPayloadIdentitySHA256": package[
+            "applicationPayloadIdentitySHA256"
+        ],
+        "nonceSHA256": context["nonceSHA256"],
+        "observerSourceSHA256": contract["capture"]["observerSourceSHA256"],
+        "producerSourceSHA256": contract["capture"]["producerSourceSHA256"],
+        "requestID": request["requestID"],
+        "requestSHA256": result["requestSHA256"],
+        "runtimeArtifactSetSHA256": package["runtimeArtifactSetSHA256"],
+        "runtimeManifestFileSHA256": package["runtimeManifestFileSHA256"],
+        "runtimeManifestSHA256": package["runtimeManifestSHA256"],
+        "runtimeSourceRevision": package["runtimeSourceRevision"],
+        "sourceCommit": package["sourceCommit"],
+        "sourceTreeIdentitySHA256": package["sourceTreeIdentitySHA256"],
+    }
+    require(
+        execution["schemaVersion"] == EXECUTION_SCHEMA
+        and execution["kind"] == "archived_application_executable"
+        and execution["applicationArchiveExecuted"] is True
+        and all(execution[key] == value for key, value in expected_execution.items()),
+        "recovery did not execute inside the exact archived application",
+    )
+    process = require_mapping(result.get("process"), "observer process")
+    require(
+        process.get("executableSHA256")
+        == package["applicationExecutableSHA256"],
+        "observer process executable differs from archive",
+    )
+    environment_path = capture_root / "environment.json"
+    environment = require_mapping(
+        load_json(environment_path), "recovery environment"
+    )
+    require_exact_keys(
+        environment,
+        {
+            "buildConfiguration",
+            "executionMode",
+            "hardwareModel",
+            "macOSVersion",
+            "schemaVersion",
+        },
+        "recovery environment",
+    )
+    require(
+        environment["schemaVersion"] == "mirmir-v4-recovery-environment-v2"
+        and environment["buildConfiguration"] == "Release"
+        and environment["executionMode"] == "archived_application_executable",
+        "recovery environment differs",
+    )
+
+    expected_scenarios = {
+        value["id"]: value for value in contract["scenarios"]
+    }
+    rows = require_list(capture["scenarios"], "recovery scenarios")
+    require(
+        [row.get("id") if isinstance(row, dict) else None for row in rows]
+        == list(expected_scenarios),
+        "recovery scenario order or coverage differs",
+    )
+    claimed_paths: set[Path] = {
+        capture_path.resolve(strict=True),
+        environment_path.resolve(strict=True),
+    }
+    report_rows: list[dict[str, Any]] = []
+    for index, raw_row in enumerate(rows):
+        row = require_mapping(raw_row, f"capture.scenarios[{index}]")
+        require_exact_keys(
+            row,
+            {"externalEvidenceArtifact", "id"},
+            f"capture.scenarios[{index}]",
+        )
+        identifier = require_string(row["id"], f"capture.scenarios[{index}].id")
+        scenario = expected_scenarios[identifier]
+        prefix = f"scenarios/{identifier}"
+        external_path, external_sha = scenario_artifact(
+            capture_root,
+            row["externalEvidenceArtifact"],
+            f"scenario {identifier} evidence",
+            prefix,
+            claimed_paths,
+        )
+        external = require_mapping(
+            load_json(external_path), f"scenario {identifier} evidence"
+        )
+        require_exact_keys(
+            external,
+            {
+                "causalBindingArtifact",
+                "containedFailureCode",
+                "coverageID",
+                "evidenceKind",
+                "faultInjected",
+                "id",
+                "injectionPoint",
+                "outcome",
+                "ownedArtifactReconciled",
+                "recoveredStateManifestArtifact",
+                "referenceDerivationArtifact",
+                "referenceOutputArtifact",
+                "referenceSemanticArtifact",
+                "resumedDerivationArtifact",
+                "resumedOutputArtifact",
+                "resumedSemanticArtifact",
+                "schemaVersion",
+                "transcriptArtifact",
+                "uninterruptedStateManifestArtifact",
+                "unownedArtifactCount",
+            },
+            f"scenario {identifier} evidence",
+        )
+        require(
+            external["schemaVersion"] == SCENARIO_SCHEMA
+            and all(
+                external[key] == scenario[key]
+                for key in (
+                    "containedFailureCode",
+                    "coverageID",
+                    "evidenceKind",
+                    "id",
+                    "injectionPoint",
+                    "outcome",
+                )
+            )
+            and external["faultInjected"] is True
+            and external["ownedArtifactReconciled"] is True
+            and external["unownedArtifactCount"] == 0,
+            f"scenario {identifier} contract binding differs",
+        )
+        transcript_path, transcript_sha = scenario_artifact(
+            capture_root,
+            external["transcriptArtifact"],
+            f"scenario {identifier} transcript",
+            prefix,
+            claimed_paths,
+        )
+        transcript = validate_transcript(
+            transcript_path, scenario, f"scenario {identifier} transcript"
+        )
+        recovered_manifest_path, recovered_manifest_sha = scenario_artifact(
+            capture_root,
+            external["recoveredStateManifestArtifact"],
+            f"scenario {identifier} recovered state manifest",
+            prefix,
+            claimed_paths,
+        )
+        recovered_manifest = validate_state_manifest(
+            capture_root,
+            recovered_manifest_path,
+            scenario,
+            "recovered",
+            claimed_paths,
+        )
+        reopen_events = [
+            item
+            for item in transcript["events"]
+            if item["operation"] == "reopen_durable_state"
+        ]
+        require(
+            len(reopen_events) == 1
+            and reopen_events[0]["durableStateSHA256"]
+            == recovered_manifest["durableStateSHA256"],
+            f"scenario {identifier} transcript is not bound to recovered state",
+        )
+
+        uninterrupted_manifest = None
+        uninterrupted_manifest_path = None
+        uninterrupted_manifest_sha = None
+        if external["uninterruptedStateManifestArtifact"] is not None:
+            (
+                uninterrupted_manifest_path,
+                uninterrupted_manifest_sha,
+            ) = scenario_artifact(
+                capture_root,
+                external["uninterruptedStateManifestArtifact"],
+                f"scenario {identifier} uninterrupted state manifest",
+                prefix,
+                claimed_paths,
+            )
+            uninterrupted_manifest = validate_state_manifest(
+                capture_root,
+                uninterrupted_manifest_path,
+                scenario,
+                "uninterrupted",
+                claimed_paths,
+            )
+
+        causal_path, causal_sha = scenario_artifact(
+            capture_root,
+            external["causalBindingArtifact"],
+            f"scenario {identifier} causal binding",
+            prefix,
+            claimed_paths,
+        )
+        causal = require_mapping(
+            load_json(causal_path), f"scenario {identifier} causal binding"
+        )
+        require_exact_keys(
+            causal,
+            {
+                "coverageID",
+                "evidenceKind",
+                "id",
+                "injectionPoint",
+                "outcome",
+                "recoveredStateArtifactSetSHA256",
+                "recoveredStateManifestSHA256",
+                "referenceDerivationSHA256",
+                "referenceOutputSHA256",
+                "referenceSemanticSHA256",
+                "reopenedStateSHA256",
+                "resumedDerivationSHA256",
+                "resumedOutputSHA256",
+                "resumedSemanticSHA256",
+                "schemaVersion",
+                "transcriptSHA256",
+                "uninterruptedStateArtifactSetSHA256",
+                "uninterruptedStateManifestSHA256",
+            },
+            f"scenario {identifier} causal binding",
+        )
+        require(
+            causal["schemaVersion"] == CAUSAL_BINDING_SCHEMA
+            and all(
+                causal[key] == scenario[key]
+                for key in (
+                    "coverageID",
+                    "evidenceKind",
+                    "id",
+                    "injectionPoint",
+                    "outcome",
+                )
+            )
+            and causal["transcriptSHA256"] == transcript_sha
+            and causal["reopenedStateSHA256"]
+            == recovered_manifest["durableStateSHA256"]
+            and causal["recoveredStateManifestSHA256"]
+            == recovered_manifest_sha
+            and causal["recoveredStateArtifactSetSHA256"]
+            == recovered_manifest["artifactSetSHA256"]
+            and causal["uninterruptedStateManifestSHA256"]
+            == uninterrupted_manifest_sha
+            and causal["uninterruptedStateArtifactSetSHA256"]
+            == (
+                uninterrupted_manifest["artifactSetSHA256"]
+                if uninterrupted_manifest is not None
+                else None
+            ),
+            f"scenario {identifier} causal state binding differs",
+        )
+        report_item: dict[str, Any] = {
+            "id": identifier,
+            "coverageID": scenario["coverageID"],
+            "evidenceKind": scenario["evidenceKind"],
+            "outcome": scenario["outcome"],
+            "containedFailureCode": scenario["containedFailureCode"],
+            "externalEvidenceSHA256": external_sha,
+            "causalBindingSHA256": causal_sha,
+            "recoveredStateSHA256": recovered_manifest[
+                "durableStateSHA256"
+            ],
+        }
+        if scenario["evidenceKind"] == "durable_state_derivation":
+            require(uninterrupted_manifest is not None, f"scenario {identifier} omits uninterrupted state")
+            for key in (
+                "referenceOutputArtifact",
+                "resumedOutputArtifact",
+                "referenceSemanticArtifact",
+                "resumedSemanticArtifact",
+            ):
+                require(external[key] is None, f"scenario {identifier} supplies {key}")
+            reference_path, reference_sha = scenario_artifact(
+                capture_root,
+                external["referenceDerivationArtifact"],
+                f"scenario {identifier} reference derivation",
+                prefix,
+                claimed_paths,
+            )
+            resumed_path, resumed_sha = scenario_artifact(
+                capture_root,
+                external["resumedDerivationArtifact"],
+                f"scenario {identifier} resumed derivation",
+                prefix,
+                claimed_paths,
+            )
+            reference_value = require_mapping(
+                load_json(reference_path), f"scenario {identifier} reference derivation"
+            )
+            resumed_value = require_mapping(
+                load_json(resumed_path), f"scenario {identifier} resumed derivation"
+            )
+            expected_derivation = {
+                "schemaVersion": STATE_DERIVATION_SCHEMA,
+                "id": identifier,
+                "coverageID": scenario["coverageID"],
+                "injectionPoint": scenario["injectionPoint"],
+                "terminalDisposition": "completed",
+                "values": EXPECTED_DERIVATION_VALUES[scenario["coverageID"]],
+            }
+            require(
+                reference_path.read_bytes()
+                == compact_json(reference_value)
+                == compact_json(expected_derivation)
+                == resumed_path.read_bytes()
+                and reference_value == resumed_value == expected_derivation
+                and reference_sha == resumed_sha
+                == causal["referenceDerivationSHA256"]
+                == causal["resumedDerivationSHA256"],
+                f"scenario {identifier} derivation is not independently identical",
+            )
+            for key in (
+                "referenceOutputSHA256",
+                "resumedOutputSHA256",
+                "referenceSemanticSHA256",
+                "resumedSemanticSHA256",
+            ):
+                require(causal[key] is None, f"scenario {identifier} causal {key} must be null")
+            report_item.update(
+                {
+                    "referenceDerivationSHA256": reference_sha,
+                    "resumedDerivationSHA256": resumed_sha,
+                }
+            )
+        elif scenario["evidenceKind"] == "scenario_media_output":
+            require(uninterrupted_manifest is not None, f"scenario {identifier} omits uninterrupted state")
+            for key in ("referenceDerivationArtifact", "resumedDerivationArtifact"):
+                require(external[key] is None, f"scenario {identifier} supplies {key}")
+            reference_path, reference_sha = scenario_artifact(
+                capture_root, external["referenceOutputArtifact"],
+                f"scenario {identifier} reference output", prefix, claimed_paths,
+            )
+            resumed_path, resumed_sha = scenario_artifact(
+                capture_root, external["resumedOutputArtifact"],
+                f"scenario {identifier} resumed output", prefix, claimed_paths,
+            )
+            reference_semantic_path, reference_semantic_sha = scenario_artifact(
+                capture_root, external["referenceSemanticArtifact"],
+                f"scenario {identifier} reference semantic", prefix, claimed_paths,
+            )
+            resumed_semantic_path, resumed_semantic_sha = scenario_artifact(
+                capture_root, external["resumedSemanticArtifact"],
+                f"scenario {identifier} resumed semantic", prefix, claimed_paths,
+            )
+            reference_semantic = validate_semantic(
+                reference_semantic_path, f"scenario {identifier} reference semantic"
+            )
+            resumed_semantic = validate_semantic(
+                resumed_semantic_path, f"scenario {identifier} resumed semantic"
+            )
+            require(
+                reference_sha == resumed_sha
+                == causal["referenceOutputSHA256"]
+                == causal["resumedOutputSHA256"]
+                and reference_semantic == resumed_semantic
+                and reference_semantic_sha == resumed_semantic_sha
+                == causal["referenceSemanticSHA256"]
+                == causal["resumedSemanticSHA256"],
+                f"scenario {identifier} resumed media is not identical",
+            )
+            require(
+                causal["referenceDerivationSHA256"] is None
+                and causal["resumedDerivationSHA256"] is None,
+                f"scenario {identifier} causal derivations must be null",
+            )
+            report_item.update(
+                {
+                    "referenceOutputSHA256": reference_sha,
+                    "resumedOutputSHA256": resumed_sha,
+                    "referenceSemanticSHA256": reference_semantic_sha,
+                    "resumedSemanticSHA256": resumed_semantic_sha,
+                }
+            )
+        else:
+            require(uninterrupted_manifest is None, f"contained scenario {identifier} supplies uninterrupted state")
+            for key in (
+                "referenceDerivationArtifact",
+                "resumedDerivationArtifact",
+                "referenceOutputArtifact",
+                "resumedOutputArtifact",
+                "referenceSemanticArtifact",
+                "resumedSemanticArtifact",
+            ):
+                require(external[key] is None, f"contained scenario {identifier} supplies {key}")
+            for key in (
+                "referenceDerivationSHA256",
+                "resumedDerivationSHA256",
+                "referenceOutputSHA256",
+                "resumedOutputSHA256",
+                "referenceSemanticSHA256",
+                "resumedSemanticSHA256",
+            ):
+                require(causal[key] is None, f"contained scenario {identifier} causal {key} must be null")
+        report_rows.append(report_item)
+
+    actual_files = {
+        path.resolve()
+        for path in capture_root.rglob("*")
+        if path.is_file() and not path.is_symlink()
+    }
+    require(
+        actual_files == claimed_paths,
+        "recovery capture file set differs from causal evidence; "
+        f"unclaimed={sorted(str(path) for path in actual_files-claimed_paths)}, "
+        f"missing={sorted(str(path) for path in claimed_paths-actual_files)}",
+    )
+    descriptors = [
+        descriptor(path, capture_root) for path in sorted(actual_files)
+    ]
+    summary = {
+        "requestID": request["requestID"],
+        "requestSHA256": result["requestSHA256"],
+        "nonceSHA256": context["nonceSHA256"],
+        "processID": process["processID"],
+        "applicationExecutableSHA256": package["applicationExecutableSHA256"],
+        "applicationArchiveSHA256": package["applicationArchiveSHA256"],
+        "sourceCommit": package["sourceCommit"],
+        "sourceTreeIdentitySHA256": package["sourceTreeIdentitySHA256"],
+        "runtimeManifestSHA256": package["runtimeManifestSHA256"],
+        "producerSourceSHA256": context["producerSourceSHA256"],
+        "observerSourceSHA256": capture["observerSourceSHA256"],
+        "captureTree": result["captureTree"],
+        "scenarios": report_rows,
+    }
+    return summary, descriptors
+
+
+def evaluate_packaged_pair(
+    contract_path: Path,
+    first_root: Path,
+    second_root: Path,
+    repository: Path,
+    runtime: Path,
+    verify_tools: bool = True,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    contract, contract_sha = load_contract(contract_path, verify_tools=verify_tools)
+    first_context = load_packaged_context(
+        first_root, repository, runtime, contract, contract_sha
+    )
+    second_context = load_packaged_context(
+        second_root, repository, runtime, contract, contract_sha
+    )
+    first, first_descriptors = evaluate_packaged_capture(
+        first_context, contract, contract_sha
+    )
+    second, second_descriptors = evaluate_packaged_capture(
+        second_context, contract, contract_sha
+    )
+    require(
+        first["requestID"] != second["requestID"]
+        and first["requestSHA256"] != second["requestSHA256"]
+        and first["nonceSHA256"] != second["nonceSHA256"]
+        and first["processID"] != second["processID"],
+        "recovery captures are not independent processes and requests",
+    )
+    for key in (
+        "applicationExecutableSHA256",
+        "applicationArchiveSHA256",
+        "sourceCommit",
+        "sourceTreeIdentitySHA256",
+        "runtimeManifestSHA256",
+        "producerSourceSHA256",
+        "observerSourceSHA256",
+    ):
+        require(first[key] == second[key], f"cross-process recovery {key} differs")
+    cross_process_rows: list[dict[str, Any]] = []
+    require(
+        len(first["scenarios"]) == len(second["scenarios"]),
+        "cross-process recovery scenario count differs",
+    )
+    for left, right in zip(first["scenarios"], second["scenarios"]):
+        require(
+            all(
+                left[key] == right[key]
+                for key in (
+                    "id",
+                    "coverageID",
+                    "evidenceKind",
+                    "outcome",
+                    "containedFailureCode",
+                )
+            ),
+            "cross-process recovery scenario contract differs",
+        )
+        if left["evidenceKind"] == "durable_state_derivation":
+            keys = ("referenceDerivationSHA256", "resumedDerivationSHA256")
+        elif left["evidenceKind"] == "scenario_media_output":
+            keys = (
+                "referenceOutputSHA256",
+                "resumedOutputSHA256",
+                "referenceSemanticSHA256",
+                "resumedSemanticSHA256",
+            )
+        else:
+            keys = ()
+        require(
+            all(left[key] == right[key] for key in keys),
+            f"cross-process recovery output differs: {left['id']}",
+        )
+        cross_process_rows.append(
+            {
+                "id": left["id"],
+                "evidenceKind": left["evidenceKind"],
+                "repeatIdentityPass": True,
+                "crossProcessIdentityPass": True,
+            }
+        )
+    manifest_artifacts = []
+    for label, root, descriptors in (
+        ("process-a", Path(first_context["captureRoot"]), first_descriptors),
+        ("process-b", Path(second_context["captureRoot"]), second_descriptors),
+    ):
+        for item in descriptors:
+            manifest_artifacts.append(
+                {
+                    "path": f"captures/{label}/capture/{item['path']}",
+                    "byteCount": item["byteCount"],
+                    "sha256": item["sha256"],
+                }
+            )
+    manifest_artifacts.sort(key=lambda item: item["path"])
+    capture_manifest = {
+        "schemaVersion": CAPTURE_MANIFEST_SCHEMA,
+        "artifacts": manifest_artifacts,
+        "artifactSetSHA256": artifact_set_sha(manifest_artifacts),
+    }
+    report = {
+        "schemaVersion": REPORT_SCHEMA,
+        "contractSHA256": contract_sha,
+        "releaseEligible": True,
+        "identities": {
+            "archiveProvenanceSHA256": contract["capture"]["archiveProvenanceSourceSHA256"],
+            "evaluatorSHA256": contract["capture"]["evaluatorSourceSHA256"],
+            "observerSourceSHA256": contract["capture"]["observerSourceSHA256"],
+            "packagedEvidenceSHA256": contract["capture"]["packagedEvidenceSourceSHA256"],
+            "producerSourceSHA256": contract["capture"]["producerSourceSHA256"],
+            "runnerSHA256": contract["capture"]["runnerSourceSHA256"],
+        },
+        "execution": {
+            "kind": "archived_application_executable",
+            "applicationArchiveExecuted": True,
+            "independentProcessCaptureCount": 2,
+            "applicationArchiveSHA256": first["applicationArchiveSHA256"],
+            "applicationExecutableSHA256": first["applicationExecutableSHA256"],
+            "sourceCommit": first["sourceCommit"],
+            "sourceTreeIdentitySHA256": first["sourceTreeIdentitySHA256"],
+            "runtimeManifestSHA256": first["runtimeManifestSHA256"],
+        },
+        "captures": [first, second],
+        "scenarios": cross_process_rows,
+        "recoveryGatePass": True,
+    }
+    return report, capture_manifest
 
 
 def evaluate_capture(
@@ -1465,31 +2432,96 @@ def verify_command(arguments: argparse.Namespace) -> None:
     )
 
 
+def evaluate_packaged_command(arguments: argparse.Namespace) -> None:
+    report_path = Path(arguments.output).expanduser().resolve()
+    capture_manifest_path = Path(arguments.capture_manifest).expanduser().resolve()
+    suite_manifest_path = Path(arguments.sealed_manifest).expanduser().resolve()
+    role_root = report_path.parent
+    require(
+        role_root.is_dir() and not role_root.is_symlink(),
+        "recovery role root is missing",
+    )
+    for path, label in (
+        (capture_manifest_path, "capture manifest"),
+        (suite_manifest_path, "sealed manifest"),
+        (report_path, "report"),
+    ):
+        require(
+            path.parent == role_root and not path.exists(),
+            f"recovery {label} must be a new direct child of the role root",
+        )
+    report, capture_manifest = evaluate_packaged_pair(
+        Path(arguments.contract).expanduser().resolve(strict=True),
+        Path(arguments.packaged_evidence_a).expanduser().resolve(strict=True),
+        Path(arguments.packaged_evidence_b).expanduser().resolve(strict=True),
+        Path(arguments.repository).expanduser().resolve(strict=True),
+        Path(arguments.runtime).expanduser().resolve(strict=True),
+    )
+    write_json(capture_manifest_path, capture_manifest)
+    report["captureManifestSHA256"] = sha256_file(capture_manifest_path)
+    write_json(report_path, report)
+    write_json(
+        suite_manifest_path,
+        make_suite_manifest(role_root, suite_manifest_path),
+    )
+
+
+def verify_packaged_command(arguments: argparse.Namespace) -> None:
+    report_path = Path(arguments.report).expanduser().resolve(strict=True)
+    capture_manifest_path = Path(arguments.capture_manifest).expanduser().resolve(
+        strict=True
+    )
+    suite_manifest_path = Path(arguments.sealed_manifest).expanduser().resolve(
+        strict=True
+    )
+    expected_report, expected_capture_manifest = evaluate_packaged_pair(
+        Path(arguments.contract).expanduser().resolve(strict=True),
+        Path(arguments.packaged_evidence_a).expanduser().resolve(strict=True),
+        Path(arguments.packaged_evidence_b).expanduser().resolve(strict=True),
+        Path(arguments.repository).expanduser().resolve(strict=True),
+        Path(arguments.runtime).expanduser().resolve(strict=True),
+    )
+    require(
+        load_json(capture_manifest_path) == expected_capture_manifest
+        and capture_manifest_path.read_bytes()
+        == pretty_json(expected_capture_manifest),
+        "recovery capture manifest is stale or noncanonical",
+    )
+    expected_report["captureManifestSHA256"] = sha256_file(
+        capture_manifest_path
+    )
+    require(
+        load_json(report_path) == expected_report
+        and report_path.read_bytes() == pretty_json(expected_report),
+        "recovery report is stale or noncanonical",
+    )
+    expected_suite = make_suite_manifest(
+        report_path.parent.resolve(strict=True), suite_manifest_path
+    )
+    require(
+        load_json(suite_manifest_path) == expected_suite
+        and suite_manifest_path.read_bytes() == pretty_json(expected_suite),
+        "recovery sealed manifest is stale or noncanonical",
+    )
+
+
 def parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser(description=__doc__)
     subparsers = value.add_subparsers(dest="command", required=True)
-    export_source = subparsers.add_parser(
-        "export-source",
-        help="export and verify the exact committed recovery source",
+    evaluate = subparsers.add_parser(
+        "evaluate",
+        help="validate two archived-executable captures and seal recovery evidence",
     )
-    evaluate = subparsers.add_parser("evaluate", help="validate capture and write sealed recovery evidence")
-    verify = subparsers.add_parser("verify", help="recompute and verify existing recovery evidence")
-    export_source.add_argument("--destination", required=True)
-    export_source.add_argument("--repository", required=True)
-    export_source.add_argument("--revision", required=True)
+    verify = subparsers.add_parser(
+        "verify",
+        help="recompute two archived-executable captures and verify recovery evidence",
+    )
     for command in (evaluate, verify):
-        command.add_argument("--application-archive", required=True)
-        command.add_argument("--attestation", required=True)
         command.add_argument("--contract", required=True)
-        command.add_argument("--capture", required=True)
-        command.add_argument("--candidate", required=True)
-        command.add_argument("--evidence-root", required=True)
-        command.add_argument("--package-identity", required=True)
-        command.add_argument("--release-configuration", required=True)
-        command.add_argument("--release-configuration-artifact", required=True)
+        command.add_argument("--packaged-evidence-a", required=True)
+        command.add_argument("--packaged-evidence-b", required=True)
         command.add_argument("--repository", required=True)
         command.add_argument("--runtime", required=True)
-        command.add_argument("--runtime-manifest-artifact", required=True)
         command.add_argument("--capture-manifest", required=True)
         command.add_argument("--sealed-manifest", required=True)
     evaluate.add_argument("--output", required=True)
@@ -1500,12 +2532,10 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     arguments = parser().parse_args(argv)
     try:
-        if arguments.command == "export-source":
-            export_source_command(arguments)
-        elif arguments.command == "evaluate":
-            evaluate_command(arguments)
+        if arguments.command == "evaluate":
+            evaluate_packaged_command(arguments)
         else:
-            verify_command(arguments)
+            verify_packaged_command(arguments)
     except (
         RecoveryEvidenceError,
         packaged_evidence.PackagedEvidenceError,

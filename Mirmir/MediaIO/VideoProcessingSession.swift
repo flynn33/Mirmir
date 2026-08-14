@@ -51,7 +51,7 @@ struct VideoProcessingSession: Sendable {
                 preparedBackend: deterministicBackend,
                 cancellation: cancellation,
                 progress: progress
-            )
+            ).result
         }
         if source.color.alphaModel != .none {
             throw DeterministicV4WholeAssetPlannerError
@@ -292,6 +292,30 @@ struct VideoProcessingSession: Sendable {
             try? await preparedBackend.finish()
             throw error
         }
+    }
+
+    /// Executes the same production deterministic route as `process`, while
+    /// retaining the immutable receipt emitted from the actual session plan,
+    /// backend, migration, and output verification.
+    func processWithDeterministicV4ExecutionReceipt(
+        request: UpscaleRequest,
+        source: VideoInfo,
+        preparedBackend: any PreparedFrameUpscaler,
+        cancellation: ProcessingCancellation,
+        progress: @escaping ProgressHandler
+    ) async throws -> DeterministicV4MediaProcessingExecutionV4 {
+        guard let deterministicBackend = preparedBackend
+                as? any PreparedDeterministicV4RuntimePlanningBackend else {
+            throw DeterministicV4WholeAssetPlannerError
+                .deterministicPlanningBackendRequired
+        }
+        return try await deterministicV4Session.process(
+            request: request,
+            source: source,
+            preparedBackend: deterministicBackend,
+            cancellation: cancellation,
+            progress: progress
+        )
     }
 }
 

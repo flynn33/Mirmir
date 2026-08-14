@@ -90,15 +90,17 @@ struct DeterministicV4PreparedAssetPlan: Sendable {
         }
     }
 
-    func verifyProcessedOutput(at url: URL) async throws {
-        guard case .alpha(let delivery) = videoDelivery else { return }
+    func verifyProcessedOutput(
+        at url: URL
+    ) async throws -> AlphaVideoWriterVerificationV4? {
+        guard case .alpha(let delivery) = videoDelivery else { return nil }
         let videoTracks = sourceGraph.tracks.filter { $0.kind == .video }
         guard let ordinal = videoTracks.firstIndex(where: {
             $0.identity.stableID == primaryGraphTrack.identity.stableID
         }) else {
             throw DeterministicV4WholeAssetPlannerError.primaryVideoMissing
         }
-        _ = try await delivery.verifyMigratedOutput(
+        return try await delivery.verifyMigratedOutput(
             at: url,
             videoTrackOrdinal: ordinal
         )
@@ -743,6 +745,7 @@ private extension DeterministicV4WholeAssetPlanner {
         }
         guard video.color.masteringDisplay == nil,
               video.color.contentLightLevel == nil,
+              video.color.ambientViewingEnvironment == nil,
               video.color.dynamicHDRMetadata.isEmpty else {
             throw DeterministicV4WholeAssetPlannerError
                 .unsupportedSourceColorContract(
@@ -900,6 +903,7 @@ private extension DeterministicV4WholeAssetPlanner {
                   color.matrix == matrix709,
                   color.masteringDisplay == nil,
                   color.contentLightLevel == nil,
+                  color.ambientViewingEnvironment == nil,
                   color.dynamicHDRMetadata.isEmpty else {
                 throw DeterministicV4WholeAssetPlannerError
                     .unsupportedSourceColorContract(color.transferFunction)
@@ -927,6 +931,9 @@ private extension DeterministicV4WholeAssetPlanner {
         }
         let mastering = try color.masteringDisplay.map(makeMasteringDisplay)
         let contentLight = try color.contentLightLevel.map(makeContentLight)
+        let ambient = try color.ambientViewingEnvironment.map(
+            makeAmbientViewingEnvironment
+        )
         return .hdr(HDRFormatMetadataV4(
             signal: try HDRSignalV4(
                 storage: storage,
@@ -934,7 +941,8 @@ private extension DeterministicV4WholeAssetPlanner {
             ),
             staticMetadata: HDRStaticMetadataV4(
                 masteringDisplayColorVolume: mastering,
-                contentLightLevelInfo: contentLight
+                contentLightLevelInfo: contentLight,
+                ambientViewingEnvironment: ambient
             )
         ))
     }
@@ -983,6 +991,22 @@ private extension DeterministicV4WholeAssetPlanner {
             maximumContentLightLevel: UInt16(source.maximumContentLightLevel),
             maximumFrameAverageLightLevel:
                 UInt16(source.maximumFrameAverageLightLevel)
+        )
+    }
+
+    func makeAmbientViewingEnvironment(
+        _ source: CanonicalAmbientViewingEnvironmentV4
+    ) throws -> AmbientViewingEnvironmentV4 {
+        try AmbientViewingEnvironmentV4(
+            ambientIlluminance: try scaledUInt32(
+                source.ambientIlluminance,
+                by: 10_000
+            ),
+            ambientLight: try HDRChromaticityV4(
+                x: scaledUInt16(source.ambientLightX, by: 50_000),
+                y: scaledUInt16(source.ambientLightY, by: 50_000),
+                label: "ambient_light"
+            )
         )
     }
 
@@ -1053,6 +1077,7 @@ private extension DeterministicV4WholeAssetPlanner {
                 matrix: kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2 as String,
                 masteringDisplay: nil,
                 contentLightLevel: nil,
+                ambientViewingEnvironment: nil,
                 dynamicHDRMetadata: []
             )
         case .hdr:

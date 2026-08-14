@@ -6,7 +6,12 @@ enum HDRMetadataV4Error: Error, Equatable, Sendable {
     case invalidChromaticity(label: String, x: UInt16, y: UInt16)
     case invalidMasteringLuminance(minimum: UInt32, maximum: UInt32)
     case invalidContentLightLevel(maximumCLL: UInt16, maximumFALL: UInt16)
+    case invalidAmbientIlluminance(UInt32)
     case invalidHDR10PlusCountryCode(UInt8?)
+    case invalidHDR10PlusTerminalProviderCode(UInt16)
+    case invalidHDR10PlusTerminalProviderOrientedCode(UInt16)
+    case invalidHDR10PlusApplicationIdentifier(UInt8)
+    case invalidHDR10PlusApplicationVersion(UInt8)
     case invalidPostDecodeProcessingPropertyList
     case unsupportedColorTag(key: String, value: String?)
     case incompleteHDRColorTags
@@ -253,7 +258,12 @@ struct AmbientViewingEnvironmentV4: Equatable, Hashable, Sendable {
     init(
         ambientIlluminance: UInt32,
         ambientLight: HDRChromaticityV4
-    ) {
+    ) throws {
+        guard ambientIlluminance > 0 else {
+            throw HDRMetadataV4Error.invalidAmbientIlluminance(
+                ambientIlluminance
+            )
+        }
         self.ambientIlluminance = ambientIlluminance
         self.ambientLight = ambientLight
     }
@@ -267,15 +277,18 @@ struct AmbientViewingEnvironmentV4: Equatable, Hashable, Sendable {
             )
         }
         let bytes = [UInt8](payload)
-        self.ambientIlluminance =
+        let ambientIlluminance =
             (UInt32(bytes[0]) << 24)
             | (UInt32(bytes[1]) << 16)
             | (UInt32(bytes[2]) << 8)
             | UInt32(bytes[3])
-        self.ambientLight = try HDRChromaticityV4(
-            x: (UInt16(bytes[4]) << 8) | UInt16(bytes[5]),
-            y: (UInt16(bytes[6]) << 8) | UInt16(bytes[7]),
-            label: "ambient_light"
+        try self.init(
+            ambientIlluminance: ambientIlluminance,
+            ambientLight: HDRChromaticityV4(
+                x: (UInt16(bytes[4]) << 8) | UInt16(bytes[5]),
+                y: (UInt16(bytes[6]) << 8) | UInt16(bytes[7]),
+                label: "ambient_light"
+            )
         )
     }
 
@@ -327,6 +340,40 @@ struct HDR10PlusMetadataV4: Equatable, Hashable, Sendable {
         guard ituTT35Payload.first == 0xB5 else {
             throw HDRMetadataV4Error.invalidHDR10PlusCountryCode(
                 ituTT35Payload.first
+            )
+        }
+        guard ituTT35Payload.count >= 7 else {
+            throw HDRMetadataV4Error.invalidPayloadLength(
+                kind: "HDR10+ ITU-T T.35 header",
+                expected: 7,
+                actual: ituTT35Payload.count
+            )
+        }
+        let terminalProviderCode =
+            UInt16(ituTT35Payload[1]) << 8
+            | UInt16(ituTT35Payload[2])
+        guard terminalProviderCode == 0x003C else {
+            throw HDRMetadataV4Error.invalidHDR10PlusTerminalProviderCode(
+                terminalProviderCode
+            )
+        }
+        let terminalProviderOrientedCode =
+            UInt16(ituTT35Payload[3]) << 8
+            | UInt16(ituTT35Payload[4])
+        guard terminalProviderOrientedCode == 0x0001 else {
+            throw HDRMetadataV4Error
+                .invalidHDR10PlusTerminalProviderOrientedCode(
+                    terminalProviderOrientedCode
+                )
+        }
+        guard ituTT35Payload[5] == 4 else {
+            throw HDRMetadataV4Error.invalidHDR10PlusApplicationIdentifier(
+                ituTT35Payload[5]
+            )
+        }
+        guard ituTT35Payload[6] == 1 else {
+            throw HDRMetadataV4Error.invalidHDR10PlusApplicationVersion(
+                ituTT35Payload[6]
             )
         }
         self.ituTT35Payload = ituTT35Payload

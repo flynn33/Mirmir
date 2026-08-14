@@ -39,7 +39,8 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             ),
             environment: .current()
         )
-        let result = try await VideoProcessingSession().process(
+        let execution = try await VideoProcessingSession()
+            .processWithDeterministicV4ExecutionReceipt(
             request: UpscaleRequest(
                 inputURL: sourceURL,
                 outputURL: destinationURL,
@@ -55,6 +56,8 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             cancellation: ProcessingCancellation(),
             progress: { _ in }
         )
+        let result = execution.result
+        let receipt = execution.receipt
 
         XCTAssertEqual(result.encodedWidth, 96)
         XCTAssertEqual(result.encodedHeight, 72)
@@ -64,6 +67,49 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             TrackMigrationFixtureFactoryV4.frameCount
         )
         XCTAssertGreaterThan(result.processingDurationSeconds, 0)
+        XCTAssertEqual(
+            receipt.schemaID,
+            DeterministicV4MediaExecutionReceiptV4.currentSchemaID
+        )
+        XCTAssertEqual(
+            receipt.preparedBackendType,
+            "Mirmir.PreparedDeterministicV4Upscaler"
+        )
+        XCTAssertEqual(receipt.executor, .cpuFixedPoint)
+        XCTAssertEqual(receipt.requestedBackendID, .mirmirDeterministicCPU)
+        XCTAssertEqual(receipt.actualBackendID, .mirmirDeterministicCPU)
+        XCTAssertEqual(receipt.runtimeManifestSHA256, runtime.manifestSHA256)
+        XCTAssertEqual(
+            receipt.runtimeProvenanceSHA256,
+            try runtime.manifest.provenance.canonicalSHA256
+        )
+        XCTAssertEqual(receipt.targetWidth, 96)
+        XCTAssertEqual(receipt.targetHeight, 72)
+        XCTAssertEqual(receipt.encodedWidth, result.encodedWidth)
+        XCTAssertEqual(receipt.encodedHeight, result.encodedHeight)
+        XCTAssertEqual(
+            receipt.processedFrameCount,
+            result.processedFrameCount
+        )
+        XCTAssertEqual(
+            receipt.sourceGraphSHA256,
+            receipt.migrationSourceGraphSHA256
+        )
+        XCTAssertEqual(receipt.trackPlanSHA256, receipt.migrationPlanSHA256)
+        XCTAssertEqual(receipt.plannedTracks.count, receipt.migratedTracks.count)
+        XCTAssertEqual(
+            receipt.migratedTracks.map { [$0.stableID, $0.action.rawValue] },
+            receipt.plannedTracks.map { [$0.stableID, $0.action.rawValue] }
+        )
+        XCTAssertNil(receipt.alphaVerification)
+        let receiptData = try ASHCanonicalJSONV4.encode(receipt)
+        XCTAssertEqual(
+            try ASHCanonicalJSONV4.decode(
+                DeterministicV4MediaExecutionReceiptV4.self,
+                from: receiptData
+            ),
+            receipt
+        )
 
         let outputAsset = AVURLAsset(
             url: destinationURL,
@@ -2673,7 +2719,10 @@ private extension AVFoundationTrackMigrationExecutorV4Tests {
     func frameBoundHDRMetadata(seed: UInt8) throws -> HDRDynamicMetadataV4 {
         HDRDynamicMetadataV4(
             hdr10Plus: try HDR10PlusMetadataV4(
-                ituTT35Payload: Data([0xB5, seed, seed &+ 1])
+                ituTT35Payload: Data([
+                    0xB5, 0x00, 0x3C, 0x00, 0x01, 0x04, 0x01,
+                    seed, seed &+ 1
+                ])
             ),
             postDecodeProcessing: try PostDecodeProcessingMetadataV4(
                 propertyList: ["seed": NSNumber(value: seed)] as NSDictionary

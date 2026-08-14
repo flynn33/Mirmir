@@ -1,52 +1,22 @@
 import VideoToolbox
 
 /// Appended by the locked runner to the committed AVFoundation migration-test
-/// source.  Appending keeps the real fixture factory file-private and avoids
-/// adding qualification code to the shipping target or editing the project.
+/// source. The test host only creates and observes source fixtures; normative
+/// output production and observation belong to the archived executable.
 @available(macOS 15.4, *)
 final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
     private static let injectedEnvironment = [
-        "MIRMIR_V4_MEDIA_CAPTURE_DIR": "__MIRMIR_V4_MEDIA_CAPTURE_DIR__",
-        "MIRMIR_V4_MEDIA_CANDIDATE": "__MIRMIR_V4_MEDIA_CANDIDATE__",
-        "MIRMIR_V4_MEDIA_LANE_CONTRACT_SHA256": "__MIRMIR_V4_MEDIA_LANE_CONTRACT_SHA256__",
-        "MIRMIR_V4_MEDIA_RELEASE_CONTRACT_SHA256": "__MIRMIR_V4_MEDIA_RELEASE_CONTRACT_SHA256__",
-        "MIRMIR_V4_MEDIA_CAPTURE_SOURCE_SHA256": "__MIRMIR_V4_MEDIA_CAPTURE_SOURCE_SHA256__",
-        "MIRMIR_V4_MEDIA_FIXTURE_SOURCE_SHA256": "__MIRMIR_V4_MEDIA_FIXTURE_SOURCE_SHA256__",
-        "MIRMIR_V4_MEDIA_EVALUATOR_SHA256": "__MIRMIR_V4_MEDIA_EVALUATOR_SHA256__",
-        "MIRMIR_V4_MEDIA_RUNNER_SHA256": "__MIRMIR_V4_MEDIA_RUNNER_SHA256__"
+        "MIRMIR_V4_MEDIA_FIXTURE_DIR": "__MIRMIR_V4_MEDIA_FIXTURE_DIR__"
     ]
 
-    func testCaptureExactMediaPreservationWhenRequested() async throws {
-        guard let capturePath = environment("MIRMIR_V4_MEDIA_CAPTURE_DIR") else {
-            throw XCTSkip("The locked media-preservation runner did not request a capture.")
+    func testGenerateMediaPreservationFixturesWhenRequested() async throws {
+        guard let fixturePath = environment("MIRMIR_V4_MEDIA_FIXTURE_DIR") else {
+            throw XCTSkip("The locked media-preservation runner did not request fixtures.")
         }
-        let root = URL(fileURLWithPath: capturePath, isDirectory: true)
+        let root = URL(fileURLWithPath: fixturePath, isDirectory: true)
         try FileManager.default.createDirectory(
             at: root,
             withIntermediateDirectories: true
-        )
-        let candidateURL = URL(fileURLWithPath: try requiredEnvironment(
-            "MIRMIR_V4_MEDIA_CANDIDATE"
-        ))
-        let candidate = try M7MediaJSON.object(
-            from: Data(contentsOf: candidateURL)
-        )
-        let runtime = try ASHP06RuntimeProviderV4.production().load()
-        try runtime.verifyBinding()
-        XCTAssertEqual(runtime.manifest.releaseStatus, .releaseQualified)
-        XCTAssertEqual(
-            runtime.manifest.runtimeID,
-            "ash-p06-deterministic-v4"
-        )
-        let candidateRuntime = try M7MediaJSON.string(
-            candidate,
-            "runtimeManifestSHA256"
-        )
-        XCTAssertEqual(runtime.manifestSHA256.rawValue, candidateRuntime)
-        XCTAssertTrue(ASHProductionP06TrustRootV4.isConfigured)
-        XCTAssertEqual(
-            ASHProductionP06TrustRootV4.manifestSHA256.rawValue,
-            candidateRuntime
         )
 
         let fixtureContracts: [[String: Any]] = [
@@ -86,7 +56,7 @@ final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
             ],
             [
                 "id": "rich-track-graph",
-                "policy": "exact_pass_through",
+                "policy": "process_primary_preserve_auxiliary",
                 "coverage": [
                     "multiple_enabled_video_tracks",
                     "alternate_audio_tracks",
@@ -97,426 +67,151 @@ final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
             ],
             [
                 "id": "legible-track-graph",
-                "policy": "exact_pass_through",
+                "policy": "process_primary_preserve_auxiliary",
                 "coverage": ["subtitles", "captions"]
             ],
             [
                 "id": "auxiliary-picture-track",
-                "policy": "exact_pass_through",
+                "policy": "process_primary_preserve_auxiliary",
                 "coverage": ["auxiliary_tracks"]
             ]
         ]
 
         var fixtures: [[String: Any]] = []
-        fixtures.append(try await captureP010Fixture(
-            fixtureContracts[0],
-            root: root,
-            runtimeManifestSHA256: candidateRuntime
-        ))
-        fixtures.append(try await captureAlphaFixture(
-            fixtureContracts[1],
-            association: .straight,
-            root: root,
-            runtimeManifestSHA256: candidateRuntime
-        ))
-        fixtures.append(try await captureAlphaFixture(
-            fixtureContracts[2],
-            association: .premultiplied,
-            root: root,
-            runtimeManifestSHA256: candidateRuntime
-        ))
-        fixtures.append(try await capturePassThroughFixture(
-            fixtureContracts[3],
-            root: root,
-            runtimeManifestSHA256: candidateRuntime,
-            sourceBuilder: { url in
+        for (index, contract) in fixtureContracts.enumerated() {
+            let id = try M7MediaJSON.string(contract, "id")
+            let directory = root.appendingPathComponent("fixtures/\(id)")
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true
+            )
+            let source = directory.appendingPathComponent("media.mov")
+            let targetWidth: Int
+            let targetHeight: Int
+            let outputCodec: String
+            let expectedProcessedFrameCount: Int
+            var alphaOracleInput: Any = NSNull()
+            switch index {
+            case 0:
+                try await makeInterlacedP010HDRMovie(at: source)
+                targetWidth = 96
+                targetHeight = 72
+                outputCodec = OutputCodec.hevc.rawValue
+                expectedProcessedFrameCount = 6
+            case 1, 2:
+                let association: AlphaAssociationV4 = index == 1
+                    ? .straight : .premultiplied
+                try await makeAlphaMovie(at: source, association: association)
+                targetWidth = 24
+                targetHeight = 24
+                outputCodec = OutputCodec.proRes4444.rawValue
+                expectedProcessedFrameCount = 3
+                alphaOracleInput = try await captureAlphaOracleInput(
+                    sourceURL: source,
+                    association: association,
+                    directory: directory,
+                    root: root
+                )
+            case 3:
                 try await TrackMigrationFixtureFactoryV4.makeRichMovie(
-                    at: url,
+                    at: source,
                     includeAudioGroup: true
                 )
-            }
-        ))
-        fixtures.append(try await capturePassThroughFixture(
-            fixtureContracts[4],
-            root: root,
-            runtimeManifestSHA256: candidateRuntime,
-            sourceBuilder: { url in
-                try await TrackMigrationFixtureFactoryV4.makeLegibleMovie(
-                    at: url
-                )
-            }
-        ))
-        fixtures.append(try await capturePassThroughFixture(
-            fixtureContracts[5],
-            root: root,
-            runtimeManifestSHA256: candidateRuntime,
-            sourceBuilder: { url in
+                targetWidth = 96
+                targetHeight = 72
+                outputCodec = OutputCodec.h264.rawValue
+                expectedProcessedFrameCount = 8
+            case 4:
                 try await TrackMigrationFixtureFactoryV4
-                    .makeAuxiliaryPictureMovie(at: url)
+                    .makeVideoWithLegibleMovie(at: source)
+                targetWidth = 96
+                targetHeight = 72
+                outputCodec = OutputCodec.h264.rawValue
+                expectedProcessedFrameCount = 8
+            default:
+                try await TrackMigrationFixtureFactoryV4
+                    .makeVideoWithAuxiliaryPictureMovie(at: source)
+                targetWidth = 96
+                targetHeight = 72
+                outputCodec = OutputCodec.h264.rawValue
+                expectedProcessedFrameCount = 8
             }
-        ))
-
-        let identities: [String: Any] = [
-            "captureSourceSHA256": try requiredEnvironment(
-                "MIRMIR_V4_MEDIA_CAPTURE_SOURCE_SHA256"
-            ),
-            "fixtureSourceSHA256": try requiredEnvironment(
-                "MIRMIR_V4_MEDIA_FIXTURE_SOURCE_SHA256"
-            ),
-            "evaluatorSHA256": try requiredEnvironment(
-                "MIRMIR_V4_MEDIA_EVALUATOR_SHA256"
-            ),
-            "runnerSHA256": try requiredEnvironment(
-                "MIRMIR_V4_MEDIA_RUNNER_SHA256"
-            ),
-            "sourceCommit": try M7MediaJSON.string(candidate, "sourceCommit"),
-            "sourceTreeIdentitySHA256": try M7MediaJSON.string(
-                candidate,
-                "sourceTreeIdentitySHA256"
-            ),
-            "runtimeManifestSHA256": candidateRuntime,
-            "runtimeManifestFileSHA256": try M7MediaJSON.string(
-                candidate,
-                "runtimeManifestFileSHA256"
-            ),
-            "runtimeArtifactSetSHA256": try M7MediaJSON.string(
-                candidate,
-                "runtimeArtifactSetSHA256"
-            ),
-            "runtimeSourceRevision": try M7MediaJSON.string(
-                candidate,
-                "runtimeSourceRevision"
-            ),
-            "releaseConfigurationSHA256": try M7MediaJSON.string(
-                candidate,
-                "releaseConfigurationSHA256"
-            )
-        ]
+            let sourceBytes = try Data(contentsOf: source)
+            fixtures.append([
+                "id": id,
+                "policy": contract["policy"]!,
+                "coverage": contract["coverage"]!,
+                "sourceFile": "fixtures/\(id)/media.mov",
+                "sourceByteCount": sourceBytes.count,
+                "sourceSHA256": ASHSHA256V4(
+                    rawData: sourceBytes
+                ).rawValue,
+                "targetWidth": targetWidth,
+                "targetHeight": targetHeight,
+                "outputCodec": outputCodec,
+                "expectedProcessedFrameCount": expectedProcessedFrameCount,
+                "alphaOracleInput": alphaOracleInput
+            ])
+        }
         try M7MediaJSON.write([
-            "schemaVersion": "mirmir-ash-v4-media-preservation-capture-v1",
+            "schemaVersion": "mirmir-ash-v4-media-fixture-package-v2",
             "suiteID": "mirmir-ash-v4-media-preservation-v1",
-            "laneContractSHA256": try requiredEnvironment(
-                "MIRMIR_V4_MEDIA_LANE_CONTRACT_SHA256"
-            ),
-            "releaseContractSHA256": try requiredEnvironment(
-                "MIRMIR_V4_MEDIA_RELEASE_CONTRACT_SHA256"
-            ),
-            "candidate": candidate,
-            "identities": identities,
-            "buildConfiguration": "Release",
             "fixtures": fixtures
-        ], to: root.appendingPathComponent("capture.json"))
+        ], to: root.appendingPathComponent("fixture-manifest.json"))
     }
 
-    private func captureP010Fixture(
-        _ contract: [String: Any],
-        root: URL,
-        runtimeManifestSHA256: String
-    ) async throws -> [String: Any] {
-        let id = try M7MediaJSON.string(contract, "id")
-        let fixtureRoot = root.appendingPathComponent("fixtures/\(id)")
-        let inputRoot = fixtureRoot.appendingPathComponent("input")
-        let outputRoot = fixtureRoot.appendingPathComponent("output")
-        let repeatRoot = fixtureRoot.appendingPathComponent("repeat")
-        for directory in [inputRoot, outputRoot, repeatRoot] {
-            try FileManager.default.createDirectory(
-                at: directory,
-                withIntermediateDirectories: true
-            )
-        }
-        let sourceURL = inputRoot.appendingPathComponent("media.mov")
-        let outputURL = outputRoot.appendingPathComponent("media.mov")
-        let repeatURL = repeatRoot.appendingPathComponent("media.mov")
-        try await makeInterlacedP010HDRMovie(at: sourceURL)
-        let first = try await processDeterministic(
-            sourceURL: sourceURL,
-            outputURL: outputURL,
-            targetWidth: 96,
-            targetHeight: 72,
-            codec: .hevc
-        )
-        let second = try await processDeterministic(
-            sourceURL: sourceURL,
-            outputURL: repeatURL,
-            targetWidth: 96,
-            targetHeight: 72,
-            codec: .hevc
-        )
-        XCTAssertEqual(first.actualBackendID, .mirmirDeterministicCPU)
-        XCTAssertEqual(second.actualBackendID, .mirmirDeterministicCPU)
-        let repeatPixels = try await M7MediaObserver.pixelIdentities(
-            at: repeatURL
-        )
-        let inputSide = try await M7MediaObserver.captureSide(
-            fixtureID: id,
-            side: "input",
-            mediaURL: sourceURL,
-            directory: inputRoot,
-            repeatVisibleSHA256: [:],
-            preEncodeAlphaSHA256: [:],
-            metadata: nil
-        )
-        let outputSide = try await M7MediaObserver.captureSide(
-            fixtureID: id,
-            side: "output",
-            mediaURL: outputURL,
-            directory: outputRoot,
-            repeatVisibleSHA256: repeatPixels,
-            preEncodeAlphaSHA256: [:],
-            metadata: nil
-        )
-        return try fixtureEnvelope(
-            contract,
-            input: inputSide,
-            output: outputSide,
-            runtimeManifestSHA256: runtimeManifestSHA256,
-            requestedRouteExecuted: first.actualBackendID
-                == .mirmirDeterministicCPU,
-            migrationConformant: first.processedFrameCount == 6,
-            repeatedOutputIdentityPass: M7MediaObserver.visibleIdentities(
-                outputSide.pixelObservation
-            ) == repeatPixels
-        )
-    }
-
-    private func captureAlphaFixture(
-        _ contract: [String: Any],
-        association: AlphaAssociationV4,
-        root: URL,
-        runtimeManifestSHA256: String
-    ) async throws -> [String: Any] {
-        let id = try M7MediaJSON.string(contract, "id")
-        let fixtureRoot = root.appendingPathComponent("fixtures/\(id)")
-        let inputRoot = fixtureRoot.appendingPathComponent("input")
-        let outputRoot = fixtureRoot.appendingPathComponent("output")
-        let repeatRoot = fixtureRoot.appendingPathComponent("repeat")
-        for directory in [inputRoot, outputRoot, repeatRoot] {
-            try FileManager.default.createDirectory(
-                at: directory,
-                withIntermediateDirectories: true
-            )
-        }
-        let sourceURL = inputRoot.appendingPathComponent("media.mov")
-        let outputURL = outputRoot.appendingPathComponent("media.mov")
-        let repeatURL = repeatRoot.appendingPathComponent("media.mov")
-        try await makeAlphaMovie(at: sourceURL, association: association)
-        let expectedAlpha = try await expectedScaledAlphaIdentity(
-            sourceURL: sourceURL,
-            association: association,
-            targetWidth: 24,
-            targetHeight: 24
-        )
-        let first = try await processDeterministic(
-            sourceURL: sourceURL,
-            outputURL: outputURL,
-            targetWidth: 24,
-            targetHeight: 24,
-            codec: .proRes4444
-        )
-        let second = try await processDeterministic(
-            sourceURL: sourceURL,
-            outputURL: repeatURL,
-            targetWidth: 24,
-            targetHeight: 24,
-            codec: .proRes4444
-        )
-        XCTAssertEqual(first.actualBackendID, .mirmirDeterministicCPU)
-        XCTAssertEqual(second.actualBackendID, .mirmirDeterministicCPU)
-        let repeatPixels = try await M7MediaObserver.pixelIdentities(
-            at: repeatURL
-        )
-        let inputSide = try await M7MediaObserver.captureSide(
-            fixtureID: id,
-            side: "input",
-            mediaURL: sourceURL,
-            directory: inputRoot,
-            repeatVisibleSHA256: [:],
-            preEncodeAlphaSHA256: [:],
-            metadata: nil
-        )
-        let outputSide = try await M7MediaObserver.captureSide(
-            fixtureID: id,
-            side: "output",
-            mediaURL: outputURL,
-            directory: outputRoot,
-            repeatVisibleSHA256: repeatPixels,
-            preEncodeAlphaSHA256: [0: expectedAlpha],
-            metadata: nil
-        )
-        return try fixtureEnvelope(
-            contract,
-            input: inputSide,
-            output: outputSide,
-            runtimeManifestSHA256: runtimeManifestSHA256,
-            requestedRouteExecuted: first.actualBackendID
-                == .mirmirDeterministicCPU,
-            migrationConformant: first.processedFrameCount == 3,
-            repeatedOutputIdentityPass: M7MediaObserver.visibleIdentities(
-                outputSide.pixelObservation
-            ) == repeatPixels
-        )
-    }
-
-    private func capturePassThroughFixture(
-        _ contract: [String: Any],
-        root: URL,
-        runtimeManifestSHA256: String,
-        sourceBuilder: (URL) async throws -> Void
-    ) async throws -> [String: Any] {
-        let id = try M7MediaJSON.string(contract, "id")
-        let fixtureRoot = root.appendingPathComponent("fixtures/\(id)")
-        let inputRoot = fixtureRoot.appendingPathComponent("input")
-        let outputRoot = fixtureRoot.appendingPathComponent("output")
-        let repeatRoot = fixtureRoot.appendingPathComponent("repeat")
-        for directory in [inputRoot, outputRoot, repeatRoot] {
-            try FileManager.default.createDirectory(
-                at: directory,
-                withIntermediateDirectories: true
-            )
-        }
-        let sourceURL = inputRoot.appendingPathComponent("media.mov")
-        let outputURL = outputRoot.appendingPathComponent("media.mov")
-        let repeatURL = repeatRoot.appendingPathComponent("media.mov")
-        try await sourceBuilder(sourceURL)
-        let sourceGraph = try await AVFoundationTrackGraphAdapterV4.probe(
-            asset: AVURLAsset(url: sourceURL)
-        )
-        let plan = try MediaTrackGraphPlannerV4.makePlan(source: sourceGraph)
-        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
-            source: sourceGraph,
-            plan: plan
-        )
-        let first = try await AVFoundationTrackMigrationExecutorV4().execute(
-            .init(
-                sourceURL: sourceURL,
-                destinationURL: outputURL,
-                sourceGraph: sourceGraph,
-                identifiedPlan: plan,
-                blueprint: blueprint
-            )
-        )
-        let second = try await AVFoundationTrackMigrationExecutorV4().execute(
-            .init(
-                sourceURL: sourceURL,
-                destinationURL: repeatURL,
-                sourceGraph: sourceGraph,
-                identifiedPlan: plan,
-                blueprint: blueprint
-            )
-        )
-        XCTAssertTrue(first.verificationReport.isConformant)
-        XCTAssertTrue(second.verificationReport.isConformant)
-        let repeatPixels = try await M7MediaObserver.pixelIdentities(
-            at: repeatURL
-        )
-        let sourceMetadata = M7MediaObserver.MetadataIdentities(
-            asset: first.sourceAssetMetadataSHA256.rawValue,
-            chapter: first.sourceChapterMetadataSHA256.rawValue
-        )
-        let outputMetadata = M7MediaObserver.MetadataIdentities(
-            asset: first.outputAssetMetadataSHA256.rawValue,
-            chapter: first.outputChapterMetadataSHA256.rawValue
-        )
-        let inputSide = try await M7MediaObserver.captureSide(
-            fixtureID: id,
-            side: "input",
-            mediaURL: sourceURL,
-            directory: inputRoot,
-            repeatVisibleSHA256: [:],
-            preEncodeAlphaSHA256: [:],
-            metadata: sourceMetadata
-        )
-        let outputSide = try await M7MediaObserver.captureSide(
-            fixtureID: id,
-            side: "output",
-            mediaURL: outputURL,
-            directory: outputRoot,
-            repeatVisibleSHA256: repeatPixels,
-            preEncodeAlphaSHA256: [:],
-            metadata: outputMetadata
-        )
-        return try fixtureEnvelope(
-            contract,
-            input: inputSide,
-            output: outputSide,
-            runtimeManifestSHA256: runtimeManifestSHA256,
-            requestedRouteExecuted: true,
-            migrationConformant: first.verificationReport.isConformant,
-            repeatedOutputIdentityPass: M7MediaObserver.visibleIdentities(
-                outputSide.pixelObservation
-            ) == repeatPixels
-        )
-    }
-
-    private func fixtureEnvelope(
-        _ contract: [String: Any],
-        input: M7MediaObserver.SideCapture,
-        output: M7MediaObserver.SideCapture,
-        runtimeManifestSHA256: String,
-        requestedRouteExecuted: Bool,
-        migrationConformant: Bool,
-        repeatedOutputIdentityPass: Bool
-    ) throws -> [String: Any] {
-        XCTAssertTrue(requestedRouteExecuted)
-        XCTAssertTrue(migrationConformant)
-        XCTAssertTrue(repeatedOutputIdentityPass)
-        XCTAssertEqual(input.enabledTrackCount, output.enabledTrackCount)
-        return [
-            "id": try M7MediaJSON.string(contract, "id"),
-            "coverage": contract["coverage"]!,
-            "policy": try M7MediaJSON.string(contract, "policy"),
-            "enabledInputTrackCount": input.enabledTrackCount,
-            "accountedOutputTrackCount": output.enabledTrackCount,
-            "production": [
-                "releaseQualifiedRuntimeLoaded": true,
-                "runtimeManifestSHA256": runtimeManifestSHA256,
-                "trustRootConfigured": ASHProductionP06TrustRootV4.isConfigured,
-                "requestedRouteExecutedWithoutFallback": requestedRouteExecuted,
-                "migrationConformant": migrationConformant,
-                "repeatedOutputIdentityPass": repeatedOutputIdentityPass
-            ],
-            "input": input.descriptors,
-            "output": output.descriptors
-        ]
-    }
-
-    private func processDeterministic(
+    private func captureAlphaOracleInput(
         sourceURL: URL,
-        outputURL: URL,
-        targetWidth: Int,
-        targetHeight: Int,
-        codec: OutputCodec
-    ) async throws -> UpscaleResult {
-        let source = try await VideoProbe().probe(url: sourceURL)
-        let descriptor = try XCTUnwrap(
-            BackendDescriptor.descriptor(for: .mirmirDeterministicCPU)
+        association: AlphaAssociationV4,
+        directory: URL,
+        root: URL
+    ) async throws -> [String: Any] {
+        let asset = AVURLAsset(url: sourceURL)
+        let track = try XCTUnwrap(
+            try await asset.loadTracks(withMediaType: .video).first
         )
-        let backend = try XCTUnwrap(DeterministicCPUBackend(
-            descriptor: descriptor
-        ))
-        let prepared = try await backend.prepare(
-            request: BackendPreparationRequest(
-                source: source,
-                targetSize: CGSize(width: targetWidth, height: targetHeight)
-            ),
-            environment: .current()
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(
+            track: track,
+            outputSettings: [
+                kCVPixelBufferPixelFormatTypeKey as String:
+                    kCVPixelFormatType_32BGRA
+            ]
         )
-        return try await VideoProcessingSession().process(
-            request: UpscaleRequest(
-                inputURL: sourceURL,
-                outputURL: outputURL,
-                backendID: .mirmirDeterministicCPU,
-                targetWidth: targetWidth,
-                targetHeight: targetHeight,
-                outputCodec: codec,
-                preserveAudio: true,
-                overwriteExistingFile: false
-            ),
-            source: source,
-            preparedBackend: prepared,
-            cancellation: ProcessingCancellation(),
-            progress: { _ in }
-        )
+        guard reader.canAdd(output) else { throw M7MediaCaptureError.reader }
+        reader.add(output)
+        guard reader.startReading() else { throw M7MediaCaptureError.reader }
+        var bytes = Data()
+        var frameSHA256: [String] = []
+        while let sample = output.copyNextSampleBuffer() {
+            guard CMSampleBufferGetNumSamples(sample) > 0,
+                  let buffer = CMSampleBufferGetImageBuffer(sample) else {
+                continue
+            }
+            let frame = try Alpha4444PixelBufferAccessV4.alphaPlaneBytes(
+                buffer,
+                layout: .bgra8
+            )
+            XCTAssertEqual(frame.count, 16 * 16)
+            bytes.append(frame)
+            frameSHA256.append(ASHSHA256V4(rawData: frame).rawValue)
+        }
+        guard reader.status == .completed, frameSHA256.count == 3 else {
+            throw M7MediaCaptureError.reader
+        }
+        let url = directory.appendingPathComponent("alpha-source.bin")
+        try bytes.write(to: url, options: .atomic)
+        return [
+            "schemaVersion": "mirmir-ash-v4-alpha-oracle-input-v1",
+            "path": String(url.path.dropFirst(root.path.count + 1)),
+            "byteCount": bytes.count,
+            "sha256": ASHSHA256V4(rawData: bytes).rawValue,
+            "frameSHA256": frameSHA256,
+            "frameCount": frameSHA256.count,
+            "width": 16,
+            "height": 16,
+            "association": association.rawValue
+        ]
     }
 
     private func makeAlphaMovie(
@@ -564,11 +259,18 @@ final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
         var samples: [AlphaSampleV4] = []
         for y in 0..<16 {
             for x in 0..<16 {
-                let alpha = UInt16((x * 17 + y * 29) & 255)
+                // ProRes 4444 is allowed to move decoded RGB by a small code
+                // amount. Keep premultiplied fixture colors and alpha away
+                // from their validity boundary so codec ringing cannot turn a
+                // valid encoded source into RGB > alpha before ASH admission.
+                let alpha = association == .premultiplied
+                    ? UInt16(96 + ((x * 17 + y * 29) % 160))
+                    : UInt16((x * 17 + y * 29) & 255)
+                let colorModulus = association == .premultiplied ? 128 : 256
                 samples.append(AlphaSampleV4(
-                    red: UInt16((x * 31 + y * 7) & 255),
-                    green: UInt16((x * 11 + y * 23) & 255),
-                    blue: UInt16((x * 5 + y * 37) & 255),
+                    red: UInt16((x * 31 + y * 7) % colorModulus),
+                    green: UInt16((x * 11 + y * 23) % colorModulus),
+                    blue: UInt16((x * 5 + y * 37) % colorModulus),
                     alpha: alpha
                 ))
             }
@@ -597,77 +299,6 @@ final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
             )
         }
         _ = try await writer.finishAndVerify()
-    }
-
-    private func expectedScaledAlphaIdentity(
-        sourceURL: URL,
-        association: AlphaAssociationV4,
-        targetWidth: Int,
-        targetHeight: Int
-    ) async throws -> String {
-        let asset = AVURLAsset(url: sourceURL)
-        let videoTracks = try await asset.loadTracks(withMediaType: .video)
-        let track = try XCTUnwrap(videoTracks.first)
-        let reader = try AVAssetReader(asset: asset)
-        let output = AVAssetReaderTrackOutput(
-            track: track,
-            outputSettings: [
-                kCVPixelBufferPixelFormatTypeKey as String:
-                    kCVPixelFormatType_32BGRA
-            ]
-        )
-        reader.add(output)
-        guard reader.startReading() else {
-            throw M7MediaCaptureError.reader
-        }
-        let scaler = try Alpha4444FixedPointScalerV4(
-            backend: .cpu,
-            layout: .bgra8,
-            sourceAssociation: association,
-            destinationAssociation: association,
-            zeroAlphaPolicy: association == .straight
-                ? .preserveStraightColor : .rejectNonZeroColor,
-            sourceWidth: 16,
-            sourceHeight: 16,
-            targetWidth: targetWidth,
-            targetHeight: targetHeight,
-            borderRule: .reflect101
-        )
-        var allAlpha = Data()
-        while let sample = output.copyNextSampleBuffer() {
-            let source = try XCTUnwrap(CMSampleBufferGetImageBuffer(sample))
-            let alphaValue: CFString = association == .straight
-                ? kCVImageBufferAlphaChannelMode_StraightAlpha
-                : kCVImageBufferAlphaChannelMode_PremultipliedAlpha
-            CVBufferSetAttachment(
-                source,
-                kCVImageBufferAlphaChannelModeKey,
-                alphaValue,
-                .shouldPropagate
-            )
-            var destination: CVPixelBuffer?
-            let status = CVPixelBufferCreate(
-                kCFAllocatorDefault,
-                targetWidth,
-                targetHeight,
-                kCVPixelFormatType_32BGRA,
-                [kCVPixelBufferIOSurfacePropertiesKey as String: [:]]
-                    as CFDictionary,
-                &destination
-            )
-            guard status == kCVReturnSuccess, let destination else {
-                throw M7MediaCaptureError.coreVideo(status)
-            }
-            try await scaler.process(source: source, destination: destination)
-            allAlpha.append(try Alpha4444PixelBufferAccessV4.alphaPlaneBytes(
-                destination,
-                layout: .bgra8
-            ))
-        }
-        guard reader.status == .completed else {
-            throw M7MediaCaptureError.reader
-        }
-        return ASHSHA256V4(rawData: allAlpha).rawValue
     }
 
     private func makeInterlacedP010HDRMovie(at url: URL) async throws {
@@ -821,6 +452,173 @@ final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
     }
 }
 
+private extension TrackMigrationFixtureFactoryV4 {
+    static func makeVideoWithAuxiliaryPictureMovie(at url: URL) async throws {
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+        writer.metadata = assetMetadata()
+        let primary = makeVideoLane(seed: 31, title: "primary-video")
+        let auxiliary = makeVideoLane(
+            seed: 211,
+            title: "auxiliary-picture",
+            mediaType: .auxiliaryPicture
+        )
+        auxiliary.input.mediaTimeScale = frameRate
+        for input in [primary.input, auxiliary.input] {
+            guard writer.availableMediaTypes.contains(input.mediaType),
+                  writer.canAdd(input) else {
+                throw TrackMigrationFixtureErrorV4.writer(
+                    "Writer rejected composite \(input.mediaType.rawValue)."
+                )
+            }
+            writer.add(input)
+        }
+        guard writer.startWriting() else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                writer.error?.localizedDescription
+                    ?? "Composite auxiliary writer did not start."
+            )
+        }
+        writer.startSession(atSourceTime: .zero)
+        for frameIndex in 0..<frameCount {
+            let time = CMTime(
+                value: CMTimeValue(frameIndex),
+                timescale: frameRate
+            )
+            try await appendFrame(
+                lane: primary,
+                frameIndex: frameIndex,
+                time: time,
+                writer: writer
+            )
+            try await appendFrame(
+                lane: auxiliary,
+                frameIndex: frameIndex,
+                time: time,
+                writer: writer
+            )
+        }
+        primary.input.markAsFinished()
+        auxiliary.input.markAsFinished()
+        writer.endSession(atSourceTime: CMTime(
+            value: CMTimeValue(frameCount),
+            timescale: frameRate
+        ))
+        await withCheckedContinuation { continuation in
+            writer.finishWriting { continuation.resume() }
+        }
+        guard writer.status == .completed else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                writer.error?.localizedDescription
+                    ?? "Composite auxiliary writer did not finish."
+            )
+        }
+    }
+
+    static func makeVideoWithLegibleMovie(at url: URL) async throws {
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+        writer.metadata = assetMetadata()
+        let primary = makeVideoLane(seed: 47, title: "primary-video")
+        let subtitleFormat = try makeFormatDescription(
+            mediaType: kCMMediaType_Subtitle,
+            mediaSubtype: kCMTextFormatType_3GText,
+            extensions: subtitleFormatExtensions
+        )
+        let captionFormat = try makeFormatDescription(
+            mediaType: kCMMediaType_ClosedCaption,
+            mediaSubtype: kCMClosedCaptionFormatType_CEA608
+        )
+        let subtitleInput = AVAssetWriterInput(
+            mediaType: .subtitle,
+            outputSettings: nil,
+            sourceFormatHint: subtitleFormat
+        )
+        subtitleInput.mediaTimeScale = 600
+        subtitleInput.languageCode = "eng"
+        subtitleInput.extendedLanguageTag = "en-US"
+        subtitleInput.metadata = trackMetadata(title: "English subtitles")
+        let captionInput = AVAssetWriterInput(
+            mediaType: .closedCaption,
+            outputSettings: nil,
+            sourceFormatHint: captionFormat
+        )
+        captionInput.mediaTimeScale = 600
+        captionInput.languageCode = "eng"
+        captionInput.extendedLanguageTag = "en-US"
+        captionInput.metadata = trackMetadata(title: "CEA-608 captions")
+        for input in [primary.input, subtitleInput, captionInput] {
+            guard writer.availableMediaTypes.contains(input.mediaType),
+                  writer.canAdd(input) else {
+                throw TrackMigrationFixtureErrorV4.writer(
+                    "Writer rejected composite \(input.mediaType.rawValue)."
+                )
+            }
+            writer.add(input)
+        }
+        guard writer.startWriting() else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                writer.error?.localizedDescription
+                    ?? "Composite legible writer did not start."
+            )
+        }
+        writer.startSession(atSourceTime: .zero)
+        let duration = CMTime(
+            value: CMTimeValue(frameCount),
+            timescale: frameRate
+        )
+        let subtitleText = Data("ASH subtitle".utf8)
+        let subtitleLength = UInt16(subtitleText.count).bigEndian
+        var subtitleData = withUnsafeBytes(of: subtitleLength) { Data($0) }
+        subtitleData.append(subtitleText)
+        try await append(
+            try makeEncodedSampleBuffer(
+                data: subtitleData,
+                format: subtitleFormat,
+                duration: duration
+            ),
+            to: subtitleInput,
+            writer: writer
+        )
+        let captionData = Data([
+            0x00, 0x00, 0x00, 0x0C,
+            0x63, 0x64, 0x61, 0x74,
+            0x94, 0x20, 0xC8, 0xC9
+        ])
+        try await append(
+            try makeEncodedSampleBuffer(
+                data: captionData,
+                format: captionFormat,
+                duration: duration
+            ),
+            to: captionInput,
+            writer: writer
+        )
+        subtitleInput.markAsFinished()
+        captionInput.markAsFinished()
+        for frameIndex in 0..<frameCount {
+            try await appendFrame(
+                lane: primary,
+                frameIndex: frameIndex,
+                time: CMTime(
+                    value: CMTimeValue(frameIndex),
+                    timescale: frameRate
+                ),
+                writer: writer
+            )
+        }
+        primary.input.markAsFinished()
+        writer.endSession(atSourceTime: duration)
+        await withCheckedContinuation { continuation in
+            writer.finishWriting { continuation.resume() }
+        }
+        guard writer.status == .completed else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                writer.error?.localizedDescription
+                    ?? "Composite legible writer did not finish."
+            )
+        }
+    }
+}
+
 private enum M7MediaCaptureError: Error {
     case missingEnvironment(String)
     case invalidJSON(String)
@@ -828,6 +626,7 @@ private enum M7MediaCaptureError: Error {
     case coreMedia(OSStatus)
     case reader
     case writer
+    case invalidProductionRoute
 }
 
 private enum M7MediaJSON {
@@ -891,7 +690,7 @@ private enum M7MediaHDR {
                 maximumContentLightLevel: 1_000,
                 maximumFrameAverageLightLevel: 400
             ),
-            ambientViewingEnvironment: AmbientViewingEnvironmentV4(
+            ambientViewingEnvironment: try AmbientViewingEnvironmentV4(
                 ambientIlluminance: 123_456,
                 ambientLight: try HDRChromaticityV4(
                     x: 15_635,
@@ -903,9 +702,24 @@ private enum M7MediaHDR {
     }
 
     static func dynamicMetadata(seed: UInt8) throws -> HDRDynamicMetadataV4 {
-        HDRDynamicMetadataV4(
+        // Standards-valid SMPTE ST 2094-40 Application 4, Version 1
+        // metadata carried as registered ITU-T T.35 user data. The complete
+        // 64-byte payload is deliberately stable across frames; the sample
+        // timeline supplies the per-frame identity while allowing the
+        // preservation qualification to compare exact metadata bytes.
+        let hdr10PlusPayload = Data([
+            0xB5, 0x00, 0x3C, 0x00, 0x01, 0x04, 0x01, 0x40,
+            0x00, 0x0C, 0x80, 0x3C, 0xB0, 0x19, 0xBD, 0x0D,
+            0x80, 0x00, 0x41, 0xE4, 0x08, 0x00, 0x00, 0x28,
+            0x5F, 0x00, 0x50, 0x01, 0x70, 0xC8, 0x00, 0x05,
+            0x90, 0x00, 0x12, 0x58, 0x01, 0xAE, 0xD0, 0x0B,
+            0x5A, 0xF8, 0x1B, 0xE3, 0x18, 0x5B, 0x4C, 0x00,
+            0x42, 0x90, 0x3C, 0x24, 0x8F, 0x4A, 0x9B, 0xF9,
+            0x42, 0xDB, 0xD8, 0x37, 0xBE, 0x57, 0xAA, 0x00
+        ])
+        return HDRDynamicMetadataV4(
             hdr10Plus: try HDR10PlusMetadataV4(
-                ituTT35Payload: Data([0xB5, 0x00, seed, seed &+ 1])
+                ituTT35Payload: hdr10PlusPayload
             ),
             postDecodeProcessing: try PostDecodeProcessingMetadataV4(
                 propertyList: NSDictionary(dictionary: [
@@ -934,697 +748,23 @@ private enum M7MediaHDR {
             let components = width * (plane == 0 ? 1 : 2)
             for y in 0..<height {
                 for x in 0..<components {
-                    let code: Int
-                    if plane == 0 {
-                        code = 64 + ((y * width + x + frame * 131) % 877)
-                    } else {
-                        code = 64 + ((y * components + x + frame * 173) % 897)
-                    }
+                    // Keep the compressed/decompressed fixture well inside
+                    // legal P010 video range. Values at the 64/940 and
+                    // 64/960 endpoints can ring outside the admitted signal
+                    // interval after HEVC encoding even though the source
+                    // buffer itself is legal.
+                    let phase = (
+                        y * (plane == 0 ? 3 : 7)
+                            + x * (plane == 0 ? 5 : 11)
+                            + frame * (plane == 0 ? 17 : 19)
+                    ) % 512
+                    let triangle = phase <= 255 ? phase : 511 - phase
+                    let code = plane == 0
+                        ? 256 + triangle * 2
+                        : 384 + triangle
                     base[y * stride + x] = UInt16(code << 6)
                 }
             }
         }
-    }
-}
-
-private enum M7MediaObserver {
-    struct MetadataIdentities {
-        let asset: String
-        let chapter: String
-    }
-
-    struct SideCapture {
-        let enabledTrackCount: Int
-        let descriptors: [String: Any]
-        let pixelObservation: [String: Any]
-    }
-
-    static func captureSide(
-        fixtureID: String,
-        side: String,
-        mediaURL: URL,
-        directory: URL,
-        repeatVisibleSHA256: [Int: String],
-        preEncodeAlphaSHA256: [Int: String],
-        metadata: MetadataIdentities?
-    ) async throws -> SideCapture {
-        let asset = AVURLAsset(
-            url: mediaURL,
-            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
-        )
-        let graph = try await AVFoundationTrackGraphAdapterV4.probe(asset: asset)
-        let tracks = try trackObservation(
-            fixtureID: fixtureID,
-            side: side,
-            graph: graph,
-            metadata: metadata
-        )
-        let timing = try await timingObservation(
-            fixtureID: fixtureID,
-            side: side,
-            asset: asset
-        )
-        let pixelResult = try await pixelObservation(
-            fixtureID: fixtureID,
-            side: side,
-            asset: asset,
-            directory: directory,
-            repeatVisibleSHA256: repeatVisibleSHA256,
-            preEncodeAlphaSHA256: preEncodeAlphaSHA256
-        )
-        let attachments = try await attachmentObservation(
-            fixtureID: fixtureID,
-            side: side,
-            mediaURL: mediaURL,
-            asset: asset
-        )
-        let trackURL = directory.appendingPathComponent(
-            "track-observation.json"
-        )
-        let timingURL = directory.appendingPathComponent(
-            "timing-observation.json"
-        )
-        let pixelURL = directory.appendingPathComponent(
-            "pixel-observation.json"
-        )
-        let attachmentURL = directory.appendingPathComponent(
-            "attachment-observation.json"
-        )
-        try M7MediaJSON.write(tracks, to: trackURL)
-        try M7MediaJSON.write(timing, to: timingURL)
-        try M7MediaJSON.write(pixelResult.observation, to: pixelURL)
-        try M7MediaJSON.write(attachments, to: attachmentURL)
-        return SideCapture(
-            enabledTrackCount: tracks["enabledTrackCount"] as! Int,
-            descriptors: [
-                "media": try artifact(mediaURL, root: directory
-                    .deletingLastPathComponent().deletingLastPathComponent()
-                    .deletingLastPathComponent()),
-                "trackObservation": try artifact(trackURL, root: directory
-                    .deletingLastPathComponent().deletingLastPathComponent()
-                    .deletingLastPathComponent()),
-                "timingObservation": try artifact(timingURL, root: directory
-                    .deletingLastPathComponent().deletingLastPathComponent()
-                    .deletingLastPathComponent()),
-                "pixels": try artifact(pixelResult.url, root: directory
-                    .deletingLastPathComponent().deletingLastPathComponent()
-                    .deletingLastPathComponent()),
-                "pixelObservation": try artifact(pixelURL, root: directory
-                    .deletingLastPathComponent().deletingLastPathComponent()
-                    .deletingLastPathComponent()),
-                "attachmentObservation": try artifact(
-                    attachmentURL,
-                    root: directory.deletingLastPathComponent()
-                        .deletingLastPathComponent()
-                        .deletingLastPathComponent()
-                )
-            ],
-            pixelObservation: pixelResult.observation
-        )
-    }
-
-    static func pixelIdentities(at mediaURL: URL) async throws -> [Int: String] {
-        let temporary = FileManager.default.temporaryDirectory
-            .appendingPathComponent("mirmir-m7-repeat-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(
-            at: temporary,
-            withIntermediateDirectories: true
-        )
-        defer { try? FileManager.default.removeItem(at: temporary) }
-        let asset = AVURLAsset(url: mediaURL)
-        return try await pixelObservation(
-            fixtureID: "repeat",
-            side: "output",
-            asset: asset,
-            directory: temporary,
-            repeatVisibleSHA256: [:],
-            preEncodeAlphaSHA256: [:]
-        ).identities
-    }
-
-    static func visibleIdentities(_ observation: [String: Any]) -> [Int: String] {
-        guard let tracks = observation["tracks"] as? [[String: Any]] else {
-            return [:]
-        }
-        return Dictionary(uniqueKeysWithValues: tracks.compactMap { track in
-            guard let ordinal = track["ordinal"] as? Int,
-                  let identity = track["visibleSHA256"] as? String else {
-                return nil
-            }
-            return (ordinal, identity)
-        })
-    }
-
-    private static func trackObservation(
-        fixtureID: String,
-        side: String,
-        graph: MediaTrackGraphV4,
-        metadata: MetadataIdentities?
-    ) throws -> [String: Any] {
-        let ordinalByID = Dictionary(
-            uniqueKeysWithValues: graph.tracks.map {
-                ($0.identity.stableID, Int($0.identity.ordinal))
-            }
-        )
-        let tracks: [[String: Any]] = try graph.tracks.map { track in
-            [
-                "ordinal": Int(track.identity.ordinal),
-                "kind": track.kind.rawValue,
-                "enabled": track.enabled,
-                "mediaTypeID": track.sourceMediaTypeID,
-                "codecID": track.formatDescriptors.first?.mediaSubtypeID
-                    ?? "unknown",
-                "languageCode": track.language.languageCode ?? NSNull(),
-                "extendedLanguageTag": track.language.extendedLanguageTag
-                    ?? NSNull(),
-                "roleIDs": track.roleIDs,
-                "timebase": track.timebase.description,
-                "timeRangeSHA256": try encodableHash(track.timeRange),
-                "editsSHA256": try encodableHash(track.edits),
-                "formatSHA256": try encodableHash(track.formatDescriptors),
-                "metadataSHA256": track.metadataFingerprint.rawValue
-            ]
-        }
-        let groups: [[String: Any]] = graph.groups.map { group in
-            [
-                "ordinal": Int(group.identity.ordinal),
-                "kind": group.kind.rawValue,
-                "memberOrdinals": group.memberTrackIDs.compactMap {
-                    ordinalByID[$0]
-                },
-                "defaultOrdinal": group.defaultTrackID.flatMap {
-                    ordinalByID[$0]
-                } ?? NSNull(),
-                "allowsEmptySelection": group.allowsEmptySelection
-            ]
-        }
-        let associations: [[String: Any]] = graph.associations.map {
-            association in
-            [
-                "ordinal": Int(association.ordinal),
-                "sourceOrdinal": ordinalByID[
-                    association.sourceTrackID
-                ]!,
-                "targetOrdinal": ordinalByID[
-                    association.targetTrackID
-                ]!,
-                "kind": association.kind.rawValue
-            ]
-        }
-        let empty = ASHSHA256V4(rawData: Data()).rawValue
-        return [
-            "schemaVersion": "mirmir-ash-v4-track-observation-v1",
-            "fixtureID": fixtureID,
-            "side": side,
-            "enabledTrackCount": graph.tracks.filter(\.enabled).count,
-            "tracks": tracks,
-            "groups": groups,
-            "associations": associations,
-            "assetMetadataSHA256": metadata?.asset ?? empty,
-            "chapterMetadataSHA256": metadata?.chapter ?? empty
-        ]
-    }
-
-    private static func timingObservation(
-        fixtureID: String,
-        side: String,
-        asset: AVAsset
-    ) async throws -> [String: Any] {
-        let assetTracks = try await asset.load(.tracks)
-        var rows: [[String: Any]] = []
-        for (ordinal, track) in assetTracks.enumerated() {
-            let reader = try AVAssetReader(asset: asset)
-            let output = AVAssetReaderTrackOutput(
-                track: track,
-                outputSettings: nil
-            )
-            output.alwaysCopiesSampleData = false
-            guard reader.canAdd(output) else {
-                throw M7MediaCaptureError.reader
-            }
-            reader.add(output)
-            guard reader.startReading() else {
-                throw M7MediaCaptureError.reader
-            }
-            var samples: [[String: Any]] = []
-            while let sample = output.copyNextSampleBuffer() {
-                let payload = try encodedPayload(sample)
-                samples.append([
-                    "pts": rational(
-                        CMSampleBufferGetPresentationTimeStamp(sample)
-                    ),
-                    "dts": rationalOrInvalid(
-                        CMSampleBufferGetDecodeTimeStamp(sample)
-                    ),
-                    "duration": rational(
-                        CMSampleBufferGetDuration(sample)
-                    ),
-                    "byteCount": payload.count,
-                    "payloadSHA256": ASHSHA256V4(rawData: payload).rawValue
-                ])
-            }
-            guard reader.status == .completed else {
-                throw M7MediaCaptureError.reader
-            }
-            let timings = samples.map { sample in
-                [
-                    "pts": sample["pts"]!,
-                    "dts": sample["dts"]!,
-                    "duration": sample["duration"]!
-                ]
-            }
-            rows.append([
-                "ordinal": ordinal,
-                "sampleCount": samples.count,
-                "timingSHA256": try M7MediaJSON.hash(timings),
-                "encodedPayloadSHA256": try M7MediaJSON.hash(
-                    samples.map { $0["payloadSHA256"]! }
-                ),
-                "samples": samples
-            ])
-        }
-        return [
-            "schemaVersion": "mirmir-ash-v4-timing-observation-v1",
-            "fixtureID": fixtureID,
-            "side": side,
-            "tracks": rows
-        ]
-    }
-
-    private struct PixelResult {
-        let url: URL
-        let observation: [String: Any]
-        let identities: [Int: String]
-    }
-
-    private static func pixelObservation(
-        fixtureID: String,
-        side: String,
-        asset: AVAsset,
-        directory: URL,
-        repeatVisibleSHA256: [Int: String],
-        preEncodeAlphaSHA256: [Int: String]
-    ) async throws -> PixelResult {
-        let graph = try await AVFoundationTrackGraphAdapterV4.probe(asset: asset)
-        let canonical = try await AVCanonicalMediaStateAdapterV4().probe(
-            .init(
-                url: (asset as! AVURLAsset).url,
-                bookmarkReference: "m7-media-capture",
-                bookmarkDocumentSHA256: ASHSHA256V4(
-                    rawData: Data("m7-media-capture-bookmark".utf8)
-                ),
-                scanDynamicHDRMetadata: true
-            )
-        ).requireAdmittedState()
-        var artifact = Data()
-        var rows: [[String: Any]] = []
-        var identities: [Int: String] = [:]
-        let tracks = try await asset.load(.tracks)
-        for (ordinal, track) in tracks.enumerated() {
-            guard graph.tracks[ordinal].kind == .video else { continue }
-            let canonicalVideo = canonical.tracks[ordinal].video!
-            let pixelFormat: OSType = canonicalVideo.pixel.alphaModel == .none
-                ? (canonicalVideo.pixel.bitDepth == 10
-                    ? kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange
-                    : kCVPixelFormatType_32BGRA)
-                : kCVPixelFormatType_32BGRA
-            let reader = try AVAssetReader(asset: asset)
-            let output = AVAssetReaderTrackOutput(
-                track: track,
-                outputSettings: [
-                    kCVPixelBufferPixelFormatTypeKey as String: pixelFormat
-                ]
-            )
-            output.alwaysCopiesSampleData = true
-            guard reader.canAdd(output) else {
-                throw M7MediaCaptureError.reader
-            }
-            reader.add(output)
-            guard reader.startReading() else {
-                throw M7MediaCaptureError.reader
-            }
-            var visible = Data()
-            var alpha = Data()
-            var codes = Set<UInt16>()
-            var lowPaddingViolations = 0
-            var frameCount = 0
-            var width = 0
-            var height = 0
-            while let sample = output.copyNextSampleBuffer() {
-                guard let buffer = CMSampleBufferGetImageBuffer(sample) else {
-                    throw M7MediaCaptureError.reader
-                }
-                width = CVPixelBufferGetWidth(buffer)
-                height = CVPixelBufferGetHeight(buffer)
-                let bytes = try visibleBytes(buffer)
-                visible.append(bytes)
-                artifact.append(bytes)
-                if canonicalVideo.pixel.alphaModel != .none {
-                    alpha.append(try Alpha4444PixelBufferAccessV4
-                        .alphaPlaneBytes(buffer, layout: .bgra8))
-                }
-                if canonicalVideo.pixel.bitDepth == 10 {
-                    try collectP010(
-                        buffer,
-                        codes: &codes,
-                        lowPaddingViolations: &lowPaddingViolations
-                    )
-                }
-                frameCount += 1
-            }
-            guard reader.status == .completed else {
-                throw M7MediaCaptureError.reader
-            }
-            let visibleSHA = ASHSHA256V4(rawData: visible).rawValue
-            let alphaSHA = alpha.isEmpty
-                ? nil : ASHSHA256V4(rawData: alpha).rawValue
-            identities[ordinal] = visibleSHA
-            let preEncode = preEncodeAlphaSHA256[ordinal]
-            rows.append([
-                "ordinal": ordinal,
-                "kind": "video",
-                "pixelFormat": fourCC(pixelFormat),
-                "bitDepth": Int(canonicalVideo.pixel.bitDepth),
-                "width": width,
-                "height": height,
-                "frameCount": frameCount,
-                "visibleSHA256": visibleSHA,
-                "repeatVisibleSHA256": repeatVisibleSHA256[ordinal]
-                    ?? visibleSHA,
-                "alphaSHA256": alphaSHA ?? NSNull(),
-                "preEncodeAlphaSHA256": preEncode ?? NSNull(),
-                "decodedAlphaSHA256": alphaSHA ?? NSNull(),
-                "uniqueSignalCodeCount": canonicalVideo.pixel.bitDepth == 10
-                    ? codes.count : 0,
-                "lowPaddingBitViolationCount": lowPaddingViolations
-            ])
-        }
-        let artifactURL = directory.appendingPathComponent("pixels.bin")
-        try artifact.write(to: artifactURL, options: .atomic)
-        return PixelResult(
-            url: artifactURL,
-            observation: [
-                "schemaVersion": "mirmir-ash-v4-pixel-observation-v1",
-                "fixtureID": fixtureID,
-                "side": side,
-                "pixelArtifactSHA256": ASHSHA256V4(
-                    rawData: artifact
-                ).rawValue,
-                "pixelArtifactByteCount": artifact.count,
-                "tracks": rows
-            ],
-            identities: identities
-        )
-    }
-
-    private static func attachmentObservation(
-        fixtureID: String,
-        side: String,
-        mediaURL: URL,
-        asset: AVAsset
-    ) async throws -> [String: Any] {
-        let canonical = try await AVCanonicalMediaStateAdapterV4().probe(
-            .init(
-                url: mediaURL,
-                bookmarkReference: "m7-media-attachments",
-                bookmarkDocumentSHA256: ASHSHA256V4(
-                    rawData: Data("m7-media-attachments-bookmark".utf8)
-                ),
-                scanDynamicHDRMetadata: true
-            )
-        ).requireAdmittedState()
-        let tracks = try await asset.load(.tracks)
-        var rows: [[String: Any]] = []
-        for (ordinal, canonicalTrack) in canonical.tracks.enumerated() {
-            guard let video = canonicalTrack.video else { continue }
-            let dynamic = try await dynamicMetadata(
-                asset: asset,
-                track: tracks[ordinal],
-                pixelFormat: video.pixel.bitDepth == 10
-                    ? kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange
-                    : kCVPixelFormatType_32BGRA
-            )
-            let clean: CanonicalRationalRectV4
-            if let cleanAperture = video.cleanAperture {
-                clean = cleanAperture
-            } else {
-                clean = CanonicalRationalRectV4(
-                    origin: CanonicalRationalPointV4(x: .zero, y: .zero),
-                    size: CanonicalRationalSizeV4(
-                        width: try ExactRationalV4(video.encodedRaster.width),
-                        height: try ExactRationalV4(video.encodedRaster.height)
-                    )
-                )
-            }
-            let detail: String
-            let cadence: String
-            switch video.scan.dominance {
-            case .topFieldFirst:
-                detail = "temporal_top_first"
-                cadence = "interlaced_tff_2_fields_per_sample"
-            case .bottomFieldFirst:
-                detail = "temporal_bottom_first"
-                cadence = "interlaced_bff_2_fields_per_sample"
-            case .none:
-                detail = "progressive"
-                cadence = side == "output" && fixtureID
-                    == "combined-p010-hdr-interlaced"
-                    ? "progressive_double_rate" : "progressive"
-            case .unknown:
-                detail = "unknown"
-                cadence = "unknown"
-            }
-            rows.append([
-                "ordinal": ordinal,
-                "kind": "video",
-                "fieldCount": Int(video.scan.fieldCount),
-                "fieldDetail": detail,
-                "cadence": cadence,
-                "pixelAspectRatio": [
-                    "horizontal": Int(video.pixelAspectRatio.numerator),
-                    "vertical": Int(video.pixelAspectRatio.denominator)
-                ],
-                "cleanAperture": [
-                    "width": clean.size.width.description,
-                    "height": clean.size.height.description,
-                    "horizontalOffset": clean.origin.x.description,
-                    "verticalOffset": clean.origin.y.description
-                ],
-                "preferredTransform": [
-                    video.preferredTransform.a.description,
-                    video.preferredTransform.b.description,
-                    video.preferredTransform.c.description,
-                    video.preferredTransform.d.description,
-                    video.preferredTransform.tx.description,
-                    video.preferredTransform.ty.description
-                ],
-                "colorPrimaries": video.color.primaries,
-                "transferFunction": video.color.transferFunction,
-                "yCbCrMatrix": video.color.matrix,
-                "masteringDisplaySHA256": try video.color.masteringDisplay
-                    .map(encodableHash) ?? NSNull(),
-                "contentLightSHA256": try video.color.contentLightLevel
-                    .map(encodableHash) ?? NSNull(),
-                "dynamicHDRSamples": dynamic,
-                "alphaAssociation": video.pixel.alphaModel == .none
-                    ? NSNull() : video.pixel.alphaModel.rawValue
-            ])
-        }
-        return [
-            "schemaVersion": "mirmir-ash-v4-attachment-observation-v1",
-            "fixtureID": fixtureID,
-            "side": side,
-            "tracks": rows
-        ]
-    }
-
-    private static func dynamicMetadata(
-        asset: AVAsset,
-        track: AVAssetTrack,
-        pixelFormat: OSType
-    ) async throws -> [[String: Any]] {
-        let reader = try AVAssetReader(asset: asset)
-        let output = AVAssetReaderTrackOutput(
-            track: track,
-            outputSettings: [
-                kCVPixelBufferPixelFormatTypeKey as String: pixelFormat
-            ]
-        )
-        guard reader.canAdd(output) else { throw M7MediaCaptureError.reader }
-        reader.add(output)
-        guard reader.startReading() else { throw M7MediaCaptureError.reader }
-        var result: [[String: Any]] = []
-        var ordinal = 0
-        while let sample = output.copyNextSampleBuffer() {
-            if let value = try AVFoundationHDRMetadataAdapterV4
-                .probeDynamicMetadata(from: sample) {
-                result.append([
-                    "sampleOrdinal": ordinal,
-                    "pts": rational(
-                        CMSampleBufferGetPresentationTimeStamp(sample)
-                    ),
-                    "hdr10PlusSHA256": value.hdr10Plus.map {
-                        ASHSHA256V4(rawData: $0.ituTT35Payload).rawValue
-                    } ?? NSNull(),
-                    "postDecodeSHA256": value.postDecodeProcessing.map {
-                        ASHSHA256V4(
-                            rawData: $0.binaryPropertyList
-                        ).rawValue
-                    } ?? NSNull()
-                ])
-            }
-            ordinal += 1
-        }
-        guard reader.status == .completed else {
-            throw M7MediaCaptureError.reader
-        }
-        return result
-    }
-
-    private static func artifact(_ url: URL, root: URL) throws
-        -> [String: Any] {
-        let data = try Data(contentsOf: url)
-        let rootPath = root.standardizedFileURL.path
-        let filePath = url.standardizedFileURL.path
-        guard filePath.hasPrefix(rootPath + "/") else {
-            throw M7MediaCaptureError.invalidJSON("artifact path")
-        }
-        return [
-            "path": String(filePath.dropFirst(rootPath.count + 1)),
-            "byteCount": data.count,
-            "sha256": ASHSHA256V4(rawData: data).rawValue
-        ]
-    }
-
-    private static func encodableHash<T: Encodable>(_ value: T) throws
-        -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        return ASHSHA256V4(rawData: try encoder.encode(value)).rawValue
-    }
-
-    private static func encodedPayload(_ sample: CMSampleBuffer) throws
-        -> Data {
-        guard let block = CMSampleBufferGetDataBuffer(sample) else {
-            if let image = CMSampleBufferGetImageBuffer(sample) {
-                return try visibleBytes(image)
-            }
-            return Data()
-        }
-        let length = CMBlockBufferGetDataLength(block)
-        var data = Data(count: length)
-        let status = data.withUnsafeMutableBytes { bytes in
-            CMBlockBufferCopyDataBytes(
-                block,
-                atOffset: 0,
-                dataLength: length,
-                destination: bytes.baseAddress!
-            )
-        }
-        guard status == kCMBlockBufferNoErr else {
-            throw M7MediaCaptureError.coreMedia(status)
-        }
-        return data
-    }
-
-    private static func visibleBytes(_ buffer: CVPixelBuffer) throws -> Data {
-        let status = CVPixelBufferLockBaseAddress(buffer, .readOnly)
-        guard status == kCVReturnSuccess else {
-            throw M7MediaCaptureError.coreVideo(status)
-        }
-        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
-        var result = Data()
-        let planeCount = CVPixelBufferIsPlanar(buffer)
-            ? CVPixelBufferGetPlaneCount(buffer) : 1
-        for plane in 0..<planeCount {
-            let base: UnsafeMutableRawPointer?
-            let height: Int
-            let activeBytes: Int
-            let rowBytes: Int
-            if CVPixelBufferIsPlanar(buffer) {
-                base = CVPixelBufferGetBaseAddressOfPlane(buffer, plane)
-                height = CVPixelBufferGetHeightOfPlane(buffer, plane)
-                let width = CVPixelBufferGetWidthOfPlane(buffer, plane)
-                activeBytes = width * (plane == 0 ? 2 : 4)
-                rowBytes = CVPixelBufferGetBytesPerRowOfPlane(buffer, plane)
-            } else {
-                base = CVPixelBufferGetBaseAddress(buffer)
-                height = CVPixelBufferGetHeight(buffer)
-                activeBytes = CVPixelBufferGetWidth(buffer) * 4
-                rowBytes = CVPixelBufferGetBytesPerRow(buffer)
-            }
-            guard let base else { throw M7MediaCaptureError.reader }
-            for y in 0..<height {
-                result.append(
-                    base.advanced(by: y * rowBytes)
-                        .assumingMemoryBound(to: UInt8.self),
-                    count: activeBytes
-                )
-            }
-        }
-        return result
-    }
-
-    private static func collectP010(
-        _ buffer: CVPixelBuffer,
-        codes: inout Set<UInt16>,
-        lowPaddingViolations: inout Int
-    ) throws {
-        let status = CVPixelBufferLockBaseAddress(buffer, .readOnly)
-        guard status == kCVReturnSuccess else {
-            throw M7MediaCaptureError.coreVideo(status)
-        }
-        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
-        for plane in 0..<2 {
-            let width = CVPixelBufferGetWidthOfPlane(buffer, plane)
-            let height = CVPixelBufferGetHeightOfPlane(buffer, plane)
-            let stride = CVPixelBufferGetBytesPerRowOfPlane(buffer, plane) / 2
-            let components = width * (plane == 0 ? 1 : 2)
-            guard let base = CVPixelBufferGetBaseAddressOfPlane(buffer, plane)?
-                .assumingMemoryBound(to: UInt16.self) else {
-                throw M7MediaCaptureError.reader
-            }
-            for y in 0..<height {
-                for x in 0..<components {
-                    let word = base[y * stride + x]
-                    if word & 0x003F != 0 { lowPaddingViolations += 1 }
-                    codes.insert(word >> 6)
-                }
-            }
-        }
-    }
-
-    private static func rationalOrInvalid(_ time: CMTime) -> String {
-        time.isNumeric ? rational(time) : "invalid"
-    }
-
-    private static func rational(_ time: CMTime) -> String {
-        precondition(time.isNumeric && time.timescale > 0)
-        var numerator = time.value
-        var denominator = Int64(time.timescale)
-        let divisor = gcd(abs(numerator), denominator)
-        numerator /= divisor
-        denominator /= divisor
-        return denominator == 1 ? "\(numerator)" : "\(numerator)/\(denominator)"
-    }
-
-    private static func gcd(_ first: Int64, _ second: Int64) -> Int64 {
-        var left = first
-        var right = second
-        while right != 0 {
-            (left, right) = (right, left % right)
-        }
-        return max(left, 1)
-    }
-
-    private static func fourCC(_ value: OSType) -> String {
-        let bytes = [
-            UInt8((value >> 24) & 0xFF),
-            UInt8((value >> 16) & 0xFF),
-            UInt8((value >> 8) & 0xFF),
-            UInt8(value & 0xFF)
-        ]
-        return String(bytes: bytes, encoding: .macOSRoman)
-            ?? String(format: "%08x", value)
     }
 }

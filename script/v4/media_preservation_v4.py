@@ -11,34 +11,107 @@ same comparisons again from the sealed artifacts.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 from fractions import Fraction
 import hashlib
+import importlib.util
 import json
+import os
 from pathlib import Path, PurePosixPath
 import shutil
+import stat
 import sys
 import tempfile
 from typing import Any, Iterable, Mapping
+import zipfile
 
 
 SCRIPT_DIRECTORY = Path(__file__).resolve().parent
 DEFAULT_CONTRACT = SCRIPT_DIRECTORY / "media-preservation-contract-v1.json"
 DEFAULT_RELEASE_CONTRACT = SCRIPT_DIRECTORY / "release-qualification-contract-v1.json"
 CONTRACT_SCHEMA = "mirmir-ash-v4-media-preservation-contract-v1"
-CAPTURE_SCHEMA = "mirmir-ash-v4-media-preservation-capture-v1"
-REPORT_SCHEMA = "mirmir-ash-v4-media-preservation-report-v1"
+CAPTURE_SCHEMA = "mirmir-ash-v4-media-preservation-capture-v2"
+REPORT_SCHEMA = "mirmir-ash-v4-media-preservation-report-v2"
 SIDE_MANIFEST_SCHEMA = "mirmir-ash-v4-media-side-manifest-v1"
 VERIFIER_SCHEMA = "mirmir-ash-v4-media-semantic-verifier-v1"
-SEALED_MANIFEST_SCHEMA = "mirmir-ash-v4-media-preservation-sealed-manifest-v1"
-TRACK_SCHEMA = "mirmir-ash-v4-track-observation-v1"
+SEALED_MANIFEST_SCHEMA = "mirmir-ash-v4-media-preservation-sealed-manifest-v2"
+TRACK_SCHEMA = "mirmir-ash-v4-track-observation-v2"
 TIMING_SCHEMA = "mirmir-ash-v4-timing-observation-v1"
-PIXEL_SCHEMA = "mirmir-ash-v4-pixel-observation-v1"
+PIXEL_SCHEMA = "mirmir-ash-v4-pixel-observation-v2"
 ATTACHMENT_SCHEMA = "mirmir-ash-v4-attachment-observation-v1"
+ROUTE_SCHEMA = "mirmir-ash-v4-media-production-route-receipt-v2"
+EXECUTION_RECEIPT_SCHEMA = "ash.deterministic-media-execution-receipt.v4.1"
+PREFLIGHT_SCHEMA = "mirmir-ash-v4-media-independent-preflight-v2"
+EXPECTED_PREPARED_BACKEND_TYPE_BY_FIXTURE = {
+    "combined-p010-hdr-interlaced": "Mirmir.PreparedDeterministicV4Upscaler",
+    "combined-alpha-geometry-straight":
+        "Mirmir.PreparedDeterministicAlphaPlanningBackendV4",
+    "combined-alpha-geometry-premultiplied":
+        "Mirmir.PreparedDeterministicAlphaPlanningBackendV4",
+    "rich-track-graph": "Mirmir.PreparedDeterministicV4Upscaler",
+    "legible-track-graph": "Mirmir.PreparedDeterministicV4Upscaler",
+    "auxiliary-picture-track": "Mirmir.PreparedDeterministicV4Upscaler",
+}
+PACKAGE_SCHEMA = "mirmir-v4-packaged-candidate-identity-v1"
+ATTESTATION_SCHEMA = "mirmir-v4-release-build-attestation-v1"
+ATTESTATION_PATH = "MirmirV4BuildAttestation.json"
 HEX = frozenset("0123456789abcdef")
+PACKAGED_EVIDENCE_TOOL = SCRIPT_DIRECTORY / "packaged_candidate_evidence_v4.py"
+RELEASE_ARCHIVE_TOOL = SCRIPT_DIRECTORY / "release_candidate_archive_v4.py"
 
 
 class EvidenceError(ValueError):
     """Evidence is stale, malformed, incomplete, or semantically incorrect."""
+
+
+@contextmanager
+def snapshot_application_archive(path: Path) -> Iterable[Path]:
+    """Hold one no-follow descriptor and inspect/copy only its byte snapshot."""
+
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0)
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    descriptor_number = -1
+    try:
+        descriptor_number = os.open(path, flags)
+        before = os.fstat(descriptor_number)
+        require(
+            stat.S_ISREG(before.st_mode) and before.st_nlink == 1,
+            "application archive is not a single-link regular file",
+        )
+        with tempfile.TemporaryDirectory(
+            prefix="mirmir-media-archive-snapshot-"
+        ) as temporary:
+            snapshot = Path(temporary) / "application-archive.zip"
+            byte_count = 0
+            with os.fdopen(os.dup(descriptor_number), "rb") as source, snapshot.open("xb") as target:
+                while True:
+                    block = source.read(1024 * 1024)
+                    if not block:
+                        break
+                    target.write(block)
+                    byte_count += len(block)
+            after = os.fstat(descriptor_number)
+            try:
+                lexical_after = os.stat(path, follow_symlinks=False)
+            except OSError as error:
+                raise EvidenceError(
+                    f"application archive path changed during snapshot: {error}"
+                ) from error
+            require(
+                (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+                == (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+                and (before.st_dev, before.st_ino)
+                == (lexical_after.st_dev, lexical_after.st_ino)
+                and byte_count == before.st_size,
+                "application archive changed during snapshot",
+            )
+            yield snapshot
+    except OSError as error:
+        raise EvidenceError(f"cannot snapshot application archive: {error}") from error
+    finally:
+        if descriptor_number >= 0:
+            os.close(descriptor_number)
 
 
 def reject_duplicate_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -54,14 +127,21 @@ def reject_nonfinite(value: str) -> None:
     raise EvidenceError(f"non-finite JSON number is forbidden: {value}")
 
 
-def load_json(path: Path) -> Any:
+def load_json_bytes(raw: bytes, label: str) -> Any:
     try:
         return json.loads(
-            path.read_text(encoding="utf-8"),
+            raw,
             object_pairs_hook=reject_duplicate_pairs,
             parse_constant=reject_nonfinite,
         )
-    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+    except (UnicodeError, json.JSONDecodeError) as error:
+        raise EvidenceError(f"cannot read canonical JSON {label}: {error}") from error
+
+
+def load_json(path: Path) -> Any:
+    try:
+        return load_json_bytes(path.read_bytes(), str(path))
+    except OSError as error:
         raise EvidenceError(f"cannot read canonical JSON {path}: {error}") from error
 
 
@@ -220,6 +300,159 @@ def candidate_identity(value: Any) -> dict[str, Any]:
     return candidate
 
 
+def validate_packaged_candidate_identity(
+    value: Any,
+    candidate: Mapping[str, Any],
+) -> dict[str, Any]:
+    package = require_mapping(value, "packaged candidate identity")
+    fields = {
+        "schemaVersion", "buildConfiguration", "applicationArchiveSHA256",
+        "applicationPayloadIdentitySHA256", "applicationInfoPlistSHA256",
+        "applicationExecutableSHA256", "codeDirectories",
+        "codeDirectorySetSHA256", "designatedRequirementSHA256",
+        "releaseConfigurationSHA256", "attestationSHA256", "sourceCommit",
+        "sourceTreeIdentitySHA256", "runtimeManifestSHA256",
+        "runtimeManifestFileSHA256", "runtimeArtifactSetSHA256",
+        "runtimeSourceRevision", "bundleIdentifier", "productVersion",
+        "productBuild",
+    }
+    require_exact_keys(package, fields, "packaged candidate identity")
+    require(package["schemaVersion"] == PACKAGE_SCHEMA, "package schema differs")
+    require(package["buildConfiguration"] == "Release", "package is not Release")
+    require_revision(package["sourceCommit"], "package.sourceCommit")
+    runtime_revision = require_string(
+        package["runtimeSourceRevision"], "package.runtimeSourceRevision"
+    )
+    require(
+        len(runtime_revision) in (40, 64) and set(runtime_revision) <= HEX,
+        "package runtime source revision is invalid",
+    )
+    scalar_hashes = fields - {
+        "schemaVersion", "buildConfiguration", "sourceCommit",
+        "runtimeSourceRevision", "bundleIdentifier", "productVersion",
+        "productBuild", "codeDirectories",
+    }
+    for key in scalar_hashes:
+        require_sha256(package[key], f"package.{key}")
+    architectures: list[str] = []
+    for index, raw in enumerate(require_list(
+        package["codeDirectories"], "package.codeDirectories"
+    )):
+        row = require_mapping(raw, f"package.codeDirectories[{index}]")
+        require_exact_keys(row, ("architecture", "sha256"), f"package.codeDirectories[{index}]")
+        architecture = require_string(
+            row["architecture"], f"package.codeDirectories[{index}].architecture"
+        )
+        require(
+            all(character.isalnum() or character == "_" for character in architecture),
+            "package CodeDirectory architecture is invalid",
+        )
+        require_sha256(row["sha256"], f"package.codeDirectories[{index}].sha256")
+        architectures.append(architecture)
+    require(
+        architectures == ["arm64", "x86_64"],
+        "package CodeDirectories must be exactly arm64 and x86_64",
+    )
+    for key in ("bundleIdentifier", "productVersion", "productBuild"):
+        require_string(package[key], f"package.{key}")
+    projection = {
+        "sourceCommit": package["sourceCommit"],
+        "sourceTreeIdentitySHA256": package["sourceTreeIdentitySHA256"],
+        "runtimeManifestSHA256": package["runtimeManifestSHA256"],
+        "runtimeManifestFileSHA256": package["runtimeManifestFileSHA256"],
+        "runtimeArtifactSetSHA256": package["runtimeArtifactSetSHA256"],
+        "runtimeSourceRevision": package["runtimeSourceRevision"],
+        "releaseConfigurationSHA256": package["releaseConfigurationSHA256"],
+        "appBundleSHA256": package["applicationArchiveSHA256"],
+        "bundleIdentifier": package["bundleIdentifier"],
+        "productVersion": package["productVersion"],
+        "productBuild": package["productBuild"],
+    }
+    require(projection == candidate, "package differs from candidate identity")
+    return dict(package)
+
+
+def inspect_packaged_candidate(
+    archive_path: Path,
+    candidate: Mapping[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any], bytes]:
+    """Parse/rehash a stable archive snapshot; clean-build replay is separate."""
+    require(
+        archive_path.is_file() and not archive_path.is_symlink(),
+        "application archive is missing, symbolic, or non-regular",
+    )
+    archive_sha = sha256_file(archive_path)
+    require(
+        archive_sha == candidate["appBundleSHA256"],
+        "application archive differs from candidate identity",
+    )
+    try:
+        with zipfile.ZipFile(archive_path) as archive:
+            matches = [
+                item for item in archive.infolist()
+                if item.filename == ATTESTATION_PATH
+            ]
+            require(
+                len(matches) == 1 and not matches[0].is_dir(),
+                "application archive attestation is missing or repeated",
+            )
+            require(
+                matches[0].file_size <= 16 * 1024 * 1024,
+                "application archive attestation is oversized",
+            )
+            attestation_bytes = archive.read(matches[0])
+    except (OSError, RuntimeError, zipfile.BadZipFile, KeyError) as error:
+        raise EvidenceError(f"cannot inspect application archive: {error}") from error
+    attestation = require_mapping(
+        load_json_bytes(attestation_bytes, "application archive attestation"),
+        "application archive attestation",
+    )
+    require(
+        canonical_bytes(attestation) == attestation_bytes,
+        "application archive attestation is not canonical JSON",
+    )
+    require(
+        attestation.get("schemaVersion") == ATTESTATION_SCHEMA
+        and attestation.get("buildConfiguration") == "Release"
+        and attestation.get("hashAlgorithm") == "sha256",
+        "application archive attestation header differs",
+    )
+    application = require_mapping(attestation.get("application"), "attested application")
+    payload = require_mapping(attestation.get("archivePayload"), "attested archive payload")
+    source = require_mapping(attestation.get("source"), "attested source")
+    runtime = require_mapping(attestation.get("runtime"), "attested runtime")
+    release = require_mapping(
+        attestation.get("releaseConfiguration"), "attested release configuration"
+    )
+    package = {
+        "schemaVersion": PACKAGE_SCHEMA,
+        "buildConfiguration": attestation["buildConfiguration"],
+        "applicationArchiveSHA256": archive_sha,
+        "applicationPayloadIdentitySHA256": payload.get("identitySHA256"),
+        "applicationInfoPlistSHA256": application.get("infoPlistSHA256"),
+        "applicationExecutableSHA256": application.get("executableSHA256"),
+        "codeDirectories": application.get("codeDirectories"),
+        "codeDirectorySetSHA256": application.get("codeDirectorySetSHA256"),
+        "designatedRequirementSHA256": application.get("designatedRequirementSHA256"),
+        "releaseConfigurationSHA256": release.get("sha256"),
+        "attestationSHA256": sha256_bytes(attestation_bytes),
+        "sourceCommit": source.get("commit"),
+        "sourceTreeIdentitySHA256": source.get("treeIdentitySHA256"),
+        "runtimeManifestSHA256": runtime.get("manifestSHA256"),
+        "runtimeManifestFileSHA256": runtime.get("manifestFileSHA256"),
+        "runtimeArtifactSetSHA256": runtime.get("artifactSetSHA256"),
+        "runtimeSourceRevision": runtime.get("sourceRevision"),
+        "bundleIdentifier": application.get("bundleIdentifier"),
+        "productVersion": application.get("productVersion"),
+        "productBuild": application.get("productBuild"),
+    }
+    return (
+        validate_packaged_candidate_identity(package, candidate),
+        attestation,
+        attestation_bytes,
+    )
+
+
 def load_contract(path: Path) -> tuple[dict[str, Any], str]:
     contract = require_mapping(load_json(path), "media-preservation contract")
     require(contract.get("schemaVersion") == CONTRACT_SCHEMA, "unsupported media-preservation contract")
@@ -236,11 +469,32 @@ def load_contract(path: Path) -> tuple[dict[str, Any], str]:
         coverage = require_list(fixture["coverage"], f"contract fixture {identifier}.coverage")
         require(coverage and len(coverage) == len(set(coverage)), f"contract fixture {identifier} coverage is empty/repeated")
         covered.update(coverage)
-        require(fixture["policy"] in {"p010_field_normalization", "alpha_geometry", "exact_pass_through"}, f"contract fixture {identifier} policy is invalid")
+        require(
+            fixture["policy"] in {
+                "p010_field_normalization",
+                "alpha_geometry",
+                "process_primary_preserve_auxiliary",
+            },
+            f"contract fixture {identifier} policy is invalid",
+        )
     require("combined_p010_hdr_interlaced" in covered and "combined_alpha_geometry" in covered, "mandatory combined fixtures are absent")
     capture = require_mapping(contract.get("capture"), "contract.capture")
+    require_exact_keys(
+        capture,
+        {
+            "buildConfiguration", "captureSourceSHA256",
+            "evaluatorSHA256", "fixtureSourceSHA256", "runnerSHA256",
+            "packagedEvidenceToolSHA256",
+            "releaseCandidateArchiveToolSHA256", "observerSourceSHA256",
+        },
+        "contract.capture",
+    )
     require(capture.get("buildConfiguration") == "Release", "capture must be Release")
-    for key in ("captureSourceSHA256", "evaluatorSHA256", "fixtureSourceSHA256", "runnerSHA256"):
+    for key in (
+        "captureSourceSHA256", "evaluatorSHA256", "fixtureSourceSHA256",
+        "runnerSHA256", "packagedEvidenceToolSHA256",
+        "releaseCandidateArchiveToolSHA256", "observerSourceSHA256",
+    ):
         require_sha256(capture.get(key), f"contract.capture.{key}")
     return contract, sha256_file(path)
 
@@ -293,12 +547,13 @@ def validate_track_observation(value: Mapping[str, Any], label: str) -> dict[int
         require_exact_keys(
             track,
             (
-                "ordinal", "kind", "enabled", "mediaTypeID", "codecID", "languageCode",
+                "ordinal", "stableID", "kind", "enabled", "mediaTypeID", "codecID", "languageCode",
                 "extendedLanguageTag", "roleIDs", "timebase", "timeRangeSHA256", "editsSHA256",
                 "formatSHA256", "metadataSHA256",
             ),
             f"{label}.track[{ordinal}]",
         )
+        require_string(track["stableID"], f"{label}.track[{ordinal}].stableID")
         require_string(track["kind"], f"{label}.track[{ordinal}].kind")
         require_bool(track["enabled"], f"{label}.track[{ordinal}].enabled")
         enabled += int(track["enabled"])
@@ -349,8 +604,10 @@ def validate_pixel_observation(value: Mapping[str, Any], pixel_path: Path, label
             track,
             (
                 "ordinal", "kind", "pixelFormat", "bitDepth", "width", "height", "frameCount",
-                "visibleSHA256", "repeatVisibleSHA256", "alphaSHA256", "preEncodeAlphaSHA256",
-                "decodedAlphaSHA256", "uniqueSignalCodeCount", "lowPaddingBitViolationCount",
+                "visibleSHA256", "repeatVisibleSHA256", "alphaSHA256",
+                "alphaFrameSHA256", "preEncodeAlphaFrameSHA256",
+                "repeatPreEncodeAlphaFrameSHA256", "decodedAlphaSHA256",
+                "uniqueSignalCodeCount", "lowPaddingBitViolationCount",
             ),
             f"{label}.track[{ordinal}]",
         )
@@ -360,9 +617,22 @@ def validate_pixel_observation(value: Mapping[str, Any], pixel_path: Path, label
             require_integer(track[key], f"{label}.track[{ordinal}].{key}")
         require_sha256(track["visibleSHA256"], f"{label}.track[{ordinal}].visibleSHA256")
         require_sha256(track["repeatVisibleSHA256"], f"{label}.track[{ordinal}].repeatVisibleSHA256")
-        for key in ("alphaSHA256", "preEncodeAlphaSHA256", "decodedAlphaSHA256"):
+        for key in ("alphaSHA256", "decodedAlphaSHA256"):
             if track[key] is not None:
                 require_sha256(track[key], f"{label}.track[{ordinal}].{key}")
+        for key in (
+            "alphaFrameSHA256", "preEncodeAlphaFrameSHA256",
+            "repeatPreEncodeAlphaFrameSHA256",
+        ):
+            frames = require_list(track[key], f"{label}.track[{ordinal}].{key}")
+            require(
+                len(frames) in {0, track["frameCount"]},
+                f"{label}.track[{ordinal}].{key} frame count differs",
+            )
+            for index, identity in enumerate(frames):
+                require_sha256(
+                    identity, f"{label}.track[{ordinal}].{key}[{index}]"
+                )
     return tracks
 
 
@@ -372,8 +642,8 @@ def validate_attachment_observation(value: Mapping[str, Any], label: str) -> dic
     required = (
         "ordinal", "kind", "fieldCount", "fieldDetail", "cadence", "pixelAspectRatio",
         "cleanAperture", "preferredTransform", "colorPrimaries", "transferFunction",
-        "yCbCrMatrix", "masteringDisplaySHA256", "contentLightSHA256", "dynamicHDRSamples",
-        "alphaAssociation",
+        "yCbCrMatrix", "masteringDisplaySHA256", "contentLightSHA256",
+        "ambientViewingEnvironmentSHA256", "dynamicHDRSamples", "alphaAssociation",
     )
     for ordinal, track in tracks.items():
         require_exact_keys(track, required, f"{label}.track[{ordinal}]")
@@ -392,10 +662,10 @@ def validate_attachment_observation(value: Mapping[str, Any], label: str) -> dic
         require(len(transform) == 6, f"{label}.track[{ordinal}] transform must have six values")
         for index, item in enumerate(transform):
             require_fraction(item, f"{label}.track[{ordinal}].preferredTransform[{index}]")
-        for key in ("colorPrimaries", "transferFunction", "yCbCrMatrix", "masteringDisplaySHA256", "contentLightSHA256", "alphaAssociation"):
+        for key in ("colorPrimaries", "transferFunction", "yCbCrMatrix", "masteringDisplaySHA256", "contentLightSHA256", "ambientViewingEnvironmentSHA256", "alphaAssociation"):
             if track[key] is not None:
                 require_string(track[key], f"{label}.track[{ordinal}].{key}")
-        for key in ("masteringDisplaySHA256", "contentLightSHA256"):
+        for key in ("masteringDisplaySHA256", "contentLightSHA256", "ambientViewingEnvironmentSHA256"):
             if track[key] is not None:
                 require_sha256(track[key], f"{label}.track[{ordinal}].{key}")
         dynamic = require_list(track["dynamicHDRSamples"], f"{label}.track[{ordinal}].dynamicHDRSamples")
@@ -432,7 +702,7 @@ def scale_geometry(input_track: Mapping[str, Any], output_track: Mapping[str, An
     require(target_transform[5] == source_transform[5] * height_scale, f"{label} transform y translation was not scaled")
 
 
-def compare_exact_pass_through(
+def compare_processed_primary_preservation(
     fixture_id: str,
     input_track: Mapping[str, Any],
     output_track: Mapping[str, Any],
@@ -443,27 +713,708 @@ def compare_exact_pass_through(
     input_attachments: Mapping[int, Mapping[str, Any]],
     output_attachments: Mapping[int, Mapping[str, Any]],
 ) -> None:
-    # The observation envelope records which side was inspected.  Side is not
-    # media semantics, so compare exact observations after normalizing only
-    # that provenance field.
-    normalized_input_track = {**input_track, "side": "normalized"}
-    normalized_output_track = {**output_track, "side": "normalized"}
-    require(canonical_bytes(normalized_input_track) == canonical_bytes(normalized_output_track), f"{fixture_id} track semantics differ")
+    input_tracks = index_tracks(input_track, f"{fixture_id}.input.track")
+    output_tracks = index_tracks(output_track, f"{fixture_id}.output.track")
+    input_primary, _ = first_video(input_tracks, f"{fixture_id} input")
+    output_primary, _ = first_video(output_tracks, f"{fixture_id} output")
+    require(input_primary == output_primary, f"{fixture_id} primary video ordinal differs")
+    require(set(input_tracks) == set(output_tracks), f"{fixture_id} track inventory differs")
+    for key in (
+        "groups", "associations", "assetMetadataSHA256",
+        "chapterMetadataSHA256",
+    ):
+        require(
+            canonical_bytes(input_track[key]) == canonical_bytes(output_track[key]),
+            f"{fixture_id} protected asset semantics differ: {key}",
+        )
+    protected_primary_keys = {
+        "ordinal", "kind", "enabled", "mediaTypeID", "languageCode",
+        "extendedLanguageTag", "roleIDs", "timebase", "timeRangeSHA256",
+        "editsSHA256", "metadataSHA256",
+    }
+    require(
+        {key: input_tracks[input_primary][key] for key in protected_primary_keys}
+        == {key: output_tracks[output_primary][key] for key in protected_primary_keys},
+        f"{fixture_id} processed primary changed protected track semantics",
+    )
+    for ordinal in input_tracks:
+        if ordinal != input_primary:
+            require(
+                canonical_bytes({
+                    key: value
+                    for key, value in input_tracks[ordinal].items()
+                    if key != "stableID"
+                }) == canonical_bytes({
+                    key: value
+                    for key, value in output_tracks[ordinal].items()
+                    if key != "stableID"
+                }),
+                f"{fixture_id} auxiliary track {ordinal} semantics differ",
+            )
     require(set(input_timing) == set(output_timing), f"{fixture_id} timing track inventory differs")
     for ordinal in input_timing:
-        require(input_timing[ordinal]["timingSHA256"] == output_timing[ordinal]["timingSHA256"], f"{fixture_id} track {ordinal} timing differs")
-        require(input_timing[ordinal]["encodedPayloadSHA256"] == output_timing[ordinal]["encodedPayloadSHA256"], f"{fixture_id} track {ordinal} encoded samples differ")
+        if ordinal == input_primary:
+            source_samples = input_timing[ordinal]["samples"]
+            target_samples = output_timing[ordinal]["samples"]
+            require(
+                [
+                    (sample["pts"], sample["duration"])
+                    for sample in source_samples
+                ]
+                == [
+                    (sample["pts"], sample["duration"])
+                    for sample in target_samples
+                ],
+                f"{fixture_id} processed primary presentation timing differs",
+            )
+        else:
+            require(
+                input_timing[ordinal]["timingSHA256"]
+                == output_timing[ordinal]["timingSHA256"],
+                f"{fixture_id} auxiliary track {ordinal} timing differs",
+            )
+            require(
+                input_timing[ordinal]["encodedPayloadSHA256"]
+                == output_timing[ordinal]["encodedPayloadSHA256"],
+                f"{fixture_id} auxiliary track {ordinal} encoded samples differ",
+            )
     require(set(input_attachments) == set(output_attachments), f"{fixture_id} attachment inventory differs")
     for ordinal in input_attachments:
-        require(canonical_bytes(input_attachments[ordinal]) == canonical_bytes(output_attachments[ordinal]), f"{fixture_id} track {ordinal} attachments differ")
+        if ordinal != input_primary:
+            require(canonical_bytes(input_attachments[ordinal]) == canonical_bytes(output_attachments[ordinal]), f"{fixture_id} auxiliary track {ordinal} attachments differ")
     require(set(input_pixels) == set(output_pixels), f"{fixture_id} decoded-pixel inventory differs")
     for ordinal in input_pixels:
-        require(input_pixels[ordinal]["visibleSHA256"] == output_pixels[ordinal]["visibleSHA256"], f"{fixture_id} track {ordinal} decoded pixels differ")
+        if ordinal != input_primary:
+            require(input_pixels[ordinal]["visibleSHA256"] == output_pixels[ordinal]["visibleSHA256"], f"{fixture_id} auxiliary track {ordinal} decoded pixels differ")
+
+
+def validate_production_route(
+    fixture_id: str,
+    production_value: Any,
+    candidate: Mapping[str, Any],
+    capture_binding: Mapping[str, Any],
+    observations: Mapping[str, Mapping[str, Any]],
+    runtime_provenance_sha256: str,
+) -> str:
+    production = require_mapping(production_value, f"{fixture_id}.production")
+    require_exact_keys(
+        production,
+        ("runtimeManifestSHA256", "routeReceipt"),
+        f"{fixture_id}.production",
+    )
+    require(
+        production["runtimeManifestSHA256"] == candidate["runtimeManifestSHA256"],
+        f"{fixture_id} used another runtime",
+    )
+    route = require_mapping(
+        production["routeReceipt"], f"{fixture_id}.production.routeReceipt"
+    )
+    route_keys = {
+        "schemaVersion", "entryPoint", "executionProducer",
+        "dispatchRequirement", "planEvidenceBoundary",
+        "evidenceRequestSHA256", "evidenceNonceSHA256",
+        "applicationArchiveSHA256", "applicationExecutableSHA256",
+        "sourceTreeIdentitySHA256", "independentPreflight",
+        "repeatIndependentPreflight", "executionReceipt",
+        "repeatExecutionReceipt", "independentPreflightSHA256",
+        "repeatIndependentPreflightSHA256", "executionReceiptSHA256",
+        "repeatExecutionReceiptSHA256", "inputEnabledTrackCount",
+        "outputEnabledTrackCount", "routeProofSHA256",
+    }
+    require_exact_keys(route, route_keys, f"{fixture_id}.production.routeReceipt")
+    require(
+        route["schemaVersion"] == ROUTE_SCHEMA
+        and route["entryPoint"]
+        == "VideoProcessingSession.processWithDeterministicV4ExecutionReceipt"
+        and route["executionProducer"] == "exact_archived_mirmir_executable"
+        and route["dispatchRequirement"]
+        == "PreparedDeterministicV4RuntimePlanningBackend"
+        and route["planEvidenceBoundary"]
+        == "actual_session_receipt_matched_independent_preflight",
+        f"{fixture_id} did not identify the exact shipping receipt boundary",
+    )
+    for key, expected in (
+        ("evidenceRequestSHA256", capture_binding["evidenceRequestSHA256"]),
+        ("evidenceNonceSHA256", capture_binding["evidenceNonceSHA256"]),
+        (
+            "applicationArchiveSHA256",
+            capture_binding["packagedCandidateIdentity"][
+                "applicationArchiveSHA256"
+            ],
+        ),
+        (
+            "applicationExecutableSHA256",
+            capture_binding["packagedCandidateIdentity"][
+                "applicationExecutableSHA256"
+            ],
+        ),
+        ("sourceTreeIdentitySHA256", candidate["sourceTreeIdentitySHA256"]),
+    ):
+        require_sha256(route[key], f"{fixture_id}.{key}")
+        require(route[key] == expected, f"{fixture_id} route binding differs: {key}")
+
+    preflight_keys = {
+        "schemaVersion", "preparedBackendType", "executor",
+        "requestedBackendID", "ashPlanSHA256", "runtimeManifestSHA256",
+        "runtimeProvenanceSHA256", "trackPlanSHA256",
+        "sourceGraphSHA256", "migrationBlueprintSHA256",
+        "primaryTrackOrdinal", "plannedTracks", "targetWidth",
+        "targetHeight", "sourceVideoTrackCount", "sourceAudioTrackCount",
+        "plannedEnabledTrackCount",
+    }
+    receipt_keys = {
+        "schemaID", "preparedBackendType", "executor", "requestedBackendID",
+        "actualBackendID", "ashPlanSHA256", "runtimeManifestSHA256",
+        "runtimeProvenanceSHA256", "trackPlanSHA256",
+        "sourceGraphSHA256", "migrationSourceGraphSHA256",
+        "migrationPlanSHA256", "migrationBlueprintSHA256",
+        "sourceAssetMetadataSHA256", "outputAssetMetadataSHA256",
+        "sourceChapterMetadataSHA256", "outputChapterMetadataSHA256",
+        "outputGraphSHA256", "semanticVerificationSHA256",
+        "primaryTrackOrdinal", "plannedTracks", "migratedTracks",
+        "targetWidth", "targetHeight", "encodedWidth", "encodedHeight",
+        "processedFrameCount", "sourceVideoTrackCount",
+        "sourceAudioTrackCount", "plannedEnabledTrackCount",
+        "alphaVerification",
+    }
+    first_preflight = require_mapping(
+        route["independentPreflight"], f"{fixture_id}.independentPreflight"
+    )
+    repeat_preflight = require_mapping(
+        route["repeatIndependentPreflight"],
+        f"{fixture_id}.repeatIndependentPreflight",
+    )
+    for label, preflight in (
+        ("independentPreflight", first_preflight),
+        ("repeatIndependentPreflight", repeat_preflight),
+    ):
+        require_exact_keys(preflight, preflight_keys, f"{fixture_id}.{label}")
+        require(
+            preflight["schemaVersion"] == PREFLIGHT_SCHEMA,
+            f"{fixture_id} {label} schema differs",
+        )
+    require(
+        first_preflight == repeat_preflight,
+        f"{fixture_id} independent preflight is not repeatable",
+    )
+    expected_backend = EXPECTED_PREPARED_BACKEND_TYPE_BY_FIXTURE[fixture_id]
+    require(
+        first_preflight["preparedBackendType"] == expected_backend,
+        f"{fixture_id} prepared backend does not match the locked fixture route",
+    )
+    require(
+        require_sha256(
+            first_preflight["runtimeManifestSHA256"],
+            f"{fixture_id}.runtimeManifestSHA256",
+        ) == candidate["runtimeManifestSHA256"]
+        and require_sha256(
+            first_preflight["runtimeProvenanceSHA256"],
+            f"{fixture_id}.runtimeProvenanceSHA256",
+        ) == runtime_provenance_sha256,
+        f"{fixture_id} independent preflight runtime binding differs",
+    )
+
+    input_tracks = observations["inputTracks"]
+    output_tracks = observations["outputTracks"]
+    input_primary, _ = first_video(input_tracks, f"{fixture_id} input")
+    output_primary, _ = first_video(output_tracks, f"{fixture_id} output")
+    require(input_primary == output_primary, f"{fixture_id} primary ordinal differs")
+    expected_planned: list[dict[str, Any]] = []
+    for ordinal in sorted(input_tracks):
+        track = input_tracks[ordinal]
+        expected_planned.append({
+            "ordinal": ordinal,
+            "stableID": track["stableID"],
+            "kind": track["kind"],
+            "action": "process" if ordinal == input_primary else "pass_through",
+        })
+    planned_rows = require_list(
+        first_preflight["plannedTracks"], f"{fixture_id}.plannedTracks"
+    )
+    projected: list[dict[str, Any]] = []
+    for index, raw in enumerate(planned_rows):
+        row = require_mapping(raw, f"{fixture_id}.plannedTracks[{index}]")
+        require_exact_keys(
+            row, ("ordinal", "stableID", "kind", "action"),
+            f"{fixture_id}.plannedTracks[{index}]",
+        )
+        require_string(row["stableID"], f"{fixture_id}.plannedTracks[{index}].stableID")
+        projected.append({
+            key: row[key]
+            for key in ("ordinal", "stableID", "kind", "action")
+        })
+    require(projected == expected_planned, f"{fixture_id} planned actions differ")
+
+    input_track_observation = observations["inputTrackObservation"]
+    output_track_observation = observations["outputTrackObservation"]
+    output_pixels = observations["outputPixels"]
+    output_timing = observations["outputTiming"]
+    output_attachments = observations["outputAttachments"]
+    output_pixel = output_pixels[output_primary]
+    input_enabled = input_track_observation["enabledTrackCount"]
+    output_enabled = output_track_observation["enabledTrackCount"]
+
+    def validate_receipt(
+        value: Any, label: str, expected_alpha_frames: list[str]
+    ) -> Mapping[str, Any]:
+        receipt = require_mapping(value, f"{fixture_id}.{label}")
+        require_exact_keys(receipt, receipt_keys, f"{fixture_id}.{label}")
+        require(
+            receipt["schemaID"] == EXECUTION_RECEIPT_SCHEMA
+            and receipt["preparedBackendType"] == expected_backend
+            and receipt["executor"] == "cpu_fixed_point"
+            and receipt["requestedBackendID"] == "mirmirDeterministicCPU"
+            and receipt["actualBackendID"] == "mirmirDeterministicCPU",
+            f"{fixture_id} {label} backend route differs",
+        )
+        for receipt_key, preflight_key in (
+            ("preparedBackendType", "preparedBackendType"),
+            ("executor", "executor"),
+            ("requestedBackendID", "requestedBackendID"),
+            ("ashPlanSHA256", "ashPlanSHA256"),
+            ("runtimeManifestSHA256", "runtimeManifestSHA256"),
+            ("runtimeProvenanceSHA256", "runtimeProvenanceSHA256"),
+            ("trackPlanSHA256", "trackPlanSHA256"),
+            ("sourceGraphSHA256", "sourceGraphSHA256"),
+            ("migrationBlueprintSHA256", "migrationBlueprintSHA256"),
+            ("primaryTrackOrdinal", "primaryTrackOrdinal"),
+            ("plannedTracks", "plannedTracks"),
+            ("targetWidth", "targetWidth"),
+            ("targetHeight", "targetHeight"),
+            ("sourceVideoTrackCount", "sourceVideoTrackCount"),
+            ("sourceAudioTrackCount", "sourceAudioTrackCount"),
+            ("plannedEnabledTrackCount", "plannedEnabledTrackCount"),
+        ):
+            require(
+                receipt[receipt_key] == first_preflight[preflight_key],
+                f"{fixture_id} {label} differs from independent preflight: {receipt_key}",
+            )
+        require(
+            receipt["migrationSourceGraphSHA256"] == receipt["sourceGraphSHA256"]
+            and receipt["migrationPlanSHA256"] == receipt["trackPlanSHA256"],
+            f"{fixture_id} {label} internal plan receipt differs",
+        )
+        for key in (
+            "ashPlanSHA256", "runtimeManifestSHA256",
+            "runtimeProvenanceSHA256", "trackPlanSHA256",
+            "sourceGraphSHA256",
+            "migrationSourceGraphSHA256", "migrationPlanSHA256",
+            "migrationBlueprintSHA256", "sourceAssetMetadataSHA256",
+            "outputAssetMetadataSHA256", "sourceChapterMetadataSHA256",
+            "outputChapterMetadataSHA256", "outputGraphSHA256",
+            "semanticVerificationSHA256",
+        ):
+            require_sha256(receipt[key], f"{fixture_id}.{label}.{key}")
+        require(
+            receipt["sourceAssetMetadataSHA256"]
+            == input_track_observation["assetMetadataSHA256"]
+            and receipt["outputAssetMetadataSHA256"]
+            == output_track_observation["assetMetadataSHA256"]
+            and receipt["sourceChapterMetadataSHA256"]
+            == input_track_observation["chapterMetadataSHA256"]
+            and receipt["outputChapterMetadataSHA256"]
+            == output_track_observation["chapterMetadataSHA256"],
+            f"{fixture_id} {label} actual metadata receipt differs",
+        )
+        require(
+            require_integer(receipt["primaryTrackOrdinal"], f"{fixture_id}.{label}.primary")
+            == input_primary
+            and require_integer(receipt["targetWidth"], f"{fixture_id}.{label}.width", 1)
+            == require_integer(receipt["encodedWidth"], f"{fixture_id}.{label}.encodedWidth", 1)
+            == output_pixel["width"]
+            and require_integer(receipt["targetHeight"], f"{fixture_id}.{label}.height", 1)
+            == require_integer(receipt["encodedHeight"], f"{fixture_id}.{label}.encodedHeight", 1)
+            == output_pixel["height"]
+            and require_integer(receipt["processedFrameCount"], f"{fixture_id}.{label}.frames", 1)
+            == output_timing[output_primary]["sampleCount"]
+            and require_integer(receipt["plannedEnabledTrackCount"], f"{fixture_id}.{label}.enabled", 1)
+            == input_enabled,
+            f"{fixture_id} {label} output/count receipt differs",
+        )
+        migrated_rows = require_list(
+            receipt["migratedTracks"], f"{fixture_id}.{label}.migratedTracks"
+        )
+        expected_migrated = [
+            row for row in planned_rows if row["action"] != "drop_with_consent"
+        ]
+        require(
+            len(migrated_rows) == len(expected_migrated),
+            f"{fixture_id} {label} migrated inventory count differs",
+        )
+        for index, (raw_migrated, planned) in enumerate(
+            zip(migrated_rows, expected_migrated)
+        ):
+            migrated = require_mapping(
+                raw_migrated, f"{fixture_id}.{label}.migratedTracks[{index}]"
+            )
+            require_exact_keys(
+                migrated,
+                {
+                    "stableID", "action", "migratedSampleCount",
+                    "sourceSampleStreamSHA256", "outputSampleStreamSHA256",
+                },
+                f"{fixture_id}.{label}.migratedTracks[{index}]",
+            )
+            require(
+                migrated["stableID"] == planned["stableID"]
+                and migrated["action"] == planned["action"],
+                f"{fixture_id} {label} migrated stable-ID/action order differs",
+            )
+            ordinal = require_integer(
+                planned["ordinal"], f"{fixture_id}.{label}.plannedOrdinal"
+            )
+            require(
+                require_integer(
+                    migrated["migratedSampleCount"],
+                    f"{fixture_id}.{label}.migratedTracks[{index}].sampleCount",
+                ) == output_timing[ordinal]["sampleCount"],
+                f"{fixture_id} {label} migrated sample count differs",
+            )
+            source_stream = migrated["sourceSampleStreamSHA256"]
+            output_stream = migrated["outputSampleStreamSHA256"]
+            if planned["action"] == "pass_through":
+                require(
+                    require_sha256(
+                        source_stream,
+                        f"{fixture_id}.{label}.migratedTracks[{index}].sourceStream",
+                    ) == require_sha256(
+                        output_stream,
+                        f"{fixture_id}.{label}.migratedTracks[{index}].outputStream",
+                    ),
+                    f"{fixture_id} {label} pass-through stream identity differs",
+                )
+            else:
+                require(
+                    source_stream is None and output_stream is None,
+                    f"{fixture_id} {label} non-pass-through stream hashes are invalid",
+                )
+        alpha = receipt["alphaVerification"]
+        if expected_alpha_frames:
+            alpha = require_mapping(alpha, f"{fixture_id}.{label}.alphaVerification")
+            require_exact_keys(
+                alpha,
+                {
+                    "schemaID", "codec", "association", "inputLayout",
+                    "width", "height", "encodedFormat", "frames",
+                },
+                f"{fixture_id}.{label}.alphaVerification",
+            )
+            require(
+                alpha["schemaID"] == "ash.alpha-video-writer-verification.v4.1"
+                and alpha["codec"] == "proRes4444"
+                and alpha["association"]
+                == output_attachments[output_primary]["alphaAssociation"]
+                and alpha["inputLayout"] == "bgra8"
+                and alpha["width"] == output_pixel["width"]
+                and alpha["height"] == output_pixel["height"],
+                f"{fixture_id} {label} alpha verification header differs",
+            )
+            frames = require_list(alpha["frames"], f"{fixture_id}.{label}.alpha.frames")
+            expected_samples = output_timing[output_primary]["samples"]
+            require(
+                len(frames) == len(expected_alpha_frames) == len(expected_samples),
+                f"{fixture_id} {label} alpha frame inventory differs",
+            )
+            source_frames: list[str] = []
+            for index, raw in enumerate(frames):
+                frame = require_mapping(raw, f"{fixture_id}.{label}.alpha.frames[{index}]")
+                require_exact_keys(
+                    frame,
+                    {
+                        "ordinal", "presentationTime", "alphaByteCount",
+                        "sourceAlphaSHA256", "decodedAlphaSHA256",
+                    },
+                    f"{fixture_id}.{label}.alpha.frames[{index}]",
+                )
+                require(
+                    require_integer(
+                        frame["ordinal"],
+                        f"{fixture_id}.{label}.alpha.frames[{index}].ordinal",
+                    ) == index,
+                    f"{fixture_id} {label} alpha frame ordinal differs",
+                )
+                require(
+                    require_integer(
+                        frame["alphaByteCount"],
+                        f"{fixture_id}.{label}.alpha.frames[{index}].byteCount",
+                        1,
+                    ) == output_pixel["width"] * output_pixel["height"],
+                    f"{fixture_id} {label} alpha byte count differs",
+                )
+                presentation = require_mapping(
+                    frame["presentationTime"],
+                    f"{fixture_id}.{label}.alpha.frames[{index}].presentationTime",
+                )
+                require_exact_keys(
+                    presentation,
+                    ("numerator", "denominator"),
+                    f"{fixture_id}.{label}.alpha.frames[{index}].presentationTime",
+                )
+                numerator = presentation["numerator"]
+                denominator = presentation["denominator"]
+                require(
+                    type(numerator) is int
+                    and type(denominator) is int
+                    and denominator > 0,
+                    f"{fixture_id} {label} alpha presentation rational is invalid",
+                )
+                presentation_value = Fraction(numerator, denominator)
+                require(
+                    presentation_value.numerator == numerator
+                    and presentation_value.denominator == denominator
+                    and presentation_value == require_fraction(
+                        expected_samples[index]["pts"],
+                        f"{fixture_id}.{label}.alpha.expectedPTS[{index}]",
+                    ),
+                    f"{fixture_id} {label} alpha presentation time differs",
+                )
+                source_sha = require_sha256(
+                    frame["sourceAlphaSHA256"],
+                    f"{fixture_id}.{label}.alpha.frames[{index}].source",
+                )
+                decoded_sha = require_sha256(
+                    frame["decodedAlphaSHA256"],
+                    f"{fixture_id}.{label}.alpha.frames[{index}].decoded",
+                )
+                require(source_sha == decoded_sha, f"{fixture_id} {label} alpha frame differs")
+                source_frames.append(source_sha)
+            require(
+                source_frames == expected_alpha_frames,
+                f"{fixture_id} {label} pre-encode alpha evidence differs",
+            )
+        else:
+            require(alpha is None, f"{fixture_id} {label} has unexpected alpha receipt")
+        return receipt
+
+    first_output_alpha = output_pixel["preEncodeAlphaFrameSHA256"]
+    repeat_output_alpha = output_pixel["repeatPreEncodeAlphaFrameSHA256"]
+    first_receipt = validate_receipt(
+        route["executionReceipt"], "executionReceipt", first_output_alpha
+    )
+    repeat_receipt = validate_receipt(
+        route["repeatExecutionReceipt"],
+        "repeatExecutionReceipt",
+        repeat_output_alpha,
+    )
+    require(
+        first_output_alpha == repeat_output_alpha,
+        f"{fixture_id} pre-encode alpha repeat differs",
+    )
+    require(
+        first_receipt == repeat_receipt,
+        f"{fixture_id} actual execution receipt is not repeatable",
+    )
+    for key, value in (
+        ("independentPreflightSHA256", first_preflight),
+        ("repeatIndependentPreflightSHA256", repeat_preflight),
+        ("executionReceiptSHA256", first_receipt),
+        ("repeatExecutionReceiptSHA256", repeat_receipt),
+    ):
+        require(
+            require_sha256(route[key], f"{fixture_id}.{key}")
+            == sha256_bytes(canonical_bytes(value)),
+            f"{fixture_id} rehashed receipt identity differs: {key}",
+        )
+    require(
+        route["independentPreflightSHA256"]
+        == route["repeatIndependentPreflightSHA256"]
+        and route["executionReceiptSHA256"]
+        == route["repeatExecutionReceiptSHA256"],
+        f"{fixture_id} preflight/execution receipt identities differ",
+    )
+    require(
+        require_integer(route["inputEnabledTrackCount"], f"{fixture_id}.inputEnabled", 1)
+        == input_enabled
+        and require_integer(route["outputEnabledTrackCount"], f"{fixture_id}.outputEnabled", 1)
+        == output_enabled,
+        f"{fixture_id} route track accounting differs",
+    )
+    claimed_proof = require_sha256(
+        route["routeProofSHA256"], f"{fixture_id}.routeProofSHA256"
+    )
+    proof_payload = dict(route)
+    del proof_payload["routeProofSHA256"]
+    require(
+        claimed_proof == sha256_bytes(canonical_bytes(proof_payload)),
+        f"{fixture_id} production route proof identity differs",
+    )
+    return claimed_proof
+
+def alpha_axis_samples(source: int, target: int) -> list[tuple[list[int], list[int]]]:
+    require(source > 0 and target >= source, "alpha oracle geometry is invalid")
+    result: list[tuple[list[int], list[int]]] = []
+    for destination in range(target):
+        numerator = (2 * destination + 1) * source - target
+        denominator = 2 * target
+        base, remainder = divmod(numerator, denominator)
+        phase = Fraction(remainder, denominator)
+        n, d = phase.numerator, phase.denominator
+        d2, d3 = d * d, d * d * d
+        n2, n3 = n * n, n * n * n
+        weight_numerators = [
+            -n * d2 + 2 * n2 * d - n3,
+            2 * d3 - 5 * n2 * d + 3 * n3,
+            n * d2 + 4 * n2 * d - 3 * n3,
+            -n2 * d + n3,
+        ]
+        common = 2 * d3
+        require(sum(weight_numerators) == common, "alpha oracle cubic sum differs")
+        floors: list[int] = []
+        fractions: list[int] = []
+        for weight in weight_numerators:
+            quotient, fractional = divmod(weight * (1 << 14), common)
+            floors.append(quotient)
+            fractions.append(fractional)
+        residual = (1 << 14) - sum(floors)
+        require(0 <= residual <= 3, "alpha oracle coefficient residual differs")
+        preferred = [1, 2, 0, 3] if phase <= Fraction(1, 2) else [2, 1, 3, 0]
+        rank = {tap: index for index, tap in enumerate(preferred)}
+        order = sorted(range(4), key=lambda tap: (-fractions[tap], rank[tap]))
+        for tap in order[:residual]:
+            floors[tap] += 1
+
+        def reflect101(index: int) -> int:
+            if source == 1:
+                return 0
+            period = 2 * (source - 1)
+            reflected = index % period
+            return reflected if reflected < source else period - reflected
+
+        indices = [reflect101(base + offset) for offset in (-1, 0, 1, 2)]
+        result.append((indices, floors))
+    return result
+
+
+def round_ties_to_even(value: int, fractional_bits: int) -> int:
+    denominator = 1 << fractional_bits
+    quotient, remainder = divmod(value, denominator)
+    doubled = remainder * 2
+    if doubled < denominator:
+        return quotient
+    if doubled > denominator:
+        return quotient + 1
+    return quotient if quotient % 2 == 0 else quotient + 1
+
+
+def independent_alpha_oracle(
+    source: bytes,
+    source_width: int,
+    source_height: int,
+    target_width: int,
+    target_height: int,
+) -> bytes:
+    require(
+        len(source) == source_width * source_height,
+        "alpha oracle source-plane length differs",
+    )
+    horizontal = alpha_axis_samples(source_width, target_width)
+    vertical = alpha_axis_samples(source_height, target_height)
+    intermediate: list[list[int]] = []
+    for source_y in range(source_height):
+        row: list[int] = []
+        offset = source_y * source_width
+        for indices, coefficients in horizontal:
+            row.append(sum(
+                source[offset + index] * coefficient
+                for index, coefficient in zip(indices, coefficients)
+            ))
+        intermediate.append(row)
+    output = bytearray()
+    for indices, coefficients in vertical:
+        for target_x in range(target_width):
+            accumulator = sum(
+                intermediate[index][target_x] * coefficient
+                for index, coefficient in zip(indices, coefficients)
+            )
+            output.append(min(255, max(0, round_ties_to_even(accumulator, 28))))
+    return bytes(output)
+
+
+def validate_alpha_oracle_input(
+    fixture_id: str,
+    value: Any,
+    capture_root: Path,
+    input_pixel: Mapping[str, Any],
+    output_pixel: Mapping[str, Any],
+) -> list[str]:
+    oracle = require_mapping(value, f"{fixture_id}.alphaOracleInput")
+    require_exact_keys(
+        oracle,
+        {
+            "schemaVersion", "artifact", "frameSHA256", "frameCount",
+            "width", "height", "association",
+        },
+        f"{fixture_id}.alphaOracleInput",
+    )
+    require(
+        oracle["schemaVersion"] == "mirmir-ash-v4-alpha-oracle-input-v1",
+        f"{fixture_id} alpha oracle schema differs",
+    )
+    artifact = require_mapping(
+        oracle["artifact"], f"{fixture_id}.alphaOracleInput.artifact"
+    )
+    require_exact_keys(
+        artifact, {"path", "byteCount", "sha256"},
+        f"{fixture_id}.alphaOracleInput.artifact",
+    )
+    path = checked_file(
+        capture_root,
+        artifact["path"],
+        f"{fixture_id}.alphaOracleInput.artifact",
+    )
+    raw = path.read_bytes()
+    require(
+        len(raw) == require_integer(artifact["byteCount"], f"{fixture_id}.alpha.byteCount", 1)
+        and sha256_bytes(raw) == require_sha256(artifact["sha256"], f"{fixture_id}.alpha.sha256"),
+        f"{fixture_id} alpha oracle artifact differs",
+    )
+    width = require_integer(oracle["width"], f"{fixture_id}.alpha.width", 1)
+    height = require_integer(oracle["height"], f"{fixture_id}.alpha.height", 1)
+    frame_count = require_integer(
+        oracle["frameCount"], f"{fixture_id}.alpha.frameCount", 1
+    )
+    frame_size = width * height
+    require(len(raw) == frame_size * frame_count, f"{fixture_id} alpha oracle length differs")
+    source_frame_sha = require_list(
+        oracle["frameSHA256"], f"{fixture_id}.alpha.frameSHA256"
+    )
+    require(len(source_frame_sha) == frame_count, f"{fixture_id} alpha source frame count differs")
+    for index in range(frame_count):
+        expected = sha256_bytes(raw[index * frame_size:(index + 1) * frame_size])
+        require(
+            require_sha256(source_frame_sha[index], f"{fixture_id}.alpha.source[{index}]") == expected,
+            f"{fixture_id} alpha source frame identity differs",
+        )
+    require(
+        source_frame_sha == input_pixel["alphaFrameSHA256"],
+        f"{fixture_id} independent alpha input differs from decoded source",
+    )
+    target_width = require_integer(output_pixel["width"], f"{fixture_id}.alpha.targetWidth", 1)
+    target_height = require_integer(output_pixel["height"], f"{fixture_id}.alpha.targetHeight", 1)
+    oracle_output = [
+        sha256_bytes(independent_alpha_oracle(
+            raw[index * frame_size:(index + 1) * frame_size],
+            width,
+            height,
+            target_width,
+            target_height,
+        ))
+        for index in range(frame_count)
+    ]
+    require(
+        oracle_output
+        == output_pixel["preEncodeAlphaFrameSHA256"]
+        == output_pixel["repeatPreEncodeAlphaFrameSHA256"]
+        == output_pixel["alphaFrameSHA256"],
+        f"{fixture_id} independent scalar alpha oracle differs from production",
+    )
+    return oracle_output
 
 
 def coverage_checks(
     fixture: Mapping[str, Any],
     observations: Mapping[str, Mapping[str, Any]],
+    capture_root: Path,
 ) -> list[dict[str, Any]]:
     fixture_id = fixture["id"]
     coverage = set(fixture["coverage"])
@@ -482,10 +1433,10 @@ def coverage_checks(
         checks.append({"id": identifier, "pass": True})
 
     policy = fixture["policy"]
-    if policy == "exact_pass_through":
+    if policy == "process_primary_preserve_auxiliary":
         checked(
-            "exact-track-timing-pixel-attachment-pass-through",
-            lambda: compare_exact_pass_through(
+            "processed-primary-exact-auxiliary-preservation",
+            lambda: compare_processed_primary_preservation(
                 fixture_id,
                 observations["inputTrackObservation"],
                 observations["outputTrackObservation"],
@@ -497,7 +1448,11 @@ def coverage_checks(
                 output_attachments,
             ),
         )
-    else:
+    if policy in {
+        "p010_field_normalization",
+        "alpha_geometry",
+        "process_primary_preserve_auxiliary",
+    }:
         input_video_ordinal, input_video = first_video(input_tracks, f"{fixture_id} input")
         output_video_ordinal, output_video = first_video(output_tracks, f"{fixture_id} output")
         require(input_video_ordinal in input_pixels and output_video_ordinal in output_pixels, f"{fixture_id} lacks video pixels")
@@ -529,7 +1484,7 @@ def coverage_checks(
         require(source["colorPrimaries"] == target["colorPrimaries"] == "ITU_R_2020", f"{fixture_id} BT.2020 primaries differ")
         require(source["transferFunction"] == target["transferFunction"] == "SMPTE_ST_2084_PQ", f"{fixture_id} PQ transfer differs")
         require(source["yCbCrMatrix"] == target["yCbCrMatrix"] == "ITU_R_2020", f"{fixture_id} BT.2020 matrix differs")
-        for key in ("masteringDisplaySHA256", "contentLightSHA256"):
+        for key in ("masteringDisplaySHA256", "contentLightSHA256", "ambientViewingEnvironmentSHA256"):
             require(source[key] is not None and source[key] == target[key], f"{fixture_id} static HDR {key} differs")
         input_dynamic = source["dynamicHDRSamples"]
         output_dynamic = target["dynamicHDRSamples"]
@@ -567,10 +1522,28 @@ def coverage_checks(
         output_ordinal, _ = first_video(output_tracks, f"{fixture_id} output")
         require(input_attachments[input_ordinal]["alphaAssociation"] == expected, f"{fixture_id} input alpha association differs")
         require(output_attachments[output_ordinal]["alphaAssociation"] == expected, f"{fixture_id} output alpha association differs")
+        input_pixel = input_pixels[input_ordinal]
         output_pixel = output_pixels[output_ordinal]
-        require(output_pixel["preEncodeAlphaSHA256"] is not None, f"{fixture_id} lacks pre-encode alpha identity")
-        require(output_pixel["preEncodeAlphaSHA256"] == output_pixel["decodedAlphaSHA256"] == output_pixel["alphaSHA256"], f"{fixture_id} ProRes 4444 alpha bytes differ")
-        checks.append({"id": f"exact-prores4444-{expected}-alpha", "pass": True})
+        oracle_output = validate_alpha_oracle_input(
+            fixture_id,
+            fixture["alphaOracleInput"],
+            capture_root,
+            input_pixel,
+            output_pixel,
+        )
+        require(
+            len(oracle_output) == output_pixel["frameCount"],
+            f"{fixture_id} alpha output frame count differs",
+        )
+        checks.append({
+            "id": f"independent-scalar-prores4444-{expected}-alpha",
+            "pass": True,
+        })
+    else:
+        require(
+            fixture["alphaOracleInput"] is None,
+            f"{fixture_id} has unexpected alpha oracle input",
+        )
 
     kinds = [track["kind"] for track in input_tracks.values()]
     output_kinds = [track["kind"] for track in output_tracks.values()]
@@ -608,9 +1581,42 @@ def artifact_set_sha(entries: Iterable[tuple[str, str]]) -> str:
     return digest.hexdigest()
 
 
+def validate_packaged_media_binding(
+    packaged_evidence: Path,
+    capture_root: Path,
+    runtime_manifest_path: Path,
+    packaged_evidence_tool_path: Path,
+) -> dict[str, Any]:
+    specification = importlib.util.spec_from_file_location(
+        "mirmir_packaged_candidate_evidence_v4",
+        packaged_evidence_tool_path,
+    )
+    require(
+        specification is not None and specification.loader is not None,
+        "packaged-evidence verifier cannot be loaded",
+    )
+    module = importlib.util.module_from_spec(specification)
+    specification.loader.exec_module(module)
+    repository = SCRIPT_DIRECTORY.parent.parent
+    binding = module.validate_capture_binding(
+        packaged_evidence,
+        repository,
+        runtime_manifest_path.parent,
+    )
+    require(binding["lane"] == "media", "packaged evidence used another lane")
+    require(
+        (packaged_evidence / "capture").resolve(strict=True)
+        == capture_root.resolve(strict=True),
+        "media capture root differs from packaged evidence",
+    )
+    return binding
+
+
 def evaluate_capture(
     capture_root: Path,
+    packaged_evidence_path: Path,
     candidate_path: Path,
+    application_archive_path: Path,
     output_directory: Path,
     contract_path: Path,
     release_contract_path: Path,
@@ -620,43 +1626,158 @@ def evaluate_capture(
     fixture_source_path: Path,
     evaluator_path: Path,
     runner_path: Path,
+    packaged_evidence_tool_path: Path = PACKAGED_EVIDENCE_TOOL,
+    release_archive_tool_path: Path = RELEASE_ARCHIVE_TOOL,
+    observer_source_path: Path =
+        SCRIPT_DIRECTORY.parent.parent / "Mirmir/App/MirmirApp.swift",
+) -> dict[str, Any]:
+    with snapshot_application_archive(application_archive_path) as snapshot:
+        return _evaluate_capture_snapshot(
+            capture_root,
+            packaged_evidence_path,
+            candidate_path,
+            snapshot,
+            output_directory,
+            contract_path,
+            release_contract_path,
+            runtime_manifest_path,
+            release_configuration_path,
+            capture_source_path,
+            fixture_source_path,
+            evaluator_path,
+            runner_path,
+            packaged_evidence_tool_path,
+            release_archive_tool_path,
+            observer_source_path,
+        )
+
+
+def _evaluate_capture_snapshot(
+    capture_root: Path,
+    packaged_evidence_path: Path,
+    candidate_path: Path,
+    application_archive_path: Path,
+    output_directory: Path,
+    contract_path: Path,
+    release_contract_path: Path,
+    runtime_manifest_path: Path,
+    release_configuration_path: Path,
+    capture_source_path: Path,
+    fixture_source_path: Path,
+    evaluator_path: Path,
+    runner_path: Path,
+    packaged_evidence_tool_path: Path,
+    release_archive_tool_path: Path,
+    observer_source_path: Path,
 ) -> dict[str, Any]:
     contract, contract_sha = load_contract(contract_path)
+    require(
+        release_archive_tool_path.resolve(strict=True)
+        == packaged_evidence_tool_path.resolve(strict=True).with_name(
+            "release_candidate_archive_v4.py"
+        ),
+        "packaged-evidence provenance dependency path differs",
+    )
     release_contract = require_mapping(load_json(release_contract_path), "release contract")
     require(release_contract.get("schemaVersion") == "mirmir-ash-v4-release-qualification-contract-v1", "unsupported release contract")
     release_contract_sha = sha256_file(release_contract_path)
     candidate = candidate_identity(load_json(candidate_path))
+    packaged_candidate, _, attestation_bytes = inspect_packaged_candidate(
+        application_archive_path,
+        candidate,
+    )
+    packaged_binding = validate_packaged_media_binding(
+        packaged_evidence_path,
+        capture_root,
+        runtime_manifest_path,
+        packaged_evidence_tool_path,
+    )
+    require(
+        packaged_binding["candidate"] == candidate
+        and packaged_binding["packageIdentity"] == packaged_candidate,
+        "packaged media candidate identity differs",
+    )
     require(sha256_file(runtime_manifest_path) == candidate["runtimeManifestFileSHA256"], "candidate runtime-manifest file identity differs")
+    runtime_manifest = require_mapping(
+        load_json(runtime_manifest_path), "runtime manifest"
+    )
+    runtime_provenance = require_mapping(
+        runtime_manifest.get("provenance"), "runtime manifest provenance"
+    )
+    runtime_manifest_sha256 = sha256_bytes(
+        b"ash-p06-runtime-manifest-v4\0" + canonical_bytes(runtime_manifest)
+    )
+    runtime_provenance_sha256 = sha256_bytes(
+        b"ash-p06-runtime-provenance-v4\0" + canonical_bytes(runtime_provenance)
+    )
+    require(
+        runtime_manifest_sha256 == candidate["runtimeManifestSHA256"],
+        "candidate runtime-manifest semantic identity differs",
+    )
     require(sha256_file(release_configuration_path) == candidate["releaseConfigurationSHA256"], "candidate release configuration identity differs")
     tool_paths = {
         "captureSourceSHA256": capture_source_path,
         "fixtureSourceSHA256": fixture_source_path,
         "evaluatorSHA256": evaluator_path,
         "runnerSHA256": runner_path,
+        "packagedEvidenceToolSHA256": packaged_evidence_tool_path,
+        "releaseCandidateArchiveToolSHA256": release_archive_tool_path,
+        "observerSourceSHA256": observer_source_path,
     }
     for key, path in tool_paths.items():
         require(sha256_file(path) == contract["capture"][key], f"locked tool identity differs: {key}")
 
     capture = require_mapping(load_json(capture_root / "capture.json"), "capture")
-    require_exact_keys(capture, ("schemaVersion", "suiteID", "laneContractSHA256", "releaseContractSHA256", "candidate", "identities", "buildConfiguration", "fixtures"), "capture")
+    require_exact_keys(
+        capture,
+        {
+            "schemaVersion", "suiteID", "evidenceRequestSHA256",
+            "evidenceNonceSHA256", "observerSourceSHA256",
+            "laneContractSHA256", "fixtureManifestSHA256",
+            "fixtureTreeSHA256", "fixtureSourceSHA256",
+            "generatorSourceSHA256", "packagedCandidateIdentity",
+            "buildConfiguration", "fixtures",
+        },
+        "capture",
+    )
     require(capture["schemaVersion"] == CAPTURE_SCHEMA, "unsupported capture schema")
     require(capture["suiteID"] == contract["suiteID"], "capture suite identity differs")
     require(capture["laneContractSHA256"] == contract_sha, "capture lane contract is stale")
-    require(capture["releaseContractSHA256"] == release_contract_sha, "capture release contract is stale")
-    require(capture["candidate"] == candidate, "capture belongs to another candidate")
     require(capture["buildConfiguration"] == "Release", "capture was not built in Release")
-    identities = require_mapping(capture["identities"], "capture.identities")
-    expected_identities = {
-        **{key: sha256_file(path) for key, path in tool_paths.items()},
-        "sourceCommit": candidate["sourceCommit"],
-        "sourceTreeIdentitySHA256": candidate["sourceTreeIdentitySHA256"],
-        "runtimeManifestSHA256": candidate["runtimeManifestSHA256"],
-        "runtimeManifestFileSHA256": candidate["runtimeManifestFileSHA256"],
-        "runtimeArtifactSetSHA256": candidate["runtimeArtifactSetSHA256"],
-        "runtimeSourceRevision": candidate["runtimeSourceRevision"],
-        "releaseConfigurationSHA256": candidate["releaseConfigurationSHA256"],
-    }
-    require(identities == expected_identities, "capture identities differ from exact candidate/tools")
+    require(
+        capture["packagedCandidateIdentity"] == packaged_candidate
+        and capture["evidenceRequestSHA256"]
+            == packaged_binding["requestSHA256"]
+        and capture["observerSourceSHA256"]
+            == packaged_binding["observerSourceSHA256"]
+            == sha256_file(tool_paths["observerSourceSHA256"]),
+        "capture packaged request/candidate/observer binding differs",
+    )
+    packaged_request = require_mapping(
+        load_json(packaged_evidence_path / "observer/request.json"),
+        "packaged media request",
+    )
+    request_environment = require_mapping(
+        packaged_request.get("captureEnvironment"),
+        "packaged media request environment",
+    )
+    require(
+        capture["evidenceNonceSHA256"]
+            == sha256_bytes(
+                require_string(
+                    packaged_request.get("nonce"), "packaged media nonce"
+                ).encode("utf-8")
+            )
+        and capture["fixtureManifestSHA256"]
+            == request_environment["MIRMIR_V4_MEDIA_FIXTURE_MANIFEST_SHA256"]
+        and capture["fixtureTreeSHA256"]
+            == request_environment["MIRMIR_V4_MEDIA_FIXTURE_TREE_SHA256"]
+        and capture["fixtureSourceSHA256"]
+            == sha256_file(fixture_source_path)
+        and capture["generatorSourceSHA256"]
+            == sha256_file(capture_source_path),
+        "capture nonce/input-tree/source binding differs",
+    )
 
     if output_directory.exists():
         require(output_directory.is_dir() and not any(output_directory.iterdir()), f"refusing to overwrite nonempty output directory: {output_directory}")
@@ -672,13 +1793,22 @@ def evaluate_capture(
         "MediaPreservationCaptureTests.swift": capture_source_path,
         "AVFoundationTrackMigrationExecutorV4Tests.swift": fixture_source_path,
         "media_preservation_v4.py": evaluator_path,
+        "packaged_candidate_evidence_v4.py": packaged_evidence_tool_path,
+        "release_candidate_archive_v4.py": release_archive_tool_path,
+        "MirmirApp.swift": tool_paths["observerSourceSHA256"],
         "run_media_preservation_v4.sh": runner_path,
         "candidate.json": candidate_path,
+        "application-archive.zip": application_archive_path,
     }
     for name, source in binding_sources.items():
         shutil.copyfile(source, binding_directory / name)
+    (binding_directory / ATTESTATION_PATH).write_bytes(attestation_bytes)
+    write_json(
+        binding_directory / "package-identity.json",
+        packaged_candidate,
+    )
     raw_capture_target = output_directory / "raw-capture"
-    shutil.copytree(capture_root, raw_capture_target)
+    shutil.copytree(packaged_evidence_path, raw_capture_target)
 
     expected_fixtures = {fixture["id"]: fixture for fixture in contract["fixtures"]}
     capture_fixtures = require_list(capture["fixtures"], "capture.fixtures")
@@ -688,18 +1818,20 @@ def evaluate_capture(
     total_enabled = 0
     for index, raw_fixture in enumerate(capture_fixtures):
         fixture = require_mapping(raw_fixture, f"capture fixture {index}")
-        require_exact_keys(fixture, ("id", "coverage", "policy", "enabledInputTrackCount", "accountedOutputTrackCount", "production", "input", "output"), f"capture fixture {index}")
+        require_exact_keys(
+            fixture,
+            (
+                "id", "coverage", "policy", "enabledInputTrackCount",
+                "accountedOutputTrackCount", "alphaOracleInput",
+                "production", "input", "output",
+            ),
+            f"capture fixture {index}",
+        )
         fixture_id = require_string(fixture["id"], f"capture fixture {index}.id")
         require(fixture_id not in seen and fixture_id in expected_fixtures, f"unexpected/repeated capture fixture: {fixture_id}")
         seen.add(fixture_id)
         expected = expected_fixtures[fixture_id]
         require(fixture["coverage"] == expected["coverage"] and fixture["policy"] == expected["policy"], f"capture fixture {fixture_id} changed locked coverage/policy")
-        production = require_mapping(fixture["production"], f"capture fixture {fixture_id}.production")
-        require_exact_keys(production, ("releaseQualifiedRuntimeLoaded", "runtimeManifestSHA256", "trustRootConfigured", "requestedRouteExecutedWithoutFallback", "migrationConformant", "repeatedOutputIdentityPass"), f"capture fixture {fixture_id}.production")
-        for key in ("releaseQualifiedRuntimeLoaded", "trustRootConfigured", "requestedRouteExecutedWithoutFallback", "migrationConformant", "repeatedOutputIdentityPass"):
-            require_bool(production[key], f"capture fixture {fixture_id}.production.{key}", True)
-        require(production["runtimeManifestSHA256"] == candidate["runtimeManifestSHA256"], f"capture fixture {fixture_id} used another runtime")
-
         side_values: dict[str, dict[str, Any]] = {}
         side_manifest_paths: dict[str, Path] = {}
         fixture_output = output_directory / "fixtures" / fixture_id
@@ -775,7 +1907,20 @@ def evaluate_capture(
             "inputAttachments": side_values["input"]["attachments"],
             "outputAttachments": side_values["output"]["attachments"],
         }
-        checks = coverage_checks(fixture, observations)
+        production_route_sha = validate_production_route(
+            fixture_id,
+            fixture["production"],
+            candidate,
+            capture,
+            observations,
+            runtime_provenance_sha256,
+        )
+        checks = [
+            {
+                "id": "video-processing-session-deterministic-v4-route",
+                "pass": True,
+            }
+        ] + coverage_checks(fixture, observations, capture_root)
         verifier = {
             "schemaVersion": VERIFIER_SCHEMA,
             "fixtureID": fixture_id,
@@ -784,6 +1929,7 @@ def evaluate_capture(
             "candidateRuntimeManifestSHA256": candidate["runtimeManifestSHA256"],
             "inputManifestSHA256": sha256_file(side_manifest_paths["input"]),
             "outputManifestSHA256": sha256_file(side_manifest_paths["output"]),
+            "productionRouteProofSHA256": production_route_sha,
             "checks": checks,
             "violationCounts": {
                 "unconsentedDropCount": 0,
@@ -805,6 +1951,7 @@ def evaluate_capture(
                 "accountedOutputTrackCount": accounted_output,
                 **verifier["violationCounts"],
                 "exactSemanticVerifierPass": True,
+                "productionRouteProofSHA256": production_route_sha,
                 "inputManifestArtifact": descriptor(side_manifest_paths["input"], output_directory.parent),
                 "outputManifestArtifact": descriptor(side_manifest_paths["output"], output_directory.parent),
                 "semanticVerifierArtifact": descriptor(verifier_path, output_directory.parent),
@@ -817,13 +1964,42 @@ def evaluate_capture(
         "contractSHA256": release_contract_sha,
         "candidate": candidate,
         "releaseEligible": True,
+        "evidenceBoundary": {
+            "mediaExecutionProducer":
+                "exact_verified_archived_mirmir_executable",
+            "packagedCandidateBindingRole":
+                "normative_output_execution_and_observation",
+            "candidatePreparationReplayRole":
+                "separate_release_candidate_preparation_replay_required",
+            "mediaArchiveInspectionScope":
+                "archive_extraction_executable_execution_and_tree_seal",
+            "archivedExecutableExecutionClaimed": True,
+            "fixtureHostRole":
+                "source_fixture_generation_and_source_alpha_observation_only",
+            "actualSessionReceiptRequired": True,
+            "independentAlphaOracleRequired": True,
+        },
         "identities": {
             "laneContractSHA256": contract_sha,
             "captureSourceSHA256": sha256_file(capture_source_path),
             "fixtureSourceSHA256": sha256_file(fixture_source_path),
             "evaluatorSHA256": sha256_file(evaluator_path),
             "runnerSHA256": sha256_file(runner_path),
+            "packagedEvidenceToolSHA256": sha256_file(
+                packaged_evidence_tool_path
+            ),
+            "releaseCandidateArchiveToolSHA256": sha256_file(
+                release_archive_tool_path
+            ),
+            "observerSourceSHA256": sha256_file(
+                tool_paths["observerSourceSHA256"]
+            ),
+            "packagedEvidenceRequestSHA256": packaged_binding[
+                "requestSHA256"
+            ],
+            "packagedEvidenceCaptureTree": packaged_binding["captureTree"],
             "captureSHA256": sha256_file(capture_root / "capture.json"),
+            "packagedCandidateIdentity": packaged_candidate,
         },
         "fixtures": report_fixtures,
         "accountedEnabledTrackCount": total_enabled,
@@ -852,12 +2028,15 @@ def compare_evidence_directories(expected: Path, observed: Path) -> None:
 def verify_evidence(evidence_directory: Path) -> dict[str, Any]:
     evidence = evidence_directory.resolve(strict=True)
     bindings = evidence / "bindings"
-    raw_capture = evidence / "raw-capture"
+    packaged_capture = evidence / "raw-capture"
+    raw_capture = packaged_capture / "capture"
     with tempfile.TemporaryDirectory(prefix="mirmir-media-preservation-verify-") as temporary:
         recomputed = Path(temporary) / "media_preservation"
         report = evaluate_capture(
             raw_capture,
+            packaged_capture,
             bindings / "candidate.json",
+            bindings / "application-archive.zip",
             recomputed,
             bindings / "media-preservation-contract-v1.json",
             bindings / "release-qualification-contract-v1.json",
@@ -867,6 +2046,9 @@ def verify_evidence(evidence_directory: Path) -> dict[str, Any]:
             bindings / "AVFoundationTrackMigrationExecutorV4Tests.swift",
             bindings / "media_preservation_v4.py",
             bindings / "run_media_preservation_v4.sh",
+            bindings / "packaged_candidate_evidence_v4.py",
+            bindings / "release_candidate_archive_v4.py",
+            bindings / "MirmirApp.swift",
         )
         compare_evidence_directories(recomputed, evidence)
         return report
@@ -877,7 +2059,9 @@ def arguments() -> argparse.Namespace:
     subparsers = parser.add_subparsers(dest="command", required=True)
     evaluate = subparsers.add_parser("evaluate")
     evaluate.add_argument("--capture", type=Path, required=True)
+    evaluate.add_argument("--packaged-evidence", type=Path, required=True)
     evaluate.add_argument("--candidate", type=Path, required=True)
+    evaluate.add_argument("--application-archive", type=Path, required=True)
     evaluate.add_argument("--output", type=Path, required=True)
     evaluate.add_argument("--contract", type=Path, default=DEFAULT_CONTRACT)
     evaluate.add_argument("--release-contract", type=Path, default=DEFAULT_RELEASE_CONTRACT)
@@ -896,7 +2080,9 @@ def main() -> int:
     if parsed.command == "evaluate":
         report = evaluate_capture(
             parsed.capture.expanduser().resolve(strict=True),
+            parsed.packaged_evidence.expanduser().resolve(strict=True),
             parsed.candidate.expanduser().resolve(strict=True),
+            parsed.application_archive.expanduser().resolve(strict=True),
             parsed.output.expanduser().resolve(),
             parsed.contract.expanduser().resolve(strict=True),
             parsed.release_contract.expanduser().resolve(strict=True),

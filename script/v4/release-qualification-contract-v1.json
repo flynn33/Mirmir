@@ -14,11 +14,11 @@
   ],
   "evidenceSchemas": {
     "cpu_metal_parity": "mirmir-ash-v4-cpu-metal-parity-report-v2",
-    "media_preservation": "mirmir-ash-v4-media-preservation-report-v1",
+    "media_preservation": "mirmir-ash-v4-media-preservation-report-v2",
     "notarized_smoke": "mirmir-ash-v4-notarized-smoke-report-v1",
     "p06_reproduction": "mirmir-ash-v4-p06-reproduction-report-v1",
     "quality": "mirmir-ash-v4-quality-report-v1",
-    "recovery": "mirmir-ash-v4-recovery-report-v1",
+    "recovery": "mirmir-ash-v4-recovery-report-v2",
     "same_scope_performance": "mirmir-v4-performance-gate-report-v1",
     "support_matrix": "mirmir-ash-v4-support-matrix-report-v1"
   },
@@ -50,7 +50,13 @@
       "/identities/fixtureSourceSHA256",
       "/identities/evaluatorSHA256",
       "/identities/runnerSHA256",
-      "/identities/captureSHA256"
+      "/identities/packagedEvidenceToolSHA256",
+      "/identities/releaseCandidateArchiveToolSHA256",
+      "/identities/observerSourceSHA256",
+      "/identities/packagedEvidenceRequestSHA256",
+      "/identities/captureSHA256",
+      "/identities/packagedCandidateIdentity/applicationArchiveSHA256",
+      "/identities/packagedCandidateIdentity/attestationSHA256"
     ],
     "notarized_smoke": [
       "/contractSHA256",
@@ -91,12 +97,16 @@
     ],
     "recovery": [
       "/contractSHA256",
-      "/candidate/runtimeManifestFileSHA256",
-      "/candidate/releaseConfigurationSHA256",
-      "/identities/captureSourceSHA256",
+      "/identities/archiveProvenanceSHA256",
       "/identities/evaluatorSHA256",
+      "/identities/observerSourceSHA256",
+      "/identities/packagedEvidenceSHA256",
+      "/identities/producerSourceSHA256",
       "/identities/runnerSHA256",
-      "/capture/artifactManifestSHA256"
+      "/execution/applicationArchiveSHA256",
+      "/captureManifestSHA256",
+      "/captures/0/requestSHA256",
+      "/captures/1/requestSHA256"
     ],
     "same_scope_performance": [
       "/contractSHA256",
@@ -170,10 +180,10 @@
     "semantic_output_verify": "notarized_app_observer",
     "stapled_ticket_validation": "system_stapler_validation"
   },
-  "notarizedSmokeLaneContractSHA256": "3c6b895bc397c1ac6a8238c1827ab053c20d07a872f4d7ad213aafe7c8f71d89",
+  "notarizedSmokeLaneContractSHA256": "b0793f29ab5ca642a7ed9bf53cfab63a86dca9a74b908c66a6fa50d8f0e7adcd",
   "notarizedSmokeLockedSources": {
     "evaluatorSHA256": "12cae408a52e5dc9b87f1d3afd50f90935c40cd69fa9b066fcf0d4dc2b4c7e30",
-    "observerSourceSHA256": "1e2da33aeca0faf51e193e112f4828d885a38b1630d9bb5a5c9156eb3776d65c",
+    "observerSourceSHA256": "1ac48bf1f910ff53464cb37df59818d7e8d7eef5a927d02ab6961dc98760f6cf",
     "runnerSHA256": "ffad88657112d7a39bb259589a66d1cc267c87c3db7e041aa938b20e3880bbce"
   },
   "parityCoverage": [
@@ -204,12 +214,16 @@
     "progressive_attachment_normalization",
     "repeat_execution",
     "cross_process",
+    "bounded_tiled_temporal_path",
+    "tiled_allocation_contract",
+    "tiled_checkpoint_schema",
+    "temporal_tile_schedule",
     "tile_schedule"
   ],
-  "parityLaneContractSHA256": "3a948539e3e0d3dcd41b1247f76ebf89255f99eff2e2ee753365a48c28b40ca9",
+  "parityLaneContractSHA256": "38c713520661055e51d89b2a15b434c475928ec5c80c882f8eaef9209ef79bfd",
   "parityLockedSources": {
-    "captureSourceSHA256": "1e2da33aeca0faf51e193e112f4828d885a38b1630d9bb5a5c9156eb3776d65c",
-    "evaluatorSHA256": "c78ffbb2ca2df90f92e5823b76dce78bf6f47bcb5fd9c508541b0b4dd4fd66fd",
+    "captureSourceSHA256": "1ac48bf1f910ff53464cb37df59818d7e8d7eef5a927d02ab6961dc98760f6cf",
+    "evaluatorSHA256": "b24a958231cd17fb570d42922a810d321c0f6407a8f16a1d302d991b2cff66f3",
     "runnerSHA256": "e503c1de7379b73874bf8195b31d90378a720ce1b75172895fdc6df6b884c268"
   },
   "p06RuntimeArtifactRoles": [
@@ -249,6 +263,15 @@
     ],
     "requiredBackendID": "mirmir_deterministic_cpu",
     "requiredCandidateImplementationVersion": "ash-p06-deterministic-v4"
+  },
+  "recoveryLaneContractSHA256": "04d4f2fece6537b12f87e253f2dd43e3e6b486b1c32aff6bd06f4985515a270d",
+  "recoveryLockedSources": {
+    "archiveProvenanceSHA256": "b53d8d20847a951f326feebead3a263632b219fe1ee720c6c4361d7d2ee5189a",
+    "evaluatorSHA256": "5d7b19b4b072170f9549534936136a1a43a06e433468b4c31720a1b5b15362ee",
+    "observerSourceSHA256": "1ac48bf1f910ff53464cb37df59818d7e8d7eef5a927d02ab6961dc98760f6cf",
+    "packagedEvidenceSHA256": "5ea4b53d5d696714d1d0f00a1df22cb1a0b8f9769f2e70b133139cb05132f117",
+    "producerSourceSHA256": "ab7830c27debc9d7afdf704202ab7dc1270c54b0f904fed535e69aa33e5439ce",
+    "runnerSHA256": "f3e957344beffb9555b79d47efd5190533fb8a217a882ffdfb1dbc10f1b6a8a0"
   },
   "recoveryCoverage": [
     "append_only_event_boundary",

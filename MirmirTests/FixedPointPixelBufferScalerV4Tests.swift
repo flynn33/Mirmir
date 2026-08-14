@@ -354,7 +354,7 @@ final class FixedPointPixelBufferScalerV4Tests: XCTestCase {
         CVBufferSetAttachment(
             source,
             kCMSampleAttachmentKey_HDR10PlusPerFrameData,
-            Data([0xB5, 0x00, 0x3C, 0x00, 0x01]) as CFData,
+            Data([0xB5, 0x00, 0x3C, 0x00, 0x01, 0x04, 0x01]) as CFData,
             .shouldPropagate
         )
         let scaler = try FixedPointPixelBufferScalerV4(

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Fail-closed tests for deterministic M7 media-preservation evidence."""
+"""Focused fail-closed tests for media-preservation v2 evidence."""
 
 from __future__ import annotations
 
+import copy
+import hashlib
 import importlib.util
-import json
 from pathlib import Path
-import tempfile
 import unittest
 
 
@@ -14,115 +14,382 @@ SCRIPT_DIRECTORY = Path(__file__).resolve().parent
 
 
 def load_module(name: str, path: Path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    specification = importlib.util.spec_from_file_location(name, path)
+    assert specification is not None and specification.loader is not None
+    module = importlib.util.module_from_spec(specification)
+    specification.loader.exec_module(module)
     return module
 
 
-media = load_module("media_preservation_v4_for_tests", SCRIPT_DIRECTORY / "media_preservation_v4.py")
-release_tests = load_module(
-    "release_qualification_fixture_for_media_tests",
-    SCRIPT_DIRECTORY / "test_release_qualification_v4.py",
+media = load_module(
+    "media_preservation_v4_for_tests",
+    SCRIPT_DIRECTORY / "media_preservation_v4.py",
 )
 
 
-def write_json(path: Path, value: object) -> None:
-    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+def identity(label: str) -> str:
+    return hashlib.sha256(label.encode("utf-8")).hexdigest()
 
 
-class MediaPreservationEvidenceTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.temporary = tempfile.TemporaryDirectory()
-        self.root = Path(self.temporary.name)
-        self.fixture = release_tests.EvidenceFixture(self.root / "source")
-        self.role = self.fixture.root / "media_preservation"
-        self.raw = self.role / "raw-capture"
-        self.candidate_path = self.root / "candidate.json"
-        write_json(self.candidate_path, self.fixture.candidate)
+class MediaRouteFixture:
+    def __init__(self, fixture_id: str = "rich-track-graph") -> None:
+        self.fixture_id = fixture_id
+        self.runtime_manifest = identity("runtime-manifest")
+        self.runtime_provenance = identity("runtime-provenance")
+        self.candidate = {
+            "runtimeManifestSHA256": self.runtime_manifest,
+            "sourceTreeIdentitySHA256": identity("source-tree"),
+        }
+        self.capture = {
+            "evidenceRequestSHA256": identity("request"),
+            "evidenceNonceSHA256": identity("nonce"),
+            "packagedCandidateIdentity": {
+                "applicationArchiveSHA256": identity("archive"),
+                "applicationExecutableSHA256": identity("executable"),
+            },
+        }
+        self.stable_id = "ash.media.track.video.00000000.fixture"
+        self.input_track = {
+            0: {
+                "ordinal": 0,
+                "stableID": self.stable_id,
+                "kind": "video",
+                "enabled": True,
+            }
+        }
+        self.output_track = copy.deepcopy(self.input_track)
+        self.metadata = identity("asset-metadata")
+        self.chapters = identity("chapter-metadata")
+        self.output_pixel = {
+            "width": 96,
+            "height": 72,
+            "preEncodeAlphaFrameSHA256": [],
+            "repeatPreEncodeAlphaFrameSHA256": [],
+        }
+        self.observations = {
+            "inputTracks": self.input_track,
+            "outputTracks": self.output_track,
+            "inputTrackObservation": {
+                "enabledTrackCount": 1,
+                "assetMetadataSHA256": self.metadata,
+                "chapterMetadataSHA256": self.chapters,
+            },
+            "outputTrackObservation": {
+                "enabledTrackCount": 1,
+                "assetMetadataSHA256": self.metadata,
+                "chapterMetadataSHA256": self.chapters,
+            },
+            "outputPixels": {0: self.output_pixel},
+            "outputTiming": {0: {
+                "sampleCount": 2,
+                "samples": [
+                    {"pts": "0"},
+                    {"pts": "1/30"},
+                ],
+            }},
+            "outputAttachments": {0: {"alphaAssociation": None}},
+        }
+        self.preflight = {
+            "schemaVersion": media.PREFLIGHT_SCHEMA,
+            "preparedBackendType":
+                media.EXPECTED_PREPARED_BACKEND_TYPE_BY_FIXTURE[fixture_id],
+            "executor": "cpu_fixed_point",
+            "requestedBackendID": "mirmirDeterministicCPU",
+            "ashPlanSHA256": identity("ash-plan"),
+            "runtimeManifestSHA256": self.runtime_manifest,
+            "runtimeProvenanceSHA256": self.runtime_provenance,
+            "trackPlanSHA256": identity("track-plan"),
+            "sourceGraphSHA256": identity("source-graph"),
+            "migrationBlueprintSHA256": identity("migration-blueprint"),
+            "primaryTrackOrdinal": 0,
+            "plannedTracks": [{
+                "ordinal": 0,
+                "stableID": self.stable_id,
+                "kind": "video",
+                "action": "process",
+            }],
+            "targetWidth": 96,
+            "targetHeight": 72,
+            "sourceVideoTrackCount": 1,
+            "sourceAudioTrackCount": 0,
+            "plannedEnabledTrackCount": 1,
+        }
+        self.receipt = {
+            "schemaID": media.EXECUTION_RECEIPT_SCHEMA,
+            "preparedBackendType": self.preflight["preparedBackendType"],
+            "executor": "cpu_fixed_point",
+            "requestedBackendID": "mirmirDeterministicCPU",
+            "actualBackendID": "mirmirDeterministicCPU",
+            "ashPlanSHA256": self.preflight["ashPlanSHA256"],
+            "runtimeManifestSHA256": self.runtime_manifest,
+            "runtimeProvenanceSHA256": self.runtime_provenance,
+            "trackPlanSHA256": self.preflight["trackPlanSHA256"],
+            "sourceGraphSHA256": self.preflight["sourceGraphSHA256"],
+            "migrationSourceGraphSHA256": self.preflight["sourceGraphSHA256"],
+            "migrationPlanSHA256": self.preflight["trackPlanSHA256"],
+            "migrationBlueprintSHA256": self.preflight["migrationBlueprintSHA256"],
+            "sourceAssetMetadataSHA256": self.metadata,
+            "outputAssetMetadataSHA256": self.metadata,
+            "sourceChapterMetadataSHA256": self.chapters,
+            "outputChapterMetadataSHA256": self.chapters,
+            "outputGraphSHA256": identity("output-graph"),
+            "semanticVerificationSHA256": identity("semantic-verification"),
+            "primaryTrackOrdinal": 0,
+            "plannedTracks": copy.deepcopy(self.preflight["plannedTracks"]),
+            "migratedTracks": [{
+                "stableID": self.stable_id,
+                "action": "process",
+                "migratedSampleCount": 2,
+                "sourceSampleStreamSHA256": None,
+                "outputSampleStreamSHA256": None,
+            }],
+            "targetWidth": 96,
+            "targetHeight": 72,
+            "encodedWidth": 96,
+            "encodedHeight": 72,
+            "processedFrameCount": 2,
+            "sourceVideoTrackCount": 1,
+            "sourceAudioTrackCount": 0,
+            "plannedEnabledTrackCount": 1,
+            "alphaVerification": None,
+        }
+        if fixture_id.startswith("combined-alpha-geometry-"):
+            association = (
+                "straight" if fixture_id.endswith("-straight")
+                else "premultiplied"
+            )
+            alpha_frames = [identity("alpha-frame-0"), identity("alpha-frame-1")]
+            self.output_pixel["preEncodeAlphaFrameSHA256"] = alpha_frames
+            self.output_pixel["repeatPreEncodeAlphaFrameSHA256"] = copy.deepcopy(
+                alpha_frames
+            )
+            self.observations["outputAttachments"][0][
+                "alphaAssociation"
+            ] = association
+            self.receipt["alphaVerification"] = {
+                "schemaID": "ash.alpha-video-writer-verification.v4.1",
+                "codec": "proRes4444",
+                "association": association,
+                "inputLayout": "bgra8",
+                "width": 96,
+                "height": 72,
+                "encodedFormat": {},
+                "frames": [
+                    {
+                        "ordinal": index,
+                        "presentationTime": {
+                            "numerator": index,
+                            "denominator": 30 if index else 1,
+                        },
+                        "alphaByteCount": 96 * 72,
+                        "sourceAlphaSHA256": alpha_sha,
+                        "decodedAlphaSHA256": alpha_sha,
+                    }
+                    for index, alpha_sha in enumerate(alpha_frames)
+                ],
+            }
+        self.route = {
+            "schemaVersion": media.ROUTE_SCHEMA,
+            "entryPoint":
+                "VideoProcessingSession.processWithDeterministicV4ExecutionReceipt",
+            "executionProducer": "exact_archived_mirmir_executable",
+            "dispatchRequirement":
+                "PreparedDeterministicV4RuntimePlanningBackend",
+            "planEvidenceBoundary":
+                "actual_session_receipt_matched_independent_preflight",
+            "evidenceRequestSHA256": self.capture["evidenceRequestSHA256"],
+            "evidenceNonceSHA256": self.capture["evidenceNonceSHA256"],
+            "applicationArchiveSHA256": self.capture[
+                "packagedCandidateIdentity"
+            ]["applicationArchiveSHA256"],
+            "applicationExecutableSHA256": self.capture[
+                "packagedCandidateIdentity"
+            ]["applicationExecutableSHA256"],
+            "sourceTreeIdentitySHA256": self.candidate[
+                "sourceTreeIdentitySHA256"
+            ],
+            "independentPreflight": copy.deepcopy(self.preflight),
+            "repeatIndependentPreflight": copy.deepcopy(self.preflight),
+            "executionReceipt": copy.deepcopy(self.receipt),
+            "repeatExecutionReceipt": copy.deepcopy(self.receipt),
+            "inputEnabledTrackCount": 1,
+            "outputEnabledTrackCount": 1,
+        }
+        self.reseal()
 
-    def tearDown(self) -> None:
-        self.temporary.cleanup()
+    def reseal(self) -> None:
+        for value_key, hash_key in (
+            ("independentPreflight", "independentPreflightSHA256"),
+            ("repeatIndependentPreflight", "repeatIndependentPreflightSHA256"),
+            ("executionReceipt", "executionReceiptSHA256"),
+            ("repeatExecutionReceipt", "repeatExecutionReceiptSHA256"),
+        ):
+            self.route[hash_key] = media.sha256_bytes(
+                media.canonical_bytes(self.route[value_key])
+            )
+        proof = dict(self.route)
+        proof.pop("routeProofSHA256", None)
+        self.route["routeProofSHA256"] = media.sha256_bytes(
+            media.canonical_bytes(proof)
+        )
 
-    def paths(self, output: Path) -> dict[str, Path]:
+    @property
+    def production(self) -> dict[str, object]:
         return {
-            "capture_root": self.raw,
-            "candidate_path": self.candidate_path,
-            "output_directory": output,
-            "contract_path": self.role / "bindings" / "media-preservation-contract-v1.json",
-            "release_contract_path": self.role / "suite-contract.json",
-            "runtime_manifest_path": self.role / "runtime-manifest.json",
-            "release_configuration_path": self.role / "Release.xcconfig",
-            "capture_source_path": self.role / "bindings" / "MediaPreservationCaptureTests.swift",
-            "fixture_source_path": self.role / "bindings" / "AVFoundationTrackMigrationExecutorV4Tests.swift",
-            "evaluator_path": self.role / "bindings" / "media_preservation_v4.py",
-            "runner_path": self.role / "bindings" / "run_media_preservation_v4.sh",
+            "runtimeManifestSHA256": self.runtime_manifest,
+            "routeReceipt": self.route,
         }
 
-    def evaluate(self, name: str = "evidence") -> tuple[Path, dict[str, object]]:
-        output = self.root / name / "media_preservation"
-        report = media.evaluate_capture(**self.paths(output))
-        return output, report
+    def validate(self) -> str:
+        return media.validate_production_route(
+            self.fixture_id,
+            self.production,
+            self.candidate,
+            self.capture,
+            self.observations,
+            self.runtime_provenance,
+        )
 
-    def update_raw_descriptor(self, capture: dict[str, object], fixture_id: str, side: str, name: str) -> None:
-        fixture = next(item for item in capture["fixtures"] if item["id"] == fixture_id)
-        item = fixture[side][name]
-        path = self.raw / item["path"]
-        item["byteCount"] = path.stat().st_size
-        item["sha256"] = media.sha256_file(path)
 
-    def testEvaluateAndVerifyRecomputeAllSixLockedFixtures(self) -> None:
-        evidence, report = self.evaluate()
-        self.assertTrue(report["mediaPreservationGatePass"])
-        self.assertEqual(len(report["fixtures"]), 6)
-        verified = media.verify_evidence(evidence)
-        self.assertEqual(verified, report)
+class MediaPreservationV2Tests(unittest.TestCase):
+    def testExactOpaqueFixtureRoutePasses(self) -> None:
+        fixture = MediaRouteFixture()
+        self.assertEqual(fixture.validate(), fixture.route["routeProofSHA256"])
 
-    def testRawPixelArtifactTamperFailsClosed(self) -> None:
-        capture = json.loads((self.raw / "capture.json").read_text())
-        fixture = capture["fixtures"][0]
-        pixel_path = self.raw / fixture["output"]["pixels"]["path"]
-        pixel_path.write_bytes(pixel_path.read_bytes() + b"tamper")
-        with self.assertRaisesRegex(media.EvidenceError, "byte count mismatch|SHA-256 mismatch"):
-            self.evaluate("pixel-tamper")
+    def testExactAlphaFixtureRoutePasses(self) -> None:
+        fixture = MediaRouteFixture("combined-alpha-geometry-straight")
+        self.assertEqual(fixture.validate(), fixture.route["routeProofSHA256"])
 
-    def testSemanticForgeryFailsIndependentRecomputation(self) -> None:
-        capture_path = self.raw / "capture.json"
-        capture = json.loads(capture_path.read_text())
-        fixture_id = "combined-p010-hdr-interlaced"
-        fixture = next(item for item in capture["fixtures"] if item["id"] == fixture_id)
-        observation_path = self.raw / fixture["output"]["pixelObservation"]["path"]
-        observation = json.loads(observation_path.read_text())
-        observation["tracks"][0]["visibleSHA256"] = media.sha256_bytes(b"forged-output")
-        write_json(observation_path, observation)
-        self.update_raw_descriptor(capture, fixture_id, "output", "pixelObservation")
-        write_json(capture_path, capture)
-        with self.assertRaisesRegex(media.EvidenceError, "repeat output pixels differ"):
-            self.evaluate("semantic-forgery")
+    def mutate_backend(self, fixture: MediaRouteFixture, value: str) -> None:
+        for key in ("independentPreflight", "repeatIndependentPreflight"):
+            fixture.route[key]["preparedBackendType"] = value
+        for key in ("executionReceipt", "repeatExecutionReceipt"):
+            fixture.route[key]["preparedBackendType"] = value
+        fixture.reseal()
 
-    def testToolAndCandidateIdentitySubstitutionFailClosed(self) -> None:
-        substituted_tool = self.root / "substituted-evaluator.py"
-        substituted_tool.write_bytes(b"# not the locked evaluator\n")
-        arguments = self.paths(self.root / "tool-substitution" / "media_preservation")
-        arguments["evaluator_path"] = substituted_tool
-        with self.assertRaisesRegex(media.EvidenceError, "locked tool identity differs"):
-            media.evaluate_capture(**arguments)
+    def testNearMatchPreparedBackendFailsAfterAllHashesAreRefreshed(self) -> None:
+        fixture = MediaRouteFixture()
+        self.mutate_backend(fixture, "Mirmir.FakePreparedDeterministicV4Upscaler")
+        with self.assertRaisesRegex(media.EvidenceError, "locked fixture route"):
+            fixture.validate()
 
-        candidate = json.loads(self.candidate_path.read_text())
-        candidate["sourceCommit"] = "c" * 40
-        write_json(self.candidate_path, candidate)
-        with self.assertRaisesRegex(media.EvidenceError, "capture belongs to another candidate"):
-            self.evaluate("candidate-substitution")
+    def testRealButWrongOpaqueBackendFailsAfterAllHashesAreRefreshed(self) -> None:
+        fixture = MediaRouteFixture()
+        self.mutate_backend(
+            fixture, "Mirmir.PreparedDeterministicAlphaPlanningBackendV4"
+        )
+        with self.assertRaisesRegex(media.EvidenceError, "locked fixture route"):
+            fixture.validate()
 
-    def testPublishedEvidenceTamperFailsByteExactVerification(self) -> None:
-        evidence, _ = self.evaluate()
-        verifier = evidence / "fixtures" / "combined-alpha-geometry-straight" / "semantic-verifier.json"
-        document = json.loads(verifier.read_text())
-        document["checks"][0]["id"] = "forged-check"
-        write_json(verifier, document)
-        with self.assertRaisesRegex(media.EvidenceError, "evidence artifact differs"):
-            media.verify_evidence(evidence)
+    def testRealButWrongAlphaBackendFailsAfterAllHashesAreRefreshed(self) -> None:
+        fixture = MediaRouteFixture("combined-alpha-geometry-straight")
+        self.mutate_backend(fixture, "Mirmir.PreparedDeterministicV4Upscaler")
+        with self.assertRaisesRegex(media.EvidenceError, "locked fixture route"):
+            fixture.validate()
+
+    def testReceiptRuntimeMismatchFailsAfterAllHashesAreRefreshed(self) -> None:
+        fixture = MediaRouteFixture()
+        for key in ("executionReceipt", "repeatExecutionReceipt"):
+            fixture.route[key]["runtimeManifestSHA256"] = identity("forged-runtime")
+        fixture.reseal()
+        with self.assertRaisesRegex(media.EvidenceError, "independent preflight"):
+            fixture.validate()
+
+    def testMigratedStableIDForgeryFailsAfterAllHashesAreRefreshed(self) -> None:
+        fixture = MediaRouteFixture()
+        for key in ("executionReceipt", "repeatExecutionReceipt"):
+            fixture.route[key]["migratedTracks"][0]["stableID"] = "forged.track"
+        fixture.reseal()
+        with self.assertRaisesRegex(media.EvidenceError, "stable-ID/action order"):
+            fixture.validate()
+
+    def testMigratedActionForgeryFailsAfterAllHashesAreRefreshed(self) -> None:
+        fixture = MediaRouteFixture()
+        for key in ("executionReceipt", "repeatExecutionReceipt"):
+            row = fixture.route[key]["migratedTracks"][0]
+            row["action"] = "pass_through"
+            row["sourceSampleStreamSHA256"] = identity("source")
+            row["outputSampleStreamSHA256"] = identity("source")
+        fixture.reseal()
+        with self.assertRaisesRegex(media.EvidenceError, "stable-ID/action order"):
+            fixture.validate()
+
+    def testRepeatOnlyReceiptForgeryFailsAfterAllHashesAreRefreshed(self) -> None:
+        fixture = MediaRouteFixture()
+        fixture.route["repeatExecutionReceipt"]["outputGraphSHA256"] = identity(
+            "repeat-only-forgery"
+        )
+        fixture.reseal()
+        with self.assertRaisesRegex(media.EvidenceError, "not repeatable"):
+            fixture.validate()
+
+    def testAlphaAssociationForgeryFailsAfterAllHashesAreRefreshed(self) -> None:
+        fixture = MediaRouteFixture("combined-alpha-geometry-straight")
+        for key in ("executionReceipt", "repeatExecutionReceipt"):
+            fixture.route[key]["alphaVerification"]["association"] = (
+                "premultiplied"
+            )
+        fixture.reseal()
+        with self.assertRaisesRegex(media.EvidenceError, "alpha verification header"):
+            fixture.validate()
+
+    def testAlphaByteCountForgeryFailsAfterAllHashesAreRefreshed(self) -> None:
+        fixture = MediaRouteFixture("combined-alpha-geometry-straight")
+        for key in ("executionReceipt", "repeatExecutionReceipt"):
+            fixture.route[key]["alphaVerification"]["frames"][0][
+                "alphaByteCount"
+            ] += 1
+        fixture.reseal()
+        with self.assertRaisesRegex(media.EvidenceError, "alpha byte count differs"):
+            fixture.validate()
+
+    def testAlphaOrdinalForgeryFailsAfterAllHashesAreRefreshed(self) -> None:
+        fixture = MediaRouteFixture("combined-alpha-geometry-straight")
+        for key in ("executionReceipt", "repeatExecutionReceipt"):
+            fixture.route[key]["alphaVerification"]["frames"][0]["ordinal"] = 1
+        fixture.reseal()
+        with self.assertRaisesRegex(media.EvidenceError, "alpha frame ordinal differs"):
+            fixture.validate()
+
+    def testAlphaPresentationForgeryFailsAfterAllHashesAreRefreshed(self) -> None:
+        fixture = MediaRouteFixture("combined-alpha-geometry-straight")
+        for key in ("executionReceipt", "repeatExecutionReceipt"):
+            fixture.route[key]["alphaVerification"]["frames"][0][
+                "presentationTime"
+            ] = {"numerator": 1, "denominator": 1}
+        fixture.reseal()
+        with self.assertRaisesRegex(media.EvidenceError, "alpha presentation time differs"):
+            fixture.validate()
+
+    def testRuntimeProvenanceForgeryFailsAfterAllHashesAreRefreshed(self) -> None:
+        fixture = MediaRouteFixture()
+        forged = identity("forged-provenance")
+        for key in ("independentPreflight", "repeatIndependentPreflight"):
+            fixture.route[key]["runtimeProvenanceSHA256"] = forged
+        for key in ("executionReceipt", "repeatExecutionReceipt"):
+            fixture.route[key]["runtimeProvenanceSHA256"] = forged
+        fixture.reseal()
+        with self.assertRaisesRegex(media.EvidenceError, "runtime binding"):
+            fixture.validate()
+
+    def testArchiveBindingForgeryFailsAfterRouteIsRehashed(self) -> None:
+        fixture = MediaRouteFixture()
+        fixture.route["applicationArchiveSHA256"] = identity("other-archive")
+        fixture.reseal()
+        with self.assertRaisesRegex(media.EvidenceError, "route binding differs"):
+            fixture.validate()
+
+    def testIndependentScalarAlphaOracleLockedGolden(self) -> None:
+        actual = media.independent_alpha_oracle(
+            bytes([0, 64, 128, 255]), 2, 2, 4, 4
+        )
+        self.assertEqual(actual.hex(), "20205252202052527e7ecfcf7e7ecfcf")
+
+    def testIndependentScalarAlphaOracleOnePixelReflectsExactly(self) -> None:
+        self.assertEqual(
+            media.independent_alpha_oracle(bytes([17]), 1, 1, 3, 2),
+            bytes([17]) * 6,
+        )
 
 
 if __name__ == "__main__":

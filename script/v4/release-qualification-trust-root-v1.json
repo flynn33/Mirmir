@@ -1,13 +1,13 @@
 {
   "contract": {
-    "byteCount": 9441,
+    "byteCount": 10749,
     "repositoryRelativePath": "script/v4/release-qualification-contract-v1.json",
-    "sha256": "a6d7680bbe7d239fb15afdc23ac76803533fe8a5c238e7ca2b0f50c0f42826cd"
+    "sha256": "bc5198c2f877a4b5a2123b9dfd23191114b44d3c3b2e9e166c23db9e622597c2"
   },
   "evaluator": {
-    "byteCount": 273799,
+    "byteCount": 315060,
     "repositoryRelativePath": "script/v4/release_qualification_v4.py",
-    "sha256": "9c9759fb7cb9336edb97f1251a300ee99ff476e6e23ccbc851416b9c5b9b4b15"
+    "sha256": "d58a8c3b5f288a2a0c7fffabc5b0e998a3df4881ed45fb4f99dfee6b78e04f66"
   },
   "hashAlgorithm": "sha256",
   "helpers": [
@@ -19,11 +19,11 @@
       "sha256": "23c0d874e27b7eb37702d18612a969ede2cfda61ed0f968e7c078fd402511403"
     },
     {
-      "byteCount": 72666,
+      "byteCount": 93787,
       "moduleName": "cpu_metal_parity_v4_for_release_qualification",
       "repositoryRelativePath": "script/v4/cpu_metal_parity_v4.py",
       "role": "cpu_metal_parity_replay",
-      "sha256": "c78ffbb2ca2df90f92e5823b76dce78bf6f47bcb5fd9c508541b0b4dd4fd66fd"
+      "sha256": "b24a958231cd17fb570d42922a810d321c0f6407a8f16a1d302d991b2cff66f3"
     },
     {
       "byteCount": 11337,
@@ -65,13 +65,13 @@
       "validator": "validate_parity"
     },
     {
-      "evidenceSchema": "mirmir-ash-v4-media-preservation-report-v1",
+      "evidenceSchema": "mirmir-ash-v4-media-preservation-report-v2",
       "replayHelperRoles": [],
       "role": "media_preservation",
       "validator": "validate_preservation"
     },
     {
-      "evidenceSchema": "mirmir-ash-v4-recovery-report-v1",
+      "evidenceSchema": "mirmir-ash-v4-recovery-report-v2",
       "replayHelperRoles": [],
       "role": "recovery",
       "validator": "validate_recovery"
@@ -98,5 +98,5 @@
     }
   ],
   "schemaVersion": "mirmir-ash-v4-release-qualification-trust-root-v1",
-  "trustedToolSetSHA256": "6f6668b760a1a4ff055968aeecd853a2d85ce9fa0de522940b444ed0e2496290"
+  "trustedToolSetSHA256": "d4abeaaca493fc11928b727d790a0409ee429dbba30e29d0392ab2a91af61c9d"
 }
