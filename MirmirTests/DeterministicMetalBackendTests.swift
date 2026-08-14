@@ -435,6 +435,7 @@ final class DeterministicMetalBackendTests: XCTestCase {
         )
         XCTAssertTrue(prepared.usesBoundedTiledTemporalPath)
         XCTAssertEqual(prepared.temporalTilePolicy, .canonical)
+        XCTAssertEqual(prepared.temporalTileExecutionSchedule, .raster)
         let contract = try XCTUnwrap(prepared.tiledAllocationContract)
         XCTAssertEqual(
             contract.policyID,
@@ -492,6 +493,20 @@ final class DeterministicMetalBackendTests: XCTestCase {
                 error as? ASHTemporalV4Error,
                 .invalidConfiguration
             )
+        }
+    }
+
+    func testPreparedBoundedPathRetainsExplicitTemporalTileSchedule() throws {
+        let policy = try forcedPreparedTilePolicy()
+        for schedule in ASHTemporalTileExecutionScheduleV4.allCases {
+            let prepared = try makeDirectPrepared(
+                executionBackend: .cpu,
+                tilePolicy: policy,
+                temporalTileExecutionSchedule: schedule
+            )
+            XCTAssertTrue(prepared.usesBoundedTiledTemporalPath)
+            XCTAssertEqual(prepared.temporalTilePolicy, policy)
+            XCTAssertEqual(prepared.temporalTileExecutionSchedule, schedule)
         }
     }
 
@@ -1273,7 +1288,9 @@ final class DeterministicMetalBackendTests: XCTestCase {
     private func makeDirectPrepared(
         executionBackend: FixedPointExecutionBackendV4,
         tilePolicy: ASHTemporalTilePolicyV4?,
-        scanMode: DeterministicScanModeV4 = .progressive
+        scanMode: DeterministicScanModeV4 = .progressive,
+        temporalTileExecutionSchedule:
+            ASHTemporalTileExecutionScheduleV4 = .raster
     ) throws -> PreparedDeterministicV4Upscaler {
         let backendID: UpscaleBackendID = executionBackend == .cpu
             ? .mirmirDeterministicCPU
@@ -1292,7 +1309,8 @@ final class DeterministicMetalBackendTests: XCTestCase {
             return try PreparedDeterministicV4Upscaler(
                 configuration: configuration,
                 runtime: verifiedRuntime,
-                temporalTilePolicy: tilePolicy
+                temporalTilePolicy: tilePolicy,
+                temporalTileExecutionSchedule: temporalTileExecutionSchedule
             )
         }
         let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
@@ -1304,6 +1322,7 @@ final class DeterministicMetalBackendTests: XCTestCase {
             configuration: configuration,
             runtime: verifiedRuntime,
             temporalTilePolicy: tilePolicy,
+            temporalTileExecutionSchedule: temporalTileExecutionSchedule,
             metalDevice: device,
             metalLibrary: library
         )

@@ -751,6 +751,8 @@ actor PreparedDeterministicV4Upscaler:
     nonisolated let maximumOutputFramesPerInput: Int
     nonisolated let usesBoundedTiledTemporalPath: Bool
     nonisolated let temporalTilePolicy: ASHTemporalTilePolicyV4?
+    nonisolated let temporalTileExecutionSchedule:
+        ASHTemporalTileExecutionScheduleV4
     nonisolated let tiledAllocationContract:
         ASHPreparedTiledAllocationContractV4?
 
@@ -815,6 +817,8 @@ actor PreparedDeterministicV4Upscaler:
         executionSchedule: FixedPointExecutionScheduleV4 = .productionFullFrame,
         temporalTilePolicy requestedTemporalTilePolicy:
             ASHTemporalTilePolicyV4? = nil,
+        temporalTileExecutionSchedule:
+            ASHTemporalTileExecutionScheduleV4 = .raster,
         metalDevice: MTLDevice? = nil,
         metalLibrary: MTLLibrary? = nil
     ) throws {
@@ -876,6 +880,7 @@ actor PreparedDeterministicV4Upscaler:
             targetTemporalGrid = nil
         }
         self.temporalTilePolicy = selectedTemporalTilePolicy
+        self.temporalTileExecutionSchedule = temporalTileExecutionSchedule
         self.usesBoundedTiledTemporalPath
             = selectedTemporalTilePolicy != nil
         if let selectedTemporalTilePolicy,
@@ -2407,7 +2412,7 @@ actor PreparedDeterministicV4Upscaler:
             resetReason: resetReason,
             program: branchProgram,
             executor: deterministicExecutor,
-            schedule: .raster
+            schedule: temporalTileExecutionSchedule
         )
         // Rebuild retained history directly from the already preflighted
         // active outputs. Re-reading the destination would scan the full 8K
