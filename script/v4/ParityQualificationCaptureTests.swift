@@ -138,6 +138,9 @@ private struct ParityCaptureContract: Decodable {
     let comparison: String
     let repeatExecutionCount: Int
     let crossProcessCaptureCount: Int
+    let boundedTemporalCaseID: String
+    let temporalTilePolicy: ParityTemporalTilePolicy
+    let schedulePairs: [ParitySchedulePair]
     let tileSchedules: [String]
     let parityCoverage: [String]
     let releaseRuntime: ParityReleaseRuntimeContract
@@ -161,6 +164,23 @@ private struct ParityCaptureContract: Decodable {
                 == "exact_visible_plane_attachment_timeline_checkpoint_and_resume_bytes",
               repeatExecutionCount == 2,
               crossProcessCaptureCount == 2,
+              boundedTemporalCaseID
+                == "nv12-video-forced-tiled-temporal-16x12-to-32x24",
+              temporalTilePolicy == .qualification,
+              schedulePairs == [
+                ParitySchedulePair(
+                    spatialSchedule: "row_major",
+                    temporalSchedule: "raster"
+                ),
+                ParitySchedulePair(
+                    spatialSchedule: "reverse",
+                    temporalSchedule: "reverse_raster"
+                ),
+                ParitySchedulePair(
+                    spatialSchedule: "even_then_odd",
+                    temporalSchedule: "even_then_odd"
+                )
+              ],
               tileSchedules == ["row_major", "reverse", "even_then_odd"],
               Set(parityCoverage).count == parityCoverage.count,
               cases.count >= 9,
@@ -180,7 +200,54 @@ private struct ParityCaptureContract: Decodable {
         for definition in cases {
             try definition.validate(allowedCoverage: Set(parityCoverage))
         }
+        guard let bounded = cases.first(where: {
+            $0.id == boundedTemporalCaseID
+        }), bounded.kind == "pixel_temporal",
+        bounded.scanMode == "progressive",
+        bounded.sourceWidth == 16,
+        bounded.sourceHeight == 12,
+        bounded.targetWidth == 32,
+        bounded.targetHeight == 24,
+        bounded.checkpointBoundaries == [1] else {
+            throw ParityCaptureError.invalidContract(
+                "bounded temporal case differs"
+            )
+        }
     }
+}
+
+private struct ParityTemporalTilePolicy: Codable, Equatable {
+    let policyID: String
+    let tileWidth: Int
+    let tileHeight: Int
+    let searchHalo: Int
+    let maximumFrameWidth: Int
+    let maximumFrameHeight: Int
+
+    static let qualification = Self(
+        policyID: "ash.release.parity.tiles.8x8-halo5-max64-v1",
+        tileWidth: 8,
+        tileHeight: 8,
+        searchHalo: 5,
+        maximumFrameWidth: 64,
+        maximumFrameHeight: 64
+    )
+
+    func enginePolicy() throws -> ASHTemporalTilePolicyV4 {
+        try ASHTemporalTilePolicyV4(
+            policyID: policyID,
+            tileWidth: tileWidth,
+            tileHeight: tileHeight,
+            searchHalo: searchHalo,
+            maximumFrameWidth: maximumFrameWidth,
+            maximumFrameHeight: maximumFrameHeight
+        )
+    }
+}
+
+private struct ParitySchedulePair: Codable, Equatable {
+    let spatialSchedule: String
+    let temporalSchedule: String
 }
 
 private struct ParityReleaseRuntimeContract: Decodable {
@@ -352,10 +419,12 @@ private struct ParityRunArtifacts: Codable, Equatable {
     let semantics: ParityArtifact
     let checkpoints: ParityArtifact
     let resume: ParityArtifact
+    let execution: ParityArtifact
 }
 
 private struct ParityScheduleRun: Codable, Equatable {
-    let schedule: String
+    let spatialSchedule: String
+    let temporalSchedule: String
     let run: ParityRunArtifacts
 }
 
@@ -598,14 +667,113 @@ private struct ParityResumeSet: Encodable, Equatable {
     let entries: [ParityResumeEntry]
 }
 
+private struct ParityExecutionGrid: Codable, Equatable {
+    let frameWidth: Int
+    let frameHeight: Int
+    let columns: Int
+    let rows: Int
+    let tileCount: Int
+    let fullFrameSampleCount: Int
+
+    init(_ grid: ASHTemporalTileGridV4) {
+        frameWidth = grid.frameWidth
+        frameHeight = grid.frameHeight
+        columns = grid.columns
+        rows = grid.rows
+        tileCount = grid.tileCount
+        fullFrameSampleCount = grid.fullFrameSampleCount
+    }
+}
+
+private struct ParityAllocationContract: Codable, Equatable {
+    let policyID: String
+    let sourceFullFrameSampleCount: Int
+    let sourceTileCount: Int
+    let targetFullFrameSampleCount: Int
+    let targetTileCount: Int
+    let maximumRetainedTileSampleCount: Int
+    let maximumOutputTileSampleCount: Int
+    let fullFrameSampleArrayAllocationCap: Int
+
+    init(_ value: ASHPreparedTiledAllocationContractV4) {
+        policyID = value.policyID
+        sourceFullFrameSampleCount = value.sourceFullFrameSampleCount
+        sourceTileCount = value.sourceTileCount
+        targetFullFrameSampleCount = value.targetFullFrameSampleCount
+        targetTileCount = value.targetTileCount
+        maximumRetainedTileSampleCount = value.maximumRetainedTileSampleCount
+        maximumOutputTileSampleCount = value.maximumOutputTileSampleCount
+        fullFrameSampleArrayAllocationCap
+            = value.fullFrameSampleArrayAllocationCap
+    }
+}
+
+private struct ParityBoundedRoute: Codable, Equatable {
+    let usesBoundedTiledTemporalPath: Bool
+    let tilePolicy: ParityTemporalTilePolicy
+    let sourceGrid: ParityExecutionGrid
+    let targetGrid: ParityExecutionGrid
+    let allocationContract: ParityAllocationContract
+}
+
+private struct ParityExecutionEvidence: Encodable, Equatable {
+    let schemaVersion = "mirmir-ash-v4-bounded-temporal-execution-v1"
+    let caseID: String
+    let backend: String
+    let spatialSchedule: String
+    let temporalSchedule: String
+    let checkpointSchemaID: String
+    let checkpointSHA256s: [String]
+    let boundedRoute: ParityBoundedRoute?
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case caseID
+        case backend
+        case spatialSchedule
+        case temporalSchedule
+        case checkpointSchemaID
+        case checkpointSHA256s
+        case boundedRoute
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
+        try container.encode(caseID, forKey: .caseID)
+        try container.encode(backend, forKey: .backend)
+        try container.encode(spatialSchedule, forKey: .spatialSchedule)
+        try container.encode(temporalSchedule, forKey: .temporalSchedule)
+        try container.encode(checkpointSchemaID, forKey: .checkpointSchemaID)
+        try container.encode(checkpointSHA256s, forKey: .checkpointSHA256s)
+        if let boundedRoute {
+            try container.encode(boundedRoute, forKey: .boundedRoute)
+        } else {
+            try container.encodeNil(forKey: .boundedRoute)
+        }
+    }
+}
+
 private struct ParityRunBytes: Equatable {
     let visible: Data
     let semantics: Data
     let checkpoints: Data
     let resume: Data
+    let execution: Data
     let sourcePaddingByteCount: Int
     let destinationPaddingByteCount: Int
     let paddingSentinelPreserved: Bool
+
+    func hasIdenticalPayload(to other: Self) -> Bool {
+        visible == other.visible
+            && semantics == other.semantics
+            && checkpoints == other.checkpoints
+            && resume == other.resume
+            && sourcePaddingByteCount == other.sourcePaddingByteCount
+            && destinationPaddingByteCount
+                == other.destinationPaddingByteCount
+            && paddingSentinelPreserved == other.paddingSentinelPreserved
+    }
 }
 
 private struct ParityProcessedPixelRange {
@@ -628,7 +796,9 @@ private func captureCase(
     let cpu = try await captureBackendRunSet(
         definition,
         backend: .cpu,
-        schedules: contract.tileSchedules,
+        schedulePairs: contract.schedulePairs,
+        tilePolicy: definition.id == contract.boundedTemporalCaseID
+            ? try contract.temporalTilePolicy.enginePolicy() : nil,
         runtime: runtime,
         outputRoot: outputRoot,
         directory: directory
@@ -636,12 +806,14 @@ private func captureCase(
     let metal = try await captureBackendRunSet(
         definition,
         backend: .metal,
-        schedules: contract.tileSchedules,
+        schedulePairs: contract.schedulePairs,
+        tilePolicy: definition.id == contract.boundedTemporalCaseID
+            ? try contract.temporalTilePolicy.enginePolicy() : nil,
         runtime: runtime,
         outputRoot: outputRoot,
         directory: directory
     )
-    guard cpu.bytes == metal.bytes else {
+    guard cpu.bytes.hasIdenticalPayload(to: metal.bytes) else {
         throw ParityCaptureError.parityFailure(
             "\(definition.id) CPU/Metal run sets differ"
         )
@@ -691,7 +863,8 @@ private struct CapturedBackendRunSet {
 private func captureBackendRunSet(
     _ definition: ParityCaseDefinition,
     backend: FixedPointExecutionBackendV4,
-    schedules: [String],
+    schedulePairs: [ParitySchedulePair],
+    tilePolicy: ASHTemporalTilePolicyV4?,
     runtime: ASHVerifiedRuntimeBundleV4,
     outputRoot: URL,
     directory: URL
@@ -701,12 +874,18 @@ private func captureBackendRunSet(
         definition,
         backend: backend,
         schedule: .productionFullFrame,
+        spatialScheduleID: "production_full_frame",
+        temporalSchedule: .raster,
+        tilePolicy: tilePolicy,
         runtime: runtime
     )
     let repeatBytes = try await execute(
         definition,
         backend: backend,
         schedule: .productionFullFrame,
+        spatialScheduleID: "production_full_frame",
+        temporalSchedule: .raster,
+        tilePolicy: tilePolicy,
         runtime: runtime
     )
     guard canonicalBytes == repeatBytes else {
@@ -727,23 +906,32 @@ private func captureBackendRunSet(
         directory: directory
     )
     var scheduled: [ParityScheduleRun] = []
-    for name in schedules {
+    for pair in schedulePairs {
         let bytes = try await execute(
             definition,
             backend: backend,
-            schedule: try executionSchedule(name),
+            schedule: try executionSchedule(pair.spatialSchedule),
+            spatialScheduleID: pair.spatialSchedule,
+            temporalSchedule: try temporalExecutionSchedule(
+                pair.temporalSchedule
+            ),
+            tilePolicy: tilePolicy,
             runtime: runtime
         )
-        guard bytes == canonicalBytes else {
+        guard bytes.hasIdenticalPayload(to: canonicalBytes) else {
             throw ParityCaptureError.parityFailure(
-                "\(definition.id)/\(backend.rawValue)/\(name) differs"
+                "\(definition.id)/\(backend.rawValue)/" +
+                    "\(pair.spatialSchedule)/" +
+                    "\(pair.temporalSchedule) differs"
             )
         }
         scheduled.append(ParityScheduleRun(
-            schedule: name,
+            spatialSchedule: pair.spatialSchedule,
+            temporalSchedule: pair.temporalSchedule,
             run: try writeRunArtifacts(
                 bytes,
-                prefix: "\(backend.rawValue)-schedule-\(name)",
+                prefix: "\(backend.rawValue)-schedule-" +
+                    pair.spatialSchedule,
                 outputRoot: outputRoot,
                 directory: directory
             )
@@ -774,7 +962,8 @@ private func writeRunArtifacts(
         visible: write(bytes.visible, suffix: "visible.bin"),
         semantics: write(bytes.semantics, suffix: "semantics.json"),
         checkpoints: write(bytes.checkpoints, suffix: "checkpoints.json"),
-        resume: write(bytes.resume, suffix: "resume.json")
+        resume: write(bytes.resume, suffix: "resume.json"),
+        execution: write(bytes.execution, suffix: "execution.json")
     )
 }
 
@@ -790,10 +979,27 @@ private func executionSchedule(
     }
 }
 
+private func temporalExecutionSchedule(
+    _ value: String
+) throws -> ASHTemporalTileExecutionScheduleV4 {
+    switch value {
+    case "raster": .raster
+    case "reverse_raster": .reverseRaster
+    case "even_then_odd": .evenThenOdd
+    default:
+        throw ParityCaptureError.invalidContract(
+            "unknown temporal schedule \(value)"
+        )
+    }
+}
+
 private func execute(
     _ definition: ParityCaseDefinition,
     backend: FixedPointExecutionBackendV4,
     schedule: FixedPointExecutionScheduleV4,
+    spatialScheduleID: String,
+    temporalSchedule: ASHTemporalTileExecutionScheduleV4,
+    tilePolicy: ASHTemporalTilePolicyV4?,
     runtime: ASHVerifiedRuntimeBundleV4
 ) async throws -> ParityRunBytes {
     if definition.kind == "alpha_spatial" {
@@ -801,6 +1007,8 @@ private func execute(
             definition,
             backend: backend,
             schedule: schedule,
+            spatialScheduleID: spatialScheduleID,
+            temporalSchedule: temporalSchedule,
             runtime: runtime
         )
     }
@@ -808,6 +1016,9 @@ private func execute(
         definition,
         backend: backend,
         schedule: schedule,
+        spatialScheduleID: spatialScheduleID,
+        temporalSchedule: temporalSchedule,
+        tilePolicy: tilePolicy,
         runtime: runtime
     )
 }
@@ -816,6 +1027,9 @@ private func executePixel(
     _ definition: ParityCaseDefinition,
     backend: FixedPointExecutionBackendV4,
     schedule: FixedPointExecutionScheduleV4,
+    spatialScheduleID: String,
+    temporalSchedule: ASHTemporalTileExecutionScheduleV4,
+    tilePolicy: ASHTemporalTilePolicyV4?,
     runtime: ASHVerifiedRuntimeBundleV4
 ) async throws -> ParityRunBytes {
     let configuration = try preparedConfiguration(definition, backend: backend)
@@ -825,6 +1039,8 @@ private func executePixel(
     let prepared = try makePrepared(
         configuration: configuration,
         schedule: schedule,
+        tilePolicy: tilePolicy,
+        temporalSchedule: temporalSchedule,
         runtime: runtime
     )
     let complete = try await processPixelFrames(
@@ -853,6 +1069,8 @@ private func executePixel(
         let prefixPrepared = try makePrepared(
             configuration: configuration,
             schedule: schedule,
+            tilePolicy: tilePolicy,
+            temporalSchedule: temporalSchedule,
             runtime: runtime
         )
         let prefix = try await processPixelFrames(
@@ -867,6 +1085,8 @@ private func executePixel(
         let resumedPrepared = try makePrepared(
             configuration: configuration,
             schedule: schedule,
+            tilePolicy: tilePolicy,
+            temporalSchedule: temporalSchedule,
             runtime: runtime
         )
         try await resumedPrepared.restoreTemporalCheckpoint(
@@ -913,11 +1133,27 @@ private func executePixel(
         caseID: definition.id,
         entries: resumeEntries
     ))
+    let execution = try canonicalJSON(ParityExecutionEvidence(
+        caseID: definition.id,
+        backend: backend.rawValue,
+        spatialSchedule: spatialScheduleID,
+        temporalSchedule: temporalSchedule.rawValue,
+        checkpointSchemaID: tilePolicy == nil
+            ? ASHPreparedTemporalCheckpointV4.currentSchemaID
+            : ASHPreparedTiledTemporalCheckpointV4.currentSchemaID,
+        checkpointSHA256s: complete.checkpoints.map(\.canonicalSHA256),
+        boundedRoute: try boundedRouteEvidence(
+            prepared: prepared,
+            definition: definition,
+            policy: tilePolicy
+        )
+    ))
     return ParityRunBytes(
         visible: visible,
         semantics: semantics,
         checkpoints: checkpoints,
         resume: resume,
+        execution: execution,
         sourcePaddingByteCount: complete.sourcePaddingByteCount,
         destinationPaddingByteCount: complete.destinationPaddingByteCount,
         paddingSentinelPreserved: complete.paddingSentinelPreserved
@@ -952,6 +1188,8 @@ private func preparedConfiguration(
 private func makePrepared(
     configuration: DeterministicPreparedConfigurationV4,
     schedule: FixedPointExecutionScheduleV4,
+    tilePolicy: ASHTemporalTilePolicyV4?,
+    temporalSchedule: ASHTemporalTileExecutionScheduleV4,
     runtime: ASHVerifiedRuntimeBundleV4
 ) throws -> PreparedDeterministicV4Upscaler {
     let device = configuration.executionBackend == .metal
@@ -962,12 +1200,90 @@ private func makePrepared(
             device: $0
         )
     }
-    return try PreparedDeterministicV4Upscaler(
+    let prepared = try PreparedDeterministicV4Upscaler(
         configuration: configuration,
         runtime: runtime,
         executionSchedule: schedule,
+        temporalTilePolicy: tilePolicy,
+        temporalTileExecutionSchedule: temporalSchedule,
         metalDevice: device,
         metalLibrary: library
+    )
+    guard prepared.temporalTileExecutionSchedule == temporalSchedule,
+          prepared.temporalTilePolicy == tilePolicy else {
+        throw ParityCaptureError.invalidFixture(
+            "prepared temporal route differs from requested route"
+        )
+    }
+    if tilePolicy == nil {
+        guard !prepared.usesBoundedTiledTemporalPath,
+              prepared.tiledAllocationContract == nil else {
+            throw ParityCaptureError.invalidFixture(
+                "unforced case selected the bounded tiled route"
+            )
+        }
+    } else {
+        guard prepared.usesBoundedTiledTemporalPath,
+              prepared.tiledAllocationContract != nil else {
+            throw ParityCaptureError.invalidFixture(
+                "forced case did not select the bounded tiled route"
+            )
+        }
+    }
+    return prepared
+}
+
+private func boundedRouteEvidence(
+    prepared: PreparedDeterministicV4Upscaler,
+    definition: ParityCaseDefinition,
+    policy: ASHTemporalTilePolicyV4?
+) throws -> ParityBoundedRoute? {
+    guard let policy else {
+        guard !prepared.usesBoundedTiledTemporalPath,
+              prepared.tiledAllocationContract == nil else {
+            throw ParityCaptureError.invalidFixture(
+                "unexpected bounded route diagnostics"
+            )
+        }
+        return nil
+    }
+    let sourceGrid = try ASHTemporalTileGridV4(
+        frameWidth: definition.sourceWidth,
+        frameHeight: definition.sourceHeight,
+        policy: policy
+    )
+    let targetGrid = try ASHTemporalTileGridV4(
+        frameWidth: definition.targetWidth,
+        frameHeight: definition.targetHeight,
+        policy: policy
+    )
+    guard sourceGrid.tileCount > 1,
+          targetGrid.tileCount > 1,
+          prepared.usesBoundedTiledTemporalPath,
+          prepared.temporalTilePolicy == policy,
+          let allocation = prepared.tiledAllocationContract,
+          allocation.policyID == policy.policyID,
+          allocation.sourceFullFrameSampleCount
+            == sourceGrid.fullFrameSampleCount,
+          allocation.sourceTileCount == sourceGrid.tileCount,
+          allocation.targetFullFrameSampleCount
+            == targetGrid.fullFrameSampleCount,
+          allocation.targetTileCount == targetGrid.tileCount,
+          allocation.maximumRetainedTileSampleCount
+            == policy.maximumRetainedTileSampleCount,
+          allocation.maximumOutputTileSampleCount
+            == policy.tileWidth * policy.tileHeight,
+          allocation.fullFrameSampleArrayAllocationCap == 0 else {
+        throw ParityCaptureError.invalidFixture(
+            "bounded route allocation diagnostics differ"
+        )
+    }
+    return ParityBoundedRoute(
+        usesBoundedTiledTemporalPath: true,
+        tilePolicy: .qualification,
+        sourceGrid: ParityExecutionGrid(sourceGrid),
+        targetGrid: ParityExecutionGrid(targetGrid),
+        allocationContract: ParityAllocationContract(allocation)
     )
 }
 
@@ -1048,45 +1364,79 @@ private func processPixelFrames(
             planSHA256: planSHA,
             lastCompletedInputOrdinal: Int64(ordinal)
         )
-        let checkpoint = try ASHPreparedTemporalCheckpointV4.decodeCanonical(
-            finalCheckpoint,
-            expectedPlanSHA256: planSHA,
-            expectedRuntimeManifestSHA256: runtime.manifestSHA256,
-            expectedFormatIdentity: checkpointFormatIdentity(
-                runtime: runtime,
-                configuration: configuration
-            )
-        )
-        guard try checkpoint.canonicalData == finalCheckpoint,
-              let latest = checkpoint.history.frames.last else {
-            throw ParityCaptureError.invalidFixture("noncanonical checkpoint")
+        let checkpointGeneration: UInt64
+        let checkpointCadenceID: String
+        let classification: String?
+        if let tilePolicy = prepared.temporalTilePolicy {
+            let checkpoint = try ASHPreparedTiledTemporalCheckpointV4
+                .decodeCanonical(
+                    finalCheckpoint,
+                    expectedPlanSHA256: planSHA,
+                    expectedRuntimeManifestSHA256: runtime.manifestSHA256,
+                    expectedFormatIdentity: checkpointFormatIdentity(
+                        runtime: runtime,
+                        configuration: configuration
+                    ),
+                    expectedTilePolicy: tilePolicy
+                )
+            guard try checkpoint.canonicalData == finalCheckpoint,
+                  let latest = checkpoint.history.entries.last?.frame,
+                  latest.grid.tileCount > 1,
+                  checkpoint.previousSourceTiledFrame.grid.tileCount > 1 else {
+                throw ParityCaptureError.invalidFixture(
+                    "noncanonical or single-tile bounded checkpoint"
+                )
+            }
+            checkpointGeneration = checkpoint.history.generation
+            checkpointCadenceID = latest.cadenceID
+            classification = checkpoint.fieldCadenceState?
+                .classification.rawValue
+        } else {
+            let checkpoint = try ASHPreparedTemporalCheckpointV4
+                .decodeCanonical(
+                    finalCheckpoint,
+                    expectedPlanSHA256: planSHA,
+                    expectedRuntimeManifestSHA256: runtime.manifestSHA256,
+                    expectedFormatIdentity: checkpointFormatIdentity(
+                        runtime: runtime,
+                        configuration: configuration
+                    )
+                )
+            guard try checkpoint.canonicalData == finalCheckpoint,
+                  let latest = checkpoint.history.frames.last else {
+                throw ParityCaptureError.invalidFixture(
+                    "noncanonical checkpoint"
+                )
+            }
+            checkpointGeneration = checkpoint.history.generation
+            checkpointCadenceID = latest.cadenceID
+            classification = checkpoint.fieldCadenceState?
+                .classification.rawValue
         }
         let expectedOutputStart = definition.scanMode == "progressive"
             ? ordinal : ordinal * 2
-        let classification = checkpoint.fieldCadenceState?
-            .classification.rawValue
         let semantics = try outputs.enumerated().map { index, output in
             let priorGeneration = index == 0
                 ? nil : outputs[index - 1].temporalGeneration
             let isFinalOutput = index == outputs.count - 1
             guard output.temporalGeneration > 0,
-                  output.temporalGeneration <= checkpoint.history.generation,
+                  output.temporalGeneration <= checkpointGeneration,
                   (!isFinalOutput
                     || output.temporalGeneration
-                        == checkpoint.history.generation),
+                        == checkpointGeneration),
                   priorGeneration.map({
                     output.temporalGeneration >= $0
                         && output.temporalGeneration - $0 <= 1
                   }) ?? true,
-                  output.cadenceID == latest.cadenceID else {
+                  output.cadenceID == checkpointCadenceID else {
                 throw ParityCaptureError.invalidFixture(
                     "typed output semantics differ from checkpoint " +
                     "case=\(definition.id) backend=\(backend.rawValue) " +
                     "input=\(ordinal) output=\(index) " +
                     "outputGeneration=\(output.temporalGeneration) " +
-                    "checkpointGeneration=\(checkpoint.history.generation) " +
+                    "checkpointGeneration=\(checkpointGeneration) " +
                     "outputCadence=\(output.cadenceID) " +
-                    "checkpointCadence=\(latest.cadenceID)"
+                    "checkpointCadence=\(checkpointCadenceID)"
                 )
             }
             return ParitySemanticOutput(
@@ -1168,6 +1518,8 @@ private func executeAlpha(
     _ definition: ParityCaseDefinition,
     backend: FixedPointExecutionBackendV4,
     schedule: FixedPointExecutionScheduleV4,
+    spatialScheduleID: String,
+    temporalSchedule: ASHTemporalTileExecutionScheduleV4,
     runtime: ASHVerifiedRuntimeBundleV4
 ) async throws -> ParityRunBytes {
     let layout = try alphaLayout(definition.storage)
@@ -1262,6 +1614,15 @@ private func executeAlpha(
         caseID: definition.id,
         entries: []
     ))
+    let execution = try canonicalJSON(ParityExecutionEvidence(
+        caseID: definition.id,
+        backend: backend.rawValue,
+        spatialSchedule: spatialScheduleID,
+        temporalSchedule: temporalSchedule.rawValue,
+        checkpointSchemaID: "none",
+        checkpointSHA256s: [],
+        boundedRoute: nil
+    ))
     let sourcePadding = try packedPaddingBytes(source, layout: layout)
     let destinationPadding = try packedPaddingBytes(destination, layout: layout)
     return ParityRunBytes(
@@ -1269,6 +1630,7 @@ private func executeAlpha(
         semantics: semantics,
         checkpoints: checkpoints,
         resume: resume,
+        execution: execution,
         sourcePaddingByteCount: sourcePadding.count,
         destinationPaddingByteCount: destinationPadding.count,
         paddingSentinelPreserved: sourcePadding == sourcePaddingBefore
@@ -1555,7 +1917,7 @@ private func installPixelAttachments(
         CVBufferSetAttachment(
             buffer,
             kCMSampleAttachmentKey_HDR10PlusPerFrameData,
-            Data([0xB5, 0x00, 0x3C, 0x00, 0x01]) as CFData,
+            Data([0xB5, 0x00, 0x3C, 0x00, 0x01, 0x04, 0x01]) as CFData,
             .shouldPropagate
         )
         CVBufferSetAttachment(
@@ -1590,7 +1952,7 @@ private func parityStaticHDRMetadata() throws -> HDRStaticMetadataV4 {
             maximumContentLightLevel: 1_000,
             maximumFrameAverageLightLevel: 400
         ),
-        ambientViewingEnvironment: AmbientViewingEnvironmentV4(
+        ambientViewingEnvironment: try AmbientViewingEnvironmentV4(
             ambientIlluminance: 123_456,
             ambientLight: try HDRChromaticityV4(
                 x: 15_635,

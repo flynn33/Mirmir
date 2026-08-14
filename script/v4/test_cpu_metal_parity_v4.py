@@ -278,6 +278,8 @@ class ParityEvidenceFixture:
     def _checkpoint(
         self, definition: dict[str, object], ordinal: int
     ) -> bytes:
+        if definition["id"] == self.contract["boundedTemporalCaseID"]:
+            return self._tiled_checkpoint(definition, ordinal)
         state = self._state(definition, ordinal)
         outputs_per_input = (
             2 if definition["kind"] == "pixel_interlaced_temporal" else 1
@@ -328,6 +330,103 @@ class ParityEvidenceFixture:
         if previous_interlaced is not None and field_state is not None:
             checkpoint["previousInterlacedFrame"] = previous_interlaced
             checkpoint["fieldCadenceState"] = field_state
+        return parity.compact_canonical_json(checkpoint)
+
+    def _tiled_frame(
+        self,
+        definition: dict[str, object],
+        ordinal: int,
+        *,
+        source: bool,
+        format_identity: str,
+        state_raw: int,
+    ) -> dict[str, object]:
+        width = int(definition["sourceWidth" if source else "targetWidth"])
+        height = int(definition["sourceHeight" if source else "targetHeight"])
+        grid = parity.expected_tile_grid(width, height)
+        tiles = []
+        for index in range(grid["tileCount"]):
+            descriptor = parity.expected_tile_descriptor(index, width, height)
+            retained = descriptor["retained"]
+            sample_count = retained["width"] * retained["height"]
+            tiles.append({
+                "descriptor": descriptor,
+                "minimumCode": 16,
+                "maximumCode": 235,
+                "retainedSamples": [16 + ((index + ordinal) % 8)] * sample_count,
+                "ashStateRawValue": state_raw,
+            })
+        return {
+            "frameID": (
+                f"v4-measurement-{ordinal}" if source else f"v4-frame-{ordinal}"
+            ),
+            "streamID": "primary-video-measurement" if source else "primary-video",
+            "formatIdentity": format_identity,
+            "ordinal": ordinal,
+            "presentationTime": {"numerator": ordinal, "denominator": 1},
+            "cadenceID": "progressive",
+            "grid": {
+                "frameWidth": width,
+                "frameHeight": height,
+                "policy": copy.deepcopy(self.contract["temporalTilePolicy"]),
+                "columns": grid["columns"],
+                "rows": grid["rows"],
+            },
+            "tiles": tiles,
+        }
+
+    def _tiled_checkpoint(
+        self, definition: dict[str, object], ordinal: int
+    ) -> bytes:
+        state = self._state(definition, ordinal)
+        format_identity = identity(str(definition["id"]) + ":format")
+        state_raw = 1
+        presentation = {"numerator": ordinal, "denominator": 1}
+        checkpoint = {
+            "schemaID": parity.TILED_CHECKPOINT_SCHEMA,
+            "planSHA256": identity(str(definition["id"]) + ":plan"),
+            "runtimeManifestSHA256": self.runtime["manifestSHA256"],
+            "formatIdentity": format_identity,
+            "sourceStorage": self.STORAGE_RAW[str(definition["storage"])],
+            "sourceWidth": definition["sourceWidth"],
+            "sourceHeight": definition["sourceHeight"],
+            "targetWidth": definition["targetWidth"],
+            "targetHeight": definition["targetHeight"],
+            "scanModeID": "progressive",
+            "tilePolicy": copy.deepcopy(self.contract["temporalTilePolicy"]),
+            "lastCompletedInputOrdinal": ordinal,
+            "nextOutputOrdinal": ordinal + 1,
+            "lastCompletedOutputPresentationTime": presentation,
+            "history": {
+                "generation": state["historyGeneration"],
+                "capacity": 1,
+                "entries": [{
+                    "frame": self._tiled_frame(
+                        definition,
+                        ordinal,
+                        source=False,
+                        format_identity=format_identity,
+                        state_raw=state_raw,
+                    )
+                }],
+            },
+            "previousMeasurementHistory": {
+                "storage": self.STORAGE_RAW[str(definition["storage"])],
+                "sourceWidth": definition["sourceWidth"],
+                "sourceHeight": definition["sourceHeight"],
+                "windowWidth": 32,
+                "windowHeight": 32,
+                "normalizedLumaWindowQ16": [0] * 1024,
+            },
+            "previousSourceTiledFrame": self._tiled_frame(
+                definition,
+                ordinal,
+                source=True,
+                format_identity=format_identity,
+                state_raw=state_raw,
+            ),
+            "previousMeasurementStateRawValue": state_raw,
+        }
         return parity.compact_canonical_json(checkpoint)
 
     def _checkpoint_set(self, definition: dict[str, object]) -> bytes:
@@ -446,6 +545,85 @@ class ParityEvidenceFixture:
             "entries": entries,
         })
 
+    def _execution(
+        self,
+        definition: dict[str, object],
+        backend: str,
+        spatial_schedule: str,
+        temporal_schedule: str,
+    ) -> bytes:
+        checkpoint_shas = []
+        if definition["kind"] != "alpha_spatial":
+            checkpoint_shas = [
+                parity.sha256_bytes(self._checkpoint(definition, ordinal))
+                for ordinal in range(len(definition["frames"]))
+            ]
+        bounded = definition["id"] == self.contract["boundedTemporalCaseID"]
+        bounded_route = None
+        if bounded:
+            source = parity.expected_tile_grid(
+                int(definition["sourceWidth"]), int(definition["sourceHeight"])
+            )
+            target = parity.expected_tile_grid(
+                int(definition["targetWidth"]), int(definition["targetHeight"])
+            )
+            policy = self.contract["temporalTilePolicy"]
+            bounded_route = {
+                "usesBoundedTiledTemporalPath": True,
+                "tilePolicy": copy.deepcopy(policy),
+                "sourceGrid": source,
+                "targetGrid": target,
+                "allocationContract": {
+                    "policyID": policy["policyID"],
+                    "sourceFullFrameSampleCount": source["fullFrameSampleCount"],
+                    "sourceTileCount": source["tileCount"],
+                    "targetFullFrameSampleCount": target["fullFrameSampleCount"],
+                    "targetTileCount": target["tileCount"],
+                    "maximumRetainedTileSampleCount": (
+                        (policy["tileWidth"] + 2 * policy["searchHalo"])
+                        * (policy["tileHeight"] + 2 * policy["searchHalo"])
+                    ),
+                    "maximumOutputTileSampleCount": (
+                        policy["tileWidth"] * policy["tileHeight"]
+                    ),
+                    "fullFrameSampleArrayAllocationCap": 0,
+                },
+            }
+        checkpoint_schema = (
+            "none" if definition["kind"] == "alpha_spatial"
+            else parity.TILED_CHECKPOINT_SCHEMA if bounded
+            else parity.CONTIGUOUS_CHECKPOINT_SCHEMA
+        )
+        return parity.canonical_json({
+            "schemaVersion": parity.EXECUTION_SCHEMA,
+            "caseID": definition["id"],
+            "backend": backend,
+            "spatialSchedule": spatial_schedule,
+            "temporalSchedule": temporal_schedule,
+            "checkpointSchemaID": checkpoint_schema,
+            "checkpointSHA256s": checkpoint_shas,
+            "boundedRoute": bounded_route,
+        })
+
+    def _artifacts(
+        self,
+        definition: dict[str, object],
+        backend: str,
+        spatial_schedule: str,
+        temporal_schedule: str,
+        visible: bytes,
+        semantics: bytes,
+    ) -> dict[str, bytes]:
+        return {
+            "visible": visible,
+            "semantics": semantics,
+            "checkpoints": self._checkpoint_set(definition),
+            "resume": self._resume_set(definition, visible, semantics),
+            "execution": self._execution(
+                definition, backend, spatial_schedule, temporal_schedule
+            ),
+        }
+
     def _write_run(
         self,
         directory: Path,
@@ -461,6 +639,7 @@ class ParityEvidenceFixture:
             "semantics": "json",
             "checkpoints": "json",
             "resume": "json",
+            "execution": "json",
         }
         for key, data in artifacts.items():
             path = case_directory / f"{backend}-{run_name}-{key}.{extensions[key]}"
@@ -477,29 +656,35 @@ class ParityEvidenceFixture:
             case_directory.mkdir(parents=True)
             visible = ("visible:" + case_id).encode("utf-8")
             semantics = self._semantics(definition)
-            artifacts = {
-                "visible": visible,
-                "semantics": semantics,
-                "checkpoints": self._checkpoint_set(definition),
-                "resume": self._resume_set(definition, visible, semantics),
-            }
             backends = {}
             for backend in ("cpu", "metal"):
                 canonical = self._write_run(
                     directory, case_directory, definition, backend,
-                    "canonical", artifacts
+                    "canonical", self._artifacts(
+                        definition, backend, "production_full_frame", "raster",
+                        visible, semantics,
+                    )
                 )
                 repeat = self._write_run(
                     directory, case_directory, definition, backend,
-                    "repeat", artifacts
+                    "repeat", self._artifacts(
+                        definition, backend, "production_full_frame", "raster",
+                        visible, semantics,
+                    )
                 )
                 schedules = []
-                for schedule in self.contract["tileSchedules"]:
+                for pair in self.contract["schedulePairs"]:
+                    spatial = pair["spatialSchedule"]
+                    temporal = pair["temporalSchedule"]
                     schedules.append({
-                        "schedule": schedule,
+                        "spatialSchedule": spatial,
+                        "temporalSchedule": temporal,
                         "run": self._write_run(
                             directory, case_directory, definition, backend,
-                            "schedule-" + schedule, artifacts
+                            "schedule-" + spatial, self._artifacts(
+                                definition, backend, spatial, temporal,
+                                visible, semantics,
+                            )
                         ),
                     })
                 backends[backend] = {
@@ -626,7 +811,8 @@ class ParityEvidenceFixture:
     ) -> None:
         replacements = {}
         runs = ["canonical", "repeat"] + [
-            "schedule-" + item for item in self.contract["tileSchedules"]
+            "schedule-" + item["spatialSchedule"]
+            for item in self.contract["schedulePairs"]
         ]
         for backend in backends:
             for run in runs:
@@ -728,6 +914,15 @@ class CPUMetalParityQualificationTests(unittest.TestCase):
         with self.assertRaisesRegex(parity.ParityEvidenceError, "matrix is incomplete"):
             self.fixture.evaluate()
 
+    def test_bounded_tile_policy_cannot_be_weakened_and_resealed(self) -> None:
+        contract = parity.load_json(self.fixture.contract_path)
+        contract["temporalTilePolicy"]["searchHalo"] = 4
+        parity.write_json(self.fixture.contract_path, contract)
+        with self.assertRaisesRegex(
+            parity.ParityEvidenceError, "temporal tile policy differs"
+        ):
+            self.fixture.evaluate()
+
     def test_raw_artifact_tamper_is_rejected_by_nested_seal(self) -> None:
         case_id = self.fixture.contract["cases"][0]["id"]
         path = self.fixture.capture_a / self.fixture.artifact_relative(
@@ -764,8 +959,8 @@ class CPUMetalParityQualificationTests(unittest.TestCase):
 
         def mutate(capture):
             case = next(item for item in capture["cases"] if item["id"] == case_id)
-            case["cpu"]["schedules"][0]["run"] = copy.deepcopy(
-                case["cpu"]["canonical"]
+            case["cpu"]["schedules"][0]["run"]["visible"] = copy.deepcopy(
+                case["cpu"]["canonical"]["visible"]
             )
 
         self.fixture.mutate_capture(mutate)
@@ -778,6 +973,17 @@ class CPUMetalParityQualificationTests(unittest.TestCase):
         def mutate(capture):
             case = next(item for item in capture["cases"] if item["id"] == case_id)
             case["metal"]["schedules"].pop()
+
+        self.fixture.mutate_capture(mutate)
+        with self.assertRaisesRegex(parity.ParityEvidenceError, "schedule set/order"):
+            self.fixture.evaluate()
+
+    def test_temporal_schedule_pairing_forgery_is_rejected_after_reseal(self) -> None:
+        case_id = self.case_with("temporal_tile_schedule")
+
+        def mutate(capture):
+            case = next(item for item in capture["cases"] if item["id"] == case_id)
+            case["cpu"]["schedules"][1]["temporalSchedule"] = "raster"
 
         self.fixture.mutate_capture(mutate)
         with self.assertRaisesRegex(parity.ParityEvidenceError, "schedule set/order"):
@@ -822,6 +1028,102 @@ class CPUMetalParityQualificationTests(unittest.TestCase):
             case_id, "cpu", "canonical", "checkpoints", mutate
         )
         with self.assertRaisesRegex(parity.ParityEvidenceError, "output ordinal"):
+            self.fixture.evaluate()
+
+    def test_tiled_checkpoint_schema_forgery_is_rejected_after_reseal(self) -> None:
+        case_id = self.case_with("tiled_checkpoint_schema")
+
+        def mutate(document):
+            entry = document["entries"][0]
+            checkpoint = json.loads(base64.b64decode(entry["canonicalDataBase64"]))
+            checkpoint["schemaID"] = parity.CONTIGUOUS_CHECKPOINT_SCHEMA
+            raw = parity.compact_canonical_json(checkpoint)
+            entry["canonicalDataBase64"] = encoded(raw)
+            entry["canonicalSHA256"] = parity.sha256_bytes(raw)
+
+        self.fixture.mutate_json_artifact(
+            case_id, "cpu", "canonical", "checkpoints", mutate
+        )
+        with self.assertRaisesRegex(parity.ParityEvidenceError, "tiled checkpoint schema"):
+            self.fixture.evaluate()
+
+    def test_tiled_descriptor_forgery_is_recomputed_after_reseal(self) -> None:
+        case_id = self.case_with("bounded_tiled_temporal_path")
+
+        def mutate(document):
+            entry = document["entries"][0]
+            checkpoint = json.loads(base64.b64decode(entry["canonicalDataBase64"]))
+            retained = checkpoint["history"]["entries"][0]["frame"]["tiles"][0][
+                "descriptor"
+            ]["retained"]
+            retained["width"] += 1
+            raw = parity.compact_canonical_json(checkpoint)
+            entry["canonicalDataBase64"] = encoded(raw)
+            entry["canonicalSHA256"] = parity.sha256_bytes(raw)
+
+        self.fixture.mutate_json_artifact(
+            case_id, "cpu", "canonical", "checkpoints", mutate
+        )
+        with self.assertRaisesRegex(parity.ParityEvidenceError, "descriptor differs"):
+            self.fixture.evaluate()
+
+    def test_bounded_route_flag_forgery_is_rejected_after_reseal(self) -> None:
+        case_id = self.case_with("bounded_tiled_temporal_path")
+        self.fixture.mutate_json_artifact(
+            case_id,
+            "cpu",
+            "canonical",
+            "execution",
+            lambda document: document["boundedRoute"].update(
+                {"usesBoundedTiledTemporalPath": False}
+            ),
+        )
+        with self.assertRaisesRegex(parity.ParityEvidenceError, "must be True"):
+            self.fixture.evaluate()
+
+    def test_allocation_contract_forgery_is_recomputed_after_reseal(self) -> None:
+        case_id = self.case_with("tiled_allocation_contract")
+        self.fixture.mutate_json_artifact(
+            case_id,
+            "cpu",
+            "canonical",
+            "execution",
+            lambda document: document["boundedRoute"]["allocationContract"].update(
+                {"fullFrameSampleArrayAllocationCap": 1}
+            ),
+        )
+        with self.assertRaisesRegex(parity.ParityEvidenceError, "allocation contract differs"):
+            self.fixture.evaluate()
+
+    def test_execution_checkpoint_claim_is_recomputed_after_reseal(self) -> None:
+        case_id = self.case_with("tiled_checkpoint_schema")
+        self.fixture.mutate_json_artifact(
+            case_id,
+            "cpu",
+            "canonical",
+            "execution",
+            lambda document: document["checkpointSHA256s"].__setitem__(0, "0" * 64),
+        )
+        with self.assertRaisesRegex(parity.ParityEvidenceError, "checkpoint identities"):
+            self.fixture.evaluate()
+
+    def test_resumed_tiled_checkpoint_schema_is_recomputed_after_reseal(self) -> None:
+        case_id = self.case_with("bounded_tiled_temporal_path")
+
+        def mutate(document):
+            entry = document["entries"][0]
+            for key in (
+                "uninterruptedFinalCheckpointBase64",
+                "resumedFinalCheckpointBase64",
+            ):
+                checkpoint = json.loads(base64.b64decode(entry[key]))
+                checkpoint["schemaID"] = parity.CONTIGUOUS_CHECKPOINT_SCHEMA
+                entry[key] = encoded(parity.compact_canonical_json(checkpoint))
+
+        self.fixture.mutate_json_artifact(
+            case_id, "cpu", "canonical", "resume", mutate
+        )
+        with self.assertRaisesRegex(parity.ParityEvidenceError, "tiled checkpoint schema"):
             self.fixture.evaluate()
 
     def test_checkpoint_generation_claim_is_recomputed(self) -> None:

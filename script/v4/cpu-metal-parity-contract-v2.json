@@ -2,6 +2,7 @@
   "attachmentSchemaVersion": "mirmir-ash-v4-canonical-semantics-v2",
   "buildConfiguration": "Release",
   "captureSchemaVersion": "mirmir-ash-v4-cpu-metal-parity-capture-v2",
+  "boundedTemporalCaseID": "nv12-video-forced-tiled-temporal-16x12-to-32x24",
   "cases": [
     {
       "association": "none",
@@ -20,8 +21,7 @@
         "exact_timing_semantics",
         "exact_attachment_semantics",
         "repeat_execution",
-        "cross_process",
-        "tile_schedule"
+        "cross_process"
       ],
       "frames": [
         {
@@ -116,6 +116,75 @@
       "storage": "nv12_video_range_8",
       "targetHeight": 9,
       "targetWidth": 13
+    },
+    {
+      "association": "none",
+      "checkpointBoundaries": [
+        1
+      ],
+      "coverage": [
+        "bounded_tiled_temporal_path",
+        "tiled_allocation_contract",
+        "tiled_checkpoint_schema",
+        "temporal_tile_schedule",
+        "tile_schedule"
+      ],
+      "frames": [
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "moving_edge_0",
+          "presentationTime": {
+            "timescale": 30000,
+            "value": 0
+          },
+          "topToken": null
+        },
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "moving_edge_1",
+          "presentationTime": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "topToken": null
+        },
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "moving_edge_2",
+          "presentationTime": {
+            "timescale": 30000,
+            "value": 2002
+          },
+          "topToken": null
+        }
+      ],
+      "id": "nv12-video-forced-tiled-temporal-16x12-to-32x24",
+      "kind": "pixel_temporal",
+      "scanMode": "progressive",
+      "sourceHeight": 12,
+      "sourceWidth": 16,
+      "stateExpectations": [],
+      "storage": "nv12_video_range_8",
+      "targetHeight": 24,
+      "targetWidth": 32
     },
     {
       "association": "none",
@@ -457,6 +526,10 @@
     "progressive_attachment_normalization",
     "repeat_execution",
     "cross_process",
+    "bounded_tiled_temporal_path",
+    "tiled_allocation_contract",
+    "tiled_checkpoint_schema",
+    "temporal_tile_schedule",
     "tile_schedule"
   ],
   "releaseRuntime": {
@@ -469,14 +542,36 @@
   "reportSchemaVersion": "mirmir-ash-v4-cpu-metal-parity-report-v2",
   "runArtifactSchemaVersion": "mirmir-ash-v4-cpu-metal-parity-run-v2",
   "schemaVersion": "mirmir-ash-v4-cpu-metal-parity-contract-v2",
+  "schedulePairs": [
+    {
+      "spatialSchedule": "row_major",
+      "temporalSchedule": "raster"
+    },
+    {
+      "spatialSchedule": "reverse",
+      "temporalSchedule": "reverse_raster"
+    },
+    {
+      "spatialSchedule": "even_then_odd",
+      "temporalSchedule": "even_then_odd"
+    }
+  ],
+  "temporalTilePolicy": {
+    "maximumFrameHeight": 64,
+    "maximumFrameWidth": 64,
+    "policyID": "ash.release.parity.tiles.8x8-halo5-max64-v1",
+    "searchHalo": 5,
+    "tileHeight": 8,
+    "tileWidth": 8
+  },
   "tileSchedules": [
     "row_major",
     "reverse",
     "even_then_odd"
   ],
   "tools": {
-    "captureSourceSHA256": "1e2da33aeca0faf51e193e112f4828d885a38b1630d9bb5a5c9156eb3776d65c",
-    "evaluatorSHA256": "c78ffbb2ca2df90f92e5823b76dce78bf6f47bcb5fd9c508541b0b4dd4fd66fd",
+    "captureSourceSHA256": "a4a2d95dc2bd4508565a1e9dfd6b7fa82cabc4fe57a0b255300e2dfd02508ec3",
+    "evaluatorSHA256": "b24a958231cd17fb570d42922a810d321c0f6407a8f16a1d302d991b2cff66f3",
     "runnerSHA256": "e503c1de7379b73874bf8195b31d90378a720ce1b75172895fdc6df6b884c268"
   }
 }

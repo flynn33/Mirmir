@@ -25,6 +25,9 @@ RUN_SCHEMA = "mirmir-ash-v4-cpu-metal-parity-run-v2"
 SEMANTICS_SCHEMA = "mirmir-ash-v4-canonical-semantics-v2"
 CHECKPOINT_SET_SCHEMA = "mirmir-ash-v4-checkpoint-set-v2"
 RESUME_SET_SCHEMA = "mirmir-ash-v4-resume-set-v2"
+EXECUTION_SCHEMA = "mirmir-ash-v4-bounded-temporal-execution-v1"
+CONTIGUOUS_CHECKPOINT_SCHEMA = "ash.prepared-temporal-checkpoint.v4.5"
+TILED_CHECKPOINT_SCHEMA = "ash.prepared-tiled-temporal-checkpoint.v4.1"
 FIELD_COUNT_ATTACHMENT = "CVFieldCount"
 FIELD_DETAIL_ATTACHMENT = "CVFieldDetail"
 BOTTOM_FIELD_CHROMA_ATTACHMENT = "CVImageBufferChromaLocationBottomField"
@@ -60,9 +63,27 @@ REQUIRED_PARITY_COVERAGE = (
     "progressive_attachment_normalization",
     "repeat_execution",
     "cross_process",
+    "bounded_tiled_temporal_path",
+    "tiled_allocation_contract",
+    "tiled_checkpoint_schema",
+    "temporal_tile_schedule",
     "tile_schedule",
 )
 EXPECTED_SCHEDULES = ("row_major", "reverse", "even_then_odd")
+EXPECTED_SCHEDULE_PAIRS = (
+    ("row_major", "raster"),
+    ("reverse", "reverse_raster"),
+    ("even_then_odd", "even_then_odd"),
+)
+EXPECTED_TILE_POLICY = {
+    "policyID": "ash.release.parity.tiles.8x8-halo5-max64-v1",
+    "tileWidth": 8,
+    "tileHeight": 8,
+    "searchHalo": 5,
+    "maximumFrameWidth": 64,
+    "maximumFrameHeight": 64,
+}
+EXPECTED_BOUNDED_CASE_ID = "nv12-video-forced-tiled-temporal-16x12-to-32x24"
 PACKAGED_CAPTURE_FIELDS = (
     "evidenceRequestSHA256",
     "packagedCandidateIdentity",
@@ -522,6 +543,9 @@ CONTRACT_KEYS = {
     "comparison",
     "repeatExecutionCount",
     "crossProcessCaptureCount",
+    "boundedTemporalCaseID",
+    "temporalTilePolicy",
+    "schedulePairs",
     "tileSchedules",
     "parityCoverage",
     "releaseRuntime",
@@ -559,6 +583,31 @@ def validate_contract(
         for value in require_array(contract["tileSchedules"], "tileSchedules")
     )
     require(schedules == EXPECTED_SCHEDULES, "tile schedule matrix mismatch")
+    require(
+        contract["boundedTemporalCaseID"] == EXPECTED_BOUNDED_CASE_ID,
+        "bounded temporal case identity mismatch",
+    )
+    policy = require_object(contract["temporalTilePolicy"], "temporalTilePolicy")
+    require_exact_keys(policy, EXPECTED_TILE_POLICY, "temporalTilePolicy")
+    for key, expected in EXPECTED_TILE_POLICY.items():
+        require(policy[key] == expected, f"temporal tile policy differs: {key}")
+    schedule_pairs: list[tuple[str, str]] = []
+    for index, raw in enumerate(
+        require_array(contract["schedulePairs"], "schedulePairs")
+    ):
+        pair = require_object(raw, f"schedulePairs[{index}]")
+        require_exact_keys(
+            pair, ("spatialSchedule", "temporalSchedule"),
+            f"schedulePairs[{index}]",
+        )
+        schedule_pairs.append((
+            require_text(pair["spatialSchedule"], f"schedulePairs[{index}].spatialSchedule"),
+            require_text(pair["temporalSchedule"], f"schedulePairs[{index}].temporalSchedule"),
+        ))
+    require(
+        tuple(schedule_pairs) == EXPECTED_SCHEDULE_PAIRS,
+        "spatial/temporal schedule pairing differs",
+    )
     coverage = tuple(
         require_text(value, "coverage")
         for value in require_array(contract["parityCoverage"], "parityCoverage")
@@ -593,7 +642,7 @@ def validate_contract(
         require_sha256(tools[key], f"tools.{key}")
         require(tools[key] == digest, f"locked tool identity mismatch: {key}")
     cases = require_array(contract["cases"], "cases")
-    require(len(cases) >= 9, "parity case matrix is incomplete")
+    require(len(cases) >= 10, "parity case matrix is incomplete")
     identifiers: set[str] = set()
     covered: set[str] = set()
     for index, raw in enumerate(cases):
@@ -602,6 +651,39 @@ def validate_contract(
         identifiers.add(case["id"])
         covered.update(case["coverage"])
     require(covered == set(coverage), "contract case coverage is not exact")
+    bounded = next(
+        (case for case in cases if case["id"] == contract["boundedTemporalCaseID"]),
+        None,
+    )
+    require(bounded is not None, "bounded temporal case is absent")
+    require(
+        bounded["kind"] == "pixel_temporal"
+        and bounded["scanMode"] == "progressive"
+        and bounded["sourceWidth"] == 16
+        and bounded["sourceHeight"] == 12
+        and bounded["targetWidth"] == 32
+        and bounded["targetHeight"] == 24
+        and bounded["checkpointBoundaries"] == [1]
+        and len(bounded["frames"]) >= 3,
+        "bounded temporal case geometry or temporal range differs",
+    )
+    bounded_coverage = {
+        "bounded_tiled_temporal_path",
+        "tiled_allocation_contract",
+        "tiled_checkpoint_schema",
+        "temporal_tile_schedule",
+        "tile_schedule",
+    }
+    require(
+        bounded_coverage.issubset(set(bounded["coverage"])),
+        "bounded temporal case omits evaluator-owned coverage",
+    )
+    for case in cases:
+        if case["id"] != contract["boundedTemporalCaseID"]:
+            require(
+                not bounded_coverage.intersection(case["coverage"]),
+                "bounded temporal coverage is claimed by an unforced case",
+            )
     return contract, sha256_file(path)
 
 
@@ -772,6 +854,262 @@ def integer_attachment(values: list[dict[str, Any]], key: str) -> int | None:
     return int(value["value"])
 
 
+def expected_tile_grid(width: int, height: int) -> dict[str, int]:
+    tile_width = EXPECTED_TILE_POLICY["tileWidth"]
+    tile_height = EXPECTED_TILE_POLICY["tileHeight"]
+    columns = (width + tile_width - 1) // tile_width
+    rows = (height + tile_height - 1) // tile_height
+    return {
+        "frameWidth": width,
+        "frameHeight": height,
+        "columns": columns,
+        "rows": rows,
+        "tileCount": columns * rows,
+        "fullFrameSampleCount": width * height,
+    }
+
+
+def expected_tile_descriptor(
+    tile_index: int, width: int, height: int
+) -> dict[str, Any]:
+    grid = expected_tile_grid(width, height)
+    tile_width = EXPECTED_TILE_POLICY["tileWidth"]
+    tile_height = EXPECTED_TILE_POLICY["tileHeight"]
+    halo = EXPECTED_TILE_POLICY["searchHalo"]
+    column = tile_index % grid["columns"]
+    row = tile_index // grid["columns"]
+    x = column * tile_width
+    y = row * tile_height
+    active_width = min(tile_width, width - x)
+    active_height = min(tile_height, height - y)
+    retained_x = max(0, x - halo)
+    retained_y = max(0, y - halo)
+    retained_max_x = min(width, x + active_width + halo)
+    retained_max_y = min(height, y + active_height + halo)
+    return {
+        "tileIndex": tile_index,
+        "column": column,
+        "row": row,
+        "active": {
+            "x": x, "y": y, "width": active_width, "height": active_height,
+        },
+        "retained": {
+            "x": retained_x,
+            "y": retained_y,
+            "width": retained_max_x - retained_x,
+            "height": retained_max_y - retained_y,
+        },
+    }
+
+
+def validate_tile_grid(
+    value: Any, width: int, height: int, label: str
+) -> dict[str, Any]:
+    grid = require_object(value, label)
+    require_exact_keys(
+        grid, ("frameWidth", "frameHeight", "policy", "columns", "rows"), label
+    )
+    expected = expected_tile_grid(width, height)
+    require(
+        grid["frameWidth"] == width
+        and grid["frameHeight"] == height
+        and grid["columns"] == expected["columns"]
+        and grid["rows"] == expected["rows"],
+        f"{label} geometry differs",
+    )
+    policy = require_object(grid["policy"], f"{label}.policy")
+    require_exact_keys(policy, EXPECTED_TILE_POLICY, f"{label}.policy")
+    require(policy == EXPECTED_TILE_POLICY, f"{label} tile policy differs")
+    return grid
+
+
+def validate_tiled_frame(
+    value: Any,
+    width: int,
+    height: int,
+    expected_ordinal: int,
+    expected_frame_id: str,
+    expected_stream_id: str,
+    expected_format_identity: str,
+    expected_state_raw: int,
+    label: str,
+) -> dict[str, Any]:
+    frame = require_object(value, label)
+    require_exact_keys(
+        frame,
+        (
+            "frameID", "streamID", "formatIdentity", "ordinal",
+            "presentationTime", "cadenceID", "grid", "tiles",
+        ),
+        label,
+    )
+    require(
+        frame["frameID"] == expected_frame_id
+        and frame["streamID"] == expected_stream_id
+        and frame["ordinal"] == expected_ordinal
+        and frame["cadenceID"] == "progressive",
+        f"{label} identity or cadence differs",
+    )
+    require(
+        require_sha256(frame["formatIdentity"], f"{label}.formatIdentity")
+        == expected_format_identity,
+        f"{label} format identity differs",
+    )
+    presentation = require_object(frame["presentationTime"], f"{label}.presentationTime")
+    require_exact_keys(presentation, ("numerator", "denominator"), f"{label}.presentationTime")
+    require_integer(presentation["numerator"], f"{label}.presentationTime.numerator", 0)
+    require_integer(presentation["denominator"], f"{label}.presentationTime.denominator", 1)
+    validate_tile_grid(frame["grid"], width, height, f"{label}.grid")
+    tiles = require_array(frame["tiles"], f"{label}.tiles")
+    grid = expected_tile_grid(width, height)
+    require(len(tiles) == grid["tileCount"], f"{label} tile count differs")
+    maximum_retained = (
+        (EXPECTED_TILE_POLICY["tileWidth"] + 2 * EXPECTED_TILE_POLICY["searchHalo"])
+        * (EXPECTED_TILE_POLICY["tileHeight"] + 2 * EXPECTED_TILE_POLICY["searchHalo"])
+    )
+    for index, raw in enumerate(tiles):
+        tile_label = f"{label}.tiles[{index}]"
+        tile = require_object(raw, tile_label)
+        require_exact_keys(
+            tile,
+            (
+                "descriptor", "minimumCode", "maximumCode",
+                "retainedSamples", "ashStateRawValue",
+            ),
+            tile_label,
+        )
+        expected_descriptor = expected_tile_descriptor(index, width, height)
+        require(tile["descriptor"] == expected_descriptor, f"{tile_label} descriptor differs")
+        minimum = require_integer(tile["minimumCode"], f"{tile_label}.minimumCode", 0)
+        maximum = require_integer(tile["maximumCode"], f"{tile_label}.maximumCode", 1)
+        require(minimum < maximum <= 65_535, f"{tile_label} code range differs")
+        samples = require_array(tile["retainedSamples"], f"{tile_label}.retainedSamples")
+        retained = expected_descriptor["retained"]
+        expected_count = retained["width"] * retained["height"]
+        require(
+            len(samples) == expected_count <= maximum_retained,
+            f"{tile_label} retained allocation differs",
+        )
+        require(
+            all(type(sample) is int and minimum <= sample <= maximum for sample in samples),
+            f"{tile_label} retained samples differ",
+        )
+        require(
+            require_integer(tile["ashStateRawValue"], f"{tile_label}.ashStateRawValue", 0)
+            == expected_state_raw,
+            f"{tile_label} ASH state differs",
+        )
+    return frame
+
+
+def validate_tiled_checkpoint(
+    checkpoint: Mapping[str, Any],
+    definition: Mapping[str, Any],
+    ordinal: int,
+    label: str,
+    previous_generation: int | None = None,
+) -> dict[str, Any]:
+    require_exact_keys(
+        checkpoint,
+        (
+            "schemaID", "planSHA256", "runtimeManifestSHA256", "formatIdentity",
+            "sourceStorage", "sourceWidth", "sourceHeight", "targetWidth",
+            "targetHeight", "scanModeID", "tilePolicy",
+            "lastCompletedInputOrdinal", "nextOutputOrdinal",
+            "lastCompletedOutputPresentationTime", "history",
+            "previousMeasurementHistory", "previousSourceTiledFrame",
+            "previousMeasurementStateRawValue",
+        ),
+        label,
+    )
+    require(checkpoint["schemaID"] == TILED_CHECKPOINT_SCHEMA, f"{label} tiled checkpoint schema differs")
+    for identity_key in ("planSHA256", "runtimeManifestSHA256", "formatIdentity"):
+        require_sha256(checkpoint[identity_key], f"{label}.{identity_key}")
+    require(
+        checkpoint["sourceStorage"] == "nv12_video_range_8_bit"
+        and checkpoint["sourceWidth"] == definition["sourceWidth"]
+        and checkpoint["sourceHeight"] == definition["sourceHeight"]
+        and checkpoint["targetWidth"] == definition["targetWidth"]
+        and checkpoint["targetHeight"] == definition["targetHeight"]
+        and checkpoint["scanModeID"] == "progressive"
+        and checkpoint["tilePolicy"] == EXPECTED_TILE_POLICY,
+        f"{label} tiled route identity differs",
+    )
+    require(
+        checkpoint["lastCompletedInputOrdinal"] == ordinal
+        and checkpoint["nextOutputOrdinal"] == ordinal + 1,
+        f"{label} tiled checkpoint ordinal differs",
+    )
+    state_raw = require_integer(
+        checkpoint["previousMeasurementStateRawValue"],
+        f"{label}.previousMeasurementStateRawValue", 0,
+    )
+    history = require_object(checkpoint["history"], f"{label}.history")
+    require_exact_keys(history, ("generation", "capacity", "entries"), f"{label}.history")
+    generation = require_integer(history["generation"], f"{label}.history.generation", 1)
+    if previous_generation is not None:
+        require(
+            previous_generation <= generation <= previous_generation + 1,
+            f"{label} checkpoint generation progression differs",
+        )
+    require(history["capacity"] == 1, f"{label} tiled history capacity differs")
+    entries = require_array(history["entries"], f"{label}.history.entries")
+    require(len(entries) == 1, f"{label} tiled history entry count differs")
+    entry = require_object(entries[0], f"{label}.history.entries[0]")
+    require_exact_keys(entry, ("frame",), f"{label}.history.entries[0]")
+    target_frame = validate_tiled_frame(
+        entry["frame"], definition["targetWidth"], definition["targetHeight"],
+        ordinal, f"v4-frame-{ordinal}", "primary-video",
+        checkpoint["formatIdentity"], state_raw, f"{label}.history.entries[0].frame",
+    )
+    source_frame = validate_tiled_frame(
+        checkpoint["previousSourceTiledFrame"],
+        definition["sourceWidth"], definition["sourceHeight"], ordinal,
+        f"v4-measurement-{ordinal}", "primary-video-measurement",
+        checkpoint["formatIdentity"], state_raw, f"{label}.previousSourceTiledFrame",
+    )
+    require(
+        target_frame["presentationTime"] == source_frame["presentationTime"]
+        == checkpoint["lastCompletedOutputPresentationTime"],
+        f"{label} tiled presentation time differs",
+    )
+    measurement = require_object(
+        checkpoint["previousMeasurementHistory"], f"{label}.previousMeasurementHistory"
+    )
+    require_exact_keys(
+        measurement,
+        (
+            "storage", "sourceWidth", "sourceHeight", "windowWidth",
+            "windowHeight", "normalizedLumaWindowQ16",
+        ),
+        f"{label}.previousMeasurementHistory",
+    )
+    require(
+        measurement["storage"] == checkpoint["sourceStorage"]
+        and measurement["sourceWidth"] == definition["sourceWidth"]
+        and measurement["sourceHeight"] == definition["sourceHeight"]
+        and measurement["windowWidth"] == 32
+        and measurement["windowHeight"] == 32,
+        f"{label} tiled measurement identity differs",
+    )
+    window = require_array(
+        measurement["normalizedLumaWindowQ16"],
+        f"{label}.previousMeasurementHistory.normalizedLumaWindowQ16",
+    )
+    require(
+        len(window) == 1024
+        and all(type(sample) is int and 0 <= sample <= 65_536 for sample in window),
+        f"{label} tiled measurement window differs",
+    )
+    return {
+        "cadenceID": "progressive",
+        "classification": None,
+        "dominance": None,
+        "historyGeneration": generation,
+        "canonicalData": compact_canonical_json(checkpoint),
+    }
+
+
 def validate_checkpoint_set(
     data: bytes, definition: Mapping[str, Any], label: str
 ) -> dict[int, dict[str, Any]]:
@@ -806,6 +1144,17 @@ def validate_checkpoint_set(
             compact_canonical_json(checkpoint) == checkpoint_data,
             f"{label} checkpoint {index} is not canonical",
         )
+        if definition["id"] == EXPECTED_BOUNDED_CASE_ID:
+            state = validate_tiled_checkpoint(
+                checkpoint,
+                definition,
+                index,
+                f"{label}.checkpoint[{index}]",
+                previous_generation,
+            )
+            previous_generation = state["historyGeneration"]
+            states[index] = state
+            continue
         checkpoint_keys = (
             "schemaID",
             "planSHA256",
@@ -834,7 +1183,7 @@ def validate_checkpoint_set(
             f"{label}.checkpoint[{index}]",
         )
         require(
-            checkpoint["schemaID"] == "ash.prepared-temporal-checkpoint.v4.5",
+            checkpoint["schemaID"] == CONTIGUOUS_CHECKPOINT_SCHEMA,
             f"{label} checkpoint schema differs",
         )
         for identity_key in (
@@ -1169,15 +1518,143 @@ def validate_resume_set(data: bytes, definition: Mapping[str, Any], label: str) 
         )
         parsed = parse_json_bytes(final_checkpoint, f"{label}.finalCheckpoint")
         require(compact_canonical_json(parsed) == final_checkpoint, f"{label} final checkpoint is not canonical")
+        parsed_object = require_object(parsed, f"{label}.finalCheckpoint")
         require(
-            require_object(parsed, f"{label}.finalCheckpoint").get("lastCompletedInputOrdinal")
+            parsed_object.get("lastCompletedInputOrdinal")
             == len(definition["frames"]) - 1,
             f"{label} final checkpoint ordinal differs",
         )
+        if definition["id"] == EXPECTED_BOUNDED_CASE_ID:
+            validate_tiled_checkpoint(
+                parsed_object,
+                definition,
+                len(definition["frames"]) - 1,
+                f"{label}.finalCheckpoint",
+            )
+        else:
+            require(
+                parsed_object.get("schemaID") == CONTIGUOUS_CHECKPOINT_SCHEMA,
+                f"{label} final checkpoint schema differs",
+            )
     return document
 
 
-RUN_KEYS = {"visible", "semantics", "checkpoints", "resume"}
+RUN_KEYS = {"visible", "semantics", "checkpoints", "resume", "execution"}
+IDENTITY_RUN_KEYS = ("visible", "semantics", "checkpoints", "resume")
+
+
+def validate_execution_evidence(
+    data: bytes,
+    definition: Mapping[str, Any],
+    checkpoint_states: Mapping[int, Mapping[str, Any]],
+    backend: str,
+    spatial_schedule: str,
+    temporal_schedule: str,
+    label: str,
+) -> dict[str, Any]:
+    document = require_object(parse_json_bytes(data, label), label)
+    require(canonical_json(document) == data, f"{label} is not canonical JSON")
+    require_exact_keys(
+        document,
+        (
+            "schemaVersion", "caseID", "backend", "spatialSchedule",
+            "temporalSchedule", "checkpointSchemaID", "checkpointSHA256s",
+            "boundedRoute",
+        ),
+        label,
+    )
+    require(document["schemaVersion"] == EXECUTION_SCHEMA, f"{label} schema differs")
+    require(document["caseID"] == definition["id"], f"{label} case ID differs")
+    require(document["backend"] == backend, f"{label} backend differs")
+    require(document["spatialSchedule"] == spatial_schedule, f"{label} spatial schedule differs")
+    require(document["temporalSchedule"] == temporal_schedule, f"{label} temporal schedule differs")
+    observed_shas = [
+        require_sha256(value, f"{label}.checkpointSHA256s[{index}]")
+        for index, value in enumerate(
+            require_array(document["checkpointSHA256s"], f"{label}.checkpointSHA256s")
+        )
+    ]
+    expected_shas = [
+        sha256_bytes(checkpoint_states[index]["canonicalData"])
+        for index in sorted(checkpoint_states)
+    ]
+    require(observed_shas == expected_shas, f"{label} checkpoint identities differ")
+    bounded = definition["id"] == EXPECTED_BOUNDED_CASE_ID
+    expected_checkpoint_schema = (
+        "none" if definition["kind"] == "alpha_spatial"
+        else TILED_CHECKPOINT_SCHEMA if bounded
+        else CONTIGUOUS_CHECKPOINT_SCHEMA
+    )
+    require(
+        document["checkpointSchemaID"] == expected_checkpoint_schema,
+        f"{label} checkpoint schema claim differs",
+    )
+    if not bounded:
+        require(document["boundedRoute"] is None, f"{label} falsely claims bounded route")
+        return document
+    route = require_object(document["boundedRoute"], f"{label}.boundedRoute")
+    require_exact_keys(
+        route,
+        (
+            "usesBoundedTiledTemporalPath", "tilePolicy", "sourceGrid",
+            "targetGrid", "allocationContract",
+        ),
+        f"{label}.boundedRoute",
+    )
+    require_bool(
+        route["usesBoundedTiledTemporalPath"],
+        f"{label}.boundedRoute.usesBoundedTiledTemporalPath",
+        True,
+    )
+    require(route["tilePolicy"] == EXPECTED_TILE_POLICY, f"{label} bounded policy differs")
+    for name, width_key, height_key in (
+        ("sourceGrid", "sourceWidth", "sourceHeight"),
+        ("targetGrid", "targetWidth", "targetHeight"),
+    ):
+        grid = require_object(route[name], f"{label}.boundedRoute.{name}")
+        require_exact_keys(
+            grid,
+            (
+                "frameWidth", "frameHeight", "columns", "rows",
+                "tileCount", "fullFrameSampleCount",
+            ),
+            f"{label}.boundedRoute.{name}",
+        )
+        expected = expected_tile_grid(definition[width_key], definition[height_key])
+        require(grid == expected, f"{label} {name} diagnostics differ")
+        require(grid["tileCount"] > 1, f"{label} {name} did not force multiple tiles")
+    allocation = require_object(
+        route["allocationContract"], f"{label}.boundedRoute.allocationContract"
+    )
+    require_exact_keys(
+        allocation,
+        (
+            "policyID", "sourceFullFrameSampleCount", "sourceTileCount",
+            "targetFullFrameSampleCount", "targetTileCount",
+            "maximumRetainedTileSampleCount", "maximumOutputTileSampleCount",
+            "fullFrameSampleArrayAllocationCap",
+        ),
+        f"{label}.boundedRoute.allocationContract",
+    )
+    source_grid = expected_tile_grid(definition["sourceWidth"], definition["sourceHeight"])
+    target_grid = expected_tile_grid(definition["targetWidth"], definition["targetHeight"])
+    expected_allocation = {
+        "policyID": EXPECTED_TILE_POLICY["policyID"],
+        "sourceFullFrameSampleCount": source_grid["fullFrameSampleCount"],
+        "sourceTileCount": source_grid["tileCount"],
+        "targetFullFrameSampleCount": target_grid["fullFrameSampleCount"],
+        "targetTileCount": target_grid["tileCount"],
+        "maximumRetainedTileSampleCount": (
+            (EXPECTED_TILE_POLICY["tileWidth"] + 2 * EXPECTED_TILE_POLICY["searchHalo"])
+            * (EXPECTED_TILE_POLICY["tileHeight"] + 2 * EXPECTED_TILE_POLICY["searchHalo"])
+        ),
+        "maximumOutputTileSampleCount": (
+            EXPECTED_TILE_POLICY["tileWidth"] * EXPECTED_TILE_POLICY["tileHeight"]
+        ),
+        "fullFrameSampleArrayAllocationCap": 0,
+    }
+    require(allocation == expected_allocation, f"{label} allocation contract differs")
+    return document
 
 
 def validate_run(
@@ -1186,11 +1663,14 @@ def validate_run(
     root: Path,
     sealed: Mapping[str, Path],
     definition: Mapping[str, Any],
+    backend: str,
+    spatial_schedule: str,
+    temporal_schedule: str,
 ) -> dict[str, Any]:
     run = require_object(value, label)
     require_exact_keys(run, RUN_KEYS, label)
     loaded: dict[str, Any] = {}
-    for key in ("visible", "semantics", "checkpoints", "resume"):
+    for key in ("visible", "semantics", "checkpoints", "resume", "execution"):
         raw, path, data = validate_descriptor(root, run[key], f"{label}.{key}")
         require(
             raw["path"] in sealed and sealed[raw["path"]].resolve() == path.resolve(),
@@ -1200,6 +1680,10 @@ def validate_run(
     states = validate_checkpoint_set(loaded["checkpoints"]["data"], definition, f"{label}.checkpoints")
     validate_semantics(loaded["semantics"]["data"], definition, states, f"{label}.semantics")
     validate_resume_set(loaded["resume"]["data"], definition, f"{label}.resume")
+    validate_execution_evidence(
+        loaded["execution"]["data"], definition, states, backend,
+        spatial_schedule, temporal_schedule, f"{label}.execution",
+    )
     return loaded
 
 
@@ -1208,8 +1692,12 @@ def require_distinct_paths(left: Mapping[str, Any], right: Mapping[str, Any], la
         require(left[key]["path"] != right[key]["path"], f"{label} aliases {key}")
 
 
-def require_run_equal(left: Mapping[str, Any], right: Mapping[str, Any], label: str) -> None:
-    for key in RUN_KEYS:
+def require_run_equal(
+    left: Mapping[str, Any], right: Mapping[str, Any], label: str,
+    include_execution: bool = False,
+) -> None:
+    keys = IDENTITY_RUN_KEYS + (("execution",) if include_execution else ())
+    for key in keys:
         require(left[key]["data"] == right[key]["data"], f"{label} differs: {key}")
 
 
@@ -1219,20 +1707,50 @@ def validate_backend_run_set(
     root: Path,
     sealed: Mapping[str, Path],
     definition: Mapping[str, Any],
+    backend_name: str,
 ) -> dict[str, Any]:
     backend = require_object(value, label)
     require_exact_keys(backend, ("canonical", "repeat", "schedules"), label)
-    canonical = validate_run(backend["canonical"], f"{label}.canonical", root, sealed, definition)
-    repeat = validate_run(backend["repeat"], f"{label}.repeat", root, sealed, definition)
+    canonical = validate_run(
+        backend["canonical"], f"{label}.canonical", root, sealed, definition,
+        backend_name, "production_full_frame", "raster",
+    )
+    repeat = validate_run(
+        backend["repeat"], f"{label}.repeat", root, sealed, definition,
+        backend_name, "production_full_frame", "raster",
+    )
     require_distinct_paths(canonical, repeat, f"{label} repeat")
-    require_run_equal(canonical, repeat, f"{label} repeat")
+    require_run_equal(canonical, repeat, f"{label} repeat", include_execution=True)
     schedules: dict[str, dict[str, Any]] = {}
-    for index, raw in enumerate(require_array(backend["schedules"], f"{label}.schedules")):
+    raw_schedules = require_array(backend["schedules"], f"{label}.schedules")
+    require(
+        len(raw_schedules) == len(EXPECTED_SCHEDULE_PAIRS),
+        f"{label} schedule set/order differs",
+    )
+    for index, (raw, expected_pair) in enumerate(zip(
+        raw_schedules,
+        EXPECTED_SCHEDULE_PAIRS,
+    )):
         item = require_object(raw, f"{label}.schedules[{index}]")
-        require_exact_keys(item, ("schedule", "run"), f"{label}.schedules[{index}]")
-        name = require_text(item["schedule"], f"{label}.schedules[{index}].schedule")
+        require_exact_keys(
+            item, ("spatialSchedule", "temporalSchedule", "run"),
+            f"{label}.schedules[{index}]",
+        )
+        name = require_text(
+            item["spatialSchedule"], f"{label}.schedules[{index}].spatialSchedule"
+        )
+        temporal_name = require_text(
+            item["temporalSchedule"], f"{label}.schedules[{index}].temporalSchedule"
+        )
+        require(
+            (name, temporal_name) == expected_pair,
+            f"{label} schedule set/order differs",
+        )
         require(name not in schedules, f"{label} repeats schedule {name}")
-        run = validate_run(item["run"], f"{label}.schedules[{index}].run", root, sealed, definition)
+        run = validate_run(
+            item["run"], f"{label}.schedules[{index}].run", root, sealed,
+            definition, backend_name, name, temporal_name,
+        )
         require_distinct_paths(canonical, run, f"{label} schedule {name}")
         require_run_equal(canonical, run, f"{label} schedule {name}")
         schedules[name] = run
@@ -1298,8 +1816,12 @@ def validate_captured_case(
     require(identifier in contract_by_id, f"unexpected captured case {identifier}")
     definition = contract_by_id[identifier]
     require(case["definition"] == definition, f"captured definition differs: {identifier}")
-    cpu = validate_backend_run_set(case["cpu"], f"{label}.cpu", root, sealed, definition)
-    metal = validate_backend_run_set(case["metal"], f"{label}.metal", root, sealed, definition)
+    cpu = validate_backend_run_set(
+        case["cpu"], f"{label}.cpu", root, sealed, definition, "cpu"
+    )
+    metal = validate_backend_run_set(
+        case["metal"], f"{label}.metal", root, sealed, definition, "metal"
+    )
     require_distinct_paths(cpu["canonical"], metal["canonical"], f"{label} CPU/Metal")
     require_run_equal(cpu["canonical"], metal["canonical"], f"{label} CPU/Metal")
     metadata_descriptor, metadata_path, metadata_data = validate_descriptor(
@@ -1464,12 +1986,14 @@ def cross_process_compare(first: dict[str, Any], second: dict[str, Any]) -> None
                 require_run_equal(
                     left[backend][run_name], right[backend][run_name],
                     f"cross-process {identifier}/{backend}/{run_name}",
+                    include_execution=True,
                 )
             for schedule in EXPECTED_SCHEDULES:
                 require_run_equal(
                     left[backend]["schedules"][schedule],
                     right[backend]["schedules"][schedule],
                     f"cross-process {identifier}/{backend}/{schedule}",
+                    include_execution=True,
                 )
         require(left["metadata"] == right["metadata"], f"cross-process metadata differs: {identifier}")
 
@@ -1594,9 +2118,12 @@ def evaluate(
                 "metalCheckpointSetArtifact": descriptor(metal["checkpoints"]["path"], evidence_root),
                 "cpuResumeSetArtifact": descriptor(cpu["resume"]["path"], evidence_root),
                 "metalResumeSetArtifact": descriptor(metal["resume"]["path"], evidence_root),
+                "cpuExecutionArtifact": descriptor(cpu["execution"]["path"], evidence_root),
+                "metalExecutionArtifact": descriptor(metal["execution"]["path"], evidence_root),
                 "repeatRunIdentityPass": True,
                 "crossProcessIdentityPass": True,
                 "tileScheduleIdentityPass": True,
+                "boundedTiledTemporalPathPass": True,
                 "checkpointResumeIdentityPass": True,
                 "timingAndAttachmentSemanticsPass": True,
             }
