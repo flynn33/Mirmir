@@ -1,12 +1,20 @@
 # Deterministic Engine v4 roadmap
 
-Status: proposed implementation roadmap and release contract
+Status: 1.3.0 implementation landed; M7 frozen-candidate qualification remains open
 
 Scope: Mirmir deterministic CPU and Metal engines, media pipeline, and durable job workflow
 
 Target release runtime: ASH P06, release-qualified
 
 Baseline: the checked-in P05 CPU reference and Metal preview behavior before v4 work
+
+Current checkpoint: pull request 44 merged the v4 engine, media, workflow, and
+qualification tooling into `main` as version 1.3.0. The 5% quality and 20%
+processing-time gates are still release-blocking. Exact archived-executable
+media integration, complete reproducible-build receipt equality, packaged
+parity observer integration, exact-binary recovery fault injection, the final
+frozen-candidate qualification rerun, Developer ID signing, Apple notarization,
+stapling, and publication remain operator-owned or still in progress.
 
 ## Executive decision
 
@@ -130,19 +138,21 @@ reconstructor. Neither changes the canonical codeword set.
 
 ### Evidence in the current repository
 
-The audit found these concrete gaps in the shipping target:
+The 1.3.0 landing closed the shipping-target gaps recorded when this roadmap
+was proposed. Remaining work is frozen-candidate proof, not missing engine
+surface:
 
-| Area | Current evidence | v4 implication |
+| Area | 1.3.0 evidence | Remaining release work |
 | --- | --- | --- |
-| Runtime identity | `PRODUCT_SUPPORT.md` and both descriptors call the deterministic engines previews. CPU reports `ash-p05-cpu-reference-preview`; Metal creates a development P05 LUT in memory. | P06 needs a bundled, hashed, reproducible runtime manifest and fail-closed loader. |
-| Scale | CPU and Metal accept only exact 2× and 3:2 routes. | Scale becomes a reduced rational, per axis, with exact phase generation for arbitrary target dimensions. |
-| Temporal state | The CPU analysis calls use `history: nil` and `validationTemporalEvidence: nil`; Metal declares temporal fields but does not populate/use them. | Temporal evidence, motion, scene cuts, resets, and checkpointed history become first-class. |
-| Backend parity | Each backend is repeatable independently, but current nonconstant CPU/Metal outputs differ. | One fixed-point kernel IR, coefficient set, rounding contract, and golden corpus feed both executors. |
-| Runtime artifacts | Canonical resource files exist in the repository but are not bundled by the shipping target. Historical locked-runtime source is excluded and its required calibration package is absent. | Salvage contracts and tooling, but generate a complete new P06 bundle; do not relabel an incomplete historical path. |
-| Media formats | The active scaler contract is progressive 8-bit NV12. | Add typed P010/HDR, alpha-capable, and field-aware paths without an implicit 8-bit bridge. |
-| Tracks | `VideoProcessingSession` selects the first video track and handles at most one audio track. | Plan every enabled track and metadata stream with an explicit process, transcode, pass-through, or user-approved drop action. |
-| Atomic output | Normal cancellation/failure removes the sibling partial movie; forced termination can leave it behind. | Persist every work artifact in the job ledger and reconcile it at launch while the security bookmark is active. |
-| Job workflow | The shipping view model owns one transient job. Larger queue/checkpoint/restart implementations exist in excluded source but are coupled to a different release architecture. | Extract and test their contracts behind the v4 plan rather than enabling thousands of lines wholesale. |
+| Runtime identity | Bundled ASH P06 runtime with a hashed manifest and fail-closed loader. Product support no longer labels the deterministic routes as P05 previews. | Bind the exact archived executable and sealed candidate identities through the final M7 rerun. |
+| Scale | Shared fixed-point CPU and Metal execution accepts independent rational scale factors and arbitrary integral target dimensions within the documented limit. | Keep the arbitrary-geometry corpus on the frozen candidate, including odd legal dimensions. |
+| Temporal state | Bounded, motion-compensated temporal history with scene/reset policy, tiled schedules, and checkpoint/resume payload identity. | Exact-binary recovery fault injection and packaged parity observer integration remain open. |
+| Backend parity | One fixed-point kernel IR, coefficient set, and rounding contract feed both executors. Qualification tooling requires visible-plane equality. | Replay packaged parity on the frozen candidate, including the forced multi-tile temporal case. |
+| Runtime artifacts | A generated P06 bundle is checked in, hashed, and loaded by the shipping target. | Complete reproducible-build receipt equality for two clean P06 artifact sets. |
+| Media formats | Native NV12, P010/HDR, field-aware deinterlacing, rational SAR/aperture geometry, and ProRes 4444 alpha are implemented without an implicit 8-bit bridge. | Exact archived-executable media integration on the frozen candidate. |
+| Tracks | The whole-asset planner assigns every enabled track an explicit process, transcode, pass-through, or consent-bound drop action. | Preserve that plan through packaged media qualification and the notarized smoke lane. |
+| Atomic output | Work artifacts are registered, validated, and published atomically. Launch recovery reconciles registered partials. | Exact-binary recovery fault injection at every durable boundary. |
+| Job workflow | Durable bookmark-backed queue, pause/resume, segment checkpoints, assembly, and crash containment are wired into the application. | Operator signing, notarization, stapling, and publication remain outside repository automation. |
 
 ## Measurable v4 release contract
 
@@ -292,9 +302,10 @@ checkpoint, or other validation boundary. A hot path that already owns the
 canonical message should not decode its own known branch label merely to match
 an architectural diagram.
 
-The current change begins this work by replacing repeated nearest-neighbor
-decode scans with a 512-entry immutable strict-decode table while proving exact
-equivalence exhaustively.
+The 1.3.0 landing includes the immutable 512-entry strict-decode table and
+the remainder of the pure core: packed states, fixed generator and codeword
+constants, exhaustive certificates, and separate algebraic, admission, health,
+and recovery types.
 
 ### 3. Versioned measurement and policy projection
 
@@ -437,6 +448,8 @@ workflow lanes can proceed in parallel after the plan schema is frozen.
 
 ### M0 — Baseline and executable evidence
 
+Status: landed in 1.3.0
+
 Deliver:
 
 - locked input corpus and independently versioned metric tools;
@@ -450,6 +463,8 @@ Exit: the baseline can be recreated from a clean checkout on the reference
 machine, and CI rejects missing corpus/runtime identities.
 
 ### M1 — Semantic spine and P06 artifact pipeline
+
+Status: landed in 1.3.0
 
 Deliver:
 
@@ -465,6 +480,8 @@ incomplete runtime assets cannot prepare an engine.
 
 ### M2 — Spatial v4, arbitrary scale, parity, and hot-path efficiency
 
+Status: implementation landed in 1.3.0; frozen-candidate performance proof remains part of M7
+
 Deliver:
 
 - exact rational geometry and phase planner;
@@ -478,6 +495,8 @@ Exit: arbitrary-scale conformance and byte parity pass; engine-only median and
 p95 time are at most 80% of baseline on the spatial benchmark subset.
 
 ### M3 — Temporal quality
+
+Status: implementation landed in 1.3.0; the 5% quality gate remains a release blocker
 
 Deliver:
 
@@ -493,6 +512,8 @@ not regress, resume identity passes, and the performance gate remains green.
 
 ### M4 — Pixel formats and presentation geometry
 
+Status: landed in 1.3.0
+
 Deliver:
 
 - P010/HDR path and HDR metadata migration;
@@ -507,6 +528,8 @@ precision reduction.
 
 ### M5 — Track graph and metadata preservation
 
+Status: landed in 1.3.0
+
 Deliver:
 
 - ordered multi-video-track processing plan;
@@ -518,6 +541,8 @@ Exit: the verifier accounts for every enabled input track and metadata group;
 any loss requires an explicit plan action and user consent.
 
 ### M6 — Durable queue, pause/resume, and crash recovery
+
+Status: implementation landed in 1.3.0; exact-binary fault injection remains part of M7
 
 Deliver:
 
@@ -532,6 +557,8 @@ resumed output or an explicit contained failure with no unowned artifacts.
 
 ### M7 — Release qualification
 
+Status: qualification tooling landed in 1.3.0; the frozen-candidate rerun is still open
+
 Deliver:
 
 - full matrix on reference and supported machine classes;
@@ -544,23 +571,35 @@ Exit: every release gate at the top of this document passes on the exact
 candidate. A waiver cannot convert a failed determinism, preservation, P06,
 quality, or processing-time gate into a release.
 
-## Implementation begun with this roadmap
+Open M7 items after pull request 44:
 
-The repository changes accompanying this document deliberately stay inside the
-current supported contract:
+- exact archived-executable media integration;
+- complete reproducible-build receipt equality;
+- packaged parity observer integration;
+- exact-binary recovery fault injection;
+- the final frozen-candidate qualification rerun;
+- Developer ID signing, Apple notarization, stapling, and release publication.
 
-- strict ASH decoding now uses one immutable 512-entry lookup table instead of
-  scanning all 16 codewords on every decode;
-- exhaustive tests prove the lookup is identical to the previous brute-force
-  implementation for all 512 inputs;
-- tests assert the canonical 16/144/352 outcome partition, reject all 576
-  two-bit codeword corruptions, and correct all 36,864 affine single-bit cases;
-- the prepared CPU adapter now actor-isolates its lifecycle state, supports
-  idempotent finish, resets its engine on finish, and rejects later frames just
-  as the Metal adapter does.
+## Implementation status
 
-These changes improve the semantic and efficiency foundation without changing
-supported pixels, formats, scale routes, runtime identity, or release claims.
+Pull request 43 established the algebraic foundation and this roadmap. Pull
+request 44 landed the v4 engine, media pipeline, durable workflow, and
+qualification tooling as version 1.3.0:
+
+- strict ASH decoding uses one immutable 512-entry lookup table, with exhaustive
+  16/144/352, two-bit rejection, and affine single-bit recovery proofs;
+- the prepared CPU adapter actor-isolates lifecycle state, supports idempotent
+  finish, and rejects later frames just as the Metal adapter does;
+- `CanonicalMediaState`, `ASHExecutionPlan`, and the hashed P06 runtime
+  manifest are produced before pixels are processed;
+- CPU and Metal consume one shared fixed-point contract for arbitrary integral
+  geometry, temporal reconstruction, NV12, P010/HDR, interlacing, and alpha;
+- the application queue is durable, bookmark-backed, pauseable, and recoverable;
+- product support and the README describe the P06 contract rather than the P05
+  preview routes.
+
+These changes close M0 through M6 in source. They do not by themselves satisfy
+the 5% quality, 20% processing-time, or frozen-candidate M7 gates.
 
 ## Risks and decisions that must remain explicit
 

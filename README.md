@@ -3,8 +3,8 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-It combines the release-qualified deterministic ASH P06 CPU and Metal engine
-with supported Apple scaling frameworks, while keeping every backend choice,
+Version 1.3.0 lands the deterministic ASH P06 CPU and Metal engine beside the
+supported Apple scaling frameworks, while keeping every backend choice,
 preservation decision, and fallback boundary visible to the user.
 
 The current application version is recorded in [`VERSION`](VERSION). Release
@@ -39,8 +39,12 @@ packaging, signing, notarization, and publication remain manual operations.
 See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.
 The [`DETERMINISTIC_ENGINE_V4_ROADMAP.md`](DETERMINISTIC_ENGINE_V4_ROADMAP.md)
-defines the researched v4 architecture, delivery sequence, and release gates
-for at least 5% higher quality and 20% lower processing time.
+records the v4 architecture, delivery sequence, and remaining M7 release gates
+for at least 5% higher quality and 20% lower processing time. Engine, media,
+and durable-workflow implementation is in 1.3.0; frozen-candidate qualification
+and operator publication remain open.
+See [`CHANGELOG.md`](CHANGELOG.md) for the 1.3.0 landing record and
+[`docs/v4/`](docs/v4/) for the qualification evidence contracts.
 The [Mirmir Wiki](https://github.com/flynn33/Mirmir/wiki) provides the complete
 product guide, architecture reference, ASH engine documentation, diagrams,
 testing procedures, and troubleshooting material.
@@ -92,6 +96,14 @@ Version tooling can be checked independently on any machine with Python 3:
 ```bash
 python3 script/update_version.py --check
 python3 script/test_update_version.py
+```
+
+Checked-in v4 identities can be replayed the same way:
+
+```bash
+python3 script/v4/test_p06_source_identity_v4.py
+python3 script/v4/test_repository_identity_v4.py
+python3 script/v4/repository_identity_v4.py --repository "$PWD"
 ```
 
 ## Versioning

@@ -7,6 +7,8 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-08-14
+
 ### Added
 
 - A research-backed deterministic engine v4 roadmap covering P06 release
@@ -16,6 +18,26 @@ do not publish, sign, notarize, or distribute the application automatically.
 - Exhaustive strict-decoder conformance for every nine-bit ASH state, every
   two-bit codeword corruption, and every integrity-valid affine anchor with a
   one-bit error.
+- A bundled, hashed ASH P06 runtime with a fail-closed loader, verified
+  measurement and branch artifacts, and no shipping P05 preview identity.
+- Shared fixed-point CPU and Metal execution for arbitrary integral target
+  dimensions, including bounded tiled processing and one canonical plan.
+- State-conditioned spatial reconstruction plus bounded, motion-compensated
+  temporal history with deterministic checkpoint and resume identity.
+- Native 8-bit NV12 and 10-bit P010/HDR ingest, field-aware deinterlacing,
+  rational sample-aspect and clean-aperture geometry, and ProRes 4444 alpha
+  delivery.
+- An explicit whole-asset track graph for multiple video tracks, audio,
+  subtitles, captions, chapters, timecode, timed metadata, and auxiliary
+  tracks, with process, transcode, pass-through, or consent-bound drop actions.
+- A durable bookmark-backed batch queue with pause and resume, segment
+  checkpoints, deterministic assembly, launch reconciliation, and crash
+  recovery.
+- Exact packaged-candidate quality, performance, parity, media, recovery,
+  support-matrix, provenance, and aggregate qualification tooling, including
+  forced multi-tile temporal cases and evaluator-owned allocation and route
+  proofs.
+- Repository identity replay for corpus, runtime, and ASH algebra certificates.
 
 ### Changed
 
@@ -23,6 +45,10 @@ do not publish, sign, notarize, or distribute the application automatically.
   immutable 512-entry lookup table.
 - Made the prepared deterministic CPU adapter enforce idempotent finalization
   and reject processing after finish.
+- Replaced the P05 CPU reference and Metal preview routes with the P06
+  deterministic engine and the matching product-support contract.
+- Advanced the application version to 1.3.0. Signing, notarization, stapling,
+  and publication remain operator-owned.
 
 ## [1.2.0] - 2026-08-02
 
