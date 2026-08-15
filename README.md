@@ -106,6 +106,16 @@ python3 script/v4/test_repository_identity_v4.py
 python3 script/v4/repository_identity_v4.py --repository "$PWD"
 ```
 
+The `Verify deterministic v4 identities` workflow also loads
+`Mirmir/Resources/ASH-P06.bundle` through
+`script/v4/run_p06_runtime_load_check.sh`. It computes the domain-separated
+manifest identity and reads the manifest provenance source revision and builder
+hash, then passes those four arguments into the production loader. A bundle
+that does not match the declared trust roots cannot pass CI.
+
+See [`CHANGELOG.md`](CHANGELOG.md) for the current unreleased identity-check
+record.
+
 ## Versioning
 
 Mirmir uses `release.feature.patch` versions. Exactly one version label may be

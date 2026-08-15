@@ -7,6 +7,12 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+### Changed
+
+- The v4 identity workflow now derives the production P06 manifest identity,
+  source revision, and builder hash from the bundled runtime manifest and
+  passes those values into the runtime load check.
+
 ## [1.3.0] - 2026-08-14
 
 ### Added
