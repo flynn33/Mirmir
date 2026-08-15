@@ -173,7 +173,7 @@ python3 "${evaluator}" evaluate \
     --packaged-evidence-a "${capture_directory}/process-a" \
     --packaged-evidence-b "${capture_directory}/process-b" \
     --capture-manifest "${output_directory}/capture-artifact-manifest.json" \
-    --sealed-manifest "${output_directory}/recovery-evidence-manifest.json" \
+    --sealed-manifest "${output_directory}/sealed-manifest.json" \
     --output "${output_directory}/recovery-report.json"
 
 python3 "${evaluator}" verify \
@@ -183,7 +183,7 @@ python3 "${evaluator}" verify \
     --packaged-evidence-a "${capture_directory}/process-a" \
     --packaged-evidence-b "${capture_directory}/process-b" \
     --capture-manifest "${output_directory}/capture-artifact-manifest.json" \
-    --sealed-manifest "${output_directory}/recovery-evidence-manifest.json" \
+    --sealed-manifest "${output_directory}/sealed-manifest.json" \
     --report "${output_directory}/recovery-report.json"
 
 print -r -- "recovery archived-executable qualification passed: ${output_directory}"

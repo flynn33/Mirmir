@@ -44,9 +44,11 @@ Capture final evidence after P06 is committed and the trust root is configured:
 ```sh
 script/v4/run_media_preservation_v4.sh \
   --candidate-revision <full-commit> \
-  --candidate output/release-candidate.json \
-  --release-configuration output/Release.xcconfig \
-  --output output/release-evidence/media_preservation
+  --candidate /path/to/candidate-identity.json \
+  --application-archive /path/to/Mirmir-sealed.zip \
+  --release-configuration \
+    <repository>/script/v4/release-candidate-v4.xcconfig \
+  --output /path/to/release-evidence/media_preservation
 ```
 
 Recompute and verify published evidence:

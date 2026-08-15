@@ -115,7 +115,7 @@ emits:
   packaged request/result/bindings and raw capture;
 - `capture-artifact-manifest.json` for both raw capture trees;
 - `recovery-report.json`; and
-- `recovery-evidence-manifest.json`, which recursively seals the complete
+- `sealed-manifest.json`, which recursively seals the complete
   recovery role.
 
 The contract pins the exact archive-provenance evaluator, packaged-evidence

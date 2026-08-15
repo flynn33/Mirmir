@@ -33,8 +33,14 @@ Run the final qualification only against the committed P06 release candidate:
 
 ```sh
 script/v4/run_performance_gate_v4.sh \
-  --candidate-revision <full-P06-commit> \
-  --output /path/to/m7-performance-evidence
+  --output /path/to/release-evidence/same_scope_performance \
+  --candidate /path/to/candidate-identity.json \
+  --application-archive /path/to/Mirmir-sealed.zip \
+  --runtime <repository>/Mirmir/Resources/ASH-P06.bundle \
+  --release-configuration \
+    <repository>/script/v4/release-candidate-v4.xcconfig \
+  --warmups 5 \
+  --samples 10
 ```
 
 The runner writes `baseline/` and `candidate/` raw captures, the locked

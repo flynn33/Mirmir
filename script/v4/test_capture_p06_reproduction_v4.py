@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -62,6 +64,107 @@ class P06ReproductionCaptureTests(unittest.TestCase):
             path.write_text(json.dumps({"sourceCommit": "a" * 40}), encoding="utf-8")
             with self.assertRaisesRegex(capture.CaptureError, "field set mismatch"):
                 capture.parse_candidate(path)
+
+    def test_runner_preserves_command_search_path_after_input_validation(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            repository = root / "repository"
+            runtime = root / "runtime"
+            executable_directory = root / "bin"
+            repository.mkdir()
+            runtime.mkdir()
+            executable_directory.mkdir()
+            repository_runner = (
+                repository / "script" / "v4" / "run_p06_reproduction_v4.sh"
+            )
+            repository_runner.parent.mkdir(parents=True)
+            shutil.copy2(
+                SCRIPT_DIRECTORY / "run_p06_reproduction_v4.sh",
+                repository_runner,
+            )
+            candidate = root / "candidate.json"
+            configuration = root / "Release.xcconfig"
+            contract = root / "contract.json"
+            for required_file in (candidate, configuration, contract):
+                required_file.write_text("{}", encoding="utf-8")
+
+            invocation_log = root / "python-invocations.txt"
+            fake_python = executable_directory / "python3"
+            fake_python.write_text(
+                "#!/bin/sh\n"
+                "printf '%s\\n' \"$*\" >> \"$P06_RUNNER_CALLS\"\n",
+                encoding="utf-8",
+            )
+            fake_python.chmod(0o755)
+            result = subprocess.run(
+                [
+                    "/bin/zsh",
+                    str(repository_runner),
+                    "--repository",
+                    str(repository),
+                    "--candidate",
+                    str(candidate),
+                    "--runtime",
+                    str(runtime),
+                    "--release-configuration",
+                    str(configuration),
+                    "--output",
+                    str(root / "evidence"),
+                    "--contract",
+                    str(contract),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "PATH": f"{executable_directory}:/usr/bin:/bin",
+                    "P06_RUNNER_CALLS": str(invocation_log),
+                },
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            invocations = invocation_log.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(invocations), 2)
+            self.assertIn("capture_p06_reproduction_v4.py", invocations[0])
+            self.assertIn("p06_reproduction_v4.py verify", invocations[1])
+
+            exported_runner = root / "exported-runner.sh"
+            exported_runner.write_bytes(
+                repository_runner.read_bytes() + b"\n# modified exported copy\n"
+            )
+            exported_result = subprocess.run(
+                [
+                    "/bin/zsh",
+                    str(exported_runner),
+                    "--repository",
+                    str(repository),
+                    "--candidate",
+                    str(candidate),
+                    "--runtime",
+                    str(runtime),
+                    "--release-configuration",
+                    str(configuration),
+                    "--output",
+                    str(root / "other-evidence"),
+                    "--contract",
+                    str(contract),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+                env={
+                    **os.environ,
+                    "PATH": f"{executable_directory}:/usr/bin:/bin",
+                    "P06_RUNNER_CALLS": str(invocation_log),
+                },
+            )
+            self.assertEqual(exported_result.returncode, 66)
+            self.assertIn(
+                "executing P06 runner differs",
+                exported_result.stderr,
+            )
 
 
 if __name__ == "__main__":

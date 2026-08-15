@@ -11,6 +11,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import tempfile
 import unittest
 
@@ -149,6 +150,51 @@ class ReleaseEvidenceIndexAssemblerV4Tests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertTrue(first["releaseQualified"])
         self.assertTrue(all(first["gates"].values()))
+
+    def test_recovery_runner_emits_the_assembler_admitted_top_level_seal(self) -> None:
+        runner = (SCRIPT_DIRECTORY / "run_recovery_qualification_v4.sh").read_text()
+        emitted_names = re.findall(
+            r'--sealed-manifest "\$\{output_directory\}/([^\"]+)"',
+            runner,
+        )
+        self.assertEqual(emitted_names, ["sealed-manifest.json"] * 2)
+        self.assertNotIn("recovery-evidence-manifest.json", runner)
+
+        index = self.assemble()
+        entry = next(
+            item for item in index["evidence"] if item["role"] == "recovery"
+        )
+        self.assertEqual(
+            Path(entry["sealedManifest"]["path"]).name,
+            emitted_names[0],
+        )
+
+    def test_recovery_candidate_projection_is_recomputed_from_both_captures(self) -> None:
+        self.mutate_report(
+            "recovery",
+            lambda report: report["execution"].update(
+                {"sourceCommit": "0" * len(self.fixture.candidate["sourceCommit"])}
+            ),
+        )
+        with self.assertRaisesRegex(
+            assembler.AssemblyError,
+            r"recovery\.execution\.sourceCommit differs",
+        ):
+            self.assemble()
+
+        self.tearDown()
+        self.setUp()
+        self.mutate_report(
+            "recovery",
+            lambda report: report["captures"][1].update(
+                {"applicationArchiveSHA256": "0" * 64}
+            ),
+        )
+        with self.assertRaisesRegex(
+            assembler.AssemblyError,
+            r"recovery\.captures\[1\]\.applicationArchiveSHA256 differs",
+        ):
+            self.assemble()
 
     def test_every_binding_is_derived_from_an_actual_file_and_contract_pointer(self) -> None:
         index = self.assemble()
