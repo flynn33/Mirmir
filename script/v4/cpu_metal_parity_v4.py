@@ -48,6 +48,8 @@ REQUIRED_PARITY_COVERAGE = (
     "arbitrary_rational_phase",
     "temporal_history",
     "temporal_reset",
+    "seek_reset",
+    "repeated_pattern",
     "scene_cut",
     "interlaced_tff",
     "interlaced_bff",
@@ -84,6 +86,9 @@ EXPECTED_TILE_POLICY = {
     "maximumFrameHeight": 64,
 }
 EXPECTED_BOUNDED_CASE_ID = "nv12-video-forced-tiled-temporal-16x12-to-32x24"
+EXPECTED_REPEATED_PATTERN_CASE_ID = (
+    "nv12-video-periodic-ambiguous-8x6-to-15x11"
+)
 PACKAGED_CAPTURE_FIELDS = (
     "evidenceRequestSHA256",
     "packagedCandidateIdentity",
@@ -349,18 +354,19 @@ def validate_state_expectation(value: Any, label: str) -> dict[str, Any]:
 
 def validate_frame_definition(value: Any, label: str) -> dict[str, Any]:
     frame = require_object(value, label)
-    require_exact_keys(
-        frame,
-        (
-            "pattern",
-            "topToken",
-            "bottomToken",
-            "presentationTime",
-            "duration",
-            "fieldDetail",
-            "hdrProfile",
-        ),
-        label,
+    required_keys = {
+        "pattern",
+        "topToken",
+        "bottomToken",
+        "presentationTime",
+        "duration",
+        "fieldDetail",
+        "hdrProfile",
+    }
+    require(
+        required_keys.issubset(frame)
+        and set(frame).issubset(required_keys | {"temporalResetReason"}),
+        f"{label} keys differ",
     )
     pattern = require_text(frame["pattern"], f"{label}.pattern")
     require(
@@ -373,6 +379,8 @@ def validate_frame_definition(value: Any, label: str) -> dict[str, Any]:
             "rational_detail",
             "transparent_edge",
             "field_pair",
+            "periodic_phase_0",
+            "periodic_phase_1",
         },
         f"{label}.pattern is unsupported",
     )
@@ -396,6 +404,11 @@ def validate_frame_definition(value: Any, label: str) -> dict[str, Any]:
         frame["hdrProfile"]
         in {"none", "pq_static", "pq_static_dynamic", "hlg_static_dynamic"},
         f"{label}.hdrProfile is unsupported",
+    )
+    reset_reason = frame.get("temporalResetReason")
+    require(
+        reset_reason is None or reset_reason == "seek",
+        f"{label}.temporalResetReason is unsupported",
     )
     return frame
 
@@ -529,6 +542,25 @@ def validate_case_definition(
     )
     if "checkpoint_resume" in coverage:
         require(boundaries, f"{label} claims checkpoint resume without a boundary")
+    declared_resets = [
+        index
+        for index, frame in enumerate(frames)
+        if frame.get("temporalResetReason") is not None
+    ]
+    if declared_resets:
+        require(
+            kind == "pixel_temporal"
+            and scan_mode == "progressive"
+            and "seek_reset" in coverage,
+            f"{label} declared reset is not bound to seek coverage",
+        )
+    if "seek_reset" in coverage:
+        require(
+            declared_resets == [3]
+            and 3 in boundaries
+            and len(frames) > 4,
+            f"{label} seek reset evidence is incomplete",
+        )
     return case
 
 
@@ -642,7 +674,7 @@ def validate_contract(
         require_sha256(tools[key], f"tools.{key}")
         require(tools[key] == digest, f"locked tool identity mismatch: {key}")
     cases = require_array(contract["cases"], "cases")
-    require(len(cases) >= 10, "parity case matrix is incomplete")
+    require(len(cases) >= 11, "parity case matrix is incomplete")
     identifiers: set[str] = set()
     covered: set[str] = set()
     for index, raw in enumerate(cases):
@@ -663,8 +695,17 @@ def validate_contract(
         and bounded["sourceHeight"] == 12
         and bounded["targetWidth"] == 32
         and bounded["targetHeight"] == 24
-        and bounded["checkpointBoundaries"] == [1]
-        and len(bounded["frames"]) >= 3,
+        and bounded["checkpointBoundaries"] == [1, 3]
+        and [frame["pattern"] for frame in bounded["frames"]]
+        == [
+            "moving_edge_0",
+            "moving_edge_1",
+            "moving_edge_2",
+            "periodic_phase_0",
+            "periodic_phase_1",
+        ]
+        and [frame.get("temporalResetReason") for frame in bounded["frames"]]
+        == [None, None, None, "seek", None],
         "bounded temporal case geometry or temporal range differs",
     )
     bounded_coverage = {
@@ -673,6 +714,7 @@ def validate_contract(
         "tiled_checkpoint_schema",
         "temporal_tile_schedule",
         "tile_schedule",
+        "seek_reset",
     }
     require(
         bounded_coverage.issubset(set(bounded["coverage"])),
@@ -684,6 +726,31 @@ def validate_contract(
                 not bounded_coverage.intersection(case["coverage"]),
                 "bounded temporal coverage is claimed by an unforced case",
             )
+    repeated = next(
+        (case for case in cases if case["id"] == EXPECTED_REPEATED_PATTERN_CASE_ID),
+        None,
+    )
+    require(repeated is not None, "periodic ambiguous temporal case is absent")
+    require(
+        repeated["kind"] == "pixel_temporal"
+        and repeated["scanMode"] == "progressive"
+        and repeated["storage"] == "nv12_video_range_8"
+        and repeated["sourceWidth"] == 8
+        and repeated["sourceHeight"] == 6
+        and repeated["targetWidth"] == 15
+        and repeated["targetHeight"] == 11
+        and repeated["checkpointBoundaries"] == [1]
+        and repeated["coverage"] == ["repeated_pattern"]
+        and [frame["pattern"] for frame in repeated["frames"]]
+        == [
+            "periodic_phase_0",
+            "periodic_phase_1",
+            "periodic_phase_0",
+            "periodic_phase_1",
+        ]
+        and all(frame.get("temporalResetReason") is None for frame in repeated["frames"]),
+        "periodic ambiguous temporal case differs",
+    )
     return contract, sha256_file(path)
 
 
@@ -1374,19 +1441,22 @@ def validate_semantics(
             zip(outputs, expected_times, expected_fields)
         ):
             output = require_object(output_raw, f"{label}.inputs[{input_index}].outputs[{output_index}]")
-            require_exact_keys(
-                output,
-                (
-                    "outputOrdinal",
-                    "presentationTime",
-                    "duration",
-                    "sourceField",
-                    "cadenceID",
-                    "classification",
-                    "historyGeneration",
-                    "attachments",
+            output_keys = {
+                "outputOrdinal",
+                "presentationTime",
+                "duration",
+                "sourceField",
+                "cadenceID",
+                "classification",
+                "historyGeneration",
+                "attachments",
+            }
+            require(
+                output_keys.issubset(output)
+                and set(output).issubset(
+                    output_keys | {"temporalResetReason"}
                 ),
-                f"{label}.inputs[{input_index}].outputs[{output_index}]",
+                f"{label}.inputs[{input_index}].outputs[{output_index}] keys differ",
             )
             require(output["outputOrdinal"] == next_output, f"{label} output ordinal differs")
             next_output += 1
@@ -1414,6 +1484,39 @@ def validate_semantics(
                 f"{label} output history generation progression differs",
             )
             previous_generation = generation
+            reset_reason = output.get("temporalResetReason")
+            require(
+                reset_reason is None
+                or reset_reason
+                in {
+                    "stream_start",
+                    "scene_cut",
+                    "discontinuity",
+                    "presentation_time_discontinuity",
+                    "seek",
+                    "edit_boundary",
+                    "format_change",
+                    "geometry_change",
+                    "pixel_format_change",
+                    "color_domain_change",
+                    "hdr_metadata_change",
+                    "field_cadence_change",
+                    "contract_change",
+                    "explicit_reset",
+                },
+                f"{label} temporal reset reason is invalid",
+            )
+            declared_reset = frame.get("temporalResetReason")
+            if declared_reset is not None:
+                require(
+                    reset_reason == declared_reset,
+                    f"{label} declared temporal reset was not observed",
+                )
+            if reset_reason == "seek":
+                require(
+                    declared_reset == "seek",
+                    f"{label} observed an undeclared seek reset",
+                )
             if state is not None:
                 for key in ("cadenceID", "classification"):
                     require(output[key] == state[key], f"{label} output {key} differs from checkpoint")

@@ -1,43 +1,104 @@
-# Recovery qualification packaged-candidate binding
+# Archived-executable recovery qualification
 
-The deterministic-v4 recovery lane has two deliberately separate producers:
+The deterministic-v4 recovery gate accepts only evidence produced inside the
+exact `Mirmir` executable extracted from the verified Release application
+archive. A source-built test host, rebuilt application, helper executable, or
+declared scenario result cannot substitute for that producer.
 
-- a Release-configured XCTest harness injects faults at internal durable-state
-  boundaries and captures recovery semantics; and
-- the release archive verifier independently proves the exact sealed
-  application package, its clean committed-source build attestation, P06
-  runtime, Release configuration, signatures, source tree, and universal
-  architectures.
+The recovery payload, report, and manifests use the v2 recovery schemas. They
+remain inside the shared generic
+`mirmir-v4-packaged-evidence-request-v1` / result-v1 envelope so recovery uses
+the same archive, request, nonce, runtime, and process boundary as the other
+packaged qualification lanes.
 
-The fault-injection XCTest host is evidence instrumentation only. It is built
-from the exact candidate source revision and source-tree identity, with the
-locked capture source appended in the ephemeral workspace. It is not the
-archived executable, and the report says so explicitly in
-`capture.execution`. The recovery scenarios therefore prove the candidate
-source's recovery behavior; they do not claim to have run inside the package.
+## Normative execution
 
-Before appending that capture source, the runner exports the candidate through
-the archive-provenance verifier. Git replacement objects and ambient Git
-configuration are disabled, the tar umask is fixed, and every exported file's
-bytes and executable mode must match both the committed-source manifest and a
-fresh manifest of the extracted directory. Attributes such as `export-subst`
-or `export-ignore` therefore invalidate the export instead of silently changing
-the supposedly source-bound XCTest host.
+`run_recovery_qualification_v4.sh` invokes
+`packaged_candidate_evidence_v4.py capture --lane recovery` twice. Each run:
 
-The host's `ENABLE_TESTABILITY=YES` product is never accepted as the application
-package. The recovery report is release-eligible only when the separately
-required archive passes the same hardened provenance and attestation verifier
-used by packaged quality, performance, and parity evidence. An archive
-attestation is accepted only when both its captured build settings and command
-contain the exact locked value `ENABLE_TESTABILITY=NO`, with exactly one command
-assignment. Missing, case-variant, duplicate, or contradictory assignments fail
-closed.
+1. re-inspects the exact application archive and its embedded Release
+   attestation;
+2. verifies the committed source tree, P06 runtime, Release configuration,
+   package identity, universal CodeDirectories, and
+   `ENABLE_TESTABILITY=NO` build claim;
+3. extracts the archived application into a fresh private directory;
+4. launches that archived executable in a fresh process with a fresh request
+   identifier and 256-bit nonce;
+5. asks the packaged observer to call the production
+   `RecoveryQualificationProducerV4`; and
+6. seals the request, result, observer source, producer source, archive,
+   executable, runtime, package, capture tree, and process identity.
 
-## Capture command
+`RecoveryQualificationCaptureTests.swift` is only a thin compile and smoke
+wrapper around the production producer. It is never an admissible normative
+producer and the recovery report cannot describe an XCTest execution.
 
-The application archive is mandatory. The runtime and xcconfig supplied by the
-release workflow must be the committed release inputs used to create the
-candidate identity and archive attestation.
+## Locked fault matrix
+
+All 15 scenarios are mandatory and ordered by the contract.
+
+| Coverage | Evidence | Required outcome |
+| --- | --- | --- |
+| append-only event boundary | durable-state derivation | identical resumed result |
+| snapshot publish boundary | durable-state derivation | identical resumed result |
+| bookmark resolution and TOCTOU | contained-state derivation | explicit contained failure |
+| segment commit boundary | durable-state derivation | identical resumed result |
+| checkpoint publish boundary | durable-state derivation | identical resumed result |
+| prepared decision boundary | durable-state derivation | identical resumed result |
+| final assembly boundary | scenario media output | byte- and semantic-identical output |
+| atomic output publish boundary | scenario media output | byte- and semantic-identical output |
+| pause/resume | scenario media output | byte- and semantic-identical output |
+| forced termination/restart | durable-state derivation | identical resumed result |
+| disk full | contained-state derivation | explicit contained failure |
+| corrupt journal | contained-state derivation | explicit contained failure |
+| corrupt checkpoint | contained-state derivation | explicit contained failure |
+| orphan partial reconciliation | durable-state derivation | identical resumed result |
+| unowned artifact rejection | contained-state derivation | explicit contained failure |
+
+Every identical-outcome scenario owns an independent uninterrupted state and a
+separate post-fault recovered state. Durable scenarios serialize a narrowly
+defined derivation from each state. Media scenarios preserve the actual
+scenario-specific uninterrupted and resumed media plus recomputed track graph,
+decoded visible pixels, presentation timeline, sample count, and duration.
+Contained scenarios carry neither an uninterrupted state nor success output.
+
+There is no shared reference output. Scenario paths are confined to that
+scenario, and each artifact may be claimed exactly once.
+
+## Causal and cross-process checks
+
+The evaluator does not accept producer labels as proof. For each capture it
+recomputes:
+
+- the contract, request, nonce, package, source-tree, observer, producer,
+  archive, executable, runtime, and process bindings;
+- every raw state-file byte count and SHA-256;
+- each state artifact-set tree hash and durable-state identity;
+- transcript order, fault observation, reopen event, and the reopen-to-state
+  binding;
+- the causal-binding document and every referenced artifact identity;
+- the exact locked durable derivation values;
+- media byte identity and semantic-manifest identity; and
+- the complete capture file set, rejecting unclaimed or missing files.
+
+It then requires the two captures to use distinct request identifiers, request
+hashes, nonces, and process identifiers while holding archive, executable,
+source tree, runtime, observer, and producer identities constant. Durable
+derivations and media results must be byte-identical within each scenario and
+across the two processes.
+
+The adversarial suite reseals forged generic package records before evaluation.
+It covers raw durable-state mutation, cross-scenario/shared-output
+substitution, derivation relabeling, transcript/state substitution,
+cross-process output substitution, archived-executable claim relabeling,
+process reuse, state path substitution, and unclaimed capture files. These
+forgeries therefore fail the evaluator's independent recomputation rather than
+only a stale outer hash.
+
+## Capture and verification
+
+The archive, candidate, and Release configuration are mandatory. The output
+directory must be new or empty and named `recovery`.
 
 ```sh
 script/v4/run_recovery_qualification_v4.sh \
@@ -47,92 +108,31 @@ script/v4/run_recovery_qualification_v4.sh \
   --release-configuration script/v4/release-candidate-v4.xcconfig
 ```
 
-The runner copies the archive, normalized candidate, raw P06 manifest, Release
-xcconfig, recovery tools, archive-provenance verifier, and packaged-evidence
-verifier into `recovery/bindings/`. The evaluator emits canonical compact
-`package-identity.json` and `MirmirV4ReleaseBuildAttestation.json` artifacts.
-The recursive recovery suite manifest seals all of them.
+The command performs both `evaluate` and a fresh `verify` recomputation. It
+emits:
 
-`recovery-report.json.packagedCandidate` records:
+- `captures/process-a/` and `captures/process-b/`, each containing its sealed
+  packaged request/result/bindings and raw capture;
+- `capture-artifact-manifest.json` for both raw capture trees;
+- `recovery-report.json`; and
+- `sealed-manifest.json`, which recursively seals the complete
+  recovery role.
 
-- the full `mirmir-v4-packaged-candidate-identity-v1` object;
-- exact archive and attestation SHA-256 identities;
-- hashes of the normalized candidate and package-identity artifacts;
-- the locked `arm64`, `x86_64` architecture set; and
-- independently recomputed archive and attestation results, plus
-  `packageIdentityTestabilitySubstitutionRejected` to state narrowly that the
-  testable host cannot substitute for the clean package identity.
-
-Evaluation and verification both reopen the archive. They recompute package
-identity from its signatures and embedded attestation, project it back to every
-candidate field, compare the staged runtime/configuration bytes, and require
-canonical package and attestation artifacts. Changing any one of those files
-invalidates the lane before the recovery scenario report can be accepted.
-
-The runtime bundle must be a real directory rather than a symbolic link.
-Generated package, attestation, report, and manifest artifacts are created with
-exclusive no-follow opens relative to a held directory descriptor. Existing
-files and symlinks are never overwritten, including when a symlink is inserted
-between path validation and artifact creation.
-
-The recovery tests exercise the production archive inspector through the
-bound command-line evaluator, not only an injected verifier. A locally created,
-ad-hoc-signed universal archive must pass both `evaluate` and `verify`; archive
-swap, runtime/configuration mismatch, embedded-attestation tamper, and
-post-evaluation bound-attestation tamper fixtures must all fail closed.
-
-## Central M7 integration diff
-
-The recovery lane intentionally does not modify the shared release contract or
-aggregator in this change. The central integration must make these exact
-additions together:
-
-1. Add these recovery identity bindings to
-   `release-qualification-contract-v1.json`:
-
-   - `/candidate/appBundleSHA256`
-   - `/identities/archiveProvenanceSHA256`
-   - `/identities/packagedEvidenceSHA256`
-   - `/packagedCandidate/applicationArchiveSHA256`
-   - `/packagedCandidate/attestationSHA256`
-   - `/packagedCandidate/candidateIdentitySHA256`
-   - `/packagedCandidate/packageIdentitySHA256`
-
-2. Extend `release_qualification_v4.py` recovery validation to:
-
-   - admit and require the top-level `packagedCandidate` report object;
-   - require `archiveProvenanceSHA256` and `packagedEvidenceSHA256` in report
-     identities and match them to the recovery contract plus sealed source
-     files;
-   - admit the recovery contract's `packagedCandidate` policy and its
-     `packageIdentity` and `releaseAttestation` artifact schemas;
-   - validate the full packaged identity against the aggregate candidate,
-     including exactly `arm64` and `x86_64` CodeDirectories;
-   - reopen the bound canonical candidate, package-identity, attestation,
-     application archive, raw runtime manifest, and Release xcconfig artifacts;
-   - require the archive, attestation, candidate, and package hashes to equal
-     their report pointers and require the application-archive binding paths to
-     resolve to the same sealed file; and
-   - require all three packaged pass booleans to be true only after those
-     independent recomputations, using the unambiguous
-     `packageIdentityTestabilitySubstitutionRejected` field; and
-   - require `capture.execution` to say the fault-injection host is source-bound
-     to the candidate and that the archived application executable was not the
-     scenario producer.
-
-3. Extend the aggregate recovery fixture with those sealed files and bindings,
-   then refresh the externally pinned qualification trust root after the shared
-   evaluator and contract are finalized.
+The contract pins the exact archive-provenance evaluator, packaged-evidence
+tool, shipping observer source, production recovery source, recovery evaluator,
+and runner. Any tool or source change requires pin convergence before capture.
 
 Focused validation:
 
 ```sh
-python3 script/v4/test_recovery_qualification_v4.py -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v \
+  script/v4/test_recovery_qualification_v4.py
 zsh -n script/v4/run_recovery_qualification_v4.sh
 script/v4/run_recovery_qualification_v4.sh --compile-only
 ```
 
-The Python suite currently contains 32 recovery tests, including five
-production-verifier CLI integration cases and the artifact-write/runtime-link
-race regressions, plus verified-source export success and Git-attribute
-substitution/omission rejection.
+The central M7 gate must require the v2 recovery report and manifests, exactly
+two archived-executable captures, all 15 locked scenarios, all recomputed
+identity fields, and `recoveryGatePass == true`. Missing, stale, noncanonical,
+rehashed-substituted, source-hosted, or independently inconsistent recovery
+evidence is release-ineligible.

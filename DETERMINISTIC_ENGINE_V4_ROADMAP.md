@@ -12,12 +12,14 @@ Current checkpoint: pull request 44 merged the v4 engine, media, workflow, and
 qualification tooling into `main` as version 1.3.0. Pull request 45 made the
 identity workflow derive the production P06 manifest identity, source revision,
 and builder hash from the bundled runtime manifest and pass them into the
-runtime load check. The 5% quality and 20% processing-time gates are still
-release-blocking. Exact archived-executable media integration, complete
-reproducible-build receipt equality, packaged parity observer integration,
-exact-binary recovery fault injection, the final frozen-candidate qualification
-rerun, Developer ID signing, Apple notarization, stapling, and publication
-remain operator-owned or still in progress.
+runtime load check. The follow-on qualification branch contains hardened
+exact-candidate observers, causal recovery evidence, the bounded temporal
+parity route, media receipts, and deterministic canonical build tooling. The
+5% quality and 20% processing-time gates remain release-blocking until every
+lane is recaptured from one final candidate. External lane-contract locking,
+causal P06 reproduction receipts, independent PQ/HLG pixel oracles, the final
+frozen-candidate qualification rerun, Developer ID signing, Apple notarization,
+stapling, and publication remain in progress or operator-owned.
 
 ## Executive decision
 
@@ -149,12 +151,12 @@ surface:
 | --- | --- | --- |
 | Runtime identity | Bundled ASH P06 runtime with a hashed manifest and fail-closed loader. Product support no longer labels the deterministic routes as P05 previews. CI derives the manifest identity, source revision, and builder hash from that bundle and passes them into the production load check. | Bind the exact archived executable and sealed candidate identities through the final M7 rerun. |
 | Scale | Shared fixed-point CPU and Metal execution accepts independent rational scale factors and arbitrary integral target dimensions within the documented limit. | Keep the arbitrary-geometry corpus on the frozen candidate, including odd legal dimensions. |
-| Temporal state | Bounded, motion-compensated temporal history with scene/reset policy, tiled schedules, and checkpoint/resume payload identity. | Exact-binary recovery fault injection and packaged parity observer integration remain open. |
+| Temporal state | Bounded, motion-compensated temporal history with scene/reset policy, tiled schedules, and checkpoint/resume payload identity. | Recapture the packaged seek-reset and repeated-pattern rows on the frozen candidate. |
 | Backend parity | One fixed-point kernel IR, coefficient set, and rounding contract feed both executors. Qualification tooling requires visible-plane equality. | Replay packaged parity on the frozen candidate, including the forced multi-tile temporal case. |
-| Runtime artifacts | A generated P06 bundle is checked in, hashed, and loaded by the shipping target. | Complete reproducible-build receipt equality for two clean P06 artifact sets. |
-| Media formats | Native NV12, P010/HDR, field-aware deinterlacing, rational SAR/aperture geometry, and ProRes 4444 alpha are implemented without an implicit 8-bit bridge. | Exact archived-executable media integration on the frozen candidate. |
+| Runtime artifacts | A generated P06 bundle is checked in, hashed, and loaded by the shipping target. | Bind both clean builds to the sealed candidate source tree, exact commands/transcripts, and runtime outputs, then replay them on the final commit. |
+| Media formats | Native NV12, P010/HDR, field-aware deinterlacing, rational SAR/aperture geometry, and ProRes 4444 alpha are implemented without an implicit 8-bit bridge. | Lock independent absolute PQ/HLG and deinterlace pixel oracles, then recapture the archived executable. |
 | Tracks | The whole-asset planner assigns every enabled track an explicit process, transcode, pass-through, or consent-bound drop action. | Preserve that plan through packaged media qualification and the notarized smoke lane. |
-| Atomic output | Work artifacts are registered, validated, and published atomically. Launch recovery reconciles registered partials. | Exact-binary recovery fault injection at every durable boundary. |
+| Atomic output | Work artifacts are registered, validated, and published atomically. Launch recovery reconciles registered partials. | Recapture the two-process exact-binary recovery matrix on the frozen candidate. |
 | Job workflow | Durable bookmark-backed queue, pause/resume, segment checkpoints, assembly, and crash containment are wired into the application. | Operator signing, notarization, stapling, and publication remain outside repository automation. |
 
 ## Measurable v4 release contract
@@ -576,11 +578,12 @@ quality, or processing-time gate into a release.
 
 Open M7 items after pull request 44:
 
-- exact archived-executable media integration;
-- complete reproducible-build receipt equality;
-- packaged parity observer integration;
-- exact-binary recovery fault injection;
-- the final frozen-candidate qualification rerun;
+- finish external contract/tool/corpus locks for every qualification lane;
+- finish causal P06 source/build receipts and independent PQ/HLG pixel oracles;
+- commit the integrated source and repeat canonical build equality;
+- recapture quality, performance, P06, parity, media, and recovery from that
+  one candidate;
+- capture the operator-signed support matrix and notarized smoke evidence;
 - Developer ID signing, Apple notarization, stapling, and release publication.
 
 ## Implementation status
@@ -610,9 +613,11 @@ the 5% quality, 20% processing-time, or frozen-candidate M7 gates.
 
 ## Risks and decisions that must remain explicit
 
-- **Calibration assets:** historical locked-runtime source does not include the
-  required committed calibration package. P06 must be regenerated with complete
-  provenance; absence is a hard blocker, not permission to synthesize a label.
+- **Calibration boundary:** offline corpus, metric, and tuning tools never enter
+  the P06 execution runtime or mutate release assets at runtime. Dormant
+  exact-candidate qualification observers may ship so matched ablations execute
+  inside the candidate binary, but they remain isolated from normal UI and job
+  policy.
 - **Quality metric gaming:** corpus, metrics, weights, borders, and exclusions
   are frozen before calibration. Per-cohort non-regression gates remain visible.
 - **Deterministic concurrency:** jobs, frames, and tiles may run concurrently,

@@ -7,8 +7,22 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+### Added
+
+- Exact archived-executable qualification for whole-asset media preservation,
+  bounded tiled-temporal CPU/Metal parity, and all 15 recovery fault scenarios.
+- Session-derived media execution receipts, independent alpha verification,
+  and fail-closed preservation checks for HDR metadata and enabled track graphs.
+- Canonical Swift and external Metal build receipts that bind effective compiler
+  controls, transitive Metal resources, and three-run reproducibility evidence.
+
 ### Changed
 
+- Made recovery evidence causal and scenario-owned across two independent
+  packaged processes instead of relying on a source-hosted capture path.
+- Replaced the clean-aperture tuple loop with explicit field validation to
+  eliminate nondeterministic release compiler IR ordering without disabling
+  optimization.
 - The v4 identity workflow now derives the production P06 manifest identity,
   source revision, and builder hash from the bundled runtime manifest and
   passes those values into the runtime load check.

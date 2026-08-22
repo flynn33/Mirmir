@@ -138,25 +138,113 @@ exact layout and environment.
 
 The provenance overlay removes serialized debug information and fixes the
 integrated Xcode Swift compiler to `-O` whole-module compilation with one LLVM
-module. Batch and parallel-WMO modes are disabled, xcodebuild and the Swift
-driver each receive a one-job limit, `SWIFTC_MAXIMUM_DETERMINISM=1` overrides
-any driver-added concurrency, incremental imports are disabled, and LLVM uses
-a fixed RNG seed. Explicit modules remain enabled while the compilation,
-Clang fine-grained-output, and SDK-stat caches are disabled. Source/debug paths
-map to `/mirmir/source`, `ZERO_AR_DATE=YES`, and the normal LLVM machine
-schedulers remain enabled. `ENABLE_TESTABILITY=NO` is an explicit locked
-command-line setting rather than an assumed Release default.
+module. Batch, eager module emission, parallel-WMO, and parallel-WMO-target
+modes are disabled. Swift explicit modules are disabled; Clang explicit modules
+remain enabled. Compilation, Clang fine-grained-output, and SDK-stat caches are
+disabled. Incremental imports are disabled, LLVM receives the fixed RNG seed
+`1`, source/debug paths map to `/mirmir/source`, and `ZERO_AR_DATE=YES`. The
+normal LLVM optimization and machine-scheduling pipelines remain enabled.
+`ENABLE_TESTABILITY=NO` is an explicit locked command-line setting rather than
+an assumed Release default.
 
-Swift's same-process `-enable-deterministic-check` is deliberately not a
-release gate. Swift 6.2.3 reported different x86_64 WMO `MirmirApp.o` hashes
-`C52B5FAD...` and `70374584...`, while two fresh executions of that exact
-failed frontend command produced byte-identical 18,824,608-byte objects with
-SHA-256 `382f2842fb8fe22c1a855a2655e5be232f900173b25740531d87af011faf4b6b`.
-Swift 6.3.3 repeated the false positive with internal hashes
-`3BE4A0D83B9F50904EAC2E3F121BB210913E39B172488FD82A97FC63514364C9`
-and `41B41E98DBA582A4C52383A3ACEEB459057B01CB47404A3C1E23A1484B97C099`.
-The internal checker constructs two compiler instances in one process and
-therefore does not model the independent release builds.
+Xcode does not expose a build setting that owns the final Swift-driver `-jN`
+argument it synthesizes. The clean builder therefore creates a mode-`0755`
+`SWIFT_EXEC` wrapper at the canonical build root with exclusive creation and
+binds its exact bytes, filesystem identity, interpreter, underlying `swiftc`
+path, executable hashes, and versions in the receipt. The wrapper removes every
+joined or separated driver `-j` option and appends one terminal `-j 1`. It also
+fails closed unless each architecture's driver invocation contains exactly one
+`-num-threads 1`, one `-Xllvm -rng-seed=1`, and its expected target. Before
+execution, it asks the exact inspected Swift executable for `-driver-print-jobs`
+and independently requires one projected frontend job with the same target and
+the same single thread and RNG controls. Missing, duplicate, substituted,
+malformed, or later-overridden controls are rejected. The arm64 and x86_64
+markers are canonically sorted before hashing so scheduler-dependent reporting
+order does not change their identity. Wrapper bytes, node identities, audit
+file mode, Swift executable, and interpreter are revalidated after the build.
+
+Swift's same-process `-enable-deterministic-check` remains a fail-closed
+diagnostic, not a reproducibility proof. It compares compiler instances inside
+one process and cannot replace independent executions. An earlier qualification
+found that tuple-array iteration over the four clean-aperture values could
+reorder equivalent PHI nodes in `-emit-irgen` output. Explicit calls to a
+non-inlined field helper removed that independent pre-LLVM variance.
+
+The complete canonical replay then exposed four additional source-level loci.
+Slice, section, symbol, and normalized-disassembly comparisons first localized
+the differing machine code. Replaying the exact saved whole-module frontend
+commands with the locked nine-variable environment and all 131 compiler output
+paths absent proved that the remaining differences were already present in
+Swift IRGen, before LLVM optimization or linking:
+
+- `FixedPointCPUWorkspaceV4.prepare(targetWidth:)` now initializes its four
+  `sourceRowBySlot` entries with four explicit assignments instead of an
+  equivalent indexed loop.
+- `ASHDepthFourBranchProgramV4.gf2RankProof` now swaps rows through one scoped
+  mutable-buffer borrow and caches the selected pivot value instead of repeated
+  array subscripting.
+- `ASHDepthFourBranchProgramV4.exactRank` likewise performs a manual
+  mutable-buffer row swap and caches its pivot row. This removes the varying
+  specialized nested-`Array.swapAt` IR and symbol.
+- `ASHSpatialReconstructorV4.reconstructInPlace` now copies each retained row
+  through scoped source and destination buffer borrows. This fixes whether the
+  destination bounds check was emitted before or after the array uniqueness
+  test in the local `loadRow` loop.
+
+These repairs preserve the algorithms and normal `-O` optimization pipeline;
+they do not disable LLVM optimization, block placement, outlining, or function
+merging. On the repaired pre-freeze diagnostic snapshot, three independent
+arm64 IRGen executions were byte-identical at 246,470,545 bytes and SHA-256
+`37cd2e52df5c79f590a48ead972a1ad6e3f142de984d2c57bc6883f54ea2feb7`.
+Three independent optimized arm64 WMO objects were byte-identical at 20,610,736
+bytes and SHA-256
+`bc7aafbce736d6a1e34762b1020f08cc2dad14b4dda042effd3e41b3b43346d5`.
+Three independent optimized x86_64 WMO objects were byte-identical at
+20,314,944 bytes and SHA-256
+`b1155702f099888314f0f445c7ec9c94467dbc7028e951682022ebef4dd74a1f`.
+The removed nested swap specialization was absent from the final IR and both
+architecture object symbol tables.
+
+Those direct compiler replays are focused pre-freeze evidence only. Final
+acceptance still requires three complete sequential clean builds from the exact
+integrated post-commit git archive, with byte-identical normalized receipts and
+signer-independent application identities. No targeted IRGen or object replay
+can substitute for that canonical three-build gate.
+
+## External Metal build
+
+Xcode is prevented from compiling the two release `.metal` inputs. The clean
+builder instead resolves the installed `MetalToolchain` component with
+`xcodebuild -showComponent MetalToolchain -json` and binds its stable asset,
+build, and toolchain identifiers. For `metal`, `metallib`, and `metal-nm`, the
+receipt records the component-relative dispatcher and versioned underlying
+executable paths, hashes, and versions. Compilation and symbol inspection use
+the exact resolved underlying `metal` and `air-nm` binaries. Linking invokes
+the exact resolved `usr/bin/metallib` entry point so its `argv[0]` selects
+metallib compatibility mode, while the receipt also binds the underlying
+`air-lld` identity. Directly invoking `air-lld` is not treated as an equivalent
+link command.
+
+The compiler's exact `-print-resource-dir` tree is sealed as a sorted manifest
+of regular-file paths, modes, sizes, and hashes. The manifest must contain
+`metal_stdlib`, `module.modulemap`, and `libmetal_rt_osx.a`; links and special
+files are rejected. This closes the transitive resource/header/runtime-library
+dependency boundary rather than binding only top-level launchers. The complete
+component, executable, and resource resolution is repeated after Metal
+execution and must remain byte-for-byte identical. Absolute MobileAsset mount
+paths in diagnostic output are normalized only to `$METAL_TOOLCHAIN`; the
+component-relative identities and file bytes remain bound.
+
+Each source is compiled with explicit `-O3`, `-std=metal3.2`,
+`-target air64-apple-macos15.4`, safe Metal math, and precise FP32 functions.
+The receipt binds both source files, every command, normalized transcript, AIR
+output, final `default.metallib`, and the exact eleven-function symbol
+inventory. A direct three-run qualification on the installed
+`com.apple.dt.toolchain.Metal.32023.864` component produced identical
+134,446-byte libraries with SHA-256
+`c81de056a2adeae53cb8a12120021dec6f123225be1bfdb80007310c7f58b6ba`.
+That focused proof validates the external Metal path; final acceptance still
+requires the complete canonical receipt equality below.
 
 Release qualification instead requires at least three fresh sequential builds
 at the canonical physical root. No object or product bytes may be normalized.

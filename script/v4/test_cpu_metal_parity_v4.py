@@ -485,7 +485,7 @@ class ParityEvidenceFixture:
             for timing, source_field, generation in zip(
                 output_times, source_fields, output_generations
             ):
-                outputs.append({
+                output = {
                     "outputOrdinal": next_output,
                     "presentationTime": time_record(timing[0], timing[1]),
                     "duration": time_record(timing[2], timing[3]),
@@ -494,7 +494,12 @@ class ParityEvidenceFixture:
                     "classification": state["classification"],
                     "historyGeneration": generation,
                     "attachments": self._output_attachments(frame),
-                })
+                }
+                if frame.get("temporalResetReason") is not None:
+                    output["temporalResetReason"] = frame[
+                        "temporalResetReason"
+                    ]
+                outputs.append(output)
                 next_output += 1
                 previous_generation = generation
             inputs.append({
@@ -923,6 +928,34 @@ class CPUMetalParityQualificationTests(unittest.TestCase):
         ):
             self.fixture.evaluate()
 
+    def test_periodic_ambiguous_case_cannot_be_weakened(self) -> None:
+        contract = parity.load_json(self.fixture.contract_path)
+        case = next(
+            item for item in contract["cases"]
+            if item["id"] == parity.EXPECTED_REPEATED_PATTERN_CASE_ID
+        )
+        case["frames"][2]["pattern"] = "moving_edge_2"
+        parity.write_json(self.fixture.contract_path, contract)
+        with self.assertRaisesRegex(
+            parity.ParityEvidenceError,
+            "periodic ambiguous temporal case differs",
+        ):
+            self.fixture.evaluate()
+
+    def test_tiled_seek_case_cannot_remove_declared_reset(self) -> None:
+        contract = parity.load_json(self.fixture.contract_path)
+        case = next(
+            item for item in contract["cases"]
+            if item["id"] == parity.EXPECTED_BOUNDED_CASE_ID
+        )
+        case["frames"][3].pop("temporalResetReason")
+        parity.write_json(self.fixture.contract_path, contract)
+        with self.assertRaisesRegex(
+            parity.ParityEvidenceError,
+            "seek reset evidence is incomplete",
+        ):
+            self.fixture.evaluate()
+
     def test_raw_artifact_tamper_is_rejected_by_nested_seal(self) -> None:
         case_id = self.fixture.contract["cases"][0]["id"]
         path = self.fixture.capture_a / self.fixture.artifact_relative(
@@ -952,6 +985,72 @@ class CPUMetalParityQualificationTests(unittest.TestCase):
             ),
         )
         with self.assertRaisesRegex(parity.ParityEvidenceError, "cadenceID"):
+            self.fixture.evaluate()
+
+    def test_declared_seek_reset_semantics_cannot_be_forged(self) -> None:
+        case_id = self.case_with("seek_reset")
+        self.fixture.mutate_json_artifact(
+            case_id,
+            "cpu",
+            "canonical",
+            "semantics",
+            lambda document: document["inputs"][3]["outputs"][0].update(
+                {"temporalResetReason": "edit_boundary"}
+            ),
+        )
+        with self.assertRaisesRegex(
+            parity.ParityEvidenceError,
+            "declared temporal reset was not observed",
+        ):
+            self.fixture.evaluate()
+
+    def test_undeclared_seek_reset_semantics_is_rejected(self) -> None:
+        case_id = self.case_with("repeated_pattern")
+        self.fixture.mutate_json_artifact(
+            case_id,
+            "cpu",
+            "canonical",
+            "semantics",
+            lambda document: document["inputs"][1]["outputs"][0].update(
+                {"temporalResetReason": "seek"}
+            ),
+        )
+        with self.assertRaisesRegex(
+            parity.ParityEvidenceError,
+            "undeclared seek reset",
+        ):
+            self.fixture.evaluate()
+
+    def test_repeated_pattern_cannot_collapse_to_scene_cut(self) -> None:
+        case_id = self.case_with("repeated_pattern")
+
+        def mutate_checkpoint(document):
+            entry = document["entries"][3]
+            checkpoint = json.loads(base64.b64decode(
+                entry["canonicalDataBase64"]
+            ))
+            checkpoint["history"]["generation"] = 2
+            raw = parity.compact_canonical_json(checkpoint)
+            entry["canonicalDataBase64"] = encoded(raw)
+            entry["canonicalSHA256"] = parity.sha256_bytes(raw)
+
+        self.fixture.mutate_json_artifact(
+            case_id, "cpu", "canonical", "checkpoints", mutate_checkpoint
+        )
+        self.fixture.mutate_json_artifact(
+            case_id,
+            "cpu",
+            "canonical",
+            "semantics",
+            lambda document: document["inputs"][3]["outputs"][0].update({
+                "historyGeneration": 2,
+                "temporalResetReason": "scene_cut",
+            }),
+        )
+        with self.assertRaisesRegex(
+            parity.ParityEvidenceError,
+            "state expectation differs: 3/historyGeneration",
+        ):
             self.fixture.evaluate()
 
     def test_schedule_artifacts_must_use_distinct_paths(self) -> None:

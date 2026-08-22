@@ -5,6 +5,110 @@ import XCTest
 @testable import Mirmir
 
 final class AVCanonicalMediaStateAdapterV4Tests: XCTestCase {
+    func testAmbientViewingEnvironmentDecodesAndSerializesExactly() throws {
+        let metadata = try AmbientViewingEnvironmentV4(
+            ambientIlluminance: 123_456,
+            ambientLight: try HDRChromaticityV4(
+                x: 15_635,
+                y: 16_450,
+                label: "ambient"
+            )
+        )
+        let decoded = try AVCanonicalAmbientViewingEnvironmentCodecV4.decode(
+            metadata.payload,
+            path: "fixture.color.ambient_viewing_environment"
+        )
+        XCTAssertEqual(
+            decoded.ambientIlluminance,
+            try ExactRationalV4(123_456, 10_000)
+        )
+        XCTAssertEqual(
+            decoded.ambientLightX,
+            try ExactRationalV4(15_635, 50_000)
+        )
+        XCTAssertEqual(
+            decoded.ambientLightY,
+            try ExactRationalV4(16_450, 50_000)
+        )
+
+        let color = CanonicalColorStateV4(
+            primaries: "itu-r-bt2020",
+            transferFunction: "smpte-st-2084-pq",
+            matrix: "itu-r-bt2020",
+            masteringDisplay: nil,
+            contentLightLevel: nil,
+            ambientViewingEnvironment: decoded,
+            dynamicHDRMetadata: []
+        )
+        let canonicalJSON = try ASHCanonicalJSONV4.encode(color)
+        XCTAssertEqual(
+            try ASHCanonicalJSONV4.decode(
+                CanonicalColorStateV4.self,
+                from: canonicalJSON
+            ),
+            color
+        )
+        XCTAssertTrue(
+            String(decoding: canonicalJSON, as: UTF8.self)
+                .contains("ambientViewingEnvironment")
+        )
+    }
+
+    func testAmbientViewingEnvironmentDecodeFailsClosed() throws {
+        XCTAssertThrowsError(
+            try AVCanonicalAmbientViewingEnvironmentCodecV4.decode(
+                Data(repeating: 0, count: 7),
+                path: "fixture.color.ambient_viewing_environment"
+            )
+        ) { error in
+            guard let adapterError =
+                error as? AVCanonicalMediaStateAdapterV4Error,
+                  case let .avFoundationLoadFailed(path, reason) =
+                    adapterError else {
+                return XCTFail("Expected contextual AVFoundation rejection")
+            }
+            XCTAssertEqual(
+                path,
+                "fixture.color.ambient_viewing_environment"
+            )
+            XCTAssertTrue(reason.contains("invalidPayloadLength"))
+        }
+
+        XCTAssertThrowsError(
+            try AVCanonicalAmbientViewingEnvironmentCodecV4.decode(
+                Data([0, 0, 0, 1, 0xC3, 0x50, 0, 1]),
+                path: "fixture.color.ambient_viewing_environment"
+            )
+        )
+    }
+
+    func testAmbientViewingEnvironmentPresentWithWrongTypeFailsClosed() {
+        let expectedPath =
+            "fixture.format_descriptions[0].color.ambient_viewing_environment"
+
+        XCTAssertThrowsError(
+            try AVCanonicalAmbientViewingEnvironmentCodecV4
+                .decodeExtensionValue(
+                    "not-data",
+                    path: expectedPath
+                )
+        ) { error in
+            guard let adapterError =
+                error as? AVCanonicalMediaStateAdapterV4Error,
+                  case let .avFoundationLoadFailed(errorPath, reason) =
+                    adapterError else {
+                return XCTFail("Expected contextual AVFoundation rejection")
+            }
+            XCTAssertEqual(errorPath, expectedPath)
+            XCTAssertTrue(reason.contains("must be CFData"))
+        }
+
+        XCTAssertNil(
+            try AVCanonicalAmbientViewingEnvironmentCodecV4
+                .decodeExtensionValue(nil, path: expectedPath)
+        )
+    }
+
     func testCanonicalScanDescriptionAdmitsDeclaredInterlacedCadence() throws {
         let topFirst: NSDictionary = [
             kCMFormatDescriptionExtension_FieldCount as String: 2,

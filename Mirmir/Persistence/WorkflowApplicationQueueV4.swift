@@ -2006,6 +2006,7 @@ extension WorkflowApplicationQueueV4 {
                 existingSegments: existingSegments,
                 startTime: segment.startTime,
                 endTimeExclusive: segment.endTimeExclusive,
+                nextStartTime: segment.nextStartTime,
                 codecSettingsHash: outputContractID,
                 trackProgress: trackProgress,
                 committedAt: clock.now(),
@@ -2113,12 +2114,39 @@ extension WorkflowApplicationQueueV4 {
 
     func assembleApplicationCheckpoint(
         _ checkpoint: WorkflowCheckpointDocumentV4,
+        timeline: WorkflowApplicationAssemblyTimelineDescriptorV4,
         destinationURL: URL,
         overwriteExistingFile: Bool
     ) async throws -> AVFoundationSegmentAssemblyResultV4 {
-        try await AVFoundationSegmentAssemblerV4().assemble(.init(
+        let jobBinding = checkpoint.body.compatibility.jobBinding
+        let mediaTimelineStart = CMTime(
+            value: timeline.mediaTimelineStart.value,
+            timescale: timeline.mediaTimelineStart.timescale
+        )
+        let outputTimelineStart = CMTime(
+            value: timeline.outputTimelineStart.value,
+            timescale: timeline.outputTimelineStart.timescale
+        )
+        let firstSegmentStart = checkpoint.body.segments.first.map {
+            CMTime(value: $0.startTime.value, timescale: $0.startTime.timescale)
+        }
+        guard timeline.planID == jobBinding.planID,
+              let firstSegmentStart,
+              mediaTimelineStart.isNumeric,
+              outputTimelineStart.isNumeric,
+              !mediaTimelineStart.flags.contains(.hasBeenRounded),
+              !outputTimelineStart.flags.contains(.hasBeenRounded),
+              CMTimeCompare(mediaTimelineStart, firstSegmentStart) == 0,
+              CMTimeCompare(mediaTimelineStart, .zero) >= 0,
+              CMTimeCompare(outputTimelineStart, .zero) >= 0 else {
+            throw WorkflowApplicationQueueErrorV4
+                .preparedPlanChanged(jobBinding.jobID)
+        }
+        return try await AVFoundationSegmentAssemblerV4().assemble(.init(
             artifactRootURL: rootURL,
             segments: checkpoint.body.segments,
+            mediaTimelineStart: timeline.mediaTimelineStart,
+            outputTimelineStart: timeline.outputTimelineStart,
             destinationURL: destinationURL,
             outputFileType: .mov,
             overwriteExistingFile: overwriteExistingFile

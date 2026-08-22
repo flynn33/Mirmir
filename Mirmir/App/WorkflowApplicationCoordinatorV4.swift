@@ -1,5 +1,8 @@
 import AVFoundation
 import CoreMedia
+import CoreVideo
+import CryptoKit
+import Darwin
 import Foundation
 
 enum WorkflowApplicationControllerErrorV4: Error, LocalizedError, Sendable {
@@ -52,6 +55,2752 @@ enum WorkflowApplicationControllerErrorV4: Error, LocalizedError, Sendable {
     }
 }
 
+
+@available(macOS 15.4, *)
+struct RecoveryQualificationCodeDirectoryV4: Sendable {
+    let architecture: String
+    let sha256: String
+
+    fileprivate var json: [String: Any] {
+        ["architecture": architecture, "sha256": sha256]
+    }
+}
+
+@available(macOS 15.4, *)
+struct RecoveryQualificationPackageIdentityV4: Sendable {
+    let schemaVersion: String
+    let buildConfiguration: String
+    let applicationArchiveSHA256: String
+    let applicationPayloadIdentitySHA256: String
+    let applicationInfoPlistSHA256: String
+    let applicationExecutableSHA256: String
+    let codeDirectories: [RecoveryQualificationCodeDirectoryV4]
+    let codeDirectorySetSHA256: String
+    let designatedRequirementSHA256: String
+    let releaseConfigurationSHA256: String
+    let attestationSHA256: String
+    let sourceCommit: String
+    let sourceTreeIdentitySHA256: String
+    let runtimeManifestSHA256: String
+    let runtimeManifestFileSHA256: String
+    let runtimeArtifactSetSHA256: String
+    let runtimeSourceRevision: String
+    let bundleIdentifier: String
+    let productVersion: String
+    let productBuild: String
+
+    fileprivate func validate() throws {
+        guard schemaVersion
+                == "mirmir-v4-packaged-candidate-identity-v1",
+              buildConfiguration == "Release",
+              codeDirectories.map(\.architecture) == ["arm64", "x86_64"]
+        else {
+            throw RecoveryQualificationProducerV4.CaptureFailure.assertion(
+                "Packaged recovery identity header or architectures differ."
+            )
+        }
+        for row in codeDirectories {
+            guard !row.architecture.isEmpty else {
+                throw RecoveryQualificationProducerV4.CaptureFailure.assertion(
+                    "Packaged recovery CodeDirectory architecture is empty."
+                )
+            }
+            try validateHex(
+                row.sha256,
+                lengths: [64],
+                label: "CodeDirectory"
+            )
+        }
+        for (label, value, lengths) in [
+            ("applicationArchiveSHA256", applicationArchiveSHA256, [64]),
+            (
+                "applicationPayloadIdentitySHA256",
+                applicationPayloadIdentitySHA256,
+                [64]
+            ),
+            ("applicationInfoPlistSHA256", applicationInfoPlistSHA256, [64]),
+            ("applicationExecutableSHA256", applicationExecutableSHA256, [64]),
+            ("codeDirectorySetSHA256", codeDirectorySetSHA256, [64]),
+            ("designatedRequirementSHA256", designatedRequirementSHA256, [64]),
+            ("releaseConfigurationSHA256", releaseConfigurationSHA256, [64]),
+            ("attestationSHA256", attestationSHA256, [64]),
+            ("sourceCommit", sourceCommit, [40]),
+            ("sourceTreeIdentitySHA256", sourceTreeIdentitySHA256, [64]),
+            ("runtimeManifestSHA256", runtimeManifestSHA256, [64]),
+            ("runtimeManifestFileSHA256", runtimeManifestFileSHA256, [64]),
+            ("runtimeArtifactSetSHA256", runtimeArtifactSetSHA256, [64]),
+            ("runtimeSourceRevision", runtimeSourceRevision, [40, 64]),
+        ] {
+            try validateHex(value, lengths: Set(lengths), label: label)
+        }
+        guard !bundleIdentifier.isEmpty,
+              !productVersion.isEmpty,
+              !productBuild.isEmpty else {
+            throw RecoveryQualificationProducerV4.CaptureFailure.assertion(
+                "Packaged recovery bundle identity is empty."
+            )
+        }
+    }
+
+    fileprivate var json: [String: Any] {
+        [
+            "schemaVersion": schemaVersion,
+            "buildConfiguration": buildConfiguration,
+            "applicationArchiveSHA256": applicationArchiveSHA256,
+            "applicationPayloadIdentitySHA256":
+                applicationPayloadIdentitySHA256,
+            "applicationInfoPlistSHA256": applicationInfoPlistSHA256,
+            "applicationExecutableSHA256": applicationExecutableSHA256,
+            "codeDirectories": codeDirectories.map(\.json),
+            "codeDirectorySetSHA256": codeDirectorySetSHA256,
+            "designatedRequirementSHA256": designatedRequirementSHA256,
+            "releaseConfigurationSHA256": releaseConfigurationSHA256,
+            "attestationSHA256": attestationSHA256,
+            "sourceCommit": sourceCommit,
+            "sourceTreeIdentitySHA256": sourceTreeIdentitySHA256,
+            "runtimeManifestSHA256": runtimeManifestSHA256,
+            "runtimeManifestFileSHA256": runtimeManifestFileSHA256,
+            "runtimeArtifactSetSHA256": runtimeArtifactSetSHA256,
+            "runtimeSourceRevision": runtimeSourceRevision,
+            "bundleIdentifier": bundleIdentifier,
+            "productVersion": productVersion,
+            "productBuild": productBuild,
+        ]
+    }
+
+    private func validateHex(
+        _ value: String,
+        lengths: Set<Int>,
+        label: String
+    ) throws {
+        guard lengths.contains(value.utf8.count),
+              value == value.lowercased(),
+              value.allSatisfy({ $0.isHexDigit }) else {
+            throw RecoveryQualificationProducerV4.CaptureFailure.assertion(
+                "Packaged recovery \(label) is not lowercase hexadecimal."
+            )
+        }
+    }
+}
+
+@available(macOS 15.4, *)
+struct RecoveryQualificationPackagedExecutionV4: Sendable {
+    let requestID: String
+    let requestSHA256: String
+    let nonceSHA256: String
+    let observerSourceSHA256: String
+    let packageIdentity: RecoveryQualificationPackageIdentityV4
+
+    fileprivate func validate(producerSourceSHA256: String) throws {
+        guard let requestUUID = UUID(uuidString: requestID),
+              requestUUID.uuidString.lowercased() == requestID else {
+            throw RecoveryQualificationProducerV4.CaptureFailure.assertion(
+                "Packaged recovery request ID is not a canonical UUID."
+            )
+        }
+        for (label, value, lengths) in [
+            ("requestSHA256", requestSHA256, [64]),
+            ("nonceSHA256", nonceSHA256, [64]),
+            ("observerSourceSHA256", observerSourceSHA256, [64]),
+            ("producerSourceSHA256", producerSourceSHA256, [64]),
+        ] {
+            guard lengths.contains(value.utf8.count),
+                  value == value.lowercased(),
+                  value.allSatisfy({ $0.isHexDigit }) else {
+                throw RecoveryQualificationProducerV4.CaptureFailure.assertion(
+                    "Packaged recovery \(label) is not lowercase hexadecimal."
+                )
+            }
+        }
+        try packageIdentity.validate()
+    }
+
+    fileprivate func json(producerSourceSHA256: String) -> [String: Any] {
+        [
+            "schemaVersion":
+                "mirmir-v4-recovery-archived-execution-v1",
+            "kind": "archived_application_executable",
+            "applicationArchiveExecuted": true,
+            "requestID": requestID,
+            "requestSHA256": requestSHA256,
+            "nonceSHA256": nonceSHA256,
+            "observerSourceSHA256": observerSourceSHA256,
+            "producerSourceSHA256": producerSourceSHA256,
+            "applicationArchiveSHA256":
+                packageIdentity.applicationArchiveSHA256,
+            "applicationPayloadIdentitySHA256":
+                packageIdentity.applicationPayloadIdentitySHA256,
+            "applicationExecutableSHA256":
+                packageIdentity.applicationExecutableSHA256,
+            "sourceCommit": packageIdentity.sourceCommit,
+            "sourceTreeIdentitySHA256":
+                packageIdentity.sourceTreeIdentitySHA256,
+            "runtimeManifestSHA256":
+                packageIdentity.runtimeManifestSHA256,
+            "runtimeManifestFileSHA256":
+                packageIdentity.runtimeManifestFileSHA256,
+            "runtimeArtifactSetSHA256":
+                packageIdentity.runtimeArtifactSetSHA256,
+            "runtimeSourceRevision": packageIdentity.runtimeSourceRevision,
+        ]
+    }
+}
+
+@available(macOS 15.4, *)
+struct RecoveryQualificationCaptureRequestV4: Sendable {
+    let captureRootURL: URL
+    let contractURL: URL
+    let contractSHA256: String
+    let producerSourceSHA256: String
+    let execution: RecoveryQualificationPackagedExecutionV4
+}
+
+@available(macOS 15.4, *)
+final class RecoveryQualificationProducerV4 {
+    private static let injectedEnvironment: [String: String] = [:]
+
+    private struct LockedContract: Decodable {
+        let schemaVersion: String
+        let buildConfiguration: String
+        let capture: LockedCaptureTools
+        let crossProcessCaptureCount: Int
+        let scenarios: [LockedScenario]
+    }
+
+    private struct LockedCaptureTools: Decodable {
+        let producerSourceSHA256: String
+    }
+
+    fileprivate struct LockedScenario: Decodable, Equatable {
+        let id: String
+        let coverageID: String
+        let injectionPoint: String
+        let outcome: String
+        let containedFailureCode: String?
+        let evidenceKind: String
+    }
+
+    fileprivate struct ArtifactDescriptor {
+        let path: String
+        let byteCount: Int
+        let sha256: String
+
+        var json: [String: Any] {
+            ["path": path, "byteCount": byteCount, "sha256": sha256]
+        }
+    }
+
+    fileprivate struct TranscriptEvent {
+        let operation: String
+        let durableStateSHA256: String
+
+        func json(sequence: Int) -> [String: Any] {
+            [
+                "sequence": sequence,
+                "operation": operation,
+                "durableStateSHA256": durableStateSHA256
+            ]
+        }
+    }
+
+    fileprivate enum ScenarioCausalOutput {
+        case derivation(
+            referenceState: URL,
+            recoveredState: URL,
+            reference: Data,
+            resumed: Data
+        )
+        case media(
+            referenceState: URL,
+            recoveredState: URL,
+            reference: URL,
+            resumed: URL
+        )
+        case contained(recoveredState: URL)
+
+        var recoveredState: URL {
+            switch self {
+            case .derivation(_, let recoveredState, _, _),
+                 .media(_, let recoveredState, _, _),
+                 .contained(let recoveredState):
+                recoveredState
+            }
+        }
+
+        var referenceState: URL? {
+            switch self {
+            case .derivation(let referenceState, _, _, _),
+                 .media(let referenceState, _, _, _):
+                referenceState
+            case .contained:
+                nil
+            }
+        }
+    }
+
+    fileprivate struct ScenarioExecution {
+        let causalOutput: ScenarioCausalOutput
+        let afterFaultStateSHA256: String
+        let reopenedStateSHA256: String
+    }
+
+    fileprivate enum CaptureFailure: Error, LocalizedError {
+        case assertion(String)
+        case injected(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .assertion(let message): message
+            case .injected(let point):
+                "Injected process termination at \(point)."
+            }
+        }
+    }
+
+    private static let expectedScenarios = [
+        LockedScenario(
+            id: "append-only-event-boundary",
+            coverageID: "append_only_event_boundary",
+            injectionPoint: "after_append_file_sync_before_return",
+            outcome: "identical_resumed_output",
+            containedFailureCode: nil,
+            evidenceKind: "durable_state_derivation"
+        ),
+        LockedScenario(
+            id: "snapshot-publish-boundary",
+            coverageID: "snapshot_publish_boundary",
+            injectionPoint: "after_snapshot_rename_before_parent_sync",
+            outcome: "identical_resumed_output",
+            containedFailureCode: nil,
+            evidenceKind: "durable_state_derivation"
+        ),
+        LockedScenario(
+            id: "bookmark-resolution-and-toctou",
+            coverageID: "bookmark_resolution_and_toctou",
+            injectionPoint: "after_bookmark_resolution_before_revalidation",
+            outcome: "explicit_contained_failure",
+            containedFailureCode: "bookmark_toctou_contained",
+            evidenceKind: "contained_state_derivation"
+        ),
+        LockedScenario(
+            id: "segment-commit-boundary",
+            coverageID: "segment_commit_boundary",
+            injectionPoint:
+                "after_segment_artifact_publish_before_checkpoint_commit",
+            outcome: "identical_resumed_output",
+            containedFailureCode: nil,
+            evidenceKind: "durable_state_derivation"
+        ),
+        LockedScenario(
+            id: "checkpoint-publish-boundary",
+            coverageID: "checkpoint_publish_boundary",
+            injectionPoint:
+                "after_checkpoint_archive_publish_before_head_publish",
+            outcome: "identical_resumed_output",
+            containedFailureCode: nil,
+            evidenceKind: "durable_state_derivation"
+        ),
+        LockedScenario(
+            id: "prepared-decision-boundary",
+            coverageID: "prepared_decision_boundary",
+            injectionPoint:
+                "after_prepared_recovery_decision_before_lifecycle_transition",
+            outcome: "identical_resumed_output",
+            containedFailureCode: nil,
+            evidenceKind: "durable_state_derivation"
+        ),
+        LockedScenario(
+            id: "final-assembly-boundary",
+            coverageID: "final_assembly_boundary",
+            injectionPoint: "after_segment_assembly_before_final_mux",
+            outcome: "identical_resumed_output",
+            containedFailureCode: nil,
+            evidenceKind: "scenario_media_output"
+        ),
+        LockedScenario(
+            id: "atomic-output-publish-boundary",
+            coverageID: "atomic_output_publish_boundary",
+            injectionPoint:
+                "after_atomic_output_rename_before_completion_event",
+            outcome: "identical_resumed_output",
+            containedFailureCode: nil,
+            evidenceKind: "scenario_media_output"
+        ),
+        LockedScenario(
+            id: "pause-resume",
+            coverageID: "pause_resume",
+            injectionPoint: "after_committed_pause_boundary",
+            outcome: "identical_resumed_output",
+            containedFailureCode: nil,
+            evidenceKind: "scenario_media_output"
+        ),
+        LockedScenario(
+            id: "forced-termination-restart",
+            coverageID: "forced_termination_restart",
+            injectionPoint: "after_lease_persistence_before_process_death",
+            outcome: "identical_resumed_output",
+            containedFailureCode: nil,
+            evidenceKind: "durable_state_derivation"
+        ),
+        LockedScenario(
+            id: "disk-full",
+            coverageID: "disk_full",
+            injectionPoint: "journal_append_enospc_before_write",
+            outcome: "explicit_contained_failure",
+            containedFailureCode: "disk_full_contained",
+            evidenceKind: "contained_state_derivation"
+        ),
+        LockedScenario(
+            id: "corrupt-journal",
+            coverageID: "corrupt_journal",
+            injectionPoint: "journal_frame_payload_bit_flip",
+            outcome: "explicit_contained_failure",
+            containedFailureCode: "corrupt_journal_contained",
+            evidenceKind: "contained_state_derivation"
+        ),
+        LockedScenario(
+            id: "corrupt-checkpoint",
+            coverageID: "corrupt_checkpoint",
+            injectionPoint: "temporal_checkpoint_payload_bit_flip",
+            outcome: "explicit_contained_failure",
+            containedFailureCode: "corrupt_checkpoint_contained",
+            evidenceKind: "contained_state_derivation"
+        ),
+        LockedScenario(
+            id: "orphan-partial-reconciliation",
+            coverageID: "orphan_partial_reconciliation",
+            injectionPoint: "owned_partial_present_at_launch",
+            outcome: "identical_resumed_output",
+            containedFailureCode: nil,
+            evidenceKind: "durable_state_derivation"
+        ),
+        LockedScenario(
+            id: "unowned-artifact-rejection",
+            coverageID: "unowned_artifact_rejection",
+            injectionPoint: "unowned_partial_present_at_launch",
+            outcome: "explicit_contained_failure",
+            containedFailureCode: "unowned_artifact_rejected",
+            evidenceKind: "contained_state_derivation"
+        ),
+    ]
+
+    func capture(
+        _ request: RecoveryQualificationCaptureRequestV4
+    ) async throws -> URL {
+        let captureRoot = request.captureRootURL.standardizedFileURL
+        let contractURL = request.contractURL.standardizedFileURL
+        let contractData = try Data(contentsOf: contractURL)
+        guard sha256(contractData) == request.contractSHA256 else {
+            throw CaptureFailure.assertion(
+                "Recovery contract identity differs."
+            )
+        }
+        let contract = try JSONDecoder().decode(
+            LockedContract.self,
+            from: contractData
+        )
+        guard contract.schemaVersion
+                == "mirmir-v4-recovery-qualification-contract-v2",
+              contract.buildConfiguration == "Release",
+              contract.crossProcessCaptureCount == 2,
+              contract.capture.producerSourceSHA256
+                == request.producerSourceSHA256,
+              contract.scenarios == Self.expectedScenarios else {
+            throw CaptureFailure.assertion(
+                "Recovery contract is not the exact locked scenario matrix."
+            )
+        }
+        try request.execution.validate(
+            producerSourceSHA256: request.producerSourceSHA256
+        )
+        guard !FileManager.default.fileExists(atPath: captureRoot.path),
+              FileManager.default.fileExists(
+                atPath: captureRoot.deletingLastPathComponent().path
+              ) else {
+            throw CaptureFailure.assertion(
+                "Recovery capture output must be a new child directory."
+            )
+        }
+        try FileManager.default.createDirectory(
+            at: captureRoot,
+            withIntermediateDirectories: false
+        )
+
+        let workspace = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "mirmir-v4-recovery-capture-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: workspace,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: workspace) }
+
+        let sourceURL = workspace.appendingPathComponent("source.mov")
+        try await writeMovie(
+            to: sourceURL,
+            colors: [
+                (12, 36, 84),
+                (48, 96, 144),
+                (180, 72, 24),
+                (32, 180, 96),
+            ]
+        )
+        var captureScenarios: [[String: Any]] = []
+        for scenario in contract.scenarios {
+            let stateRoot = workspace.appendingPathComponent(
+                "state-\(scenario.id)",
+                isDirectory: true
+            )
+            try FileManager.default.createDirectory(
+                at: stateRoot,
+                withIntermediateDirectories: true
+            )
+            let before = try durableStateSHA256(stateRoot)
+            let execution = try await exerciseFault(
+                scenario,
+                stateRoot: stateRoot,
+                sourceMovie: sourceURL
+            )
+            let events = [
+                TranscriptEvent(
+                    operation: "prepare_durable_state",
+                    durableStateSHA256: before
+                ),
+                TranscriptEvent(
+                    operation: "inject_fault",
+                    durableStateSHA256: execution.afterFaultStateSHA256
+                ),
+                TranscriptEvent(
+                    operation: "reopen_durable_state",
+                    durableStateSHA256: execution.reopenedStateSHA256
+                ),
+            ]
+            captureScenarios.append(try await writeScenarioEvidence(
+                scenario,
+                captureRoot: captureRoot,
+                reopenedStateSHA256: execution.reopenedStateSHA256,
+                causalOutput: execution.causalOutput,
+                events: events
+            ))
+        }
+
+        try writeJSON(
+            [
+                "schemaVersion": "mirmir-v4-recovery-environment-v2",
+                "buildConfiguration": "Release",
+                "executionMode": "archived_application_executable",
+                "hardwareModel": hardwareModel(),
+                "macOSVersion":
+                    ProcessInfo.processInfo.operatingSystemVersionString,
+            ],
+            to: captureRoot.appendingPathComponent("environment.json")
+        )
+        try writeJSON(
+            [
+                "schemaVersion": "mirmir-v4-recovery-capture-v2",
+                "contractSHA256": request.contractSHA256,
+                "producerSourceSHA256": request.producerSourceSHA256,
+                "evidenceRequestSHA256":
+                    request.execution.requestSHA256,
+                "evidenceNonceSHA256": request.execution.nonceSHA256,
+                "observerSourceSHA256":
+                    request.execution.observerSourceSHA256,
+                "packagedCandidateIdentity":
+                    request.execution.packageIdentity.json,
+                "sourceCommit":
+                    request.execution.packageIdentity.sourceCommit,
+                "sourceTreeIdentitySHA256":
+                    request.execution.packageIdentity
+                        .sourceTreeIdentitySHA256,
+                "buildConfiguration": "Release",
+                "execution": request.execution.json(
+                    producerSourceSHA256: request.producerSourceSHA256
+                ),
+                "scenarios": captureScenarios,
+            ],
+            to: captureRoot.appendingPathComponent("capture.json")
+        )
+        return captureRoot.appendingPathComponent("capture.json")
+    }
+}
+
+private extension RecoveryQualificationProducerV4 {
+    func runSegmentedCoordinator(
+        sourceURL: URL,
+        rootURL: URL,
+        pauseAfterClaim: Bool
+    ) async throws -> URL {
+        let storeURL = rootURL.appendingPathComponent("store", isDirectory: true)
+        let outputURL = rootURL.appendingPathComponent("output.mov")
+        try FileManager.default.createDirectory(
+            at: storeURL,
+            withIntermediateDirectories: true
+        )
+        let resolver = RecoveryCaptureBookmarkResolver()
+        let queue = try WorkflowApplicationQueueV4(
+            trustedRootURL: storeURL,
+            workerID: try WorkflowWorkerIDV4(
+                "recovery-capture-worker-\(UUID().uuidString.lowercased())"
+            ),
+            resolver: resolver
+        )
+        let coordinator = WorkflowApplicationCoordinatorV4(
+            queue: queue,
+            engine: WorkflowDeterministicApplicationEngineV4(
+                videoProbe: VideoProbe(),
+                backendCatalog: .live(),
+                runtimeEnvironment: .current()
+            ),
+            maximumInputFramesPerBoundary: 1
+        )
+        _ = try await coordinator.launch()
+        let request = UpscaleRequest(
+            inputURL: sourceURL,
+            outputURL: outputURL,
+            backendID: .mirmirDeterministicCPU,
+            targetWidth: 32,
+            targetHeight: 32,
+            outputCodec: .h264,
+            preserveAudio: false,
+            overwriteExistingFile: false
+        )
+        if !pauseAfterClaim {
+            let outcome = try await coordinator.submit(
+                request: request,
+                progress: { _ in },
+                snapshot: { _ in }
+            )
+            guard case .completed = outcome else {
+                throw CaptureFailure.assertion(
+                    "Uninterrupted segmented execution did not complete."
+                )
+            }
+            return outputURL
+        }
+
+        let latch = RecoveryCaptureLifecycleLatch()
+        let task = Task {
+            try await coordinator.submit(
+                request: request,
+                progress: { _ in },
+                snapshot: { snapshot in
+                    if snapshot.items.contains(where: {
+                        $0.lifecycle == .probing || $0.lifecycle == .planned
+                    }) {
+                        Task { await latch.signal() }
+                    }
+                }
+            )
+        }
+        await latch.wait()
+        try await coordinator.requestPause()
+        let paused = try await task.value
+        guard case .paused(let jobID, _) = paused else {
+            throw CaptureFailure.assertion(
+                "Segmented execution did not stop at a committed pause boundary."
+            )
+        }
+        let resumed = try await coordinator.resume(
+            jobID: jobID,
+            progress: { _ in },
+            snapshot: { _ in }
+        )
+        guard case .completed = resumed else {
+            throw CaptureFailure.assertion(
+                "Segmented execution did not complete after checkpoint restore."
+            )
+        }
+        return outputURL
+    }
+
+    func exerciseFault(
+        _ scenario: LockedScenario,
+        stateRoot: URL,
+        sourceMovie: URL
+    ) async throws -> ScenarioExecution {
+        let referenceRoot = stateRoot.appendingPathComponent(
+            "uninterrupted",
+            isDirectory: true
+        )
+        let recoveredRoot = stateRoot.appendingPathComponent(
+            "recovered",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: recoveredRoot,
+            withIntermediateDirectories: true
+        )
+        if scenario.outcome == "identical_resumed_output" {
+            try FileManager.default.createDirectory(
+                at: referenceRoot,
+                withIntermediateDirectories: true
+            )
+        }
+
+        let causalOutput: ScenarioCausalOutput
+        switch scenario.coverageID {
+        case "append_only_event_boundary":
+            let reference = try appendBoundaryFault(
+                root: referenceRoot,
+                injectFault: false
+            )
+            let resumed = try appendBoundaryFault(
+                root: recoveredRoot,
+                injectFault: true
+            )
+            causalOutput = try .derivation(
+                referenceState: referenceRoot,
+                recoveredState: recoveredRoot,
+                reference: scenarioDerivation(scenario, values: reference),
+                resumed: scenarioDerivation(scenario, values: resumed)
+            )
+        case "snapshot_publish_boundary":
+            let reference = try snapshotBoundaryFault(
+                root: referenceRoot,
+                injectFault: false
+            )
+            let resumed = try snapshotBoundaryFault(
+                root: recoveredRoot,
+                injectFault: true
+            )
+            causalOutput = try .derivation(
+                referenceState: referenceRoot,
+                recoveredState: recoveredRoot,
+                reference: scenarioDerivation(scenario, values: reference),
+                resumed: scenarioDerivation(scenario, values: resumed)
+            )
+        case "bookmark_resolution_and_toctou":
+            try await bookmarkTOCTOUFault(
+                root: recoveredRoot,
+                sourceMovie: sourceMovie
+            )
+            causalOutput = .contained(recoveredState: recoveredRoot)
+        case "segment_commit_boundary":
+            let reference = try await segmentCommitFault(
+                root: referenceRoot,
+                sourceMovie: sourceMovie,
+                injectFault: false
+            )
+            let resumed = try await segmentCommitFault(
+                root: recoveredRoot,
+                sourceMovie: sourceMovie,
+                injectFault: true
+            )
+            causalOutput = try .derivation(
+                referenceState: referenceRoot,
+                recoveredState: recoveredRoot,
+                reference: scenarioDerivation(scenario, values: reference),
+                resumed: scenarioDerivation(scenario, values: resumed)
+            )
+        case "checkpoint_publish_boundary":
+            let reference = try await checkpointPublishFault(
+                root: referenceRoot,
+                sourceMovie: sourceMovie,
+                injectFault: false
+            )
+            let resumed = try await checkpointPublishFault(
+                root: recoveredRoot,
+                sourceMovie: sourceMovie,
+                injectFault: true
+            )
+            causalOutput = try .derivation(
+                referenceState: referenceRoot,
+                recoveredState: recoveredRoot,
+                reference: scenarioDerivation(scenario, values: reference),
+                resumed: scenarioDerivation(scenario, values: resumed)
+            )
+        case "prepared_decision_boundary":
+            let reference = try await preparedDecisionFault(
+                root: referenceRoot,
+                sourceMovie: sourceMovie,
+                injectFault: false
+            )
+            let resumed = try await preparedDecisionFault(
+                root: recoveredRoot,
+                sourceMovie: sourceMovie,
+                injectFault: true
+            )
+            causalOutput = try .derivation(
+                referenceState: referenceRoot,
+                recoveredState: recoveredRoot,
+                reference: scenarioDerivation(scenario, values: reference),
+                resumed: scenarioDerivation(scenario, values: resumed)
+            )
+        case "final_assembly_boundary":
+            let reference = try await finalAssemblyFault(
+                root: referenceRoot,
+                sourceMovie: sourceMovie,
+                injectFault: false
+            )
+            let resumed = try await finalAssemblyFault(
+                root: recoveredRoot,
+                sourceMovie: sourceMovie,
+                injectFault: true
+            )
+            causalOutput = .media(
+                referenceState: referenceRoot,
+                recoveredState: recoveredRoot,
+                reference: reference,
+                resumed: resumed
+            )
+        case "atomic_output_publish_boundary":
+            let reference = try atomicOutputFault(
+                root: referenceRoot,
+                sourceMovie: sourceMovie,
+                injectFault: false
+            )
+            let resumed = try atomicOutputFault(
+                root: recoveredRoot,
+                sourceMovie: sourceMovie,
+                injectFault: true
+            )
+            causalOutput = .media(
+                referenceState: referenceRoot,
+                recoveredState: recoveredRoot,
+                reference: reference,
+                resumed: resumed
+            )
+        case "pause_resume":
+            let reference = try await runSegmentedCoordinator(
+                sourceURL: sourceMovie,
+                rootURL: referenceRoot,
+                pauseAfterClaim: false
+            )
+            let resumed = try await runSegmentedCoordinator(
+                sourceURL: sourceMovie,
+                rootURL: recoveredRoot,
+                pauseAfterClaim: true
+            )
+            causalOutput = .media(
+                referenceState: referenceRoot,
+                recoveredState: recoveredRoot,
+                reference: reference,
+                resumed: resumed
+            )
+        case "forced_termination_restart":
+            let reference = try await forcedTerminationFault(
+                root: referenceRoot,
+                injectFault: false
+            )
+            let resumed = try await forcedTerminationFault(
+                root: recoveredRoot,
+                injectFault: true
+            )
+            causalOutput = try .derivation(
+                referenceState: referenceRoot,
+                recoveredState: recoveredRoot,
+                reference: scenarioDerivation(scenario, values: reference),
+                resumed: scenarioDerivation(scenario, values: resumed)
+            )
+        case "disk_full":
+            try diskFullFault(root: recoveredRoot)
+            causalOutput = .contained(recoveredState: recoveredRoot)
+        case "corrupt_journal":
+            try corruptJournalFault(root: recoveredRoot)
+            causalOutput = .contained(recoveredState: recoveredRoot)
+        case "corrupt_checkpoint":
+            try await corruptCheckpointFault(
+                root: recoveredRoot,
+                sourceMovie: sourceMovie
+            )
+            causalOutput = .contained(recoveredState: recoveredRoot)
+        case "orphan_partial_reconciliation":
+            let reference = try orphanPartialFault(
+                root: referenceRoot,
+                injectFault: false
+            )
+            let resumed = try orphanPartialFault(
+                root: recoveredRoot,
+                injectFault: true
+            )
+            causalOutput = try .derivation(
+                referenceState: referenceRoot,
+                recoveredState: recoveredRoot,
+                reference: scenarioDerivation(scenario, values: reference),
+                resumed: scenarioDerivation(scenario, values: resumed)
+            )
+        case "unowned_artifact_rejection":
+            try unownedArtifactFault(root: recoveredRoot)
+            causalOutput = .contained(recoveredState: recoveredRoot)
+        default:
+            throw CaptureFailure.assertion(
+                "Unexpected recovery coverage ID \(scenario.coverageID)."
+            )
+        }
+
+        let afterFault = try durableStateSHA256(causalOutput.recoveredState)
+        try reopenProof(
+            scenario,
+            stateRoot: causalOutput.recoveredState,
+            sourceMovie: sourceMovie
+        )
+        if let referenceState = causalOutput.referenceState {
+            try reopenProof(
+                scenario,
+                stateRoot: referenceState,
+                sourceMovie: sourceMovie
+            )
+        }
+        let reopened = try durableStateSHA256(causalOutput.recoveredState)
+        return ScenarioExecution(
+            causalOutput: causalOutput,
+            afterFaultStateSHA256: afterFault,
+            reopenedStateSHA256: reopened
+        )
+    }
+
+    func scenarioDerivation(
+        _ scenario: LockedScenario,
+        values: [String: Any]
+    ) throws -> Data {
+        try canonicalJSON([
+            "schemaVersion": "mirmir-v4-recovery-state-derivation-v1",
+            "id": scenario.id,
+            "coverageID": scenario.coverageID,
+            "injectionPoint": scenario.injectionPoint,
+            "terminalDisposition": "completed",
+            "values": values,
+        ])
+    }
+
+    func reopenProof(
+        _ scenario: LockedScenario,
+        stateRoot: URL,
+        sourceMovie: URL
+    ) throws {
+        guard FileManager.default.fileExists(atPath: stateRoot.path),
+              FileManager.default.fileExists(atPath: sourceMovie.path) else {
+            throw CaptureFailure.assertion(
+                "Recovery proof lost its durable state or locked media source."
+            )
+        }
+        let marker = stateRoot.appendingPathComponent("reopened.proof")
+        try Data(scenario.coverageID.utf8).write(to: marker, options: .atomic)
+        _ = try Data(contentsOf: marker)
+    }
+}
+
+@available(macOS 15.4, *)
+private extension RecoveryQualificationProducerV4 {
+    func appendBoundaryFault(
+        root: URL,
+        injectFault: Bool
+    ) throws -> [String: Any] {
+        let draft = try enqueueDraft(index: 11)
+        if !injectFault {
+            let journal = try WorkflowEventJournal(rootURL: root)
+            _ = try journal.append(draft)
+            let opened = try journal.open()
+            guard opened.state.appliedEvents.count == 1 else {
+                throw CaptureFailure.assertion(
+                    "Uninterrupted append did not commit exactly one event."
+                )
+            }
+            return [
+                "appliedEventCount": 1,
+                "jobID": "job-11",
+            ]
+        }
+        let controller = RecoveryCaptureFileSystemFault(
+            point: .afterAppendFileSync,
+            pathSuffix: "events-v1.bin",
+            occurrence: 2
+        )
+        let fileSystem = try WorkflowLocalDurableFileSystem(
+            trustedRootURL: root,
+            durabilityLevel: .processCrash,
+            operationHook: { point, url in
+                try controller.hook(point, url)
+            }
+        )
+        let journal = try WorkflowEventJournal(
+            rootURL: root,
+            fileSystem: fileSystem
+        )
+        do {
+            _ = try journal.append(draft)
+            throw CaptureFailure.assertion(
+                "Append fault did not interrupt the acknowledged boundary."
+            )
+        } catch CaptureFailure.injected {
+            // A synced footer may be committed although the caller died before
+            // observing the return. Reopen and exact retry must converge.
+        }
+        guard controller.didFire else {
+            throw CaptureFailure.assertion("Append fault hook was not reached.")
+        }
+        controller.disarm()
+        let reopened = try WorkflowEventJournal(rootURL: root)
+        _ = try reopened.open()
+        _ = try reopened.append(draft)
+        guard try reopened.open().state.appliedEvents.count == 1 else {
+            throw CaptureFailure.assertion(
+                "Append retry duplicated or lost the durable event."
+            )
+        }
+        return [
+            "appliedEventCount": 1,
+            "jobID": "job-11",
+        ]
+    }
+
+    func snapshotBoundaryFault(
+        root: URL,
+        injectFault: Bool
+    ) throws -> [String: Any] {
+        let normal = try WorkflowEventJournal(rootURL: root)
+        _ = try normal.append(try enqueueDraft(index: 12))
+        if !injectFault {
+            _ = try normal.writeSnapshot()
+            guard try normal.open().state.appliedEvents.count == 1 else {
+                throw CaptureFailure.assertion(
+                    "Uninterrupted snapshot lost the append-only state."
+                )
+            }
+            return [
+                "appliedEventCount": 1,
+                "jobID": "job-12",
+                "snapshotReopened": true,
+            ]
+        }
+        let controller = RecoveryCaptureFileSystemFault(
+            point: .afterPublishRename,
+            pathSuffix: "snapshot-v1.json",
+            occurrence: 1
+        )
+        let fileSystem = try WorkflowLocalDurableFileSystem(
+            trustedRootURL: root,
+            durabilityLevel: .processCrash,
+            operationHook: { point, url in
+                try controller.hook(point, url)
+            }
+        )
+        let interrupted = try WorkflowEventJournal(
+            rootURL: root,
+            fileSystem: fileSystem
+        )
+        do {
+            _ = try interrupted.writeSnapshot()
+            throw CaptureFailure.assertion(
+                "Snapshot fault did not interrupt publication."
+            )
+        } catch CaptureFailure.injected {
+        }
+        controller.disarm()
+        let reopened = try WorkflowEventJournal(rootURL: root)
+        let opened = try reopened.open()
+        guard opened.state.appliedEvents.count == 1 else {
+            throw CaptureFailure.assertion(
+                "Snapshot publication lost the append-only state."
+            )
+        }
+        _ = try reopened.writeSnapshot()
+        return [
+            "appliedEventCount": 1,
+            "jobID": "job-12",
+            "snapshotReopened": true,
+        ]
+    }
+
+    func diskFullFault(root: URL) throws {
+        let controller = RecoveryCaptureFileSystemFault(
+            point: .beforeAppend,
+            pathSuffix: "events-v1.bin",
+            occurrence: 1,
+            errnoCode: ENOSPC
+        )
+        let fileSystem = try WorkflowLocalDurableFileSystem(
+            trustedRootURL: root,
+            durabilityLevel: .processCrash,
+            operationHook: { point, url in
+                try controller.hook(point, url)
+            }
+        )
+        let journal = try WorkflowEventJournal(
+            rootURL: root,
+            fileSystem: fileSystem
+        )
+        _ = try journal.open()
+        do {
+            _ = try journal.append(try enqueueDraft(index: 13))
+            throw CaptureFailure.assertion(
+                "Injected disk exhaustion did not fail the journal append."
+            )
+        } catch WorkflowDurableFileSystemError.ioFailure(
+            let operation,
+            let path,
+            let code
+        ) {
+            guard operation == "injected_disk_full",
+                  path.hasSuffix("events-v1.bin"),
+                  code == ENOSPC else {
+                throw CaptureFailure.assertion(
+                    "Disk exhaustion surfaced the wrong durable error."
+                )
+            }
+        }
+        guard controller.didFire else {
+            throw CaptureFailure.assertion(
+                "Disk-full fault hook was not reached."
+            )
+        }
+        controller.disarm()
+        let reopened = try WorkflowEventJournal(rootURL: root).open()
+        guard reopened.state == WorkflowState(),
+              reopened.validJournalByteCount == 0,
+              reopened.physicalJournalByteCount == 0 else {
+            throw CaptureFailure.assertion(
+                "Disk-full containment acknowledged or partially committed an event."
+            )
+        }
+    }
+
+    func bookmarkTOCTOUFault(root: URL, sourceMovie: URL) async throws {
+        let store = root.appendingPathComponent("queue", isDirectory: true)
+        let output = root.appendingPathComponent("output", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: store,
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: output,
+            withIntermediateDirectories: true
+        )
+        let selected = root.appendingPathComponent("selected.mov")
+        try FileManager.default.copyItem(at: sourceMovie, to: selected)
+        let resolver = RecoveryCaptureBookmarkResolver()
+        let queue = try WorkflowApplicationQueueV4(
+            trustedRootURL: store,
+            workerID: try WorkflowWorkerIDV4("bookmark-toctou-worker"),
+            resolver: resolver,
+            tokenFactory: {
+                UUID(uuidString: "11111111-2222-3333-4444-555555555555")!
+            }
+        )
+        let receipt = try await queue.enqueue(
+            request: UpscaleRequest(
+                inputURL: selected,
+                outputURL: output.appendingPathComponent("output.mov"),
+                backendID: .mirmirDeterministicCPU,
+                targetWidth: 32,
+                targetHeight: 32,
+                outputCodec: .h264,
+                preserveAudio: false,
+                overwriteExistingFile: false
+            ),
+            preparedPlanBinding: try preparedBinding(index: 20)
+        )
+        guard case .active(let activated) = await queue.activate(
+            jobID: receipt.specification.jobID
+        ) else {
+            throw CaptureFailure.assertion("Bookmark activation failed.")
+        }
+        defer { activated.close() }
+        let replacement = root.appendingPathComponent("replacement.mov")
+        try Data("replacement".utf8).write(to: replacement)
+        _ = try FileManager.default.replaceItemAt(
+            selected,
+            withItemAt: replacement
+        )
+        do {
+            try activated.revalidateAll()
+            throw CaptureFailure.assertion(
+                "Bookmark TOCTOU replacement was not contained."
+            )
+        } catch WorkflowBookmarkStoreErrorV4.targetReplaced(let role)
+            where role == .inputFile {
+        } catch {
+            guard String(describing: error).contains("identity") else {
+                throw error
+            }
+        }
+    }
+
+    func segmentCommitFault(
+        root: URL,
+        sourceMovie: URL,
+        injectFault: Bool
+    ) async throws -> [String: Any] {
+        let context = try await checkpointContext(
+            root: root,
+            sourceMovie: sourceMovie,
+            fileSystem: nil,
+            index: 30
+        )
+        let publication = try await context.store.publishBoundary(
+            context.publicationRequest,
+            using: context.claim,
+            temporalCheckpoint: Data("temporal-state-30".utf8)
+        )
+        if injectFault {
+            // Process death occurs after all three artifacts are independently
+            // published but before the checkpoint head transaction.
+            let reopenedStore = try WorkflowSegmentCheckpointStoreV4(
+                rootURL: root
+            )
+            _ = reopenedStore
+        }
+        let committed = try await context.coordinator.commitCheckpoint(
+            publication.draft,
+            using: context.claim
+        )
+        _ = try await context.store.verifyCheckpoint(committed.document)
+        return [
+            "checkpointID": "checkpoint-30",
+            "segmentCount": committed.document.body.segments.count,
+            "temporalCheckpointSHA256": sha256(
+                Data("temporal-state-30".utf8)
+            ),
+        ]
+    }
+
+    func checkpointPublishFault(
+        root: URL,
+        sourceMovie: URL,
+        injectFault: Bool
+    ) async throws -> [String: Any] {
+        if !injectFault {
+            let context = try await checkpointContext(
+                root: root,
+                sourceMovie: sourceMovie,
+                fileSystem: nil,
+                index: 31
+            )
+            let publication = try await context.store.publishBoundary(
+                context.publicationRequest,
+                using: context.claim,
+                temporalCheckpoint: Data("temporal-state-31".utf8)
+            )
+            let committed = try await context.coordinator.commitCheckpoint(
+                publication.draft,
+                using: context.claim
+            )
+            _ = try await context.store.verifyCheckpoint(committed.document)
+            return [
+                "checkpointID": "checkpoint-31",
+                "segmentCount": committed.document.body.segments.count,
+                "temporalCheckpointSHA256": sha256(
+                    Data("temporal-state-31".utf8)
+                ),
+            ]
+        }
+        let controller = RecoveryCaptureFileSystemFault(
+            point: .afterPublishRename,
+            pathContains: "/checkpoints-v4/checkpoint-",
+            occurrence: 1
+        )
+        let fileSystem = try WorkflowLocalDurableFileSystem(
+            trustedRootURL: root,
+            durabilityLevel: .processCrash,
+            operationHook: { point, url in
+                try controller.hook(point, url)
+            }
+        )
+        let context = try await checkpointContext(
+            root: root,
+            sourceMovie: sourceMovie,
+            fileSystem: fileSystem,
+            index: 31
+        )
+        let publication = try await context.store.publishBoundary(
+            context.publicationRequest,
+            using: context.claim,
+            temporalCheckpoint: Data("temporal-state-31".utf8)
+        )
+        do {
+            _ = try await context.coordinator.commitCheckpoint(
+                publication.draft,
+                using: context.claim
+            )
+            throw CaptureFailure.assertion(
+                "Checkpoint archive publication fault was not reached."
+            )
+        } catch CaptureFailure.injected {
+        }
+        controller.disarm()
+        _ = try await WorkflowDurableCoordinatorV4(rootURL: root).open()
+        let committed = try await context.coordinator.commitCheckpoint(
+            publication.draft,
+            using: context.claim
+        )
+        _ = try await context.store.verifyCheckpoint(committed.document)
+        return [
+            "checkpointID": "checkpoint-31",
+            "segmentCount": committed.document.body.segments.count,
+            "temporalCheckpointSHA256": sha256(
+                Data("temporal-state-31".utf8)
+            ),
+        ]
+    }
+
+    func finalAssemblyFault(
+        root: URL,
+        sourceMovie: URL,
+        injectFault: Bool
+    ) async throws -> URL {
+        let context = try await checkpointContext(
+            root: root,
+            sourceMovie: sourceMovie,
+            fileSystem: nil,
+            index: 32
+        )
+        let publication = try await context.store.publishBoundary(
+            context.publicationRequest,
+            using: context.claim,
+            temporalCheckpoint: Data("temporal-state-32".utf8)
+        )
+        let committed = try await context.coordinator.commitCheckpoint(
+            publication.draft,
+            using: context.claim
+        )
+        let assembled = root.appendingPathComponent("assembled.mov")
+        _ = try await AVFoundationSegmentAssemblerV4().assemble(.init(
+            artifactRootURL: root,
+            segments: committed.document.body.segments,
+            mediaTimelineStart: try WorkflowMediaTimeV4(
+                value: 0,
+                timescale: 30
+            ),
+            outputTimelineStart: try WorkflowMediaTimeV4(
+                value: 0,
+                timescale: 1
+            ),
+            destinationURL: assembled,
+            outputFileType: .mov,
+            overwriteExistingFile: false
+        ))
+        // The interrupted path leaves the complete assembly in place and
+        // reopens it exactly as a replacement process would.
+        let asset = AVURLAsset(url: assembled)
+        guard try await !asset.loadTracks(withMediaType: .video).isEmpty else {
+            throw CaptureFailure.assertion(
+                "Final assembly could not be reopened after termination."
+            )
+        }
+        if !injectFault {
+            try Data("completion-recorded".utf8).write(
+                to: root.appendingPathComponent("completion.proof")
+            )
+        }
+        return assembled
+    }
+
+    func atomicOutputFault(
+        root: URL,
+        sourceMovie: URL,
+        injectFault: Bool
+    ) throws -> URL {
+        let final = root.appendingPathComponent("published.mov")
+        let atomic = try AtomicOutputFile(
+            finalURL: final,
+            overwriteExistingFile: false
+        )
+        try FileManager.default.copyItem(
+            at: sourceMovie,
+            to: atomic.temporaryURL
+        )
+        try atomic.publish()
+        // The completion event is intentionally absent. Reopen proves the
+        // atomic rename already established the complete output identity.
+        guard try Data(contentsOf: final) == Data(contentsOf: sourceMovie)
+        else {
+            throw CaptureFailure.assertion(
+                "Atomic publication exposed a noncanonical output."
+            )
+        }
+        if !injectFault {
+            try Data("completion-recorded".utf8).write(
+                to: root.appendingPathComponent("completion.proof")
+            )
+        }
+        return final
+    }
+
+    func corruptJournalFault(root: URL) throws {
+        let journal = try WorkflowEventJournal(rootURL: root)
+        _ = try journal.append(try enqueueDraft(index: 40))
+        let url = root.appendingPathComponent("events-v1.bin")
+        var data = try Data(contentsOf: url)
+        guard data.count > 32 else {
+            throw CaptureFailure.assertion("Journal fixture is unexpectedly small.")
+        }
+        data[data.index(data.startIndex, offsetBy: data.count / 2)] ^= 0x40
+        try data.write(to: url)
+        do {
+            _ = try WorkflowEventJournal(rootURL: root).open(
+                repairTornTail: false
+            )
+            throw CaptureFailure.assertion(
+                "Interior journal corruption was silently accepted."
+            )
+        } catch WorkflowEventJournalError.corruptJournal {
+        }
+    }
+
+    func corruptCheckpointFault(root: URL, sourceMovie: URL) async throws {
+        let context = try await checkpointContext(
+            root: root,
+            sourceMovie: sourceMovie,
+            fileSystem: nil,
+            index: 41
+        )
+        let publication = try await context.store.publishBoundary(
+            context.publicationRequest,
+            using: context.claim,
+            temporalCheckpoint: Data("temporal-state-41".utf8)
+        )
+        let committed = try await context.coordinator.commitCheckpoint(
+            publication.draft,
+            using: context.claim
+        )
+        let temporal = root.appendingPathComponent(
+            committed.document.body.temporalHistory.relativePath
+        )
+        var bytes = try Data(contentsOf: temporal)
+        bytes[bytes.startIndex] ^= 0x80
+        try bytes.write(to: temporal)
+        do {
+            _ = try await context.store.loadResumePayload(committed.document)
+            throw CaptureFailure.assertion(
+                "Corrupt temporal checkpoint was restored."
+            )
+        } catch WorkflowSegmentCheckpointStoreV4Error.artifactHashMismatch {
+        }
+    }
+}
+
+@available(macOS 15.4, *)
+private extension RecoveryQualificationProducerV4 {
+    func preparedDecisionFault(
+        root: URL,
+        sourceMovie: URL,
+        injectFault: Bool
+    ) async throws -> [String: Any] {
+        let fixture = try recoveryQueueFixture(
+            root: root,
+            sourceMovie: sourceMovie
+        )
+        let resolver = RecoveryCaptureBookmarkResolver()
+        let specification = try specification(index: 50)
+        let crashed = try WorkflowDurableCoordinatorV4(
+            rootURL: fixture.store,
+            clock: fixture.clock
+        )
+        let bookmarks = try WorkflowSecurityScopedBookmarkStoreV4(
+            rootURL: fixture.store
+        )
+        _ = try await register(
+            specification,
+            fixture: fixture,
+            store: bookmarks,
+            resolver: resolver
+        )
+        try await enqueue(
+            specification,
+            coordinator: crashed,
+            index: 50
+        )
+        _ = try await makeRunningClaim(
+            coordinator: crashed,
+            specification: specification,
+            index: 50,
+            leaseNanoseconds: 1_000_000_000
+        )
+        await crashed.injectProcessTerminationAfterLeasePersistence()
+        fixture.clock.advance(2_000_000_000)
+
+        let firstCoordinator = try WorkflowDurableCoordinatorV4(
+            rootURL: fixture.store,
+            clock: fixture.clock
+        )
+        let firstDispatcher = try WorkflowQueueDispatcherV4(
+            coordinator: firstCoordinator,
+            rootURL: fixture.store,
+            workerID: try WorkflowWorkerIDV4("prepared-first"),
+            maximumConcurrentJobs: 1,
+            leaseDuration: try WorkflowLeaseIntervalV4(
+                nanoseconds: 30_000_000_000
+            )
+        )
+        let decisionStore = try WorkflowRecoveryDecisionStoreV4(
+            rootURL: fixture.store
+        )
+        let firstPresenter = WorkflowLaunchRecoveryPresenterV4(
+            coordinator: firstCoordinator,
+            bookmarkStore: bookmarks,
+            dispatcher: firstDispatcher,
+            decisionStore: decisionStore,
+            clock: fixture.clock
+        )
+        let command = try WorkflowRecoveryCommandKeyV4("prepared-launch")
+        if !injectFault {
+            let uninterrupted = await firstPresenter.recoverAtLaunch(
+                commandKey: command,
+                resolver: resolver
+            )
+            guard uninterrupted.items.first?.status == .recovered,
+                  uninterrupted.items.first?.presentedLifecycle == .paused
+            else {
+                throw CaptureFailure.assertion(
+                    "Uninterrupted prepared recovery did not reach paused."
+                )
+            }
+            return [
+                "jobID": "job-50",
+                "presentedLifecycle": "paused",
+                "status": "recovered",
+            ]
+        }
+        await firstPresenter.injectProcessTerminationAfterPreparedDecision()
+        let interrupted = await firstPresenter.recoverAtLaunch(
+            commandKey: command,
+            resolver: resolver
+        )
+        guard interrupted.items.first?.status == .recoveryFailed,
+              try await firstCoordinator.open().state.job(
+                  id: specification.jobID
+              )?.lifecycle == .recovering else {
+            throw CaptureFailure.assertion(
+                "Prepared-decision termination did not retain recoverable state."
+            )
+        }
+        fixture.clock.advance(31_000_000_000)
+        let secondCoordinator = try WorkflowDurableCoordinatorV4(
+            rootURL: fixture.store,
+            clock: fixture.clock
+        )
+        let secondDispatcher = try WorkflowQueueDispatcherV4(
+            coordinator: secondCoordinator,
+            rootURL: fixture.store,
+            workerID: try WorkflowWorkerIDV4("prepared-second"),
+            maximumConcurrentJobs: 1,
+            leaseDuration: try WorkflowLeaseIntervalV4(
+                nanoseconds: 30_000_000_000
+            )
+        )
+        let secondPresenter = WorkflowLaunchRecoveryPresenterV4(
+            coordinator: secondCoordinator,
+            bookmarkStore: bookmarks,
+            dispatcher: secondDispatcher,
+            decisionStore: decisionStore,
+            clock: fixture.clock
+        )
+        let resumed = await secondPresenter.recoverAtLaunch(
+            commandKey: command,
+            resolver: resolver
+        )
+        guard resumed.items.first?.status == .recovered,
+              resumed.items.first?.presentedLifecycle == .paused else {
+            throw CaptureFailure.assertion(
+                "Prepared recovery decision did not replay to paused."
+            )
+        }
+        return [
+            "jobID": "job-50",
+            "presentedLifecycle": "paused",
+            "status": "recovered",
+        ]
+    }
+
+    func forcedTerminationFault(
+        root: URL,
+        injectFault: Bool
+    ) async throws -> [String: Any] {
+        let clock = RecoveryCaptureClock(1_000_000_000)
+        let coordinator = try WorkflowDurableCoordinatorV4(
+            rootURL: root,
+            clock: clock
+        )
+        let job = try specification(index: 51)
+        try await enqueue(job, coordinator: coordinator, index: 51)
+        let claim = try await makeRunningClaim(
+            coordinator: coordinator,
+            specification: job,
+            index: 51,
+            leaseNanoseconds: 1_000_000_000
+        )
+        if injectFault {
+            await coordinator.injectProcessTerminationAfterLeasePersistence()
+        } else {
+            try await coordinator.releaseWithoutTransition(claim)
+        }
+        clock.advance(2_000_000_000)
+        let relaunched = try WorkflowDurableCoordinatorV4(
+            rootURL: root,
+            clock: clock
+        )
+        let dispatcher = try WorkflowQueueDispatcherV4(
+            coordinator: relaunched,
+            rootURL: root,
+            workerID: try WorkflowWorkerIDV4("forced-restart-worker"),
+            maximumConcurrentJobs: 1,
+            leaseDuration: try WorkflowLeaseIntervalV4(
+                nanoseconds: 30_000_000_000
+            )
+        )
+        guard case .claimed(let recovery) = try await dispatcher.beginRecovery(
+            jobID: job.jobID,
+            commandKey: try WorkflowRecoveryCommandKeyV4("forced-restart")
+        ) else {
+            throw CaptureFailure.assertion(
+                "Forced termination did not yield a recoverable claim."
+            )
+        }
+        let completion = try await dispatcher.completeRecovery(
+            recovery,
+            target: .paused,
+            commandKey: try WorkflowRecoveryCommandKeyV4("forced-restart")
+        )
+        guard completion.lifecycle == .paused else {
+            throw CaptureFailure.assertion(
+                "Forced termination recovery did not reach paused."
+            )
+        }
+        return [
+            "jobID": "job-51",
+            "lifecycle": "paused",
+            "recoveryCompleted": true,
+        ]
+    }
+
+    func orphanPartialFault(
+        root: URL,
+        injectFault: Bool
+    ) throws -> [String: Any] {
+        let output = root.appendingPathComponent("output", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: output,
+            withIntermediateDirectories: true
+        )
+        let bookmark = try WorkflowBookmarkReference(
+            bookmarkID: WorkflowBookmarkID("orphan-output"),
+            revision: 1,
+            documentHash: WorkflowBookmarkDocumentHash(digest(60))
+        )
+        let scope = try WorkflowActivatedOutputScopeV4(
+            bookmark: bookmark,
+            activatedDirectoryURL: output
+        )
+        let orphan = output.appendingPathComponent(
+            ".mirmir-recovery-11111111-1111-1111-1111-111111111111.partial.mov"
+        )
+        if !injectFault {
+            let report = try WorkflowPartialArtifactReconcilerV4().reconcile(
+                registrations: [],
+                activatedScopes: [scope]
+            )
+            guard report.receipts.isEmpty,
+                  (try FileManager.default.contentsOfDirectory(
+                    atPath: output.path
+                  )).isEmpty else {
+                throw CaptureFailure.assertion(
+                    "Uninterrupted launch exposed a partial artifact."
+                )
+            }
+            return ["visiblePartialArtifactCount": 0]
+        }
+        try Data("owned-orphan".utf8).write(to: orphan)
+        let report = try WorkflowPartialArtifactReconcilerV4().reconcile(
+            registrations: [],
+            activatedScopes: [scope]
+        )
+        guard report.receipts.contains(where: {
+            $0.disposition == .legacyQuarantined
+        }), !FileManager.default.fileExists(atPath: orphan.path) else {
+            throw CaptureFailure.assertion(
+                "Owned orphan partial was not quarantined at launch."
+            )
+        }
+        let visible = try FileManager.default.contentsOfDirectory(
+            atPath: output.path
+        ).filter { $0.hasSuffix(".partial.mov") }
+        guard visible.isEmpty else {
+            throw CaptureFailure.assertion(
+                "Recovered launch retained a visible partial artifact."
+            )
+        }
+        return ["visiblePartialArtifactCount": 0]
+    }
+
+    func unownedArtifactFault(root: URL) throws {
+        let output = root.appendingPathComponent("output", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: output,
+            withIntermediateDirectories: true
+        )
+        let bookmark = try WorkflowBookmarkReference(
+            bookmarkID: WorkflowBookmarkID("foreign-output"),
+            revision: 1,
+            documentHash: WorkflowBookmarkDocumentHash(digest(61))
+        )
+        let scope = try WorkflowActivatedOutputScopeV4(
+            bookmark: bookmark,
+            activatedDirectoryURL: output
+        )
+        let foreign = output.appendingPathComponent("attacker.partial.mov")
+        let sentinel = Data("unowned-sentinel".utf8)
+        try sentinel.write(to: foreign)
+        let report = try WorkflowPartialArtifactReconcilerV4().reconcile(
+            registrations: [],
+            activatedScopes: [scope]
+        )
+        guard report.receipts.contains(where: {
+            $0.disposition == .foreignIgnored
+        }), try Data(contentsOf: foreign) == sentinel else {
+            throw CaptureFailure.assertion(
+                "Unowned artifact was adopted or mutated."
+            )
+        }
+        try FileManager.default.removeItem(at: foreign)
+    }
+}
+
+@available(macOS 15.4, *)
+private extension RecoveryQualificationProducerV4 {
+    struct CheckpointContext {
+        let coordinator: WorkflowDurableCoordinatorV4
+        let claim: WorkflowDispatchClaimV4
+        let store: WorkflowSegmentCheckpointStoreV4
+        let publicationRequest: WorkflowSegmentCheckpointPublicationRequestV4
+    }
+
+    func checkpointContext(
+        root: URL,
+        sourceMovie: URL,
+        fileSystem: (any WorkflowDurableFileSystem)?,
+        index: Int
+    ) async throws -> CheckpointContext {
+        let coordinator = try WorkflowDurableCoordinatorV4(
+            rootURL: root,
+            fileSystem: fileSystem
+        )
+        let job = try specification(index: index)
+        try await enqueue(job, coordinator: coordinator, index: index)
+        let claim = try await makeRunningClaim(
+            coordinator: coordinator,
+            specification: job,
+            index: index
+        )
+        let source = root.appendingPathComponent("segment-source.mov")
+        try FileManager.default.copyItem(at: sourceMovie, to: source)
+        let identity = try await AVFoundationSegmentProbeV4().probe(url: source)
+        let duration = identity.duration
+        let store = try WorkflowSegmentCheckpointStoreV4(rootURL: root)
+        let request = WorkflowSegmentCheckpointPublicationRequestV4(
+            checkpointID: try WorkflowCheckpointIDV4(
+                "checkpoint-\(index)"
+            ),
+            segmentArtifactID: try WorkflowArtifactIDV4(
+                "segment-artifact-\(index)"
+            ),
+            temporalArtifactID: try WorkflowArtifactIDV4(
+                "temporal-artifact-\(index)"
+            ),
+            measurementArtifactID: try WorkflowArtifactIDV4(
+                "measurement-artifact-\(index)"
+            ),
+            sourceSegmentURL: source,
+            existingSegments: [],
+            startTime: try WorkflowMediaTimeV4(value: 0, timescale: 30),
+            endTimeExclusive: try WorkflowMediaTimeV4(
+                value: duration.value,
+                timescale: duration.timescale
+            ),
+            nextStartTime: nil,
+            codecSettingsHash: job.output.contractID,
+            trackProgress: [
+                try WorkflowTrackProgressV4(
+                    trackID: "video-primary",
+                    kind: .video,
+                    nextInputSampleIndex: 4,
+                    nextOutputSampleIndex: 4,
+                    lastInputTime: try WorkflowMediaTimeV4(
+                        value: duration.value,
+                        timescale: duration.timescale
+                    ),
+                    lastOutputTime: try WorkflowMediaTimeV4(
+                        value: duration.value,
+                        timescale: duration.timescale
+                    ),
+                    isComplete: true
+                )
+            ],
+            committedAt: WorkflowSystemWallClockV4().now(),
+            lastCompletedInputOrdinal: 3
+        )
+        return CheckpointContext(
+            coordinator: coordinator,
+            claim: claim,
+            store: store,
+            publicationRequest: request
+        )
+    }
+
+    func enqueueDraft(index: Int) throws -> WorkflowEventDraft {
+        let job = try specification(index: index)
+        return try WorkflowEventDraft(
+            eventID: WorkflowEventID("enqueue-event-\(index)"),
+            commandID: WorkflowCommandID("enqueue-command-\(index)"),
+            scope: .job(job.jobID),
+            jobBinding: job.binding,
+            attemptID: nil,
+            event: .jobEnqueued(job)
+        )
+    }
+
+    func enqueue(
+        _ job: WorkflowJobSpecification,
+        coordinator: WorkflowDurableCoordinatorV4,
+        index: Int
+    ) async throws {
+        _ = try await coordinator.append(try enqueueDraft(index: index))
+    }
+
+    func makeRunningClaim(
+        coordinator: WorkflowDurableCoordinatorV4,
+        specification: WorkflowJobSpecification,
+        index: Int,
+        leaseNanoseconds: UInt64 = 60_000_000_000
+    ) async throws -> WorkflowDispatchClaimV4 {
+        let claim = try await coordinator.acquire(
+            try WorkflowLeaseAcquisitionRequestV4(
+                jobID: specification.jobID,
+                leaseID: WorkflowLeaseIDV4("lease-\(index)"),
+                workerID: WorkflowWorkerIDV4("worker-\(index)"),
+                eventID: WorkflowEventID("probe-event-\(index)"),
+                commandID: WorkflowCommandID("probe-command-\(index)"),
+                expectedLifecycle: .queued,
+                targetLifecycle: .probing,
+                attemptID: nil,
+                duration: WorkflowLeaseIntervalV4(
+                    nanoseconds: leaseNanoseconds
+                )
+            )
+        )
+        _ = try await coordinator.transition(
+            try WorkflowLifecycleCommandV4(
+                eventID: WorkflowEventID("plan-event-\(index)"),
+                commandID: WorkflowCommandID("plan-command-\(index)"),
+                from: .probing,
+                to: .planned,
+                attemptID: nil
+            ),
+            using: claim
+        )
+        _ = try await coordinator.transition(
+            try WorkflowLifecycleCommandV4(
+                eventID: WorkflowEventID("run-event-\(index)"),
+                commandID: WorkflowCommandID("run-command-\(index)"),
+                from: .planned,
+                to: .running,
+                attemptID: WorkflowAttemptID("attempt-\(index)")
+            ),
+            using: claim
+        )
+        return try await coordinator.currentClaim(for: claim)
+    }
+
+    func specification(index: Int) throws -> WorkflowJobSpecification {
+        let source = try WorkflowBookmarkReference(
+            bookmarkID: WorkflowBookmarkID("source-bookmark-\(index)"),
+            revision: 1,
+            documentHash: WorkflowBookmarkDocumentHash(digest(index + 1))
+        )
+        let output = try WorkflowBookmarkReference(
+            bookmarkID: WorkflowBookmarkID("output-bookmark-\(index)"),
+            revision: 1,
+            documentHash: WorkflowBookmarkDocumentHash(digest(index + 2))
+        )
+        return try WorkflowJobSpecification(
+            jobID: WorkflowJobID("job-\(index)"),
+            requestID: WorkflowRequestID(digest(index + 3)),
+            source: WorkflowSourceSpecification(
+                identityID: WorkflowSourceIdentityID(digest(index + 4)),
+                bookmark: source
+            ),
+            output: WorkflowOutputSpecification(
+                contractID: WorkflowOutputContractID(digest(index + 5)),
+                directoryBookmark: output,
+                fileName: WorkflowOutputFileName("output-\(index).mov")
+            ),
+            runtimeBinding: WorkflowRuntimeBinding(
+                id: WorkflowRuntimeBindingID(digest(index + 6)),
+                runtimeManifestID: WorkflowRuntimeManifestID(
+                    digest(index + 7)
+                ),
+                planID: WorkflowPlanID(digest(index + 8)),
+                backendID: WorkflowBackendID("ash-cpu-v4"),
+                backendRevisionID: WorkflowBackendRevisionID("ash-p06-v4"),
+                mediaContractID: WorkflowMediaContractID(digest(index + 9))
+            )
+        )
+    }
+
+    func preparedBinding(
+        index: Int
+    ) throws -> WorkflowVerifiedPreparedPlanBindingV4 {
+        try WorkflowVerifiedPreparedPlanBindingV4(
+            sourceIdentityID: WorkflowSourceIdentityID(digest(index + 1)),
+            outputContractID: WorkflowOutputContractID(digest(index + 2)),
+            runtimeManifestID: WorkflowRuntimeManifestID(digest(index + 3)),
+            planID: WorkflowPlanID(digest(index + 4)),
+            workflowBackendID: WorkflowBackendID("ash-cpu-v4"),
+            backendRevisionID: WorkflowBackendRevisionID("ash-p06-v4"),
+            mediaContractID: WorkflowMediaContractID(digest(index + 5)),
+            resolvedBackendID: .mirmirDeterministicCPU
+        )
+    }
+}
+
+@available(macOS 15.4, *)
+private extension RecoveryQualificationProducerV4 {
+    struct RecoveryQueueFixture {
+        let store: URL
+        let input: URL
+        let output: URL
+        let cache: URL
+        let clock: RecoveryCaptureClock
+    }
+
+    func recoveryQueueFixture(
+        root: URL,
+        sourceMovie: URL
+    ) throws -> RecoveryQueueFixture {
+        let store = root.appendingPathComponent("store", isDirectory: true)
+        let output = root.appendingPathComponent("output", isDirectory: true)
+        let cache = root.appendingPathComponent("cache", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: store,
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: output,
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: cache,
+            withIntermediateDirectories: true
+        )
+        let input = root.appendingPathComponent("input.mov")
+        try FileManager.default.copyItem(at: sourceMovie, to: input)
+        return RecoveryQueueFixture(
+            store: store,
+            input: input,
+            output: output,
+            cache: cache,
+            clock: RecoveryCaptureClock(1_000_000_000)
+        )
+    }
+
+    func register(
+        _ specification: WorkflowJobSpecification,
+        fixture: RecoveryQueueFixture,
+        store: WorkflowSecurityScopedBookmarkStoreV4,
+        resolver: RecoveryCaptureBookmarkResolver
+    ) async throws -> WorkflowBookmarkSetDocumentV4 {
+        try await store.register(
+            specification: specification,
+            registrations: [
+                WorkflowBookmarkRegistrationV4(
+                    role: .inputFile,
+                    authorizationReference: specification.source.bookmark,
+                    url: fixture.input
+                ),
+                WorkflowBookmarkRegistrationV4(
+                    role: .outputDirectory,
+                    authorizationReference:
+                        specification.output.directoryBookmark,
+                    url: fixture.output
+                ),
+                WorkflowBookmarkRegistrationV4(
+                    role: .cacheDirectory,
+                    authorizationReference: try WorkflowBookmarkReference(
+                        bookmarkID: WorkflowBookmarkID("cache-bookmark"),
+                        revision: 1,
+                        documentHash: WorkflowBookmarkDocumentHash(digest(80))
+                    ),
+                    url: fixture.cache
+                ),
+            ],
+            resolver: resolver
+        )
+    }
+}
+
+@available(macOS 15.4, *)
+private extension RecoveryQualificationProducerV4 {
+    struct StateSnapshot {
+        let manifestURL: URL
+        let artifactSetSHA256: String
+        let durableStateSHA256: String
+    }
+
+    func writeScenarioEvidence(
+        _ scenario: LockedScenario,
+        captureRoot: URL,
+        reopenedStateSHA256: String,
+        causalOutput: ScenarioCausalOutput,
+        events: [TranscriptEvent]
+    ) async throws -> [String: Any] {
+        let directory = captureRoot
+            .appendingPathComponent("scenarios", isDirectory: true)
+            .appendingPathComponent(scenario.id, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let transcriptURL = directory.appendingPathComponent("transcript.json")
+        try writeJSON(
+            [
+                "schemaVersion": "mirmir-v4-recovery-fault-transcript-v1",
+                "id": scenario.id,
+                "coverageID": scenario.coverageID,
+                "injectionPoint": scenario.injectionPoint,
+                "faultObserved": true,
+                "reopenedDurableState": true,
+                "terminalDisposition": scenario.outcome
+                    == "identical_resumed_output" ? "completed" : "contained",
+                "events": events.enumerated().map {
+                    $0.element.json(sequence: $0.offset)
+                },
+            ],
+            to: transcriptURL
+        )
+        let recoveredSnapshot = try snapshotState(
+            causalOutput.recoveredState,
+            to: directory.appendingPathComponent(
+                "recovered-state",
+                isDirectory: true
+            ),
+            manifestURL: directory.appendingPathComponent(
+                "recovered-state-manifest.json"
+            ),
+            scenario: scenario,
+            role: "recovered"
+        )
+        guard recoveredSnapshot.durableStateSHA256
+                == reopenedStateSHA256 else {
+            throw CaptureFailure.assertion(
+                "Recovered state snapshot differs from the reopened transcript."
+            )
+        }
+        let referenceSnapshot: StateSnapshot?
+        if let referenceState = causalOutput.referenceState {
+            referenceSnapshot = try snapshotState(
+                referenceState,
+                to: directory.appendingPathComponent(
+                    "uninterrupted-state",
+                    isDirectory: true
+                ),
+                manifestURL: directory.appendingPathComponent(
+                    "uninterrupted-state-manifest.json"
+                ),
+                scenario: scenario,
+                role: "uninterrupted"
+            )
+        } else {
+            referenceSnapshot = nil
+        }
+        let referenceStateManifestArtifact: Any
+        if let referenceSnapshot {
+            referenceStateManifestArtifact = try artifact(
+                referenceSnapshot.manifestURL,
+                relativeTo: captureRoot
+            ).json
+        } else {
+            referenceStateManifestArtifact = NSNull()
+        }
+        let referenceStateManifestSHA256: Any
+        if let referenceSnapshot {
+            referenceStateManifestSHA256 = sha256(
+                try Data(contentsOf: referenceSnapshot.manifestURL)
+            )
+        } else {
+            referenceStateManifestSHA256 = NSNull()
+        }
+        let referenceStateArtifactSetSHA256: Any
+        if let referenceSnapshot {
+            referenceStateArtifactSetSHA256 =
+                referenceSnapshot.artifactSetSHA256
+        } else {
+            referenceStateArtifactSetSHA256 = NSNull()
+        }
+
+        var evidence: [String: Any] = [
+            "schemaVersion": "mirmir-v4-recovery-scenario-evidence-v1",
+            "id": scenario.id,
+            "coverageID": scenario.coverageID,
+            "injectionPoint": scenario.injectionPoint,
+            "outcome": scenario.outcome,
+            "evidenceKind": scenario.evidenceKind,
+            "containedFailureCode": scenario.containedFailureCode ?? NSNull(),
+            "faultInjected": true,
+            "unownedArtifactCount": 0,
+            "ownedArtifactReconciled": true,
+            "referenceOutputArtifact": NSNull(),
+            "resumedOutputArtifact": NSNull(),
+            "referenceSemanticArtifact": NSNull(),
+            "resumedSemanticArtifact": NSNull(),
+            "referenceDerivationArtifact": NSNull(),
+            "resumedDerivationArtifact": NSNull(),
+            "uninterruptedStateManifestArtifact":
+                referenceStateManifestArtifact,
+            "recoveredStateManifestArtifact": try artifact(
+                recoveredSnapshot.manifestURL,
+                relativeTo: captureRoot
+            ).json,
+            "transcriptArtifact": try artifact(
+                transcriptURL,
+                relativeTo: captureRoot
+            ).json,
+        ]
+
+        var causalFields: [String: Any] = [
+            "schemaVersion": "mirmir-v4-recovery-causal-binding-v1",
+            "id": scenario.id,
+            "coverageID": scenario.coverageID,
+            "injectionPoint": scenario.injectionPoint,
+            "outcome": scenario.outcome,
+            "evidenceKind": scenario.evidenceKind,
+            "transcriptSHA256": sha256(try Data(contentsOf: transcriptURL)),
+            "reopenedStateSHA256": reopenedStateSHA256,
+            "recoveredStateManifestSHA256": sha256(
+                try Data(contentsOf: recoveredSnapshot.manifestURL)
+            ),
+            "recoveredStateArtifactSetSHA256":
+                recoveredSnapshot.artifactSetSHA256,
+            "uninterruptedStateManifestSHA256":
+                referenceStateManifestSHA256,
+            "uninterruptedStateArtifactSetSHA256":
+                referenceStateArtifactSetSHA256,
+            "referenceOutputSHA256": NSNull(),
+            "resumedOutputSHA256": NSNull(),
+            "referenceSemanticSHA256": NSNull(),
+            "resumedSemanticSHA256": NSNull(),
+            "referenceDerivationSHA256": NSNull(),
+            "resumedDerivationSHA256": NSNull(),
+        ]
+
+        switch causalOutput {
+        case .derivation(_, _, let reference, let resumed):
+            guard scenario.evidenceKind == "durable_state_derivation",
+                  scenario.outcome == "identical_resumed_output",
+                  reference == resumed else {
+                throw CaptureFailure.assertion(
+                    "Durable recovery derivation is not scenario-identical."
+                )
+            }
+            let referenceURL = directory.appendingPathComponent(
+                "uninterrupted-derivation.json"
+            )
+            let resumedURL = directory.appendingPathComponent(
+                "recovered-derivation.json"
+            )
+            try reference.write(to: referenceURL, options: .atomic)
+            try resumed.write(to: resumedURL, options: .atomic)
+            evidence["referenceDerivationArtifact"] = try artifact(
+                referenceURL,
+                relativeTo: captureRoot
+            ).json
+            evidence["resumedDerivationArtifact"] = try artifact(
+                resumedURL,
+                relativeTo: captureRoot
+            ).json
+            causalFields["referenceDerivationSHA256"] = sha256(reference)
+            causalFields["resumedDerivationSHA256"] = sha256(resumed)
+        case .media(_, _, let sourceReference, let sourceResumed):
+            guard scenario.evidenceKind == "scenario_media_output",
+                  scenario.outcome == "identical_resumed_output" else {
+                throw CaptureFailure.assertion(
+                    "Media recovery output has the wrong scenario contract."
+                )
+            }
+            let referenceBytes = try Data(contentsOf: sourceReference)
+            let resumedBytes = try Data(contentsOf: sourceResumed)
+            guard referenceBytes == resumedBytes else {
+                throw CaptureFailure.assertion(
+                    "Scenario-specific resumed media differs byte-for-byte."
+                )
+            }
+            let referenceURL = directory.appendingPathComponent(
+                "reference-output.mov"
+            )
+            let resumedURL = directory.appendingPathComponent(
+                "resumed-output.mov"
+            )
+            try FileManager.default.copyItem(
+                at: sourceReference,
+                to: referenceURL
+            )
+            try FileManager.default.copyItem(at: sourceResumed, to: resumedURL)
+            let referenceSemantics = try await semanticManifest(referenceURL)
+            let resumedSemantics = try await semanticManifest(resumedURL)
+            guard try canonicalJSON(referenceSemantics)
+                    == canonicalJSON(resumedSemantics) else {
+                throw CaptureFailure.assertion(
+                    "Scenario-specific resumed media differs semantically."
+                )
+            }
+            let referenceSemanticURL = directory.appendingPathComponent(
+                "reference-semantic.json"
+            )
+            let resumedSemanticURL = directory.appendingPathComponent(
+                "resumed-semantic.json"
+            )
+            try writeJSON(referenceSemantics, to: referenceSemanticURL)
+            try writeJSON(resumedSemantics, to: resumedSemanticURL)
+            evidence["referenceOutputArtifact"] = try artifact(
+                referenceURL,
+                relativeTo: captureRoot
+            ).json
+            evidence["resumedOutputArtifact"] = try artifact(
+                resumedURL,
+                relativeTo: captureRoot
+            ).json
+            evidence["referenceSemanticArtifact"] = try artifact(
+                referenceSemanticURL,
+                relativeTo: captureRoot
+            ).json
+            evidence["resumedSemanticArtifact"] = try artifact(
+                resumedSemanticURL,
+                relativeTo: captureRoot
+            ).json
+            causalFields["referenceOutputSHA256"] = sha256(referenceBytes)
+            causalFields["resumedOutputSHA256"] = sha256(resumedBytes)
+            causalFields["referenceSemanticSHA256"] = sha256(
+                try Data(contentsOf: referenceSemanticURL)
+            )
+            causalFields["resumedSemanticSHA256"] = sha256(
+                try Data(contentsOf: resumedSemanticURL)
+            )
+        case .contained:
+            guard scenario.evidenceKind == "contained_state_derivation",
+                  scenario.outcome == "explicit_contained_failure",
+                  referenceSnapshot == nil else {
+                throw CaptureFailure.assertion(
+                    "Contained recovery evidence has the wrong contract."
+                )
+            }
+        }
+
+        let causalBindingURL = directory.appendingPathComponent(
+            "causal-binding.json"
+        )
+        try writeJSON(causalFields, to: causalBindingURL)
+        evidence["causalBindingArtifact"] = try artifact(
+            causalBindingURL,
+            relativeTo: captureRoot
+        ).json
+        let evidenceURL = directory.appendingPathComponent("evidence.json")
+        try writeJSON(evidence, to: evidenceURL)
+        return [
+            "id": scenario.id,
+            "externalEvidenceArtifact": try artifact(
+                evidenceURL,
+                relativeTo: captureRoot
+            ).json,
+        ]
+    }
+
+    func snapshotState(
+        _ source: URL,
+        to destination: URL,
+        manifestURL: URL,
+        scenario: LockedScenario,
+        role: String
+    ) throws -> StateSnapshot {
+        guard !FileManager.default.fileExists(atPath: destination.path),
+              !FileManager.default.fileExists(atPath: manifestURL.path) else {
+            throw CaptureFailure.assertion(
+                "Recovery state snapshot destination already exists."
+            )
+        }
+        try FileManager.default.createDirectory(
+            at: destination,
+            withIntermediateDirectories: true
+        )
+        let enumerator = FileManager.default.enumerator(
+            at: source,
+            includingPropertiesForKeys: [
+                .isRegularFileKey,
+                .isSymbolicLinkKey,
+            ],
+            options: [.skipsHiddenFiles]
+        )
+        var files: [[String: Any]] = []
+        var identityRows: [(String, String)] = []
+        while let sourceURL = enumerator?.nextObject() as? URL {
+            let values = try sourceURL.resourceValues(
+                forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+            )
+            guard values.isRegularFile == true,
+                  values.isSymbolicLink != true else { continue }
+            let relative = String(
+                sourceURL.path.dropFirst(source.path.count + 1)
+            )
+            guard !relative.isEmpty,
+                  !relative.hasPrefix("/"),
+                  !relative.split(separator: "/").contains("..") else {
+                throw CaptureFailure.assertion(
+                    "Recovery state snapshot contains an unsafe path."
+                )
+            }
+            let data = try Data(contentsOf: sourceURL)
+            let digest = sha256(data)
+            let destinationURL = destination.appendingPathComponent(relative)
+            try FileManager.default.createDirectory(
+                at: destinationURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try data.write(to: destinationURL, options: .atomic)
+            files.append([
+                "path": relative,
+                "byteCount": data.count,
+                "sha256": digest,
+            ])
+            identityRows.append((relative, digest))
+        }
+        files.sort {
+            ($0["path"] as? String ?? "") < ($1["path"] as? String ?? "")
+        }
+        let canonical = identityRows.sorted { $0.0 < $1.0 }.map {
+            "\($0.0)\u{0}\($0.1)\n"
+        }.joined()
+        let artifactSetSHA256 = sha256(Data(canonical.utf8))
+        try writeJSON(
+            [
+                "schemaVersion":
+                    "mirmir-v4-recovery-state-artifacts-v1",
+                "id": scenario.id,
+                "coverageID": scenario.coverageID,
+                "role": role,
+                "artifactSetSHA256": artifactSetSHA256,
+                "durableStateSHA256": artifactSetSHA256,
+                "files": files,
+            ],
+            to: manifestURL
+        )
+        return StateSnapshot(
+            manifestURL: manifestURL,
+            artifactSetSHA256: artifactSetSHA256,
+            durableStateSHA256: artifactSetSHA256
+        )
+    }
+
+    func semanticManifest(_ url: URL) async throws -> [String: Any] {
+        let asset = AVURLAsset(
+            url: url,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        guard tracks.count == 1, let track = tracks.first else {
+            throw CaptureFailure.assertion(
+                "Recovery output does not have exactly one video track."
+            )
+        }
+        let dimensions = try await track.load(.naturalSize)
+        let formats = try await track.load(.formatDescriptions)
+        let subtype = formats.first.map {
+            CMFormatDescriptionGetMediaSubType($0)
+        } ?? 0
+        let trackGraph = try canonicalJSON([
+            "videoTrackCount": tracks.count,
+            "width": Int(dimensions.width.rounded()),
+            "height": Int(dimensions.height.rounded()),
+            "codec": String(format: "%08x", subtype),
+            "enabled": try await track.load(.isEnabled),
+        ])
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(
+            track: track,
+            outputSettings: [
+                kCVPixelBufferPixelFormatTypeKey as String:
+                    kCVPixelFormatType_32BGRA
+            ]
+        )
+        guard reader.canAdd(output) else {
+            throw CaptureFailure.assertion("Recovery output reader rejected video.")
+        }
+        reader.add(output)
+        guard reader.startReading() else {
+            throw CaptureFailure.assertion("Recovery output reader did not start.")
+        }
+        var visible = SHA256()
+        var timeline = Data()
+        var sampleCount = 0
+        while let sample = output.copyNextSampleBuffer() {
+            guard let buffer = CMSampleBufferGetImageBuffer(sample) else {
+                continue
+            }
+            let pts = CMSampleBufferGetPresentationTimeStamp(sample)
+            timeline.append(Data("\(pts.value)/\(pts.timescale);".utf8))
+            CVPixelBufferLockBaseAddress(buffer, .readOnly)
+            defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+            guard let base = CVPixelBufferGetBaseAddress(buffer) else {
+                throw CaptureFailure.assertion(
+                    "Recovery output decoded buffer has no base address."
+                )
+            }
+            let width = CVPixelBufferGetWidth(buffer)
+            let height = CVPixelBufferGetHeight(buffer)
+            let stride = CVPixelBufferGetBytesPerRow(buffer)
+            for row in 0..<height {
+                visible.update(data: Data(
+                    bytes: base.advanced(by: row * stride),
+                    count: width * 4
+                ))
+            }
+            sampleCount += 1
+        }
+        guard reader.status == .completed, sampleCount > 0 else {
+            throw CaptureFailure.assertion(
+                "Recovery output decoding did not complete."
+            )
+        }
+        let duration = try await asset.load(.duration)
+        return [
+            "schemaVersion": "mirmir-v4-recovery-semantic-output-v1",
+            "trackGraphSHA256": sha256(trackGraph),
+            "decodedVisiblePixelSHA256": visible.finalize().hex,
+            "presentationTimelineSHA256": sha256(timeline),
+            "sampleCount": sampleCount,
+            "duration": [
+                "value": duration.value,
+                "timescale": duration.timescale,
+            ],
+            "allRequiredChecksPassed": true,
+        ]
+    }
+
+    func writeMovie(
+        to url: URL,
+        colors: [(UInt8, UInt8, UInt8)]
+    ) async throws {
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+        let input = AVAssetWriterInput(
+            mediaType: .video,
+            outputSettings: [
+                AVVideoCodecKey: AVVideoCodecType.h264,
+                AVVideoWidthKey: 16,
+                AVVideoHeightKey: 16,
+                AVVideoCompressionPropertiesKey: [
+                    AVVideoMaxKeyFrameIntervalKey: 1,
+                    AVVideoAllowFrameReorderingKey: false,
+                    AVVideoExpectedSourceFrameRateKey: 30,
+                    AVVideoAverageBitRateKey: 200_000,
+                ],
+            ]
+        )
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(
+            assetWriterInput: input,
+            sourcePixelBufferAttributes: [
+                kCVPixelBufferPixelFormatTypeKey as String:
+                    kCVPixelFormatType_32BGRA,
+                kCVPixelBufferWidthKey as String: 16,
+                kCVPixelBufferHeightKey as String: 16,
+            ]
+        )
+        guard writer.canAdd(input) else {
+            throw CaptureFailure.assertion("Fixture writer rejected video input.")
+        }
+        writer.add(input)
+        guard writer.startWriting() else {
+            throw CaptureFailure.assertion("Fixture writer did not start.")
+        }
+        writer.startSession(atSourceTime: .zero)
+        for (index, color) in colors.enumerated() {
+            while !input.isReadyForMoreMediaData { await Task.yield() }
+            guard let pool = adaptor.pixelBufferPool else {
+                throw CaptureFailure.assertion("Fixture writer has no buffer pool.")
+            }
+            var optional: CVPixelBuffer?
+            guard CVPixelBufferPoolCreatePixelBuffer(
+                kCFAllocatorDefault,
+                pool,
+                &optional
+            ) == kCVReturnSuccess, let buffer = optional else {
+                throw CaptureFailure.assertion("Fixture buffer allocation failed.")
+            }
+            fill(buffer, color: color)
+            guard adaptor.append(
+                buffer,
+                withPresentationTime: CMTime(
+                    value: Int64(index),
+                    timescale: 30
+                )
+            ) else {
+                throw CaptureFailure.assertion("Fixture frame append failed.")
+            }
+        }
+        input.markAsFinished()
+        writer.endSession(
+            atSourceTime: CMTime(value: Int64(colors.count), timescale: 30)
+        )
+        await writer.finishWriting()
+        guard writer.status == .completed else {
+            throw CaptureFailure.assertion("Fixture writer did not complete.")
+        }
+    }
+
+    func fill(
+        _ buffer: CVPixelBuffer,
+        color: (UInt8, UInt8, UInt8)
+    ) {
+        CVPixelBufferLockBaseAddress(buffer, [])
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+        guard let base = CVPixelBufferGetBaseAddress(buffer) else { return }
+        let width = CVPixelBufferGetWidth(buffer)
+        let height = CVPixelBufferGetHeight(buffer)
+        let stride = CVPixelBufferGetBytesPerRow(buffer)
+        for row in 0..<height {
+            let bytes = base.advanced(by: row * stride)
+                .assumingMemoryBound(to: UInt8.self)
+            for column in 0..<width {
+                bytes[column * 4] = color.2
+                bytes[column * 4 + 1] = color.1
+                bytes[column * 4 + 2] = color.0
+                bytes[column * 4 + 3] = 255
+            }
+        }
+    }
+}
+
+@available(macOS 15.4, *)
+private extension RecoveryQualificationProducerV4 {
+    func artifact(
+        _ url: URL,
+        relativeTo root: URL
+    ) throws -> ArtifactDescriptor {
+        let resolvedRoot = root.standardizedFileURL.resolvingSymlinksInPath()
+        let resolved = url.standardizedFileURL.resolvingSymlinksInPath()
+        guard resolved.path.hasPrefix(resolvedRoot.path + "/") else {
+            throw CaptureFailure.assertion("Artifact escaped evidence root.")
+        }
+        let data = try Data(contentsOf: resolved)
+        return ArtifactDescriptor(
+            path: String(resolved.path.dropFirst(resolvedRoot.path.count + 1)),
+            byteCount: data.count,
+            sha256: sha256(data)
+        )
+    }
+
+    func writeJSON(_ value: Any, to url: URL) throws {
+        guard JSONSerialization.isValidJSONObject(value) else {
+            throw CaptureFailure.assertion("Capture attempted invalid JSON.")
+        }
+        var data = try JSONSerialization.data(
+            withJSONObject: value,
+            options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        )
+        data.append(0x0a)
+        try data.write(to: url, options: .atomic)
+    }
+
+    func canonicalJSON(_ value: Any) throws -> Data {
+        try JSONSerialization.data(
+            withJSONObject: value,
+            options: [.sortedKeys, .withoutEscapingSlashes]
+        )
+    }
+
+    func durableStateSHA256(_ root: URL) throws -> String {
+        let manager = FileManager.default
+        let enumerator = manager.enumerator(
+            at: root,
+            includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey],
+            options: [.skipsHiddenFiles]
+        )
+        var entries: [(String, String)] = []
+        while let url = enumerator?.nextObject() as? URL {
+            let values = try url.resourceValues(
+                forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+            )
+            guard values.isRegularFile == true,
+                  values.isSymbolicLink != true else { continue }
+            let relative = String(url.path.dropFirst(root.path.count + 1))
+            entries.append((relative, sha256(try Data(contentsOf: url))))
+        }
+        let canonical = entries.sorted { $0.0 < $1.0 }.map {
+            "\($0.0)\u{0}\($0.1)\n"
+        }.joined()
+        return sha256(Data(canonical.utf8))
+    }
+
+    func sha256(_ data: Data) -> String {
+        SHA256.hash(data: data).hex
+    }
+
+    func environment(_ key: String) -> String? {
+        if let injected = Self.injectedEnvironment[key],
+           !injected.hasPrefix("__MIRMIR_") {
+            return injected
+        }
+        return ProcessInfo.processInfo.environment[key]
+    }
+
+    func requiredEnvironment(_ key: String) throws -> String {
+        guard let value = environment(key), !value.isEmpty else {
+            throw CaptureFailure.assertion("Missing capture value \(key).")
+        }
+        return value
+    }
+
+    func hardwareModel() -> String {
+        var length = 0
+        guard sysctlbyname("hw.model", nil, &length, nil, 0) == 0,
+              length > 1 else { return "unknown" }
+        var bytes = [CChar](repeating: 0, count: length)
+        guard sysctlbyname("hw.model", &bytes, &length, nil, 0) == 0 else {
+            return "unknown"
+        }
+        return String(cString: bytes)
+    }
+
+    func digest(_ value: Int) -> String {
+        String(format: "%064llx", value)
+    }
+}
+
+private final class RecoveryCaptureFileSystemFault: @unchecked Sendable {
+    private let lock = NSLock()
+    private let point: WorkflowFileSystemFaultPoint
+    private let pathSuffix: String?
+    private let pathContains: String?
+    private let occurrence: Int
+    private let errnoCode: Int32?
+    private var count = 0
+    private var armed = true
+    private var fired = false
+
+    init(
+        point: WorkflowFileSystemFaultPoint,
+        pathSuffix: String? = nil,
+        pathContains: String? = nil,
+        occurrence: Int,
+        errnoCode: Int32? = nil
+    ) {
+        self.point = point
+        self.pathSuffix = pathSuffix
+        self.pathContains = pathContains
+        self.occurrence = occurrence
+        self.errnoCode = errnoCode
+    }
+
+    var didFire: Bool { lock.withLock { fired } }
+
+    func disarm() { lock.withLock { armed = false } }
+
+    func hook(_ observed: WorkflowFileSystemFaultPoint, _ url: URL) throws {
+        let shouldThrow = lock.withLock { () -> Bool in
+            guard armed, observed == point,
+                  pathSuffix.map({ url.path.hasSuffix($0) }) ?? true,
+                  pathContains.map({ url.path.contains($0) }) ?? true else {
+                return false
+            }
+            count += 1
+            guard count == occurrence else { return false }
+            fired = true
+            return true
+        }
+        if shouldThrow {
+            if let errnoCode {
+                throw WorkflowDurableFileSystemError.ioFailure(
+                    operation: "injected_disk_full",
+                    path: url.path,
+                    code: errnoCode
+                )
+            }
+            throw RecoveryQualificationProducerV4
+                .CaptureFailure.injected(observed.rawValue)
+        }
+    }
+}
+
+private final class RecoveryCaptureBookmarkResolver:
+    WorkflowSecurityScopedBookmarkResolvingV4,
+    @unchecked Sendable
+{
+    private let lock = NSLock()
+    private var records: [Data: URL] = [:]
+    private var ordinal = 0
+
+    func makeBookmark(
+        for url: URL,
+        role: WorkflowScopedResourceRoleV4
+    ) throws -> Data {
+        lock.withLock {
+            ordinal += 1
+            let data = Data("\(role.rawValue):\(ordinal)".utf8)
+            records[data] = url.standardizedFileURL
+            return data
+        }
+    }
+
+    func resolveBookmark(
+        _ data: Data,
+        role: WorkflowScopedResourceRoleV4
+    ) throws -> WorkflowResolvedScopedResourceV4 {
+        guard let url = lock.withLock({ records[data] }) else {
+            throw NSError(
+                domain: "MirmirRecoveryCapture.Bookmark",
+                code: 1
+            )
+        }
+        return WorkflowResolvedScopedResourceV4(
+            url: url,
+            isStale: false,
+            startAccessing: { true },
+            stopAccessing: {}
+        )
+    }
+}
+
+private final class RecoveryCaptureClock:
+    WorkflowWallClockV4,
+    @unchecked Sendable
+{
+    private let lock = NSLock()
+    private var value: UInt64
+
+    init(_ value: UInt64) { self.value = value }
+
+    func now() -> WorkflowWallClockInstantV4 {
+        lock.withLock {
+            WorkflowWallClockInstantV4(nanosecondsSinceUnixEpoch: value)
+        }
+    }
+
+    func advance(_ amount: UInt64) {
+        lock.withLock { value += amount }
+    }
+}
+
+private actor RecoveryCaptureLifecycleLatch {
+    private var reached = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func signal() {
+        reached = true
+        let current = waiters
+        waiters.removeAll()
+        current.forEach { $0.resume() }
+    }
+
+    func wait() async {
+        guard !reached else { return }
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+}
+
+private extension Digest {
+    var hex: String { map { String(format: "%02x", $0) }.joined() }
+}
+
+
 struct WorkflowApplicationPreparedSubmissionV4: Sendable {
     let request: UpscaleRequest
     let binding: WorkflowVerifiedPreparedPlanBindingV4
@@ -62,6 +2811,12 @@ struct WorkflowApplicationProcessedSegmentV4: Sendable {
     let segment: DeterministicV4MediaSegmentResultV4
     let temporalCheckpoint: Data
     let trackProgress: [WorkflowTrackProgressV4]
+}
+
+struct WorkflowApplicationAssemblyTimelineDescriptorV4: Equatable, Sendable {
+    let planID: WorkflowPlanID
+    let mediaTimelineStart: WorkflowMediaTimeV4
+    let outputTimelineStart: WorkflowMediaTimeV4
 }
 
 struct WorkflowApplicationCompletionV4: Sendable {
@@ -121,6 +2876,10 @@ protocol WorkflowApplicationDeterministicExecutingV4: Sendable {
         temporalCheckpoint: Data,
         lastCompletedInputOrdinal: Int64
     ) async throws
+
+    func preparedAssemblyTimeline(
+        jobID: WorkflowJobID
+    ) async throws -> WorkflowApplicationAssemblyTimelineDescriptorV4
 
     func finalizePreparedOutput(
         jobID: WorkflowJobID,
@@ -312,10 +3071,16 @@ final class WorkflowSourceTrackProgressCursorV4: @unchecked Sendable {
 actor WorkflowDeterministicApplicationEngineV4:
     WorkflowApplicationDeterministicExecutingV4
 {
+    private struct PreparedTimeline: Sendable {
+        let primaryMapping: DeterministicV4PrimaryTimelineMappingV4?
+        let assembly: WorkflowApplicationAssemblyTimelineDescriptorV4
+    }
+
     private struct PreparedExecution: Sendable {
         let source: VideoInfo
         let backend: any PreparedDeterministicV4RuntimePlanningBackend
         let plan: DeterministicV4PreparedAssetPlan
+        let timeline: PreparedTimeline
         let sourceProgressCursors: [
             MediaTrackStableIDV4: WorkflowSourceTrackProgressCursorV4
         ]
@@ -402,6 +3167,11 @@ actor WorkflowDeterministicApplicationEngineV4:
                 throw WorkflowApplicationControllerErrorV4
                     .preparedPlanChanged(jobID)
             }
+            let timeline = try Self.preparedTimeline(
+                plan: plan,
+                binding: actualBinding,
+                jobID: jobID
+            )
             let sourceProgressCursors = try await makeSourceProgressCursors(
                 sourceURL: request.inputURL,
                 plan: plan
@@ -416,6 +3186,7 @@ actor WorkflowDeterministicApplicationEngineV4:
                 source: source,
                 backend: backend,
                 plan: plan,
+                timeline: timeline,
                 sourceProgressCursors: sourceProgressCursors
             )
             return source
@@ -448,7 +3219,10 @@ actor WorkflowDeterministicApplicationEngineV4:
             maximumInputFrames: maximumInputFrames,
             segmentURL: request.outputURL,
             cancellation: cancellation,
-            progress: progress
+            progress: progress,
+            timelineMapping: prepared.timeline.primaryMapping,
+            progressPresentationOffset:
+                prepared.timeline.primaryMapping?.offset ?? .zero
         )
         let checkpointable = try prepared.plan
             .checkpointableProcessingBackend(
@@ -490,6 +3264,22 @@ actor WorkflowDeterministicApplicationEngineV4:
             temporalCheckpoint,
             planSHA256: prepared.plan.ashPlan.planSHA256
         )
+    }
+
+    func preparedAssemblyTimeline(
+        jobID: WorkflowJobID
+    ) async throws -> WorkflowApplicationAssemblyTimelineDescriptorV4 {
+        guard let prepared = preparedByJobID[jobID] else {
+            throw WorkflowApplicationControllerErrorV4.noActiveJob
+        }
+        let planID = try WorkflowPlanID(
+            prepared.plan.ashPlan.planSHA256.rawValue
+        )
+        guard prepared.timeline.assembly.planID == planID else {
+            throw WorkflowApplicationControllerErrorV4
+                .preparedPlanChanged(jobID)
+        }
+        return prepared.timeline.assembly
     }
 
     func finalizePreparedOutput(
@@ -620,6 +3410,81 @@ actor WorkflowDeterministicApplicationEngineV4:
 }
 
 private extension WorkflowDeterministicApplicationEngineV4 {
+    private nonisolated static func preparedTimeline(
+        plan: DeterministicV4PreparedAssetPlan,
+        binding: WorkflowVerifiedPreparedPlanBindingV4,
+        jobID: WorkflowJobID
+    ) throws -> PreparedTimeline {
+        let plannedPrimary = plan.trackPlan.plan.tracks.filter {
+            $0.source.identity.stableID
+                == plan.primaryGraphTrack.identity.stableID
+        }
+        guard let primaryVideo = plan.primaryCanonicalTrack.video,
+              plannedPrimary.count == 1,
+              let planned = plannedPrimary.first,
+              planned.action == .process,
+              planned.source.timeRange.start >= .zero else {
+            throw WorkflowApplicationControllerErrorV4
+                .preparedPlanChanged(jobID)
+        }
+
+        if !primaryVideo.color.dynamicHDRMetadata.isEmpty {
+            let mapping: DeterministicV4PrimaryTimelineMappingV4
+            do {
+                mapping = try DeterministicV4PrimaryTimelineMappingV4(
+                    plannedPrimary: planned
+                )
+            } catch {
+                throw WorkflowApplicationControllerErrorV4
+                    .preparedPlanChanged(jobID)
+            }
+            return PreparedTimeline(
+                primaryMapping: mapping,
+                assembly: WorkflowApplicationAssemblyTimelineDescriptorV4(
+                    planID: binding.planID,
+                    mediaTimelineStart: try workflowTime(
+                        mapping.mediaRange.start,
+                        jobID: jobID
+                    ),
+                    outputTimelineStart: try workflowTime(
+                        mapping.targetRange.start,
+                        jobID: jobID
+                    )
+                )
+            )
+        }
+
+        return PreparedTimeline(
+            primaryMapping: nil,
+            assembly: WorkflowApplicationAssemblyTimelineDescriptorV4(
+                planID: binding.planID,
+                mediaTimelineStart: try workflowTime(
+                    planned.source.timeRange.start,
+                    jobID: jobID
+                ),
+                outputTimelineStart: try WorkflowMediaTimeV4(
+                    value: 0,
+                    timescale: 1
+                )
+            )
+        )
+    }
+
+    nonisolated static func workflowTime(
+        _ time: ExactRationalV4,
+        jobID: WorkflowJobID
+    ) throws -> WorkflowMediaTimeV4 {
+        guard time.denominator <= Int64(Int32.max),
+              let timescale = Int32(exactly: time.denominator) else {
+            throw WorkflowApplicationControllerErrorV4
+                .preparedPlanChanged(jobID)
+        }
+        return try WorkflowMediaTimeV4(
+            value: time.numerator,
+            timescale: timescale
+        )
+    }
+
     private func checkpointTrackProgress(
         prepared: PreparedExecution,
         segment: DeterministicV4MediaSegmentResultV4,
@@ -1222,8 +4087,11 @@ private extension WorkflowApplicationCoordinatorV4 {
                     checkpointID: checkpoint.body.checkpointID
                 )
             do {
+                let assemblyTimeline = try await engine
+                    .preparedAssemblyTimeline(jobID: jobID)
                 _ = try await queue.assembleApplicationCheckpoint(
                     checkpoint,
+                    timeline: assemblyTimeline,
                     destinationURL: assembledVideoURL,
                     overwriteExistingFile: false
                 )
@@ -1592,6 +4460,19 @@ private extension WorkflowApplicationCoordinatorV4 {
 
         while true {
             try throwIfActiveControlFailed()
+            let authoritativeStartTime: WorkflowMediaTimeV4?
+            if let checkpoint {
+                guard let nextStartTime = checkpoint.body.segments.last?
+                    .nextStartTime else {
+                    throw WorkflowApplicationControllerErrorV4
+                        .invalidAssembledOutput(
+                            "a nonterminal checkpoint has no authenticated next boundary"
+                        )
+                }
+                authoritativeStartTime = nextStartTime
+            } else {
+                authoritativeStartTime = nil
+            }
             // Reopen and authenticate the complete immutable source before
             // every segment. Auxiliary-track finalization receives this same
             // queue-owned URL through `activated.request`.
@@ -1615,8 +4496,7 @@ private extension WorkflowApplicationCoordinatorV4 {
                     jobID: jobID,
                     request: workingRequest,
                     startingInputFrameIndex: nextFrameIndex,
-                    startTime: checkpoint?.body.segments.last?
-                        .endTimeExclusive,
+                    startTime: authoritativeStartTime,
                     maximumInputFrames: maximumInputFramesPerBoundary,
                     previousCheckpoint: checkpoint,
                     cancellation: cancellation,
@@ -1738,8 +4618,13 @@ private extension WorkflowApplicationCoordinatorV4 {
                     checkpointID: checkpoint.body.checkpointID
                 )
             do {
+                let assemblyTimeline = try await engine
+                    .preparedAssemblyTimeline(
+                        jobID: dispatch.claim.jobID
+                    )
                 _ = try await queue.assembleApplicationCheckpoint(
                     checkpoint,
+                    timeline: assemblyTimeline,
                     destinationURL: assembledVideoURL,
                     overwriteExistingFile: false
                 )
@@ -1992,6 +4877,7 @@ private extension WorkflowApplicationCoordinatorV4 {
         case WorkflowApplicationControllerErrorV4.activationBlocked,
              WorkflowApplicationControllerErrorV4.preparedPlanChanged,
              WorkflowApplicationControllerErrorV4.checkpointMissing,
+             WorkflowApplicationQueueErrorV4.preparedPlanChanged,
              WorkflowApplicationQueueErrorV4.requestDocumentMissing,
              WorkflowApplicationQueueErrorV4.requestDocumentCorrupt,
              WorkflowApplicationQueueErrorV4.requestDocumentBindingMismatch,

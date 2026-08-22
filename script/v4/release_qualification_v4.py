@@ -9,6 +9,7 @@ are rejected before a release decision is produced.
 from __future__ import annotations
 
 import argparse
+import base64
 from datetime import datetime
 from fractions import Fraction
 import hashlib
@@ -20,6 +21,7 @@ import random
 import stat
 import statistics
 import sys
+import tempfile
 import types
 from typing import Any, Callable, Iterable, Mapping, Sequence
 import uuid
@@ -41,18 +43,30 @@ QUALITY_VARIANTS = (
 )
 MEDIA_LANE_CONTRACT_SCHEMA = "mirmir-ash-v4-media-preservation-contract-v1"
 MEDIA_SIDE_MANIFEST_SCHEMA = "mirmir-ash-v4-media-side-manifest-v1"
-MEDIA_SEMANTIC_VERIFIER_SCHEMA = "mirmir-ash-v4-media-semantic-verifier-v1"
-MEDIA_TRACK_SCHEMA = "mirmir-ash-v4-track-observation-v1"
+MEDIA_SEMANTIC_VERIFIER_SCHEMA = "mirmir-ash-v4-media-semantic-verifier-v3"
+MEDIA_TRACK_SCHEMA = "mirmir-ash-v4-track-observation-v2"
 MEDIA_TIMING_SCHEMA = "mirmir-ash-v4-timing-observation-v1"
-MEDIA_PIXEL_SCHEMA = "mirmir-ash-v4-pixel-observation-v1"
+MEDIA_PIXEL_SCHEMA = "mirmir-ash-v4-pixel-observation-v2"
 MEDIA_ATTACHMENT_SCHEMA = "mirmir-ash-v4-attachment-observation-v1"
-RECOVERY_LANE_CONTRACT_SCHEMA = "mirmir-v4-recovery-qualification-contract-v1"
-RECOVERY_CAPTURE_SCHEMA = "mirmir-v4-recovery-capture-v1"
-RECOVERY_CAPTURE_MANIFEST_SCHEMA = "mirmir-v4-recovery-capture-artifacts-v1"
-RECOVERY_SCENARIO_SCHEMA = "mirmir-v4-recovery-scenario-evidence-v1"
-RECOVERY_SEMANTIC_SCHEMA = "mirmir-v4-recovery-semantic-output-v1"
-RECOVERY_SUITE_MANIFEST_SCHEMA = "mirmir-v4-recovery-evidence-manifest-v1"
-RECOVERY_TRANSCRIPT_SCHEMA = "mirmir-v4-recovery-fault-transcript-v1"
+MEDIA_CAPTURE_SCHEMA = "mirmir-ash-v4-media-preservation-capture-v2"
+MEDIA_ROUTE_SCHEMA = "mirmir-ash-v4-media-production-route-receipt-v2"
+MEDIA_PREFLIGHT_SCHEMA = "mirmir-ash-v4-media-independent-preflight-v2"
+MEDIA_EXECUTION_RECEIPT_SCHEMA = "ash.deterministic-media-execution-receipt.v4.1"
+MEDIA_EXPECTED_PREPARED_BACKEND = {
+    "combined-p010-hdr-interlaced": "Mirmir.PreparedDeterministicV4Upscaler",
+    "combined-alpha-geometry-straight":
+        "Mirmir.PreparedDeterministicAlphaPlanningBackendV4",
+    "combined-alpha-geometry-premultiplied":
+        "Mirmir.PreparedDeterministicAlphaPlanningBackendV4",
+    "rich-track-graph": "Mirmir.PreparedDeterministicV4Upscaler",
+    "legible-track-graph": "Mirmir.PreparedDeterministicV4Upscaler",
+    "auxiliary-picture-track": "Mirmir.PreparedDeterministicV4Upscaler",
+}
+RECOVERY_LANE_CONTRACT_SCHEMA = "mirmir-v4-recovery-qualification-contract-v2"
+RECOVERY_CAPTURE_SCHEMA = "mirmir-v4-recovery-capture-v2"
+RECOVERY_CAPTURE_MANIFEST_SCHEMA = "mirmir-v4-recovery-capture-artifacts-v2"
+RECOVERY_REPORT_SCHEMA = "mirmir-ash-v4-recovery-report-v2"
+RECOVERY_SUITE_MANIFEST_SCHEMA = "mirmir-v4-recovery-evidence-manifest-v2"
 PARITY_REPORT_SCHEMA = "mirmir-ash-v4-cpu-metal-parity-report-v2"
 PARITY_COMPARISON = (
     "exact_visible_plane_attachment_timeline_checkpoint_and_resume_bytes"
@@ -70,6 +84,8 @@ PARITY_REQUIRED_COVERAGE = (
     "arbitrary_rational_phase",
     "temporal_history",
     "temporal_reset",
+    "seek_reset",
+    "repeated_pattern",
     "scene_cut",
     "interlaced_tff",
     "interlaced_bff",
@@ -85,7 +101,39 @@ PARITY_REQUIRED_COVERAGE = (
     "progressive_attachment_normalization",
     "repeat_execution",
     "cross_process",
+    "bounded_tiled_temporal_path",
+    "tiled_allocation_contract",
+    "tiled_checkpoint_schema",
+    "temporal_tile_schedule",
     "tile_schedule",
+)
+PERFORMANCE_STABLE_PRODUCER_FACT_KEYS = frozenset(
+    {
+        "applicationExecutableSHA256",
+        "buildConfiguration",
+        "captureSourceSHA256",
+        "compilerControlAudit",
+        "contractSHA256",
+        "inputArtifactSHA256",
+        "inputIdentity",
+        "normalizedBuildCommand",
+        "normalizedBuildEnvironment",
+        "normalizedBuildRequestSHA256",
+        "normalizedTestSummary",
+        "normalizedTestSummarySHA256",
+        "runnerSourceSHA256",
+        "sampleCount",
+        "sampleWorkloadIdentitySHA256",
+        "schemaVersion",
+        "sourceIdentitySHA256",
+        "sourceRevision",
+        "sourceTreeSHA256",
+        "testExecutableSHA256",
+        "testIdentifier",
+        "toolchainIdentity",
+        "variant",
+        "warmupCount",
+    }
 )
 TRUST_ROOT_SCHEMA = "mirmir-ash-v4-release-qualification-trust-root-v1"
 TRUSTED_HELPER_CONTRACT: tuple[tuple[str, str, str], ...] = (
@@ -261,6 +309,41 @@ def require_hex(value: Any, length: int | tuple[int, ...], label: str) -> str:
     if len(text) not in lengths or any(character not in HEX for character in text):
         raise QualificationError(f"{label} is not a lowercase hexadecimal identity")
     return text
+
+
+def require_release_locked_lane(
+    contract: Mapping[str, Any],
+    field: str,
+    observed_sha256: Any,
+    label: str,
+) -> str:
+    """Reject a suite before any constraint is derived from its own bytes."""
+
+    expected = require_hex(
+        contract.get(field), 64, f"release contract.{field}"
+    )
+    observed = require_hex(observed_sha256, 64, f"{label} contract identity")
+    if observed != expected:
+        raise QualificationError(
+            f"{label} lane contract identity is not release-locked"
+        )
+    return expected
+
+
+def require_release_locked_hashes(
+    contract: Mapping[str, Any],
+    field: str,
+    keys: set[str],
+    label: str,
+) -> dict[str, str]:
+    locked = require_mapping(contract.get(field), f"release contract.{field}")
+    require_exact_keys(locked, keys, f"release contract.{field}")
+    return {
+        key: require_hex(
+            locked[key], 64, f"release contract.{field}.{key}"
+        )
+        for key in sorted(keys)
+    }
 
 
 def require_number(
@@ -1133,6 +1216,12 @@ def validate_quality(
     schema = require_mapping(contract["evidenceSchemas"], "evidenceSchemas")[label]
     if report.get("schemaVersion") != schema:
         raise QualificationError("quality has unsupported schema")
+    require_release_locked_lane(
+        contract,
+        "qualityLaneContractSHA256",
+        entry["contractSHA256"],
+        label,
+    )
     identities = require_mapping(report.get("identities"), "quality.identities")
     expected_identity_keys = {
         "contractSHA256",
@@ -1159,6 +1248,79 @@ def validate_quality(
         "packagedCandidateIdentity",
     }:
         require_hex(identities[key], 64, f"quality.identities.{key}")
+    locked_sources = require_release_locked_hashes(
+        contract,
+        "qualityLockedSources",
+        {
+            "baselineRunnerSHA256",
+            "metricToolSHA256",
+            "observerSourceSHA256",
+        },
+        label,
+    )
+    if sha256(
+        SCRIPT_DIRECTORY / "run_p05_quality_baseline_v4.sh"
+    ) != locked_sources["baselineRunnerSHA256"]:
+        raise QualificationError(
+            "release-locked quality source is stale: baselineRunnerSHA256"
+        )
+    for key in ("metricToolSHA256", "observerSourceSHA256"):
+        expected = locked_sources[key]
+        if identities[key] != expected:
+            raise QualificationError(
+                f"quality source differs from release lock: {key}"
+            )
+    corpus_lock = require_mapping(
+        contract.get("qualityCorpusLock"),
+        "release contract.qualityCorpusLock",
+    )
+    require_exact_keys(
+        corpus_lock,
+        {
+            "artifactSetSHA256",
+            "caseCount",
+            "clipCount",
+            "contractSHA256",
+            "manifestSHA256",
+            "releaseLockSHA256",
+            "sourceAssetSetSHA256",
+            "sourceLicenseSetSHA256",
+        },
+        "release contract.qualityCorpusLock",
+    )
+    for key in (
+        "artifactSetSHA256",
+        "contractSHA256",
+        "manifestSHA256",
+        "releaseLockSHA256",
+        "sourceAssetSetSHA256",
+        "sourceLicenseSetSHA256",
+    ):
+        require_hex(
+            corpus_lock[key],
+            64,
+            f"release contract.qualityCorpusLock.{key}",
+        )
+    locked_clip_count = require_integer(
+        corpus_lock["clipCount"],
+        "release contract.qualityCorpusLock.clipCount",
+        1,
+    )
+    locked_case_count = require_integer(
+        corpus_lock["caseCount"],
+        "release contract.qualityCorpusLock.caseCount",
+        1,
+    )
+    if corpus_lock["contractSHA256"] != entry["contractSHA256"]:
+        raise QualificationError(
+            "quality corpus contract is not the release-locked lane contract"
+        )
+    if (
+        identities["corpusManifestSHA256"] != corpus_lock["manifestSHA256"]
+        or identities["corpusArtifactSetSHA256"]
+        != corpus_lock["artifactSetSHA256"]
+    ):
+        raise QualificationError("quality corpus differs from release lock")
     require_hex(
         identities["runtimeSourceRevision"],
         (40, 64),
@@ -1170,6 +1332,15 @@ def validate_quality(
         raise QualificationError("quality output-set identity variants mismatch")
     for variant, value in output_identities.items():
         require_hex(value, 64, f"quality output identity {variant}")
+    locked_p05_output_set = require_hex(
+        contract.get("qualityFrozenP05OutputSetSHA256"),
+        64,
+        "release contract.qualityFrozenP05OutputSetSHA256",
+    )
+    if output_identities["baseline_p05"] != locked_p05_output_set:
+        raise QualificationError(
+            "quality frozen P05 output set differs from release lock"
+        )
     if identities.get("sourceCommit") != candidate["sourceCommit"]:
         raise QualificationError("quality source commit is stale")
     if identities.get("sourceTreeIdentitySHA256") != candidate["sourceTreeIdentitySHA256"]:
@@ -1188,11 +1359,67 @@ def validate_quality(
         raise QualificationError("quality candidate implementation identity mismatch")
     require_bool(runtime.get("productionRuntimeLocked"), "quality.runtime.productionRuntimeLocked", True)
     require_bool(runtime.get("fullMirrorIdentityPass"), "quality.runtime.fullMirrorIdentityPass", True)
+    locked_baseline = require_mapping(
+        contract.get("qualityFrozenP05Baseline"),
+        "release contract.qualityFrozenP05Baseline",
+    )
+    require_exact_keys(
+        locked_baseline,
+        {
+            "captureExecutableSHA256",
+            "captureSourceSHA256",
+            "executableSHA256",
+            "implementationVersion",
+            "schemaVersion",
+            "sourceManifestSHA256",
+            "sourceRevision",
+            "sourceTreeIdentitySHA256",
+        },
+        "release contract.qualityFrozenP05Baseline",
+    )
+    if p05_replay is None:
+        raise QualificationError("trusted P05 replay helper is unavailable")
+    try:
+        p05_replay.validate_baseline_identity(locked_baseline)
+    except ValueError as error:
+        raise QualificationError(
+            f"quality release-locked P05 baseline is invalid: {error}"
+        ) from error
+    if runtime.get("baselineIdentity") != locked_baseline:
+        raise QualificationError("quality P05 baseline differs from release lock")
+    if runtime.get("baselineImplementationVersion") != locked_baseline[
+        "implementationVersion"
+    ]:
+        raise QualificationError(
+            "quality P05 implementation differs from release lock"
+        )
     corpus = require_mapping(report.get("corpus"), "quality.corpus")
     require_bool(corpus.get("releaseEligible"), "quality.corpus.releaseEligible", True)
     if corpus.get("corpusKind") != "locked_natural":
         raise QualificationError("quality corpus is not locked natural media")
+    if (
+        corpus.get("clipCount") != locked_clip_count
+        or corpus.get("caseCount") != locked_case_count
+    ):
+        raise QualificationError("quality corpus population differs from release lock")
     embedded = require_mapping(report.get("contract"), "quality.contract")
+    embedded_baseline = require_mapping(
+        embedded.get("frozenP05Baseline"),
+        "quality.contract.frozenP05Baseline",
+    )
+    if (
+        embedded_baseline.get("sourceManifestPath")
+        != "script/v4/p05-baseline-source-manifest-v1.json"
+        or {
+            key: value
+            for key, value in embedded_baseline.items()
+            if key != "sourceManifestPath"
+        }
+        != locked_baseline
+    ):
+        raise QualificationError(
+            "quality contract P05 baseline differs from release lock"
+        )
     quality_contract_binding = next(
         item for item in entry["identityBindings"] if item["jsonPointer"] == "/identities/contractSHA256"
     )
@@ -1204,6 +1431,53 @@ def validate_quality(
     report_path = checked_path(
         evidence_root, entry["path"], "quality report path"
     )
+    quality_root = report_path.parent.resolve()
+    def locked_quality_file(basename: str, identity: str) -> Path:
+        matches = [
+            path
+            for path in sealed_paths
+            if path.name == basename
+            and quality_root in path.parents
+            and sha256(path) == identity
+        ]
+        if len(matches) != 1:
+            raise QualificationError(
+                f"quality evidence differs from release lock: {basename}"
+            )
+        return matches[0]
+
+    for basename, identity_key in (
+        ("P05QualityBaselineCaptureTests.swift", "captureSourceSHA256"),
+        ("p05-baseline-source-manifest-v1.json", "sourceManifestSHA256"),
+    ):
+        locked_quality_file(basename, locked_baseline[identity_key])
+    corpus_release_lock_path = locked_quality_file(
+        "natural-quality-corpus-lock-v1.json",
+        corpus_lock["releaseLockSHA256"],
+    )
+    corpus_release_lock = require_mapping(
+        load_json(corpus_release_lock_path), "quality natural-corpus release lock"
+    )
+    if (
+        corpus_release_lock.get("schemaVersion")
+        != "mirmir-ash-v4-natural-quality-corpus-lock-v1"
+        or corpus_release_lock.get("releaseEligible") is not True
+        or corpus_release_lock.get("qualityContractSHA256")
+        != corpus_lock["contractSHA256"]
+        or corpus_release_lock.get("manifestSHA256")
+        != corpus_lock["manifestSHA256"]
+        or corpus_release_lock.get("artifactSetSHA256")
+        != corpus_lock["artifactSetSHA256"]
+        or corpus_release_lock.get("clipCount") != locked_clip_count
+        or corpus_release_lock.get("caseCount") != locked_case_count
+        or corpus_release_lock.get("sourceAssetSetSHA256")
+        != corpus_lock["sourceAssetSetSHA256"]
+        or corpus_release_lock.get("sourceLicenseSetSHA256")
+        != corpus_lock["sourceLicenseSetSHA256"]
+    ):
+        raise QualificationError(
+            "quality natural-corpus release lock differs from release contract"
+        )
     capture_path = report_path.parent / "capture-manifest.json"
     if not capture_path.is_file() or capture_path.resolve() not in sealed_paths:
         raise QualificationError("quality capture manifest is absent from the sealed suite")
@@ -1420,6 +1694,18 @@ def validate_quality(
     if corpus_path not in sealed_paths:
         raise QualificationError("quality corpus manifest is outside the sealed suite")
     corpus_manifest = require_mapping(load_json(corpus_path), "quality corpus manifest")
+    if (
+        corpus_manifest.get("contractSHA256") != corpus_lock["contractSHA256"]
+        or corpus_manifest.get("sourceAssetSetSHA256")
+        != corpus_lock["sourceAssetSetSHA256"]
+        or corpus_manifest.get("sourceLicenseSetSHA256")
+        != corpus_lock["sourceLicenseSetSHA256"]
+        or corpus_manifest.get("clipCount") != locked_clip_count
+        or corpus_manifest.get("caseCount") != locked_case_count
+    ):
+        raise QualificationError(
+            "quality corpus provenance differs from release lock"
+        )
     artifacts = require_list(corpus_manifest.get("artifacts"), "quality corpus artifacts")
     corpus_entries: list[tuple[str, str]] = []
     for index, artifact in enumerate(artifacts):
@@ -1493,6 +1779,27 @@ def validate_claimed_interval(
         raise QualificationError(f"{label}.replicateCount mismatch")
 
 
+def load_locked_performance_evaluator(path: Path) -> types.ModuleType:
+    """Load performance producer replay only after its release lock is proven."""
+
+    module_name = (
+        "performance_gate_v4_for_release_qualification_" + sha256(path)
+    )
+    specification = importlib.util.spec_from_file_location(module_name, path)
+    if specification is None or specification.loader is None:
+        raise QualificationError("cannot load the locked performance evaluator")
+    module = importlib.util.module_from_spec(specification)
+    sys.modules[module_name] = module
+    try:
+        specification.loader.exec_module(module)
+    except Exception as error:
+        sys.modules.pop(module_name, None)
+        raise QualificationError(
+            f"locked performance evaluator could not load: {error}"
+        ) from error
+    return module
+
+
 def validate_performance(
     report: Mapping[str, Any],
     candidate: Mapping[str, Any],
@@ -1530,6 +1837,118 @@ def validate_performance(
         raise QualificationError("performance has unsupported schema")
     if report.get("contractSHA256") != contract_sha:
         raise QualificationError("performance contract identity mismatch")
+    require_release_locked_lane(
+        contract,
+        "performanceLaneContractSHA256",
+        contract_sha,
+        label,
+    )
+    locked_sources = require_release_locked_hashes(
+        contract,
+        "performanceLockedSources",
+        {
+            "captureSourceSHA256",
+            "evaluatorSourceSHA256",
+            "runnerSourceSHA256",
+        },
+        label,
+    )
+    performance_sources = {
+        "captureSourceSHA256": SCRIPT_DIRECTORY
+        / "PerformanceGateCaptureTests.swift",
+        "evaluatorSourceSHA256": SCRIPT_DIRECTORY / "performance_gate_v4.py",
+        "runnerSourceSHA256": SCRIPT_DIRECTORY / "run_performance_gate_v4.sh",
+    }
+    for key, path in performance_sources.items():
+        if sha256(path) != locked_sources[key]:
+            raise QualificationError(
+                f"release-locked performance source is stale: {key}"
+            )
+    performance_replay = load_locked_performance_evaluator(
+        performance_sources["evaluatorSourceSHA256"]
+    )
+    locked_baseline = require_mapping(
+        contract.get("performanceFrozenP05Baseline"),
+        "release contract.performanceFrozenP05Baseline",
+    )
+    require_exact_keys(
+        locked_baseline,
+        {
+            "implementationVersions",
+            "runtimeStatus",
+            "sourceRevision",
+            "sourceTreeIdentitySHA256",
+        },
+        "release contract.performanceFrozenP05Baseline",
+    )
+    require_hex(
+        locked_baseline["sourceRevision"],
+        40,
+        "release contract.performanceFrozenP05Baseline.sourceRevision",
+    )
+    require_hex(
+        locked_baseline["sourceTreeIdentitySHA256"],
+        64,
+        "release contract.performanceFrozenP05Baseline.sourceTreeIdentitySHA256",
+    )
+    require_string(
+        locked_baseline["runtimeStatus"],
+        "release contract.performanceFrozenP05Baseline.runtimeStatus",
+    )
+    locked_versions = require_list(
+        locked_baseline["implementationVersions"],
+        "release contract.performanceFrozenP05Baseline.implementationVersions",
+    )
+    if (
+        len(locked_versions) != 2
+        or len(set(locked_versions)) != 2
+        or any(not isinstance(value, str) or not value for value in locked_versions)
+    ):
+        raise QualificationError(
+            "release contract performance P05 implementation set differs"
+        )
+    locked_producer = require_mapping(
+        contract.get("performanceFrozenP05Producer"),
+        "release contract.performanceFrozenP05Producer",
+    )
+    require_exact_keys(
+        locked_producer,
+        {"stableFacts", "stableFactsSHA256", "stableIdentitySHA256"},
+        "release contract.performanceFrozenP05Producer",
+    )
+    locked_producer_facts = require_mapping(
+        locked_producer["stableFacts"],
+        "release contract.performanceFrozenP05Producer.stableFacts",
+    )
+    require_exact_keys(
+        locked_producer_facts,
+        PERFORMANCE_STABLE_PRODUCER_FACT_KEYS,
+        "release contract.performanceFrozenP05Producer.stableFacts",
+    )
+    locked_producer_facts_identity = require_hex(
+        locked_producer["stableFactsSHA256"],
+        64,
+        "release contract.performanceFrozenP05Producer.stableFactsSHA256",
+    )
+    recomputed_producer_facts_identity = sha256_bytes(
+        performance_replay.canonical_json(locked_producer_facts)
+    )
+    if locked_producer_facts_identity != recomputed_producer_facts_identity:
+        raise QualificationError(
+            "performance baseline stable fact map hash differs from release lock"
+        )
+    locked_producer_identity = require_hex(
+        locked_producer["stableIdentitySHA256"],
+        64,
+        "release contract.performanceFrozenP05Producer.stableIdentitySHA256",
+    )
+    if (
+        performance_replay._stable_producer_identity(locked_producer_facts)
+        != locked_producer_identity
+    ):
+        raise QualificationError(
+            "performance baseline stable producer identity differs from release lock"
+        )
     supplied_report_identity = require_hex(
         report.get("reportSHA256"), 64, "performance.reportSHA256"
     )
@@ -1555,6 +1974,22 @@ def validate_performance(
         raise QualificationError("performance suite contract schema mismatch")
     if report.get("gateID") != suite_contract.get("gateID"):
         raise QualificationError("performance gate identity mismatch")
+    suite_capture = require_mapping(
+        suite_contract.get("capture"), "performance suite capture contract"
+    )
+    for key, expected in locked_sources.items():
+        if suite_capture.get(key) != expected:
+            raise QualificationError(
+                f"performance source differs from release lock: {key}"
+            )
+    suite_baseline = require_mapping(
+        suite_contract.get("baseline"), "performance baseline contract"
+    )
+    for key in ("implementationVersions", "runtimeStatus", "sourceRevision"):
+        if suite_baseline.get(key) != locked_baseline[key]:
+            raise QualificationError(
+                f"performance P05 baseline differs from release lock: {key}"
+            )
     settings = require_mapping(contract["performance"], "performance release settings")
     suite_measurement = require_mapping(
         suite_contract.get("measurement"), "performance suite measurement contract"
@@ -1614,11 +2049,14 @@ def validate_performance(
             if path in resolved:
                 raise QualificationError(f"{nested_label} repeats an artifact")
             resolved.add(path)
-        actual = {
-            path.resolve()
-            for path in manifest_path.parent.iterdir()
-            if path.is_file() and path.resolve() != manifest_path
-        }
+        actual: set[Path] = set()
+        for path in manifest_path.parent.rglob("*"):
+            if path.is_symlink():
+                raise QualificationError(
+                    f"{nested_label} contains a symbolic link"
+                )
+            if path.is_file() and path.resolve() != manifest_path:
+                actual.add(path.resolve())
         if actual != resolved:
             raise QualificationError(f"{nested_label} file set is incomplete or unsealed")
 
@@ -1686,6 +2124,10 @@ def validate_performance(
             )
             if source_revision != baseline_contract.get("sourceRevision"):
                 raise QualificationError("performance baseline revision is not frozen")
+            if source_tree != locked_baseline["sourceTreeIdentitySHA256"]:
+                raise QualificationError(
+                    "performance baseline source tree differs from release lock"
+                )
             if runtime.get("status") != baseline_contract.get("runtimeStatus"):
                 raise QualificationError("performance baseline runtime status mismatch")
             if runtime.get("implementationVersions") != baseline_contract.get("implementationVersions"):
@@ -1732,6 +2174,12 @@ def validate_performance(
             raise QualificationError(f"performance {variant} capture schema mismatch")
         if capture.get("variant") != variant or capture.get("contractSHA256") != contract_sha:
             raise QualificationError(f"performance {variant} capture identity mismatch")
+        if capture.get("captureSourceSHA256") != locked_sources[
+            "captureSourceSHA256"
+        ]:
+            raise QualificationError(
+                f"performance {variant} capture source differs from release lock"
+            )
         if capture.get("sourceIdentitySHA256") != sha256(source_path):
             raise QualificationError(f"performance {variant} capture/source binding mismatch")
         if capture.get("sourceRevision") != source_revision or capture.get("sourceTreeSHA256") != source_tree:
@@ -1869,6 +2317,45 @@ def validate_performance(
 
     baseline = validate_capture(baseline_source_path.parent, "baseline_p05", baseline_source_path)
     observed = validate_capture(candidate_source_path.parent, "candidate_p06", candidate_source_path)
+    try:
+        replayed_baseline = performance_replay.validate_capture(
+            baseline_source_path.parent,
+            "baseline_p05",
+            suite_contract,
+            contract_sha,
+            False,
+        )
+        replayed_candidate = performance_replay.validate_capture(
+            candidate_source_path.parent,
+            "candidate_p06",
+            suite_contract,
+            contract_sha,
+            False,
+        )
+    except performance_replay.EvidenceError as error:
+        raise QualificationError(
+            f"release-locked performance producer replay failed: {error}"
+        ) from error
+    baseline_producer = require_mapping(
+        require_mapping(
+            replayed_baseline.get("_validated"),
+            "performance baseline replay metadata",
+        ).get("producerReceipt"),
+        "performance baseline producer identity",
+    )
+    if (
+        baseline_producer.get("producerStableFacts")
+        != locked_producer_facts
+        or baseline_producer.get("producerStableIdentitySHA256")
+        != locked_producer_identity
+    ):
+        raise QualificationError(
+            "performance baseline stable producer differs from release lock"
+        )
+    candidate_replay_metadata = require_mapping(
+        replayed_candidate.get("_validated"),
+        "performance candidate replay metadata",
+    )
     candidate_capture = observed["capture"]
     package = validate_quality_package_identity(
         candidate_capture.get("packagedCandidateIdentity"), candidate
@@ -2040,7 +2527,8 @@ def validate_performance(
             "sourceTreeSHA256",
             "sourceIdentitySHA256",
             "artifactManifestSHA256",
-        },
+        }
+        | set(baseline_producer),
         "performance baseline report identity",
     )
     require_exact_keys(
@@ -2051,6 +2539,10 @@ def validate_performance(
             "sourceIdentitySHA256",
             "runtimeManifestSHA256",
             "artifactManifestSHA256",
+            "sampleTranscriptSetSHA256",
+            "sampleMeasurementSetSHA256",
+            "sampleWorkloadIdentitySHA256",
+            "sampleTranscriptCount",
             "evidenceRequestSHA256",
             "observerSourceSHA256",
             "packagedCaptureTreeSHA256",
@@ -2071,6 +2563,22 @@ def validate_performance(
             raise QualificationError("performance report source identity mismatch")
         if report_identity.get("artifactManifestSHA256") != sha256(manifest_path):
             raise QualificationError("performance report artifact manifest mismatch")
+    for key, expected in baseline_producer.items():
+        if baseline_report.get(key) != expected:
+            raise QualificationError(
+                f"performance baseline producer identity mismatch: {key}"
+            )
+    if (
+        candidate_report.get("sampleTranscriptSetSHA256")
+        != candidate_replay_metadata.get("sampleTranscriptSetSHA256")
+        or candidate_report.get("sampleMeasurementSetSHA256")
+        != candidate_replay_metadata.get("sampleMeasurementSetSHA256")
+        or candidate_report.get("sampleWorkloadIdentitySHA256")
+        != candidate_replay_metadata.get("sampleWorkloadIdentitySHA256")
+        or candidate_report.get("sampleTranscriptCount")
+        != candidate_replay_metadata.get("sampleTranscriptCount")
+    ):
+        raise QualificationError("performance candidate sample transcript differs")
     if candidate_report.get("runtimeManifestSHA256") != candidate["runtimeManifestSHA256"]:
         raise QualificationError("performance report P06 identity mismatch")
     if (
@@ -2284,6 +2792,26 @@ def validate_performance(
         "warmupCount": baseline["warmups"],
         "measuredRunCount": baseline["samples"],
         "engineFrameSampleCount": len(baseline_engine),
+        "baselineProducerStableFactsSHA256": locked_producer_facts_identity,
+        "baselineProducerStableIdentitySHA256": locked_producer_identity,
+        "baselineApplicationExecutableSHA256": baseline_producer[
+            "applicationExecutableSHA256"
+        ],
+        "baselineTestExecutableSHA256": baseline_producer[
+            "testExecutableSHA256"
+        ],
+        "baselineSampleMeasurementSetSHA256": baseline_producer[
+            "sampleMeasurementSetSHA256"
+        ],
+        "baselineSampleWorkloadIdentitySHA256": baseline_producer[
+            "sampleWorkloadIdentitySHA256"
+        ],
+        "candidateSampleMeasurementSetSHA256": candidate_replay_metadata[
+            "sampleMeasurementSetSHA256"
+        ],
+        "candidateSampleWorkloadIdentitySHA256": candidate_replay_metadata[
+            "sampleWorkloadIdentitySHA256"
+        ],
         "runtimeBuilderSHA256": observed["runtime"]["builderSourceSHA256"],
         "applicationArchiveSHA256": package["applicationArchiveSHA256"],
         "applicationExecutableSHA256": package["applicationExecutableSHA256"],
@@ -2462,9 +2990,12 @@ def validate_parity(
                 "metalCheckpointSetArtifact",
                 "cpuResumeSetArtifact",
                 "metalResumeSetArtifact",
+                "cpuExecutionArtifact",
+                "metalExecutionArtifact",
                 "repeatRunIdentityPass",
                 "crossProcessIdentityPass",
                 "tileScheduleIdentityPass",
+                "boundedTiledTemporalPathPass",
                 "checkpointResumeIdentityPass",
                 "timingAndAttachmentSemanticsPass",
             },
@@ -2513,10 +3044,27 @@ def validate_parity(
                 raise QualificationError(
                     f"CPU/Metal parity mismatch: {identifier}/{artifact_kind}"
                 )
+        cpu_execution_path, _ = validate_sealed_artifact(
+            parity_root,
+            case["cpuExecutionArtifact"],
+            sealed_paths,
+            f"parity {identifier}.cpuExecutionArtifact",
+        )
+        metal_execution_path, _ = validate_sealed_artifact(
+            parity_root,
+            case["metalExecutionArtifact"],
+            sealed_paths,
+            f"parity {identifier}.metalExecutionArtifact",
+        )
+        if cpu_execution_path == metal_execution_path:
+            raise QualificationError(
+                f"CPU/Metal parity execution evidence aliases: {identifier}"
+            )
         for key in (
             "repeatRunIdentityPass",
             "crossProcessIdentityPass",
             "tileScheduleIdentityPass",
+            "boundedTiledTemporalPathPass",
             "checkpointResumeIdentityPass",
             "timingAndAttachmentSemanticsPass",
         ):
@@ -2767,12 +3315,13 @@ def validate_media_track_observation(value: Mapping[str, Any], label: str) -> di
         require_exact_keys(
             track,
             {
-                "ordinal", "kind", "enabled", "mediaTypeID", "codecID", "languageCode",
+                "ordinal", "stableID", "kind", "enabled", "mediaTypeID", "codecID", "languageCode",
                 "extendedLanguageTag", "roleIDs", "timebase", "timeRangeSHA256",
                 "editsSHA256", "formatSHA256", "metadataSHA256",
             },
             track_label,
         )
+        require_string(track["stableID"], f"{track_label}.stableID")
         require_string(track["kind"], f"{track_label}.kind")
         enabled += int(require_bool(track["enabled"], f"{track_label}.enabled"))
         for key in ("mediaTypeID", "codecID", "timebase"):
@@ -2851,8 +3400,10 @@ def validate_media_pixel_observation(
             track,
             {
                 "ordinal", "kind", "pixelFormat", "bitDepth", "width", "height", "frameCount",
-                "visibleSHA256", "repeatVisibleSHA256", "alphaSHA256", "preEncodeAlphaSHA256",
-                "decodedAlphaSHA256", "uniqueSignalCodeCount", "lowPaddingBitViolationCount",
+                "visibleSHA256", "repeatVisibleSHA256", "alphaSHA256",
+                "alphaFrameSHA256", "preEncodeAlphaFrameSHA256",
+                "repeatPreEncodeAlphaFrameSHA256", "decodedAlphaSHA256",
+                "uniqueSignalCodeCount", "lowPaddingBitViolationCount",
             },
             track_label,
         )
@@ -2862,9 +3413,18 @@ def validate_media_pixel_observation(
             require_integer(track[key], f"{track_label}.{key}")
         for key in ("visibleSHA256", "repeatVisibleSHA256"):
             require_hex(track[key], 64, f"{track_label}.{key}")
-        for key in ("alphaSHA256", "preEncodeAlphaSHA256", "decodedAlphaSHA256"):
+        for key in ("alphaSHA256", "decodedAlphaSHA256"):
             if track[key] is not None:
                 require_hex(track[key], 64, f"{track_label}.{key}")
+        for key in (
+            "alphaFrameSHA256", "preEncodeAlphaFrameSHA256",
+            "repeatPreEncodeAlphaFrameSHA256",
+        ):
+            frames = require_list(track[key], f"{track_label}.{key}")
+            if len(frames) not in {0, track["frameCount"]}:
+                raise QualificationError(f"{track_label}.{key} frame count differs")
+            for index, identity in enumerate(frames):
+                require_hex(identity, 64, f"{track_label}.{key}[{index}]")
     return tracks
 
 
@@ -2876,8 +3436,8 @@ def validate_media_attachment_observation(value: Mapping[str, Any], label: str) 
     keys = {
         "ordinal", "kind", "fieldCount", "fieldDetail", "cadence", "pixelAspectRatio",
         "cleanAperture", "preferredTransform", "colorPrimaries", "transferFunction",
-        "yCbCrMatrix", "masteringDisplaySHA256", "contentLightSHA256", "dynamicHDRSamples",
-        "alphaAssociation",
+        "yCbCrMatrix", "masteringDisplaySHA256", "contentLightSHA256",
+        "ambientViewingEnvironmentSHA256", "dynamicHDRSamples", "alphaAssociation",
     }
     for ordinal, track in tracks.items():
         track_label = f"{label}.track[{ordinal}]"
@@ -2901,7 +3461,7 @@ def validate_media_attachment_observation(value: Mapping[str, Any], label: str) 
         for key in ("colorPrimaries", "transferFunction", "yCbCrMatrix", "alphaAssociation"):
             if track[key] is not None:
                 require_string(track[key], f"{track_label}.{key}")
-        for key in ("masteringDisplaySHA256", "contentLightSHA256"):
+        for key in ("masteringDisplaySHA256", "contentLightSHA256", "ambientViewingEnvironmentSHA256"):
             if track[key] is not None:
                 require_hex(track[key], 64, f"{track_label}.{key}")
         dynamic = require_list(track["dynamicHDRSamples"], f"{track_label}.dynamicHDRSamples")
@@ -3011,24 +3571,93 @@ def recompute_media_fixture(
     output_attachments = output_side["attachments"]
     checks: list[dict[str, Any]] = []
 
-    if policy == "exact_pass_through":
-        normalized_input = {**input_side["trackObservation"], "side": "normalized"}
-        normalized_output = {**output_side["trackObservation"], "side": "normalized"}
-        if canonical_bytes(normalized_input) != canonical_bytes(normalized_output):
-            raise QualificationError(f"preservation {fixture_id} track semantics differ")
+    if policy == "process_primary_preserve_auxiliary":
+        input_primary, _ = media_first_video(
+            input_tracks, f"preservation {fixture_id} input"
+        )
+        output_primary, _ = media_first_video(
+            output_tracks, f"preservation {fixture_id} output"
+        )
+        if input_primary != output_primary or set(input_tracks) != set(output_tracks):
+            raise QualificationError(
+                f"preservation {fixture_id} primary/inventory differs"
+            )
+        for key in (
+            "groups", "associations", "assetMetadataSHA256",
+            "chapterMetadataSHA256",
+        ):
+            if canonical_bytes(input_side["trackObservation"][key]) != canonical_bytes(output_side["trackObservation"][key]):
+                raise QualificationError(
+                    f"preservation {fixture_id} protected asset semantics differ: {key}"
+                )
+        protected = {
+            "ordinal", "kind", "enabled", "mediaTypeID", "languageCode",
+            "extendedLanguageTag", "roleIDs", "timebase", "timeRangeSHA256",
+            "editsSHA256", "metadataSHA256",
+        }
+        if (
+            {key: input_tracks[input_primary][key] for key in protected}
+            != {key: output_tracks[output_primary][key] for key in protected}
+        ):
+            raise QualificationError(
+                f"preservation {fixture_id} primary protected semantics differ"
+            )
         if set(input_timing) != set(output_timing) or set(input_pixels) != set(output_pixels) or set(input_attachments) != set(output_attachments):
-            raise QualificationError(f"preservation {fixture_id} exact observation inventory differs")
-        for ordinal in input_timing:
-            if input_timing[ordinal]["timingSHA256"] != output_timing[ordinal]["timingSHA256"] or input_timing[ordinal]["encodedPayloadSHA256"] != output_timing[ordinal]["encodedPayloadSHA256"]:
-                raise QualificationError(f"preservation {fixture_id} track {ordinal} timing/payload differs")
-        for ordinal in input_attachments:
-            if canonical_bytes(input_attachments[ordinal]) != canonical_bytes(output_attachments[ordinal]):
-                raise QualificationError(f"preservation {fixture_id} track {ordinal} attachments differ")
-        for ordinal in input_pixels:
-            if input_pixels[ordinal]["visibleSHA256"] != output_pixels[ordinal]["visibleSHA256"]:
-                raise QualificationError(f"preservation {fixture_id} track {ordinal} decoded pixels differ")
-        checks.append({"id": "exact-track-timing-pixel-attachment-pass-through", "pass": True})
-    elif policy in {"p010_field_normalization", "alpha_geometry"}:
+            raise QualificationError(
+                f"preservation {fixture_id} auxiliary observation inventory differs"
+            )
+        for ordinal in input_tracks:
+            if ordinal == input_primary:
+                continue
+            if canonical_bytes({
+                key: value for key, value in input_tracks[ordinal].items()
+                if key != "stableID"
+            }) != canonical_bytes({
+                key: value for key, value in output_tracks[ordinal].items()
+                if key != "stableID"
+            }):
+                raise QualificationError(
+                    f"preservation {fixture_id} auxiliary track {ordinal} semantics differ"
+                )
+            if (
+                input_timing[ordinal]["timingSHA256"]
+                != output_timing[ordinal]["timingSHA256"]
+                or input_timing[ordinal]["encodedPayloadSHA256"]
+                != output_timing[ordinal]["encodedPayloadSHA256"]
+            ):
+                raise QualificationError(
+                    f"preservation {fixture_id} auxiliary track {ordinal} timing/payload differs"
+                )
+            if ordinal in input_attachments and canonical_bytes(input_attachments[ordinal]) != canonical_bytes(output_attachments[ordinal]):
+                raise QualificationError(
+                    f"preservation {fixture_id} auxiliary track {ordinal} attachments differ"
+                )
+            if ordinal in input_pixels and input_pixels[ordinal]["visibleSHA256"] != output_pixels[ordinal]["visibleSHA256"]:
+                raise QualificationError(
+                    f"preservation {fixture_id} auxiliary track {ordinal} pixels differ"
+                )
+        source_presentation = [
+            (sample["pts"], sample["duration"])
+            for sample in input_timing[input_primary]["samples"]
+        ]
+        output_presentation = [
+            (sample["pts"], sample["duration"])
+            for sample in output_timing[output_primary]["samples"]
+        ]
+        if source_presentation != output_presentation:
+            raise QualificationError(
+                f"preservation {fixture_id} primary presentation timing differs"
+            )
+        checks.append({
+            "id": "processed-primary-exact-auxiliary-preservation",
+            "pass": True,
+        })
+
+    if policy in {
+        "p010_field_normalization",
+        "alpha_geometry",
+        "process_primary_preserve_auxiliary",
+    }:
         input_ordinal, _ = media_first_video(input_tracks, f"preservation {fixture_id} input")
         output_ordinal, _ = media_first_video(output_tracks, f"preservation {fixture_id} output")
         if input_ordinal not in input_pixels or output_ordinal not in output_pixels or input_ordinal not in input_attachments or output_ordinal not in output_attachments:
@@ -3065,7 +3694,7 @@ def recompute_media_fixture(
         target = output_attachments[output_ordinal]
         if source["colorPrimaries"] != target["colorPrimaries"] or source["colorPrimaries"] != "ITU_R_2020" or source["transferFunction"] != target["transferFunction"] or source["transferFunction"] != "SMPTE_ST_2084_PQ" or source["yCbCrMatrix"] != target["yCbCrMatrix"] or source["yCbCrMatrix"] != "ITU_R_2020":
             raise QualificationError(f"preservation {fixture_id} HDR signal metadata differs")
-        for key in ("masteringDisplaySHA256", "contentLightSHA256"):
+        for key in ("masteringDisplaySHA256", "contentLightSHA256", "ambientViewingEnvironmentSHA256"):
             if source[key] is None or source[key] != target[key]:
                 raise QualificationError(f"preservation {fixture_id} static HDR metadata differs: {key}")
         source_dynamic = source["dynamicHDRSamples"]
@@ -3102,7 +3731,16 @@ def recompute_media_fixture(
         input_ordinal, _ = media_first_video(input_tracks, f"preservation {fixture_id} input")
         output_ordinal, _ = media_first_video(output_tracks, f"preservation {fixture_id} output")
         pixel = output_pixels[output_ordinal]
-        if input_attachments[input_ordinal]["alphaAssociation"] != expected or output_attachments[output_ordinal]["alphaAssociation"] != expected or pixel["preEncodeAlphaSHA256"] is None or pixel["preEncodeAlphaSHA256"] != pixel["decodedAlphaSHA256"] or pixel["preEncodeAlphaSHA256"] != pixel["alphaSHA256"]:
+        if (
+            input_attachments[input_ordinal]["alphaAssociation"] != expected
+            or output_attachments[output_ordinal]["alphaAssociation"] != expected
+            or not pixel["preEncodeAlphaFrameSHA256"]
+            or not (
+                pixel["preEncodeAlphaFrameSHA256"]
+                == pixel["repeatPreEncodeAlphaFrameSHA256"]
+                == pixel["alphaFrameSHA256"]
+            )
+        ):
             raise QualificationError(f"preservation {fixture_id} {expected} alpha bytes/association differ")
         checks.append({"id": f"exact-prores4444-{expected}-alpha", "pass": True})
 
@@ -3126,6 +3764,668 @@ def recompute_media_fixture(
     return checks
 
 
+def preservation_alpha_axis_samples(
+    source: int, target: int
+) -> list[tuple[list[int], list[int]]]:
+    if source <= 0 or target < source:
+        raise QualificationError("preservation alpha oracle geometry is invalid")
+    result: list[tuple[list[int], list[int]]] = []
+    for destination in range(target):
+        numerator = (2 * destination + 1) * source - target
+        denominator = 2 * target
+        base, remainder = divmod(numerator, denominator)
+        phase = Fraction(remainder, denominator)
+        n, d = phase.numerator, phase.denominator
+        d2, d3 = d * d, d * d * d
+        n2, n3 = n * n, n * n * n
+        numerators = [
+            -n * d2 + 2 * n2 * d - n3,
+            2 * d3 - 5 * n2 * d + 3 * n3,
+            n * d2 + 4 * n2 * d - 3 * n3,
+            -n2 * d + n3,
+        ]
+        common = 2 * d3
+        if sum(numerators) != common:
+            raise QualificationError("preservation alpha cubic sum differs")
+        coefficients: list[int] = []
+        fractions: list[int] = []
+        for value in numerators:
+            quotient, fractional = divmod(value * (1 << 14), common)
+            coefficients.append(quotient)
+            fractions.append(fractional)
+        residual = (1 << 14) - sum(coefficients)
+        if not 0 <= residual <= 3:
+            raise QualificationError("preservation alpha residual differs")
+        preferred = [1, 2, 0, 3] if phase <= Fraction(1, 2) else [2, 1, 3, 0]
+        rank = {tap: index for index, tap in enumerate(preferred)}
+        order = sorted(range(4), key=lambda tap: (-fractions[tap], rank[tap]))
+        for tap in order[:residual]:
+            coefficients[tap] += 1
+
+        def reflect101(index: int) -> int:
+            if source == 1:
+                return 0
+            period = 2 * (source - 1)
+            reflected = index % period
+            return reflected if reflected < source else period - reflected
+
+        result.append((
+            [reflect101(base + offset) for offset in (-1, 0, 1, 2)],
+            coefficients,
+        ))
+    return result
+
+
+def preservation_round_ties_to_even(value: int, fractional_bits: int) -> int:
+    denominator = 1 << fractional_bits
+    quotient, remainder = divmod(value, denominator)
+    doubled = remainder * 2
+    if doubled < denominator:
+        return quotient
+    if doubled > denominator:
+        return quotient + 1
+    return quotient if quotient % 2 == 0 else quotient + 1
+
+
+def preservation_independent_alpha_oracle(
+    source: bytes,
+    source_width: int,
+    source_height: int,
+    target_width: int,
+    target_height: int,
+) -> bytes:
+    if len(source) != source_width * source_height:
+        raise QualificationError("preservation alpha source length differs")
+    horizontal = preservation_alpha_axis_samples(source_width, target_width)
+    vertical = preservation_alpha_axis_samples(source_height, target_height)
+    intermediate: list[list[int]] = []
+    for source_y in range(source_height):
+        row: list[int] = []
+        offset = source_y * source_width
+        for indices, coefficients in horizontal:
+            row.append(sum(
+                source[offset + index] * coefficient
+                for index, coefficient in zip(indices, coefficients)
+            ))
+        intermediate.append(row)
+    output = bytearray()
+    for indices, coefficients in vertical:
+        for target_x in range(target_width):
+            accumulator = sum(
+                intermediate[index][target_x] * coefficient
+                for index, coefficient in zip(indices, coefficients)
+            )
+            output.append(min(255, max(
+                0, preservation_round_ties_to_even(accumulator, 28)
+            )))
+    return bytes(output)
+
+
+def validate_preservation_alpha_oracle(
+    fixture_id: str,
+    value: Any,
+    capture_root: Path,
+    sealed_paths: set[Path],
+    input_side: Mapping[str, Any],
+    output_side: Mapping[str, Any],
+) -> list[str]:
+    input_primary, _ = media_first_video(
+        input_side["tracks"], f"preservation {fixture_id} input"
+    )
+    output_primary, _ = media_first_video(
+        output_side["tracks"], f"preservation {fixture_id} output"
+    )
+    input_pixel = input_side["pixels"][input_primary]
+    output_pixel = output_side["pixels"][output_primary]
+    if not output_pixel["preEncodeAlphaFrameSHA256"]:
+        if value is not None:
+            raise QualificationError(
+                f"preservation {fixture_id} has unexpected alpha oracle input"
+            )
+        return []
+    oracle = require_mapping(value, f"preservation {fixture_id}.alphaOracleInput")
+    require_exact_keys(oracle, {
+        "schemaVersion", "artifact", "frameSHA256", "frameCount",
+        "width", "height", "association",
+    }, f"preservation {fixture_id}.alphaOracleInput")
+    if oracle["schemaVersion"] != "mirmir-ash-v4-alpha-oracle-input-v1":
+        raise QualificationError(
+            f"preservation {fixture_id} alpha oracle schema differs"
+        )
+    artifact_path, _ = validate_artifact(
+        capture_root,
+        oracle["artifact"],
+        f"preservation {fixture_id}.alphaOracleInput.artifact",
+    )
+    if artifact_path not in sealed_paths:
+        raise QualificationError(
+            f"preservation {fixture_id} alpha oracle artifact is unsealed"
+        )
+    raw = artifact_path.read_bytes()
+    width = require_integer(oracle["width"], f"preservation {fixture_id}.alpha.width", 1)
+    height = require_integer(oracle["height"], f"preservation {fixture_id}.alpha.height", 1)
+    frame_count = require_integer(
+        oracle["frameCount"], f"preservation {fixture_id}.alpha.frames", 1
+    )
+    frame_size = width * height
+    if len(raw) != frame_size * frame_count:
+        raise QualificationError(
+            f"preservation {fixture_id} alpha oracle length differs"
+        )
+    source_hashes = require_list(
+        oracle["frameSHA256"], f"preservation {fixture_id}.alpha.frameSHA256"
+    )
+    if len(source_hashes) != frame_count:
+        raise QualificationError(
+            f"preservation {fixture_id} alpha source frame count differs"
+        )
+    for index in range(frame_count):
+        if require_hex(
+            source_hashes[index], 64,
+            f"preservation {fixture_id}.alpha.source[{index}]",
+        ) != sha256_bytes(raw[index * frame_size:(index + 1) * frame_size]):
+            raise QualificationError(
+                f"preservation {fixture_id} alpha source frame differs"
+            )
+    if source_hashes != input_pixel["alphaFrameSHA256"]:
+        raise QualificationError(
+            f"preservation {fixture_id} alpha source observation differs"
+        )
+    target_width = output_pixel["width"]
+    target_height = output_pixel["height"]
+    expected = [
+        sha256_bytes(preservation_independent_alpha_oracle(
+            raw[index * frame_size:(index + 1) * frame_size],
+            width,
+            height,
+            target_width,
+            target_height,
+        ))
+        for index in range(frame_count)
+    ]
+    if not (
+        expected == output_pixel["preEncodeAlphaFrameSHA256"]
+        == output_pixel["repeatPreEncodeAlphaFrameSHA256"]
+        == output_pixel["alphaFrameSHA256"]
+    ):
+        raise QualificationError(
+            f"preservation {fixture_id} independent scalar alpha oracle differs"
+        )
+    return expected
+
+
+def validate_preservation_production_route(
+    fixture_id: str,
+    production_value: Any,
+    candidate: Mapping[str, Any],
+    capture_binding: Mapping[str, Any],
+    runtime_provenance_sha256: str,
+    input_side: Mapping[str, Any],
+    output_side: Mapping[str, Any],
+) -> str:
+    label = f"preservation raw {fixture_id}.production"
+    production = require_mapping(production_value, label)
+    require_exact_keys(
+        production, {"runtimeManifestSHA256", "routeReceipt"}, label
+    )
+    if production["runtimeManifestSHA256"] != candidate["runtimeManifestSHA256"]:
+        raise QualificationError(
+            f"preservation raw fixture used another runtime: {fixture_id}"
+        )
+    route = require_mapping(production["routeReceipt"], f"{label}.routeReceipt")
+    require_exact_keys(route, {
+        "schemaVersion", "entryPoint", "executionProducer",
+        "dispatchRequirement", "planEvidenceBoundary",
+        "evidenceRequestSHA256", "evidenceNonceSHA256",
+        "applicationArchiveSHA256", "applicationExecutableSHA256",
+        "sourceTreeIdentitySHA256", "independentPreflight",
+        "repeatIndependentPreflight", "executionReceipt",
+        "repeatExecutionReceipt", "independentPreflightSHA256",
+        "repeatIndependentPreflightSHA256", "executionReceiptSHA256",
+        "repeatExecutionReceiptSHA256", "inputEnabledTrackCount",
+        "outputEnabledTrackCount", "routeProofSHA256",
+    }, f"{label}.routeReceipt")
+    if (
+        route["schemaVersion"] != MEDIA_ROUTE_SCHEMA
+        or route["entryPoint"]
+        != "VideoProcessingSession.processWithDeterministicV4ExecutionReceipt"
+        or route["executionProducer"] != "exact_archived_mirmir_executable"
+        or route["dispatchRequirement"]
+        != "PreparedDeterministicV4RuntimePlanningBackend"
+        or route["planEvidenceBoundary"]
+        != "actual_session_receipt_matched_independent_preflight"
+    ):
+        raise QualificationError(
+            f"preservation {fixture_id} production evidence boundary differs"
+        )
+    package = require_mapping(
+        capture_binding["packagedCandidateIdentity"],
+        "preservation capture packaged candidate",
+    )
+    for key, expected in (
+        ("evidenceRequestSHA256", capture_binding["evidenceRequestSHA256"]),
+        ("evidenceNonceSHA256", capture_binding["evidenceNonceSHA256"]),
+        ("applicationArchiveSHA256", package["applicationArchiveSHA256"]),
+        ("applicationExecutableSHA256", package["applicationExecutableSHA256"]),
+        ("sourceTreeIdentitySHA256", candidate["sourceTreeIdentitySHA256"]),
+    ):
+        if require_hex(route[key], 64, f"{label}.{key}") != expected:
+            raise QualificationError(
+                f"preservation {fixture_id} route binding differs: {key}"
+            )
+
+    preflight_keys = {
+        "schemaVersion", "preparedBackendType", "executor",
+        "requestedBackendID", "ashPlanSHA256", "runtimeManifestSHA256",
+        "runtimeProvenanceSHA256", "trackPlanSHA256",
+        "sourceGraphSHA256", "migrationBlueprintSHA256",
+        "primaryTrackOrdinal", "plannedTracks", "targetWidth",
+        "targetHeight", "sourceVideoTrackCount", "sourceAudioTrackCount",
+        "plannedEnabledTrackCount",
+    }
+    receipt_keys = {
+        "schemaID", "preparedBackendType", "executor", "requestedBackendID",
+        "actualBackendID", "ashPlanSHA256", "runtimeManifestSHA256",
+        "runtimeProvenanceSHA256", "trackPlanSHA256", "sourceGraphSHA256",
+        "migrationSourceGraphSHA256", "migrationPlanSHA256",
+        "migrationBlueprintSHA256", "sourceAssetMetadataSHA256",
+        "outputAssetMetadataSHA256", "sourceChapterMetadataSHA256",
+        "outputChapterMetadataSHA256", "outputGraphSHA256",
+        "semanticVerificationSHA256", "primaryTrackOrdinal", "plannedTracks",
+        "migratedTracks", "targetWidth", "targetHeight", "encodedWidth",
+        "encodedHeight", "processedFrameCount", "sourceVideoTrackCount",
+        "sourceAudioTrackCount", "plannedEnabledTrackCount",
+        "alphaVerification",
+    }
+    first_preflight = require_mapping(
+        route["independentPreflight"], f"{label}.independentPreflight"
+    )
+    repeat_preflight = require_mapping(
+        route["repeatIndependentPreflight"],
+        f"{label}.repeatIndependentPreflight",
+    )
+    for name, preflight in (
+        ("independentPreflight", first_preflight),
+        ("repeatIndependentPreflight", repeat_preflight),
+    ):
+        require_exact_keys(preflight, preflight_keys, f"{label}.{name}")
+        if preflight["schemaVersion"] != MEDIA_PREFLIGHT_SCHEMA:
+            raise QualificationError(
+                f"preservation {fixture_id} {name} schema differs"
+            )
+    if first_preflight != repeat_preflight:
+        raise QualificationError(
+            f"preservation {fixture_id} independent preflight is not repeatable"
+        )
+    expected_backend = MEDIA_EXPECTED_PREPARED_BACKEND[fixture_id]
+    if first_preflight["preparedBackendType"] != expected_backend:
+        raise QualificationError(
+            f"preservation {fixture_id} prepared backend does not match fixture"
+        )
+    if (
+        require_hex(
+            first_preflight["runtimeManifestSHA256"], 64,
+            f"{label}.runtimeManifestSHA256",
+        ) != candidate["runtimeManifestSHA256"]
+        or require_hex(
+            first_preflight["runtimeProvenanceSHA256"], 64,
+            f"{label}.runtimeProvenanceSHA256",
+        ) != runtime_provenance_sha256
+    ):
+        raise QualificationError(
+            f"preservation {fixture_id} runtime preflight differs"
+        )
+
+    input_tracks = input_side["tracks"]
+    output_tracks = output_side["tracks"]
+    input_primary, _ = media_first_video(
+        input_tracks, f"preservation {fixture_id} input"
+    )
+    output_primary, _ = media_first_video(
+        output_tracks, f"preservation {fixture_id} output"
+    )
+    if (
+        input_primary != output_primary
+        or require_integer(
+            first_preflight["primaryTrackOrdinal"], f"{label}.primaryTrackOrdinal"
+        ) != input_primary
+    ):
+        raise QualificationError(
+            f"preservation {fixture_id} route primary differs"
+        )
+    planned_rows = require_list(
+        first_preflight["plannedTracks"], f"{label}.plannedTracks"
+    )
+    expected_actions = [
+        {
+            "ordinal": ordinal,
+            "stableID": input_tracks[ordinal]["stableID"],
+            "kind": track["kind"],
+            "action": "process" if ordinal == input_primary else "pass_through",
+        }
+        for ordinal in sorted(input_tracks)
+        for track in (input_tracks[ordinal],)
+    ]
+    projected_actions: list[dict[str, Any]] = []
+    for index, raw in enumerate(planned_rows):
+        row = require_mapping(raw, f"{label}.trackActions[{index}]")
+        require_exact_keys(
+            row, {"ordinal", "stableID", "kind", "action"},
+            f"{label}.trackActions[{index}]",
+        )
+        require_string(row["stableID"], f"{label}.trackActions[{index}].stableID")
+        projected_actions.append(dict(row))
+    if projected_actions != expected_actions:
+        raise QualificationError(
+            f"preservation {fixture_id} whole-asset plan actions differ"
+        )
+    output_pixels = output_side["pixels"]
+    output_timing = output_side["timing"]
+    output_attachments = output_side["attachments"]
+    if output_primary not in output_pixels:
+        raise QualificationError(
+            f"preservation {fixture_id} lacks processed output pixels"
+        )
+    pixel = output_pixels[output_primary]
+    input_enabled = input_side["trackObservation"]["enabledTrackCount"]
+    output_enabled = output_side["trackObservation"]["enabledTrackCount"]
+    expected_receipt_counts = {
+        "plannedEnabledTrackCount": input_enabled,
+        "sourceVideoTrackCount": sum(
+            track["kind"] == "video" and track["enabled"]
+            for track in input_tracks.values()
+        ),
+        "sourceAudioTrackCount": sum(
+            track["kind"] == "audio" and track["enabled"]
+            for track in input_tracks.values()
+        ),
+    }
+    def validate_receipt(value: Any, name: str) -> Mapping[str, Any]:
+        execution = require_mapping(value, f"{label}.{name}")
+        require_exact_keys(execution, receipt_keys, f"{label}.{name}")
+        if (
+            execution["schemaID"] != MEDIA_EXECUTION_RECEIPT_SCHEMA
+            or execution["preparedBackendType"] != expected_backend
+            or execution["executor"] != "cpu_fixed_point"
+            or execution["requestedBackendID"] != "mirmirDeterministicCPU"
+            or execution["actualBackendID"] != "mirmirDeterministicCPU"
+        ):
+            raise QualificationError(
+                f"preservation {fixture_id} {name} backend route differs"
+            )
+        for receipt_key, preflight_key in (
+            ("preparedBackendType", "preparedBackendType"),
+            ("executor", "executor"),
+            ("requestedBackendID", "requestedBackendID"),
+            ("ashPlanSHA256", "ashPlanSHA256"),
+            ("runtimeManifestSHA256", "runtimeManifestSHA256"),
+            ("runtimeProvenanceSHA256", "runtimeProvenanceSHA256"),
+            ("trackPlanSHA256", "trackPlanSHA256"),
+            ("sourceGraphSHA256", "sourceGraphSHA256"),
+            ("migrationBlueprintSHA256", "migrationBlueprintSHA256"),
+            ("primaryTrackOrdinal", "primaryTrackOrdinal"),
+            ("plannedTracks", "plannedTracks"),
+            ("targetWidth", "targetWidth"),
+            ("targetHeight", "targetHeight"),
+            ("sourceVideoTrackCount", "sourceVideoTrackCount"),
+            ("sourceAudioTrackCount", "sourceAudioTrackCount"),
+            ("plannedEnabledTrackCount", "plannedEnabledTrackCount"),
+        ):
+            if execution[receipt_key] != first_preflight[preflight_key]:
+                raise QualificationError(
+                    f"preservation {fixture_id} {name} differs from preflight: {receipt_key}"
+                )
+        if (
+            execution["migrationSourceGraphSHA256"]
+                != execution["sourceGraphSHA256"]
+            or execution["migrationPlanSHA256"]
+                != execution["trackPlanSHA256"]
+        ):
+            raise QualificationError(
+                f"preservation {fixture_id} {name} internal plan differs"
+            )
+        for key in (
+            "ashPlanSHA256", "runtimeManifestSHA256",
+            "runtimeProvenanceSHA256", "trackPlanSHA256",
+            "sourceGraphSHA256", "migrationSourceGraphSHA256",
+            "migrationPlanSHA256", "migrationBlueprintSHA256",
+            "sourceAssetMetadataSHA256", "outputAssetMetadataSHA256",
+            "sourceChapterMetadataSHA256", "outputChapterMetadataSHA256",
+            "outputGraphSHA256", "semanticVerificationSHA256",
+        ):
+            require_hex(execution[key], 64, f"{label}.{name}.{key}")
+        if (
+            execution["sourceAssetMetadataSHA256"]
+                != input_side["trackObservation"]["assetMetadataSHA256"]
+            or execution["outputAssetMetadataSHA256"]
+                != output_side["trackObservation"]["assetMetadataSHA256"]
+            or execution["sourceChapterMetadataSHA256"]
+                != input_side["trackObservation"]["chapterMetadataSHA256"]
+            or execution["outputChapterMetadataSHA256"]
+                != output_side["trackObservation"]["chapterMetadataSHA256"]
+        ):
+            raise QualificationError(
+                f"preservation {fixture_id} {name} metadata receipt differs"
+            )
+        if (
+            require_integer(execution["targetWidth"], f"{label}.{name}.width", 1)
+                != require_integer(execution["encodedWidth"], f"{label}.{name}.encodedWidth", 1)
+            or execution["encodedWidth"] != pixel["width"]
+            or require_integer(execution["targetHeight"], f"{label}.{name}.height", 1)
+                != require_integer(execution["encodedHeight"], f"{label}.{name}.encodedHeight", 1)
+            or execution["encodedHeight"] != pixel["height"]
+            or require_integer(execution["processedFrameCount"], f"{label}.{name}.frames", 1)
+                != output_timing[output_primary]["sampleCount"]
+        ):
+            raise QualificationError(
+                f"preservation {fixture_id} {name} output receipt differs"
+            )
+        for key, expected in expected_receipt_counts.items():
+            if require_integer(execution[key], f"{label}.{name}.{key}") != expected:
+                raise QualificationError(
+                    f"preservation {fixture_id} {name} {key} differs"
+                )
+        migrated = require_list(
+            execution["migratedTracks"], f"{label}.{name}.migratedTracks"
+        )
+        expected_migrated = [
+            row for row in planned_rows if row["action"] != "drop_with_consent"
+        ]
+        if len(migrated) != len(expected_migrated):
+            raise QualificationError(
+                f"preservation {fixture_id} {name} migrated inventory count differs"
+            )
+        for index, (raw_migrated, planned) in enumerate(
+            zip(migrated, expected_migrated)
+        ):
+            row = require_mapping(
+                raw_migrated, f"{label}.{name}.migratedTracks[{index}]"
+            )
+            require_exact_keys(row, {
+                "stableID", "action", "migratedSampleCount",
+                "sourceSampleStreamSHA256", "outputSampleStreamSHA256",
+            }, f"{label}.{name}.migratedTracks[{index}]")
+            if row["stableID"] != planned["stableID"] or row["action"] != planned["action"]:
+                raise QualificationError(
+                    f"preservation {fixture_id} {name} migrated stable-ID/action differs"
+                )
+            ordinal = planned["ordinal"]
+            if require_integer(
+                row["migratedSampleCount"],
+                f"{label}.{name}.migratedTracks[{index}].sampleCount",
+            ) != output_timing[ordinal]["sampleCount"]:
+                raise QualificationError(
+                    f"preservation {fixture_id} {name} migrated sample count differs"
+                )
+            if planned["action"] == "pass_through":
+                source_stream = require_hex(
+                    row["sourceSampleStreamSHA256"], 64,
+                    f"{label}.{name}.migratedTracks[{index}].sourceStream",
+                )
+                output_stream = require_hex(
+                    row["outputSampleStreamSHA256"], 64,
+                    f"{label}.{name}.migratedTracks[{index}].outputStream",
+                )
+                if source_stream != output_stream:
+                    raise QualificationError(
+                        f"preservation {fixture_id} {name} pass-through stream differs"
+                    )
+            elif row["sourceSampleStreamSHA256"] is not None or row["outputSampleStreamSHA256"] is not None:
+                raise QualificationError(
+                    f"preservation {fixture_id} {name} processed stream hashes are invalid"
+                )
+        expected_alpha = pixel["preEncodeAlphaFrameSHA256"]
+        alpha = execution["alphaVerification"]
+        if expected_alpha:
+            alpha = require_mapping(alpha, f"{label}.{name}.alphaVerification")
+            require_exact_keys(alpha, {
+                "schemaID", "codec", "association", "inputLayout",
+                "width", "height", "encodedFormat", "frames",
+            }, f"{label}.{name}.alphaVerification")
+            if (
+                alpha["schemaID"] != "ash.alpha-video-writer-verification.v4.1"
+                or alpha["codec"] != "proRes4444"
+                or alpha["association"]
+                    != output_attachments[output_primary]["alphaAssociation"]
+                or alpha["inputLayout"] != "bgra8"
+                or alpha["width"] != pixel["width"]
+                or alpha["height"] != pixel["height"]
+            ):
+                raise QualificationError(
+                    f"preservation {fixture_id} {name} alpha header differs"
+                )
+            frames = require_list(alpha["frames"], f"{label}.{name}.alpha.frames")
+            expected_samples = output_timing[output_primary]["samples"]
+            if not (
+                len(frames) == len(expected_alpha) == len(expected_samples)
+            ):
+                raise QualificationError(
+                    f"preservation {fixture_id} {name} alpha frame inventory differs"
+                )
+            source_frames: list[str] = []
+            for index, raw_frame in enumerate(frames):
+                frame = require_mapping(raw_frame, f"{label}.{name}.alpha.frames[{index}]")
+                require_exact_keys(frame, {
+                    "ordinal", "presentationTime", "alphaByteCount",
+                    "sourceAlphaSHA256", "decodedAlphaSHA256",
+                }, f"{label}.{name}.alpha.frames[{index}]")
+                if require_integer(
+                    frame["ordinal"],
+                    f"{label}.{name}.alpha.frames[{index}].ordinal",
+                ) != index:
+                    raise QualificationError(
+                        f"preservation {fixture_id} {name} alpha frame ordinal differs"
+                    )
+                if require_integer(
+                    frame["alphaByteCount"],
+                    f"{label}.{name}.alpha.frames[{index}].byteCount",
+                    1,
+                ) != pixel["width"] * pixel["height"]:
+                    raise QualificationError(
+                        f"preservation {fixture_id} {name} alpha byte count differs"
+                    )
+                presentation = require_mapping(
+                    frame["presentationTime"],
+                    f"{label}.{name}.alpha.frames[{index}].presentationTime",
+                )
+                require_exact_keys(
+                    presentation,
+                    {"numerator", "denominator"},
+                    f"{label}.{name}.alpha.frames[{index}].presentationTime",
+                )
+                numerator = presentation["numerator"]
+                denominator = presentation["denominator"]
+                if (
+                    isinstance(numerator, bool)
+                    or not isinstance(numerator, int)
+                    or isinstance(denominator, bool)
+                    or not isinstance(denominator, int)
+                    or denominator <= 0
+                ):
+                    raise QualificationError(
+                        f"preservation {fixture_id} {name} alpha presentation rational is invalid"
+                    )
+                presentation_value = Fraction(numerator, denominator)
+                if (
+                    presentation_value.numerator != numerator
+                    or presentation_value.denominator != denominator
+                    or presentation_value != media_fraction(
+                        expected_samples[index]["pts"],
+                        f"{label}.{name}.alpha.expectedPTS[{index}]",
+                    )
+                ):
+                    raise QualificationError(
+                        f"preservation {fixture_id} {name} alpha presentation time differs"
+                    )
+                source_sha = require_hex(
+                    frame["sourceAlphaSHA256"], 64,
+                    f"{label}.{name}.alpha.frames[{index}].source",
+                )
+                decoded_sha = require_hex(
+                    frame["decodedAlphaSHA256"], 64,
+                    f"{label}.{name}.alpha.frames[{index}].decoded",
+                )
+                if source_sha != decoded_sha:
+                    raise QualificationError(
+                        f"preservation {fixture_id} {name} alpha frame differs"
+                    )
+                source_frames.append(source_sha)
+            if source_frames != expected_alpha:
+                raise QualificationError(
+                    f"preservation {fixture_id} {name} pre-encode alpha differs"
+                )
+        elif alpha is not None:
+            raise QualificationError(
+                f"preservation {fixture_id} {name} has unexpected alpha receipt"
+            )
+        return execution
+
+    first_receipt = validate_receipt(route["executionReceipt"], "executionReceipt")
+    repeat_receipt = validate_receipt(
+        route["repeatExecutionReceipt"], "repeatExecutionReceipt"
+    )
+    if first_receipt != repeat_receipt:
+        raise QualificationError(
+            f"preservation {fixture_id} execution receipt is not repeatable"
+        )
+    for key, value in (
+        ("independentPreflightSHA256", first_preflight),
+        ("repeatIndependentPreflightSHA256", repeat_preflight),
+        ("executionReceiptSHA256", first_receipt),
+        ("repeatExecutionReceiptSHA256", repeat_receipt),
+    ):
+        if require_hex(route[key], 64, f"{label}.{key}") != sha256_bytes(canonical_bytes(value)):
+            raise QualificationError(
+                f"preservation {fixture_id} rehashed receipt differs: {key}"
+            )
+    if (
+        route["independentPreflightSHA256"]
+            != route["repeatIndependentPreflightSHA256"]
+        or route["executionReceiptSHA256"]
+            != route["repeatExecutionReceiptSHA256"]
+    ):
+        raise QualificationError(
+            f"preservation {fixture_id} receipt identities differ"
+        )
+    if (
+        require_integer(route["inputEnabledTrackCount"], f"{label}.inputEnabled", 1)
+            != input_enabled
+        or require_integer(route["outputEnabledTrackCount"], f"{label}.outputEnabled", 1)
+            != output_enabled
+    ):
+        raise QualificationError(
+            f"preservation {fixture_id} route track accounting differs"
+        )
+    route_sha = require_hex(route["routeProofSHA256"], 64, f"{label}.routeProof")
+    proof = dict(route)
+    del proof["routeProofSHA256"]
+    if route_sha != sha256_bytes(canonical_bytes(proof)):
+        raise QualificationError(
+            f"preservation {fixture_id} route proof identity differs"
+        )
+    return route_sha
+
+
 def preservation_binding_path(
     evidence_root: Path,
     entry: Mapping[str, Any],
@@ -3142,6 +4442,27 @@ def preservation_binding_path(
     return path
 
 
+def load_locked_media_evaluator(path: Path) -> types.ModuleType:
+    """Load media semantic replay only after its release lock is proven."""
+
+    module_name = (
+        "media_preservation_v4_for_release_qualification_" + sha256(path)
+    )
+    specification = importlib.util.spec_from_file_location(module_name, path)
+    if specification is None or specification.loader is None:
+        raise QualificationError("cannot load the locked media evaluator")
+    module = importlib.util.module_from_spec(specification)
+    sys.modules[module_name] = module
+    try:
+        specification.loader.exec_module(module)
+    except Exception as error:
+        sys.modules.pop(module_name, None)
+        raise QualificationError(
+            f"locked media evaluator could not load: {error}"
+        ) from error
+    return module
+
+
 def validate_preservation(
     report: Mapping[str, Any],
     candidate: Mapping[str, Any],
@@ -3152,26 +4473,121 @@ def validate_preservation(
     sealed_paths: set[Path],
 ) -> dict[str, Any]:
     label = "media_preservation"
+    report_path = checked_path(
+        evidence_root, entry["path"], "preservation report"
+    )
     validate_common_report(report, candidate, contract["evidenceSchemas"][label], contract_sha, label)
     require_exact_keys(
         report,
         {
             "schemaVersion", "contractSHA256", "candidate", "releaseEligible", "identities",
-            "fixtures", "accountedEnabledTrackCount", "mediaPreservationGatePass",
+            "evidenceBoundary", "fixtures", "accountedEnabledTrackCount",
+            "mediaPreservationGatePass",
         },
         "preservation report",
+    )
+    evidence_boundary = require_mapping(
+        report["evidenceBoundary"], "preservation.evidenceBoundary"
+    )
+    require_exact_keys(
+        evidence_boundary,
+        {
+            "mediaExecutionProducer", "packagedCandidateBindingRole",
+            "candidatePreparationReplayRole", "mediaArchiveInspectionScope",
+            "archivedExecutableExecutionClaimed", "fixtureHostRole",
+            "actualSessionReceiptRequired", "independentAlphaOracleRequired",
+            "independentP010AbsoluteOracleRequired",
+        },
+        "preservation.evidenceBoundary",
+    )
+    if (
+        evidence_boundary["mediaExecutionProducer"]
+        != "exact_verified_archived_mirmir_executable"
+        or evidence_boundary["packagedCandidateBindingRole"]
+        != "normative_output_execution_and_observation"
+        or evidence_boundary["candidatePreparationReplayRole"]
+        != "separate_release_candidate_preparation_replay_required"
+        or evidence_boundary["mediaArchiveInspectionScope"]
+        != "archive_extraction_executable_execution_and_tree_seal"
+        or evidence_boundary["fixtureHostRole"]
+        != "source_fixture_generation_and_source_alpha_observation_only"
+    ):
+        raise QualificationError("preservation evidence boundary differs")
+    require_bool(
+        evidence_boundary["archivedExecutableExecutionClaimed"],
+        "preservation.evidenceBoundary.archivedExecutableExecutionClaimed",
+        True,
+    )
+    require_bool(
+        evidence_boundary["actualSessionReceiptRequired"],
+        "preservation.evidenceBoundary.actualSessionReceiptRequired",
+        True,
+    )
+    require_bool(
+        evidence_boundary["independentAlphaOracleRequired"],
+        "preservation.evidenceBoundary.independentAlphaOracleRequired",
+        True,
+    )
+    require_bool(
+        evidence_boundary["independentP010AbsoluteOracleRequired"],
+        "preservation.evidenceBoundary.independentP010AbsoluteOracleRequired",
+        True,
     )
     report_identities = require_mapping(report["identities"], "preservation.identities")
     require_exact_keys(
         report_identities,
         {
             "laneContractSHA256", "captureSourceSHA256", "fixtureSourceSHA256",
-            "evaluatorSHA256", "runnerSHA256", "captureSHA256",
+            "evaluatorSHA256", "runnerSHA256", "packagedEvidenceToolSHA256",
+            "releaseCandidateArchiveToolSHA256", "observerSourceSHA256",
+            "packagedEvidenceRequestSHA256", "packagedEvidenceCaptureTree",
+            "captureSHA256", "packagedCandidateIdentity",
         },
         "preservation.identities",
     )
     for key, value in report_identities.items():
-        require_hex(value, 64, f"preservation.identities.{key}")
+        if key not in {"packagedCandidateIdentity", "packagedEvidenceCaptureTree"}:
+            require_hex(value, 64, f"preservation.identities.{key}")
+    require_release_locked_lane(
+        contract,
+        "mediaPreservationLaneContractSHA256",
+        report_identities["laneContractSHA256"],
+        label,
+    )
+    media_source_keys = {
+        "captureSourceSHA256",
+        "evaluatorSHA256",
+        "fixtureSourceSHA256",
+        "observerSourceSHA256",
+        "packagedEvidenceToolSHA256",
+        "releaseCandidateArchiveToolSHA256",
+        "runnerSHA256",
+    }
+    locked_sources = require_release_locked_hashes(
+        contract,
+        "mediaPreservationLockedSources",
+        media_source_keys,
+        label,
+    )
+    for key, expected in locked_sources.items():
+        if report_identities[key] != expected:
+            raise QualificationError(
+                f"preservation source differs from release lock: {key}"
+            )
+    claimed_packaged_capture_tree = require_mapping(
+        report_identities["packagedEvidenceCaptureTree"],
+        "preservation.identities.packagedEvidenceCaptureTree",
+    )
+    require_exact_keys(
+        claimed_packaged_capture_tree, {"byteCount", "fileCount", "sha256"},
+        "preservation.identities.packagedEvidenceCaptureTree",
+    )
+    require_integer(claimed_packaged_capture_tree["byteCount"], "preservation packaged capture bytes", 1)
+    require_integer(claimed_packaged_capture_tree["fileCount"], "preservation packaged capture files", 1)
+    require_hex(claimed_packaged_capture_tree["sha256"], 64, "preservation packaged capture SHA")
+    packaged_candidate = validate_quality_package_identity(
+        report_identities["packagedCandidateIdentity"], candidate
+    )
 
     lane_contract_path = preservation_binding_path(
         evidence_root, entry, sealed_paths, "/identities/laneContractSHA256"
@@ -3182,8 +4598,11 @@ def validate_preservation(
     if sha256(lane_contract_path) != report_identities["laneContractSHA256"]:
         raise QualificationError("preservation lane contract identity mismatch")
     lane_capture = require_mapping(lane_contract.get("capture"), "preservation lane contract.capture")
+    media_tool_paths: dict[str, Path] = {}
     for identity_key in (
-        "captureSourceSHA256", "fixtureSourceSHA256", "evaluatorSHA256", "runnerSHA256"
+        "captureSourceSHA256", "fixtureSourceSHA256", "evaluatorSHA256",
+        "runnerSHA256", "packagedEvidenceToolSHA256",
+        "releaseCandidateArchiveToolSHA256", "observerSourceSHA256",
     ):
         if require_hex(lane_capture.get(identity_key), 64, f"preservation lane contract.capture.{identity_key}") != report_identities[identity_key]:
             raise QualificationError(f"preservation lane tool identity mismatch: {identity_key}")
@@ -3192,6 +4611,82 @@ def validate_preservation(
         )
         if sha256(tool_path) != report_identities[identity_key]:
             raise QualificationError(f"preservation bound tool differs: {identity_key}")
+        media_tool_paths[identity_key] = tool_path
+
+    media_replay = load_locked_media_evaluator(
+        media_tool_paths["evaluatorSHA256"]
+    )
+    try:
+        replayed_report = media_replay.verify_evidence(report_path.parent)
+    except media_replay.EvidenceError as error:
+        raise QualificationError(
+            f"release-locked media semantic replay failed: {error}"
+        ) from error
+    if canonical_bytes(replayed_report) != canonical_bytes(report):
+        raise QualificationError(
+            "release-locked media replay report differs byte-for-byte"
+        )
+
+    archive_path = preservation_binding_path(
+        evidence_root,
+        entry,
+        sealed_paths,
+        "/identities/packagedCandidateIdentity/applicationArchiveSHA256",
+    )
+    attestation_path = preservation_binding_path(
+        evidence_root,
+        entry,
+        sealed_paths,
+        "/identities/packagedCandidateIdentity/attestationSHA256",
+    )
+    if sha256(archive_path) != packaged_candidate["applicationArchiveSHA256"]:
+        raise QualificationError("preservation packaged archive identity differs")
+    attestation_bytes = attestation_path.read_bytes()
+    if sha256_bytes(attestation_bytes) != packaged_candidate["attestationSHA256"]:
+        raise QualificationError("preservation packaged attestation identity differs")
+    attestation = require_mapping(
+        load_json(attestation_path), "preservation packaged attestation"
+    )
+    if canonical_bytes(attestation) != attestation_bytes:
+        raise QualificationError("preservation packaged attestation is noncanonical")
+    application = require_mapping(
+        attestation.get("application"), "preservation attested application"
+    )
+    source = require_mapping(
+        attestation.get("source"), "preservation attested source"
+    )
+    runtime = require_mapping(
+        attestation.get("runtime"), "preservation attested runtime"
+    )
+    release = require_mapping(
+        attestation.get("releaseConfiguration"),
+        "preservation attested release configuration",
+    )
+    if (
+        attestation.get("schemaVersion")
+        != "mirmir-v4-release-build-attestation-v1"
+        or attestation.get("buildConfiguration") != "Release"
+        or attestation.get("hashAlgorithm") != "sha256"
+        or source.get("commit") != candidate["sourceCommit"]
+        or source.get("treeIdentitySHA256")
+        != candidate["sourceTreeIdentitySHA256"]
+        or runtime.get("manifestSHA256")
+        != candidate["runtimeManifestSHA256"]
+        or runtime.get("manifestFileSHA256")
+        != candidate["runtimeManifestFileSHA256"]
+        or runtime.get("artifactSetSHA256")
+        != candidate["runtimeArtifactSetSHA256"]
+        or runtime.get("sourceRevision")
+        != candidate["runtimeSourceRevision"]
+        or release.get("sha256")
+        != candidate["releaseConfigurationSHA256"]
+        or application.get("bundleIdentifier") != candidate["bundleIdentifier"]
+        or application.get("productVersion") != candidate["productVersion"]
+        or application.get("productBuild") != candidate["productBuild"]
+    ):
+        raise QualificationError(
+            "preservation packaged attestation differs from candidate"
+        )
 
     lane_fixtures = require_list(lane_contract.get("fixtures"), "preservation lane contract.fixtures")
     expected_fixtures: dict[str, dict[str, Any]] = {}
@@ -3205,9 +4700,37 @@ def validate_preservation(
         if not coverage or len(coverage) != len(set(coverage)):
             raise QualificationError(f"preservation lane contract coverage is empty/repeated: {identifier}")
         policy = require_string(lane_fixture["policy"], f"preservation lane contract {identifier}.policy")
-        if policy not in {"p010_field_normalization", "alpha_geometry", "exact_pass_through"}:
+        if policy not in {
+            "p010_field_normalization",
+            "alpha_geometry",
+            "process_primary_preserve_auxiliary",
+        }:
             raise QualificationError(f"preservation lane contract policy is invalid: {identifier}")
         expected_fixtures[identifier] = lane_fixture
+
+    runtime_manifest_path = preservation_binding_path(
+        evidence_root,
+        entry,
+        sealed_paths,
+        "/candidate/runtimeManifestFileSHA256",
+    )
+    runtime_manifest = require_mapping(
+        load_json(runtime_manifest_path), "preservation runtime manifest"
+    )
+    runtime_provenance = require_mapping(
+        runtime_manifest.get("provenance"),
+        "preservation runtime manifest provenance",
+    )
+    if (
+        sha256(runtime_manifest_path) != candidate["runtimeManifestFileSHA256"]
+        or sha256_bytes(
+            b"ash-p06-runtime-manifest-v4\0" + canonical_bytes(runtime_manifest)
+        ) != candidate["runtimeManifestSHA256"]
+    ):
+        raise QualificationError("preservation runtime manifest binding differs")
+    runtime_provenance_sha256 = sha256_bytes(
+        b"ash-p06-runtime-provenance-v4\0" + canonical_bytes(runtime_provenance)
+    )
 
     capture_path = preservation_binding_path(
         evidence_root, entry, sealed_paths, "/identities/captureSHA256"
@@ -3216,39 +4739,111 @@ def validate_preservation(
     require_exact_keys(
         capture,
         {
-            "schemaVersion", "suiteID", "laneContractSHA256", "releaseContractSHA256",
-            "candidate", "identities", "buildConfiguration", "fixtures",
+            "schemaVersion", "suiteID", "evidenceRequestSHA256",
+            "evidenceNonceSHA256", "observerSourceSHA256",
+            "laneContractSHA256", "fixtureManifestSHA256",
+            "fixtureTreeSHA256", "fixtureSourceSHA256",
+            "generatorSourceSHA256", "packagedCandidateIdentity",
+            "buildConfiguration", "fixtures",
         },
         "preservation raw capture",
     )
-    if capture["schemaVersion"] != "mirmir-ash-v4-media-preservation-capture-v1" or capture["suiteID"] != lane_contract.get("suiteID"):
+    if capture["schemaVersion"] != MEDIA_CAPTURE_SCHEMA or capture["suiteID"] != lane_contract.get("suiteID"):
         raise QualificationError("preservation raw capture schema/suite mismatch")
-    if capture["laneContractSHA256"] != report_identities["laneContractSHA256"] or capture["releaseContractSHA256"] != contract_sha:
-        raise QualificationError("preservation raw capture contract identities differ")
-    if capture["candidate"] != candidate or capture["buildConfiguration"] != "Release":
+    if (
+        capture["laneContractSHA256"] != report_identities["laneContractSHA256"]
+        or capture["packagedCandidateIdentity"] != packaged_candidate
+        or capture["buildConfiguration"] != "Release"
+        or capture["observerSourceSHA256"]
+            != report_identities["observerSourceSHA256"]
+        or capture["fixtureSourceSHA256"]
+            != report_identities["fixtureSourceSHA256"]
+        or capture["generatorSourceSHA256"]
+            != report_identities["captureSourceSHA256"]
+    ):
         raise QualificationError("preservation raw capture belongs to another candidate/configuration")
-    expected_capture_identities = {
-        "captureSourceSHA256": report_identities["captureSourceSHA256"],
-        "fixtureSourceSHA256": report_identities["fixtureSourceSHA256"],
-        "evaluatorSHA256": report_identities["evaluatorSHA256"],
-        "runnerSHA256": report_identities["runnerSHA256"],
-        "sourceCommit": candidate["sourceCommit"],
-        "sourceTreeIdentitySHA256": candidate["sourceTreeIdentitySHA256"],
-        "runtimeManifestSHA256": candidate["runtimeManifestSHA256"],
-        "runtimeManifestFileSHA256": candidate["runtimeManifestFileSHA256"],
-        "runtimeArtifactSetSHA256": candidate["runtimeArtifactSetSHA256"],
-        "runtimeSourceRevision": candidate["runtimeSourceRevision"],
-        "releaseConfigurationSHA256": candidate["releaseConfigurationSHA256"],
-    }
-    if capture["identities"] != expected_capture_identities:
-        raise QualificationError("preservation raw capture candidate/tool identities differ")
+    packaged_root = capture_path.parent.parent
+    if capture_path.parent.name != "capture" or packaged_root.name != "raw-capture":
+        raise QualificationError("preservation packaged capture path differs")
+    observed_capture_tree = packaged_capture_tree(capture_path.parent)
+    if observed_capture_tree != claimed_packaged_capture_tree:
+        raise QualificationError("preservation packaged capture tree differs")
+    request_path = packaged_root / "observer" / "request.json"
+    result_path = packaged_root / "observer" / "result.json"
+    record_path = packaged_root / "capture-record.json"
+    for path, name in (
+        (request_path, "request"), (result_path, "result"),
+        (record_path, "capture record"),
+    ):
+        if not path.is_file() or path.resolve() not in sealed_paths:
+            raise QualificationError(f"preservation packaged {name} is absent/unsealed")
+    request = require_mapping(load_json(request_path), "preservation packaged request")
+    require_exact_keys(request, {
+        "schemaVersion", "lane", "requestID", "nonce", "generatedAtUTC",
+        "observerSourceSHA256", "contractSHA256", "packageIdentity",
+        "captureEnvironment",
+    }, "preservation packaged request")
+    request_sha256 = sha256(request_path)
+    if (
+        request["schemaVersion"] != "mirmir-v4-packaged-evidence-request-v1"
+        or request["lane"] != "media"
+        or request["observerSourceSHA256"]
+            != report_identities["observerSourceSHA256"]
+        or request["contractSHA256"] != report_identities["laneContractSHA256"]
+        or request["packageIdentity"] != packaged_candidate
+        or request_sha256 != report_identities["packagedEvidenceRequestSHA256"]
+        or request_sha256 != capture["evidenceRequestSHA256"]
+        or sha256_bytes(
+            require_string(request["nonce"], "preservation request nonce").encode()
+        ) != capture["evidenceNonceSHA256"]
+    ):
+        raise QualificationError("preservation packaged request binding differs")
+    environment = require_mapping(
+        request["captureEnvironment"], "preservation packaged request environment"
+    )
+    for key, expected in (
+        ("MIRMIR_V4_MEDIA_CONTRACT_SHA256", capture["laneContractSHA256"]),
+        ("MIRMIR_V4_MEDIA_FIXTURE_MANIFEST_SHA256", capture["fixtureManifestSHA256"]),
+        ("MIRMIR_V4_MEDIA_FIXTURE_TREE_SHA256", capture["fixtureTreeSHA256"]),
+        ("MIRMIR_V4_MEDIA_FIXTURE_SOURCE_SHA256", capture["fixtureSourceSHA256"]),
+        ("MIRMIR_V4_MEDIA_GENERATOR_SOURCE_SHA256", capture["generatorSourceSHA256"]),
+        ("MIRMIR_V4_MEDIA_SOURCE_COMMIT", candidate["sourceCommit"]),
+        ("MIRMIR_V4_MEDIA_SOURCE_TREE_SHA256", candidate["sourceTreeIdentitySHA256"]),
+    ):
+        if environment.get(key) != expected:
+            raise QualificationError(
+                f"preservation packaged request environment differs: {key}"
+            )
+    result = require_mapping(load_json(result_path), "preservation packaged result")
+    record = require_mapping(load_json(record_path), "preservation packaged capture record")
+    if (
+        result.get("schemaVersion") != "mirmir-v4-packaged-evidence-result-v1"
+        or result.get("lane") != "media"
+        or result.get("requestSHA256") != request_sha256
+        or result.get("observerSourceSHA256")
+            != report_identities["observerSourceSHA256"]
+        or result.get("contractSHA256") != report_identities["laneContractSHA256"]
+        or result.get("packageIdentity") != packaged_candidate
+        or result.get("captureTree") != observed_capture_tree
+        or record.get("lane") != "media"
+        or record.get("requestSHA256") != request_sha256
+        or record.get("captureTree") != observed_capture_tree
+        or require_mapping(record.get("process"), "preservation record process").get("executableSHA256")
+            != packaged_candidate["applicationExecutableSHA256"]
+        or record["process"].get("exitStatus") != 0
+    ):
+        raise QualificationError("preservation packaged result/record differs")
     raw_fixtures_list = require_list(capture["fixtures"], "preservation raw capture.fixtures")
     raw_fixtures: dict[str, dict[str, Any]] = {}
     for index, raw_value in enumerate(raw_fixtures_list):
         raw_fixture = require_mapping(raw_value, f"preservation raw capture.fixtures[{index}]")
         require_exact_keys(
             raw_fixture,
-            {"id", "coverage", "policy", "enabledInputTrackCount", "accountedOutputTrackCount", "production", "input", "output"},
+            {
+                "id", "coverage", "policy", "enabledInputTrackCount",
+                "accountedOutputTrackCount", "alphaOracleInput",
+                "production", "input", "output",
+            },
             f"preservation raw capture.fixtures[{index}]",
         )
         identifier = require_string(raw_fixture["id"], f"preservation raw capture.fixtures[{index}].id")
@@ -3279,6 +4874,7 @@ def validate_preservation(
                 "geometryMismatchCount",
                 "metadataMismatchCount",
                 "exactSemanticVerifierPass",
+                "productionRouteProofSHA256",
                 "inputManifestArtifact",
                 "outputManifestArtifact",
                 "semanticVerifierArtifact",
@@ -3318,17 +4914,11 @@ def validate_preservation(
             if require_integer(fixture[key], f"preservation {identifier}.{key}") != 0:
                 raise QualificationError(f"preservation violation {key}: {identifier}")
         require_bool(fixture["exactSemanticVerifierPass"], f"preservation {identifier}.verifier", True)
-
-        production = require_mapping(raw_fixture["production"], f"preservation raw {identifier}.production")
-        require_exact_keys(
-            production,
-            {"releaseQualifiedRuntimeLoaded", "runtimeManifestSHA256", "trustRootConfigured", "requestedRouteExecutedWithoutFallback", "migrationConformant", "repeatedOutputIdentityPass"},
-            f"preservation raw {identifier}.production",
+        require_hex(
+            fixture["productionRouteProofSHA256"],
+            64,
+            f"preservation {identifier}.productionRouteProofSHA256",
         )
-        for key in ("releaseQualifiedRuntimeLoaded", "trustRootConfigured", "requestedRouteExecutedWithoutFallback", "migrationConformant", "repeatedOutputIdentityPass"):
-            require_bool(production[key], f"preservation raw {identifier}.production.{key}", True)
-        if production["runtimeManifestSHA256"] != candidate["runtimeManifestSHA256"]:
-            raise QualificationError(f"preservation raw fixture used another runtime: {identifier}")
 
         input_side = validate_media_side_manifest(
             evidence_root, fixture["inputManifestArtifact"], sealed_paths, identifier, "input"
@@ -3351,7 +4941,31 @@ def validate_preservation(
                 if raw_identity != copied_descriptor["sha256"] or raw_path.stat().st_size != copied_descriptor["byteCount"]:
                     raise QualificationError(f"preservation raw/copied artifact identity differs: {identifier}.{side_name}.{artifact_name}")
 
-        recomputed_checks = recompute_media_fixture(
+        validate_preservation_alpha_oracle(
+            identifier,
+            raw_fixture["alphaOracleInput"],
+            capture_root,
+            sealed_paths,
+            input_side,
+            output_side,
+        )
+        production_route_sha = validate_preservation_production_route(
+            identifier,
+            raw_fixture["production"],
+            candidate,
+            capture,
+            runtime_provenance_sha256,
+            input_side,
+            output_side,
+        )
+        if fixture["productionRouteProofSHA256"] != production_route_sha:
+            raise QualificationError(
+                f"preservation {identifier} report/route proof differs"
+            )
+        recomputed_checks = [{
+            "id": "video-processing-session-deterministic-v4-route",
+            "pass": True,
+        }] + recompute_media_fixture(
             identifier, lane_fixture["policy"], coverage_values, input_side, output_side
         )
         verifier_path, _ = validate_sealed_artifact(
@@ -3362,13 +4976,17 @@ def validate_preservation(
         verifier = require_mapping(load_json(verifier_path), f"preservation {identifier}.semanticVerifier")
         require_exact_keys(
             verifier,
-            {"schemaVersion", "fixtureID", "policy", "coverage", "candidateRuntimeManifestSHA256", "inputManifestSHA256", "outputManifestSHA256", "checks", "violationCounts", "exactSemanticVerifierPass"},
+            {"schemaVersion", "fixtureID", "policy", "coverage", "candidateRuntimeManifestSHA256", "inputManifestSHA256", "outputManifestSHA256", "productionRouteProofSHA256", "checks", "violationCounts", "exactSemanticVerifierPass"},
             f"preservation {identifier}.semanticVerifier",
         )
         if verifier["schemaVersion"] != MEDIA_SEMANTIC_VERIFIER_SCHEMA or verifier["fixtureID"] != identifier or verifier["policy"] != lane_fixture["policy"] or verifier["coverage"] != coverage_values:
             raise QualificationError(f"preservation semantic verifier provenance differs: {identifier}")
         if verifier["candidateRuntimeManifestSHA256"] != candidate["runtimeManifestSHA256"] or verifier["inputManifestSHA256"] != sha256(input_side["manifestPath"]) or verifier["outputManifestSHA256"] != sha256(output_side["manifestPath"]):
             raise QualificationError(f"preservation semantic verifier bindings differ: {identifier}")
+        if verifier["productionRouteProofSHA256"] != production_route_sha:
+            raise QualificationError(
+                f"preservation semantic verifier route binding differs: {identifier}"
+            )
         if verifier["checks"] != recomputed_checks:
             raise QualificationError(f"preservation semantic verifier checks differ from independent recomputation: {identifier}")
         violations = require_mapping(verifier["violationCounts"], f"preservation {identifier}.violationCounts")
@@ -3414,103 +5032,46 @@ def recovery_binding_path(
     return path
 
 
-def validate_recovery_semantic(path: Path, label: str) -> dict[str, Any]:
-    semantic = require_mapping(load_json(path), label)
-    require_exact_keys(
-        semantic,
-        {
-            "allRequiredChecksPassed",
-            "decodedVisiblePixelSHA256",
-            "duration",
-            "presentationTimelineSHA256",
-            "sampleCount",
-            "schemaVersion",
-            "trackGraphSHA256",
-        },
-        label,
+def load_locked_recovery_evaluator(path: Path) -> types.ModuleType:
+    """Load the evaluator only after its trusted hash binding is established."""
+
+    module_name = (
+        "recovery_qualification_v4_for_release_qualification_" + sha256(path)
     )
-    if semantic["schemaVersion"] != RECOVERY_SEMANTIC_SCHEMA:
-        raise QualificationError(f"{label} schema differs")
-    require_bool(
-        semantic["allRequiredChecksPassed"],
-        f"{label}.allRequiredChecksPassed",
-        True,
-    )
-    for key in (
-        "decodedVisiblePixelSHA256",
-        "presentationTimelineSHA256",
-        "trackGraphSHA256",
-    ):
-        require_hex(semantic[key], 64, f"{label}.{key}")
-    require_integer(semantic["sampleCount"], f"{label}.sampleCount", 1)
-    duration = require_mapping(semantic["duration"], f"{label}.duration")
-    require_exact_keys(duration, {"value", "timescale"}, f"{label}.duration")
-    if isinstance(duration["value"], bool) or not isinstance(duration["value"], int):
-        raise QualificationError(f"{label}.duration.value must be an integer")
-    require_integer(duration["timescale"], f"{label}.duration.timescale", 1)
-    return semantic
+    specification = importlib.util.spec_from_file_location(module_name, path)
+    if specification is None or specification.loader is None:
+        raise QualificationError("cannot load the locked recovery evaluator")
+    module = importlib.util.module_from_spec(specification)
+    sys.modules[module_name] = module
+    try:
+        specification.loader.exec_module(module)
+    except Exception as error:
+        sys.modules.pop(module_name, None)
+        raise QualificationError(
+            f"locked recovery evaluator could not load: {error}"
+        ) from error
+    return module
 
 
-def validate_recovery_transcript(
-    path: Path,
-    expected: Mapping[str, Any],
-    label: str,
-) -> None:
-    transcript = require_mapping(load_json(path), label)
-    require_exact_keys(
-        transcript,
-        {
-            "coverageID",
-            "events",
-            "faultObserved",
-            "id",
-            "injectionPoint",
-            "reopenedDurableState",
-            "schemaVersion",
-            "terminalDisposition",
-        },
-        label,
+def load_locked_p06_evaluator(path: Path) -> types.ModuleType:
+    """Load P06 causal verification only after its release lock is proven."""
+
+    module_name = (
+        "p06_reproduction_v4_for_release_qualification_" + sha256(path)
     )
-    if transcript["schemaVersion"] != RECOVERY_TRANSCRIPT_SCHEMA:
-        raise QualificationError(f"{label} schema differs")
-    for key in ("id", "coverageID", "injectionPoint"):
-        if transcript[key] != expected[key]:
-            raise QualificationError(f"{label}.{key} differs")
-    require_bool(transcript["faultObserved"], f"{label}.faultObserved", True)
-    require_bool(
-        transcript["reopenedDurableState"],
-        f"{label}.reopenedDurableState",
-        True,
-    )
-    expected_terminal = (
-        "completed"
-        if expected["outcome"] == "identical_resumed_output"
-        else "contained"
-    )
-    if transcript["terminalDisposition"] != expected_terminal:
-        raise QualificationError(f"{label}.terminalDisposition differs")
-    events = require_list(transcript["events"], f"{label}.events")
-    expected_operations = [
-        "prepare_durable_state",
-        "inject_fault",
-        "reopen_durable_state",
-    ]
-    if len(events) != len(expected_operations):
-        raise QualificationError(f"{label} must contain the exact fault/reopen event sequence")
-    for index, expected_operation in enumerate(expected_operations):
-        event = require_mapping(events[index], f"{label}.events[{index}]")
-        require_exact_keys(
-            event,
-            {"durableStateSHA256", "operation", "sequence"},
-            f"{label}.events[{index}]",
-        )
-        if event["sequence"] != index or event["operation"] != expected_operation:
-            raise QualificationError(f"{label} event sequence differs")
-        require_hex(
-            event["durableStateSHA256"],
-            64,
-            f"{label}.events[{index}].durableStateSHA256",
-        )
+    specification = importlib.util.spec_from_file_location(module_name, path)
+    if specification is None or specification.loader is None:
+        raise QualificationError("cannot load the locked P06 evaluator")
+    module = importlib.util.module_from_spec(specification)
+    sys.modules[module_name] = module
+    try:
+        specification.loader.exec_module(module)
+    except Exception as error:
+        sys.modules.pop(module_name, None)
+        raise QualificationError(
+            f"locked P06 evaluator could not load: {error}"
+        ) from error
+    return module
 
 
 def validate_recovery(
@@ -3522,20 +5083,16 @@ def validate_recovery(
     evidence_root: Path,
     sealed_paths: set[Path],
 ) -> dict[str, Any]:
+    """Recompute the two archived-executable recovery captures for M7."""
+
     label = "recovery"
-    validate_common_report(
-        report,
-        candidate,
-        contract["evidenceSchemas"][label],
-        contract_sha,
-        label,
-    )
     require_exact_keys(
         report,
         {
-            "candidate",
-            "capture",
+            "captureManifestSHA256",
+            "captures",
             "contractSHA256",
+            "execution",
             "identities",
             "recoveryGatePass",
             "releaseEligible",
@@ -3544,599 +5101,675 @@ def validate_recovery(
         },
         "recovery report",
     )
-
-    identities = require_mapping(report["identities"], "recovery.identities")
-    require_exact_keys(
-        identities,
-        {"captureSourceSHA256", "evaluatorSHA256", "runnerSHA256"},
-        "recovery.identities",
-    )
-    for key, value in identities.items():
-        require_hex(value, 64, f"recovery.identities.{key}")
-
-    suite_manifest_path, _ = validate_artifact(
-        evidence_root,
-        entry["sealedManifest"],
-        "recovery sealed manifest",
-    )
-    suite_manifest = require_mapping(
-        load_json(suite_manifest_path), "recovery sealed manifest document"
-    )
-    require_exact_keys(
-        suite_manifest,
-        {"artifactSetSHA256", "artifacts", "schemaVersion"},
-        "recovery sealed manifest document",
-    )
-    if suite_manifest["schemaVersion"] != RECOVERY_SUITE_MANIFEST_SCHEMA:
-        raise QualificationError("recovery sealed manifest schema differs")
-    suite_artifacts = require_list(
-        suite_manifest["artifacts"], "recovery sealed manifest artifacts"
-    )
-    suite_paths = [
-        require_string(item.get("path") if isinstance(item, dict) else None, f"recovery sealed manifest artifacts[{index}].path")
-        for index, item in enumerate(suite_artifacts)
-    ]
-    if suite_paths != sorted(suite_paths):
-        raise QualificationError("recovery sealed manifest artifacts are not sorted")
-    if require_hex(
-        suite_manifest["artifactSetSHA256"],
-        64,
-        "recovery sealed manifest artifactSetSHA256",
-    ) != recovery_artifact_set_sha(suite_artifacts):
-        raise QualificationError("recovery sealed manifest artifact set differs")
-
-    for pointer in (
-        "/contractSHA256",
-        "/candidate/runtimeManifestFileSHA256",
-        "/candidate/releaseConfigurationSHA256",
+    if (
+        report["schemaVersion"] != contract["evidenceSchemas"][label]
+        or report["schemaVersion"] != RECOVERY_REPORT_SCHEMA
+        or report["contractSHA256"] != contract_sha
     ):
-        recovery_binding_path(evidence_root, entry, sealed_paths, pointer)
-    lane_contract_path = recovery_binding_path(
-        evidence_root, entry, sealed_paths, "/contractSHA256"
+        raise QualificationError("recovery report schema or contract differs")
+    require_bool(report["releaseEligible"], "recovery.releaseEligible", True)
+    require_bool(
+        report["recoveryGatePass"], "recovery.recoveryGatePass", True
     )
-    lane_contract = require_mapping(
-        load_json(lane_contract_path), "recovery lane contract"
-    )
-    require_exact_keys(
-        lane_contract,
-        {
-            "artifactSchemas",
-            "buildConfiguration",
-            "capture",
-            "hashAlgorithm",
-            "scenarios",
-            "schemaVersion",
-            "semanticVerification",
-            "suiteID",
-        },
-        "recovery lane contract",
-    )
-    if lane_contract["schemaVersion"] != RECOVERY_LANE_CONTRACT_SCHEMA:
-        raise QualificationError("recovery lane contract schema differs")
-    if lane_contract["hashAlgorithm"] != "sha256":
-        raise QualificationError("recovery lane contract hash algorithm differs")
-    if lane_contract["buildConfiguration"] != "Release":
-        raise QualificationError("recovery lane contract is not Release")
-    require_string(lane_contract["suiteID"], "recovery lane contract.suiteID")
-    expected_artifact_schemas = {
-        "capture": RECOVERY_CAPTURE_SCHEMA,
-        "captureManifest": RECOVERY_CAPTURE_MANIFEST_SCHEMA,
-        "report": contract["evidenceSchemas"][label],
-        "scenarioEvidence": RECOVERY_SCENARIO_SCHEMA,
-        "semanticManifest": RECOVERY_SEMANTIC_SCHEMA,
-        "suiteManifest": RECOVERY_SUITE_MANIFEST_SCHEMA,
-        "transcript": RECOVERY_TRANSCRIPT_SCHEMA,
+
+    report_path = checked_path(evidence_root, entry["path"], "recovery report")
+    role_root = report_path.parent
+    identities = require_mapping(report["identities"], "recovery.identities")
+    expected_identity_keys = {
+        "archiveProvenanceSHA256",
+        "evaluatorSHA256",
+        "observerSourceSHA256",
+        "packagedEvidenceSHA256",
+        "producerSourceSHA256",
+        "runnerSHA256",
     }
-    artifact_schemas = require_mapping(
-        lane_contract["artifactSchemas"], "recovery lane contract.artifactSchemas"
+    require_exact_keys(
+        identities, expected_identity_keys, "recovery.identities"
+    )
+    locked_contract_sha = require_hex(
+        contract.get("recoveryLaneContractSHA256"),
+        64,
+        "recoveryLaneContractSHA256",
+    )
+    if locked_contract_sha != contract_sha:
+        raise QualificationError(
+            "recovery lane contract identity is not release-locked"
+        )
+    locked_sources = require_mapping(
+        contract.get("recoveryLockedSources"), "recoveryLockedSources"
     )
     require_exact_keys(
-        artifact_schemas,
-        set(expected_artifact_schemas),
-        "recovery lane contract.artifactSchemas",
+        locked_sources,
+        expected_identity_keys,
+        "recoveryLockedSources",
     )
-    if artifact_schemas != expected_artifact_schemas:
-        raise QualificationError("recovery lane contract artifact schemas differ")
-    semantic_requirements = require_mapping(
-        lane_contract["semanticVerification"],
-        "recovery lane contract.semanticVerification",
-    )
-    require_exact_keys(
-        semantic_requirements,
-        {
-            "requireByteIdentity",
-            "requireDecodedVisiblePixelIdentity",
-            "requireExactPresentationTimeline",
-            "requireTrackGraphIdentity",
-        },
-        "recovery lane contract.semanticVerification",
-    )
-    for key, value in semantic_requirements.items():
-        require_bool(value, f"recovery lane contract.semanticVerification.{key}", True)
-
-    required_coverage = require_list(
-        contract["recoveryCoverage"], "release contract.recoveryCoverage"
-    )
-    lane_scenarios = require_list(
-        lane_contract["scenarios"], "recovery lane contract.scenarios"
-    )
-    if len(lane_scenarios) != len(required_coverage):
-        raise QualificationError("recovery lane contract scenario count differs")
-    expected_scenarios: list[dict[str, Any]] = []
-    scenario_ids: set[str] = set()
-    lane_coverage: list[str] = []
-    for index, item in enumerate(lane_scenarios):
-        scenario = require_mapping(
-            item, f"recovery lane contract.scenarios[{index}]"
+    tool_paths: dict[str, Path] = {}
+    for report_key in expected_identity_keys:
+        require_hex(identities[report_key], 64, f"recovery.{report_key}")
+        require_hex(
+            locked_sources[report_key],
+            64,
+            f"recoveryLockedSources.{report_key}",
         )
-        require_exact_keys(
-            scenario,
-            {"containedFailureCode", "coverageID", "id", "injectionPoint", "outcome"},
-            f"recovery lane contract.scenarios[{index}]",
-        )
-        identifier = require_string(
-            scenario["id"], f"recovery lane contract.scenarios[{index}].id"
-        )
-        if (
-            identifier in scenario_ids
-            or any(character not in "abcdefghijklmnopqrstuvwxyz0123456789-" for character in identifier)
-        ):
-            raise QualificationError(f"recovery lane scenario identifier is unsafe/repeated: {identifier}")
-        scenario_ids.add(identifier)
-        coverage_id = require_string(
-            scenario["coverageID"],
-            f"recovery lane contract.scenarios[{index}].coverageID",
-        )
-        lane_coverage.append(coverage_id)
-        require_string(
-            scenario["injectionPoint"],
-            f"recovery lane contract.scenarios[{index}].injectionPoint",
-        )
-        outcome = scenario["outcome"]
-        if outcome == "identical_resumed_output":
-            if scenario["containedFailureCode"] is not None:
-                raise QualificationError(
-                    f"recovery identical scenario has a failure code: {identifier}"
-                )
-        elif outcome == "explicit_contained_failure":
-            require_string(
-                scenario["containedFailureCode"],
-                f"recovery lane contract.scenarios[{index}].containedFailureCode",
+        if identities[report_key] != locked_sources[report_key]:
+            raise QualificationError(
+                f"recovery source is not release-locked: {report_key}"
             )
-        else:
-            raise QualificationError(f"recovery scenario has unsupported outcome: {identifier}")
-        expected_scenarios.append(scenario)
-    if lane_coverage != required_coverage or len(set(required_coverage)) != len(required_coverage):
-        raise QualificationError("recovery lane contract coverage/order differs")
-
-    lane_capture = require_mapping(
-        lane_contract["capture"], "recovery lane contract.capture"
-    )
-    require_exact_keys(
-        lane_capture,
-        {"captureSourceSHA256", "evaluatorSourceSHA256", "runnerSourceSHA256"},
-        "recovery lane contract.capture",
-    )
-    tool_fields = (
-        ("captureSourceSHA256", "captureSourceSHA256"),
-        ("evaluatorSourceSHA256", "evaluatorSHA256"),
-        ("runnerSourceSHA256", "runnerSHA256"),
-    )
-    for lane_key, report_key in tool_fields:
-        lane_identity = require_hex(
-            lane_capture[lane_key], 64, f"recovery lane contract.capture.{lane_key}"
-        )
-        if lane_identity != identities[report_key]:
-            raise QualificationError(f"recovery lane tool identity differs: {report_key}")
-        tool_path = recovery_binding_path(
+        bound_tool = recovery_binding_path(
             evidence_root,
             entry,
             sealed_paths,
             f"/identities/{report_key}",
         )
-        if sha256(tool_path) != lane_identity:
-            raise QualificationError(f"recovery bound tool differs: {report_key}")
+        if sha256(bound_tool) != identities[report_key]:
+            raise QualificationError(
+                f"recovery sealed tool differs: {report_key}"
+            )
+        tool_paths[report_key] = bound_tool
 
-    capture_summary = require_mapping(report["capture"], "recovery.capture")
-    require_exact_keys(
-        capture_summary,
-        {
-            "artifactManifestSHA256",
-            "artifactSetSHA256",
-            "buildConfiguration",
-            "sourceCommit",
-            "sourceTreeSHA256",
-        },
-        "recovery.capture",
+    recovery_evaluator = load_locked_recovery_evaluator(
+        tool_paths["evaluatorSHA256"]
     )
-    for key in ("artifactManifestSHA256", "artifactSetSHA256", "sourceTreeSHA256"):
-        require_hex(capture_summary[key], 64, f"recovery.capture.{key}")
-    require_hex(capture_summary["sourceCommit"], 40, "recovery.capture.sourceCommit")
+    lane_contract_path = recovery_binding_path(
+        evidence_root,
+        entry,
+        sealed_paths,
+        "/contractSHA256",
+    )
+    try:
+        lane_contract, lane_contract_sha = recovery_evaluator.load_contract(
+            lane_contract_path,
+            verify_tools=False,
+        )
+    except recovery_evaluator.RecoveryEvidenceError as error:
+        raise QualificationError(
+            f"recovery lane contract failed closed: {error}"
+        ) from error
+    if lane_contract_sha != contract_sha:
+        raise QualificationError("recovery lane contract identity differs")
+
+    contract_identity_fields = {
+        "archiveProvenanceSHA256": "archiveProvenanceSourceSHA256",
+        "evaluatorSHA256": "evaluatorSourceSHA256",
+        "observerSourceSHA256": "observerSourceSHA256",
+        "packagedEvidenceSHA256": "packagedEvidenceSourceSHA256",
+        "producerSourceSHA256": "producerSourceSHA256",
+        "runnerSHA256": "runnerSourceSHA256",
+    }
+    lane_capture = require_mapping(
+        lane_contract["capture"], "recovery lane capture identities"
+    )
+    for report_key, contract_key in contract_identity_fields.items():
+        if identities[report_key] != lane_capture[contract_key]:
+            raise QualificationError(
+                f"recovery tool identity differs: {report_key}"
+            )
+
+    execution = require_mapping(report["execution"], "recovery.execution")
+    require_exact_keys(
+        execution,
+        {
+            "applicationArchiveExecuted",
+            "applicationArchiveSHA256",
+            "applicationExecutableSHA256",
+            "independentProcessCaptureCount",
+            "kind",
+            "runtimeManifestSHA256",
+            "sourceCommit",
+            "sourceTreeIdentitySHA256",
+        },
+        "recovery.execution",
+    )
     if (
-        capture_summary["buildConfiguration"] != "Release"
-        or capture_summary["sourceCommit"] != candidate["sourceCommit"]
-        or capture_summary["sourceTreeSHA256"] != candidate["sourceTreeIdentitySHA256"]
+        execution["kind"] != "archived_application_executable"
+        or execution["applicationArchiveExecuted"] is not True
+        or execution["independentProcessCaptureCount"] != 2
+        or execution["applicationArchiveSHA256"]
+        != candidate["appBundleSHA256"]
+        or execution["sourceCommit"] != candidate["sourceCommit"]
+        or execution["sourceTreeIdentitySHA256"]
+        != candidate["sourceTreeIdentitySHA256"]
+        or execution["runtimeManifestSHA256"]
+        != candidate["runtimeManifestSHA256"]
     ):
-        raise QualificationError("recovery capture summary belongs to another candidate/configuration")
+        raise QualificationError(
+            "recovery archived-executable candidate binding differs"
+        )
+    archive_path = recovery_binding_path(
+        evidence_root,
+        entry,
+        sealed_paths,
+        "/execution/applicationArchiveSHA256",
+    )
+    if sha256(archive_path) != candidate["appBundleSHA256"]:
+        raise QualificationError("recovery application archive differs")
 
     capture_manifest_path = recovery_binding_path(
         evidence_root,
         entry,
         sealed_paths,
-        "/capture/artifactManifestSHA256",
+        "/captureManifestSHA256",
     )
-    if capture_manifest_path.name != "artifact-manifest.json":
-        raise QualificationError("recovery capture manifest is not at its canonical path")
-    capture_root = capture_manifest_path.parent.resolve()
-    capture_manifest = require_mapping(
-        load_json(capture_manifest_path), "recovery capture artifact manifest"
-    )
-    require_exact_keys(
-        capture_manifest,
-        {"artifactSetSHA256", "artifacts", "schemaVersion"},
-        "recovery capture artifact manifest",
-    )
-    if capture_manifest["schemaVersion"] != RECOVERY_CAPTURE_MANIFEST_SCHEMA:
-        raise QualificationError("recovery capture manifest schema differs")
-    raw_descriptors = require_list(
-        capture_manifest["artifacts"], "recovery capture artifact manifest.artifacts"
-    )
-    if not raw_descriptors:
-        raise QualificationError("recovery capture artifact manifest is empty")
-    captured: dict[Path, dict[str, Any]] = {}
-    descriptor_paths: list[str] = []
-    for index, item in enumerate(raw_descriptors):
-        descriptor_value = require_mapping(
-            item, f"recovery capture artifact manifest.artifacts[{index}]"
-        )
-        path, _ = validate_artifact(
-            evidence_root,
-            descriptor_value,
-            f"recovery capture artifact manifest.artifacts[{index}]",
-        )
-        if path == capture_root or capture_root not in path.parents:
-            raise QualificationError("recovery capture artifact escapes capture root")
-        if path == capture_manifest_path or path not in sealed_paths:
-            raise QualificationError("recovery capture artifact is unsealed or self-referential")
-        if descriptor_value["byteCount"] < 1:
-            raise QualificationError("recovery capture artifact must be nonempty")
-        if path in captured:
-            raise QualificationError("recovery capture manifest repeats an artifact")
-        captured[path] = descriptor_value
-        descriptor_paths.append(descriptor_value["path"])
-    if descriptor_paths != sorted(descriptor_paths):
-        raise QualificationError("recovery capture artifacts are not sorted")
-    actual_capture_files = {
-        path.resolve()
-        for path in capture_root.rglob("*")
-        if path.is_file() and path.resolve() != capture_manifest_path
-    }
-    if set(captured) != actual_capture_files:
-        raise QualificationError("recovery capture file set differs from its manifest")
-    capture_artifact_set = recovery_artifact_set_sha(raw_descriptors)
-    if require_hex(
-        capture_manifest["artifactSetSHA256"],
-        64,
-        "recovery capture artifact manifest.artifactSetSHA256",
-    ) != capture_artifact_set:
-        raise QualificationError("recovery capture artifact set differs")
-    if (
-        capture_summary["artifactManifestSHA256"] != sha256(capture_manifest_path)
-        or capture_summary["artifactSetSHA256"] != capture_artifact_set
-    ):
-        raise QualificationError("recovery report capture manifest identity differs")
+    if sha256(capture_manifest_path) != report["captureManifestSHA256"]:
+        raise QualificationError("recovery capture manifest identity differs")
 
-    def capture_artifact(
+    def sealed_record_artifact(
+        process_root: Path,
         value: Any,
         artifact_label: str,
-        canonical_path: Path,
-    ) -> tuple[Path, str]:
-        path, artifact_identity = validate_sealed_artifact(
-            evidence_root, value, sealed_paths, artifact_label
+    ) -> Path:
+        path, _ = validate_artifact(
+            process_root,
+            value,
+            artifact_label,
         )
-        if path != canonical_path.resolve() or path not in captured:
-            raise QualificationError(f"{artifact_label} is not at its canonical captured path")
-        if require_mapping(value, artifact_label) != captured[path]:
-            raise QualificationError(f"{artifact_label} differs from the capture manifest")
-        return path, artifact_identity
+        if path not in sealed_paths:
+            raise QualificationError(
+                f"{artifact_label} is outside the sealed recovery suite"
+            )
+        return path
 
-    capture_path = (capture_root / "capture.json").resolve()
-    if capture_path not in captured:
-        raise QualificationError("recovery capture.json is absent from the capture manifest")
-    capture_document = require_mapping(load_json(capture_path), "recovery raw capture")
-    require_exact_keys(
-        capture_document,
-        {
-            "buildConfiguration",
-            "captureSourceSHA256",
-            "contractSHA256",
-            "scenarios",
-            "schemaVersion",
-            "sourceCommit",
-            "sourceTreeSHA256",
-        },
-        "recovery raw capture",
-    )
-    if (
-        capture_document["schemaVersion"] != RECOVERY_CAPTURE_SCHEMA
-        or capture_document["contractSHA256"] != contract_sha
-        or capture_document["captureSourceSHA256"] != identities["captureSourceSHA256"]
-        or capture_document["buildConfiguration"] != "Release"
-        or capture_document["sourceCommit"] != candidate["sourceCommit"]
-        or capture_document["sourceTreeSHA256"] != candidate["sourceTreeIdentitySHA256"]
-    ):
-        raise QualificationError("recovery raw capture provenance differs")
-
-    environment_path = (capture_root / "environment.json").resolve()
-    execution_log_path = (capture_root / "xcodebuild.log").resolve()
-    if environment_path not in captured or execution_log_path not in captured:
-        raise QualificationError("recovery capture environment or execution log is missing")
-    environment = require_mapping(
-        load_json(environment_path), "recovery capture environment"
-    )
-    require_exact_keys(
-        environment,
-        {
-            "buildConfiguration",
-            "hardwareModel",
-            "macOSVersion",
-            "schemaVersion",
-            "xcodeVersion",
-        },
-        "recovery capture environment",
-    )
-    if (
-        environment["schemaVersion"] != "mirmir-v4-recovery-environment-v1"
-        or environment["buildConfiguration"] != "Release"
-    ):
-        raise QualificationError("recovery capture environment is not qualified Release evidence")
-    for key in ("hardwareModel", "macOSVersion", "xcodeVersion"):
-        require_string(environment[key], f"recovery capture environment.{key}")
-    try:
-        execution_log = execution_log_path.read_text(encoding="utf-8")
-    except (OSError, UnicodeError) as error:
-        raise QualificationError(f"cannot read recovery execution log: {error}") from error
-    if "** TEST SUCCEEDED **" not in execution_log:
-        raise QualificationError("recovery execution log does not prove test success")
-
-    report_scenarios = require_list(report["scenarios"], "recovery.scenarios")
-    captured_scenarios = require_list(
-        capture_document["scenarios"], "recovery raw capture.scenarios"
-    )
-    if len(report_scenarios) != len(expected_scenarios) or len(captured_scenarios) != len(expected_scenarios):
-        raise QualificationError("recovery scenario count differs")
-    referenced_paths: set[Path] = {capture_path, environment_path, execution_log_path}
-    identical = 0
-    contained = 0
-    for index, expected in enumerate(expected_scenarios):
-        identifier = expected["id"]
-        scenario_label = f"recovery scenario {identifier}"
-        report_scenario = require_mapping(
-            report_scenarios[index], f"recovery.scenarios[{index}]"
-        )
-        require_exact_keys(
-            report_scenario,
-            {
-                "containedFailureCode",
-                "coverage",
-                "externalEvidenceArtifact",
-                "id",
-                "outcome",
-                "ownedArtifactReconciled",
-                "referenceOutputArtifact",
-                "referenceOutputSHA256",
-                "referenceSemanticArtifact",
-                "referenceSemanticSHA256",
-                "resumedOutputArtifact",
-                "resumedOutputSHA256",
-                "resumedSemanticArtifact",
-                "resumedSemanticSHA256",
-                "unownedArtifactCount",
-            },
-            f"recovery.scenarios[{index}]",
-        )
+    def process_capture(
+        process_root: Path,
+        index: int,
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         if (
-            report_scenario["id"] != identifier
-            or report_scenario["coverage"] != [expected["coverageID"]]
-            or report_scenario["outcome"] != expected["outcome"]
-            or report_scenario["containedFailureCode"] != expected["containedFailureCode"]
+            not process_root.is_dir()
+            or process_root.is_symlink()
+            or role_root not in process_root.parents
         ):
-            raise QualificationError(f"{scenario_label} differs from the locked contract")
-        if require_integer(
-            report_scenario["unownedArtifactCount"],
-            f"{scenario_label}.unownedArtifactCount",
-        ) != 0:
-            raise QualificationError(f"recovery left unowned artifacts: {identifier}")
-        require_bool(
-            report_scenario["ownedArtifactReconciled"],
-            f"{scenario_label}.ownedArtifactReconciled",
-            True,
+            raise QualificationError("recovery process root is unsafe")
+        record_path = process_root / "capture-record.json"
+        if record_path.resolve(strict=True) not in sealed_paths:
+            raise QualificationError("recovery capture record is not sealed")
+        record = require_mapping(
+            load_json(record_path), f"recovery process {index} record"
         )
-
-        captured_scenario = require_mapping(
-            captured_scenarios[index], f"recovery raw capture.scenarios[{index}]"
-        )
+        if record_path.read_bytes() != canonical_bytes(record):
+            raise QualificationError("recovery capture record is not canonical")
         require_exact_keys(
-            captured_scenario,
-            {"externalEvidenceArtifact", "id"},
-            f"recovery raw capture.scenarios[{index}]",
-        )
-        if (
-            captured_scenario["id"] != identifier
-            or captured_scenario["externalEvidenceArtifact"]
-            != report_scenario["externalEvidenceArtifact"]
-        ):
-            raise QualificationError(f"{scenario_label} capture/report binding differs")
-        scenario_root = (capture_root / "scenarios" / identifier).resolve()
-        external_path, _ = capture_artifact(
-            report_scenario["externalEvidenceArtifact"],
-            f"{scenario_label}.externalEvidenceArtifact",
-            scenario_root / "evidence.json",
-        )
-        referenced_paths.add(external_path)
-        external = require_mapping(load_json(external_path), f"{scenario_label}.evidence")
-        require_exact_keys(
-            external,
+            record,
             {
-                "containedFailureCode",
-                "coverageID",
-                "faultInjected",
-                "id",
-                "injectionPoint",
-                "outcome",
-                "ownedArtifactReconciled",
-                "referenceOutputArtifact",
-                "referenceSemanticArtifact",
-                "resumedOutputArtifact",
-                "resumedSemanticArtifact",
+                "artifacts",
+                "captureTree",
+                "contractSHA256",
+                "finishedAtUTC",
+                "lane",
+                "observerSourceSHA256",
+                "packageIdentity",
+                "process",
+                "requestSHA256",
                 "schemaVersion",
-                "transcriptArtifact",
-                "unownedArtifactCount",
+                "startedAtUTC",
             },
-            f"{scenario_label}.evidence",
+            f"recovery process {index} record",
         )
-        if external["schemaVersion"] != RECOVERY_SCENARIO_SCHEMA:
-            raise QualificationError(f"{scenario_label} evidence schema differs")
-        for key in ("id", "coverageID", "injectionPoint", "outcome", "containedFailureCode"):
-            if external[key] != expected[key]:
-                raise QualificationError(f"{scenario_label}.{key} differs from the contract")
-        require_bool(external["faultInjected"], f"{scenario_label}.faultInjected", True)
-        require_bool(
-            external["ownedArtifactReconciled"],
-            f"{scenario_label}.evidence.ownedArtifactReconciled",
-            True,
+        if (
+            record["schemaVersion"]
+            != "mirmir-v4-packaged-evidence-capture-record-v1"
+            or record["lane"] != "recovery"
+            or record["contractSHA256"] != contract_sha
+            or record["observerSourceSHA256"]
+            != identities["observerSourceSHA256"]
+        ):
+            raise QualificationError(
+                f"recovery process {index} record binding differs"
+            )
+        require_string(
+            record["startedAtUTC"], f"recovery process {index}.startedAtUTC"
         )
-        if require_integer(
-            external["unownedArtifactCount"],
-            f"{scenario_label}.evidence.unownedArtifactCount",
-        ) != 0:
-            raise QualificationError(f"recovery evidence left an unowned artifact: {identifier}")
-        transcript_path, _ = capture_artifact(
-            external["transcriptArtifact"],
-            f"{scenario_label}.transcriptArtifact",
-            scenario_root / "transcript.json",
+        require_string(
+            record["finishedAtUTC"], f"recovery process {index}.finishedAtUTC"
         )
-        referenced_paths.add(transcript_path)
-        validate_recovery_transcript(
-            transcript_path, expected, f"{scenario_label}.transcript"
+        artifacts = require_mapping(
+            record["artifacts"], f"recovery process {index} artifacts"
+        )
+        artifact_names = {
+            "applicationArchive",
+            "attestation",
+            "candidate",
+            "contract",
+            "observerSource",
+            "packageIdentity",
+            "producerSource",
+            "releaseConfiguration",
+            "request",
+            "result",
+            "stderr",
+            "stdout",
+        }
+        require_exact_keys(
+            artifacts,
+            artifact_names,
+            f"recovery process {index} artifacts",
+        )
+        paths = {
+            name: sealed_record_artifact(
+                process_root,
+                artifacts[name],
+                f"recovery process {index} {name}",
+            )
+            for name in artifact_names
+        }
+        package = validate_quality_package_identity(
+            record["packageIdentity"], candidate
+        )
+        if (
+            paths["candidate"].read_bytes() != canonical_bytes(candidate)
+            or load_json(paths["candidate"]) != candidate
+            or paths["packageIdentity"].read_bytes()
+            != canonical_bytes(package)
+            or load_json(paths["packageIdentity"]) != package
+            or sha256(paths["applicationArchive"])
+            != package["applicationArchiveSHA256"]
+            or sha256(paths["releaseConfiguration"])
+            != package["releaseConfigurationSHA256"]
+            or sha256(paths["attestation"])
+            != package["attestationSHA256"]
+            or sha256(paths["observerSource"])
+            != identities["observerSourceSHA256"]
+            or sha256(paths["producerSource"])
+            != identities["producerSourceSHA256"]
+            or sha256(paths["contract"]) != contract_sha
+        ):
+            raise QualificationError(
+                f"recovery process {index} packaged artifact differs"
+            )
+
+        request = require_mapping(
+            load_json(paths["request"]), f"recovery process {index} request"
+        )
+        result = require_mapping(
+            load_json(paths["result"]), f"recovery process {index} result"
+        )
+        if (
+            paths["request"].read_bytes() != canonical_bytes(request)
+            or paths["result"].read_bytes() != canonical_bytes(result)
+        ):
+            raise QualificationError(
+                f"recovery process {index} request/result is not canonical"
+            )
+        require_exact_keys(
+            request,
+            {
+                "captureEnvironment",
+                "contractSHA256",
+                "generatedAtUTC",
+                "lane",
+                "nonce",
+                "observerSourceSHA256",
+                "packageIdentity",
+                "requestID",
+                "schemaVersion",
+            },
+            f"recovery process {index} request",
+        )
+        request_sha = sha256(paths["request"])
+        nonce = require_string(
+            request["nonce"], f"recovery process {index} nonce"
+        )
+        require_hex(nonce, 64, f"recovery process {index} nonce")
+        require_mapping(
+            request["captureEnvironment"],
+            f"recovery process {index} captureEnvironment",
+        )
+        require_string(
+            request["requestID"], f"recovery process {index} requestID"
+        )
+        require_string(
+            request["generatedAtUTC"],
+            f"recovery process {index} generatedAtUTC",
+        )
+        if (
+            request["schemaVersion"]
+            != "mirmir-v4-packaged-evidence-request-v1"
+            or request["lane"] != "recovery"
+            or request["contractSHA256"] != contract_sha
+            or request["observerSourceSHA256"]
+            != identities["observerSourceSHA256"]
+            or request["packageIdentity"] != package
+            or record["requestSHA256"] != request_sha
+        ):
+            raise QualificationError(
+                f"recovery process {index} request binding differs"
+            )
+        bound_request = recovery_binding_path(
+            evidence_root,
+            entry,
+            sealed_paths,
+            f"/captures/{index}/requestSHA256",
+        )
+        if bound_request != paths["request"] or sha256(bound_request) != request_sha:
+            raise QualificationError(
+                f"recovery process {index} bound request differs"
+            )
+
+        require_exact_keys(
+            result,
+            {
+                "captureManifest",
+                "captureTree",
+                "checks",
+                "contractSHA256",
+                "lane",
+                "observerSourceSHA256",
+                "packageIdentity",
+                "process",
+                "requestID",
+                "requestSHA256",
+                "runtime",
+                "schemaVersion",
+            },
+            f"recovery process {index} result",
+        )
+        if (
+            result["schemaVersion"]
+            != "mirmir-v4-packaged-evidence-result-v1"
+            or result["lane"] != "recovery"
+            or result["requestID"] != request["requestID"]
+            or result["requestSHA256"] != request_sha
+            or result["contractSHA256"] != contract_sha
+            or result["observerSourceSHA256"]
+            != identities["observerSourceSHA256"]
+            or result["packageIdentity"] != package
+        ):
+            raise QualificationError(
+                f"recovery process {index} result binding differs"
+            )
+        expected_stdout = (
+            recovery_evaluator.packaged_evidence.RESULT_PREFIX
+            + base64.b64encode(paths["result"].read_bytes())
+            + b"\n"
+        )
+        if paths["stdout"].read_bytes() != expected_stdout:
+            raise QualificationError(
+                f"recovery process {index} stdout/result differs"
+            )
+        process_receipt = require_mapping(
+            record["process"], f"recovery process {index} receipt"
+        )
+        require_exact_keys(
+            process_receipt,
+            {"executableSHA256", "exitStatus"},
+            f"recovery process {index} receipt",
+        )
+        if (
+            process_receipt["executableSHA256"]
+            != package["applicationExecutableSHA256"]
+            or process_receipt["exitStatus"] != 0
+        ):
+            raise QualificationError(
+                f"recovery process {index} archived executable failed"
+            )
+        observer_process = require_mapping(
+            result["process"], f"recovery process {index} observer process"
+        )
+        require_exact_keys(
+            observer_process,
+            {
+                "bundlePath",
+                "executablePath",
+                "executableSHA256",
+                "parentProcessID",
+                "processID",
+            },
+            f"recovery process {index} observer process",
+        )
+        if (
+            observer_process["executableSHA256"]
+            != package["applicationExecutableSHA256"]
+            or require_integer(
+                observer_process["processID"],
+                f"recovery process {index}.processID",
+                1,
+            )
+            < 1
+            or require_integer(
+                observer_process["parentProcessID"],
+                f"recovery process {index}.parentProcessID",
+                1,
+            )
+            < 1
+        ):
+            raise QualificationError(
+                f"recovery process {index} observer identity differs"
+            )
+        runtime = require_mapping(
+            result["runtime"], f"recovery process {index} runtime"
+        )
+        require_exact_keys(
+            runtime,
+            {
+                "manifestSHA256",
+                "releaseStatus",
+                "runtimeID",
+                "sourceRevision",
+                "trustRootConfigured",
+            },
+            f"recovery process {index} runtime",
+        )
+        if (
+            runtime["runtimeID"] != "ash-p06-deterministic-v4"
+            or runtime["releaseStatus"] != "release_qualified"
+            or runtime["manifestSHA256"] != package["runtimeManifestSHA256"]
+            or runtime["sourceRevision"] != package["runtimeSourceRevision"]
+            or runtime["trustRootConfigured"] is not True
+        ):
+            raise QualificationError(
+                f"recovery process {index} runtime differs"
+            )
+        checks = require_mapping(
+            result["checks"], f"recovery process {index} checks"
+        )
+        require_exact_keys(
+            checks,
+            {
+                "exactExecutableIdentity",
+                "normativePixelCapture",
+                "productionP06Load",
+                "signedBuildClaims",
+            },
+            f"recovery process {index} checks",
+        )
+        if any(value is not True for value in checks.values()):
+            raise QualificationError(
+                f"recovery process {index} checks failed"
+            )
+        capture_root = process_root / "capture"
+        capture_path = capture_root / "capture.json"
+        if capture_path.resolve(strict=True) not in sealed_paths:
+            raise QualificationError(
+                f"recovery process {index} capture is not sealed"
+            )
+        observed_tree = packaged_capture_tree(capture_root)
+        if observed_tree != record["captureTree"] or observed_tree != result["captureTree"]:
+            raise QualificationError(
+                f"recovery process {index} capture tree differs"
+            )
+        manifest_descriptor = require_mapping(
+            result["captureManifest"],
+            f"recovery process {index} capture descriptor",
+        )
+        require_exact_keys(
+            manifest_descriptor,
+            {"byteCount", "fileName", "sha256"},
+            f"recovery process {index} capture descriptor",
+        )
+        if (
+            manifest_descriptor["fileName"] != "capture.json"
+            or manifest_descriptor["byteCount"] != capture_path.stat().st_size
+            or manifest_descriptor["sha256"] != sha256(capture_path)
+        ):
+            raise QualificationError(
+                f"recovery process {index} capture descriptor differs"
+            )
+        context = {
+            "root": process_root,
+            "captureRoot": capture_root,
+            "capturePath": capture_path,
+            "capture": load_json(capture_path),
+            "record": record,
+            "request": request,
+            "result": result,
+            "package": package,
+            "producerSourceSHA256": identities["producerSourceSHA256"],
+            "nonceSHA256": sha256_bytes(nonce.encode("ascii")),
+        }
+        try:
+            return recovery_evaluator.evaluate_packaged_capture(
+                context,
+                lane_contract,
+                contract_sha,
+            )
+        except recovery_evaluator.RecoveryEvidenceError as error:
+            raise QualificationError(
+                f"recovery process {index} causal replay failed: {error}"
+            ) from error
+
+    captures = require_list(report["captures"], "recovery.captures")
+    if len(captures) != 2:
+        raise QualificationError("recovery requires exactly two captures")
+    evaluated: list[dict[str, Any]] = []
+    descriptor_sets: list[list[dict[str, Any]]] = []
+    for index, process_name in enumerate(("process-a", "process-b")):
+        summary, descriptors = process_capture(
+            role_root / "captures" / process_name,
+            index,
+        )
+        evaluated.append(summary)
+        descriptor_sets.append(descriptors)
+        if captures[index] != summary:
+            raise QualificationError(
+                f"recovery process {index} summary differs from raw replay"
+            )
+    first, second = evaluated
+    if not (
+        first["requestID"] != second["requestID"]
+        and first["requestSHA256"] != second["requestSHA256"]
+        and first["nonceSHA256"] != second["nonceSHA256"]
+        and first["processID"] != second["processID"]
+    ):
+        raise QualificationError(
+            "recovery captures are not independent processes and requests"
+        )
+    for key in (
+        "applicationArchiveSHA256",
+        "applicationExecutableSHA256",
+        "observerSourceSHA256",
+        "producerSourceSHA256",
+        "runtimeManifestSHA256",
+        "sourceCommit",
+        "sourceTreeIdentitySHA256",
+    ):
+        if first[key] != second[key]:
+            raise QualificationError(f"cross-process recovery {key} differs")
+
+    cross_process_rows: list[dict[str, Any]] = []
+    for left, right in zip(first["scenarios"], second["scenarios"]):
+        common_keys = (
+            "containedFailureCode",
+            "coverageID",
+            "evidenceKind",
+            "id",
+            "outcome",
+        )
+        if any(left[key] != right[key] for key in common_keys):
+            raise QualificationError(
+                "cross-process recovery scenario contract differs"
+            )
+        if left["evidenceKind"] == "durable_state_derivation":
+            output_keys = (
+                "referenceDerivationSHA256",
+                "resumedDerivationSHA256",
+            )
+        elif left["evidenceKind"] == "scenario_media_output":
+            output_keys = (
+                "referenceOutputSHA256",
+                "resumedOutputSHA256",
+                "referenceSemanticSHA256",
+                "resumedSemanticSHA256",
+            )
+        else:
+            output_keys = ()
+        if any(left[key] != right[key] for key in output_keys):
+            raise QualificationError(
+                f"cross-process recovery output differs: {left['id']}"
+            )
+        cross_process_rows.append(
+            {
+                "id": left["id"],
+                "evidenceKind": left["evidenceKind"],
+                "repeatIdentityPass": True,
+                "crossProcessIdentityPass": True,
+            }
+        )
+    if report["scenarios"] != cross_process_rows:
+        raise QualificationError(
+            "recovery cross-process claims differ from raw replay"
         )
 
-        artifact_keys = (
-            "referenceOutputArtifact",
-            "resumedOutputArtifact",
-            "referenceSemanticArtifact",
-            "resumedSemanticArtifact",
-        )
-        identity_keys = (
-            "referenceOutputSHA256",
-            "resumedOutputSHA256",
-            "referenceSemanticSHA256",
-            "resumedSemanticSHA256",
-        )
-        if expected["outcome"] == "identical_resumed_output":
-            for key in artifact_keys:
-                if report_scenario[key] != external[key]:
-                    raise QualificationError(f"{scenario_label}.{key} report/evidence differs")
-            reference_path, reference_identity = capture_artifact(
-                external["referenceOutputArtifact"],
-                f"{scenario_label}.referenceOutputArtifact",
-                scenario_root / "reference-output.mov",
-            )
-            resumed_path, resumed_identity = capture_artifact(
-                external["resumedOutputArtifact"],
-                f"{scenario_label}.resumedOutputArtifact",
-                scenario_root / "resumed-output.mov",
-            )
-            reference_semantic_path, reference_semantic_identity = capture_artifact(
-                external["referenceSemanticArtifact"],
-                f"{scenario_label}.referenceSemanticArtifact",
-                scenario_root / "reference-semantic.json",
-            )
-            resumed_semantic_path, resumed_semantic_identity = capture_artifact(
-                external["resumedSemanticArtifact"],
-                f"{scenario_label}.resumedSemanticArtifact",
-                scenario_root / "resumed-semantic.json",
-            )
-            referenced_paths.update(
+    manifest_artifacts: list[dict[str, Any]] = []
+    for process_name, descriptors in zip(
+        ("process-a", "process-b"), descriptor_sets
+    ):
+        for item in descriptors:
+            manifest_artifacts.append(
                 {
-                    reference_path,
-                    resumed_path,
-                    reference_semantic_path,
-                    resumed_semantic_path,
+                    "path": (
+                        f"captures/{process_name}/capture/{item['path']}"
+                    ),
+                    "byteCount": item["byteCount"],
+                    "sha256": item["sha256"],
                 }
             )
-            claimed_identities = (
-                require_hex(
-                    report_scenario["referenceOutputSHA256"],
-                    64,
-                    f"{scenario_label}.referenceOutputSHA256",
-                ),
-                require_hex(
-                    report_scenario["resumedOutputSHA256"],
-                    64,
-                    f"{scenario_label}.resumedOutputSHA256",
-                ),
-                require_hex(
-                    report_scenario["referenceSemanticSHA256"],
-                    64,
-                    f"{scenario_label}.referenceSemanticSHA256",
-                ),
-                require_hex(
-                    report_scenario["resumedSemanticSHA256"],
-                    64,
-                    f"{scenario_label}.resumedSemanticSHA256",
-                ),
+    manifest_artifacts.sort(key=lambda item: item["path"])
+    expected_manifest = {
+        "schemaVersion": RECOVERY_CAPTURE_MANIFEST_SCHEMA,
+        "artifacts": manifest_artifacts,
+        "artifactSetSHA256": recovery_artifact_set_sha(manifest_artifacts),
+    }
+    if load_json(capture_manifest_path) != expected_manifest:
+        raise QualificationError(
+            "recovery capture artifact manifest differs from raw replay"
+        )
+    for artifact_index, artifact in enumerate(manifest_artifacts):
+        path, _ = validate_artifact(
+            role_root,
+            artifact,
+            f"recovery capture manifest[{artifact_index}]",
+        )
+        if path not in sealed_paths:
+            raise QualificationError(
+                "recovery capture manifest references an unsealed artifact"
             )
-            actual_identities = (
-                reference_identity,
-                resumed_identity,
-                reference_semantic_identity,
-                resumed_semantic_identity,
-            )
-            if claimed_identities != actual_identities:
-                raise QualificationError(f"{scenario_label} artifact identity claims differ")
-            if (
-                reference_identity != resumed_identity
-                or reference_path.stat().st_size != resumed_path.stat().st_size
-            ):
-                raise QualificationError(f"recovery resumed output is not byte-identical: {identifier}")
-            reference_semantic = validate_recovery_semantic(
-                reference_semantic_path, f"{scenario_label}.referenceSemantic"
-            )
-            resumed_semantic = validate_recovery_semantic(
-                resumed_semantic_path, f"{scenario_label}.resumedSemantic"
-            )
-            if (
-                reference_semantic != resumed_semantic
-                or reference_semantic_identity != resumed_semantic_identity
-            ):
-                raise QualificationError(f"recovery resumed semantics differ: {identifier}")
-            identical += 1
-        else:
-            for key in (*artifact_keys, *identity_keys):
-                if report_scenario[key] is not None:
-                    raise QualificationError(
-                        f"recovery contained failure supplies output evidence: {identifier}"
-                    )
-            for key in artifact_keys:
-                if external[key] is not None:
-                    raise QualificationError(
-                        f"recovery contained failure supplies captured output: {identifier}"
-                    )
-            require_string(
-                report_scenario["containedFailureCode"],
-                f"{scenario_label}.containedFailureCode",
-            )
-            contained += 1
-
-    if referenced_paths != set(captured):
-        raise QualificationError("recovery capture contains unreferenced or missing evidence")
-    require_bool(report["recoveryGatePass"], "recovery.recoveryGatePass", True)
+    if execution != {
+        "kind": "archived_application_executable",
+        "applicationArchiveExecuted": True,
+        "independentProcessCaptureCount": 2,
+        "applicationArchiveSHA256": first["applicationArchiveSHA256"],
+        "applicationExecutableSHA256": first[
+            "applicationExecutableSHA256"
+        ],
+        "sourceCommit": first["sourceCommit"],
+        "sourceTreeIdentitySHA256": first["sourceTreeIdentitySHA256"],
+        "runtimeManifestSHA256": first["runtimeManifestSHA256"],
+    }:
+        raise QualificationError(
+            "recovery execution summary differs from raw captures"
+        )
+    identical = sum(
+        row["outcome"] == "identical_resumed_output"
+        for row in first["scenarios"]
+    )
     return {
-        "scenarioCount": len(report_scenarios),
+        "scenarioCount": len(first["scenarios"]),
         "identicalResumptionCount": identical,
-        "containedFailureCount": contained,
-        "coverage": required_coverage,
+        "containedFailureCount": len(first["scenarios"]) - identical,
+        "coverage": [row["coverageID"] for row in first["scenarios"]],
+        "applicationArchiveSHA256": first["applicationArchiveSHA256"],
+        "applicationExecutableSHA256": first[
+            "applicationExecutableSHA256"
+        ],
     }
 
 
@@ -4151,6 +5784,12 @@ def validate_p06(
 ) -> dict[str, Any]:
     label = "p06_reproduction"
     validate_common_report(report, candidate, contract["evidenceSchemas"][label], contract_sha, label)
+    require_release_locked_lane(
+        contract,
+        "p06ReproductionLaneContractSHA256",
+        contract_sha,
+        label,
+    )
     require_exact_keys(
         report,
         {
@@ -4161,6 +5800,7 @@ def validate_p06(
             "identities",
             "buildConfiguration",
             "sourceCheckoutState",
+            "sourceEvidence",
             "builds",
             "productionLoaderAcceptancePass",
             "tamperRejectionPass",
@@ -4176,9 +5816,9 @@ def validate_p06(
     if lane_contract_path not in sealed_paths or sha256(lane_contract_path) != contract_sha:
         raise QualificationError("P06 suite contract is absent, unsealed, or stale")
     lane_contract = require_mapping(load_json(lane_contract_path), "p06 suite contract")
-    if lane_contract.get("schemaVersion") != "mirmir-ash-v4-p06-reproduction-contract-v1":
+    if lane_contract.get("schemaVersion") != "mirmir-ash-v4-p06-reproduction-contract-v2":
         raise QualificationError("P06 suite contract schema mismatch")
-    if lane_contract.get("suiteID") != "mirmir-ash-v4-p06-reproduction-v1":
+    if lane_contract.get("suiteID") != "mirmir-ash-v4-p06-reproduction-v2":
         raise QualificationError("P06 suite identity mismatch")
     if lane_contract.get("buildConfiguration") != "Release" or lane_contract.get("sourceCheckoutState") != "clean":
         raise QualificationError("P06 suite does not require clean Release builds")
@@ -4200,8 +5840,20 @@ def validate_p06(
         lane_contract.get("productionSourceCount"),
         "p06 suite productionSourceCount",
     )
-    if production_source_count < 1:
-        raise QualificationError("P06 production source inventory is empty")
+    locked_source_count = require_integer(
+        contract.get("p06ProductionSourceCount"),
+        "release contract.p06ProductionSourceCount",
+        1,
+    )
+    locked_source_manifest = require_hex(
+        contract.get("p06ProductionSourceManifestSHA256"),
+        64,
+        "release contract.p06ProductionSourceManifestSHA256",
+    )
+    if production_source_count != locked_source_count:
+        raise QualificationError(
+            "P06 production source inventory count differs from release lock"
+        )
     lane_roles = require_list(
         lane_contract.get("requiredRuntimeArtifactRoles"),
         "p06 suite requiredRuntimeArtifactRoles",
@@ -4210,6 +5862,7 @@ def validate_p06(
         raise QualificationError("P06 lane and release runtime artifact roles differ")
 
     identity_artifacts = {
+        "buildRunnerSHA256": "build-runner.sh",
         "captureSourceSHA256": "capture-tool.py",
         "evaluatorSHA256": "evaluator.py",
         "runnerSHA256": "runner.sh",
@@ -4220,8 +5873,15 @@ def validate_p06(
     }
     report_identities = require_mapping(report.get("identities"), "p06 identities")
     require_exact_keys(report_identities, set(identity_artifacts), "p06 identities")
+    locked_sources = require_release_locked_hashes(
+        contract,
+        "p06ReproductionLockedSources",
+        set(identity_artifacts),
+        label,
+    )
     lane_capture = require_mapping(lane_contract.get("capture"), "p06 suite capture")
     require_exact_keys(lane_capture, set(identity_artifacts), "p06 suite capture")
+    identity_paths: dict[str, Path] = {}
     for identity_name, relative in identity_artifacts.items():
         artifact_path = checked_path(lane_root, relative, f"p06 {identity_name} artifact")
         if artifact_path not in sealed_paths:
@@ -4233,6 +5893,11 @@ def validate_p06(
             or lane_capture.get(identity_name) != actual_identity
         ):
             raise QualificationError(f"P06 qualification identity mismatch: {identity_name}")
+        if actual_identity != locked_sources[identity_name]:
+            raise QualificationError(
+                f"P06 source differs from release lock: {identity_name}"
+            )
+        identity_paths[identity_name] = artifact_path
     source_contract_path = checked_path(
         lane_root,
         "source-provenance-contract.json",
@@ -4273,6 +5938,11 @@ def validate_p06(
             build,
             {
                 "id",
+                "sourceCommit",
+                "sourceTreeIdentitySHA256",
+                "sourceTreeListingSHA256",
+                "sourceArchiveSHA256",
+                "sourceCommitObjectSHA256",
                 "runtimeArtifactSetSHA256",
                 "runtimeManifestSHA256",
                 "builderSHA256",
@@ -4285,6 +5955,11 @@ def validate_p06(
                 "productionSourceArtifact",
                 "toolchainImageArtifact",
                 "loaderEvidenceArtifact",
+                "sourceTreeListingArtifact",
+                "sourceArchiveArtifact",
+                "sourceCommitObjectArtifact",
+                "buildTranscriptArtifact",
+                "buildExecutionArtifact",
                 "releaseQualifiedStatus",
                 "developmentArtifactDependencyCount",
                 "p05ProductionDependencyCount",
@@ -4314,11 +5989,15 @@ def validate_p06(
             64,
             f"p06 build[{index}].production source manifest",
         )
+        if claimed_source_manifest != locked_source_manifest:
+            raise QualificationError(
+                f"p06 build[{index}] production source manifest differs from release lock"
+            )
         claimed_toolchain = require_hex(
             build["toolchainImageSHA256"], 64, f"p06 build[{index}].toolchain"
         )
         artifact_manifest_path, _ = validate_sealed_artifact(
-            evidence_root,
+            lane_root,
             build["artifactManifest"],
             sealed_paths,
             f"p06 build[{index}].artifactManifest",
@@ -4345,7 +6024,7 @@ def validate_p06(
         if claimed_artifact_set != computed_artifact_set:
             raise QualificationError(f"p06 build[{index}] artifact-set identity mismatch")
         runtime_manifest_path, runtime_manifest_file_identity = validate_sealed_artifact(
-            evidence_root,
+            lane_root,
             build["runtimeManifestArtifact"],
             sealed_paths,
             f"p06 build[{index}].runtimeManifestArtifact",
@@ -4379,19 +6058,19 @@ def validate_p06(
         if provenance.get("sourceRevision") != candidate["runtimeSourceRevision"]:
             raise QualificationError(f"p06 build[{index}] runtime source revision mismatch")
         builder_path, builder_identity = validate_sealed_artifact(
-            evidence_root,
+            lane_root,
             build["builderArtifact"],
             sealed_paths,
             f"p06 build[{index}].builderArtifact",
         )
         source_manifest_path, source_manifest_identity = validate_sealed_artifact(
-            evidence_root,
+            lane_root,
             build["productionSourceArtifact"],
             sealed_paths,
             f"p06 build[{index}].productionSourceArtifact",
         )
         toolchain_path, toolchain_identity = validate_sealed_artifact(
-            evidence_root,
+            lane_root,
             build["toolchainImageArtifact"],
             sealed_paths,
             f"p06 build[{index}].toolchainImageArtifact",
@@ -4588,7 +6267,7 @@ def validate_p06(
         if any(token in forbidden_runtime_text for token in ("p05", "preview", "development", "dev-runtime")):
             raise QualificationError(f"p06 build[{index}] retains a forbidden preview identity")
         loader_path, _ = validate_sealed_artifact(
-            evidence_root,
+            lane_root,
             build["loaderEvidenceArtifact"],
             sealed_paths,
             f"p06 build[{index}].loaderEvidenceArtifact",
@@ -4655,6 +6334,86 @@ def validate_p06(
         raise QualificationError(
             "P06 clean reproduction changed builder, production source manifest, or toolchain image"
         )
+    if source_manifests != {locked_source_manifest}:
+        raise QualificationError(
+            "P06 production source manifest differs from release lock"
+        )
+    if report_path.name != "report.json":
+        raise QualificationError("P06 report does not use the locked runner layout")
+    p06_evaluator = load_locked_p06_evaluator(
+        identity_paths["evaluatorSHA256"]
+    )
+    try:
+        with tempfile.TemporaryDirectory(
+            prefix="mirmir-p06-central-candidate-"
+        ) as temporary:
+            candidate_path = Path(temporary) / "candidate-identity.json"
+            candidate_path.write_bytes(canonical_bytes(candidate))
+            replayed = p06_evaluator.verify(
+                lane_root,
+                candidate_path,
+                lane_contract_path,
+            )
+    except (p06_evaluator.EvidenceError, OSError) as error:
+        raise QualificationError(
+            f"nested P06 causal replay failed: {error}"
+        ) from error
+    require_exact_keys(
+        replayed,
+        {
+            "schemaVersion",
+            "candidateSourceCommit",
+            "candidateSourceTreeIdentitySHA256",
+            "candidateSourceTreeListingSHA256",
+            "candidateSourceArchiveSHA256",
+            "candidateSourceCommitObjectSHA256",
+            "cleanBuildCount",
+            "independentBuildExecutionCount",
+            "runtimeArtifactSetSHA256",
+            "runtimeManifestSHA256",
+            "builderSHA256",
+            "productionSourceManifestSHA256",
+            "productionSourceCount",
+            "toolchainImageSHA256",
+            "productionLoaderAcceptancePass",
+            "sameLengthArtifactTamperRejectionPass",
+            "p06ReproductionGatePass",
+        },
+        "nested P06 causal replay",
+    )
+    if (
+        replayed["schemaVersion"]
+        != "mirmir-ash-v4-p06-reproduction-verification-v2"
+        or replayed["candidateSourceCommit"] != candidate["sourceCommit"]
+        or replayed["candidateSourceTreeIdentitySHA256"]
+        != candidate["sourceTreeIdentitySHA256"]
+        or replayed["cleanBuildCount"] != clean_build_count
+        or replayed["independentBuildExecutionCount"] != clean_build_count
+        or replayed["runtimeArtifactSetSHA256"]
+        != candidate["runtimeArtifactSetSHA256"]
+        or replayed["runtimeManifestSHA256"]
+        != candidate["runtimeManifestSHA256"]
+        or replayed["productionSourceManifestSHA256"]
+        != locked_source_manifest
+        or replayed["productionSourceCount"] != locked_source_count
+    ):
+        raise QualificationError(
+            "nested P06 causal replay differs from release locks or candidate"
+        )
+    for key in (
+        "candidateSourceTreeListingSHA256",
+        "candidateSourceArchiveSHA256",
+        "candidateSourceCommitObjectSHA256",
+        "builderSHA256",
+        "toolchainImageSHA256",
+    ):
+        require_hex(replayed[key], 64, f"nested P06 causal replay.{key}")
+    for key in (
+        "productionLoaderAcceptancePass",
+        "sameLengthArtifactTamperRejectionPass",
+        "p06ReproductionGatePass",
+    ):
+        require_bool(replayed[key], f"nested P06 causal replay.{key}", True)
     require_bool(report.get("productionLoaderAcceptancePass"), "p06.productionLoaderAcceptancePass", True)
     require_bool(report.get("tamperRejectionPass"), "p06.tamperRejectionPass", True)
     require_bool(report.get("p06ReproductionGatePass"), "p06.p06ReproductionGatePass", True)
@@ -4665,6 +6424,16 @@ def validate_p06(
         "builderSHA256": next(iter(builders)),
         "productionSourceManifestSHA256": next(iter(source_manifests)),
         "productionSourceCount": production_source_count,
+        "sourceTreeListingSHA256": replayed[
+            "candidateSourceTreeListingSHA256"
+        ],
+        "sourceArchiveSHA256": replayed["candidateSourceArchiveSHA256"],
+        "sourceCommitObjectSHA256": replayed[
+            "candidateSourceCommitObjectSHA256"
+        ],
+        "independentBuildExecutionCount": replayed[
+            "independentBuildExecutionCount"
+        ],
         "toolchainImageSHA256": next(iter(toolchains)),
     }
 
@@ -4680,7 +6449,51 @@ def validate_support(
 ) -> dict[str, Any]:
     label = "support_matrix"
     validate_common_report(report, candidate, contract["evidenceSchemas"][label], contract_sha, label)
+    require_release_locked_lane(
+        contract,
+        "supportMatrixLaneContractSHA256",
+        contract_sha,
+        label,
+    )
     report_path = checked_path(evidence_root, entry["path"], "support report path")
+    suite_contract_path = checked_path(
+        report_path.parent, "suite-contract.json", "support suite contract"
+    )
+    if (
+        suite_contract_path not in sealed_paths
+        or sha256(suite_contract_path) != contract_sha
+    ):
+        raise QualificationError(
+            "support suite contract is absent, unsealed, or stale"
+        )
+    suite_contract = require_mapping(
+        load_json(suite_contract_path), "support suite contract"
+    )
+    locked_sources = require_release_locked_hashes(
+        contract,
+        "supportMatrixLockedSources",
+        {"captureSourceSHA256", "evaluatorSHA256", "runnerSHA256"},
+        label,
+    )
+    identities = require_mapping(report.get("identities"), "support.identities")
+    require_exact_keys(identities, set(locked_sources), "support.identities")
+    suite_tools = require_mapping(
+        suite_contract.get("tools"), "support suite contract.tools"
+    )
+    require_exact_keys(suite_tools, set(locked_sources), "support suite contract.tools")
+    for key, expected in locked_sources.items():
+        if identities[key] != expected or suite_tools[key] != expected:
+            raise QualificationError(
+                f"support source differs from release lock: {key}"
+            )
+    locked_team = require_string(
+        contract.get("supportMatrixDevelopmentTeam"),
+        "release contract.supportMatrixDevelopmentTeam",
+    )
+    if suite_contract.get("developmentTeam") != locked_team:
+        raise QualificationError(
+            "support signing team differs from release lock"
+        )
     try:
         replayed_report = support_replay.replay_evidence(report_path.parent)
     except support_replay.SupportEvidenceError as error:
@@ -5681,12 +7494,13 @@ def evaluate_candidate(
                 "quality",
                 "same_scope_performance",
                 "cpu_metal_parity",
+                "recovery",
                 "notarized_smoke",
             )
         }
         if len(set(observed.values())) != 1:
             raise QualificationError(
-                "quality, performance, parity, and notarized-smoke evidence "
+                "quality, performance, parity, recovery, and notarized-smoke evidence "
                 f"use different {key}"
             )
     candidate_identity = sha256_bytes(canonical_bytes(candidate))

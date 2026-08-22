@@ -6,18 +6,27 @@ archive twice with independent requests, binds both captures to the candidate
 identity and P06 runtime, and then recomputes the complete evidence tree. Test
 injection and a dirty working tree are not accepted as release evidence.
 
-The evaluator owns 32 non-waivable coverage labels. In addition to NV12,
+The evaluator owns 34 non-waivable coverage labels. In addition to NV12,
 P010, HDR attachments, alpha, odd and padded layouts, arbitrary rational
 phases, temporal reconstruction, interlacing, cadence, timing, attachments,
 checkpoint/restore, repeats, and independent processes, the matrix contains a
-dedicated bounded-tile temporal case:
+dedicated bounded-tile temporal case and a separate periodic ambiguous-texture
+case:
 
 - source raster: 16x12;
 - target raster: 32x24;
 - tile policy: 8x8 active tile, halo 5, maximum raster 64x64;
 - source grid: 2x2, four tiles;
 - target grid: 4x3, twelve tiles; and
-- checkpoint boundary: input ordinal 1 of a three-frame temporal sequence.
+- declared seek reset: input ordinal 3 of a five-frame temporal sequence; and
+- checkpoint boundaries: input ordinals 1 and 3, proving uninterrupted and
+  resumed identity both before and after the seek.
+
+The 8x6 to 15x11 periodic case alternates two phase-shifted two-dimensional
+stripe patterns over four frames. It prevents a matrix that covers only unique
+motion edges from standing in for the roadmap's repeated-pattern temporal row.
+Its uninterrupted and resumed outputs must retain one history generation with
+no seek reset.
 
 The forced case cannot fall back to the contiguous path. Its prepared engine
 must report `usesBoundedTiledTemporalPath`, the exact policy, both multi-tile
@@ -45,6 +54,12 @@ tile descriptor and retained rectangle, checks retained sample counts, source
 and target grid geometry, history generation, measurement state, policy,
 schema, and final resumed checkpoint. The checkpoint hashes in the execution
 artifact are recomputed from the raw checkpoint-set bytes.
+
+The seek input is passed through the production `FrameTiming` boundary and its
+typed `seek` reset is serialized in the canonical semantic artifact. The
+evaluator requires that declared reset, rejects an undeclared seek, and checks
+the resulting generation transition in the raw tiled checkpoint. This makes
+seek behavior release-observable rather than relying on a debug-only hook.
 
 Canonical and repeat runs use spatial `production_full_frame` with temporal
 `raster`. Qualification schedules are paired exactly:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture quality, parity, or performance evidence from the exact app.
+"""Capture quality, parity, performance, or media evidence from the exact app.
 
 The observer is compiled into the shipping target.  This harness verifies and
 extracts the sealed application archive, stages immutable inputs inside the
@@ -48,6 +48,9 @@ RESULT_PREFIX = b"MIRMIR_V4_PACKAGED_EVIDENCE_RESULT "
 ERROR_PREFIX = b"MIRMIR_V4_PACKAGED_EVIDENCE_ERROR "
 CAPTURE_TREE_DOMAIN = b"mirmir-packaged-capture-tree-v1\0"
 OBSERVER_SOURCE_PATH = "Mirmir/App/MirmirApp.swift"
+RECOVERY_PRODUCER_SOURCE_PATH = (
+    "Mirmir/App/WorkflowApplicationCoordinatorV4.swift"
+)
 MAX_CAPTURE_BYTES = 8 * 1024 * 1024 * 1024
 MAX_INPUT_BYTES = 8 * 1024 * 1024 * 1024
 HEX = frozenset("0123456789abcdef")
@@ -465,6 +468,22 @@ def stage_parity_contract(contract: Path, destination: Path) -> Path:
     return staged
 
 
+def stage_recovery_contract(contract: Path, destination: Path) -> Path:
+    contract = safe_regular(contract, "recovery contract")
+    value = require_mapping(
+        load_json(contract, "recovery contract"), "recovery contract"
+    )
+    require(
+        value.get("schemaVersion")
+        == "mirmir-v4-recovery-qualification-contract-v2",
+        "recovery contract schema differs",
+    )
+    destination.mkdir(parents=True, exist_ok=False, mode=0o700)
+    staged = destination / "recovery-qualification-contract-v1.json"
+    copy_regular(contract, staged, "recovery contract")
+    return staged
+
+
 def stage_performance_input(
     contract: Path, input_path: Path, destination: Path
 ) -> Path:
@@ -492,6 +511,138 @@ def stage_performance_input(
     staged = destination / "end-to-end-input.mov"
     copy_regular(input_path, staged, "performance input")
     return staged
+
+
+def stage_media_fixture_package(
+    contract: Path, manifest: Path, destination: Path
+) -> Path:
+    contract = safe_regular(contract, "media contract")
+    contract_value = require_mapping(
+        load_json(contract, "media contract"), "media contract"
+    )
+    require(
+        contract_value.get("schemaVersion")
+        == "mirmir-ash-v4-media-preservation-contract-v1",
+        "media contract schema differs",
+    )
+    manifest = safe_regular(manifest, "media fixture manifest")
+    value = require_mapping(
+        load_json(manifest, "media fixture manifest"),
+        "media fixture manifest",
+    )
+    require(
+        value.get("schemaVersion")
+        == "mirmir-ash-v4-media-fixture-package-v2"
+        and value.get("suiteID") == contract_value.get("suiteID"),
+        "media fixture package header differs",
+    )
+    fixtures = value.get("fixtures")
+    require(
+        isinstance(fixtures, list) and len(fixtures) == 6,
+        "media fixture package must contain six fixtures",
+    )
+    relatives: set[PurePosixPath] = set()
+    identities: dict[PurePosixPath, tuple[int, str]] = {}
+    for index, raw in enumerate(fixtures):
+        fixture = require_mapping(raw, f"media fixture {index}")
+        relative = safe_relative(
+            fixture.get("sourceFile"), f"media fixture {index} source"
+        )
+        byte_count = fixture.get("sourceByteCount")
+        identity = fixture.get("sourceSHA256")
+        require(
+            isinstance(byte_count, int) and byte_count > 0,
+            f"media fixture {index} byte count is invalid",
+        )
+        require_hex(identity, (64,), f"media fixture {index} identity")
+        relatives.add(relative)
+        identities[relative] = (byte_count, identity)
+        alpha = fixture.get("alphaOracleInput")
+        if alpha is not None:
+            alpha = require_mapping(alpha, f"media fixture {index} alpha")
+            alpha_relative = safe_relative(
+                alpha.get("path"), f"media fixture {index} alpha path"
+            )
+            alpha_count = alpha.get("byteCount")
+            alpha_identity = alpha.get("sha256")
+            require(
+                isinstance(alpha_count, int) and alpha_count > 0,
+                f"media fixture {index} alpha byte count is invalid",
+            )
+            require_hex(
+                alpha_identity, (64,), f"media fixture {index} alpha identity"
+            )
+            relatives.add(alpha_relative)
+            identities[alpha_relative] = (alpha_count, alpha_identity)
+    destination.mkdir(parents=True, exist_ok=False, mode=0o700)
+    staged_manifest = destination / "fixture-manifest.json"
+    copy_regular(manifest, staged_manifest, "media fixture manifest")
+    copy_regular(
+        contract,
+        destination / "media-preservation-contract-v1.json",
+        "media contract",
+    )
+    total = staged_manifest.stat().st_size + contract.stat().st_size
+    root = manifest.parent.resolve(strict=True)
+    for relative in sorted(relatives, key=str):
+        source = safe_regular(
+            root.joinpath(*relative.parts), f"media fixture artifact {relative}"
+        )
+        require(
+            root in source.parents,
+            f"media fixture artifact escapes package: {relative}",
+        )
+        expected_count, expected_sha = identities[relative]
+        require(
+            source.stat().st_size == expected_count
+            and sha256_file(source) == expected_sha,
+            f"media fixture artifact identity differs: {relative}",
+        )
+        total += source.stat().st_size
+        require(total <= MAX_INPUT_BYTES, "media fixture package exceeds 8 GiB")
+        copy_regular(
+            source,
+            destination.joinpath(*relative.parts),
+            f"media fixture artifact {relative}",
+        )
+    return staged_manifest
+
+
+def input_tree_sha256(root: Path) -> str:
+    root = safe_directory(root, "packaged input root")
+    rows: list[tuple[str, str, Path | None]] = []
+    for directory, names, files in os.walk(root, topdown=True, followlinks=False):
+        directory_path = Path(directory)
+        names.sort()
+        files.sort()
+        for name in names:
+            path = directory_path / name
+            metadata = path.lstat()
+            require(stat.S_ISDIR(metadata.st_mode), f"input entry is unsafe: {path}")
+            rows.append((path.relative_to(root).as_posix(), "directory", None))
+        for name in files:
+            path = directory_path / name
+            metadata = path.lstat()
+            require(
+                stat.S_ISREG(metadata.st_mode)
+                and metadata.st_nlink == 1
+                and not path.is_symlink(),
+                f"input file is unsafe: {path}",
+            )
+            rows.append((path.relative_to(root).as_posix(), "file", path))
+    digest = hashlib.sha256()
+    digest.update(b"mirmir-packaged-input-tree-v1\0")
+    for relative, kind, path in sorted(rows):
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        if kind == "directory":
+            digest.update(b"directory\n")
+        else:
+            assert path is not None
+            digest.update(b"file\0")
+            digest.update(sha256_file(path).encode("ascii"))
+            digest.update(b"\n")
+    return digest.hexdigest()
 
 
 def application_support_root(bundle_identifier: str) -> Path:
@@ -607,6 +758,9 @@ def make_request(
     performance_capture_source_sha: str | None = None,
     warmup_count: int | None = None,
     sample_count: int | None = None,
+    media_fixture_source_sha: str | None = None,
+    media_generator_source_sha: str | None = None,
+    recovery_producer_source_sha: str | None = None,
 ) -> dict[str, Any]:
     output = root / "capture"
     if lane == "quality":
@@ -630,7 +784,7 @@ def make_request(
             "MIRMIR_PARITY_PROCESS_RUN_ID": str(uuid.uuid4()),
             "MIRMIR_PARITY_RUNTIME_MODE": "production",
         }
-    else:
+    elif lane == "performance":
         require(
             performance_source_identity_sha is not None
             and performance_capture_source_sha is not None
@@ -653,6 +807,50 @@ def make_request(
             ],
             "MIRMIR_V4_PERFORMANCE_WARMUPS": str(warmup_count),
             "MIRMIR_V4_PERFORMANCE_SAMPLES": str(sample_count),
+        }
+    elif lane == "media":
+        require(
+            media_fixture_source_sha is not None
+            and media_generator_source_sha is not None,
+            "media request inputs are incomplete",
+        )
+        environment = {
+            "MIRMIR_V4_MEDIA_CAPTURE_DIR": str(output),
+            "MIRMIR_V4_MEDIA_CONTRACT_PATH": str(
+                staged_input.parent / "media-preservation-contract-v1.json"
+            ),
+            "MIRMIR_V4_MEDIA_CONTRACT_SHA256": contract_sha,
+            "MIRMIR_V4_MEDIA_FIXTURE_MANIFEST": str(staged_input),
+            "MIRMIR_V4_MEDIA_FIXTURE_MANIFEST_SHA256": sha256_file(
+                staged_input
+            ),
+            "MIRMIR_V4_MEDIA_FIXTURE_TREE_SHA256": input_tree_sha256(
+                staged_input.parent
+            ),
+            "MIRMIR_V4_MEDIA_FIXTURE_SOURCE_SHA256":
+                media_fixture_source_sha,
+            "MIRMIR_V4_MEDIA_GENERATOR_SOURCE_SHA256":
+                media_generator_source_sha,
+            "MIRMIR_V4_MEDIA_SOURCE_COMMIT": package["sourceCommit"],
+            "MIRMIR_V4_MEDIA_SOURCE_TREE_SHA256": package[
+                "sourceTreeIdentitySHA256"
+            ],
+        }
+    else:
+        require(
+            lane == "recovery" and recovery_producer_source_sha is not None,
+            "recovery request inputs are incomplete",
+        )
+        environment = {
+            "MIRMIR_V4_RECOVERY_CAPTURE_DIR": str(output),
+            "MIRMIR_V4_RECOVERY_CONTRACT_PATH": str(staged_input),
+            "MIRMIR_V4_RECOVERY_CONTRACT_SHA256": contract_sha,
+            "MIRMIR_V4_RECOVERY_PRODUCER_SOURCE_SHA256":
+                recovery_producer_source_sha,
+            "MIRMIR_V4_RECOVERY_SOURCE_COMMIT": package["sourceCommit"],
+            "MIRMIR_V4_RECOVERY_SOURCE_TREE_SHA256": package[
+                "sourceTreeIdentitySHA256"
+            ],
         }
     return {
         "schemaVersion": REQUEST_SCHEMA,
@@ -827,7 +1025,7 @@ def validate_observer_result(
         require(
             captured.get("observerSourceSHA256")
             == request["observerSourceSHA256"],
-            "performance manifest observer source differs",
+            "packaged manifest observer source differs",
         )
     return result
 
@@ -846,12 +1044,13 @@ def capture_exact_candidate(
     timeout_seconds: int,
     performance_input: Path | None = None,
     performance_source_identity: Path | None = None,
+    media_fixture_manifest: Path | None = None,
     warmup_count: int = 5,
     sample_count: int = 10,
 ) -> Path:
     require(
-        lane in {"quality", "parity", "performance"},
-        "lane must be quality, parity, or performance",
+        lane in {"quality", "parity", "performance", "media", "recovery"},
+        "lane must be quality, parity, performance, media, or recovery",
     )
     repository = repository.expanduser().resolve(strict=True)
     archive = safe_regular(archive, "application archive")
@@ -871,12 +1070,38 @@ def capture_exact_candidate(
     )
     observer_source_sha = sha256_bytes(observer_source)
     contract_sha = sha256_file(contract)
+    recovery_producer_source: bytes | None = None
+    recovery_producer_source_sha: str | None = None
     if lane == "parity":
         contract_value = require_mapping(load_json(contract, "parity contract"), "parity contract")
         contract_tools = require_mapping(contract_value.get("tools"), "parity contract tools")
         require(
             contract_tools.get("captureSourceSHA256") == observer_source_sha,
             "parity contract is not bound to the packaged observer source",
+        )
+    elif lane == "recovery":
+        contract_value = require_mapping(
+            load_json(contract, "recovery contract"), "recovery contract"
+        )
+        capture_contract = require_mapping(
+            contract_value.get("capture"), "recovery capture contract"
+        )
+        recovery_producer_source = committed_bytes(
+            repository,
+            package["sourceCommit"],
+            Path(RECOVERY_PRODUCER_SOURCE_PATH),
+        )
+        recovery_producer_source_sha = sha256_bytes(
+            recovery_producer_source
+        )
+        require(
+            contract_value.get("schemaVersion")
+            == "mirmir-v4-recovery-qualification-contract-v2"
+            and capture_contract.get("producerSourceSHA256")
+            == recovery_producer_source_sha
+            and capture_contract.get("observerSourceSHA256")
+            == observer_source_sha,
+            "recovery contract is not bound to packaged producer/observer source",
         )
 
     request_id = str(uuid.uuid4())
@@ -896,7 +1121,7 @@ def capture_exact_candidate(
         elif lane == "parity":
             require(corpus_manifest is None, "parity capture does not accept a corpus manifest")
             staged_input = stage_parity_contract(contract, inputs)
-        else:
+        elif lane == "performance":
             require(
                 corpus_manifest is None
                 and performance_input is not None
@@ -941,6 +1166,41 @@ def capture_exact_candidate(
                 (64,),
                 "performance capture source",
             )
+        elif lane == "media":
+            require(
+                corpus_manifest is None
+                and performance_input is None
+                and performance_source_identity is None
+                and media_fixture_manifest is not None,
+                "media capture inputs are incomplete",
+            )
+            staged_input = stage_media_fixture_package(
+                contract, media_fixture_manifest, inputs
+            )
+            media_fixture_source_sha = sha256_bytes(
+                committed_bytes(
+                    repository,
+                    package["sourceCommit"],
+                    Path("MirmirTests/AVFoundationTrackMigrationExecutorV4Tests.swift"),
+                )
+            )
+            media_generator_source_sha = sha256_bytes(
+                committed_bytes(
+                    repository,
+                    package["sourceCommit"],
+                    Path("script/v4/MediaPreservationCaptureTests.swift"),
+                )
+            )
+        else:
+            require(
+                lane == "recovery"
+                and corpus_manifest is None
+                and performance_input is None
+                and performance_source_identity is None
+                and media_fixture_manifest is None,
+                "recovery capture does not accept unrelated lane inputs",
+            )
+            staged_input = stage_recovery_contract(contract, inputs)
         request = make_request(
             lane,
             package,
@@ -961,6 +1221,16 @@ def capture_exact_candidate(
             ),
             warmup_count=warmup_count if lane == "performance" else None,
             sample_count=sample_count if lane == "performance" else None,
+            media_fixture_source_sha=(
+                media_fixture_source_sha if lane == "media" else None
+            ),
+            media_generator_source_sha=(
+                media_generator_source_sha if lane == "media" else None
+            ),
+            recovery_producer_source_sha=(
+                recovery_producer_source_sha
+                if lane == "recovery" else None
+            ),
         )
         request_bytes = canonical_bytes(request)
 
@@ -1034,6 +1304,15 @@ def capture_exact_candidate(
         )
         (bindings / "observer-source.swift").write_bytes(observer_source)
         (bindings / "observer-source.swift").chmod(0o600)
+        if lane == "recovery":
+            require(
+                recovery_producer_source is not None,
+                "recovery producer source is absent",
+            )
+            (bindings / "producer-source.swift").write_bytes(
+                recovery_producer_source
+            )
+            (bindings / "producer-source.swift").chmod(0o600)
         copy_regular(contract, bindings / "lane-contract.json", f"{lane} contract")
         copy_regular(
             release_configuration,
@@ -1041,6 +1320,34 @@ def capture_exact_candidate(
             "release configuration",
         )
         copy_regular(archive, bindings / "application-archive.zip", "application archive")
+        record_artifacts = {
+            "request": descriptor(observer_directory / "request.json", evidence_temporary),
+            "result": descriptor(observer_directory / "result.json", evidence_temporary),
+            "stdout": descriptor(observer_directory / "stdout.bin", evidence_temporary),
+            "stderr": descriptor(observer_directory / "stderr.bin", evidence_temporary),
+            "candidate": descriptor(bindings / "candidate.json", evidence_temporary),
+            "packageIdentity": descriptor(
+                bindings / "package-identity.json", evidence_temporary
+            ),
+            "attestation": descriptor(
+                bindings / archive_provenance.ATTESTATION_PATH,
+                evidence_temporary,
+            ),
+            "observerSource": descriptor(
+                bindings / "observer-source.swift", evidence_temporary
+            ),
+            "contract": descriptor(bindings / "lane-contract.json", evidence_temporary),
+            "releaseConfiguration": descriptor(
+                bindings / "release-candidate-v4.xcconfig", evidence_temporary
+            ),
+            "applicationArchive": descriptor(
+                bindings / "application-archive.zip", evidence_temporary
+            ),
+        }
+        if lane == "recovery":
+            record_artifacts["producerSource"] = descriptor(
+                bindings / "producer-source.swift", evidence_temporary
+            )
         record = {
             "schemaVersion": CAPTURE_RECORD_SCHEMA,
             "lane": lane,
@@ -1055,30 +1362,7 @@ def capture_exact_candidate(
                 "executableSHA256": sha256_file(executable),
                 "exitStatus": process.returncode,
             },
-            "artifacts": {
-                "request": descriptor(observer_directory / "request.json", evidence_temporary),
-                "result": descriptor(observer_directory / "result.json", evidence_temporary),
-                "stdout": descriptor(observer_directory / "stdout.bin", evidence_temporary),
-                "stderr": descriptor(observer_directory / "stderr.bin", evidence_temporary),
-                "candidate": descriptor(bindings / "candidate.json", evidence_temporary),
-                "packageIdentity": descriptor(
-                    bindings / "package-identity.json", evidence_temporary
-                ),
-                "attestation": descriptor(
-                    bindings / archive_provenance.ATTESTATION_PATH,
-                    evidence_temporary,
-                ),
-                "observerSource": descriptor(
-                    bindings / "observer-source.swift", evidence_temporary
-                ),
-                "contract": descriptor(bindings / "lane-contract.json", evidence_temporary),
-                "releaseConfiguration": descriptor(
-                    bindings / "release-candidate-v4.xcconfig", evidence_temporary
-                ),
-                "applicationArchive": descriptor(
-                    bindings / "application-archive.zip", evidence_temporary
-                ),
-            },
+            "artifacts": record_artifacts,
         }
         write_canonical(evidence_temporary / "capture-record.json", record)
         os.replace(evidence_temporary, output)
@@ -1126,6 +1410,11 @@ def validate_capture_binding(
     record = require_mapping(load_json_bytes(record_bytes, "capture record"), "capture record")
     require(record_bytes == canonical_bytes(record), "capture record is not canonical JSON")
     require(record.get("schemaVersion") == CAPTURE_RECORD_SCHEMA, "capture record schema differs")
+    require(
+        record.get("lane")
+        in {"quality", "parity", "performance", "media", "recovery"},
+        "capture record lane differs",
+    )
     artifacts = require_mapping(record.get("artifacts"), "capture record artifacts")
     required_artifacts = {
         "request",
@@ -1140,6 +1429,8 @@ def validate_capture_binding(
         "releaseConfiguration",
         "applicationArchive",
     }
+    if record.get("lane") == "recovery":
+        required_artifacts.add("producerSource")
     require_exact_keys(artifacts, required_artifacts, "capture record artifacts")
     paths = {
         key: checked_artifact(evidence_root, value, f"capture artifact {key}")
@@ -1176,11 +1467,22 @@ def validate_capture_binding(
         and sha256_bytes(observer_source) == record["observerSourceSHA256"],
         "observer source binding differs",
     )
+    if record["lane"] == "recovery":
+        producer_source = committed_bytes(
+            repository,
+            candidate["sourceCommit"],
+            Path(RECOVERY_PRODUCER_SOURCE_PATH),
+        )
+        require(
+            paths["producerSource"].read_bytes() == producer_source,
+            "recovery producer source binding differs",
+        )
     request_bytes = paths["request"].read_bytes()
     request = require_mapping(load_json_bytes(request_bytes, "observer request"), "observer request")
     require(request_bytes == canonical_bytes(request), "observer request is not canonical")
     require(
         request.get("packageIdentity") == observed_package
+        and request.get("lane") == record["lane"]
         and sha256_bytes(request_bytes) == record["requestSHA256"],
         "observer request binding differs",
     )
@@ -1189,6 +1491,7 @@ def validate_capture_binding(
     require(result_bytes == canonical_bytes(result), "observer result is not canonical")
     require(
         result.get("packageIdentity") == observed_package
+        and result.get("lane") == record["lane"]
         and result.get("requestSHA256") == record["requestSHA256"],
         "observer result binding differs",
     )
@@ -1239,7 +1542,9 @@ def parse_arguments() -> argparse.Namespace:
     capture.add_argument("--runtime", type=Path, required=True)
     capture.add_argument("--release-configuration", type=Path, required=True)
     capture.add_argument(
-        "--lane", choices=("quality", "parity", "performance"), required=True
+        "--lane",
+        choices=("quality", "parity", "performance", "media", "recovery"),
+        required=True,
     )
     capture.add_argument("--contract", type=Path, required=True)
     capture.add_argument("--corpus-manifest", type=Path)
@@ -1247,6 +1552,7 @@ def parse_arguments() -> argparse.Namespace:
     capture.add_argument("--timeout-seconds", type=int, default=3600)
     capture.add_argument("--performance-input", type=Path)
     capture.add_argument("--performance-source-identity", type=Path)
+    capture.add_argument("--media-fixture-manifest", type=Path)
     capture.add_argument("--warmups", type=int, default=5)
     capture.add_argument("--samples", type=int, default=10)
     verify = subparsers.add_parser("verify")
@@ -1273,6 +1579,7 @@ def main() -> int:
             timeout_seconds=arguments.timeout_seconds,
             performance_input=arguments.performance_input,
             performance_source_identity=arguments.performance_source_identity,
+            media_fixture_manifest=arguments.media_fixture_manifest,
             warmup_count=arguments.warmups,
             sample_count=arguments.samples,
         )

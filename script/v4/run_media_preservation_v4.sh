@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-    print -u2 "usage: $0 --output EVIDENCE_ROOT/media_preservation --candidate CANDIDATE.json --release-configuration Release.xcconfig [--candidate-revision REV] [--derived-data DIR] [--keep-work]"
+    print -u2 "usage: $0 --output EVIDENCE_ROOT/media_preservation --candidate CANDIDATE.json --application-archive Mirmir.zip --release-configuration Release.xcconfig [--candidate-revision REV] [--derived-data DIR] [--keep-work]"
     print -u2 "       $0 --compile-only [--candidate-revision REV] [--derived-data DIR] [--keep-work]"
     exit 64
 }
@@ -15,6 +15,7 @@ capture_source="${script_directory}/MediaPreservationCaptureTests.swift"
 fixture_source="${repository_root}/MirmirTests/AVFoundationTrackMigrationExecutorV4Tests.swift"
 evaluator="${script_directory}/media_preservation_v4.py"
 candidate=""
+application_archive=""
 release_configuration=""
 output_directory=""
 candidate_revision="HEAD"
@@ -32,6 +33,11 @@ while (( $# > 0 )); do
         --candidate)
             (( $# >= 2 )) || usage
             candidate="$2"
+            shift 2
+            ;;
+        --application-archive)
+            (( $# >= 2 )) || usage
+            application_archive="$2"
             shift 2
             ;;
         --release-configuration)
@@ -99,7 +105,7 @@ else
 fi
 
 if (( compile_only == 1 )); then
-    [[ -z "$candidate" && -z "$release_configuration" && -z "$output_directory" ]] || usage
+    [[ -z "$candidate" && -z "$application_archive" && -z "$release_configuration" && -z "$output_directory" ]] || usage
     xcodebuild build-for-testing \
         -project "$project_root/Mirmir.xcodeproj" \
         -scheme Mirmir \
@@ -113,50 +119,41 @@ if (( compile_only == 1 )); then
     exit 0
 fi
 
-[[ -n "$candidate" && -n "$release_configuration" && -n "$output_directory" ]] || usage
+[[ -n "$candidate" && -n "$application_archive" && -n "$release_configuration" && -n "$output_directory" ]] || usage
 candidate="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' "$candidate")"
+application_archive="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' "$application_archive")"
 release_configuration="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' "$release_configuration")"
 output_directory="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve())' "$output_directory")"
 [[ "${output_directory:t}" == "media_preservation" ]] || {
     print -u2 "output directory must be named media_preservation"
     exit 65
 }
-if [[ -e "$output_directory" ]] && [[ -n "$(find "$output_directory" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]; then
-    print -u2 "refusing to overwrite nonempty output directory: $output_directory"
+[[ ! -e "$output_directory" ]] || {
+    print -u2 "refusing to overwrite output directory: $output_directory"
     exit 65
-fi
-
-contract_sha256="$(shasum -a 256 "$contract" | awk '{print $1}')"
-release_contract_sha256="$(shasum -a 256 "$release_contract" | awk '{print $1}')"
-capture_sha256="$(shasum -a 256 "$capture_source" | awk '{print $1}')"
-fixture_sha256="$(shasum -a 256 "$fixture_source" | awk '{print $1}')"
-evaluator_sha256="$(shasum -a 256 "$evaluator" | awk '{print $1}')"
-runner_sha256="$(shasum -a 256 "$0" | awk '{print $1}')"
-
-python3 - "$contract" "$capture_sha256" "$fixture_sha256" \
-    "$evaluator_sha256" "$runner_sha256" <<'PY'
-import json,sys
-contract = json.load(open(sys.argv[1]))
-actual = {
-    "captureSourceSHA256": sys.argv[2],
-    "fixtureSourceSHA256": sys.argv[3],
-    "evaluatorSHA256": sys.argv[4],
-    "runnerSHA256": sys.argv[5],
 }
-for key, value in actual.items():
-    if contract["capture"].get(key) != value:
-        raise SystemExit(f"media-preservation tool identity mismatch for {key}: {value}")
-PY
+[[ -d "${output_directory:h}" ]] || {
+    print -u2 "output parent does not exist: ${output_directory:h}"
+    exit 65
+}
+
+python3 - "$candidate" "$candidate_revision" <<'PY_CHECK'
+import json,sys
+candidate=json.load(open(sys.argv[1]))
+if candidate.get("sourceCommit") != sys.argv[2]:
+    raise SystemExit("media fixture snapshot differs from candidate source commit")
+PY_CHECK
 
 for bound_path in \
     script/v4/media-preservation-contract-v1.json \
     script/v4/MediaPreservationCaptureTests.swift \
     script/v4/media_preservation_v4.py \
+    script/v4/packaged_candidate_evidence_v4.py \
     script/v4/run_media_preservation_v4.sh \
     MirmirTests/AVFoundationTrackMigrationExecutorV4Tests.swift \
     script/v4/release-qualification-contract-v1.json; do
     git -C "$repository_root" cat-file -e "${candidate_revision}:${bound_path}" || {
-        print -u2 "candidate revision does not contain locked media harness file: $bound_path"
+        print -u2 "candidate revision does not contain media harness file: $bound_path"
         exit 66
     }
     committed_hash="$(git -C "$repository_root" show "${candidate_revision}:${bound_path}" | shasum -a 256 | awk '{print $1}')"
@@ -167,79 +164,20 @@ for bound_path in \
     }
 done
 
-runtime_manifest="$project_root/Mirmir/Resources/ASH-P06.bundle/runtime-manifest.json"
-trust_source="$project_root/Mirmir/Upscaling/Deterministic/DeterministicEngineV4Support.swift"
-python3 - "$candidate" "$candidate_revision" "$runtime_manifest" \
-    "$trust_source" "$release_configuration" <<'PY'
-import hashlib,json,pathlib,re,sys
-candidate_path, revision, manifest_text, trust_text, release_text = sys.argv[1:]
-candidate = json.load(open(candidate_path))
-if candidate.get("sourceCommit") != revision:
-    raise SystemExit("media candidate source revision differs")
-manifest_path = pathlib.Path(manifest_text)
-if not manifest_path.is_file() or manifest_path.is_symlink():
-    raise SystemExit("release-qualified P06 runtime manifest is missing or unsafe")
-manifest_bytes = manifest_path.read_bytes()
-manifest_file_hash = hashlib.sha256(manifest_bytes).hexdigest()
-manifest = json.loads(manifest_bytes)
-if manifest.get("releaseStatus") != "release_qualified" or manifest.get("runtimeID") != "ash-p06-deterministic-v4":
-    raise SystemExit("media candidate P06 runtime is not release-qualified")
-if candidate.get("runtimeManifestFileSHA256") != manifest_file_hash:
-    raise SystemExit("media candidate runtime-manifest file differs")
-if candidate.get("runtimeSourceRevision") != manifest.get("provenance", {}).get("sourceRevision"):
-    raise SystemExit("media candidate runtime source revision differs")
-if candidate.get("releaseConfigurationSHA256") != hashlib.sha256(pathlib.Path(release_text).read_bytes()).hexdigest():
-    raise SystemExit("media candidate Release configuration differs")
-trust = pathlib.Path(trust_text).read_text()
-def unique(pattern, label):
-    values = re.findall(pattern, trust)
-    if len(values) != 1:
-        raise SystemExit(f"code-owned P06 {label} trust root is not unique")
-    return values[0]
-trusted_manifest = unique(r'manifestSHA256\s*=\s*try!\s*ASHSHA256V4\(\s*"([0-9a-f]{64})"\s*\)', "manifest")
-trusted_source = unique(r'sourceRevision\s*=\s*"((?:[0-9a-f]{40}|[0-9a-f]{64}))"', "source")
-trusted_builder = unique(r'builderSourceSHA256\s*=\s*try!\s*ASHSHA256V4\(\s*"([0-9a-f]{64})"\s*\)', "builder")
-if trusted_manifest == "0" * 64 or trusted_source == "0" * 40 or trusted_builder == "0" * 64:
-    raise SystemExit("code-owned P06 trust root is not configured")
-if trusted_manifest != candidate.get("runtimeManifestSHA256"):
-    raise SystemExit("code-owned P06 semantic manifest identity differs")
-if trusted_source != candidate.get("runtimeSourceRevision"):
-    raise SystemExit("code-owned P06 source trust root differs")
-if trusted_builder != manifest.get("provenance", {}).get("builderSourceSHA256"):
-    raise SystemExit("code-owned P06 builder trust root differs")
-PY
-
-capture_directory="$work_directory/capture"
-mkdir -p "$capture_directory"
-cp "$candidate" "$work_directory/candidate.json"
-
+fixture_directory="$work_directory/fixture-package"
+mkdir -p "$fixture_directory"
 python3 - "$project_root/MirmirTests/AVFoundationTrackMigrationExecutorV4Tests.swift" \
-    "$capture_directory" "$work_directory/candidate.json" \
-    "$contract_sha256" "$release_contract_sha256" "$capture_sha256" \
-    "$fixture_sha256" "$evaluator_sha256" "$runner_sha256" <<'PY'
+    "$fixture_directory" <<'PY_INJECT'
 from pathlib import Path
 import json,sys
-path = Path(sys.argv[1])
-values = sys.argv[2:]
-sentinels = (
-    "MIRMIR_V4_MEDIA_CAPTURE_DIR",
-    "MIRMIR_V4_MEDIA_CANDIDATE",
-    "MIRMIR_V4_MEDIA_LANE_CONTRACT_SHA256",
-    "MIRMIR_V4_MEDIA_RELEASE_CONTRACT_SHA256",
-    "MIRMIR_V4_MEDIA_CAPTURE_SOURCE_SHA256",
-    "MIRMIR_V4_MEDIA_FIXTURE_SOURCE_SHA256",
-    "MIRMIR_V4_MEDIA_EVALUATOR_SHA256",
-    "MIRMIR_V4_MEDIA_RUNNER_SHA256",
-)
-text = path.read_text()
-for name, value in zip(sentinels, values):
-    escaped = json.dumps(value)[1:-1]
-    token = f"__{name}__"
-    if text.count(token) != 1:
-        raise SystemExit(f"capture sentinel is absent or repeated: {token}")
-    text = text.replace(token, escaped)
+path=Path(sys.argv[1])
+text=path.read_text()
+token="__MIRMIR_V4_MEDIA_FIXTURE_DIR__"
+if text.count(token) != 1:
+    raise SystemExit("media fixture sentinel is absent or repeated")
+text=text.replace(token, json.dumps(sys.argv[2])[1:-1])
 path.write_text(text)
-PY
+PY_INJECT
 
 xcodebuild test \
     -project "$project_root/Mirmir.xcodeproj" \
@@ -247,23 +185,45 @@ xcodebuild test \
     -configuration Release \
     -destination 'platform=macOS' \
     -derivedDataPath "$derived_data" \
-    -only-testing:MirmirTests/DeterministicEngineV4MediaPreservationCaptureTests/testCaptureExactMediaPreservationWhenRequested \
+    -only-testing:MirmirTests/DeterministicEngineV4MediaPreservationCaptureTests/testGenerateMediaPreservationFixturesWhenRequested \
     SWIFT_TREAT_WARNINGS_AS_ERRORS=YES \
     ENABLE_TESTABILITY=YES \
-    2>&1 | tee "$capture_directory/xcodebuild.log"
+    2>&1 | tee "$work_directory/fixture-xcodebuild.log"
 
-[[ -f "$capture_directory/capture.json" ]] || {
-    print -u2 "media-preservation capture did not publish capture.json"
+fixture_manifest="$fixture_directory/fixture-manifest.json"
+[[ -f "$fixture_manifest" ]] || {
+    print -u2 "media fixture host did not publish fixture-manifest.json"
     exit 67
 }
 
-python3 "$evaluator" evaluate \
-    --capture "$capture_directory" \
+packaged_evidence="$work_directory/packaged-media-evidence"
+runtime="$repository_root/Mirmir/Resources/ASH-P06.bundle"
+python3 "$script_directory/packaged_candidate_evidence_v4.py" capture \
+    --repository "$repository_root" \
     --candidate "$candidate" \
+    --application-archive "$application_archive" \
+    --runtime "$runtime" \
+    --release-configuration "$release_configuration" \
+    --lane media \
+    --contract "$contract" \
+    --media-fixture-manifest "$fixture_manifest" \
+    --output "$packaged_evidence" \
+    --timeout-seconds 3600
+
+python3 "$script_directory/packaged_candidate_evidence_v4.py" verify \
+    --repository "$repository_root" \
+    --runtime "$runtime" \
+    --evidence "$packaged_evidence"
+
+python3 "$evaluator" evaluate \
+    --capture "$packaged_evidence/capture" \
+    --packaged-evidence "$packaged_evidence" \
+    --candidate "$candidate" \
+    --application-archive "$application_archive" \
     --output "$output_directory" \
     --contract "$contract" \
     --release-contract "$release_contract" \
-    --runtime-manifest "$runtime_manifest" \
+    --runtime-manifest "$runtime/runtime-manifest.json" \
     --release-configuration "$release_configuration" \
     --capture-source "$capture_source" \
     --fixture-source "$fixture_source" \

@@ -26,6 +26,25 @@ The expected trust-root SHA-256 is deliberately not read from the candidate,
 repository, or evidence suite. A mutated evaluator or helper therefore fails
 before its Python code can execute, even if an attacker reseals the evidence.
 
+The authenticated release contract also pins the exact quality, performance,
+media-preservation, P06-reproduction, and support-matrix lane contracts and
+their evidence-producing source identities. Quality additionally pins the
+natural corpus manifest, artifact set, population, source/license sets, the
+frozen P05 baseline identity, its repaired capture runner, and deterministic
+output set. Performance pins
+its frozen P05 source tree and the exact 24-key path-neutral producer fact map,
+its canonical map SHA-256, and its domain-separated producer identity. The map
+binds the exact app/test executables, input, normalized build/test result,
+recomputed compiler-control audit, and timing-neutral workload identity. Raw
+timing/memory measurements, receipts, result bundles, logs, and transcript sets
+remain per-run evidence and are recursively sealed and replayed rather than
+externally pinned. P06 pins
+its closed production-source inventory, and support pins the signing team.
+These locks are checked before the aggregator derives weights, cohorts,
+workload, fixture coverage, source counts, or signing constraints from a
+supplied suite. Changing and resealing both a lane contract and its evidence
+therefore cannot change the release standard.
+
 The candidate index follows
 `script/v4/release-qualification-evidence-schema-v1.json`. Its candidate record
 binds the source commit and tree, semantic P06 manifest identity, raw manifest
@@ -45,11 +64,20 @@ and requires the report value, binding value, and computed value to agree. The
 quality role binds its metric tool, capture source, corpus manifest, and quality
 contract; its P06 semantic identity is recomputed directly. M7 invokes the
 quality verifier over the nested recursive seal, validates the frozen P05
-source/capture identities, and recomputes every per-clip component from the raw
-reference, P05, candidate, and ablation planes before accepting any aggregate.
+source/capture identities and externally pinned output set, and recomputes
+every per-clip component from the raw reference, P05, candidate, and ablation
+planes before accepting any aggregate. The P05 capture runner first copies the
+exact locked manifest and artifact inventory into its mode-0700 owned build
+root, rejecting non-regular, symlinked, escaping, size-mismatched,
+hash-mismatched, or byte-different inputs before the test host reads them.
 The performance role additionally binds both source-identity records and both
-recursive capture manifests. The parity role binds its release-locked v2 contract, capture,
-evaluator, and runner sources. It requires the evaluator-owned 28-label
+recursive capture manifests. It invokes the locked performance evaluator to
+reconstruct every sample transcript and measurement identity and to validate
+the baseline build receipt, input, executables, result-bundle summary,
+compiler-control audit, and normalized producer identity before recomputing
+timing statistics. The parity
+role binds its release-locked v2 contract, capture, evaluator, and runner
+sources. It requires the evaluator-owned 34-label
 coverage set, replays the nested recursive manifest, and independently invokes
 the locked parity evaluator over both raw captures. Candidate-oriented roles
 bind the raw P06 manifest and exact Release configuration, and
@@ -64,6 +92,21 @@ replay receipt. The aggregator resolves the lane's suite-relative artifacts
 inside its recursive seal, independently replays every command-record and
 action-transcript relationship, and rejects a weakened signing, entitlement,
 observer, or recovery contract even when report pass booleans remain true.
+
+The media role invokes its externally locked evaluator over the full raw
+capture and requires byte-identical recomputed output. That evaluator is the
+single semantic authority for the independent P010 luma/chroma oracle,
+PQ/HLG metadata contracts, deinterlacing cadence, alpha, geometry, and track
+preservation; M7 retains independent candidate, archive, seal, and structure
+admission around that replay.
+
+P06 reproduction uses the v2 source/archive boundary. The locked evaluator
+reconstructs the Git commit and tree from sealed source bytes, recomputes the
+production source manifest, and validates two chained build executions. Its
+unkeyed challenges reject copied receipts without rerunning the externally
+pinned builder; they are trusted-producer execution evidence, not a
+cryptographic substitute for operator observation of two independent
+processes.
 
 The eight normative roles are:
 

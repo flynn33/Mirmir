@@ -766,10 +766,17 @@ struct ASHDepthFourBranchProgramV4: Equatable, Sendable {
             }) else {
                 continue
             }
-            matrix.swapAt(pivotRow, found)
-            for row in matrix.indices where row != pivotRow
-                && matrix[row] & bit != 0 {
-                matrix[row] ^= matrix[pivotRow]
+            matrix.withUnsafeMutableBufferPointer { rows in
+                if found != pivotRow {
+                    let displaced = rows[pivotRow]
+                    rows[pivotRow] = rows[found]
+                    rows[found] = displaced
+                }
+                let pivot = rows[pivotRow]
+                for row in rows.indices where row != pivotRow
+                    && rows[row] & bit != 0 {
+                    rows[row] ^= pivot
+                }
             }
             pivots.append(coordinate)
             pivotRow += 1
@@ -795,8 +802,15 @@ struct ASHDepthFourBranchProgramV4: Equatable, Sendable {
             }) else {
                 continue
             }
-            matrix.swapAt(pivotRow, found)
-            let pivot = matrix[pivotRow][column]
+            if found != pivotRow {
+                matrix.withUnsafeMutableBufferPointer { rows in
+                    let displaced = rows[pivotRow]
+                    rows[pivotRow] = rows[found]
+                    rows[found] = displaced
+                }
+            }
+            let pivotRowValues = matrix[pivotRow]
+            let pivot = pivotRowValues[column]
             for row in matrix.indices where row != pivotRow
                 && !matrix[row][column].isZero {
                 let factor = try matrix[row][column].divided(by: pivot)
@@ -804,7 +818,7 @@ struct ASHDepthFourBranchProgramV4: Equatable, Sendable {
                     matrix[row][targetColumn] = try matrix[row][targetColumn]
                         .subtracting(
                             factor.multiplied(
-                                by: matrix[pivotRow][targetColumn]
+                                by: pivotRowValues[targetColumn]
                             )
                         )
                 }

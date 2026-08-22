@@ -762,9 +762,10 @@ struct FixedPointCPUWorkspaceV4: Sendable {
             horizontalRows = Array(repeating: 0, count: sampleCount)
             allocationCount += 1
         }
-        for slot in sourceRowBySlot.indices {
-            sourceRowBySlot[slot] = -1
-        }
+        sourceRowBySlot[0] = -1
+        sourceRowBySlot[1] = -1
+        sourceRowBySlot[2] = -1
+        sourceRowBySlot[3] = -1
     }
 }
 

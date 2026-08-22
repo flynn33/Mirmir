@@ -574,6 +574,11 @@ final class VideoWriterFormatContractV4Tests: XCTestCase {
                 rawData: Data("field-normalization-scene-0".utf8)
             )
         )
+        let ambientViewingEnvironment = CanonicalAmbientViewingEnvironmentV4(
+            ambientIlluminance: try ExactRationalV4(123_456, 10_000),
+            ambientLightX: try ExactRationalV4(15_635, 50_000),
+            ambientLightY: try ExactRationalV4(16_450, 50_000)
+        )
         let video = CanonicalVideoStateV4(
             encodedRaster: CanonicalRasterV4(width: 64, height: 48),
             presentationRaster: CanonicalRasterV4(width: 64, height: 48),
@@ -597,6 +602,7 @@ final class VideoWriterFormatContractV4Tests: XCTestCase {
                 matrix: kCMFormatDescriptionYCbCrMatrix_ITU_R_2020 as String,
                 masteringDisplay: nil,
                 contentLightLevel: nil,
+                ambientViewingEnvironment: ambientViewingEnvironment,
                 dynamicHDRMetadata: [dynamicMetadata]
             ),
             scan: CanonicalScanStateV4(
@@ -639,6 +645,17 @@ final class VideoWriterFormatContractV4Tests: XCTestCase {
         }
         XCTAssertEqual(metadata.signal.storage, .p010VideoRange10Bit)
         XCTAssertEqual(metadata.signal.transferFunction, .pq)
+        XCTAssertEqual(
+            metadata.staticMetadata.ambientViewingEnvironment,
+            try AmbientViewingEnvironmentV4(
+                ambientIlluminance: 123_456,
+                ambientLight: try HDRChromaticityV4(
+                    x: 15_635,
+                    y: 16_450,
+                    label: "ambient"
+                )
+            )
+        )
 
         let compression = try XCTUnwrap(
             contract.outputSettings[AVVideoCompressionPropertiesKey]
@@ -1069,7 +1086,7 @@ final class VideoWriterFormatContractV4Tests: XCTestCase {
                     maximumContentLightLevel: 1_000,
                     maximumFrameAverageLightLevel: 400
                 ),
-                ambientViewingEnvironment: AmbientViewingEnvironmentV4(
+                ambientViewingEnvironment: try AmbientViewingEnvironmentV4(
                     ambientIlluminance: 1_000,
                     ambientLight: try HDRChromaticityV4(
                         x: 15_635,
@@ -1086,7 +1103,10 @@ final class VideoWriterFormatContractV4Tests: XCTestCase {
     ) throws -> HDRDynamicMetadataV4 {
         try HDRDynamicMetadataV4(
             hdr10Plus: HDR10PlusMetadataV4(
-                ituTT35Payload: Data([0xB5, seed, seed &+ 1])
+                ituTT35Payload: Data([
+                    0xB5, 0x00, 0x3C, 0x00, 0x01, 0x04, 0x01,
+                    seed, seed &+ 1
+                ])
             ),
             postDecodeProcessing: PostDecodeProcessingMetadataV4(
                 propertyList: ["seed": NSNumber(value: seed)] as NSDictionary

@@ -182,13 +182,43 @@ struct CanonicalContentLightLevelV4: Codable, Equatable, Hashable, Sendable {
     let maximumFrameAverageLightLevel: UInt32
 }
 
+/// Typed semantic form of the ITU-T H.274 ambient-viewing-environment SEI
+/// carried by an ITU-T H.265/HEVC bitstream.
+/// Illuminance is expressed in lux and chromaticity in normalized x/y units;
+/// exact rationals retain every bit of the eight-byte payload.
+struct CanonicalAmbientViewingEnvironmentV4: Codable, Equatable, Hashable,
+    Sendable {
+    let ambientIlluminance: ExactRationalV4
+    let ambientLightX: ExactRationalV4
+    let ambientLightY: ExactRationalV4
+}
+
 struct CanonicalColorStateV4: Codable, Equatable, Hashable, Sendable {
     let primaries: String
     let transferFunction: String
     let matrix: String
     let masteringDisplay: CanonicalMasteringDisplayV4?
     let contentLightLevel: CanonicalContentLightLevelV4?
+    let ambientViewingEnvironment: CanonicalAmbientViewingEnvironmentV4?
     let dynamicHDRMetadata: [CanonicalDynamicHDRMetadataV4]
+
+    init(
+        primaries: String,
+        transferFunction: String,
+        matrix: String,
+        masteringDisplay: CanonicalMasteringDisplayV4?,
+        contentLightLevel: CanonicalContentLightLevelV4?,
+        ambientViewingEnvironment: CanonicalAmbientViewingEnvironmentV4? = nil,
+        dynamicHDRMetadata: [CanonicalDynamicHDRMetadataV4]
+    ) {
+        self.primaries = primaries
+        self.transferFunction = transferFunction
+        self.matrix = matrix
+        self.masteringDisplay = masteringDisplay
+        self.contentLightLevel = contentLightLevel
+        self.ambientViewingEnvironment = ambientViewingEnvironment
+        self.dynamicHDRMetadata = dynamicHDRMetadata
+    }
 }
 
 struct CanonicalPixelStateV4: Codable, Equatable, Hashable, Sendable {

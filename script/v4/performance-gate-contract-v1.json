@@ -9,11 +9,11 @@
   },
   "capture": {
     "buildConfiguration": "Release",
-    "captureSourceSHA256": "180a97cdd6e9cc3277db738c95261e85161ac48bde5336ccfd37089fbb8e6d39",
-    "evaluatorSourceSHA256": "97199617f75e5009aaed0e13f84bf070e8fff6bddec65f57a9df9d21bfdd33d8",
+    "captureSourceSHA256": "8a6acc0b976a5408e2d0ce496b6fb62972607c5ff80039c3e5b102c9a8b04a3b",
+    "evaluatorSourceSHA256": "d6107c655e6418f1c40e5f26f8ca5b74e4d14c02337990de268f642ec71f76b2",
     "minimumMeasuredRuns": 10,
     "minimumWarmupRuns": 5,
-    "runnerSourceSHA256": "91ec923eff8e5246445bf20d97b804a774732751355288da03bed54b71f2aaa7"
+    "runnerSourceSHA256": "08c393a66d2680b749bbbdc0d0c149f0801d2a17013a218ac3ddb794faf83190"
   },
   "candidate": {
     "bundleRepositoryPath": "Mirmir/Resources/ASH-P06.bundle",
@@ -51,6 +51,30 @@
       "untimed warmups",
       "evidence serialization"
     ]
+  },
+  "producerEvidence": {
+    "baselineProducerReceiptRequired": true,
+    "buildRequestArtifactRequired": true,
+    "compilerControlAuditRequired": true,
+    "compilerControlAuditSchema": "mirmir-v4-performance-compiler-control-audit-v2",
+    "producerReceiptSchema": "mirmir-v4-performance-producer-receipt-v2",
+    "sealedInputArtifactRequired": true,
+    "sampleTranscriptSchema": "mirmir-v4-performance-sample-transcripts-v2",
+    "sampleTranscriptsRequired": true,
+    "sampleWorkloadIdentityRequired": true,
+    "stableProducerFactsSchema": "mirmir-v4-performance-stable-producer-facts-v2",
+    "stableProducerIdentityRequired": true,
+    "swiftDriverAuditRequired": true,
+    "swiftDriverAuditSchema": "mirmir-v4-performance-swift-driver-job-audit-v2",
+    "swiftDriverWrapperRequired": true,
+    "swiftDriverWrapperSchema": "mirmir-v4-performance-swift-driver-wrapper-v2",
+    "swiftFrontendAuditRequired": true,
+    "swiftFrontendAuditSchema": "mirmir-v4-performance-swift-frontend-job-audit-v1",
+    "swiftFrontendShimRequired": true,
+    "swiftFrontendShimSchema": "mirmir-v4-performance-swift-frontend-shim-v1",
+    "supplementaryOutputMapsRequired": true,
+    "testSummarySchema": "mirmir-v4-performance-normalized-test-summary-v2",
+    "xcresultTreeRequired": true
   },
   "schemaVersion": "mirmir-v4-performance-gate-contract-v1",
   "thresholds": {

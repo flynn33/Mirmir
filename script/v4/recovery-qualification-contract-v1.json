@@ -1,26 +1,36 @@
 {
   "artifactSchemas": {
-    "capture": "mirmir-v4-recovery-capture-v1",
-    "captureManifest": "mirmir-v4-recovery-capture-artifacts-v1",
+    "archivedExecution": "mirmir-v4-recovery-archived-execution-v1",
+    "causalBinding": "mirmir-v4-recovery-causal-binding-v1",
+    "capture": "mirmir-v4-recovery-capture-v2",
+    "captureManifest": "mirmir-v4-recovery-capture-artifacts-v2",
     "packageIdentity": "mirmir-v4-packaged-candidate-identity-v1",
+    "packagedEvidenceRequest": "mirmir-v4-packaged-evidence-request-v1",
+    "packagedEvidenceResult": "mirmir-v4-packaged-evidence-result-v1",
     "releaseAttestation": "mirmir-v4-release-build-attestation-v1",
-    "report": "mirmir-ash-v4-recovery-report-v1",
+    "report": "mirmir-ash-v4-recovery-report-v2",
     "scenarioEvidence": "mirmir-v4-recovery-scenario-evidence-v1",
     "semanticManifest": "mirmir-v4-recovery-semantic-output-v1",
-    "suiteManifest": "mirmir-v4-recovery-evidence-manifest-v1",
+    "stateDerivation": "mirmir-v4-recovery-state-derivation-v1",
+    "stateManifest": "mirmir-v4-recovery-state-artifacts-v1",
+    "suiteManifest": "mirmir-v4-recovery-evidence-manifest-v2",
     "transcript": "mirmir-v4-recovery-fault-transcript-v1"
   },
   "buildConfiguration": "Release",
   "capture": {
-    "archiveProvenanceSourceSHA256": "090198d3e518659517782d36470b97cf668338c5c038476e1ef2798302f8e9f7",
-    "captureSourceSHA256": "c1bdd17b741ac67ec6875f0eb7a47a9366ff395bfc93b6b4857c7b9b5de4e723",
-    "evaluatorSourceSHA256": "fbed68ede506d20d0bede001e3ca24a7a11ba2b56e6e61aeec305b0436308a4b",
-    "packagedEvidenceSourceSHA256": "d40e9a1dd5af8fd0b13b55d37ceeebe366bb9f4c821cb74f223ffa511af0892c",
-    "runnerSourceSHA256": "8eb6c0304060ef6f86114aa06e200f9cd0eea019a6b01ed0cf71e9eca0767f29"
+    "archiveProvenanceSourceSHA256": "b53d8d20847a951f326feebead3a263632b219fe1ee720c6c4361d7d2ee5189a",
+    "evaluatorSourceSHA256": "5d7b19b4b072170f9549534936136a1a43a06e433468b4c31720a1b5b15362ee",
+    "observerSourceSHA256": "9fcf2009a18385524f65644cf13e744a0cdd58550808bc43089dff4f12f98a84",
+    "packagedEvidenceSourceSHA256": "5ea4b53d5d696714d1d0f00a1df22cb1a0b8f9769f2e70b133139cb05132f117",
+    "producerSourceSHA256": "ab7830c27debc9d7afdf704202ab7dc1270c54b0f904fed535e69aa33e5439ce",
+    "runnerSourceSHA256": "4552b7e7d631ea12a2f712fe32122083dd7c9dba576b4655beca319d41076b27"
   },
+  "crossProcessCaptureCount": 2,
   "hashAlgorithm": "sha256",
   "packagedCandidate": {
     "requireExactApplicationArchive": true,
+    "requireArchivedExecutableProducer": true,
+    "requireIndependentProcessCaptures": 2,
     "requireReleaseAttestation": true,
     "requireTestabilityDisabled": true,
     "requiredArchitectures": [
@@ -32,6 +42,7 @@
     {
       "containedFailureCode": null,
       "coverageID": "append_only_event_boundary",
+      "evidenceKind": "durable_state_derivation",
       "id": "append-only-event-boundary",
       "injectionPoint": "after_append_file_sync_before_return",
       "outcome": "identical_resumed_output"
@@ -39,6 +50,7 @@
     {
       "containedFailureCode": null,
       "coverageID": "snapshot_publish_boundary",
+      "evidenceKind": "durable_state_derivation",
       "id": "snapshot-publish-boundary",
       "injectionPoint": "after_snapshot_rename_before_parent_sync",
       "outcome": "identical_resumed_output"
@@ -46,6 +58,7 @@
     {
       "containedFailureCode": "bookmark_toctou_contained",
       "coverageID": "bookmark_resolution_and_toctou",
+      "evidenceKind": "contained_state_derivation",
       "id": "bookmark-resolution-and-toctou",
       "injectionPoint": "after_bookmark_resolution_before_revalidation",
       "outcome": "explicit_contained_failure"
@@ -53,6 +66,7 @@
     {
       "containedFailureCode": null,
       "coverageID": "segment_commit_boundary",
+      "evidenceKind": "durable_state_derivation",
       "id": "segment-commit-boundary",
       "injectionPoint": "after_segment_artifact_publish_before_checkpoint_commit",
       "outcome": "identical_resumed_output"
@@ -60,6 +74,7 @@
     {
       "containedFailureCode": null,
       "coverageID": "checkpoint_publish_boundary",
+      "evidenceKind": "durable_state_derivation",
       "id": "checkpoint-publish-boundary",
       "injectionPoint": "after_checkpoint_archive_publish_before_head_publish",
       "outcome": "identical_resumed_output"
@@ -67,6 +82,7 @@
     {
       "containedFailureCode": null,
       "coverageID": "prepared_decision_boundary",
+      "evidenceKind": "durable_state_derivation",
       "id": "prepared-decision-boundary",
       "injectionPoint": "after_prepared_recovery_decision_before_lifecycle_transition",
       "outcome": "identical_resumed_output"
@@ -74,6 +90,7 @@
     {
       "containedFailureCode": null,
       "coverageID": "final_assembly_boundary",
+      "evidenceKind": "scenario_media_output",
       "id": "final-assembly-boundary",
       "injectionPoint": "after_segment_assembly_before_final_mux",
       "outcome": "identical_resumed_output"
@@ -81,6 +98,7 @@
     {
       "containedFailureCode": null,
       "coverageID": "atomic_output_publish_boundary",
+      "evidenceKind": "scenario_media_output",
       "id": "atomic-output-publish-boundary",
       "injectionPoint": "after_atomic_output_rename_before_completion_event",
       "outcome": "identical_resumed_output"
@@ -88,6 +106,7 @@
     {
       "containedFailureCode": null,
       "coverageID": "pause_resume",
+      "evidenceKind": "scenario_media_output",
       "id": "pause-resume",
       "injectionPoint": "after_committed_pause_boundary",
       "outcome": "identical_resumed_output"
@@ -95,6 +114,7 @@
     {
       "containedFailureCode": null,
       "coverageID": "forced_termination_restart",
+      "evidenceKind": "durable_state_derivation",
       "id": "forced-termination-restart",
       "injectionPoint": "after_lease_persistence_before_process_death",
       "outcome": "identical_resumed_output"
@@ -102,6 +122,7 @@
     {
       "containedFailureCode": "disk_full_contained",
       "coverageID": "disk_full",
+      "evidenceKind": "contained_state_derivation",
       "id": "disk-full",
       "injectionPoint": "journal_append_enospc_before_write",
       "outcome": "explicit_contained_failure"
@@ -109,6 +130,7 @@
     {
       "containedFailureCode": "corrupt_journal_contained",
       "coverageID": "corrupt_journal",
+      "evidenceKind": "contained_state_derivation",
       "id": "corrupt-journal",
       "injectionPoint": "journal_frame_payload_bit_flip",
       "outcome": "explicit_contained_failure"
@@ -116,6 +138,7 @@
     {
       "containedFailureCode": "corrupt_checkpoint_contained",
       "coverageID": "corrupt_checkpoint",
+      "evidenceKind": "contained_state_derivation",
       "id": "corrupt-checkpoint",
       "injectionPoint": "temporal_checkpoint_payload_bit_flip",
       "outcome": "explicit_contained_failure"
@@ -123,6 +146,7 @@
     {
       "containedFailureCode": null,
       "coverageID": "orphan_partial_reconciliation",
+      "evidenceKind": "durable_state_derivation",
       "id": "orphan-partial-reconciliation",
       "injectionPoint": "owned_partial_present_at_launch",
       "outcome": "identical_resumed_output"
@@ -130,16 +154,19 @@
     {
       "containedFailureCode": "unowned_artifact_rejected",
       "coverageID": "unowned_artifact_rejection",
+      "evidenceKind": "contained_state_derivation",
       "id": "unowned-artifact-rejection",
       "injectionPoint": "unowned_partial_present_at_launch",
       "outcome": "explicit_contained_failure"
     }
   ],
-  "schemaVersion": "mirmir-v4-recovery-qualification-contract-v1",
+  "schemaVersion": "mirmir-v4-recovery-qualification-contract-v2",
   "semanticVerification": {
     "requireByteIdentity": true,
+    "requireCrossProcessIdentity": true,
     "requireDecodedVisiblePixelIdentity": true,
     "requireExactPresentationTimeline": true,
+    "requireRepeatExecutionIdentity": true,
     "requireTrackGraphIdentity": true
   },
   "suiteID": "deterministic-engine-v4-durable-recovery"

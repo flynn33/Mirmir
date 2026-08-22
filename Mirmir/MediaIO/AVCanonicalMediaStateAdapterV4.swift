@@ -46,6 +46,55 @@ struct AVCanonicalMediaStateProbeRequestV4: Sendable {
     }
 }
 
+/// Exact bridge from the eight-byte AVFoundation ambient-viewing payload into
+/// the typed canonical color model. This is intentionally separate from the
+/// generic property-list path so malformed or non-representable values fail
+/// admission instead of being reduced to an opaque hash.
+enum AVCanonicalAmbientViewingEnvironmentCodecV4 {
+    static func decodeExtensionValue(
+        _ value: Any?,
+        path: String
+    ) throws -> CanonicalAmbientViewingEnvironmentV4? {
+        guard let value else { return nil }
+        guard let data = value as? Data else {
+            throw AVCanonicalMediaStateAdapterV4Error.avFoundationLoadFailed(
+                path: path,
+                reason: "ambient viewing environment must be CFData"
+            )
+        }
+        return try decode(data, path: path)
+    }
+
+    static func decode(
+        _ data: Data,
+        path: String
+    ) throws -> CanonicalAmbientViewingEnvironmentV4 {
+        let metadata: AmbientViewingEnvironmentV4
+        do {
+            metadata = try AmbientViewingEnvironmentV4(payload: data)
+        } catch {
+            throw AVCanonicalMediaStateAdapterV4Error.avFoundationLoadFailed(
+                path: path,
+                reason: "invalid ambient viewing environment: \(error)"
+            )
+        }
+        return CanonicalAmbientViewingEnvironmentV4(
+            ambientIlluminance: try ExactRationalV4(
+                Int64(metadata.ambientIlluminance),
+                10_000
+            ),
+            ambientLightX: try ExactRationalV4(
+                Int64(metadata.ambientLight.x),
+                50_000
+            ),
+            ambientLightY: try ExactRationalV4(
+                Int64(metadata.ambientLight.y),
+                50_000
+            )
+        )
+    }
+}
+
 enum AVCanonicalScanDescriptionV4Error: Error, Equatable, Sendable {
     case invalidFieldCount(Int?)
     case contradictoryProgressiveFieldDetail(String)
@@ -452,6 +501,8 @@ private extension AVCanonicalMediaStateAdapterV4 {
                     matrix: facts.color.matrix,
                     masteringDisplay: facts.color.masteringDisplay,
                     contentLightLevel: facts.color.contentLightLevel,
+                    ambientViewingEnvironment:
+                        facts.color.ambientViewingEnvironment,
                     dynamicHDRMetadata: dynamicMetadata
                 )
                 video = CanonicalVideoStateV4(
@@ -1079,18 +1130,15 @@ private extension AVCanonicalMediaStateAdapterV4 {
         let contentLightData = extensions[
             kCMFormatDescriptionExtension_ContentLightLevelInfo as String
         ] as? Data
-        if let ambient = extensions[
-            kCMFormatDescriptionExtension_AmbientViewingEnvironment as String
-        ] as? Data {
-            observations.append(
-                observation(
-                    severity: .unsupported,
-                    code: .unsupportedValue,
-                    path: "\(root).color.ambient_viewing_environment",
-                    value: ASHSHA256V4(rawData: ambient).rawValue
-                )
+        let ambientPath = "\(root).color.ambient_viewing_environment"
+        let ambientViewingEnvironment = try
+            AVCanonicalAmbientViewingEnvironmentCodecV4.decodeExtensionValue(
+                extensions[
+                    kCMFormatDescriptionExtension_AmbientViewingEnvironment
+                        as String
+                ],
+                path: ambientPath
             )
-        }
         let mastering: CanonicalMasteringDisplayV4?
         if let masteringData {
             mastering = try decodeMasteringDisplay(masteringData, root: root)
@@ -1118,6 +1166,7 @@ private extension AVCanonicalMediaStateAdapterV4 {
             ),
             masteringDisplay: mastering,
             contentLightLevel: contentLight,
+            ambientViewingEnvironment: ambientViewingEnvironment,
             dynamicHDRMetadata: []
         )
     }
@@ -1259,10 +1308,10 @@ private extension AVCanonicalMediaStateAdapterV4 {
             if segment.isEmpty {
                 observations.append(
                     observation(
-                        severity: .unsupported,
+                        severity: .warning,
                         code: .unsupportedValue,
                         path: "\(root).edits[\(index)]",
-                        value: "empty edit fingerprinted; canonical edit schema has no empty-edit form"
+                        value: "empty edit omitted from canonical edit rows; exact mapping fingerprinted in segment-mapping metadata and route topology is admitted separately"
                     )
                 )
                 continue

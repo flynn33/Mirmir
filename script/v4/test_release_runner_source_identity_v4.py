@@ -6,6 +6,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -18,6 +19,15 @@ P06_SPEC = importlib.util.spec_from_file_location(
 assert P06_SPEC is not None and P06_SPEC.loader is not None
 p06 = importlib.util.module_from_spec(P06_SPEC)
 P06_SPEC.loader.exec_module(p06)
+
+ARCHIVE_SPEC = importlib.util.spec_from_file_location(
+    "release_candidate_archive_v4",
+    SCRIPT_DIRECTORY / "release_candidate_archive_v4.py",
+)
+assert ARCHIVE_SPEC is not None and ARCHIVE_SPEC.loader is not None
+archive = importlib.util.module_from_spec(ARCHIVE_SPEC)
+sys.modules[ARCHIVE_SPEC.name] = archive
+ARCHIVE_SPEC.loader.exec_module(archive)
 
 
 def run(*arguments: str | Path, cwd: Path) -> str:
@@ -47,10 +57,9 @@ class ReleaseRunnerSourceIdentityV4Tests(unittest.TestCase):
         run("git", "commit", "-qm", "fixture", cwd=repository)
         return repository, run("git", "rev-parse", "HEAD", cwd=repository)
 
-    def testAllReleaseRunnerAlgorithmsMatchCanonicalSourceTreeIdentity(self) -> None:
+    def testAllReleaseSourceIdentityAlgorithmsMatchCanonicalIdentity(self) -> None:
         runners = (
             (SCRIPT_DIRECTORY / "run_performance_gate_v4.sh", "zsh"),
-            (SCRIPT_DIRECTORY / "run_recovery_qualification_v4.sh", "zsh"),
             (SCRIPT_DIRECTORY / "run_quality_gate_v4.sh", "sh"),
         )
         with tempfile.TemporaryDirectory(prefix="mirmir-runner-identity-") as temporary:
@@ -67,6 +76,10 @@ class ReleaseRunnerSourceIdentityV4Tests(unittest.TestCase):
                     )
                     observed = run(shell, probe, repository, commit, cwd=root)
                     self.assertEqual(observed, expected)
+            self.assertEqual(
+                archive.source_tree_identity(repository, commit),
+                expected,
+            )
 
     def testQualityCandidateArchiveExcludesDirtyWorkingBytes(self) -> None:
         runner = SCRIPT_DIRECTORY / "run_quality_gate_v4.sh"

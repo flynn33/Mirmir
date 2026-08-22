@@ -319,6 +319,78 @@ final class FixedPointKernelV4Tests: XCTestCase {
         XCTAssertTrue(first.allSatisfy { (64...940).contains($0) })
     }
 
+    func testRepeatedPlanarAndInterleavedExecutionResetAllWorkspaceRowTags()
+        throws {
+        let plan = try SpatialScalePlanV4(
+            sourceWidth: 4,
+            sourceHeight: 4,
+            targetWidth: 4,
+            targetHeight: 4
+        )
+        let prepared = try FixedPointPreparedScaleV4(
+            scalePlan: plan,
+            kernelIR: FixedPointKernelIRV4(scalePlan: plan)
+        )
+        let firstCodes = (0..<16).map { UInt16($0 + 1) }
+        let secondCodes = (0..<16).map { UInt16($0 + 201) }
+
+        var planarWorkspace = FixedPointCPUWorkspaceV4()
+        XCTAssertEqual(
+            try FixedPointCPUExecutorV4.execute(
+                source: firstCodes,
+                sourceRowStride: 4,
+                preparedScale: prepared,
+                minimumCode: 0,
+                maximumCode: 255,
+                workspace: &planarWorkspace
+            ),
+            firstCodes
+        )
+        let planarStorageIdentity = planarWorkspace.reusableStorageIdentity
+        XCTAssertEqual(
+            try FixedPointCPUExecutorV4.execute(
+                source: secondCodes,
+                sourceRowStride: 4,
+                preparedScale: prepared,
+                minimumCode: 0,
+                maximumCode: 255,
+                workspace: &planarWorkspace
+            ),
+            secondCodes
+        )
+        XCTAssertEqual(planarWorkspace.allocationCount, 1)
+        XCTAssertEqual(
+            planarWorkspace.reusableStorageIdentity,
+            planarStorageIdentity
+        )
+
+        let firstInterleaved = interleavedFixture(codes: firstCodes)
+        let secondInterleaved = interleavedFixture(codes: secondCodes)
+        var interleavedWorkspace = FixedPointCPUWorkspaceV4()
+        let firstOutput = try executeInterleavedFixture(
+            source: firstInterleaved,
+            preparedScale: prepared,
+            workspace: &interleavedWorkspace
+        )
+        XCTAssertEqual(interleavedComponent(from: firstOutput), firstCodes)
+        let interleavedStorageIdentity = interleavedWorkspace
+            .reusableStorageIdentity
+        let secondOutput = try executeInterleavedFixture(
+            source: secondInterleaved,
+            preparedScale: prepared,
+            workspace: &interleavedWorkspace
+        )
+        XCTAssertEqual(interleavedComponent(from: secondOutput), secondCodes)
+        XCTAssertEqual(interleavedWorkspace.allocationCount, 1)
+        XCTAssertEqual(
+            interleavedWorkspace.reusableStorageIdentity,
+            interleavedStorageIdentity
+        )
+        XCTAssertTrue(secondOutput.enumerated().allSatisfy { index, value in
+            index.isMultiple(of: 2) ? value == 0xA5 : true
+        })
+    }
+
     func testBorderRulesAndSignedTiesToEvenAreExact() throws {
         XCTAssertEqual(
             (-8...8).map {
@@ -675,6 +747,49 @@ final class FixedPointKernelV4Tests: XCTestCase {
                 }
             }
             XCTAssertEqual(destination, before)
+        }
+    }
+
+    private func interleavedFixture(codes: [UInt16]) -> [UInt8] {
+        var bytes = Array(repeating: UInt8(0x5A), count: codes.count * 2)
+        for (index, code) in codes.enumerated() {
+            bytes[index * 2 + 1] = UInt8(code)
+        }
+        return bytes
+    }
+
+    private func executeInterleavedFixture(
+        source: [UInt8],
+        preparedScale: FixedPointPreparedScaleV4,
+        workspace: inout FixedPointCPUWorkspaceV4
+    ) throws -> [UInt8] {
+        var destination = Array(repeating: UInt8(0xA5), count: source.count)
+        try source.withUnsafeBytes { sourceBytes in
+            try destination.withUnsafeMutableBytes { destinationBytes in
+                try FixedPointCPUExecutorV4.executeInterleavedComponent(
+                    sourceBaseAddress: try XCTUnwrap(sourceBytes.baseAddress),
+                    sourceRowBytes: 8,
+                    destinationBaseAddress: try XCTUnwrap(
+                        destinationBytes.baseAddress
+                    ),
+                    destinationRowBytes: 8,
+                    bytesPerComponent: 1,
+                    componentsPerElement: 2,
+                    componentIndex: 1,
+                    storedCodeShift: 0,
+                    preparedScale: preparedScale,
+                    minimumCode: 0,
+                    maximumCode: 255,
+                    workspace: &workspace
+                )
+            }
+        }
+        return destination
+    }
+
+    private func interleavedComponent(from bytes: [UInt8]) -> [UInt16] {
+        stride(from: 1, to: bytes.count, by: 2).map {
+            UInt16(bytes[$0])
         }
     }
 

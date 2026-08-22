@@ -468,26 +468,45 @@ struct AlphaVideoWriterContractV4: Hashable, Sendable {
     private static func validateExactCleanAperture(
         _ aperture: CleanApertureV4
     ) throws {
-        for (field, value) in [
-            ("width", aperture.width),
-            ("height", aperture.height),
-            ("horizontal_offset", aperture.horizontalOffset),
-            ("vertical_offset", aperture.verticalOffset)
-        ] {
-            let denominator = UInt64(value.denominator)
-            let powerOfTwo = denominator != 0
-                && denominator & (denominator - 1) == 0
-            let magnitude = value.numerator.magnitude
-            let significantBits = magnitude == 0 ? 0 : UInt64.bitWidth
-                - magnitude.leadingZeroBitCount
-                - magnitude.trailingZeroBitCount
-            guard powerOfTwo, significantBits <= 53 else {
-                throw AlphaVideoWriterContractV4Error
-                    .cleanApertureCannotBeRepresentedExactly(
-                        field: field,
-                        value: value
-                    )
-            }
+        try validateExactCleanApertureField(
+            "width",
+            value: aperture.width
+        )
+        try validateExactCleanApertureField(
+            "height",
+            value: aperture.height
+        )
+        try validateExactCleanApertureField(
+            "horizontal_offset",
+            value: aperture.horizontalOffset
+        )
+        try validateExactCleanApertureField(
+            "vertical_offset",
+            value: aperture.verticalOffset
+        )
+    }
+
+    /// Keep each validation out of line so the release compiler does not need
+    /// to synthesize a shared error block whose independent values are carried
+    /// by an unordered group of equivalent PHI nodes.
+    @inline(never)
+    private static func validateExactCleanApertureField(
+        _ field: String,
+        value: ExactRationalV4
+    ) throws {
+        let denominator = UInt64(value.denominator)
+        let powerOfTwo = denominator != 0
+            && denominator & (denominator - 1) == 0
+        let magnitude = value.numerator.magnitude
+        let significantBits = magnitude == 0 ? 0 : UInt64.bitWidth
+            - magnitude.leadingZeroBitCount
+            - magnitude.trailingZeroBitCount
+        guard powerOfTwo, significantBits <= 53 else {
+            throw AlphaVideoWriterContractV4Error
+                .cleanApertureCannotBeRepresentedExactly(
+                    field: field,
+                    value: value
+                )
         }
     }
 

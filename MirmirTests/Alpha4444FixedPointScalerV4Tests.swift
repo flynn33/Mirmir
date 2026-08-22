@@ -1247,6 +1247,78 @@ final class AlphaVideoWriterContractV4Tests: XCTestCase {
         }
     }
 
+    func testCleanApertureValidationReportsEachInexactField() throws {
+        let inexact = try ExactRationalV4(1, 3)
+        let nearlyFull = try ExactRationalV4(191, 3)
+        let exactExtent = try ExactRationalV4(62)
+        let cases: [(
+            field: String,
+            value: ExactRationalV4,
+            aperture: CleanApertureV4
+        )] = [
+            (
+                "width",
+                nearlyFull,
+                try CleanApertureV4(
+                    width: nearlyFull,
+                    height: exactExtent
+                )
+            ),
+            (
+                "height",
+                nearlyFull,
+                try CleanApertureV4(
+                    width: exactExtent,
+                    height: nearlyFull
+                )
+            ),
+            (
+                "horizontal_offset",
+                inexact,
+                try CleanApertureV4(
+                    width: exactExtent,
+                    height: exactExtent,
+                    horizontalOffset: inexact
+                )
+            ),
+            (
+                "vertical_offset",
+                inexact,
+                try CleanApertureV4(
+                    width: exactExtent,
+                    height: exactExtent,
+                    verticalOffset: inexact
+                )
+            )
+        ]
+
+        for testCase in cases {
+            let geometry = try RationalPresentationGeometryV4(
+                codedWidth: 64,
+                codedHeight: 64,
+                cleanAperture: testCase.aperture
+            )
+            XCTAssertThrowsError(
+                try AlphaVideoWriterContractV4(
+                    codec: .proRes4444,
+                    association: .straight,
+                    width: 64,
+                    height: 64,
+                    inputLayout: .bgra8,
+                    sourceGeometry: geometry
+                )
+            ) { error in
+                XCTAssertEqual(
+                    error as? AlphaVideoWriterContractV4Error,
+                    .cleanApertureCannotBeRepresentedExactly(
+                        field: testCase.field,
+                        value: testCase.value
+                    )
+                )
+            }
+        }
+    }
+
     func testFormatDescriptionValidationRequiresExactAlphaSemantics()
         throws {
         let contract = try AlphaVideoWriterContractV4(

@@ -543,6 +543,8 @@ enum AVFoundationSegmentAssemblyPreservationV4: String, Codable, Hashable,
 struct AVFoundationSegmentAssemblyRequestV4: @unchecked Sendable {
     let artifactRootURL: URL
     let segments: [WorkflowSegmentCheckpointV4]
+    let mediaTimelineStart: WorkflowMediaTimeV4
+    let outputTimelineStart: WorkflowMediaTimeV4
     let destinationURL: URL
     let outputFileType: AVFileType
     let overwriteExistingFile: Bool
@@ -550,12 +552,51 @@ struct AVFoundationSegmentAssemblyRequestV4: @unchecked Sendable {
     init(
         artifactRootURL: URL,
         segments: [WorkflowSegmentCheckpointV4],
+        mediaTimelineStart: WorkflowMediaTimeV4,
+        outputTimelineStart: WorkflowMediaTimeV4,
         destinationURL: URL,
         outputFileType: AVFileType = .mov,
         overwriteExistingFile: Bool = false
     ) {
         self.artifactRootURL = artifactRootURL
         self.segments = segments
+        self.mediaTimelineStart = mediaTimelineStart
+        self.outputTimelineStart = outputTimelineStart
+        self.destinationURL = destinationURL
+        self.outputFileType = outputFileType
+        self.overwriteExistingFile = overwriteExistingFile
+    }
+}
+
+struct AVFoundationTransientSegmentV4: Sendable {
+    let url: URL
+    let startTime: WorkflowMediaTimeV4
+    let endTimeExclusive: WorkflowMediaTimeV4
+    let codecSettingsHash: WorkflowOutputContractID
+}
+
+struct AVFoundationTransientSegmentAssemblyRequestV4: @unchecked Sendable {
+    let trustedRootURL: URL
+    let segments: [AVFoundationTransientSegmentV4]
+    let mediaTimelineStart: WorkflowMediaTimeV4
+    let outputTimelineStart: WorkflowMediaTimeV4
+    let destinationURL: URL
+    let outputFileType: AVFileType
+    let overwriteExistingFile: Bool
+
+    init(
+        trustedRootURL: URL,
+        segments: [AVFoundationTransientSegmentV4],
+        mediaTimelineStart: WorkflowMediaTimeV4,
+        outputTimelineStart: WorkflowMediaTimeV4,
+        destinationURL: URL,
+        outputFileType: AVFileType = .mov,
+        overwriteExistingFile: Bool = false
+    ) {
+        self.trustedRootURL = trustedRootURL
+        self.segments = segments
+        self.mediaTimelineStart = mediaTimelineStart
+        self.outputTimelineStart = outputTimelineStart
         self.destinationURL = destinationURL
         self.outputFileType = outputFileType
         self.overwriteExistingFile = overwriteExistingFile
@@ -593,6 +634,20 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
         _ request: AVFoundationSegmentAssemblyRequestV4
     ) async throws -> AVFoundationSegmentAssemblyResultV4 {
         try Self.validateSequence(request.segments)
+        let mediaTimelineStart = Self.cmTime(request.mediaTimelineStart)
+        let outputTimelineStart = Self.cmTime(request.outputTimelineStart)
+        guard mediaTimelineStart.isNumeric,
+              outputTimelineStart.isNumeric,
+              CMTimeCompare(mediaTimelineStart, .zero) >= 0,
+              CMTimeCompare(outputTimelineStart, .zero) >= 0,
+              !mediaTimelineStart.flags.contains(.hasBeenRounded),
+              !outputTimelineStart.flags.contains(.hasBeenRounded),
+              CMTimeCompare(
+                mediaTimelineStart,
+                Self.cmTime(request.segments[0].startTime)
+              ) == 0 else {
+            throw AVFoundationSegmentV4Error.invalidSegmentSequence
+        }
         let artifactRoot = request.artifactRootURL.standardizedFileURL
             .resolvingSymlinksInPath()
         var assets: [AVURLAsset] = []
@@ -627,10 +682,136 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
             ))
         }
 
+        return try await assembleVerified(
+            assets: assets,
+            identities: identities,
+            segmentURLs: segmentURLs,
+            segments: request.segments,
+            mediaTimelineStart: mediaTimelineStart,
+            outputTimelineStart: outputTimelineStart,
+            destinationURL: request.destinationURL,
+            outputFileType: request.outputFileType,
+            overwriteExistingFile: request.overwriteExistingFile
+        )
+    }
+
+    func assembleTransient(
+        _ request: AVFoundationTransientSegmentAssemblyRequestV4
+    ) async throws -> AVFoundationSegmentAssemblyResultV4 {
+        let trustedRoot = request.trustedRootURL.standardizedFileURL
+            .resolvingSymlinksInPath()
+        let rootPrefix = trustedRoot.path.hasSuffix("/")
+            ? trustedRoot.path : trustedRoot.path + "/"
+        guard !request.segments.isEmpty else {
+            throw AVFoundationSegmentV4Error.emptySegmentSet
+        }
+        var assets: [AVURLAsset] = []
+        var identities: [AVFoundationSegmentIdentityV4] = []
+        var segmentURLs: [URL] = []
+        var boundaries: [WorkflowSegmentCheckpointV4] = []
+        for (index, segment) in request.segments.enumerated() {
+            let resolved = segment.url.standardizedFileURL
+                .resolvingSymlinksInPath()
+            guard resolved.path.hasPrefix(rootPrefix) else {
+                throw AVFoundationSegmentV4Error.unreadableAsset(
+                    "transient segment escapes its trusted root"
+                )
+            }
+            let identity = try await AVFoundationSegmentProbeV4().probe(
+                url: resolved
+            )
+            let interval = try Self.subtract(
+                segment.endTimeExclusive,
+                segment.startTime
+            )
+            guard Self.covers(identity.duration, interval) else {
+                throw AVFoundationSegmentV4Error.segmentDurationMismatch(
+                    ordinal: UInt64(index)
+                )
+            }
+            if let first = identities.first,
+               try first.layoutSHA256 != identity.layoutSHA256 {
+                throw AVFoundationSegmentV4Error.trackLayoutMismatch(
+                    ordinal: UInt64(index)
+                )
+            }
+            let rawIdentity = try WorkflowSegmentCheckpointStoreV4
+                .rawFileIdentity(resolved)
+            let rawSHA = try WorkflowCheckpointArtifactHashV4(
+                rawIdentity.sha256
+            )
+            let artifact = try WorkflowCheckpointArtifactV4(
+                artifactID: try WorkflowArtifactIDV4(
+                    String(format: "direct-segment-%08d", index)
+                ),
+                kind: .segment,
+                relativePath: resolved.lastPathComponent,
+                byteCount: rawIdentity.byteCount,
+                sha256: rawSHA,
+                reopenReceiptSHA256: rawSHA
+            )
+            boundaries.append(try WorkflowSegmentCheckpointV4(
+                ordinal: UInt64(index),
+                artifact: artifact,
+                startTime: segment.startTime,
+                endTimeExclusive: segment.endTimeExclusive,
+                nextStartTime: index + 1 < request.segments.count
+                    ? request.segments[index + 1].startTime
+                    : nil,
+                codecSettingsHash: segment.codecSettingsHash,
+                isIndependentlyDecodable: true
+            ))
+            identities.append(identity)
+            segmentURLs.append(resolved)
+            assets.append(AVURLAsset(
+                url: resolved,
+                options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+            ))
+        }
+        try Self.validateTransientSequence(boundaries)
+        let mediaTimelineStart = Self.cmTime(request.mediaTimelineStart)
+        let outputTimelineStart = Self.cmTime(request.outputTimelineStart)
+        guard mediaTimelineStart.isNumeric,
+              outputTimelineStart.isNumeric,
+              CMTimeCompare(outputTimelineStart, .zero) >= 0,
+              !mediaTimelineStart.flags.contains(.hasBeenRounded),
+              !outputTimelineStart.flags.contains(.hasBeenRounded),
+              CMTimeCompare(
+                mediaTimelineStart,
+                Self.cmTime(boundaries[0].startTime)
+              ) == 0 else {
+            throw AVFoundationSegmentV4Error.invalidSegmentSequence
+        }
+        return try await assembleVerified(
+            assets: assets,
+            identities: identities,
+            segmentURLs: segmentURLs,
+            segments: boundaries,
+            mediaTimelineStart: mediaTimelineStart,
+            outputTimelineStart: outputTimelineStart,
+            destinationURL: request.destinationURL,
+            outputFileType: request.outputFileType,
+            overwriteExistingFile: request.overwriteExistingFile
+        )
+    }
+
+    private func assembleVerified(
+        assets: [AVURLAsset],
+        identities: [AVFoundationSegmentIdentityV4],
+        segmentURLs: [URL],
+        segments: [WorkflowSegmentCheckpointV4],
+        mediaTimelineStart: CMTime,
+        outputTimelineStart: CMTime,
+        destinationURL: URL,
+        outputFileType: AVFileType,
+        overwriteExistingFile: Bool
+    ) async throws -> AVFoundationSegmentAssemblyResultV4 {
         let composition = AVMutableComposition()
         let firstTracks = try await assets[0].load(.tracks)
         let firstDescriptors = try await Self.descriptors(firstTracks)
-        var compositionTracks: [AVFoundationSegmentTrackKeyV4: AVMutableCompositionTrack] = [:]
+        var compositionTracks: [
+            AVFoundationSegmentTrackKeyV4: AVMutableCompositionTrack
+        ] = [:]
         for descriptor in firstDescriptors {
             guard let target = composition.addMutableTrack(
                 withMediaType: descriptor.track.mediaType,
@@ -651,21 +832,36 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
             compositionTracks[descriptor.key] = target
         }
 
-        let origin = request.segments[0].startTime
+        guard mediaTimelineStart.isNumeric,
+              CMTimeCompare(
+                mediaTimelineStart,
+                Self.cmTime(segments[0].startTime)
+              ) == 0 else {
+            throw AVFoundationSegmentV4Error.invalidSegmentSequence
+        }
+        let origin = segments[0].startTime
         for index in assets.indices {
             let sourceTracks = try await assets[index].load(.tracks)
             let sourceDescriptors = try await Self.descriptors(sourceTracks)
-            guard sourceDescriptors.map(\.key) == firstDescriptors.map(\.key) else {
+            guard sourceDescriptors.map(\.key)
+                    == firstDescriptors.map(\.key) else {
                 throw AVFoundationSegmentV4Error.trackLayoutMismatch(
-                    ordinal: request.segments[index].ordinal
+                    ordinal: segments[index].ordinal
                 )
             }
-            let insertionBase = try Self.cmTime(
-                Self.subtract(request.segments[index].startTime, origin)
+            let insertionBase = CMTimeAdd(
+                outputTimelineStart,
+                try Self.cmTime(
+                    Self.subtract(segments[index].startTime, origin)
+                )
             )
+            guard insertionBase.isNumeric,
+                  !insertionBase.flags.contains(.hasBeenRounded) else {
+                throw AVFoundationSegmentV4Error.invalidSegmentSequence
+            }
             let declaredDuration = try Self.cmTime(Self.subtract(
-                request.segments[index].endTimeExclusive,
-                request.segments[index].startTime
+                segments[index].endTimeExclusive,
+                segments[index].startTime
             ))
             for descriptor in sourceDescriptors {
                 guard let target = compositionTracks[descriptor.key] else {
@@ -695,8 +891,8 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
         }
 
         let destination = try AtomicOutputFile(
-            finalURL: request.destinationURL,
-            overwriteExistingFile: request.overwriteExistingFile
+            finalURL: destinationURL,
+            overwriteExistingFile: overwriteExistingFile
         )
         defer { destination.discard() }
         guard let exporter = AVAssetExportSession(
@@ -707,18 +903,26 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
         }
         exporter.metadata = try await assets[0].load(.commonMetadata)
         exporter.shouldOptimizeForNetworkUse = false
+        let exportDuration = CMTimeAdd(
+            outputTimelineStart,
+            CMTimeSubtract(
+                Self.cmTime(segments.last!.endTimeExclusive),
+                Self.cmTime(segments.first!.startTime)
+            )
+        )
+        guard exportDuration.isNumeric,
+              exportDuration.value > 0,
+              !exportDuration.flags.contains(.hasBeenRounded) else {
+            throw AVFoundationSegmentV4Error.invalidSegmentSequence
+        }
         exporter.timeRange = CMTimeRange(
             start: .zero,
-            duration: CMTime(
-                value: request.segments.last!.endTimeExclusive.value
-                    - request.segments.first!.startTime.value,
-                timescale: request.segments.first!.startTime.timescale
-            )
+            duration: exportDuration
         )
         do {
             try await exporter.export(
                 to: destination.temporaryURL,
-                as: request.outputFileType
+                as: outputFileType
             )
         } catch {
             throw AVFoundationSegmentV4Error.exportFailed(
@@ -731,20 +935,22 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
         try Self.verifyAssembledIdentity(
             outputIdentity,
             from: identities,
-            segments: request.segments
+            segments: segments,
+            outputTimelineStart: outputTimelineStart
         )
         let elementaryPayloadsPreserved = try await Self.verifyAssembledStreams(
             outputURL: destination.temporaryURL,
             segmentURLs: segmentURLs,
-            segments: request.segments
+            segments: segments,
+            mediaTimelineStart: mediaTimelineStart
         )
         let outputSHA = try WorkflowSegmentCheckpointStoreV4.rawFileIdentity(
             destination.temporaryURL
         ).sha256
         try destination.publish()
         return AVFoundationSegmentAssemblyResultV4(
-            destinationURL: request.destinationURL,
-            segmentCount: request.segments.count,
+            destinationURL: destinationURL,
+            segmentCount: segments.count,
             outputIdentity: outputIdentity,
             outputFileSHA256: outputSHA,
             preservation: [
@@ -837,11 +1043,40 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
             throw AVFoundationSegmentV4Error.emptySegmentSet
         }
         for index in segments.indices.dropFirst() {
-            guard segments[index - 1].endTimeExclusive
-                    == segments[index].startTime,
-                  segments[index - 1].codecSettingsHash
+            let previous = segments[index - 1]
+            let current = segments[index]
+            guard previous.endTimeExclusive.timescale
+                    == current.startTime.timescale,
+                  previous.endTimeExclusive.value <= current.startTime.value,
+                  previous.nextStartTime == current.startTime,
+                  previous.codecSettingsHash
                     == segments[index].codecSettingsHash,
                   segments[index].isIndependentlyDecodable else {
+                throw AVFoundationSegmentV4Error.invalidSegmentSequence
+            }
+        }
+    }
+
+    private static func validateTransientSequence(
+        _ segments: [WorkflowSegmentCheckpointV4]
+    ) throws {
+        guard !segments.isEmpty,
+              segments.enumerated().allSatisfy({
+                  $0.element.ordinal == UInt64($0.offset)
+                      && $0.element.isIndependentlyDecodable
+              }) else {
+            throw AVFoundationSegmentV4Error.emptySegmentSet
+        }
+        for index in segments.indices.dropFirst() {
+            let previousEnd = cmTime(
+                segments[index - 1].endTimeExclusive
+            )
+            let currentStart = cmTime(segments[index].startTime)
+            guard CMTimeCompare(previousEnd, currentStart) <= 0,
+                  segments[index - 1].nextStartTime
+                    == segments[index].startTime,
+                  segments[index - 1].codecSettingsHash
+                    == segments[index].codecSettingsHash else {
                 throw AVFoundationSegmentV4Error.invalidSegmentSequence
             }
         }
@@ -851,12 +1086,17 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
         _ lhs: WorkflowMediaTimeV4,
         _ rhs: WorkflowMediaTimeV4
     ) throws -> WorkflowMediaTimeV4 {
-        guard lhs.timescale == rhs.timescale, lhs.value >= rhs.value else {
+        let difference = CMTimeSubtract(cmTime(lhs), cmTime(rhs))
+        guard difference.isNumeric,
+              difference.value >= 0,
+              !difference.flags.contains(.hasBeenRounded),
+              difference.timescale > 0,
+              difference.timescale <= 1_000_000_000 else {
             throw AVFoundationSegmentV4Error.invalidSegmentSequence
         }
         return try WorkflowMediaTimeV4(
-            value: lhs.value - rhs.value,
-            timescale: lhs.timescale
+            value: difference.value,
+            timescale: difference.timescale
         )
     }
 
@@ -882,7 +1122,8 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
     private static func verifyAssembledIdentity(
         _ output: AVFoundationSegmentIdentityV4,
         from inputs: [AVFoundationSegmentIdentityV4],
-        segments: [WorkflowSegmentCheckpointV4]
+        segments: [WorkflowSegmentCheckpointV4],
+        outputTimelineStart: CMTime
     ) throws {
         guard let first = inputs.first,
               try output.layoutSHA256 == first.layoutSHA256,
@@ -905,10 +1146,12 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
                 )
             }
         }
-        let expectedDuration = CMTime(
-            value: segments.last!.endTimeExclusive.value
-                - segments.first!.startTime.value,
-            timescale: segments.first!.startTime.timescale
+        let expectedDuration = CMTimeAdd(
+            outputTimelineStart,
+            CMTimeSubtract(
+                cmTime(segments.last!.endTimeExclusive),
+                cmTime(segments.first!.startTime)
+            )
         )
         let outputDuration = CMTime(
             value: output.duration.value,
@@ -926,7 +1169,8 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
     private static func verifyAssembledStreams(
         outputURL: URL,
         segmentURLs: [URL],
-        segments: [WorkflowSegmentCheckpointV4]
+        segments: [WorkflowSegmentCheckpointV4],
+        mediaTimelineStart: CMTime
     ) async throws -> Bool {
         let outputAsset = AVURLAsset(
             url: outputURL,
@@ -935,7 +1179,6 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
         let outputDescriptors = try await descriptors(
             outputAsset.load(.tracks)
         )
-        let origin = cmTime(segments[0].startTime)
         var allElementaryPayloadsPreserved = true
         for outputDescriptor in outputDescriptors {
             do {
@@ -944,7 +1187,7 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
                     outputAsset: outputAsset,
                     segmentURLs: segmentURLs,
                     segments: segments,
-                    origin: origin
+                    mediaTimelineStart: mediaTimelineStart
                 )
                 continue
             } catch AVFoundationSegmentV4Error.assembledPayloadMismatch
@@ -955,7 +1198,7 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
                     outputAsset: outputAsset,
                     segmentURLs: segmentURLs,
                     segments: segments,
-                    origin: origin
+                    mediaTimelineStart: mediaTimelineStart
                 )
             }
         }
@@ -967,7 +1210,7 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
         outputAsset: AVURLAsset,
         segmentURLs: [URL],
         segments: [WorkflowSegmentCheckpointV4],
-        origin: CMTime
+        mediaTimelineStart: CMTime
     ) async throws {
             let outputReader = try AVAssetReader(asset: outputAsset)
             let output = AVAssetReaderTrackOutput(
@@ -1022,7 +1265,7 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
                 }
                 let offset = CMTimeSubtract(
                     cmTime(segments[index].startTime),
-                    origin
+                    mediaTimelineStart
                 )
                 while let sourceSample = source.copyNextSampleBuffer() {
                     guard let outputSample = output.copyNextSampleBuffer() else {
@@ -1064,7 +1307,7 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
         outputAsset: AVURLAsset,
         segmentURLs: [URL],
         segments: [WorkflowSegmentCheckpointV4],
-        origin: CMTime
+        mediaTimelineStart: CMTime
     ) async throws {
         let outputReader = try AVAssetReader(asset: outputAsset)
         let output = AVAssetReaderTrackOutput(
@@ -1127,7 +1370,7 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
             }
             let offset = CMTimeSubtract(
                 cmTime(segments[index].startTime),
-                origin
+                mediaTimelineStart
             )
             while let sourceSample = source.copyNextSampleBuffer() {
                 guard let outputSample = output.copyNextSampleBuffer(),

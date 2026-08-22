@@ -2,6 +2,9 @@ import AVFoundation
 import AudioToolbox
 import CoreMedia
 import CoreVideo
+import CryptoKit
+import Darwin
+import VideoToolbox
 import XCTest
 @testable import Mirmir
 
@@ -39,7 +42,8 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             ),
             environment: .current()
         )
-        let result = try await VideoProcessingSession().process(
+        let execution = try await VideoProcessingSession()
+            .processWithDeterministicV4ExecutionReceipt(
             request: UpscaleRequest(
                 inputURL: sourceURL,
                 outputURL: destinationURL,
@@ -55,6 +59,9 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             cancellation: ProcessingCancellation(),
             progress: { _ in }
         )
+        let result = execution.result
+        let receipt = execution.receipt
+        let runtimeEvents = execution.runtimeEvents
 
         XCTAssertEqual(result.encodedWidth, 96)
         XCTAssertEqual(result.encodedHeight, 72)
@@ -64,6 +71,107 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             TrackMigrationFixtureFactoryV4.frameCount
         )
         XCTAssertGreaterThan(result.processingDurationSeconds, 0)
+        XCTAssertEqual(
+            receipt.schemaID,
+            DeterministicV4MediaExecutionReceiptV4.currentSchemaID
+        )
+        XCTAssertEqual(
+            receipt.preparedBackendType,
+            "Mirmir.PreparedDeterministicV4Upscaler"
+        )
+        XCTAssertEqual(receipt.executor, .cpuFixedPoint)
+        XCTAssertEqual(receipt.requestedBackendID, .mirmirDeterministicCPU)
+        XCTAssertEqual(receipt.actualBackendID, .mirmirDeterministicCPU)
+        XCTAssertEqual(receipt.runtimeManifestSHA256, runtime.manifestSHA256)
+        XCTAssertEqual(
+            receipt.runtimeProvenanceSHA256,
+            try runtime.manifest.provenance.canonicalSHA256
+        )
+        XCTAssertEqual(receipt.targetWidth, 96)
+        XCTAssertEqual(receipt.targetHeight, 72)
+        XCTAssertEqual(receipt.encodedWidth, result.encodedWidth)
+        XCTAssertEqual(receipt.encodedHeight, result.encodedHeight)
+        XCTAssertEqual(
+            receipt.processedFrameCount,
+            result.processedFrameCount
+        )
+        XCTAssertEqual(
+            receipt.sourceGraphSHA256,
+            receipt.migrationSourceGraphSHA256
+        )
+        XCTAssertEqual(receipt.trackPlanSHA256, receipt.migrationPlanSHA256)
+        XCTAssertEqual(receipt.plannedTracks.count, receipt.migratedTracks.count)
+        XCTAssertEqual(
+            receipt.migratedTracks.map { [$0.stableID, $0.action.rawValue] },
+            receipt.plannedTracks.map { [$0.stableID, $0.action.rawValue] }
+        )
+        XCTAssertNil(receipt.alphaVerification)
+        XCTAssertEqual(
+            receipt.hdr10PlusPreservation.routeID,
+            .canonicalDynamicAbsentOnePass
+        )
+        XCTAssertEqual(receipt.hdr10PlusPreservation.segmentCount, 0)
+        XCTAssertEqual(
+            receipt.hdr10PlusPreservation.rewrittenSampleCount,
+            0
+        )
+        XCTAssertEqual(
+            receipt.hdr10PlusPreservation.timelineMappingSHA256,
+            try DeterministicV4HDR10PlusPreservationReportV4
+                .notApplicableTimelineMappingSHA256(
+                    trackPlanSHA256: receipt.trackPlanSHA256
+                )
+        )
+        let receiptData = try ASHCanonicalJSONV4.encode(receipt)
+        XCTAssertEqual(
+            try ASHCanonicalJSONV4.decode(
+                DeterministicV4MediaExecutionReceiptV4.self,
+                from: receiptData
+            ),
+            receipt
+        )
+        XCTAssertEqual(runtimeEvents.map(\.ordinal), [0, 1, 2])
+        XCTAssertEqual(
+            runtimeEvents.map(\.kind),
+            [.planning, .execution, .verification]
+        )
+        XCTAssertEqual(
+            runtimeEvents.map(\.code),
+            [
+                "asset_plan_bound",
+                "asset_execution_completed",
+                "asset_output_verified"
+            ]
+        )
+        XCTAssertTrue(runtimeEvents.allSatisfy {
+            $0.planSHA256 == receipt.ashPlanSHA256
+                && $0.runtimeManifestSHA256
+                    == receipt.runtimeManifestSHA256
+        })
+        XCTAssertEqual(runtimeEvents[0].parentEventSHA256, [])
+        XCTAssertEqual(
+            runtimeEvents[1].parentEventSHA256,
+            [try runtimeEvents[0].canonicalSHA256]
+        )
+        XCTAssertEqual(
+            runtimeEvents[2].parentEventSHA256,
+            [try runtimeEvents[1].canonicalSHA256]
+        )
+        try runtimeEvents.forEach { try $0.validate() }
+        XCTAssertEqual(
+            runtimeEvents,
+            try DeterministicV4MediaRuntimeEventChainV4.make(
+                receipt: receipt
+            )
+        )
+        let runtimeEventData = try ASHCanonicalJSONV4.encode(runtimeEvents)
+        XCTAssertEqual(
+            try ASHCanonicalJSONV4.decode(
+                [ASHRuntimeEventEnvelopeV4].self,
+                from: runtimeEventData
+            ),
+            runtimeEvents
+        )
 
         let outputAsset = AVURLAsset(
             url: destinationURL,
@@ -98,6 +206,1083 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
                 height: TrackMigrationFixtureFactoryV4.height
             )
         )
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+    func testDynamicHDRSegmentRoutePreservesNonzeroPrimaryStartEarlierAudioBoundaryGapAndTemporalReset()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("hdr-boundary-source.mov")
+        let changedLeadingDurationURL = directory.url(
+            "hdr-boundary-leading-duration-changed.mov"
+        )
+        let destinationURL = directory.url("hdr-boundary-output.mov")
+        let runtimeURL = directory.url("hdr-boundary-p06.bundle")
+        let fixture = try await TrackMigrationFixtureFactoryV4
+            .makeHDRBoundaryMovie(
+                at: sourceURL,
+                changedLeadingDurationURL: changedLeadingDurationURL
+            )
+        let cursorDiagnostic = try await
+            hdrBoundaryCursorGeneratorObservation(
+                at: sourceURL,
+                expectedPresentationTimes: fixture.mediaPresentationTimes,
+                expectedMetadata: fixture.hdr10Plus
+            )
+        let cursorAttachment = XCTAttachment(
+            string: cursorDiagnostic.diagnostic
+        )
+        cursorAttachment.name = "HDR boundary cursor and generator facts"
+        cursorAttachment.lifetime = .keepAlways
+        add(cursorAttachment)
+        let cursorFrameDuration = CMTime(value: 1, timescale: 30)
+        XCTAssertEqual(
+            cursorDiagnostic.facts.map(\.cursorPresentationTime),
+            fixture.mediaPresentationTimes
+        )
+        XCTAssertEqual(
+            cursorDiagnostic.facts.map(\.cursorDecodeTime),
+            fixture.mediaPresentationTimes.indices.map {
+                CMTime(value: CMTimeValue($0), timescale: 30)
+            }
+        )
+        XCTAssertEqual(
+            cursorDiagnostic.facts.map(\.cursorDuration),
+            Array(
+                repeating: cursorFrameDuration,
+                count: TrackMigrationFixtureFactoryV4.hdrBoundaryFrameCount
+            )
+        )
+        XCTAssertEqual(
+            cursorDiagnostic.facts.map(\.generatedPresentationTime),
+            fixture.mediaPresentationTimes
+        )
+        XCTAssertEqual(
+            cursorDiagnostic.facts.map(\.generatedDecodeTime),
+            cursorDiagnostic.facts.map(\.cursorDecodeTime)
+        )
+        XCTAssertEqual(
+            cursorDiagnostic.facts.map(\.generatedDuration),
+            cursorDiagnostic.facts.map(\.cursorDuration)
+        )
+        XCTAssertEqual(
+            cursorDiagnostic.facts.map(\.generatedOutputPresentationTime),
+            fixture.mediaPresentationTimes
+        )
+        XCTAssertEqual(
+            cursorDiagnostic.facts.map(\.generatedOutputDuration),
+            cursorDiagnostic.facts.map(\.cursorDuration)
+        )
+        XCTAssertTrue(cursorDiagnostic.facts.allSatisfy {
+            $0.generatedDataByteCount > 0
+                && $0.cursorIsFullSync
+                && !$0.cursorIsPartialSync
+                && $0.cursorSamplesRequiredForDecoderRefresh == 0
+                && $0.generatedIsSync
+                && ($0.trimDurationAtStart.map(hdrBoundaryIsExactZero)
+                    ?? true)
+                && ($0.trimDurationAtEnd.map(hdrBoundaryIsExactZero)
+                    ?? true)
+        })
+        let source = try await VideoProbe().probe(url: sourceURL)
+        XCTAssertEqual(source.videoTrackCount, 1)
+        XCTAssertEqual(source.audioTrackCount, 1)
+        let decodedSourceDomain = try await decodedVideoSampleDomain(
+            at: sourceURL
+        )
+        XCTAssertEqual(decodedSourceDomain.zeroSampleMarkerCount, 0)
+        XCTAssertEqual(
+            decodedSourceDomain.presentationTimes.count,
+            TrackMigrationFixtureFactoryV4.hdrBoundaryFrameCount + 1
+        )
+        XCTAssertEqual(
+            decodedSourceDomain.presentationTimes.first,
+            .zero
+        )
+        XCTAssertEqual(
+            Array(decodedSourceDomain.presentationTimes.dropFirst()),
+            fixture.mediaPresentationTimes.map {
+                CMTimeAdd($0, fixture.primaryTargetStart)
+            }
+        )
+        let frameDuration = CMTime(value: 1, timescale: 30)
+        let readerTargetEnd = CMTimeAdd(
+            CMTimeAdd(
+                try XCTUnwrap(fixture.mediaPresentationTimes.last),
+                frameDuration
+            ),
+            fixture.primaryTargetStart
+        )
+        let firstMediaTimes = Array(
+            fixture.mediaPresentationTimes.prefix(60)
+        )
+        let firstTargetTimes = firstMediaTimes.map {
+            CMTimeAdd($0, fixture.primaryTargetStart)
+        }
+        let firstReaderDomain = try await directTimelineReaderDomain(
+            at: sourceURL,
+            targetStart: fixture.primaryTargetStart,
+            targetEnd: readerTargetEnd,
+            offset: fixture.primaryTargetStart,
+            maximumConcreteSamples: 60
+        )
+        XCTAssertEqual(
+            firstReaderDomain.decodedSampleCounts,
+            [0] + Array(repeating: 1, count: 60)
+        )
+        XCTAssertEqual(
+            firstReaderDomain.decodedTargetPresentationTimes,
+            firstTargetTimes
+        )
+        XCTAssertEqual(
+            firstReaderDomain.decodedDurations,
+            Array(repeating: .invalid, count: 60)
+        )
+        XCTAssertEqual(
+            firstReaderDomain.canonicalMediaPresentationTimes,
+            firstMediaTimes
+        )
+        XCTAssertEqual(
+            firstReaderDomain.compressedSampleCounts,
+            Array(repeating: 1, count: 60)
+        )
+        XCTAssertEqual(
+            firstReaderDomain.compressedMediaPresentationTimes,
+            firstMediaTimes
+        )
+        XCTAssertEqual(
+            firstReaderDomain.compressedDurations,
+            Array(repeating: frameDuration, count: 60)
+        )
+        XCTAssertEqual(
+            firstReaderDomain.canonicalMediaPresentationTimes,
+            firstReaderDomain.compressedMediaPresentationTimes
+        )
+        XCTAssertEqual(
+            Set(firstReaderDomain.canonicalMediaPresentationTimes),
+            Set(firstReaderDomain.compressedMediaPresentationTimes)
+        )
+
+        let finalMediaTime = try XCTUnwrap(
+            fixture.mediaPresentationTimes.last
+        )
+        let finalTargetTime = CMTimeAdd(
+            finalMediaTime,
+            fixture.primaryTargetStart
+        )
+        let finalReaderDomain = try await directTimelineReaderDomain(
+            at: sourceURL,
+            targetStart: finalTargetTime,
+            targetEnd: readerTargetEnd,
+            offset: fixture.primaryTargetStart,
+            maximumConcreteSamples: 60
+        )
+        XCTAssertEqual(
+            finalReaderDomain.decodedSampleCounts,
+            [0, 1, 0, 0, 0]
+        )
+        XCTAssertEqual(
+            finalReaderDomain.decodedTargetPresentationTimes,
+            [finalTargetTime]
+        )
+        XCTAssertEqual(
+            finalReaderDomain.decodedDurations,
+            [.invalid]
+        )
+        XCTAssertEqual(
+            finalReaderDomain.canonicalMediaPresentationTimes,
+            [finalMediaTime]
+        )
+        XCTAssertEqual(finalReaderDomain.compressedSampleCounts, [1])
+        XCTAssertEqual(
+            finalReaderDomain.compressedMediaPresentationTimes,
+            [finalMediaTime]
+        )
+        XCTAssertEqual(
+            finalReaderDomain.compressedDurations,
+            [frameDuration]
+        )
+        XCTAssertEqual(
+            Set(finalReaderDomain.canonicalMediaPresentationTimes),
+            Set(finalReaderDomain.compressedMediaPresentationTimes)
+        )
+        let durationRecords = try firstMediaTimes.prefix(2).map {
+            DeterministicV4DecodedDurationRecordV4(
+                presentationTime: try HDR10PlusPresentationTimeV4($0),
+                duration: frameDuration
+            )
+        }
+        XCTAssertThrowsError(
+            try DeterministicV4DecodedDurationLedgerV4(
+                records: [durationRecords[0], durationRecords[0]],
+                maximumRecordCount: 2
+            )
+        )
+        var mismatchedDurationLedger = try
+            DeterministicV4DecodedDurationLedgerV4(
+                records: durationRecords,
+                maximumRecordCount: 2
+            )
+        XCTAssertThrowsError(
+            try mismatchedDurationLedger.consume(
+                presentationTime: durationRecords[1].presentationTime
+            )
+        )
+        let unconsumedDurationLedger = try
+            DeterministicV4DecodedDurationLedgerV4(
+                records: durationRecords,
+                maximumRecordCount: 2
+            )
+        XCTAssertThrowsError(try unconsumedDurationLedger.seal())
+        var exactDurationLedger = try
+            DeterministicV4DecodedDurationLedgerV4(
+                records: durationRecords,
+                maximumRecordCount: 2
+            )
+        for record in durationRecords {
+            XCTAssertEqual(
+                try exactDurationLedger.consume(
+                    presentationTime: record.presentationTime
+                ),
+                frameDuration
+            )
+        }
+        XCTAssertNoThrow(try exactDurationLedger.seal())
+        let strictGapRecords = [
+            DeterministicV4DecodedDurationRecordV4(
+                presentationTime: durationRecords[0].presentationTime,
+                duration: CMTime(value: 1, timescale: 60)
+            ),
+            durationRecords[1]
+        ]
+        var strictGapLedger = try DeterministicV4DecodedDurationLedgerV4(
+            records: strictGapRecords,
+            maximumRecordCount: 2
+        )
+        for record in strictGapRecords {
+            XCTAssertEqual(
+                try strictGapLedger.consume(
+                    presentationTime: record.presentationTime
+                ),
+                record.duration
+            )
+        }
+        XCTAssertNoThrow(try strictGapLedger.seal())
+        let overlapRecords = [
+            DeterministicV4DecodedDurationRecordV4(
+                presentationTime: durationRecords[0].presentationTime,
+                duration: CMTime(value: 1, timescale: 15)
+            ),
+            durationRecords[1]
+        ]
+        XCTAssertThrowsError(
+            try DeterministicV4DecodedDurationLedgerV4(
+                records: overlapRecords,
+                maximumRecordCount: 2
+            )
+        )
+
+        let bookmarkReference = "ephemeral-current-session-v4"
+        let bookmarkDocumentSHA256 = ASHSHA256V4(rawData: Data(
+            (bookmarkReference + "|v1").utf8
+        ))
+        let canonicalAdapter = AVCanonicalMediaStateAdapterV4()
+        let canonicalRequest = AVCanonicalMediaStateProbeRequestV4(
+            url: sourceURL,
+            bookmarkReference: bookmarkReference,
+            bookmarkDocumentSHA256: bookmarkDocumentSHA256,
+            scanDynamicHDRMetadata: true
+        )
+        let canonicalProbe = try await canonicalAdapter.probe(
+            canonicalRequest
+        )
+        XCTAssertEqual(canonicalProbe.admission, .admitted)
+        let canonicalState = try canonicalProbe.requireAdmittedState()
+        let canonicalPrimary = try XCTUnwrap(
+            canonicalState.tracks.first {
+                $0.enabled && $0.kind == .video
+            }
+        )
+        XCTAssertEqual(
+            canonicalPrimary.edits,
+            [
+                CanonicalMediaEditV4(
+                    ordinal: 1,
+                    sourceStart: .zero,
+                    sourceDuration: try ExactRationalV4(91, 30),
+                    timelineStart: try ExactRationalV4(2, 1),
+                    rate: try ExactRationalV4(1, 1)
+                )
+            ]
+        )
+        let segmentMappingMetadata = canonicalPrimary.metadata.filter {
+            $0.dataType
+                == "application/vnd.apple.track-segment-mapping.v4"
+        }
+        XCTAssertEqual(
+            segmentMappingMetadata.map(\.key),
+            ["segment-mapping-000000", "segment-mapping-000001"]
+        )
+        let emptyEditWarnings = canonicalState.observations.filter {
+            $0.severity == .warning
+                && $0.code == .unsupportedValue
+                && $0.path == "tracks[000000].edits[0]"
+                && $0.observedValue
+                    == "empty edit omitted from canonical edit rows; exact mapping fingerprinted in segment-mapping metadata and route topology is admitted separately"
+        }
+        XCTAssertEqual(emptyEditWarnings.count, 1)
+        let canonicalHash = try canonicalState.canonicalSHA256
+        let repeatedCanonicalProbe = try await canonicalAdapter.probe(
+            canonicalRequest
+        )
+        XCTAssertEqual(repeatedCanonicalProbe.admission, .admitted)
+        let repeatedCanonicalState = try repeatedCanonicalProbe
+            .requireAdmittedState()
+        XCTAssertEqual(repeatedCanonicalState, canonicalState)
+        XCTAssertEqual(
+            try repeatedCanonicalState.canonicalSHA256,
+            canonicalHash
+        )
+        let repeatedCanonicalPrimary = try XCTUnwrap(
+            repeatedCanonicalState.tracks.first {
+                $0.enabled && $0.kind == .video
+            }
+        )
+        XCTAssertEqual(
+            repeatedCanonicalPrimary.metadata.filter {
+                $0.dataType
+                    == "application/vnd.apple.track-segment-mapping.v4"
+            },
+            segmentMappingMetadata
+        )
+
+        let changedCanonicalProbe = try await canonicalAdapter.probe(.init(
+            url: changedLeadingDurationURL,
+            bookmarkReference: bookmarkReference,
+            bookmarkDocumentSHA256: bookmarkDocumentSHA256,
+            scanDynamicHDRMetadata: true
+        ))
+        XCTAssertEqual(changedCanonicalProbe.admission, .admitted)
+        let changedCanonicalState = try changedCanonicalProbe
+            .requireAdmittedState()
+        let changedCanonicalPrimary = try XCTUnwrap(
+            changedCanonicalState.tracks.first {
+                $0.enabled && $0.kind == .video
+            }
+        )
+        XCTAssertEqual(
+            changedCanonicalPrimary.edits,
+            [
+                CanonicalMediaEditV4(
+                    ordinal: 1,
+                    sourceStart: .zero,
+                    sourceDuration: try ExactRationalV4(91, 30),
+                    timelineStart: try ExactRationalV4(3, 1),
+                    rate: try ExactRationalV4(1, 1)
+                )
+            ]
+        )
+        let changedSegmentMappingMetadata = changedCanonicalPrimary.metadata
+            .filter {
+                $0.dataType
+                    == "application/vnd.apple.track-segment-mapping.v4"
+            }
+        XCTAssertEqual(
+            changedSegmentMappingMetadata.map(\.key),
+            ["segment-mapping-000000", "segment-mapping-000001"]
+        )
+        let leadingSegmentMapping = try XCTUnwrap(
+            segmentMappingMetadata.first
+        )
+        let changedLeadingSegmentMapping = try XCTUnwrap(
+            changedSegmentMappingMetadata.first
+        )
+        XCTAssertNotEqual(
+            changedLeadingSegmentMapping.valueSHA256,
+            leadingSegmentMapping.valueSHA256
+        )
+        XCTAssertNotEqual(
+            try changedCanonicalState.canonicalSHA256,
+            canonicalHash
+        )
+
+        let runtime = try ASHV4SemanticArtifactTestSupport.buildAndLoad(
+            at: runtimeURL
+        )
+        let descriptor = try XCTUnwrap(
+            BackendDescriptor.descriptor(for: .mirmirDeterministicCPU)
+        )
+        let backend = try XCTUnwrap(DeterministicCPUBackend(
+            descriptor: descriptor,
+            runtimeProvider: .fixed(runtime)
+        ))
+        let prepared = try await backend.prepare(
+            request: BackendPreparationRequest(
+                source: source,
+                targetSize: CGSize(width: 96, height: 72)
+            ),
+            environment: .current()
+        )
+        let planning = try XCTUnwrap(
+            prepared as? any PreparedDeterministicV4PlanningBackend
+        )
+        let temporal = try XCTUnwrap(
+            prepared as? any PreparedCheckpointableTemporalFrameUpscaler
+        )
+        let recording = TrackMigrationRecordingDeterministicBackendV4(
+            planning: planning,
+            temporal: temporal
+        )
+        let request = UpscaleRequest(
+            inputURL: sourceURL,
+            outputURL: destinationURL,
+            backendID: .mirmirDeterministicCPU,
+            targetWidth: 96,
+            targetHeight: 72,
+            outputCodec: .hevc,
+            preserveAudio: true,
+            overwriteExistingFile: false
+        )
+        let planned = try await DeterministicV4WholeAssetPlanner().prepare(
+            request: request,
+            source: source,
+            backend: recording,
+            cancellation: ProcessingCancellation()
+        )
+        let primaryRows = planned.trackPlan.plan.tracks.filter {
+            $0.source.identity.stableID
+                == planned.primaryGraphTrack.identity.stableID
+        }
+        let plannedPrimary = try XCTUnwrap(primaryRows.first)
+        XCTAssertEqual(primaryRows.count, 1)
+        XCTAssertEqual(plannedPrimary.action, .process)
+        XCTAssertEqual(
+            plannedPrimary.expectedOutput?.timeRange.start,
+            try ExactRationalV4(0, 1)
+        )
+        XCTAssertEqual(
+            plannedPrimary.expectedOutput?.timeRange.duration,
+            try ExactRationalV4(151, 30)
+        )
+        XCTAssertEqual(
+            plannedPrimary.source.timeRange,
+            plannedPrimary.expectedOutput?.timeRange
+        )
+        let plannedAudio = try XCTUnwrap(
+            planned.trackPlan.plan.tracks.first {
+                $0.source.kind == .audio
+            }
+        )
+        XCTAssertEqual(
+            plannedAudio.expectedOutput?.timeRange.start,
+            try ExactRationalV4(0, 1)
+        )
+        let timelineMapping = try DeterministicV4PrimaryTimelineMappingV4(
+            plannedPrimary: plannedPrimary
+        )
+        XCTAssertEqual(
+            timelineMapping.mediaRange.start,
+            try ExactRationalV4(0, 1)
+        )
+        XCTAssertEqual(
+            timelineMapping.targetRange.start,
+            try ExactRationalV4(2, 1)
+        )
+        XCTAssertEqual(
+            timelineMapping.offset,
+            try ExactRationalV4(2, 1)
+        )
+        XCTAssertEqual(
+            timelineMapping.topology,
+            .leadingEmptyThenNonempty
+        )
+        XCTAssertEqual(timelineMapping.acceptedEdits.count, 2)
+        XCTAssertTrue(timelineMapping.acceptedEdits[0].isEmpty)
+        XCTAssertNil(timelineMapping.acceptedEdits[0].source)
+        XCTAssertEqual(
+            timelineMapping.acceptedEdits[0].target.start,
+            try ExactRationalV4(0, 1)
+        )
+        XCTAssertEqual(
+            timelineMapping.acceptedEdits[0].target.duration,
+            try ExactRationalV4(2, 1)
+        )
+        XCTAssertFalse(timelineMapping.acceptedEdits[1].isEmpty)
+        XCTAssertEqual(
+            timelineMapping.acceptedEdits[1].source?.start,
+            try ExactRationalV4(0, 1)
+        )
+        XCTAssertEqual(
+            timelineMapping.acceptedEdits[1].source?.duration,
+            try ExactRationalV4(91, 30)
+        )
+        XCTAssertEqual(
+            timelineMapping.acceptedEdits[1].target.start,
+            try ExactRationalV4(2, 1)
+        )
+        XCTAssertEqual(
+            timelineMapping.acceptedEdits[1].target.duration,
+            try ExactRationalV4(91, 30)
+        )
+        let singleEdit = try MediaTrackEditV4(
+            ordinal: 0,
+            source: timelineMapping.mediaRange,
+            target: timelineMapping.targetRange,
+            isEmpty: false
+        )
+        let singleSource = try replacingTimeline(
+            plannedPrimary.source,
+            timeRange: timelineMapping.targetRange,
+            edits: [singleEdit]
+        )
+        let singleOutput = try replacingTimeline(
+            try XCTUnwrap(plannedPrimary.expectedOutput),
+            timeRange: timelineMapping.targetRange,
+            edits: [singleEdit]
+        )
+        let singleMapping = try DeterministicV4PrimaryTimelineMappingV4(
+            plannedPrimary: MediaTrackPlannedTrackV4(
+                source: singleSource,
+                action: .process,
+                origin: plannedPrimary.origin,
+                expectedOutput: singleOutput,
+                dropConsent: nil
+            )
+        )
+        XCTAssertEqual(singleMapping.topology, .singleNonempty)
+        XCTAssertEqual(singleMapping.acceptedEdits, [singleEdit])
+        XCTAssertEqual(singleMapping.mediaRange, timelineMapping.mediaRange)
+        XCTAssertEqual(singleMapping.targetRange, timelineMapping.targetRange)
+        XCTAssertEqual(singleMapping.offset, timelineMapping.offset)
+        let sourceTimeRangeMismatch = try replacingTimeline(
+            plannedPrimary.source,
+            timeRange: timelineMapping.targetRange,
+            edits: plannedPrimary.source.edits
+        )
+        XCTAssertThrowsError(
+            try DeterministicV4PrimaryTimelineMappingV4(
+                plannedPrimary: MediaTrackPlannedTrackV4(
+                    source: sourceTimeRangeMismatch,
+                    action: .process,
+                    origin: plannedPrimary.origin,
+                    expectedOutput: plannedPrimary.expectedOutput,
+                    dropConsent: nil
+                )
+            )
+        )
+        let sourceEditsMismatch = try replacingTimeline(
+            plannedPrimary.source,
+            timeRange: plannedPrimary.source.timeRange,
+            edits: [singleEdit]
+        )
+        XCTAssertThrowsError(
+            try DeterministicV4PrimaryTimelineMappingV4(
+                plannedPrimary: MediaTrackPlannedTrackV4(
+                    source: sourceEditsMismatch,
+                    action: .process,
+                    origin: plannedPrimary.origin,
+                    expectedOutput: plannedPrimary.expectedOutput,
+                    dropConsent: nil
+                )
+            )
+        )
+        let scaledTarget = try MediaExactTimeRangeV4(
+            start: ExactRationalV4(2, 1),
+            duration: ExactRationalV4(182, 30)
+        )
+        let scaledEdit = try MediaTrackEditV4(
+            ordinal: 0,
+            source: timelineMapping.mediaRange,
+            target: scaledTarget,
+            isEmpty: false
+        )
+        let scaledSource = try replacingTimeline(
+            plannedPrimary.source,
+            timeRange: scaledTarget,
+            edits: [scaledEdit]
+        )
+        let scaledOutput = try replacingTimeline(
+            try XCTUnwrap(plannedPrimary.expectedOutput),
+            timeRange: scaledTarget,
+            edits: [scaledEdit]
+        )
+        XCTAssertThrowsError(
+            try DeterministicV4PrimaryTimelineMappingV4(
+                plannedPrimary: MediaTrackPlannedTrackV4(
+                    source: scaledSource,
+                    action: .process,
+                    origin: plannedPrimary.origin,
+                    expectedOutput: scaledOutput,
+                    dropConsent: nil
+                )
+            )
+        )
+        let splitDuration = try ExactRationalV4(91, 60)
+        let secondMediaStart = try ExactRationalV4(91, 60)
+        let secondTargetStart = try ExactRationalV4(211, 60)
+        let multipleEdits = [
+            try MediaTrackEditV4(
+                ordinal: 0,
+                source: MediaExactTimeRangeV4(
+                    start: .zero,
+                    duration: splitDuration
+                ),
+                target: MediaExactTimeRangeV4(
+                    start: ExactRationalV4(2, 1),
+                    duration: splitDuration
+                ),
+                isEmpty: false
+            ),
+            try MediaTrackEditV4(
+                ordinal: 1,
+                source: MediaExactTimeRangeV4(
+                    start: secondMediaStart,
+                    duration: splitDuration
+                ),
+                target: MediaExactTimeRangeV4(
+                    start: secondTargetStart,
+                    duration: splitDuration
+                ),
+                isEmpty: false
+            )
+        ]
+        let multipleSource = try replacingTimeline(
+            plannedPrimary.source,
+            timeRange: timelineMapping.targetRange,
+            edits: multipleEdits
+        )
+        let multipleOutput = try replacingTimeline(
+            try XCTUnwrap(plannedPrimary.expectedOutput),
+            timeRange: timelineMapping.targetRange,
+            edits: multipleEdits
+        )
+        XCTAssertThrowsError(
+            try DeterministicV4PrimaryTimelineMappingV4(
+                plannedPrimary: MediaTrackPlannedTrackV4(
+                    source: multipleSource,
+                    action: .process,
+                    origin: plannedPrimary.origin,
+                    expectedOutput: multipleOutput,
+                    dropConsent: nil
+                )
+            )
+        )
+
+        func assertStrictTimelineMappingRejected(
+            _ caseName: String,
+            timeRange: MediaExactTimeRangeV4,
+            edits: [MediaTrackEditV4],
+            file: StaticString = #filePath,
+            line: UInt = #line
+        ) throws {
+            let sourceTrack = try replacingTimeline(
+                plannedPrimary.source,
+                timeRange: timeRange,
+                edits: edits
+            )
+            let outputTrack = try replacingTimeline(
+                try XCTUnwrap(plannedPrimary.expectedOutput),
+                timeRange: timeRange,
+                edits: edits
+            )
+            XCTAssertThrowsError(
+                try DeterministicV4PrimaryTimelineMappingV4(
+                    plannedPrimary: MediaTrackPlannedTrackV4(
+                        source: sourceTrack,
+                        action: .process,
+                        origin: plannedPrimary.origin,
+                        expectedOutput: outputTrack,
+                        dropConsent: nil
+                    )
+                ),
+                caseName,
+                file: file,
+                line: line
+            )
+        }
+
+        let admittedMediaEdit = timelineMapping.acceptedEdits[1]
+        let leadingGap = try MediaTrackEditV4(
+            ordinal: 0,
+            source: nil,
+            target: MediaExactTimeRangeV4(
+                start: .zero,
+                duration: ExactRationalV4(1, 1)
+            ),
+            isEmpty: true
+        )
+        let leadingOverlap = try MediaTrackEditV4(
+            ordinal: 0,
+            source: nil,
+            target: MediaExactTimeRangeV4(
+                start: .zero,
+                duration: ExactRationalV4(3, 1)
+            ),
+            isEmpty: true
+        )
+        let zeroTargetRange = try MediaExactTimeRangeV4(
+            start: ExactRationalV4(2, 1),
+            duration: .zero
+        )
+        let zeroDurationEdit = try MediaTrackEditV4(
+            ordinal: 0,
+            source: MediaExactTimeRangeV4(
+                start: .zero,
+                duration: .zero
+            ),
+            target: zeroTargetRange,
+            isEmpty: false
+        )
+        try assertStrictTimelineMappingRejected(
+            "zero-duration media mapping",
+            timeRange: zeroTargetRange,
+            edits: [zeroDurationEdit]
+        )
+        let zeroDurationLeadingEmpty = try MediaTrackEditV4(
+            ordinal: 0,
+            source: nil,
+            target: MediaExactTimeRangeV4(
+                start: .zero,
+                duration: .zero
+            ),
+            isEmpty: true
+        )
+        let negativeSourceEdit = try MediaTrackEditV4(
+            ordinal: 0,
+            source: MediaExactTimeRangeV4(
+                start: ExactRationalV4(-1, 1),
+                duration: timelineMapping.mediaRange.duration
+            ),
+            target: timelineMapping.targetRange,
+            isEmpty: false
+        )
+        try assertStrictTimelineMappingRejected(
+            "negative media start",
+            timeRange: timelineMapping.targetRange,
+            edits: [negativeSourceEdit]
+        )
+
+        let mediaFirst = try MediaTrackEditV4(
+            ordinal: 0,
+            source: timelineMapping.mediaRange,
+            target: timelineMapping.targetRange,
+            isEmpty: false
+        )
+        let targetEnd = try timelineMapping.targetEnd
+        let trailingEmpty = try MediaTrackEditV4(
+            ordinal: 1,
+            source: nil,
+            target: MediaExactTimeRangeV4(
+                start: targetEnd,
+                duration: ExactRationalV4(1, 1)
+            ),
+            isEmpty: true
+        )
+        let trailingEmptyOrdinalTwo = try MediaTrackEditV4(
+            ordinal: 2,
+            source: nil,
+            target: trailingEmpty.target,
+            isEmpty: true
+        )
+        let fullPlannedRange = try XCTUnwrap(
+            plannedPrimary.expectedOutput
+        ).timeRange
+        let invalidEditTopologies: [(
+            name: String,
+            timeRange: MediaExactTimeRangeV4,
+            edits: [MediaTrackEditV4]
+        )] = [
+            (
+                "leading gap",
+                fullPlannedRange,
+                [leadingGap, admittedMediaEdit]
+            ),
+            (
+                "leading overlap",
+                fullPlannedRange,
+                [leadingOverlap, admittedMediaEdit]
+            ),
+            (
+                "zero-duration leading empty",
+                fullPlannedRange,
+                [zeroDurationLeadingEmpty, admittedMediaEdit]
+            ),
+            (
+                "reordered empty after media",
+                fullPlannedRange,
+                [mediaFirst, trailingEmpty]
+            ),
+            (
+                "multiple empty edits",
+                fullPlannedRange,
+                timelineMapping.acceptedEdits + [trailingEmptyOrdinalTwo]
+            )
+        ]
+        for topology in invalidEditTopologies {
+            try assertStrictTimelineMappingRejected(
+                topology.name,
+                timeRange: topology.timeRange,
+                edits: topology.edits
+            )
+        }
+
+        let progressRecorder = UpscaleProgressRecorderV4()
+        let execution = try await VideoProcessingSession()
+            .processWithDeterministicV4ExecutionReceipt(
+                request: request,
+                source: source,
+                preparedBackend: recording,
+                cancellation: ProcessingCancellation(),
+                progress: { progressRecorder.record($0) }
+            )
+        XCTAssertEqual(
+            execution.result.processedFrameCount,
+            TrackMigrationFixtureFactoryV4.hdrBoundaryFrameCount
+        )
+        XCTAssertEqual(
+            execution.receipt.hdr10PlusPreservation.routeID,
+            .boundedSegmentPrefixSEI
+        )
+        XCTAssertEqual(
+            execution.receipt.hdr10PlusPreservation.segmentCount,
+            2
+        )
+        XCTAssertEqual(
+            execution.receipt.hdr10PlusPreservation.rewrittenSampleCount,
+            TrackMigrationFixtureFactoryV4.hdrBoundaryFrameCount
+        )
+        XCTAssertEqual(
+            execution.receipt.hdr10PlusPreservation.timelineMappingSHA256,
+            try timelineMapping.canonicalSHA256
+        )
+        XCTAssertEqual(
+            execution.receipt.hdr10PlusPreservation.timelineMappingSHA256,
+            try ASHSHA256V4(
+                "fb487fe98995e4a251415ad8ba8ad65da04cdf6dcf350c88adff7378eca086f9"
+            )
+        )
+        let migratedPrimary = try XCTUnwrap(
+            execution.receipt.migratedTracks.first {
+                $0.stableID == planned.primaryGraphTrack.identity.stableID
+                    .rawValue
+            }
+        )
+        XCTAssertEqual(
+            migratedPrimary.migratedSampleCount,
+            Int64(TrackMigrationFixtureFactoryV4.hdrBoundaryFrameCount)
+        )
+        let migratedAudio = try XCTUnwrap(
+            execution.receipt.migratedTracks.first { $0.action == .passThrough }
+        )
+        XCTAssertEqual(
+            migratedAudio.sourceSampleStreamSHA256,
+            migratedAudio.outputSampleStreamSHA256
+        )
+
+        let backendObservations = await recording.recordedObservations()
+        XCTAssertEqual(
+            backendObservations.map(\.frameIndex),
+            Array(0..<TrackMigrationFixtureFactoryV4.hdrBoundaryFrameCount)
+        )
+        XCTAssertEqual(
+            backendObservations.map(\.presentationTime),
+            fixture.mediaPresentationTimes
+        )
+        XCTAssertEqual(
+            backendObservations.first?.resetReasons,
+            [.streamStart]
+        )
+        XCTAssertEqual(
+            backendObservations.last?.resetReasons,
+            [.presentationTimeDiscontinuity]
+        )
+        let finishCallCount = await recording.recordedFinishCallCount()
+        XCTAssertEqual(finishCallCount, 1)
+
+        let presentationProgress = progressRecorder.snapshot().compactMap {
+            event -> CMTime? in
+            guard event.phase == .processingVideo else { return nil }
+            return event.processedTime
+        }
+        let expectedPresentationProgress = fixture.mediaPresentationTimes.map {
+            CMTimeAdd(
+                CMTimeAdd($0, CMTime(value: 1, timescale: 30)),
+                fixture.primaryTargetStart
+            )
+        }
+        XCTAssertEqual(presentationProgress, expectedPresentationProgress)
+
+        let outputHDR = try await hdr10PlusVideoObservations(
+            at: destinationURL
+        )
+        XCTAssertEqual(
+            outputHDR.presentationTimes,
+            fixture.mediaPresentationTimes
+        )
+        XCTAssertEqual(
+            outputHDR.metadata,
+            Array(
+                repeating: Optional(fixture.hdr10Plus),
+                count: fixture.mediaPresentationTimes.count
+            )
+        )
+        XCTAssertEqual(
+            outputHDR.durations,
+            Array(
+                repeating: frameDuration,
+                count: fixture.mediaPresentationTimes.count
+            )
+        )
+        XCTAssertEqual(
+            outputHDR.decodeTimes,
+            fixture.mediaPresentationTimes.indices.map {
+                CMTime(value: CMTimeValue($0), timescale: 30)
+            }
+        )
+        XCTAssertEqual(
+            outputHDR.presentationTimes[59],
+            CMTime(value: 59, timescale: 30)
+        )
+        XCTAssertEqual(
+            outputHDR.presentationTimes[60],
+            fixture.mediaGapStart
+        )
+        XCTAssertEqual(
+            CMTimeAdd(
+                outputHDR.presentationTimes[59],
+                outputHDR.durations[59]
+            ),
+            CMTime(value: 60, timescale: 30)
+        )
+        XCTAssertGreaterThan(
+            CMTimeGetSeconds(CMTimeSubtract(
+                outputHDR.presentationTimes[60],
+                outputHDR.presentationTimes[59]
+            )),
+            CMTimeGetSeconds(CMTime(value: 1, timescale: 30))
+        )
+
+        let outputAsset = AVURLAsset(
+            url: destinationURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let outputGraph = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: outputAsset
+        )
+        let outputPrimary = try XCTUnwrap(
+            outputGraph.tracks.first { $0.kind == .video }
+        )
+        let expectedPrimary = try XCTUnwrap(plannedPrimary.expectedOutput)
+        XCTAssertEqual(outputPrimary.timeRange, expectedPrimary.timeRange)
+        XCTAssertEqual(outputPrimary.edits, expectedPrimary.edits)
+        let outputAudio = try XCTUnwrap(
+            outputGraph.tracks.first { $0.kind == .audio }
+        )
+        XCTAssertEqual(outputAudio.timeRange, plannedAudio.expectedOutput?.timeRange)
+        XCTAssertEqual(outputAudio.edits, plannedAudio.expectedOutput?.edits)
+        let sourceHDRFormat = try await hdrFormatMetadata(at: sourceURL)
+        let outputHDRFormat = try await hdrFormatMetadata(at: destinationURL)
+        XCTAssertEqual(sourceHDRFormat, outputHDRFormat)
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+    func testCanonicalDynamicAbsentRouteUsesOnePassBackendAndExecutorOnce()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("one-pass-source.mov")
+        let destinationURL = directory.url("one-pass-output.mov")
+        let runtimeURL = directory.url("one-pass-p06.bundle")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: false
+        )
+        let source = try await VideoProbe().probe(url: sourceURL)
+        let runtime = try ASHV4SemanticArtifactTestSupport.buildAndLoad(
+            at: runtimeURL
+        )
+        let descriptor = try XCTUnwrap(
+            BackendDescriptor.descriptor(for: .mirmirDeterministicCPU)
+        )
+        let backend = try XCTUnwrap(DeterministicCPUBackend(
+            descriptor: descriptor,
+            runtimeProvider: .fixed(runtime)
+        ))
+        let prepared = try await backend.prepare(
+            request: BackendPreparationRequest(
+                source: source,
+                targetSize: CGSize(width: 96, height: 72)
+            ),
+            environment: .current()
+        )
+        let recording = TrackMigrationRecordingDeterministicBackendV4(
+            planning: try XCTUnwrap(
+                prepared as? any PreparedDeterministicV4PlanningBackend
+            ),
+            temporal: try XCTUnwrap(
+                prepared as? any PreparedCheckpointableTemporalFrameUpscaler
+            )
+        )
+        let progress = UpscaleProgressRecorderV4()
+        let execution = try await DeterministicV4MediaProcessingSession()
+            .process(
+                request: UpscaleRequest(
+                    inputURL: sourceURL,
+                    outputURL: destinationURL,
+                    backendID: .mirmirDeterministicCPU,
+                    targetWidth: 96,
+                    targetHeight: 72,
+                    outputCodec: .h264,
+                    preserveAudio: true,
+                    overwriteExistingFile: false
+                ),
+                source: source,
+                preparedBackend: recording,
+                cancellation: ProcessingCancellation(),
+                progress: { progress.record($0) }
+            )
+
+        XCTAssertEqual(
+            execution.receipt.hdr10PlusPreservation.routeID,
+            .canonicalDynamicAbsentOnePass
+        )
+        XCTAssertEqual(execution.receipt.hdr10PlusPreservation.segmentCount, 0)
+        XCTAssertEqual(
+            execution.receipt.hdr10PlusPreservation.rewrittenSampleCount,
+            0
+        )
+        XCTAssertEqual(
+            execution.receipt.hdr10PlusPreservation.timelineMappingSHA256,
+            try DeterministicV4HDR10PlusPreservationReportV4
+                .notApplicableTimelineMappingSHA256(
+                    trackPlanSHA256: execution.receipt.trackPlanSHA256
+                )
+        )
+        let observations = await recording.recordedObservations()
+        XCTAssertEqual(
+            observations.map(\.frameIndex),
+            Array(0..<TrackMigrationFixtureFactoryV4.frameCount)
+        )
+        XCTAssertEqual(Set(observations.map(\.frameIndex)).count, observations.count)
+        let finishCallCount = await recording.recordedFinishCallCount()
+        XCTAssertEqual(finishCallCount, 1)
+        let progressValues = progress.snapshot()
+        XCTAssertEqual(
+            progressValues.filter { $0.phase == .finalizing }.count,
+            1
+        )
+        XCTAssertEqual(
+            progressValues.filter { $0.phase == .completed }.count,
+            2
+        )
+        XCTAssertEqual(
+            execution.result.processedFrameCount,
+            TrackMigrationFixtureFactoryV4.frameCount
+        )
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: destinationURL.path
+        ))
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
@@ -2085,6 +3270,86 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
+    func testZeroSampleEditMarkerPreservesLeadingEditWithoutChangingRealCount()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let mediaURL = directory.url("marker-media.mov")
+        let sourceURL = directory.url("marker-source.mov")
+        let destinationURL = directory.url("marker-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: mediaURL,
+            includeAudioGroup: false
+        )
+        try await TrackMigrationFixtureFactoryV4.makeEditedMovie(
+            source: mediaURL,
+            at: sourceURL
+        )
+
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL)
+        )
+        let sourceTrack = try XCTUnwrap(source.tracks.first)
+        XCTAssertTrue(sourceTrack.edits.first?.isEmpty == true)
+        let sourceTimings = try await realVideoSampleTimings(at: sourceURL)
+        XCTAssertFalse(sourceTimings.isEmpty)
+
+        let realPresentationTime = CMTime(value: 7, timescale: 30)
+        let realSample = try sampleStreamQualificationBuffer(
+            payloads: [
+                Data([0x00, 0x00, 0x00, 0x01]),
+                Data([0x00, 0x00, 0x00, 0x02])
+            ],
+            start: realPresentationTime,
+            duration: CMTime(value: 1, timescale: 30)
+        )
+        XCTAssertEqual(CMSampleBufferGetNumSamples(realSample), 2)
+        let marker = try makeZeroSampleMarker()
+        var accountedSampleCount: Int64 = 0
+        var lastRealPresentationTime: CMTime?
+        AVFoundationTrackMigrationExecutorV4.accountAppendedRealSamples(
+            in: realSample,
+            sampleCount: &accountedSampleCount,
+            lastPresentationTime: &lastRealPresentationTime
+        )
+        AVFoundationTrackMigrationExecutorV4.accountAppendedRealSamples(
+            in: marker,
+            sampleCount: &accountedSampleCount,
+            lastPresentationTime: &lastRealPresentationTime
+        )
+        XCTAssertEqual(accountedSampleCount, 1)
+        XCTAssertEqual(lastRealPresentationTime, realPresentationTime)
+
+        let plan = try MediaTrackGraphPlannerV4.makePlan(source: source)
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(
+            .init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint
+            )
+        )
+
+        let outputTimings = try await realVideoSampleTimings(
+            at: destinationURL
+        )
+        XCTAssertEqual(outputTimings, sourceTimings)
+        XCTAssertEqual(
+            result.trackResults.first?.migratedSampleCount,
+            Int64(sourceTimings.count)
+        )
+        let outputTrack = try XCTUnwrap(result.outputGraph.tracks.first)
+        XCTAssertTrue(outputTrack.edits.first?.isEmpty == true)
+        XCTAssertEqual(outputTrack.edits, sourceTrack.edits)
+        XCTAssertTrue(result.verificationReport.isConformant)
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
     func testScaledEditRoundTripsExactRationalMappingAndEncodedStream()
         async throws {
         let directory = try TrackMigrationFixtureDirectoryV4()
@@ -2673,7 +3938,10 @@ private extension AVFoundationTrackMigrationExecutorV4Tests {
     func frameBoundHDRMetadata(seed: UInt8) throws -> HDRDynamicMetadataV4 {
         HDRDynamicMetadataV4(
             hdr10Plus: try HDR10PlusMetadataV4(
-                ituTT35Payload: Data([0xB5, seed, seed &+ 1])
+                ituTT35Payload: Data([
+                    0xB5, 0x00, 0x3C, 0x00, 0x01, 0x04, 0x01,
+                    seed, seed &+ 1
+                ])
             ),
             postDecodeProcessing: try PostDecodeProcessingMetadataV4(
                 propertyList: ["seed": NSNumber(value: seed)] as NSDictionary
@@ -3042,6 +4310,26 @@ private extension AVFoundationTrackMigrationExecutorV4Tests {
     }
 }
 
+private func replacingTimeline(
+    _ track: MediaTrackNodeV4,
+    timeRange: MediaExactTimeRangeV4,
+    edits: [MediaTrackEditV4]
+) throws -> MediaTrackNodeV4 {
+    try MediaTrackNodeV4(
+        identity: track.identity,
+        enabled: track.enabled,
+        kind: track.kind,
+        sourceMediaTypeID: track.sourceMediaTypeID,
+        language: track.language,
+        roleIDs: track.roleIDs,
+        timebase: track.timebase,
+        timeRange: timeRange,
+        edits: edits,
+        formatDescriptors: track.formatDescriptors,
+        metadataFingerprint: track.metadataFingerprint
+    )
+}
+
 private final class TrackMigrationProgressRecorderV4: @unchecked Sendable {
     private let lock = NSLock()
     private var values: [AVFoundationTrackMigrationProgressV4] = []
@@ -3053,6 +4341,24 @@ private final class TrackMigrationProgressRecorderV4: @unchecked Sendable {
     }
 
     func snapshot() -> [AVFoundationTrackMigrationProgressV4] {
+        lock.lock()
+        let snapshot = values
+        lock.unlock()
+        return snapshot
+    }
+}
+
+private final class UpscaleProgressRecorderV4: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [UpscaleProgress] = []
+
+    func record(_ value: UpscaleProgress) {
+        lock.lock()
+        values.append(value)
+        lock.unlock()
+    }
+
+    func snapshot() -> [UpscaleProgress] {
         lock.lock()
         let snapshot = values
         lock.unlock()
@@ -3212,16 +4518,1369 @@ private actor TrackMigrationDoubleRateCopyBackendV4:
     }
 }
 
+private actor TrackMigrationRecordingDeterministicBackendV4:
+    PreparedDeterministicV4PlanningBackend,
+    PreparedCheckpointableTemporalFrameUpscaler {
+    struct Observation: Equatable, Sendable {
+        let frameIndex: Int
+        let presentationTime: CMTime
+        let resetReasons: [ASHTemporalResetReasonV4?]
+    }
+
+    nonisolated let sourcePixelBufferAttributes: PixelBufferAttributes
+    nonisolated let destinationPixelBufferAttributes: PixelBufferAttributes
+    nonisolated let actualBackendID: UpscaleBackendID
+    nonisolated let maximumOutputFramesPerInput: Int
+    nonisolated let deterministicExecutor: ASHExecutorV4
+    nonisolated let deterministicStorage: PixelStorageV4
+
+    private let planning: any PreparedDeterministicV4PlanningBackend
+    private let temporal: any PreparedCheckpointableTemporalFrameUpscaler
+    private var observations: [Observation] = []
+    private var finishCallCount = 0
+
+    init(
+        planning: any PreparedDeterministicV4PlanningBackend,
+        temporal: any PreparedCheckpointableTemporalFrameUpscaler
+    ) {
+        self.planning = planning
+        self.temporal = temporal
+        sourcePixelBufferAttributes = planning.sourcePixelBufferAttributes
+        destinationPixelBufferAttributes =
+            planning.destinationPixelBufferAttributes
+        actualBackendID = planning.actualBackendID
+        maximumOutputFramesPerInput = temporal.maximumOutputFramesPerInput
+        deterministicExecutor = planning.deterministicExecutor
+        deterministicStorage = planning.deterministicStorage
+    }
+
+    func makeASHExecutionPlan(
+        media: CanonicalMediaStateV4,
+        request: ASHExecutionRequestV4
+    ) async throws -> ASHIdentifiedExecutionPlanV4 {
+        try await planning.makeASHExecutionPlan(media: media, request: request)
+    }
+
+    func process(
+        source: FramePixelBuffer,
+        destination: FramePixelBuffer,
+        timing: FrameTiming
+    ) async throws {
+        try await planning.process(
+            source: source,
+            destination: destination,
+            timing: timing
+        )
+    }
+
+    func processTemporal(
+        source: FramePixelBuffer,
+        destinations: [FramePixelBuffer],
+        timing: FrameTiming
+    ) async throws -> [TemporalOutputFrame] {
+        let output = try await temporal.processTemporal(
+            source: source,
+            destinations: destinations,
+            timing: timing
+        )
+        observations.append(Observation(
+            frameIndex: timing.frameIndex,
+            presentationTime: timing.presentationTime,
+            resetReasons: output.map(\.temporalResetReason)
+        ))
+        return output
+    }
+
+    func makeTemporalCheckpoint(
+        planSHA256: ASHSHA256V4,
+        lastCompletedInputOrdinal: Int64
+    ) async throws -> Data {
+        try await temporal.makeTemporalCheckpoint(
+            planSHA256: planSHA256,
+            lastCompletedInputOrdinal: lastCompletedInputOrdinal
+        )
+    }
+
+    func restoreTemporalCheckpoint(
+        _ data: Data,
+        planSHA256: ASHSHA256V4
+    ) async throws {
+        try await temporal.restoreTemporalCheckpoint(
+            data,
+            planSHA256: planSHA256
+        )
+    }
+
+    func finish() async throws {
+        finishCallCount += 1
+        try await planning.finish()
+    }
+
+    func recordedObservations() -> [Observation] { observations }
+    func recordedFinishCallCount() -> Int { finishCallCount }
+}
+
 private enum TrackMigrationFixtureFactoryV4 {
     static let width = 64
     static let height = 48
     private static let frameRate: CMTimeScale = 30
     static let frameCount = 8
+    static let hdrBoundaryFrameCount = 61
+    private static let hdrBoundaryStoredFrameCount = 62
+
+    struct HDRBoundaryFixture: Sendable {
+        let hdr10Plus: HDR10PlusMetadataV4
+        let mediaPresentationTimes: [CMTime]
+        let primaryTargetStart: CMTime
+        let mediaGapStart: CMTime
+    }
 
     private struct VideoLane {
         let input: AVAssetWriterInput
         let adaptor: AVAssetWriterInputPixelBufferAdaptor
         let seed: UInt8
+    }
+
+    static func makeHDRBoundaryMovie(
+        at url: URL,
+        changedLeadingDurationURL: URL? = nil
+    ) async throws -> HDRBoundaryFixture {
+        let encodedURL = url.deletingPathExtension()
+            .appendingPathExtension("encoded.mov")
+        let audioURL = url.deletingPathExtension()
+            .appendingPathExtension("audio.mov")
+        let formatMetadata = try hdrBoundaryFormatMetadata()
+        let hdr10Plus = try hdrBoundaryHDR10PlusMetadata()
+        try await encodeHDRBoundaryVideo(
+            at: encodedURL,
+            metadata: formatMetadata
+        )
+        try await requireHDRBoundaryDecodedP010Legal(
+            at: encodedURL,
+            expectedMetadata: formatMetadata,
+            expectedPresentationTimes: (0..<hdrBoundaryStoredFrameCount).map {
+                CMTime(value: CMTimeValue($0), timescale: frameRate)
+            }
+        )
+        let localTimes = (0..<hdrBoundaryFrameCount).map { index in
+            index < 60
+                ? CMTime(
+                    value: CMTimeValue(index),
+                    timescale: frameRate
+                )
+                : CMTime(value: 90, timescale: frameRate)
+        }
+        try await makeAudioMovie(
+            at: audioURL,
+            channelLayoutTag: kAudioChannelLayoutTag_Stereo,
+            amplitude: 512
+        )
+        let primaryStart = CMTime(value: 2, timescale: 1)
+        try await makeHDRBoundaryMutableMovie(
+            encodedVideoURL: encodedURL,
+            audioURL: audioURL,
+            outputURL: url,
+            primaryStart: primaryStart,
+            expectedMetadata: formatMetadata,
+            hdr10Plus: hdr10Plus,
+            expectedMediaTimes: localTimes
+        )
+        if let changedLeadingDurationURL {
+            try await makeHDRBoundaryMutableMovie(
+                encodedVideoURL: encodedURL,
+                audioURL: audioURL,
+                outputURL: changedLeadingDurationURL,
+                primaryStart: CMTime(value: 3, timescale: 1),
+                expectedMetadata: formatMetadata,
+                hdr10Plus: hdr10Plus,
+                expectedMediaTimes: localTimes
+            )
+        }
+        try FileManager.default.removeItem(at: encodedURL)
+        try FileManager.default.removeItem(at: audioURL)
+        return HDRBoundaryFixture(
+            hdr10Plus: hdr10Plus,
+            mediaPresentationTimes: localTimes,
+            primaryTargetStart: primaryStart,
+            mediaGapStart: CMTime(value: 90, timescale: frameRate)
+        )
+    }
+
+    private static func hdrBoundaryFrameDomainStart(
+        _ graphStart: CMTime
+    ) throws -> CMTime {
+        guard graphStart.isNumeric,
+              !graphStart.flags.contains(.hasBeenRounded) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR boundary graph start is not exact numeric time."
+            )
+        }
+        let frameStart = CMTimeConvertScale(
+            graphStart,
+            timescale: frameRate,
+            method: .default
+        )
+        let roundTrip = CMTimeConvertScale(
+            frameStart,
+            timescale: graphStart.timescale,
+            method: .default
+        )
+        guard frameStart.isNumeric,
+              !frameStart.flags.contains(.hasBeenRounded),
+              exactlyEqual(roundTrip, graphStart) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR boundary graph start is not exactly representable at "
+                    + "the authored frame timescale."
+            )
+        }
+        return frameStart
+    }
+
+    private static func requireHDRBoundaryObservations(
+        _ observations: HDR10PlusVideoObservationsV4,
+        expectedTimes: [CMTime],
+        expectedReaderReportedDurations: [CMTime],
+        expectedMetadata: HDR10PlusMetadataV4,
+        expectedFormatMetadata: HDRFormatMetadataV4,
+        stage: String
+    ) throws {
+        guard expectedReaderReportedDurations.count == expectedTimes.count,
+              observations.presentationTimes.count == expectedTimes.count,
+              observations.decodeTimes.count == expectedTimes.count,
+              observations.durations.count == expectedTimes.count,
+              observations.syncSamples.count == expectedTimes.count,
+              observations.metadata.count == expectedTimes.count,
+              observations.codecType == kCMVideoCodecType_HEVC,
+              observations.formatMetadata == expectedFormatMetadata else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "\(stage) HDR boundary count mismatch: expected "
+                    + "\(expectedTimes.count), observed PTS "
+                    + "\(observations.presentationTimes.count), metadata "
+                    + "\(observations.metadata.count), codec "
+                    + "\(observations.codecType), format "
+                    + "\(String(describing: observations.formatMetadata))."
+            )
+        }
+        if let index = expectedTimes.indices.first(where: {
+            !exactlyEqual(
+                observations.presentationTimes[$0],
+                expectedTimes[$0]
+            )
+        }) {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "\(stage) HDR boundary PTS mismatch at index \(index): "
+                    + "expected \(describe(expectedTimes[index])), observed "
+                    + "\(describe(observations.presentationTimes[index]))."
+            )
+        }
+        let expectedDecodeTimes = expectedTimes.indices.map {
+            CMTime(value: CMTimeValue($0), timescale: frameRate)
+        }
+        if let index = expectedDecodeTimes.indices.first(where: {
+            !exactlyEqual(
+                observations.decodeTimes[$0],
+                expectedDecodeTimes[$0]
+            )
+        }) {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "\(stage) HDR boundary DTS mismatch at index \(index): "
+                    + "expected \(describe(expectedDecodeTimes[index])), "
+                    + "observed \(describe(observations.decodeTimes[index]))."
+            )
+        }
+        let frameDuration = CMTime(value: 1, timescale: frameRate)
+        if let index = observations.durations.indices.first(where: {
+            !exactlyEqual(
+                observations.durations[$0],
+                expectedReaderReportedDurations[$0]
+            )
+        }) {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "\(stage) HDR boundary duration mismatch at index \(index): "
+                    + "expected "
+                    + "\(describe(expectedReaderReportedDurations[index])), "
+                    + "observed "
+                    + "\(describe(observations.durations[index]))."
+            )
+        }
+        guard observations.syncSamples.allSatisfy({ $0 }) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "\(stage) HDR boundary contains a non-sync sample."
+            )
+        }
+        let decodeBoundaryDelta = CMTimeSubtract(
+            observations.decodeTimes[60],
+            observations.decodeTimes[59]
+        )
+        let priorEnd = CMTimeAdd(
+            observations.presentationTimes[59],
+            decodeBoundaryDelta
+        )
+        guard exactlyEqual(
+                priorEnd,
+                CMTime(value: 60, timescale: frameRate)
+              ),
+              exactlyEqual(decodeBoundaryDelta, frameDuration),
+              CMTimeCompare(
+                priorEnd,
+                observations.presentationTimes[60]
+              ) < 0 else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "\(stage) HDR boundary does not retain the exact [2,3) gap."
+            )
+        }
+        if let index = observations.metadata.indices.first(where: {
+            observations.metadata[$0] != expectedMetadata
+        }) {
+            let expectedSHA = sha256(expectedMetadata.ituTT35Payload)
+            let observedSHA = observations.metadata[index].map {
+                sha256($0.ituTT35Payload)
+            } ?? "nil"
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "\(stage) HDR boundary metadata mismatch at index \(index): "
+                    + "expected SHA-256 \(expectedSHA), observed \(observedSHA)."
+            )
+        }
+    }
+
+    private static func hdrBoundaryExactFrameDurations() -> [CMTime] {
+        Array(
+            repeating: CMTime(value: 1, timescale: frameRate),
+            count: hdrBoundaryFrameCount
+        )
+    }
+
+    private static func describe(_ time: CMTime) -> String {
+        "\(time.value)/\(time.timescale) epoch=\(time.epoch) "
+            + "flags=\(time.flags.rawValue)"
+    }
+
+    private static func exactlyEqual(_ lhs: CMTime, _ rhs: CMTime) -> Bool {
+        lhs.value == rhs.value
+            && lhs.timescale == rhs.timescale
+            && lhs.flags == rhs.flags
+            && lhs.epoch == rhs.epoch
+    }
+
+    private static func sha256(_ data: Data) -> String {
+        SHA256.hash(data: data).map {
+            String(format: "%02x", $0)
+        }.joined()
+    }
+
+    private static func encodeHDRBoundaryVideo(
+        at url: URL,
+        metadata: HDRFormatMetadataV4
+    ) async throws {
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+        var compression = try AVFoundationHDRMetadataAdapterV4
+            .videoToolboxCompressionProperties(
+                for: metadata,
+                dynamicPolicy: .preserveSourceWhenPixelsAreUnmodified,
+                pixelsWereModified: false
+            )
+        compression[AVVideoProfileLevelKey] =
+            kVTProfileLevel_HEVC_Main10_AutoLevel
+        compression[AVVideoAllowFrameReorderingKey] = false
+        compression[AVVideoMaxKeyFrameIntervalKey] = 1
+        compression[AVVideoExpectedSourceFrameRateKey] = Int(frameRate)
+        let settings: [String: Any] = [
+            AVVideoCodecKey: AVVideoCodecType.hevc,
+            AVVideoWidthKey: width,
+            AVVideoHeightKey: height,
+            AVVideoColorPropertiesKey:
+                AVFoundationHDRMetadataAdapterV4
+                    .avFoundationColorProperties(for: metadata.signal),
+            AVVideoCompressionPropertiesKey: compression
+        ]
+        guard writer.canApply(
+            outputSettings: settings,
+            forMediaType: .video
+        ) else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                "Writer rejected the HDR boundary HEVC settings."
+            )
+        }
+        let input = AVAssetWriterInput(
+            mediaType: .video,
+            outputSettings: settings
+        )
+        input.mediaTimeScale = frameRate
+        guard writer.canAdd(input) else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                writer.error?.localizedDescription
+                    ?? "Writer rejected the HDR boundary video input."
+            )
+        }
+        writer.add(input)
+        guard writer.startWriting() else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                writer.error?.localizedDescription
+                    ?? "HDR boundary writer did not start."
+            )
+        }
+        writer.startSession(atSourceTime: .zero)
+
+        for frame in 0..<hdrBoundaryStoredFrameCount {
+            var pixelBuffer: CVPixelBuffer?
+            let pixelStatus = CVPixelBufferCreate(
+                kCFAllocatorDefault,
+                width,
+                height,
+                kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange,
+                [kCVPixelBufferIOSurfacePropertiesKey as String: [:]]
+                    as CFDictionary,
+                &pixelBuffer
+            )
+            guard pixelStatus == kCVReturnSuccess, let pixelBuffer else {
+                throw TrackMigrationFixtureErrorV4.coreMedia(pixelStatus)
+            }
+            fillHDRBoundaryP010(pixelBuffer, frame: frame)
+            try AVFoundationHDRMetadataAdapterV4.migrate(
+                metadata,
+                to: pixelBuffer
+            )
+            var format: CMVideoFormatDescription?
+            var status = CMVideoFormatDescriptionCreateForImageBuffer(
+                allocator: kCFAllocatorDefault,
+                imageBuffer: pixelBuffer,
+                formatDescriptionOut: &format
+            )
+            guard status == noErr, let format else {
+                throw TrackMigrationFixtureErrorV4.coreMedia(status)
+            }
+            let presentationTime = CMTime(
+                value: CMTimeValue(frame),
+                timescale: frameRate
+            )
+            var timing = CMSampleTimingInfo(
+                duration: CMTime(value: 1, timescale: frameRate),
+                presentationTimeStamp: presentationTime,
+                decodeTimeStamp: presentationTime
+            )
+            var sample: CMSampleBuffer?
+            status = CMSampleBufferCreateReadyWithImageBuffer(
+                allocator: kCFAllocatorDefault,
+                imageBuffer: pixelBuffer,
+                formatDescription: format,
+                sampleTiming: &timing,
+                sampleBufferOut: &sample
+            )
+            guard status == noErr, let sample else {
+                throw TrackMigrationFixtureErrorV4.coreMedia(status)
+            }
+            try await waitUntilReady(input, writer: writer)
+            guard input.append(sample) else {
+                throw TrackMigrationFixtureErrorV4.writer(
+                    writer.error?.localizedDescription
+                        ?? "HDR boundary append failed."
+                )
+            }
+        }
+        input.markAsFinished()
+        writer.endSession(atSourceTime: CMTime(
+            value: CMTimeValue(hdrBoundaryStoredFrameCount),
+            timescale: frameRate
+        ))
+        await withCheckedContinuation { continuation in
+            writer.finishWriting { continuation.resume() }
+        }
+        guard writer.status == .completed else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                writer.error?.localizedDescription
+                    ?? "HDR boundary writer did not finish."
+            )
+        }
+    }
+
+    private static func requireHDRBoundaryDecodedP010Legal(
+        at url: URL,
+        expectedMetadata: HDRFormatMetadataV4,
+        expectedPresentationTimes: [CMTime],
+        readerTimeRange: CMTimeRange? = nil
+    ) async throws {
+        guard expectedPresentationTimes.count == hdrBoundaryFrameCount
+                || expectedPresentationTimes.count
+                    == hdrBoundaryStoredFrameCount else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR boundary legal-range preflight requires exactly 61 "
+                    + "presented or 62 stored PTS."
+            )
+        }
+        let asset = AVURLAsset(
+            url: url,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        guard tracks.count == 1, let track = tracks.first else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR boundary legal-range preflight requires one video track."
+            )
+        }
+        let formats = try await track.load(.formatDescriptions)
+        guard formats.count == 1, let format = formats.first,
+              CMFormatDescriptionGetMediaSubType(format)
+                == kCMVideoCodecType_HEVC,
+              try AVFoundationHDRMetadataAdapterV4.probe(
+                formatDescription: format,
+                decodedStorage: .p010VideoRange10Bit
+              ) == expectedMetadata else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR boundary legal-range preflight requires exact Main10 HDR."
+            )
+        }
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(
+            track: track,
+            outputSettings: [
+                kCVPixelBufferPixelFormatTypeKey as String:
+                    Int(kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange),
+                AVVideoDecompressionPropertiesKey: [
+                    kVTDecompressionPropertyKey_PropagatePerFrameHDRDisplayMetadata
+                        as String: true
+                ]
+            ]
+        )
+        output.alwaysCopiesSampleData = false
+        guard reader.canAdd(output) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR boundary legal-range reader rejected the video track."
+            )
+        }
+        reader.add(output)
+        if let readerTimeRange { reader.timeRange = readerTimeRange }
+        guard reader.startReading() else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                reader.error?.localizedDescription
+                    ?? "HDR boundary legal-range reader did not start."
+            )
+        }
+        var concreteIndex = 0
+        while let sample = output.copyNextSampleBuffer() {
+            let sampleCount = CMSampleBufferGetNumSamples(sample)
+            if sampleCount == 0 { continue }
+            guard sampleCount == 1,
+                  concreteIndex < expectedPresentationTimes.count,
+                  let pixelBuffer = CMSampleBufferGetImageBuffer(sample) else {
+                throw TrackMigrationFixtureErrorV4.invalidFixture(
+                    "HDR boundary legal-range reader emitted an invalid sample."
+                )
+            }
+            let expectedTime = expectedPresentationTimes[concreteIndex]
+            let presentation = CMSampleBufferGetPresentationTimeStamp(sample)
+            guard exactlyEqual(presentation, expectedTime) else {
+                throw TrackMigrationFixtureErrorV4.invalidFixture(
+                    "HDR boundary legal-range PTS mismatch at frame "
+                        + "\(concreteIndex): expected \(describe(expectedTime)), "
+                        + "observed \(describe(presentation))."
+                )
+            }
+            try validateHDRBoundaryDecodedP010(
+                pixelBuffer,
+                frameIndex: concreteIndex
+            )
+            let decodedMetadata = try AVFoundationHDRMetadataAdapterV4.probe(
+                pixelBuffer: pixelBuffer,
+                storage: .p010VideoRange10Bit,
+                fallback: expectedMetadata
+            )
+            guard decodedMetadata == expectedMetadata else {
+                throw TrackMigrationFixtureErrorV4.invalidFixture(
+                    "HDR boundary decoded HDR differs at frame \(concreteIndex)."
+                )
+            }
+            concreteIndex += 1
+        }
+        guard reader.status == .completed,
+              concreteIndex == expectedPresentationTimes.count else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                reader.error?.localizedDescription
+                    ?? "HDR boundary legal-range reader did not retain its "
+                        + "exact expected frame count."
+            )
+        }
+    }
+
+    private static func validateHDRBoundaryDecodedP010(
+        _ pixelBuffer: CVPixelBuffer,
+        frameIndex: Int
+    ) throws {
+        guard CVPixelBufferGetPixelFormatType(pixelBuffer)
+                == kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange,
+              CVPixelBufferGetWidth(pixelBuffer) == width,
+              CVPixelBufferGetHeight(pixelBuffer) == height,
+              CVPixelBufferGetPlaneCount(pixelBuffer) == 2 else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR boundary decoded P010 structure differs at frame "
+                    + "\(frameIndex)."
+            )
+        }
+        let status = CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
+        guard status == kCVReturnSuccess else {
+            throw TrackMigrationFixtureErrorV4.coreMedia(status)
+        }
+        defer {
+            CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly)
+        }
+        for plane in 0..<2 {
+            guard let base = CVPixelBufferGetBaseAddressOfPlane(
+                pixelBuffer,
+                plane
+            )?.assumingMemoryBound(to: UInt16.self) else {
+                throw TrackMigrationFixtureErrorV4.invalidFixture(
+                    "HDR boundary decoded plane \(plane) is inaccessible."
+                )
+            }
+            let planeWidth = CVPixelBufferGetWidthOfPlane(pixelBuffer, plane)
+            let planeHeight = CVPixelBufferGetHeightOfPlane(pixelBuffer, plane)
+            let stride = CVPixelBufferGetBytesPerRowOfPlane(
+                pixelBuffer,
+                plane
+            ) / MemoryLayout<UInt16>.stride
+            let components = plane == 0 ? 1 : 2
+            let maximum = plane == 0 ? 940 : 960
+            for y in 0..<planeHeight {
+                for x in 0..<planeWidth {
+                    for component in 0..<components {
+                        let stored = base[y * stride + x * components + component]
+                        let code = Int(stored >> 6)
+                        guard stored & 0x003F == 0,
+                              (64...maximum).contains(code) else {
+                            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                                "HDR boundary decoded P010 code is invalid at "
+                                    + "frame \(frameIndex), plane \(plane), "
+                                    + "x \(x), y \(y), component \(component): "
+                                    + "stored \(stored), code \(code)."
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static func makeHDRBoundaryMutableMovie(
+        encodedVideoURL: URL,
+        audioURL: URL,
+        outputURL: URL,
+        primaryStart: CMTime,
+        expectedMetadata: HDRFormatMetadataV4,
+        hdr10Plus: HDR10PlusMetadataV4,
+        expectedMediaTimes: [CMTime]
+    ) async throws {
+        guard !FileManager.default.fileExists(atPath: outputURL.path) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR boundary destination unexpectedly exists."
+            )
+        }
+        let videoAsset = AVURLAsset(
+            url: encodedVideoURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let audioAsset = AVURLAsset(
+            url: audioURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let videoTracks = try await videoAsset.loadTracks(
+            withMediaType: .video
+        )
+        let audioTracks = try await audioAsset.loadTracks(
+            withMediaType: .audio
+        )
+        guard videoTracks.count == 1, let sourceVideo = videoTracks.first,
+              audioTracks.count == 1, let sourceAudio = audioTracks.first else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR boundary mutable movie requires one video and one audio "
+                    + "source track."
+            )
+        }
+        let videoFormats = try await sourceVideo.load(.formatDescriptions)
+        guard videoFormats.count == 1, let videoFormat = videoFormats.first,
+              CMFormatDescriptionGetMediaSubType(videoFormat)
+                == kCMVideoCodecType_HEVC else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR boundary encoded source requires one HEVC format."
+            )
+        }
+        let audioRange = try await sourceAudio.load(.timeRange)
+        _ = try await sourceVideo.load(.naturalTimeScale)
+        _ = try await sourceVideo.load(.preferredTransform)
+        _ = try await sourceVideo.load(.metadata)
+        _ = try await sourceVideo.load(.languageCode)
+        _ = try await sourceVideo.load(.extendedLanguageTag)
+        _ = try await sourceAudio.load(.naturalTimeScale)
+        _ = try await sourceAudio.load(.metadata)
+        _ = try await sourceAudio.load(.languageCode)
+        _ = try await sourceAudio.load(.extendedLanguageTag)
+
+        let stagingRoot = outputURL.deletingLastPathComponent()
+            .appendingPathComponent(
+                ".hdr-boundary-movie-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: stagingRoot,
+            withIntermediateDirectories: false,
+            attributes: [.posixPermissions: NSNumber(value: 0o700)]
+        )
+        defer { try? FileManager.default.removeItem(at: stagingRoot) }
+        try requireOwnedMode(stagingRoot, mode: 0o700)
+        let stagedURL = stagingRoot.appendingPathComponent("payload.mov")
+        var published = false
+        do {
+            if #available(macOS 26.0, *) {
+                do {
+                    try buildHDRBoundaryMutableMovie(
+                        videoAsset: videoAsset,
+                        sourceVideo: sourceVideo,
+                        videoFormat: videoFormat,
+                        sourceAudio: sourceAudio,
+                        audioRange: audioRange,
+                        outputURL: stagedURL,
+                        primaryStart: primaryStart,
+                        hdr10Plus: hdr10Plus
+                    )
+                } catch let fixtureError as TrackMigrationFixtureErrorV4 {
+                    throw fixtureError
+                } catch {
+                    throw TrackMigrationFixtureErrorV4.writer(
+                        "HDR boundary mutable-movie construction failed: "
+                            + diagnosticErrorChain(error)
+                    )
+                }
+            } else {
+                throw TrackMigrationFixtureErrorV4.invalidFixture(
+                    "HDR boundary mutable-movie fixture requires macOS 26."
+                )
+            }
+            try FileManager.default.setAttributes(
+                [.posixPermissions: NSNumber(value: 0o600)],
+                ofItemAtPath: stagedURL.path
+            )
+            try requireOwnedMode(stagedURL, mode: 0o600)
+            do {
+                try await requireHDRBoundaryMutableMovieAsset(
+                    at: stagedURL,
+                    audioRange: audioRange,
+                    primaryStart: primaryStart,
+                    expectedMetadata: expectedMetadata,
+                    hdr10Plus: hdr10Plus,
+                    expectedMediaTimes: expectedMediaTimes,
+                    stage: "Private staged mutable movie"
+                )
+            } catch {
+                throw TrackMigrationFixtureErrorV4.writer(
+                    "HDR boundary pre-rename validation failed: "
+                        + diagnosticErrorChain(error)
+                )
+            }
+            guard rename(
+                stagedURL.path,
+                outputURL.path
+            ) == 0 else {
+                throw TrackMigrationFixtureErrorV4.writer(
+                    "Atomic HDR boundary rename failed: "
+                        + String(cString: strerror(errno))
+                )
+            }
+            published = true
+            try requireOwnedMode(outputURL, mode: 0o600)
+            do {
+                try await requireHDRBoundaryMutableMovieAsset(
+                    at: outputURL,
+                    audioRange: audioRange,
+                    primaryStart: primaryStart,
+                    expectedMetadata: expectedMetadata,
+                    hdr10Plus: hdr10Plus,
+                    expectedMediaTimes: expectedMediaTimes,
+                    stage: "Atomically renamed mutable movie"
+                )
+            } catch {
+                throw TrackMigrationFixtureErrorV4.writer(
+                    "HDR boundary post-rename validation failed: "
+                        + diagnosticErrorChain(error)
+                )
+            }
+        } catch {
+            if published { try? FileManager.default.removeItem(at: outputURL) }
+            throw error
+        }
+    }
+
+    @available(macOS 26.0, *)
+    private static func buildHDRBoundaryMutableMovie(
+        videoAsset: AVAsset,
+        sourceVideo: AVAssetTrack,
+        videoFormat: CMFormatDescription,
+        sourceAudio: AVAssetTrack,
+        audioRange: CMTimeRange,
+        outputURL: URL,
+        primaryStart: CMTime,
+        hdr10Plus: HDR10PlusMetadataV4
+    ) throws {
+        try createOwnerOnlyEmptyStorageFile(at: outputURL)
+        let movie = AVMutableMovie()
+        movie.timescale = frameRate
+        movie.metadata = assetMetadata()
+        let mediaDataStorage = AVMediaDataStorage(
+            url: outputURL,
+            options: nil
+        )
+        movie.defaultMediaDataStorage = mediaDataStorage
+        guard let destinationVideo = movie.addMutableTrack(
+            withMediaType: .video,
+            copySettingsFrom: sourceVideo,
+            options: nil
+        ) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR boundary mutable movie rejected its video track."
+            )
+        }
+        destinationVideo.mediaDataStorage = mediaDataStorage
+        destinationVideo.timescale = frameRate
+        try requireHDRBoundaryStorageBinding(
+            movie: movie,
+            track: destinationVideo,
+            expectedURL: outputURL,
+            stage: "final fixture video storage"
+        )
+
+        let reader = try AVAssetReader(asset: videoAsset)
+        let output = AVAssetReaderTrackOutput(
+            track: sourceVideo,
+            outputSettings: nil
+        )
+        output.alwaysCopiesSampleData = true
+        guard reader.canAdd(output) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR boundary mutable movie reader rejected compressed video."
+            )
+        }
+        reader.add(output)
+        guard reader.startReading() else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                reader.error?.localizedDescription
+                    ?? "HDR boundary mutable movie reader did not start."
+            )
+        }
+        defer {
+            if reader.status == .reading { reader.cancelReading() }
+        }
+        var concreteOrdinal = 0
+        while let sample = output.copyNextSampleBuffer() {
+            let sampleCount = CMSampleBufferGetNumSamples(sample)
+            if sampleCount == 0 { continue }
+            guard sampleCount == 1,
+                  concreteOrdinal < hdrBoundaryStoredFrameCount,
+                  CMSampleBufferDataIsReady(sample),
+                  let sampleFormat = CMSampleBufferGetFormatDescription(sample),
+                  CMFormatDescriptionEqual(
+                    sampleFormat,
+                    otherFormatDescription: videoFormat
+                  ) else {
+                throw TrackMigrationFixtureErrorV4.invalidFixture(
+                    "HDR boundary mutable movie observed an invalid raw "
+                        + "compressed sample at ordinal \(concreteOrdinal)."
+                )
+            }
+            let retimed = try retimeHDRBoundaryCompressedSample(
+                sample,
+                ordinal: concreteOrdinal
+            )
+            let rewritten = try AVFoundationHDRMetadataAdapterV4
+                .insertingHDR10PlusMetadata(hdr10Plus, into: retimed)
+            guard try AVFoundationHDRMetadataAdapterV4
+                    .compressedHDR10PlusMetadata(
+                        from: rewritten.sampleBuffer
+                    ) == hdr10Plus else {
+                throw TrackMigrationFixtureErrorV4.invalidFixture(
+                    "HDR boundary in-band HDR injection failed at ordinal "
+                        + "\(concreteOrdinal)."
+                )
+            }
+            let expectedDecode = CMTime(
+                value: CMTimeValue(concreteOrdinal),
+                timescale: frameRate
+            )
+            let expectedPresentation: CMTime
+            if concreteOrdinal == 60 {
+                expectedPresentation = CMTime(value: 90, timescale: frameRate)
+            } else if concreteOrdinal == 61 {
+                expectedPresentation = CMTime(value: 91, timescale: frameRate)
+            } else {
+                expectedPresentation = expectedDecode
+            }
+            let ready = CMReadySampleBuffer<CMSampleBuffer.DynamicContent>(
+                unsafeBuffer: rewritten.sampleBuffer
+            )
+            let appended: (decodeTime: CMTime, presentationTime: CMTime)
+            do {
+                appended = try destinationVideo.append(ready)
+            } catch {
+                throw TrackMigrationFixtureErrorV4.writer(
+                    "HDR boundary mutable-movie append failed at ordinal "
+                        + "\(concreteOrdinal): "
+                        + diagnosticErrorChain(error)
+                )
+            }
+            guard exactlyEqual(appended.decodeTime, expectedDecode),
+                  exactlyEqual(
+                    appended.presentationTime,
+                    expectedPresentation
+                  ) else {
+                throw TrackMigrationFixtureErrorV4.invalidFixture(
+                    "HDR boundary mutable movie append timing changed at "
+                        + "ordinal \(concreteOrdinal): DTS "
+                        + "\(describe(appended.decodeTime)), PTS "
+                        + "\(describe(appended.presentationTime))."
+                )
+            }
+            concreteOrdinal += 1
+        }
+        guard reader.status == .completed,
+              concreteOrdinal == hdrBoundaryStoredFrameCount else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR boundary mutable movie did not append all 62 stored "
+                    + "samples."
+            )
+        }
+
+        let mediaRange = CMTimeRange(
+            start: .zero,
+            duration: CMTime(value: 91, timescale: frameRate)
+        )
+        let targetRange = CMTimeRange(
+            start: primaryStart,
+            duration: mediaRange.duration
+        )
+        guard destinationVideo.insertMediaTimeRange(
+            mediaRange,
+            into: targetRange
+        ) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR boundary mutable movie rejected its exact media mapping."
+            )
+        }
+        guard let destinationAudio = movie.addMutableTrack(
+            withMediaType: .audio,
+            copySettingsFrom: sourceAudio,
+            options: nil
+        ) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR boundary mutable movie rejected its audio track."
+            )
+        }
+        destinationAudio.mediaDataStorage = mediaDataStorage
+        do {
+            try destinationAudio.insertTimeRange(
+                audioRange,
+                of: sourceAudio,
+                at: .zero,
+                copySampleData: true
+            )
+        } catch {
+            throw TrackMigrationFixtureErrorV4.writer(
+                "HDR boundary audio sample copy failed: "
+                    + diagnosticErrorChain(error)
+            )
+        }
+        do {
+            try movie.writeHeader(
+                to: outputURL,
+                fileType: .mov,
+                options: .addMovieHeaderToDestination
+            )
+        } catch {
+            throw TrackMigrationFixtureErrorV4.writer(
+                "HDR boundary AddMovieHeader write failed: "
+                    + diagnosticErrorChain(error)
+            )
+        }
+    }
+
+    private static func createOwnerOnlyEmptyStorageFile(
+        at url: URL
+    ) throws {
+        let descriptor = Darwin.open(
+            url.path,
+            O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
+            mode_t(S_IRUSR | S_IWUSR)
+        )
+        guard descriptor >= 0 else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                "Owner-only media storage creation failed: "
+                    + String(cString: strerror(errno))
+            )
+        }
+        let closeResult = Darwin.close(descriptor)
+        guard closeResult == 0 else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                "Owner-only media storage close failed: "
+                    + String(cString: strerror(errno))
+            )
+        }
+        try requireOwnedMode(url, mode: 0o600)
+    }
+
+    @available(macOS 26.0, *)
+    private static func requireHDRBoundaryStorageBinding(
+        movie: AVMutableMovie,
+        track: AVMutableMovieTrack,
+        expectedURL: URL,
+        stage: String
+    ) throws {
+        guard let movieStorage = movie.defaultMediaDataStorage,
+              let movieURL = movieStorage.url(),
+              let trackStorage = track.mediaDataStorage,
+              let trackURL = trackStorage.url(),
+              movieURL.standardizedFileURL
+                == expectedURL.standardizedFileURL,
+              trackURL.standardizedFileURL
+                == expectedURL.standardizedFileURL else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "\(stage) did not retain its exact explicit storage URL."
+            )
+        }
+        try requireOwnedMode(
+            expectedURL.deletingLastPathComponent(),
+            mode: 0o700
+        )
+        try requireOwnedMode(expectedURL, mode: 0o600)
+    }
+
+    private static func retimeHDRBoundaryCompressedSample(
+        _ sample: CMSampleBuffer,
+        ordinal: Int
+    ) throws -> CMSampleBuffer {
+        guard CMSampleBufferGetNumSamples(sample) == 1,
+              (0..<hdrBoundaryStoredFrameCount).contains(ordinal) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR boundary retime received an invalid concrete sample."
+            )
+        }
+        let decodeTime = CMTime(
+            value: CMTimeValue(ordinal),
+            timescale: frameRate
+        )
+        let rawPresentation = CMSampleBufferGetPresentationTimeStamp(sample)
+        let rawDecode = CMSampleBufferGetDecodeTimeStamp(sample)
+        let rawDuration = CMSampleBufferGetDuration(sample)
+        let frameDuration = CMTime(value: 1, timescale: frameRate)
+        guard rawPresentation.isNumeric,
+              rawDecode.isNumeric,
+              rawDuration.isNumeric,
+              !rawPresentation.flags.contains(.hasBeenRounded),
+              !rawDecode.flags.contains(.hasBeenRounded),
+              !rawDuration.flags.contains(.hasBeenRounded),
+              exactlyEqual(rawPresentation, decodeTime),
+              exactlyEqual(rawDecode, decodeTime),
+              exactlyEqual(rawDuration, frameDuration),
+              hdrBoundarySampleIsSync(sample) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR boundary encoder timing/sync drifted at ordinal \(ordinal): "
+                    + "PTS \(describe(rawPresentation)), DTS "
+                    + "\(describe(rawDecode)), duration "
+                    + "\(describe(rawDuration)), sync "
+                    + "\(hdrBoundarySampleIsSync(sample))."
+            )
+        }
+        guard ordinal >= 60 else { return sample }
+        let presentationValue: CMTimeValue = ordinal == 60 ? 90 : 91
+        var timing = CMSampleTimingInfo(
+            duration: rawDuration,
+            presentationTimeStamp: CMTime(
+                value: presentationValue,
+                timescale: frameRate
+            ),
+            decodeTimeStamp: rawDecode
+        )
+        var retimed: CMSampleBuffer?
+        let status = CMSampleBufferCreateCopyWithNewTiming(
+            allocator: kCFAllocatorDefault,
+            sampleBuffer: sample,
+            sampleTimingEntryCount: 1,
+            sampleTimingArray: &timing,
+            sampleBufferOut: &retimed
+        )
+        guard status == noErr, let retimed else {
+            throw TrackMigrationFixtureErrorV4.coreMedia(status)
+        }
+        return retimed
+    }
+
+    private static func requireHDRBoundaryMutableMovieAsset(
+        at url: URL,
+        audioRange: CMTimeRange,
+        primaryStart: CMTime,
+        expectedMetadata: HDRFormatMetadataV4,
+        hdr10Plus: HDR10PlusMetadataV4,
+        expectedMediaTimes: [CMTime],
+        stage: String
+    ) async throws {
+        let asset = AVURLAsset(
+            url: url,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let videoTracks = try await asset.loadTracks(withMediaType: .video)
+        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+        let allTracks = try await asset.load(.tracks)
+        guard allTracks.count == 2,
+              videoTracks.count == 1, let video = videoTracks.first,
+              audioTracks.count == 1, let audio = audioTracks.first else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "\(stage) requires exactly one video and one audio track."
+            )
+        }
+        let mediaDuration = CMTime(value: 91, timescale: frameRate)
+        let expectedFullRange = CMTimeRange(
+            start: .zero,
+            duration: CMTimeAdd(primaryStart, mediaDuration)
+        )
+        let videoRange = try await video.load(.timeRange)
+        let segments = try await video.load(.segments)
+        guard exactlyEqualFrameRange(videoRange, expectedFullRange),
+              segments.count == 2,
+              segments[0].isEmpty,
+              !segments[1].isEmpty,
+              exactlyEqualFrameRange(
+                segments[0].timeMapping.target,
+                CMTimeRange(start: .zero, duration: primaryStart)
+              ),
+              exactlyEqualFrameRange(
+                segments[1].timeMapping.source,
+                CMTimeRange(start: .zero, duration: mediaDuration)
+              ),
+              exactlyEqualFrameRange(
+                segments[1].timeMapping.target,
+                CMTimeRange(start: primaryStart, duration: mediaDuration)
+              ) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "\(stage) did not retain exactly one leading empty edit and "
+                    + "one unscaled nonempty video mapping."
+            )
+        }
+        let observedAudioRange = try await audio.load(.timeRange)
+        guard exactSemanticTimeRangeEqual(observedAudioRange, audioRange) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "\(stage) changed the exact audio range copied at target zero."
+            )
+        }
+        try requireHDRBoundaryObservations(
+            try await hdr10PlusVideoObservations(at: url),
+            expectedTimes: expectedMediaTimes,
+            expectedReaderReportedDurations:
+                hdrBoundaryExactFrameDurations(),
+            expectedMetadata: hdr10Plus,
+            expectedFormatMetadata: expectedMetadata,
+            stage: stage
+        )
+        let cursor = try await hdrBoundaryCursorGeneratorObservation(
+            at: url,
+            expectedPresentationTimes: expectedMediaTimes,
+            expectedMetadata: hdr10Plus
+        )
+        guard cursor.facts.count == hdrBoundaryFrameCount else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "\(stage) cursor/generator exposed the hidden sentinel."
+            )
+        }
+        let frameStart = try hdrBoundaryFrameDomainStart(primaryStart)
+        try await requireHDRBoundaryDecodedP010Legal(
+            at: url,
+            expectedMetadata: expectedMetadata,
+            expectedPresentationTimes: expectedMediaTimes.map {
+                CMTimeAdd($0, frameStart)
+            },
+            readerTimeRange: CMTimeRange(
+                start: primaryStart,
+                duration: mediaDuration
+            )
+        )
+    }
+
+    private static func requireOwnedMode(_ url: URL, mode: Int) throws {
+        let attributes = try FileManager.default.attributesOfItem(
+            atPath: url.path
+        )
+        let observedMode = (attributes[.posixPermissions] as? NSNumber)?
+            .intValue ?? -1
+        let owner = (attributes[.ownerAccountID] as? NSNumber)?.uint32Value
+        guard observedMode & 0o777 == mode, owner == getuid() else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR boundary private path ownership/mode differs at "
+                    + "\(url.lastPathComponent): owner "
+                    + "\(String(describing: owner)), mode \(observedMode)."
+            )
+        }
+    }
+
+    private static func diagnosticErrorChain(_ error: Error) -> String {
+        "reflected="
+            + renderDiagnosticValue(String(reflecting: error), depth: 0)
+            + " nsError=("
+            + renderDiagnosticNSError(error as NSError, depth: 0)
+            + ")"
+    }
+
+    private static func renderDiagnosticNSError(
+        _ error: NSError,
+        depth: Int
+    ) -> String {
+        guard depth < 8 else { return "<underlying-depth-limit>" }
+        let underlying = error.userInfo[NSUnderlyingErrorKey] as? NSError
+        let entries = error.userInfo
+            .filter { String(describing: $0.key) != NSUnderlyingErrorKey }
+            .map { key, value in
+                "\(String(describing: key))="
+                    + renderDiagnosticValue(value, depth: depth + 1)
+            }
+            .sorted()
+        var result = "domain=\(error.domain) code=\(error.code) userInfo={"
+            + entries.joined(separator: ",") + "}"
+        if let underlying {
+            result += " underlying=("
+                + renderDiagnosticNSError(underlying, depth: depth + 1)
+                + ")"
+        }
+        return result
+    }
+
+    private static func renderDiagnosticValue(
+        _ value: Any,
+        depth: Int
+    ) -> String {
+        if let error = value as? NSError {
+            return renderDiagnosticNSError(error, depth: depth)
+        }
+        if value is URL || value is NSURL { return "<url-redacted>" }
+        if let data = value as? Data {
+            return "<data-redacted-length=\(data.count)>"
+        }
+        if let values = value as? [Any] {
+            return "[" + values.map {
+                renderDiagnosticValue($0, depth: depth + 1)
+            }.joined(separator: ",") + "]"
+        }
+        let description = String(describing: value)
+        if description.contains("file://")
+            || description.contains("/Users/")
+            || description.contains("/private/")
+            || description.contains("/tmp/") {
+            return "<path-containing-value-redacted>"
+        }
+        return description
+    }
+
+    private static func exactlyEqualFrameRange(
+        _ lhs: CMTimeRange,
+        _ rhs: CMTimeRange
+    ) -> Bool {
+        guard let lhsStart = try? hdrBoundaryFrameDomainStart(lhs.start),
+              let lhsDuration = try? hdrBoundaryFrameDomainStart(lhs.duration),
+              let rhsStart = try? hdrBoundaryFrameDomainStart(rhs.start),
+              let rhsDuration = try? hdrBoundaryFrameDomainStart(rhs.duration)
+        else { return false }
+        return exactlyEqual(lhsStart, rhsStart)
+            && exactlyEqual(lhsDuration, rhsDuration)
+    }
+
+    private static func exactSemanticTimeRangeEqual(
+        _ lhs: CMTimeRange,
+        _ rhs: CMTimeRange
+    ) -> Bool {
+        lhs.start.isNumeric
+            && lhs.duration.isNumeric
+            && rhs.start.isNumeric
+            && rhs.duration.isNumeric
+            && !lhs.start.flags.contains(.hasBeenRounded)
+            && !lhs.duration.flags.contains(.hasBeenRounded)
+            && !rhs.start.flags.contains(.hasBeenRounded)
+            && !rhs.duration.flags.contains(.hasBeenRounded)
+            && CMTimeCompare(lhs.start, rhs.start) == 0
+            && CMTimeCompare(lhs.duration, rhs.duration) == 0
+    }
+
+    private static func hdrBoundaryFormatMetadata() throws
+        -> HDRFormatMetadataV4 {
+        let primaries = [
+            try HDRChromaticityV4(x: 8_500, y: 39_850, label: "green"),
+            try HDRChromaticityV4(x: 6_550, y: 2_300, label: "blue"),
+            try HDRChromaticityV4(x: 35_400, y: 14_600, label: "red")
+        ]
+        return HDRFormatMetadataV4(
+            signal: try HDRSignalV4(
+                storage: .p010VideoRange10Bit,
+                transferFunction: .pq
+            ),
+            staticMetadata: HDRStaticMetadataV4(
+                masteringDisplayColorVolume:
+                    try MasteringDisplayColorVolumeV4(
+                        displayPrimaries: primaries,
+                        whitePoint: HDRChromaticityV4(
+                            x: 15_635,
+                            y: 16_450,
+                            label: "white"
+                        ),
+                        maximumDisplayMasteringLuminance: 10_000_000,
+                        minimumDisplayMasteringLuminance: 50
+                    ),
+                contentLightLevelInfo: try ContentLightLevelInfoV4(
+                    maximumContentLightLevel: 1_000,
+                    maximumFrameAverageLightLevel: 400
+                ),
+                ambientViewingEnvironment: try AmbientViewingEnvironmentV4(
+                    ambientIlluminance: 123_456,
+                    ambientLight: HDRChromaticityV4(
+                        x: 15_635,
+                        y: 16_450,
+                        label: "ambient"
+                    )
+                )
+            )
+        )
+    }
+
+    private static func hdrBoundaryHDR10PlusMetadata() throws
+        -> HDR10PlusMetadataV4 {
+        try HDR10PlusMetadataV4(ituTT35Payload: Data([
+            0xB5, 0x00, 0x3C, 0x00, 0x01, 0x04, 0x01, 0x40,
+            0x00, 0x0C, 0x80, 0x3C, 0xB0, 0x19, 0xBD, 0x0D,
+            0x80, 0x00, 0x41, 0xE4, 0x08, 0x00, 0x00, 0x28,
+            0x5F, 0x00, 0x50, 0x01, 0x70, 0xC8, 0x00, 0x05,
+            0x90, 0x00, 0x12, 0x58, 0x01, 0xAE, 0xD0, 0x0B,
+            0x5A, 0xF8, 0x1B, 0xE3, 0x18, 0x5B, 0x4C, 0x00,
+            0x42, 0x90, 0x3C, 0x24, 0x8F, 0x4A, 0x9B, 0xF9,
+            0x42, 0xDB, 0xD8, 0x37, 0xBE, 0x57, 0xAA, 0x00
+        ]))
+    }
+
+    private static func fillHDRBoundaryP010(
+        _ buffer: CVPixelBuffer,
+        frame: Int
+    ) {
+        CVPixelBufferLockBaseAddress(buffer, [])
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+        for plane in 0..<2 {
+            let planeWidth = CVPixelBufferGetWidthOfPlane(buffer, plane)
+            let planeHeight = CVPixelBufferGetHeightOfPlane(buffer, plane)
+            let stride = CVPixelBufferGetBytesPerRowOfPlane(buffer, plane)
+                / MemoryLayout<UInt16>.stride
+            guard let base = CVPixelBufferGetBaseAddressOfPlane(buffer, plane)?
+                .assumingMemoryBound(to: UInt16.self) else { continue }
+            let components = planeWidth * (plane == 0 ? 1 : 2)
+            for y in 0..<planeHeight {
+                for x in 0..<components {
+                    let code: Int
+                    if plane == 0 {
+                        code = 384 + ((x * 3 + y * 5 + frame * 7) % 128)
+                    } else {
+                        let baseCode = x & 1 == 0 ? 448 : 576
+                        code = baseCode + ((x * 3 + y * 5 + frame * 7) % 64)
+                    }
+                    base[y * stride + x] = UInt16(code << 6)
+                }
+            }
+        }
     }
 
     static func makeReencodedVideo(source sourceURL: URL, at url: URL)
@@ -4588,6 +7247,776 @@ private enum TrackMigrationFixtureFactoryV4 {
             }
         }
     }
+}
+
+private struct HDR10PlusVideoObservationsV4: Sendable {
+    let zeroSampleMarkerCount: Int
+    let presentationTimes: [CMTime]
+    let decodeTimes: [CMTime]
+    let durations: [CMTime]
+    let syncSamples: [Bool]
+    let metadata: [HDR10PlusMetadataV4?]
+    let codecType: CMVideoCodecType
+    let formatMetadata: HDRFormatMetadataV4?
+}
+
+private struct HDRBoundaryCursorGeneratorSampleFactV4: Sendable {
+    let cursorPresentationTime: CMTime
+    let cursorDecodeTime: CMTime
+    let cursorDuration: CMTime
+    let generatedPresentationTime: CMTime
+    let generatedDecodeTime: CMTime
+    let generatedDuration: CMTime
+    let generatedOutputPresentationTime: CMTime
+    let generatedOutputDuration: CMTime
+    let generatedDataByteCount: Int
+    let trimDurationAtStart: CMTime?
+    let trimDurationAtEnd: CMTime?
+    let cursorIsFullSync: Bool
+    let cursorIsPartialSync: Bool
+    let cursorIsDroppable: Bool
+    let cursorIndicatesHasDependentSamples: Bool
+    let cursorHasDependentSamples: Bool
+    let cursorIndicatesDependsOnOthers: Bool
+    let cursorDependsOnOthers: Bool
+    let cursorIndicatesHasRedundantCoding: Bool
+    let cursorHasRedundantCoding: Bool
+    let cursorSamplesRequiredForDecoderRefresh: Int
+    let generatedIsSync: Bool
+    let generatedDependsOnOthers: Bool?
+    let generatedIsDependedOnByOthers: Bool?
+    let generatedHasRedundantCoding: Bool?
+
+    var diagnostic: String {
+        [
+            "cursorPTS=\(hdrBoundaryDescribeTime(cursorPresentationTime))",
+            "cursorDTS=\(hdrBoundaryDescribeTime(cursorDecodeTime))",
+            "cursorDuration=\(hdrBoundaryDescribeTime(cursorDuration))",
+            "generatedPTS=\(hdrBoundaryDescribeTime(generatedPresentationTime))",
+            "generatedDTS=\(hdrBoundaryDescribeTime(generatedDecodeTime))",
+            "generatedDuration=\(hdrBoundaryDescribeTime(generatedDuration))",
+            "generatedOutputPTS=\(hdrBoundaryDescribeTime(generatedOutputPresentationTime))",
+            "generatedOutputDuration=\(hdrBoundaryDescribeTime(generatedOutputDuration))",
+            "generatedBytes=\(generatedDataByteCount)",
+            "trimStart=\(trimDurationAtStart.map(hdrBoundaryDescribeTime) ?? "absent")",
+            "trimEnd=\(trimDurationAtEnd.map(hdrBoundaryDescribeTime) ?? "absent")",
+            "cursorSync=full:\(cursorIsFullSync),partial:\(cursorIsPartialSync),droppable:\(cursorIsDroppable)",
+            "cursorDependency=indicatesHasDependents:\(cursorIndicatesHasDependentSamples),hasDependents:\(cursorHasDependentSamples),indicatesDepends:\(cursorIndicatesDependsOnOthers),depends:\(cursorDependsOnOthers),indicatesRedundant:\(cursorIndicatesHasRedundantCoding),redundant:\(cursorHasRedundantCoding),refresh:\(cursorSamplesRequiredForDecoderRefresh)",
+            "generatedDependency=sync:\(generatedIsSync),depends:\(String(describing: generatedDependsOnOthers)),dependedOn:\(String(describing: generatedIsDependedOnByOthers)),redundant:\(String(describing: generatedHasRedundantCoding))"
+        ].joined(separator: " ")
+    }
+}
+
+private struct HDRBoundaryCursorGeneratorObservationV4: Sendable {
+    let facts: [HDRBoundaryCursorGeneratorSampleFactV4]
+
+    var diagnostic: String {
+        facts.enumerated().map { ordinal, fact in
+            "ordinal=\(ordinal) \(fact.diagnostic)"
+        }.joined(separator: "\n")
+    }
+}
+
+private func hdrBoundaryCursorGeneratorObservation(
+    at url: URL,
+    expectedPresentationTimes: [CMTime],
+    expectedMetadata: HDR10PlusMetadataV4
+) async throws -> HDRBoundaryCursorGeneratorObservationV4 {
+    guard !expectedPresentationTimes.isEmpty else {
+        throw TrackMigrationFixtureErrorV4.invalidFixture(
+            "Cursor diagnostic requires a nonempty presentation domain."
+        )
+    }
+    let asset = AVURLAsset(
+        url: url,
+        options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+    )
+    let tracks = try await asset.loadTracks(withMediaType: .video)
+    guard tracks.count == 1, let track = tracks.first,
+          try await track.load(.canProvideSampleCursors) else {
+        throw TrackMigrationFixtureErrorV4.invalidFixture(
+            "Composed HDR track cannot provide sample cursors."
+        )
+    }
+    let formats = try await track.load(.formatDescriptions)
+    guard formats.count == 1, let trackFormat = formats.first,
+          CMFormatDescriptionGetMediaSubType(trackFormat)
+            == kCMVideoCodecType_HEVC else {
+        throw TrackMigrationFixtureErrorV4.invalidFixture(
+            "Cursor diagnostic requires one HEVC format description."
+        )
+    }
+    guard let cursor = track.makeSampleCursor(
+        presentationTimeStamp: expectedPresentationTimes[0]
+    ) else {
+        throw TrackMigrationFixtureErrorV4.invalidFixture(
+            "Composed HDR track did not create its first sample cursor."
+        )
+    }
+    let generator = AVSampleBufferGenerator(asset: asset, timebase: nil)
+    let frameDuration = CMTime(value: 1, timescale: 30)
+    var facts: [HDRBoundaryCursorGeneratorSampleFactV4] = []
+    facts.reserveCapacity(expectedPresentationTimes.count)
+
+    for ordinal in expectedPresentationTimes.indices {
+        let expectedPresentation = expectedPresentationTimes[ordinal]
+        let expectedDecode = CMTime(
+            value: CMTimeValue(ordinal),
+            timescale: 30
+        )
+        let cursorPresentation = cursor.presentationTimeStamp
+        let cursorDecode = cursor.decodeTimeStamp
+        let cursorDuration = cursor.currentSampleDuration
+        let cursorSync = cursor.currentSampleSyncInfo
+        let cursorDependency = cursor.currentSampleDependencyInfo
+        guard hdrBoundaryExactTimeEqual(
+                cursorPresentation,
+                expectedPresentation
+              ),
+              hdrBoundaryExactTimeEqual(cursorDecode, expectedDecode),
+              hdrBoundaryExactTimeEqual(cursorDuration, frameDuration),
+              cursorSync.sampleIsFullSync.boolValue,
+              !cursorSync.sampleIsPartialSync.boolValue,
+              cursor.samplesRequiredForDecoderRefresh == 0,
+              !(cursorDependency.sampleIndicatesWhetherItDependsOnOthers
+                    .boolValue
+                && cursorDependency.sampleDependsOnOthers.boolValue) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Cursor timing or dependency mismatch at ordinal \(ordinal): "
+                    + "PTS \(hdrBoundaryDescribeTime(cursorPresentation)), "
+                    + "DTS \(hdrBoundaryDescribeTime(cursorDecode)), duration "
+                    + "\(hdrBoundaryDescribeTime(cursorDuration)), fullSync "
+                    + "\(cursorSync.sampleIsFullSync), partialSync "
+                    + "\(cursorSync.sampleIsPartialSync), depends "
+                    + "\(cursorDependency.sampleDependsOnOthers), refresh "
+                    + "\(cursor.samplesRequiredForDecoderRefresh)."
+            )
+        }
+        let cursorFormat = cursor.copyCurrentSampleFormatDescription()
+        guard CMFormatDescriptionEqual(
+            cursorFormat,
+            otherFormatDescription: trackFormat
+        ) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Cursor format changed at ordinal \(ordinal)."
+            )
+        }
+
+        let request = AVSampleBufferRequest(start: cursor)
+        request.direction = .none
+        let generated = try generator.makeSampleBuffer(for: request)
+        let sampleCount = CMSampleBufferGetNumSamples(generated)
+        let generatedPresentation = CMSampleBufferGetPresentationTimeStamp(
+            generated
+        )
+        let generatedDecode = CMSampleBufferGetDecodeTimeStamp(generated)
+        let generatedDuration = CMSampleBufferGetDuration(generated)
+        let generatedOutputPresentation =
+            CMSampleBufferGetOutputPresentationTimeStamp(generated)
+        let generatedOutputDuration = CMSampleBufferGetOutputDuration(
+            generated
+        )
+        let generatedFormat = CMSampleBufferGetFormatDescription(generated)
+        let generatedDataByteCount = CMSampleBufferGetDataBuffer(generated)
+            .map(CMBlockBufferGetDataLength) ?? 0
+        let trimStart = try hdrBoundaryTimeAttachment(
+            generated,
+            key: kCMSampleBufferAttachmentKey_TrimDurationAtStart
+        )
+        let trimEnd = try hdrBoundaryTimeAttachment(
+            generated,
+            key: kCMSampleBufferAttachmentKey_TrimDurationAtEnd
+        )
+        let generatedMetadata = try AVFoundationHDRMetadataAdapterV4
+            .compressedHDR10PlusMetadata(from: generated)
+        guard CMSampleBufferDataIsReady(generated),
+              sampleCount == 1,
+              generatedDataByteCount > 0,
+              CMFormatDescriptionEqual(
+                generatedFormat,
+                otherFormatDescription: cursorFormat
+              ),
+              hdrBoundaryExactTimeEqual(
+                generatedPresentation,
+                cursorPresentation
+              ),
+              hdrBoundaryExactTimeEqual(generatedDecode, cursorDecode),
+              hdrBoundaryExactTimeEqual(generatedDuration, cursorDuration),
+              hdrBoundaryExactTimeEqual(
+                generatedOutputPresentation,
+                cursorPresentation
+              ),
+              hdrBoundaryExactTimeEqual(
+                generatedOutputDuration,
+                cursorDuration
+              ),
+              trimStart.map(hdrBoundaryIsExactZero) ?? true,
+              trimEnd.map(hdrBoundaryIsExactZero) ?? true,
+              hdrBoundarySampleIsSync(generated),
+              generatedMetadata == expectedMetadata else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Generated cursor sample mismatch at ordinal \(ordinal): "
+                    + "ready \(CMSampleBufferDataIsReady(generated)), count "
+                    + "\(sampleCount), bytes \(generatedDataByteCount), PTS "
+                    + "\(hdrBoundaryDescribeTime(generatedPresentation)), DTS "
+                    + "\(hdrBoundaryDescribeTime(generatedDecode)), duration "
+                    + "\(hdrBoundaryDescribeTime(generatedDuration)), outputPTS "
+                    + "\(hdrBoundaryDescribeTime(generatedOutputPresentation)), "
+                    + "outputDuration "
+                    + "\(hdrBoundaryDescribeTime(generatedOutputDuration)), "
+                    + "sync \(hdrBoundarySampleIsSync(generated)), HDR "
+                    + "\(String(describing: generatedMetadata))."
+            )
+        }
+        let generatedAttachments =
+            CMSampleBufferGetSampleAttachmentsArray(
+                generated,
+                createIfNecessary: false
+            ) as? [[CFString: Any]]
+        let generatedAttachment = generatedAttachments?.first
+        facts.append(HDRBoundaryCursorGeneratorSampleFactV4(
+            cursorPresentationTime: cursorPresentation,
+            cursorDecodeTime: cursorDecode,
+            cursorDuration: cursorDuration,
+            generatedPresentationTime: generatedPresentation,
+            generatedDecodeTime: generatedDecode,
+            generatedDuration: generatedDuration,
+            generatedOutputPresentationTime: generatedOutputPresentation,
+            generatedOutputDuration: generatedOutputDuration,
+            generatedDataByteCount: generatedDataByteCount,
+            trimDurationAtStart: trimStart,
+            trimDurationAtEnd: trimEnd,
+            cursorIsFullSync: cursorSync.sampleIsFullSync.boolValue,
+            cursorIsPartialSync: cursorSync.sampleIsPartialSync.boolValue,
+            cursorIsDroppable: cursorSync.sampleIsDroppable.boolValue,
+            cursorIndicatesHasDependentSamples:
+                cursorDependency
+                    .sampleIndicatesWhetherItHasDependentSamples.boolValue,
+            cursorHasDependentSamples:
+                cursorDependency.sampleHasDependentSamples.boolValue,
+            cursorIndicatesDependsOnOthers:
+                cursorDependency.sampleIndicatesWhetherItDependsOnOthers
+                    .boolValue,
+            cursorDependsOnOthers:
+                cursorDependency.sampleDependsOnOthers.boolValue,
+            cursorIndicatesHasRedundantCoding:
+                cursorDependency
+                    .sampleIndicatesWhetherItHasRedundantCoding.boolValue,
+            cursorHasRedundantCoding:
+                cursorDependency.sampleHasRedundantCoding.boolValue,
+            cursorSamplesRequiredForDecoderRefresh:
+                cursor.samplesRequiredForDecoderRefresh,
+            generatedIsSync: hdrBoundarySampleIsSync(generated),
+            generatedDependsOnOthers: generatedAttachment?[
+                kCMSampleAttachmentKey_DependsOnOthers
+            ] as? Bool,
+            generatedIsDependedOnByOthers: generatedAttachment?[
+                kCMSampleAttachmentKey_IsDependedOnByOthers
+            ] as? Bool,
+            generatedHasRedundantCoding: generatedAttachment?[
+                kCMSampleAttachmentKey_HasRedundantCoding
+            ] as? Bool
+        ))
+
+        let traversed = cursor.stepInPresentationOrder(byCount: 1)
+        let expectedTraversal: Int64 = ordinal + 1
+            < expectedPresentationTimes.count ? 1 : 0
+        guard traversed == expectedTraversal else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Cursor presentation-order traversal mismatch after ordinal "
+                    + "\(ordinal): expected \(expectedTraversal), observed "
+                    + "\(traversed)."
+            )
+        }
+    }
+    return HDRBoundaryCursorGeneratorObservationV4(facts: facts)
+}
+
+private func hdrBoundaryExactTimeEqual(
+    _ lhs: CMTime,
+    _ rhs: CMTime
+) -> Bool {
+    lhs.value == rhs.value
+        && lhs.timescale == rhs.timescale
+        && lhs.flags == rhs.flags
+        && lhs.epoch == rhs.epoch
+}
+
+private func hdrBoundaryIsExactZero(_ time: CMTime) -> Bool {
+    time.isNumeric
+        && !time.flags.contains(.hasBeenRounded)
+        && CMTimeCompare(time, .zero) == 0
+}
+
+private func hdrBoundaryDescribeTime(_ time: CMTime) -> String {
+    "\(time.value)/\(time.timescale) epoch=\(time.epoch) "
+        + "flags=\(time.flags.rawValue)"
+}
+
+private func hdrBoundaryTimeAttachment(
+    _ sample: CMSampleBuffer,
+    key: CFString
+) throws -> CMTime? {
+    var mode: CMAttachmentMode = kCMAttachmentMode_ShouldNotPropagate
+    guard let raw = CMGetAttachment(
+        sample,
+        key: key,
+        attachmentModeOut: &mode
+    ) else {
+        return nil
+    }
+    guard CFGetTypeID(raw) == CFDictionaryGetTypeID() else {
+        throw TrackMigrationFixtureErrorV4.invalidFixture(
+            "Cursor-generated trim attachment is not a CMTime dictionary."
+        )
+    }
+    return CMTimeMakeFromDictionary((raw as! CFDictionary))
+}
+
+private struct DirectTimelineReaderDomainV4: Sendable {
+    let decodedSampleCounts: [Int]
+    let decodedTargetPresentationTimes: [CMTime]
+    let decodedDurations: [CMTime]
+    let canonicalMediaPresentationTimes: [CMTime]
+    let compressedSampleCounts: [Int]
+    let compressedMediaPresentationTimes: [CMTime]
+    let compressedDurations: [CMTime]
+}
+
+private func directTimelineReaderDomain(
+    at url: URL,
+    targetStart: CMTime,
+    targetEnd: CMTime,
+    offset: CMTime,
+    maximumConcreteSamples: Int
+) async throws -> DirectTimelineReaderDomainV4 {
+    let targetDuration = CMTimeSubtract(targetEnd, targetStart)
+    guard targetStart.isNumeric,
+          targetEnd.isNumeric,
+          targetDuration.isNumeric,
+          targetDuration.value > 0,
+          maximumConcreteSamples > 0 else {
+        throw TrackMigrationFixtureErrorV4.invalidFixture(
+            "Direct reader-domain request is invalid."
+        )
+    }
+    let asset = AVURLAsset(
+        url: url,
+        options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+    )
+    let tracks = try await asset.loadTracks(withMediaType: .video)
+    let track = try XCTUnwrap(tracks.first)
+    let decodedReader = try AVAssetReader(asset: asset)
+    let decodedOutput = AVAssetReaderTrackOutput(
+        track: track,
+        outputSettings: [
+            kCVPixelBufferPixelFormatTypeKey as String:
+                Int(kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange),
+            AVVideoDecompressionPropertiesKey: [
+                kVTDecompressionPropertyKey_PropagatePerFrameHDRDisplayMetadata
+                    as String: true
+            ]
+        ]
+    )
+    decodedOutput.alwaysCopiesSampleData = false
+    guard decodedReader.canAdd(decodedOutput) else {
+        throw TrackMigrationFixtureErrorV4.invalidFixture(
+            "Direct decoded reader rejected the video track."
+        )
+    }
+    decodedReader.add(decodedOutput)
+    decodedReader.timeRange = CMTimeRange(
+        start: targetStart,
+        duration: targetDuration
+    )
+    guard decodedReader.startReading() else {
+        throw TrackMigrationFixtureErrorV4.writer(
+            decodedReader.error?.localizedDescription
+                ?? "Direct decoded reader did not start."
+        )
+    }
+    defer {
+        if decodedReader.status == .reading {
+            decodedReader.cancelReading()
+        }
+    }
+    var decodedSampleCounts: [Int] = []
+    var decodedTargetPresentationTimes: [CMTime] = []
+    var decodedDurations: [CMTime] = []
+    var canonicalMediaPresentationTimes: [CMTime] = []
+    while decodedTargetPresentationTimes.count < maximumConcreteSamples,
+          let sample = decodedOutput.copyNextSampleBuffer() {
+        let sampleCount = CMSampleBufferGetNumSamples(sample)
+        decodedSampleCounts.append(sampleCount)
+        if sampleCount == 0 { continue }
+        guard sampleCount == 1 else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Direct decoded reader aggregated concrete samples."
+            )
+        }
+        let targetPresentation = CMSampleBufferGetPresentationTimeStamp(
+            sample
+        )
+        let duration = CMSampleBufferGetDuration(sample)
+        let mediaPresentation = CMTimeSubtract(targetPresentation, offset)
+        guard targetPresentation.isNumeric,
+              mediaPresentation.isNumeric,
+              !mediaPresentation.flags.contains(.hasBeenRounded) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Direct decoded reader emitted invalid presentation timing."
+            )
+        }
+        decodedTargetPresentationTimes.append(targetPresentation)
+        decodedDurations.append(duration)
+        canonicalMediaPresentationTimes.append(mediaPresentation)
+    }
+    let decodedReaderExhausted = decodedReader.status == .completed
+    guard decodedReader.status != .failed,
+          decodedReader.status != .cancelled,
+          !decodedTargetPresentationTimes.isEmpty else {
+        throw TrackMigrationFixtureErrorV4.writer(
+            decodedReader.error?.localizedDescription
+                ?? "Direct decoded reader did not expose a concrete domain."
+        )
+    }
+    if decodedReader.status == .reading {
+        decodedReader.cancelReading()
+    }
+
+    let compressedReader = try AVAssetReader(asset: asset)
+    let compressedOutput = AVAssetReaderTrackOutput(
+        track: track,
+        outputSettings: nil
+    )
+    compressedOutput.alwaysCopiesSampleData = false
+    guard compressedReader.canAdd(compressedOutput) else {
+        throw TrackMigrationFixtureErrorV4.invalidFixture(
+            "Direct compressed reader rejected the video track."
+        )
+    }
+    compressedReader.add(compressedOutput)
+    compressedReader.timeRange = CMTimeRange(
+        start: targetStart,
+        duration: targetDuration
+    )
+    guard compressedReader.startReading() else {
+        throw TrackMigrationFixtureErrorV4.writer(
+            compressedReader.error?.localizedDescription
+                ?? "Direct compressed reader did not start."
+        )
+    }
+    var compressedSampleCounts: [Int] = []
+    var compressedMediaPresentationTimes: [CMTime] = []
+    var compressedDurations: [CMTime] = []
+    while compressedMediaPresentationTimes.count
+            < decodedTargetPresentationTimes.count,
+          let sample = compressedOutput.copyNextSampleBuffer() {
+        let sampleCount = CMSampleBufferGetNumSamples(sample)
+        compressedSampleCounts.append(sampleCount)
+        if sampleCount == 0 { continue }
+        guard sampleCount == 1 else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Direct compressed reader aggregated concrete samples."
+            )
+        }
+        let presentation = CMSampleBufferGetPresentationTimeStamp(sample)
+        let duration = CMSampleBufferGetDuration(sample)
+        guard presentation.isNumeric,
+              duration.isNumeric,
+              duration.value > 0,
+              !duration.flags.contains(.hasBeenRounded) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Direct compressed reader emitted nonnumeric timing."
+            )
+        }
+        compressedMediaPresentationTimes.append(presentation)
+        compressedDurations.append(duration)
+    }
+    if decodedReaderExhausted {
+        while let sample = compressedOutput.copyNextSampleBuffer() {
+            let sampleCount = CMSampleBufferGetNumSamples(sample)
+            compressedSampleCounts.append(sampleCount)
+            if sampleCount == 0 { continue }
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Direct compressed reader emitted an extra concrete sample."
+            )
+        }
+        guard compressedReader.status == .completed else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                compressedReader.error?.localizedDescription
+                    ?? "Direct compressed reader did not complete."
+            )
+        }
+    } else {
+        guard compressedReader.status != .failed,
+              compressedReader.status != .cancelled else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                compressedReader.error?.localizedDescription
+                    ?? "Direct compressed reader stopped early."
+            )
+        }
+        compressedReader.cancelReading()
+    }
+    return DirectTimelineReaderDomainV4(
+        decodedSampleCounts: decodedSampleCounts,
+        decodedTargetPresentationTimes: decodedTargetPresentationTimes,
+        decodedDurations: decodedDurations,
+        canonicalMediaPresentationTimes: canonicalMediaPresentationTimes,
+        compressedSampleCounts: compressedSampleCounts,
+        compressedMediaPresentationTimes: compressedMediaPresentationTimes,
+        compressedDurations: compressedDurations
+    )
+}
+
+private struct DecodedVideoSampleDomainV4: Sendable {
+    let zeroSampleMarkerCount: Int
+    let presentationTimes: [CMTime]
+}
+
+private func decodedVideoSampleDomain(at url: URL) async throws
+    -> DecodedVideoSampleDomainV4 {
+    let asset = AVURLAsset(
+        url: url,
+        options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+    )
+    let tracks = try await asset.loadTracks(withMediaType: .video)
+    let track = try XCTUnwrap(tracks.first)
+    let reader = try AVAssetReader(asset: asset)
+    let output = AVAssetReaderTrackOutput(
+        track: track,
+        outputSettings: [
+            kCVPixelBufferPixelFormatTypeKey as String:
+                Int(kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange),
+            AVVideoDecompressionPropertiesKey: [
+                kVTDecompressionPropertyKey_PropagatePerFrameHDRDisplayMetadata
+                    as String: true
+            ]
+        ]
+    )
+    output.alwaysCopiesSampleData = false
+    guard reader.canAdd(output) else {
+        throw TrackMigrationFixtureErrorV4.invalidFixture(
+            "Decoded-domain reader rejected the video track."
+        )
+    }
+    reader.add(output)
+    guard reader.startReading() else {
+        throw TrackMigrationFixtureErrorV4.writer(
+            reader.error?.localizedDescription
+                ?? "Decoded-domain reader did not start."
+        )
+    }
+    var zeroSampleMarkerCount = 0
+    var presentationTimes: [CMTime] = []
+    while let sample = output.copyNextSampleBuffer() {
+        let sampleCount = CMSampleBufferGetNumSamples(sample)
+        if sampleCount == 0 {
+            zeroSampleMarkerCount += 1
+            continue
+        }
+        guard sampleCount == 1 else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Decoded-domain reader aggregated concrete samples."
+            )
+        }
+        let presentationTime = CMSampleBufferGetPresentationTimeStamp(sample)
+        guard presentationTime.isNumeric else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Decoded-domain reader emitted a nonnumeric concrete PTS."
+            )
+        }
+        presentationTimes.append(presentationTime)
+    }
+    guard reader.status == .completed else {
+        throw TrackMigrationFixtureErrorV4.writer(
+            reader.error?.localizedDescription
+                ?? "Decoded-domain reader did not complete."
+        )
+    }
+    return DecodedVideoSampleDomainV4(
+        zeroSampleMarkerCount: zeroSampleMarkerCount,
+        presentationTimes: presentationTimes
+    )
+}
+
+private func hdr10PlusVideoObservations(at url: URL) async throws
+    -> HDR10PlusVideoObservationsV4 {
+    let asset = AVURLAsset(
+        url: url,
+        options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+    )
+    let tracks = try await asset.loadTracks(withMediaType: .video)
+    let track = try XCTUnwrap(tracks.first)
+    let formats = try await track.load(.formatDescriptions)
+    guard formats.count == 1, let format = formats.first else {
+        throw TrackMigrationFixtureErrorV4.invalidFixture(
+            "HDR10+ observation requires one format description."
+        )
+    }
+    let codecType = CMFormatDescriptionGetMediaSubType(format)
+    let formatMetadata = try AVFoundationHDRMetadataAdapterV4.probe(
+        formatDescription: format,
+        decodedStorage: .p010VideoRange10Bit
+    )
+    let reader = try AVAssetReader(asset: asset)
+    let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
+    output.alwaysCopiesSampleData = false
+    guard reader.canAdd(output) else {
+        throw TrackMigrationFixtureErrorV4.invalidFixture(
+            "HDR10+ observation reader rejected the video track."
+        )
+    }
+    reader.add(output)
+    guard reader.startReading() else {
+        throw TrackMigrationFixtureErrorV4.writer(
+            reader.error?.localizedDescription
+                ?? "HDR10+ observation reader did not start."
+        )
+    }
+    var zeroSampleMarkerCount = 0
+    var presentationTimes: [CMTime] = []
+    var decodeTimes: [CMTime] = []
+    var durations: [CMTime] = []
+    var syncSamples: [Bool] = []
+    var metadata: [HDR10PlusMetadataV4?] = []
+    var seen = Set<HDR10PlusPresentationTimeV4>()
+    while let sample = output.copyNextSampleBuffer() {
+        let sampleCount = CMSampleBufferGetNumSamples(sample)
+        if sampleCount == 0 {
+            zeroSampleMarkerCount += 1
+            continue
+        }
+        guard sampleCount == 1 else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR10+ observation aggregated concrete samples."
+            )
+        }
+        let presentation = CMSampleBufferGetPresentationTimeStamp(sample)
+        let decode = CMSampleBufferGetDecodeTimeStamp(sample)
+        let duration = CMSampleBufferGetDuration(sample)
+        guard presentation.isNumeric,
+              decode.isNumeric,
+              duration.isNumeric,
+              duration.value > 0,
+              !presentation.flags.contains(.hasBeenRounded),
+              !decode.flags.contains(.hasBeenRounded),
+              !duration.flags.contains(.hasBeenRounded),
+              seen.insert(try HDR10PlusPresentationTimeV4(presentation))
+                .inserted else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "HDR10+ observation emitted invalid or duplicate timing."
+            )
+        }
+        presentationTimes.append(presentation)
+        decodeTimes.append(decode)
+        durations.append(duration)
+        syncSamples.append(hdrBoundarySampleIsSync(sample))
+        metadata.append(
+            try AVFoundationHDRMetadataAdapterV4
+                .compressedHDR10PlusMetadata(from: sample)
+        )
+    }
+    guard reader.status == .completed else {
+        throw TrackMigrationFixtureErrorV4.writer(
+            reader.error?.localizedDescription
+                ?? "HDR10+ observation reader did not complete."
+        )
+    }
+    return HDR10PlusVideoObservationsV4(
+        zeroSampleMarkerCount: zeroSampleMarkerCount,
+        presentationTimes: presentationTimes,
+        decodeTimes: decodeTimes,
+        durations: durations,
+        syncSamples: syncSamples,
+        metadata: metadata,
+        codecType: codecType,
+        formatMetadata: formatMetadata
+    )
+}
+
+private func hdrBoundarySampleIsSync(_ sample: CMSampleBuffer) -> Bool {
+    guard let attachments = CMSampleBufferGetSampleAttachmentsArray(
+        sample,
+        createIfNecessary: false
+    ) as? [[CFString: Any]],
+    let first = attachments.first,
+    let notSync = first[kCMSampleAttachmentKey_NotSync] as? Bool else {
+        return true
+    }
+    return !notSync
+}
+
+private func hdrFormatMetadata(at url: URL) async throws
+    -> HDRFormatMetadataV4? {
+    let asset = AVURLAsset(url: url)
+    let tracks = try await asset.loadTracks(withMediaType: .video)
+    let track = try XCTUnwrap(tracks.first)
+    let formats = try await track.load(.formatDescriptions)
+    guard formats.count == 1, let format = formats.first else {
+        throw TrackMigrationFixtureErrorV4.invalidFixture(
+            "HDR format observation requires one video format description."
+        )
+    }
+    return try AVFoundationHDRMetadataAdapterV4.probe(
+        formatDescription: format,
+        decodedStorage: .p010VideoRange10Bit
+    )
+}
+
+private func makeZeroSampleMarker() throws -> CMSampleBuffer {
+    var marker: CMSampleBuffer?
+    let status = CMSampleBufferCreate(
+        allocator: kCFAllocatorDefault,
+        dataBuffer: nil,
+        dataReady: true,
+        makeDataReadyCallback: nil,
+        refcon: nil,
+        formatDescription: nil,
+        sampleCount: 0,
+        sampleTimingEntryCount: 0,
+        sampleTimingArray: nil,
+        sampleSizeEntryCount: 0,
+        sampleSizeArray: nil,
+        sampleBufferOut: &marker
+    )
+    guard status == noErr, let marker else {
+        throw TrackMigrationFixtureErrorV4.coreMedia(status)
+    }
+    return marker
+}
+
+private func realVideoSampleTimings(at url: URL) async throws -> [CMTime] {
+    let asset = AVURLAsset(
+        url: url,
+        options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+    )
+    let tracks = try await asset.loadTracks(withMediaType: .video)
+    let track = try XCTUnwrap(tracks.first)
+    let reader = try AVAssetReader(asset: asset)
+    let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
+    guard reader.canAdd(output) else {
+        throw TrackMigrationFixtureErrorV4.invalidFixture(
+            "Timing reader rejected the video track."
+        )
+    }
+    reader.add(output)
+    guard reader.startReading() else {
+        throw TrackMigrationFixtureErrorV4.writer(
+            reader.error?.localizedDescription ?? "Timing reader did not start."
+        )
+    }
+    var timings: [CMTime] = []
+    while let sample = output.copyNextSampleBuffer() {
+        guard CMSampleBufferGetNumSamples(sample) > 0 else { continue }
+        timings.append(CMSampleBufferGetPresentationTimeStamp(sample))
+    }
+    guard reader.status == .completed else {
+        throw TrackMigrationFixtureErrorV4.writer(
+            reader.error?.localizedDescription
+                ?? "Timing reader did not complete."
+        )
+    }
+    return timings
 }
 
 private func copySampleBufferV4(

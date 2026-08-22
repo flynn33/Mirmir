@@ -46,6 +46,7 @@ EXPECTED_CANDIDATE_FIELDS = (
 )
 FULL_CANDIDATE_ROLES = frozenset(EXPECTED_ROLES) - {
     "quality",
+    "recovery",
     "same_scope_performance",
 }
 BINDING_BASENAME_REQUIREMENTS = {
@@ -570,6 +571,36 @@ def validate_report_candidate(
             report.get("candidate") == candidate,
             f"{role} report candidate differs from the inner candidate",
         )
+        return
+    if role == "recovery":
+        expected = {
+            "applicationArchiveSHA256": candidate["appBundleSHA256"],
+            "runtimeManifestSHA256": candidate["runtimeManifestSHA256"],
+            "sourceCommit": candidate["sourceCommit"],
+            "sourceTreeIdentitySHA256": candidate[
+                "sourceTreeIdentitySHA256"
+            ],
+        }
+        execution = require_mapping(
+            report.get("execution"), "recovery.execution"
+        )
+        for key, expected_value in expected.items():
+            require(
+                execution.get(key) == expected_value,
+                f"recovery.execution.{key} differs from the inner candidate",
+            )
+        captures = require_list(report.get("captures"), "recovery.captures")
+        require(
+            len(captures) == 2,
+            "recovery.captures must contain exactly two independent captures",
+        )
+        for index, value in enumerate(captures):
+            capture = require_mapping(value, f"recovery.captures[{index}]")
+            for key, expected_value in expected.items():
+                require(
+                    capture.get(key) == expected_value,
+                    f"recovery.captures[{index}].{key} differs from the inner candidate",
+                )
         return
     if role == "quality":
         identities = require_mapping(report.get("identities"), "quality.identities")

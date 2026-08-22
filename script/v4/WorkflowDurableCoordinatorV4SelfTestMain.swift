@@ -466,6 +466,7 @@ private struct WorkflowDurableCoordinatorV4SelfTestMain {
             artifact: artifact(1, .segment),
             startTime: WorkflowMediaTimeV4(value: 0, timescale: 600),
             endTimeExclusive: WorkflowMediaTimeV4(value: 600, timescale: 600),
+            nextStartTime: WorkflowMediaTimeV4(value: 600, timescale: 600),
             codecSettingsHash: codec,
             isIndependentlyDecodable: true
         )

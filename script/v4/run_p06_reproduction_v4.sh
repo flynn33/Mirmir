@@ -12,7 +12,7 @@ candidate=""
 runtime=""
 release_configuration=""
 output=""
-contract="${script_directory}/p06-reproduction-contract-v1.json"
+contract="${script_directory}/p06-reproduction-contract-v2.json"
 
 while (( $# > 0 )); do
     case "$1" in
@@ -60,9 +60,19 @@ release_configuration="${release_configuration:A}"
 output="${output:A}"
 contract="${contract:A}"
 
-for path in "$candidate" "$release_configuration" "$contract"; do
-    [[ -f "$path" && ! -L "$path" ]] || {
-        print -u2 "required P06 input is absent or unsafe: $path"
+repository_runner="${repository}/script/v4/run_p06_reproduction_v4.sh"
+[[ -f "${repository_runner}" && ! -L "${repository_runner}" ]] || {
+    print -u2 "candidate repository omits the P06 runner"
+    exit 66
+}
+/usr/bin/cmp -s -- "${0:A}" "${repository_runner}" || {
+    print -u2 "executing P06 runner differs from the candidate repository file"
+    exit 66
+}
+
+for required_file in "$candidate" "$release_configuration" "$contract"; do
+    [[ -f "$required_file" && ! -L "$required_file" ]] || {
+        print -u2 "required P06 input is absent or unsafe: $required_file"
         exit 65
     }
 done
