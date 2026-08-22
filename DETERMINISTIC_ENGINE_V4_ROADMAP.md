@@ -9,15 +9,17 @@ Target release runtime: ASH P06, release-qualified
 Baseline: the checked-in P05 CPU reference and Metal preview behavior before v4 work
 
 Current checkpoint: pull request 44 merged the v4 engine, media, workflow, and
-qualification tooling into `main` as version 1.3.0. Draft pull request 46
-contains the hardened exact-candidate observers, causal recovery evidence,
-bounded temporal parity route, media receipts, and deterministic canonical
-build tooling. The 5% quality and 20% processing-time gates remain
-release-blocking until every lane is recaptured from one final candidate.
-External lane-contract locking, causal P06 reproduction receipts, independent
-PQ/HLG pixel oracles, the final frozen-candidate qualification rerun, Developer
-ID signing, Apple notarization, stapling, and publication remain in progress or
-operator-owned.
+qualification tooling into `main` as version 1.3.0. Pull request 45 made the
+identity workflow derive the production P06 manifest identity, source revision,
+and builder hash from the bundled runtime manifest and pass them into the
+runtime load check. The follow-on qualification branch contains hardened
+exact-candidate observers, causal recovery evidence, the bounded temporal
+parity route, media receipts, and deterministic canonical build tooling. The
+5% quality and 20% processing-time gates remain release-blocking until every
+lane is recaptured from one final candidate. External lane-contract locking,
+causal P06 reproduction receipts, independent PQ/HLG pixel oracles, the final
+frozen-candidate qualification rerun, Developer ID signing, Apple notarization,
+stapling, and publication remain in progress or operator-owned.
 
 ## Executive decision
 
@@ -147,7 +149,7 @@ surface:
 
 | Area | 1.3.0 evidence | Remaining release work |
 | --- | --- | --- |
-| Runtime identity | Bundled ASH P06 runtime with a hashed manifest and fail-closed loader. Product support no longer labels the deterministic routes as P05 previews. | Bind the exact archived executable and sealed candidate identities through the final M7 rerun. |
+| Runtime identity | Bundled ASH P06 runtime with a hashed manifest and fail-closed loader. Product support no longer labels the deterministic routes as P05 previews. CI derives the manifest identity, source revision, and builder hash from that bundle and passes them into the production load check. | Bind the exact archived executable and sealed candidate identities through the final M7 rerun. |
 | Scale | Shared fixed-point CPU and Metal execution accepts independent rational scale factors and arbitrary integral target dimensions within the documented limit. | Keep the arbitrary-geometry corpus on the frozen candidate, including odd legal dimensions. |
 | Temporal state | Bounded, motion-compensated temporal history with scene/reset policy, tiled schedules, and checkpoint/resume payload identity. | Recapture the packaged seek-reset and repeated-pattern rows on the frozen candidate. |
 | Backend parity | One fixed-point kernel IR, coefficient set, and rounding contract feed both executors. Qualification tooling requires visible-plane equality. | Replay packaged parity on the frozen candidate, including the forced multi-tile temporal case. |
@@ -601,6 +603,10 @@ qualification tooling as version 1.3.0:
 - the application queue is durable, bookmark-backed, pauseable, and recoverable;
 - product support and the README describe the P06 contract rather than the P05
   preview routes.
+
+Pull request 45 then bound the identity workflow to the committed P06 bundle:
+the load check now receives the domain-separated manifest identity, source
+revision, and builder hash instead of invoking the helper with no trust roots.
 
 These changes close M0 through M6 in source. They do not by themselves satisfy
 the 5% quality, 20% processing-time, or frozen-candidate M7 gates.

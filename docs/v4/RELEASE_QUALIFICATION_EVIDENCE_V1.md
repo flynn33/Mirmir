@@ -6,6 +6,18 @@ turn an incomplete or failed suite into a release pass. It consumes the sealed
 reports produced by those suites and proves that they all describe the same
 candidate.
 
+Repository CI is not a substitute for that aggregator. The
+`Verify deterministic v4 identities` workflow still has to load the committed
+production P06 bundle with the identities declared by that bundle. It computes
+the domain-separated `ash-p06-runtime-manifest-v4` SHA-256 of
+`Mirmir/Resources/ASH-P06.bundle/runtime-manifest.json`, reads
+`provenance.sourceRevision` and `provenance.builderSourceSHA256` from the same
+manifest, and invokes `script/v4/run_p06_runtime_load_check.sh` with the bundle
+path plus those three identities. The loader must verify the binding, accept
+only the declared runtime ID and release status, and reject a same-length
+artifact mutation. This check does not close the archived-executable or
+frozen-candidate M7 gates.
+
 Before importing a replay evaluator, M7 requires an external trust-root hash
 supplied by the release operator or CI control plane. The trust root binds the
 final evaluator itself, the release contract, the support/parity/P05/quality
