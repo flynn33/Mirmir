@@ -38,16 +38,21 @@ packaging, signing, notarization, and publication remain manual operations.
 
 See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.
-The [`DETERMINISTIC_ENGINE_V4_ROADMAP.md`](DETERMINISTIC_ENGINE_V4_ROADMAP.md)
-records the v4 architecture, delivery sequence, and remaining M7 release gates
-for at least 5% higher quality and 20% lower processing time. Engine, media,
-and durable-workflow implementation is in 1.3.0; frozen-candidate qualification
-and operator publication remain open.
 See [`CHANGELOG.md`](CHANGELOG.md) for the 1.3.0 landing record and
 [`docs/v4/`](docs/v4/) for the qualification evidence contracts.
 The [Mirmir Wiki](https://github.com/flynn33/Mirmir/wiki) provides the complete
 product guide, architecture reference, ASH engine documentation, diagrams,
 testing procedures, and troubleshooting material.
+
+## Deterministic Engine v4
+
+![Deterministic Engine v4 roadmap](docs/v4/deterministic-engine-v4-roadmap.png)
+
+The [`DETERMINISTIC_ENGINE_V4_ROADMAP.md`](DETERMINISTIC_ENGINE_V4_ROADMAP.md)
+records the v4 architecture, delivery sequence, and remaining M7 release gates
+for at least 5% higher quality and 20% lower processing time. Engine, media,
+and durable-workflow implementation is in 1.3.0; frozen-candidate qualification
+and operator publication remain open.
 
 ## Requirements
 
