@@ -183,7 +183,7 @@ private struct ParityCaptureContract: Decodable {
               ],
               tileSchedules == ["row_major", "reverse", "even_then_odd"],
               Set(parityCoverage).count == parityCoverage.count,
-              cases.count >= 9,
+              cases.count >= 11,
               Set(cases.map(\.id)).count == cases.count else {
             throw ParityCaptureError.invalidContract("header or count mismatch")
         }
@@ -208,9 +208,42 @@ private struct ParityCaptureContract: Decodable {
         bounded.sourceHeight == 12,
         bounded.targetWidth == 32,
         bounded.targetHeight == 24,
-        bounded.checkpointBoundaries == [1] else {
+        bounded.checkpointBoundaries == [1, 3],
+        bounded.frames.map(\.pattern) == [
+            "moving_edge_0",
+            "moving_edge_1",
+            "moving_edge_2",
+            "periodic_phase_0",
+            "periodic_phase_1"
+        ],
+        bounded.frames.map(\.temporalResetReason) == [
+            nil, nil, nil, "seek", nil
+        ],
+        bounded.coverage.contains("seek_reset") else {
             throw ParityCaptureError.invalidContract(
                 "bounded temporal case differs"
+            )
+        }
+        guard let repeated = cases.first(where: {
+            $0.id == "nv12-video-periodic-ambiguous-8x6-to-15x11"
+        }), repeated.kind == "pixel_temporal",
+        repeated.scanMode == "progressive",
+        repeated.storage == "nv12_video_range_8",
+        repeated.sourceWidth == 8,
+        repeated.sourceHeight == 6,
+        repeated.targetWidth == 15,
+        repeated.targetHeight == 11,
+        repeated.frames.map(\.pattern) == [
+            "periodic_phase_0",
+            "periodic_phase_1",
+            "periodic_phase_0",
+            "periodic_phase_1"
+        ],
+        repeated.frames.allSatisfy({ $0.temporalResetReason == nil }),
+        repeated.checkpointBoundaries == [1],
+        repeated.coverage == ["repeated_pattern"] else {
+            throw ParityCaptureError.invalidContract(
+                "periodic ambiguous temporal case differs"
             )
         }
     }
@@ -276,6 +309,7 @@ private struct ParityFrameDefinition: Codable, Equatable {
     let duration: ParityTimeDefinition
     let fieldDetail: String
     let hdrProfile: String
+    let temporalResetReason: String?
 
     enum CodingKeys: String, CodingKey {
         case pattern
@@ -285,6 +319,7 @@ private struct ParityFrameDefinition: Codable, Equatable {
         case duration
         case fieldDetail
         case hdrProfile
+        case temporalResetReason
     }
 
     func encode(to encoder: Encoder) throws {
@@ -304,6 +339,10 @@ private struct ParityFrameDefinition: Codable, Equatable {
         try container.encode(duration, forKey: .duration)
         try container.encode(fieldDetail, forKey: .fieldDetail)
         try container.encode(hdrProfile, forKey: .hdrProfile)
+        try container.encodeIfPresent(
+            temporalResetReason,
+            forKey: .temporalResetReason
+        )
     }
 }
 
@@ -392,6 +431,14 @@ private struct ParityCaseDefinition: Codable, Equatable {
             throw ParityCaptureError.invalidContract(
                 "non-interlaced case \(id) has an interlaced scan mode"
             )
+        }
+        for frame in frames {
+            guard frame.temporalResetReason == nil
+                || frame.temporalResetReason == "seek" else {
+                throw ParityCaptureError.invalidContract(
+                    "case \(id) has an unsupported declared reset"
+                )
+            }
         }
     }
 }
@@ -574,6 +621,7 @@ private struct ParitySemanticOutput: Encodable, Equatable {
     let cadenceID: String
     let classification: String?
     let historyGeneration: UInt64
+    let temporalResetReason: String?
     let attachments: [ParityAttachmentValue]
 
     enum CodingKeys: String, CodingKey {
@@ -584,6 +632,7 @@ private struct ParitySemanticOutput: Encodable, Equatable {
         case cadenceID
         case classification
         case historyGeneration
+        case temporalResetReason
         case attachments
     }
 
@@ -600,6 +649,10 @@ private struct ParitySemanticOutput: Encodable, Equatable {
             try container.encodeNil(forKey: .classification)
         }
         try container.encode(historyGeneration, forKey: .historyGeneration)
+        try container.encodeIfPresent(
+            temporalResetReason,
+            forKey: .temporalResetReason
+        )
         try container.encode(attachments, forKey: .attachments)
     }
 }
@@ -1357,7 +1410,10 @@ private func processPixelFrames(
             timing: FrameTiming(
                 frameIndex: ordinal,
                 presentationTime: presentationTime,
-                duration: duration
+                duration: duration,
+                temporalResetReason: try temporalResetReason(
+                    frame.temporalResetReason
+                )
             )
         )
         finalCheckpoint = try await prepared.makeTemporalCheckpoint(
@@ -1428,7 +1484,10 @@ private func processPixelFrames(
                     output.temporalGeneration >= $0
                         && output.temporalGeneration - $0 <= 1
                   }) ?? true,
-                  output.cadenceID == checkpointCadenceID else {
+                  output.cadenceID == checkpointCadenceID,
+                  frame.temporalResetReason == nil
+                    || output.temporalResetReason?.rawValue
+                        == frame.temporalResetReason else {
                 throw ParityCaptureError.invalidFixture(
                     "typed output semantics differ from checkpoint " +
                     "case=\(definition.id) backend=\(backend.rawValue) " +
@@ -1447,6 +1506,7 @@ private func processPixelFrames(
                 cadenceID: output.cadenceID,
                 classification: classification,
                 historyGeneration: output.temporalGeneration,
+                temporalResetReason: output.temporalResetReason?.rawValue,
                 attachments: try frameAttachments(output.pixelBuffer.value)
             )
         }
@@ -1504,6 +1564,18 @@ private func processPixelFrames(
         destinationPaddingByteCount: destinationPaddingByteCount,
         paddingSentinelPreserved: paddingPreserved
     )
+}
+
+private func temporalResetReason(
+    _ value: String?
+) throws -> ASHTemporalResetReasonV4? {
+    guard let value else { return nil }
+    guard value == ASHTemporalResetReasonV4.seek.rawValue else {
+        throw ParityCaptureError.invalidContract(
+            "unsupported declared temporal reset \(value)"
+        )
+    }
+    return .seek
 }
 
 private func effectiveDominance(_ detail: String) -> String? {
@@ -1602,6 +1674,7 @@ private func executeAlpha(
                 cadenceID: "progressive",
                 classification: nil,
                 historyGeneration: 1,
+                temporalResetReason: nil,
                 attachments: try frameAttachments(destination)
             )]
         )]
@@ -1818,6 +1891,15 @@ private func patternValue(
     case "rational_detail":
         value = low + ((x * 97 + y * 53 + component * 29 + plane * 71)
             % (span + 1))
+    case "periodic_phase_0", "periodic_phase_1":
+        let phase = frame.pattern == "periodic_phase_0" ? 0 : 1
+        let stripe = ((x + phase) % 4) < 2 ? 0 : 1
+        let cross = ((y + phase) % 4) < 2 ? 0 : 1
+        let band = stripe ^ cross
+        // Keep the translated periodic texture below the scene-cut threshold
+        // so the case exercises ambiguous motion/history instead of reset.
+        value = low + (band == 0 ? (span * 7) / 16 : (span * 9) / 16)
+            + ((component * 7 + plane * 11) % max(1, span / 32))
     case "field_pair":
         let token = y.isMultiple(of: 2)
             ? (frame.topToken ?? 0) : (frame.bottomToken ?? 0)

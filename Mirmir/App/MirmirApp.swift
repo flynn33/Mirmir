@@ -1613,6 +1613,12 @@ private enum MirmirPackagedMediaCaptureV4 {
     }
 }
 
+enum MirmirPackagedMediaTimingSampleV4 {
+    static func admits(_ sample: CMSampleBuffer) -> Bool {
+        CMSampleBufferGetNumSamples(sample) > 0
+    }
+}
+
 private enum MirmirPackagedMediaObserverV4 {
     struct MetadataIdentities {
         let asset: String
@@ -1963,6 +1969,9 @@ private enum MirmirPackagedMediaObserverV4 {
             }
             var samples: [[String: Any]] = []
             while let sample = output.copyNextSampleBuffer() {
+                guard MirmirPackagedMediaTimingSampleV4.admits(sample) else {
+                    continue
+                }
                 let payload = try encodedPayload(sample)
                 samples.append([
                     "pts": rational(
@@ -4402,9 +4411,9 @@ private enum MirmirPackagedParityCaptureV4 {
                     )
                   ],
                   tileSchedules == ["row_major", "reverse", "even_then_odd"],
-                  parityCoverage.count == 32,
+                  parityCoverage.count == 34,
                   Set(parityCoverage).count == parityCoverage.count,
-                  cases.count == 10,
+                  cases.count == 11,
                   Set(cases.map(\.id)).count == cases.count else {
                 throw ParityCaptureError.invalidContract("header or count mismatch")
             }
@@ -4429,9 +4438,42 @@ private enum MirmirPackagedParityCaptureV4 {
             bounded.sourceHeight == 12,
             bounded.targetWidth == 32,
             bounded.targetHeight == 24,
-            bounded.checkpointBoundaries == [1] else {
+            bounded.checkpointBoundaries == [1, 3],
+            bounded.frames.map(\.pattern) == [
+                "moving_edge_0",
+                "moving_edge_1",
+                "moving_edge_2",
+                "periodic_phase_0",
+                "periodic_phase_1"
+            ],
+            bounded.frames.map(\.temporalResetReason) == [
+                nil, nil, nil, "seek", nil
+            ],
+            bounded.coverage.contains("seek_reset") else {
                 throw ParityCaptureError.invalidContract(
                     "bounded temporal case differs"
+                )
+            }
+            guard let repeated = cases.first(where: {
+                $0.id == "nv12-video-periodic-ambiguous-8x6-to-15x11"
+            }), repeated.kind == "pixel_temporal",
+            repeated.scanMode == "progressive",
+            repeated.storage == "nv12_video_range_8",
+            repeated.sourceWidth == 8,
+            repeated.sourceHeight == 6,
+            repeated.targetWidth == 15,
+            repeated.targetHeight == 11,
+            repeated.frames.map(\.pattern) == [
+                "periodic_phase_0",
+                "periodic_phase_1",
+                "periodic_phase_0",
+                "periodic_phase_1"
+            ],
+            repeated.frames.allSatisfy({ $0.temporalResetReason == nil }),
+            repeated.checkpointBoundaries == [1],
+            repeated.coverage == ["repeated_pattern"] else {
+                throw ParityCaptureError.invalidContract(
+                    "periodic ambiguous temporal case differs"
                 )
             }
         }
@@ -4497,6 +4539,7 @@ private enum MirmirPackagedParityCaptureV4 {
         let duration: ParityTimeDefinition
         let fieldDetail: String
         let hdrProfile: String
+        let temporalResetReason: String?
 
         enum CodingKeys: String, CodingKey {
             case pattern
@@ -4506,6 +4549,7 @@ private enum MirmirPackagedParityCaptureV4 {
             case duration
             case fieldDetail
             case hdrProfile
+            case temporalResetReason
         }
 
         func encode(to encoder: Encoder) throws {
@@ -4525,6 +4569,10 @@ private enum MirmirPackagedParityCaptureV4 {
             try container.encode(duration, forKey: .duration)
             try container.encode(fieldDetail, forKey: .fieldDetail)
             try container.encode(hdrProfile, forKey: .hdrProfile)
+            try container.encodeIfPresent(
+                temporalResetReason,
+                forKey: .temporalResetReason
+            )
         }
     }
 
@@ -4613,6 +4661,14 @@ private enum MirmirPackagedParityCaptureV4 {
                 throw ParityCaptureError.invalidContract(
                     "non-interlaced case \(id) has an interlaced scan mode"
                 )
+            }
+            for frame in frames {
+                guard frame.temporalResetReason == nil
+                    || frame.temporalResetReason == "seek" else {
+                    throw ParityCaptureError.invalidContract(
+                        "case \(id) has an unsupported declared reset"
+                    )
+                }
             }
         }
     }
@@ -4797,6 +4853,7 @@ private enum MirmirPackagedParityCaptureV4 {
         let cadenceID: String
         let classification: String?
         let historyGeneration: UInt64
+        let temporalResetReason: String?
         let attachments: [ParityAttachmentValue]
 
         enum CodingKeys: String, CodingKey {
@@ -4807,6 +4864,7 @@ private enum MirmirPackagedParityCaptureV4 {
             case cadenceID
             case classification
             case historyGeneration
+            case temporalResetReason
             case attachments
         }
 
@@ -4823,6 +4881,10 @@ private enum MirmirPackagedParityCaptureV4 {
                 try container.encodeNil(forKey: .classification)
             }
             try container.encode(historyGeneration, forKey: .historyGeneration)
+            try container.encodeIfPresent(
+                temporalResetReason,
+                forKey: .temporalResetReason
+            )
             try container.encode(attachments, forKey: .attachments)
         }
     }
@@ -5582,7 +5644,10 @@ private enum MirmirPackagedParityCaptureV4 {
                 timing: FrameTiming(
                     frameIndex: ordinal,
                     presentationTime: presentationTime,
-                    duration: duration
+                    duration: duration,
+                    temporalResetReason: try temporalResetReason(
+                        frame.temporalResetReason
+                    )
                 )
             )
             finalCheckpoint = try await prepared.makeTemporalCheckpoint(
@@ -5654,7 +5719,10 @@ private enum MirmirPackagedParityCaptureV4 {
                         output.temporalGeneration >= $0
                             && output.temporalGeneration - $0 <= 1
                       }) ?? true,
-                      output.cadenceID == checkpointCadenceID else {
+                      output.cadenceID == checkpointCadenceID,
+                      frame.temporalResetReason == nil
+                        || output.temporalResetReason?.rawValue
+                            == frame.temporalResetReason else {
                     throw ParityCaptureError.invalidFixture(
                         "typed output semantics differ from checkpoint " +
                         "case=\(definition.id) backend=\(backend.rawValue) " +
@@ -5673,6 +5741,7 @@ private enum MirmirPackagedParityCaptureV4 {
                     cadenceID: output.cadenceID,
                     classification: classification,
                     historyGeneration: output.temporalGeneration,
+                    temporalResetReason: output.temporalResetReason?.rawValue,
                     attachments: try frameAttachments(output.pixelBuffer.value)
                 )
             }
@@ -5730,6 +5799,18 @@ private enum MirmirPackagedParityCaptureV4 {
             destinationPaddingByteCount: destinationPaddingByteCount,
             paddingSentinelPreserved: paddingPreserved
         )
+    }
+
+    private static func temporalResetReason(
+        _ value: String?
+    ) throws -> ASHTemporalResetReasonV4? {
+        guard let value else { return nil }
+        guard value == ASHTemporalResetReasonV4.seek.rawValue else {
+            throw ParityCaptureError.invalidContract(
+                "unsupported declared temporal reset \(value)"
+            )
+        }
+        return .seek
     }
 
     private static func effectiveDominance(_ detail: String) -> String? {
@@ -5828,6 +5909,7 @@ private enum MirmirPackagedParityCaptureV4 {
                     cadenceID: "progressive",
                     classification: nil,
                     historyGeneration: 1,
+                    temporalResetReason: nil,
                     attachments: try frameAttachments(destination)
                 )]
             )]
@@ -6039,6 +6121,15 @@ private enum MirmirPackagedParityCaptureV4 {
         case "rational_detail":
             value = low + ((x * 97 + y * 53 + component * 29 + plane * 71)
                 % (span + 1))
+        case "periodic_phase_0", "periodic_phase_1":
+            let phase = frame.pattern == "periodic_phase_0" ? 0 : 1
+            let stripe = ((x + phase) % 4) < 2 ? 0 : 1
+            let cross = ((y + phase) % 4) < 2 ? 0 : 1
+            let band = stripe ^ cross
+            // Keep the translated periodic texture below the scene-cut
+            // threshold so this case exercises ambiguous motion/history.
+            value = low + (band == 0 ? (span * 7) / 16 : (span * 9) / 16)
+                + ((component * 7 + plane * 11) % max(1, span / 32))
         case "field_pair":
             let token = y.isMultiple(of: 2)
                 ? (frame.topToken ?? 0) : (frame.bottomToken ?? 0)

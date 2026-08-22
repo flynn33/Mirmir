@@ -5,9 +5,11 @@ from __future__ import annotations
 
 import copy
 import contextlib
+import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import shutil
 import sys
@@ -88,6 +90,14 @@ assert RECOVERY_FIXTURE_SPEC is not None and RECOVERY_FIXTURE_SPEC.loader is not
 recovery_fixture_module = importlib.util.module_from_spec(RECOVERY_FIXTURE_SPEC)
 RECOVERY_FIXTURE_SPEC.loader.exec_module(recovery_fixture_module)
 
+P06_FIXTURE_SPEC = importlib.util.spec_from_file_location(
+    "p06_reproduction_fixture_for_release_tests",
+    SCRIPT_DIRECTORY / "test_p06_reproduction_v4.py",
+)
+assert P06_FIXTURE_SPEC is not None and P06_FIXTURE_SPEC.loader is not None
+p06_fixture_module = importlib.util.module_from_spec(P06_FIXTURE_SPEC)
+P06_FIXTURE_SPEC.loader.exec_module(p06_fixture_module)
+
 
 def identity(label: str) -> str:
     return qualification.sha256_bytes(label.encode("utf-8"))
@@ -109,9 +119,64 @@ def descriptor(path: Path, root: Path) -> dict[str, object]:
 class EvidenceFixture:
     def __init__(self, root: Path):
         self.root = root
-        self.contract_path = SCRIPT_DIRECTORY / "release-qualification-contract-v1.json"
-        self.contract = json.loads(self.contract_path.read_text())
-        runtime_revision = "b" * 64
+        self.contract_path = root / "release-qualification-contract-v1.json"
+        self.contract = json.loads(
+            (SCRIPT_DIRECTORY / "release-qualification-contract-v1.json").read_text()
+        )
+        write_json(self.contract_path, self.contract)
+        p06 = p06_fixture_module.p06
+        self.p06_source_contract = {
+            "schemaVersion": "mirmir-ash-v4-p06-source-provenance-contract-v1",
+            "identityDomain": "ash-p06-production-source-v1",
+            "coverage": {
+                "roots": ["Sources"],
+                "fileExtensions": [".swift"],
+            },
+            "requiredAdditionalSources": [],
+            "normalizedDeploymentTrustRoot": {
+                "path": "Sources/TrustV4.swift",
+                "assignments": [
+                    "builderSourceSHA256",
+                    "manifestSHA256",
+                    "sourceRevision",
+                ],
+            },
+            "sources": ["Sources/TrustV4.swift"],
+        }
+        self.p06_source_bytes = (
+            "enum TrustV4 {\n"
+            f"    static let manifestSHA256 = try! ASHSHA256V4(\"{'a' * 64}\")\n"
+            f"    static let sourceRevision = \"{'b' * 64}\"\n"
+            f"    static let builderSourceSHA256 = try! ASHSHA256V4(\"{'c' * 64}\")\n"
+            "}\n"
+        ).encode("utf-8")
+        self.p06_source_files = {
+            "Sources/TrustV4.swift": self.p06_source_bytes
+        }
+        source_blob = p06.git_blob_sha1(self.p06_source_bytes)
+        self.p06_source_listing = (
+            f"100644 blob {source_blob}\tSources/TrustV4.swift\0"
+        ).encode("utf-8")
+        self.p06_checkout_tree_object = p06.git_tree_sha1(
+            {"Sources/TrustV4.swift": ("100644", source_blob)}
+        )
+        self.p06_source_commit_object = (
+            f"tree {self.p06_checkout_tree_object}\n"
+            "author P06 Test <p06-test@example.invalid> 0 +0000\n"
+            "committer P06 Test <p06-test@example.invalid> 0 +0000\n"
+            "\nfixture\n"
+        ).encode("utf-8")
+        self.p06_source_commit = hashlib.sha1(
+            b"commit "
+            + str(len(self.p06_source_commit_object)).encode("ascii")
+            + b"\0"
+            + self.p06_source_commit_object
+        ).hexdigest()
+        self.p06_source_manifest = p06.recompute_production_source_manifest(
+            self.p06_source_contract,
+            self.p06_source_files,
+        )
+        runtime_revision = self.p06_source_manifest["sourceRevision"]
         self.builder_bytes = b"#!/bin/sh\n# locked production P06 builder\n"
         self.toolchain_bytes = qualification.canonical_bytes(
             {"xcode": "locked-release", "metal": "locked-release"}
@@ -141,7 +206,7 @@ class EvidenceFixture:
             "releaseStatus": "release_qualified",
             "provenance": {
                 "sourceRevision": runtime_revision,
-                "builderID": "mirmir-p06-release-builder-v1",
+                "builderID": "ash-p06-release-builder-v4-1",
                 "builderSourceSHA256": qualification.sha256_bytes(self.builder_bytes),
                 "buildParametersSHA256": identity("p06-build-parameters"),
                 "inputSetSHA256": identity("p06-input-set"),
@@ -174,8 +239,10 @@ class EvidenceFixture:
             for relative, content in self.runtime_artifacts.items()
         ] + [("runtime-manifest.json", qualification.sha256_bytes(runtime_bytes))]
         self.candidate = {
-            "sourceCommit": "a" * 40,
-            "sourceTreeIdentitySHA256": identity("source-tree"),
+            "sourceCommit": self.p06_source_commit,
+            "sourceTreeIdentitySHA256": qualification.sha256_bytes(
+                p06.SOURCE_TREE_DOMAIN + self.p06_source_listing
+            ),
             "runtimeManifestSHA256": qualification.sha256_bytes(runtime_bytes),
             "runtimeManifestFileSHA256": qualification.sha256_bytes(runtime_bytes),
             "runtimeArtifactSetSHA256": qualification.artifact_set_sha(
@@ -197,6 +264,7 @@ class EvidenceFixture:
         self.entries: list[dict[str, object]] = []
         self._build_quality()
         self._build_common_reports()
+        write_json(self.contract_path, self.contract)
         self.index = {
             "schemaVersion": qualification.SCHEMA_CANDIDATE,
             "candidate": self.candidate,
@@ -264,9 +332,13 @@ class EvidenceFixture:
                 qualification.RECOVERY_SUITE_MANIFEST_SCHEMA
                 if role == "recovery"
                 else (
-                    support_fixture_module.support.EVIDENCE_SCHEMA
-                    if role == "support_matrix"
-                    else "mirmir-test-sealed-evidence-v1"
+                    p06_fixture_module.p06.SEALED_SCHEMA
+                    if role == "p06_reproduction"
+                    else (
+                        support_fixture_module.support.EVIDENCE_SCHEMA
+                        if role == "support_matrix"
+                        else "mirmir-test-sealed-evidence-v1"
+                    )
                 )
             ),
             "artifacts": sealed_artifacts,
@@ -313,6 +385,7 @@ class EvidenceFixture:
             "p05_baseline_v4.py",
             "P05QualityBaselineCaptureTests.swift",
             "p05-baseline-source-manifest-v1.json",
+            "natural-quality-corpus-lock-v1.json",
         )
         for filename in copied_sources:
             shutil.copy2(SCRIPT_DIRECTORY / filename, role_dir / filename)
@@ -338,7 +411,34 @@ class EvidenceFixture:
         # project evidence.  Its raw planes still pass the production replay.
         corpus_manifest["corpusKind"] = "locked_natural"
         corpus_manifest["releaseEligible"] = True
+        corpus_manifest.setdefault(
+            "sourceAssetSetSHA256", identity("fixture-quality-source-assets")
+        )
+        corpus_manifest.setdefault(
+            "sourceLicenseSetSHA256",
+            identity("fixture-quality-source-licenses"),
+        )
         write_json(corpus_path, corpus_manifest)
+        corpus_release_lock_path = (
+            role_dir / "natural-quality-corpus-lock-v1.json"
+        )
+        corpus_release_lock = json.loads(corpus_release_lock_path.read_text())
+        corpus_release_lock.update(
+            {
+                "artifactSetSHA256": corpus_manifest["artifactSetSHA256"],
+                "caseCount": corpus_manifest["caseCount"],
+                "clipCount": corpus_manifest["clipCount"],
+                "manifestSHA256": quality_gate.sha256(corpus_path),
+                "qualityContractSHA256": quality_gate.sha256(contract_path),
+                "sourceAssetSetSHA256": corpus_manifest[
+                    "sourceAssetSetSHA256"
+                ],
+                "sourceLicenseSetSHA256": corpus_manifest[
+                    "sourceLicenseSetSHA256"
+                ],
+            }
+        )
+        write_json(corpus_release_lock_path, corpus_release_lock)
 
         capture_cases = []
         for case_index, case in enumerate(corpus_manifest["cases"]):
@@ -401,6 +501,28 @@ class EvidenceFixture:
         }
         capture_path = role_dir / "capture-manifest.json"
         write_json(capture_path, capture_manifest)
+        write_json(
+            role_dir / "p05-capture-manifest.json",
+            {
+                "schemaVersion": "mirmir-ash-v4-quality-p05-capture-v1",
+                "contractSHA256": contract_sha,
+                "corpusManifestSHA256": corpus_sha,
+                "baselineIdentity": baseline_identity,
+                "warmupCount": 1,
+                "cases": [
+                    {
+                        "id": case["id"],
+                        "output": case["outputs"]["baseline_p05"],
+                        "milliseconds": case["milliseconds"]["baseline_p05"],
+                    }
+                    for case in capture_cases
+                ],
+            },
+        )
+        (role_dir / "p05-xcodebuild.log").write_text(
+            "fixture frozen P05 Release capture completed\n",
+            encoding="utf-8",
+        )
         report_path = role_dir / "report.json"
         with contextlib.redirect_stdout(io.StringIO()), mock.patch.object(
             quality_gate,
@@ -422,6 +544,38 @@ class EvidenceFixture:
                 runtime_path,
             )
         report = json.loads(report_path.read_text())
+        self.contract["qualityLaneContractSHA256"] = contract_sha
+        self.contract["qualityLockedSources"] = {
+            "baselineRunnerSHA256": qualification.sha256(
+                SCRIPT_DIRECTORY / "run_p05_quality_baseline_v4.sh"
+            ),
+            "metricToolSHA256": report["identities"]["metricToolSHA256"],
+            "observerSourceSHA256": report["identities"][
+                "observerSourceSHA256"
+            ],
+        }
+        self.contract["qualityCorpusLock"] = {
+            "artifactSetSHA256": report["identities"][
+                "corpusArtifactSetSHA256"
+            ],
+            "caseCount": corpus_manifest["caseCount"],
+            "clipCount": corpus_manifest["clipCount"],
+            "contractSHA256": contract_sha,
+            "manifestSHA256": corpus_sha,
+            "releaseLockSHA256": qualification.sha256(
+                corpus_release_lock_path
+            ),
+            "sourceAssetSetSHA256": corpus_manifest[
+                "sourceAssetSetSHA256"
+            ],
+            "sourceLicenseSetSHA256": corpus_manifest[
+                "sourceLicenseSetSHA256"
+            ],
+        }
+        self.contract["qualityFrozenP05Baseline"] = baseline_identity
+        self.contract["qualityFrozenP05OutputSetSHA256"] = report[
+            "identities"
+        ]["outputSetSHA256"]["baseline_p05"]
         self._write_quality_evidence_manifest()
         bindings = [
             ("/identities/contractSHA256", contract_path),
@@ -782,6 +936,9 @@ class EvidenceFixture:
             }
         )
         write_json(capture_path, capture)
+        performance_gate.write_sample_transcripts(
+            capture_path, candidate_directory / "sample-transcripts.json"
+        )
         candidate_manifest = performance_gate.make_evidence_manifest(
             candidate_directory
         )
@@ -902,12 +1059,26 @@ class EvidenceFixture:
         suite_contract = json.loads(
             (SCRIPT_DIRECTORY / "performance-gate-contract-v1.json").read_text()
         )
-        suite_contract["capture"]["captureSourceSHA256"] = identity("performance capture source")
-        suite_contract["capture"]["evaluatorSourceSHA256"] = identity("performance evaluator")
-        suite_contract["capture"]["runnerSourceSHA256"] = identity("performance runner")
+        for field, source in {
+            "captureSourceSHA256": "PerformanceGateCaptureTests.swift",
+            "evaluatorSourceSHA256": "performance_gate_v4.py",
+            "runnerSourceSHA256": "run_performance_gate_v4.sh",
+        }.items():
+            suite_contract["capture"][field] = qualification.sha256(
+                SCRIPT_DIRECTORY / source
+            )
         contract_path = role_dir / "performance-gate-contract-v1.json"
         write_json(contract_path, suite_contract)
         contract_sha = qualification.sha256(contract_path)
+        measurement_offset = (
+            int(identity(f"performance measurements:{self.root.resolve()}")[:8], 16)
+            / 0xFFFFFFFF
+            / 100
+        )
+        resident_offset = int(
+            identity(f"performance resident memory:{self.root.resolve()}")[:4],
+            16,
+        )
 
         def environment() -> dict[str, object]:
             return {
@@ -993,7 +1164,7 @@ class EvidenceFixture:
                 engine_runs = []
                 wall_runs = []
                 for sample_index in range(10):
-                    jitter = sample_index * 0.001
+                    jitter = sample_index * 0.001 + measurement_offset
                     engine_runs.append(
                         {
                             "sampleIndex": sample_index,
@@ -1013,7 +1184,7 @@ class EvidenceFixture:
                                 100 * 1024**2
                                 if variant == "baseline_p05"
                                 else 110 * 1024**2
-                            ),
+                            ) + resident_offset,
                             "processedFrameCount": 3,
                             "verification": verification,
                         }
@@ -1021,7 +1192,12 @@ class EvidenceFixture:
                 cases.append(
                     {
                         **case_contract,
-                        "request": copy.deepcopy(suite_contract["workload"]["output"]),
+                        "request": {
+                            field: copy.deepcopy(
+                                suite_contract["workload"]["output"][field]
+                            )
+                            for field in performance_gate.PERFORMANCE_REQUEST_FIELDS
+                        },
                         "engineRuns": engine_runs,
                         "endToEndRuns": wall_runs,
                     }
@@ -1045,7 +1221,354 @@ class EvidenceFixture:
                 | {"allRequiredChecksPassed": True},
                 "cases": cases,
             }
+            if variant == "baseline_p05":
+                capture.update(
+                    {
+                        "producerInvocationNonce": identity(
+                            "performance baseline producer nonce:"
+                            + str(self.root.resolve())
+                        ),
+                        "producerChallenge": identity(
+                            "performance baseline producer challenge:"
+                            + str(self.root.resolve())
+                        ),
+                    }
+                )
+                build_request_environment = {
+                    "MIRMIR_V4_PERFORMANCE_CAPTURE_DIR": str(
+                        directory.resolve()
+                    ),
+                    "MIRMIR_V4_PERFORMANCE_INPUT": str(
+                        SCRIPT_DIRECTORY.parent.parent
+                        / suite_contract["workload"]["input"]["repositoryPath"]
+                    ),
+                    "MIRMIR_V4_PERFORMANCE_VARIANT": "baseline_p05",
+                    "MIRMIR_V4_PERFORMANCE_CONTRACT_SHA256": contract_sha,
+                    "MIRMIR_V4_PERFORMANCE_CAPTURE_SOURCE_SHA256": suite_contract[
+                        "capture"
+                    ]["captureSourceSHA256"],
+                    "MIRMIR_V4_PERFORMANCE_SOURCE_IDENTITY_SHA256": qualification.sha256(
+                        source_path
+                    ),
+                    "MIRMIR_V4_PERFORMANCE_SOURCE_REVISION": revision,
+                    "MIRMIR_V4_PERFORMANCE_SOURCE_TREE_SHA256": source_tree,
+                    "MIRMIR_V4_PERFORMANCE_WARMUPS": "5",
+                    "MIRMIR_V4_PERFORMANCE_SAMPLES": "10",
+                    "MIRMIR_V4_PERFORMANCE_PRODUCER_NONCE": capture[
+                        "producerInvocationNonce"
+                    ],
+                    "MIRMIR_V4_PERFORMANCE_PRODUCER_CHALLENGE": capture[
+                        "producerChallenge"
+                    ],
+                    "SWIFT_DETERMINISTIC_HASHING": "1",
+                    "SWIFTC_MAXIMUM_DETERMINISM": "1",
+                    "TMPDIR": performance_gate.CANONICAL_SWIFT_TEMPORARY,
+                }
+                build_request_path = role_dir / "baseline-build-request.json"
+                write_json(build_request_path, build_request_environment)
+                capture["producerRequestSHA256"] = qualification.sha256(
+                    build_request_path
+                )
             write_json(directory / "capture.json", capture)
+            if variant == "baseline_p05":
+                performance_gate.write_sample_transcripts(
+                    directory / "capture.json",
+                    directory / "sample-transcripts.json",
+                )
+                producer_root = directory / "producer"
+                result_bundle = producer_root / "baseline.xcresult"
+                result_bundle.mkdir(parents=True)
+                (result_bundle / "Info.plist").write_bytes(
+                    b"fixture result bundle\n"
+                )
+                write_json(
+                    producer_root / "test-summary.json",
+                    {
+                        "schemaVersion": performance_gate.TEST_SUMMARY_SCHEMA,
+                        "testIdentifier": performance_gate.BASELINE_TEST_IDENTIFIER,
+                        "result": "Passed",
+                        "passedTests": 1,
+                        "failedTests": 0,
+                        "skippedTests": 0,
+                    },
+                )
+                application_source = role_dir / "baseline-application-fixture"
+                test_source = role_dir / "baseline-tests-fixture"
+                application_source.write_bytes(
+                    b"\xcf\xfa\xed\xfeperformance baseline application\n"
+                )
+                test_source.write_bytes(
+                    b"\xcf\xfa\xed\xfeperformance baseline tests\n"
+                )
+                build_environment = {
+                    "MIRMIR_V4_PERFORMANCE_CAPTURE_DIR": str(
+                        directory.resolve()
+                    ),
+                    "MIRMIR_V4_PERFORMANCE_INPUT": str(
+                        SCRIPT_DIRECTORY.parent.parent
+                        / suite_contract["workload"]["input"]["repositoryPath"]
+                    ),
+                    "MIRMIR_V4_PERFORMANCE_VARIANT": "baseline_p05",
+                    "MIRMIR_V4_PERFORMANCE_CONTRACT_SHA256": contract_sha,
+                    "MIRMIR_V4_PERFORMANCE_CAPTURE_SOURCE_SHA256": suite_contract[
+                        "capture"
+                    ]["captureSourceSHA256"],
+                    "MIRMIR_V4_PERFORMANCE_SOURCE_IDENTITY_SHA256": qualification.sha256(
+                        source_path
+                    ),
+                    "MIRMIR_V4_PERFORMANCE_SOURCE_REVISION": revision,
+                    "MIRMIR_V4_PERFORMANCE_SOURCE_TREE_SHA256": source_tree,
+                    "MIRMIR_V4_PERFORMANCE_WARMUPS": "5",
+                    "MIRMIR_V4_PERFORMANCE_SAMPLES": "10",
+                    "MIRMIR_V4_PERFORMANCE_PRODUCER_NONCE": capture[
+                        "producerInvocationNonce"
+                    ],
+                    "MIRMIR_V4_PERFORMANCE_PRODUCER_CHALLENGE": capture[
+                        "producerChallenge"
+                    ],
+                    "SWIFT_DETERMINISTIC_HASHING": "1",
+                    "SWIFTC_MAXIMUM_DETERMINISM": "1",
+                    "TMPDIR": performance_gate.CANONICAL_SWIFT_TEMPORARY,
+                }
+                working_directory = performance_gate.CANONICAL_SOURCE_ROOT
+                derived_data = performance_gate.CANONICAL_DERIVED_DATA
+                command = performance_gate._expected_baseline_build_command(
+                    {
+                        "workingDirectory": working_directory,
+                        "captureDirectory": str(directory.resolve()),
+                        "derivedDataPath": derived_data,
+                        "buildEnvironment": build_environment,
+                    }
+                )
+                module_cache = performance_gate.CANONICAL_MODULE_CACHE
+                driver_lines = []
+                for module_name in ("Mirmir", "MirmirTests"):
+                    driver_lines.append(
+                        "    builtin-SwiftDriver -- /usr/bin/swiftc "
+                        f"-module-name {module_name} -num-threads 1 "
+                        "-Xllvm -rng-seed=1 "
+                        f"-file-prefix-map {performance_gate.CANONICAL_SOURCE_ROOT}=/mirmir-performance-p05 "
+                        f"-debug-prefix-map {performance_gate.CANONICAL_SOURCE_ROOT}=/mirmir-performance-p05 "
+                        f"-file-prefix-map {performance_gate.CANONICAL_SOURCE_ROOT.replace('/private/tmp/', '/tmp/', 1)}=/mirmir-performance-p05 "
+                        f"-debug-prefix-map {performance_gate.CANONICAL_SOURCE_ROOT.replace('/private/tmp/', '/tmp/', 1)}=/mirmir-performance-p05 "
+                        f"-file-prefix-map {performance_gate.CANONICAL_DERIVED_DATA}=/mirmir-performance-derived "
+                        f"-debug-prefix-map {performance_gate.CANONICAL_DERIVED_DATA}=/mirmir-performance-derived "
+                        f"-file-prefix-map {performance_gate.CANONICAL_DERIVED_DATA.replace('/private/tmp/', '/tmp/', 1)}=/mirmir-performance-derived "
+                        f"-debug-prefix-map {performance_gate.CANONICAL_DERIVED_DATA.replace('/private/tmp/', '/tmp/', 1)}=/mirmir-performance-derived "
+                        f"-module-cache-path {module_cache} "
+                        f"-working-directory {working_directory} "
+                        f"-driver-use-frontend-path {performance_gate.CANONICAL_SWIFT_FRONTEND_SHIM} "
+                        "-save-temps -j 1"
+                    )
+                (directory / "xcodebuild.log").write_text(
+                    "\n".join(driver_lines) + "\n",
+                    encoding="utf-8",
+                )
+                underlying_swiftc = Path("/usr/bin/swiftc")
+                swift_driver_wrapper = role_dir / "baseline-swift-wrapper"
+                swift_driver_wrapper.write_bytes(
+                    performance_gate.swift_driver_wrapper_bytes(
+                        underlying_swiftc.resolve(),
+                        Path(performance_gate.CANONICAL_SWIFT_AUDIT),
+                    )
+                )
+                swift_driver_wrapper.chmod(0o755)
+                swift_driver_audit = role_dir / "baseline-swift-audit.log"
+                swift_driver_audit.write_text(
+                    "\n".join(
+                        sorted(performance_gate.SWIFT_DRIVER_JOB_AUDIT_MARKERS)
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+                swift_driver_audit.chmod(0o600)
+                swift_frontend_shim = role_dir / "baseline-swift-frontend"
+                swift_frontend_shim.write_bytes(
+                    performance_gate.swift_frontend_shim_bytes(
+                        underlying_swiftc.resolve(),
+                        Path(performance_gate.CANONICAL_SWIFT_FRONTEND_AUDIT),
+                    )
+                )
+                swift_frontend_shim.chmod(0o755)
+                swift_frontend_audit = (
+                    role_dir / "baseline-swift-frontend-audit.jsonl"
+                )
+                swift_supplementary_maps = (
+                    role_dir / "baseline-swift-supplementary-maps"
+                )
+                swift_supplementary_maps.mkdir(mode=0o700)
+                source_alias = performance_gate.CANONICAL_SOURCE_ROOT.replace(
+                    "/private/tmp/", "/tmp/", 1
+                )
+                derived_alias = performance_gate.CANONICAL_DERIVED_DATA.replace(
+                    "/private/tmp/", "/tmp/", 1
+                )
+                prefix_maps = [
+                    performance_gate.CANONICAL_SOURCE_ROOT
+                    + "=/mirmir-performance-p05",
+                    source_alias + "=/mirmir-performance-p05",
+                    performance_gate.CANONICAL_DERIVED_DATA
+                    + "=/mirmir-performance-derived",
+                    derived_alias + "=/mirmir-performance-derived",
+                ]
+                frontend_records = []
+                for module_index, module_name in enumerate(
+                    performance_gate.SWIFT_DRIVER_REQUIRED_MODULES
+                ):
+                    map_path = (
+                        swift_supplementary_maps / f"{module_name}.json"
+                    )
+                    write_json(
+                        map_path,
+                        {
+                            f"{source_alias}/{module_name}/{module_name}.swift": {
+                                "object": (
+                                    f"{derived_alias}/Build/Objects/"
+                                    f"{module_name}.o"
+                                )
+                            }
+                        },
+                    )
+                    map_path.chmod(0o600)
+                    effective = [
+                        "-frontend",
+                        "-c",
+                        f"{source_alias}/{module_name}/{module_name}.swift",
+                        "-module-name",
+                        module_name,
+                        "-target",
+                        performance_gate.SWIFT_DRIVER_REQUIRED_TARGET,
+                        "-num-threads",
+                        "1",
+                        "-Xllvm",
+                        "-rng-seed=1",
+                    ]
+                    for value in prefix_maps:
+                        effective.extend(("-file-prefix-map", value))
+                    for value in prefix_maps:
+                        effective.extend(("-debug-prefix-map", value))
+                    effective.extend(
+                        (
+                            "-module-cache-path",
+                            performance_gate.CANONICAL_MODULE_CACHE,
+                            "-Xcc",
+                            "-working-directory",
+                            "-Xcc",
+                            source_alias,
+                            "-file-compilation-dir",
+                            source_alias,
+                            "-supplementary-output-file-map",
+                            (
+                                performance_gate.CANONICAL_SWIFT_SUPPLEMENTARY_MAPS
+                                + f"/{module_name}.json"
+                            ),
+                            "-o",
+                            f"{derived_alias}/Build/Objects/{module_name}.o",
+                        )
+                    )
+                    normalized = performance_gate._normalize_frontend_argv(
+                        effective
+                    )
+                    frontend_records.append(
+                        {
+                            "schemaVersion": performance_gate.SWIFT_FRONTEND_JOB_AUDIT_SCHEMA,
+                            "moduleName": module_name,
+                            "target": performance_gate.SWIFT_DRIVER_REQUIRED_TARGET,
+                            "rawSupplementaryOutputFileMapPath": (
+                                performance_gate.CANONICAL_SWIFT_TEMPORARY
+                                + "/TemporaryDirectory.Abc12"
+                                + str(module_index)
+                                + "/supplementaryOutputs-1"
+                            ),
+                            "canonicalSupplementaryOutputFileMapPath": (
+                                performance_gate.CANONICAL_SWIFT_SUPPLEMENTARY_MAPS
+                                + f"/{module_name}.json"
+                            ),
+                            "supplementaryOutputFileMapByteCount": map_path.stat().st_size,
+                            "supplementaryOutputFileMapSHA256": qualification.sha256(
+                                map_path
+                            ),
+                            "rawSupplementaryOutputFileMapOwnerUID": os.getuid(),
+                            "rawSupplementaryOutputFileMapUnixMode": 0o644,
+                            "rawSupplementaryOutputFileMapLinkCount": 1,
+                            "effectiveArgv": effective,
+                            "effectiveArgvSHA256": hashlib.sha256(
+                                performance_gate.SWIFT_FRONTEND_JOB_AUDIT_DOMAIN
+                                + b"effective\0"
+                                + performance_gate.canonical_json(effective)
+                            ).hexdigest(),
+                            "normalizedEffectiveArgv": normalized,
+                            "normalizedEffectiveArgvSHA256": hashlib.sha256(
+                                performance_gate.SWIFT_FRONTEND_JOB_AUDIT_DOMAIN
+                                + performance_gate.canonical_json(normalized)
+                            ).hexdigest(),
+                            "objectOutputPathCount": 1,
+                            "forcedEnvironment": {
+                                "SWIFT_DETERMINISTIC_HASHING": "1",
+                                "SWIFTC_MAXIMUM_DETERMINISM": "1",
+                                "TMPDIR": performance_gate.CANONICAL_SWIFT_TEMPORARY,
+                            },
+                        }
+                    )
+                swift_frontend_audit.write_text(
+                    "".join(
+                        json.dumps(
+                            record,
+                            separators=(",", ":"),
+                            sort_keys=True,
+                        )
+                        + "\n"
+                        for record in frontend_records
+                    ),
+                    encoding="utf-8",
+                )
+                swift_frontend_audit.chmod(0o600)
+                command_path = role_dir / "baseline-command.json"
+                environment_path = role_dir / "baseline-environment.json"
+                write_json(command_path, command)
+                write_json(environment_path, build_environment)
+                performance_gate.seal_baseline_producer_receipt(
+                    directory=directory,
+                    contract_path=contract_path,
+                    runner_path=SCRIPT_DIRECTORY / "run_performance_gate_v4.sh",
+                    invocation_nonce=capture["producerInvocationNonce"],
+                    challenge=capture["producerChallenge"],
+                    started_ns=1_000,
+                    finished_ns=2_000,
+                    working_directory=working_directory,
+                    capture_directory=str(directory.resolve()),
+                    derived_data_path=derived_data,
+                    command_path=command_path,
+                    environment_path=environment_path,
+                    build_request_path=build_request_path,
+                    application_executable=application_source,
+                    test_executable=test_source,
+                    locked_input=(
+                        SCRIPT_DIRECTORY.parent.parent
+                        / suite_contract["workload"]["input"]["repositoryPath"]
+                    ),
+                    result_bundle=result_bundle,
+                    swift_driver_wrapper=swift_driver_wrapper,
+                    swift_driver_audit=swift_driver_audit,
+                    swift_frontend_shim=swift_frontend_shim,
+                    swift_frontend_audit=swift_frontend_audit,
+                    swift_supplementary_maps=swift_supplementary_maps,
+                    underlying_swiftc=underlying_swiftc,
+                    allow_fixture_runtime=True,
+                )
+                for temporary in (
+                    application_source,
+                    test_source,
+                    command_path,
+                    environment_path,
+                    build_request_path,
+                    swift_driver_wrapper,
+                    swift_driver_audit,
+                    swift_frontend_shim,
+                    swift_frontend_audit,
+                ):
+                    temporary.unlink()
+                shutil.rmtree(swift_supplementary_maps)
             nested = performance_gate.make_evidence_manifest(directory)
             nested["schemaVersion"] = "mirmir-v4-performance-capture-artifacts-v1"
             write_json(directory / "artifact-manifest.json", nested)
@@ -1073,10 +1596,43 @@ class EvidenceFixture:
                 package_fixture["root"],
                 self.root,
                 role_dir / "runtime-manifest.json",
-                allow_fixture_runtime=False,
+                allow_fixture_runtime=True,
             )
         report_path = role_dir / "performance-gate-report.json"
         write_json(report_path, report)
+        baseline_source = json.loads(
+            (baseline / "source-identity.json").read_text()
+        )
+        self.contract["performanceLaneContractSHA256"] = contract_sha
+        self.contract["performanceLockedSources"] = copy.deepcopy(
+            suite_contract["capture"]
+        )
+        self.contract["performanceLockedSources"].pop("buildConfiguration")
+        self.contract["performanceLockedSources"].pop("minimumMeasuredRuns")
+        self.contract["performanceLockedSources"].pop("minimumWarmupRuns")
+        self.contract["performanceFrozenP05Baseline"] = {
+            "implementationVersions": copy.deepcopy(
+                suite_contract["baseline"]["implementationVersions"]
+            ),
+            "runtimeStatus": suite_contract["baseline"]["runtimeStatus"],
+            "sourceRevision": suite_contract["baseline"]["sourceRevision"],
+            "sourceTreeIdentitySHA256": baseline_source[
+                "sourceTreeSHA256"
+            ],
+        }
+        self.contract["performanceFrozenP05Producer"] = {
+            "stableFacts": copy.deepcopy(
+                report["baseline"]["producerStableFacts"]
+            ),
+            "stableFactsSHA256": qualification.sha256_bytes(
+                performance_gate.canonical_json(
+                    report["baseline"]["producerStableFacts"]
+                )
+            ),
+            "stableIdentitySHA256": report["baseline"][
+                "producerStableIdentitySHA256"
+            ],
+        }
         root_manifest_path = role_dir / "artifact-manifest.json"
         root_artifacts = [
             descriptor(path, role_dir)
@@ -1134,6 +1690,18 @@ class EvidenceFixture:
             archive_bytes=self.app_bytes,
         )
         report = json.loads((role_dir / "report.json").read_text())
+        support_contract = json.loads(
+            (role_dir / "suite-contract.json").read_text()
+        )
+        self.contract["supportMatrixLaneContractSHA256"] = (
+            qualification.sha256(role_dir / "suite-contract.json")
+        )
+        self.contract["supportMatrixLockedSources"] = copy.deepcopy(
+            support_contract["tools"]
+        )
+        self.contract["supportMatrixDevelopmentTeam"] = support_contract[
+            "developmentTeam"
+        ]
         self._seal_and_add(
             role,
             report,
@@ -1256,7 +1824,8 @@ class EvidenceFixture:
                 "id": "combined-p010-hdr-interlaced",
                 "policy": "p010_field_normalization",
                 "coverage": [
-                    "p010_hdr_static_dynamic", "interlaced_field_order_cadence",
+                    "p010_hdr_static_dynamic", "p010_absolute_pixel_oracle",
+                    "pq_transfer_profile", "interlaced_field_order_cadence",
                     "non_square_pixel_aspect_ratio", "clean_aperture", "preferred_transform",
                     "combined_p010_hdr_interlaced",
                 ],
@@ -1293,7 +1862,10 @@ class EvidenceFixture:
             {
                 "id": "auxiliary-picture-track",
                 "policy": "process_primary_preserve_auxiliary",
-                "coverage": ["auxiliary_tracks"],
+                "coverage": [
+                    "auxiliary_tracks", "p010_absolute_pixel_oracle",
+                    "hlg_transfer_profile",
+                ],
             },
         ]
         lane_contract = {
@@ -2050,6 +2622,7 @@ class EvidenceFixture:
                     "source_fixture_generation_and_source_alpha_observation_only",
                 "actualSessionReceiptRequired": True,
                 "independentAlphaOracleRequired": True,
+                "independentP010AbsoluteOracleRequired": True,
             },
             "identities": {
                 "laneContractSHA256": lane_contract_sha,
@@ -2063,6 +2636,12 @@ class EvidenceFixture:
             "accountedEnabledTrackCount": total_enabled,
             "mediaPreservationGatePass": True,
         })
+        self.contract["mediaPreservationLaneContractSHA256"] = (
+            lane_contract_sha
+        )
+        self.contract["mediaPreservationLockedSources"] = copy.deepcopy(
+            tool_identities
+        )
         extra_bindings.extend([
             ("/identities/laneContractSHA256", lane_contract_path),
             ("/identities/captureSourceSHA256", capture_source),
@@ -2711,6 +3290,17 @@ class EvidenceFixture:
         ]
         report["exactPackagedCandidatePass"] = True
         report["byteParityGatePass"] = True
+        self.contract["parityLaneContractSHA256"] = qualification.sha256(
+            fixture.contract_path
+        )
+        self.contract["parityLockedSources"] = {
+            key: report["identities"][key]
+            for key in (
+                "captureSourceSHA256",
+                "evaluatorSHA256",
+                "runnerSHA256",
+            )
+        }
         report_path = parity_root / "cpu-metal-parity-report.json"
         parity_fixture_module.parity.write_json(report_path, report)
         manifest_path = parity_root / "artifact-manifest.json"
@@ -2782,22 +3372,17 @@ class EvidenceFixture:
                 suite_contract = self.contract
             elif role == "p06_reproduction":
                 role_dir.mkdir(parents=True, exist_ok=True)
-                source_contract = {
-                    "schemaVersion": "mirmir-ash-v4-p06-source-provenance-contract-v1",
-                    "identityDomain": "ash-p06-production-source-v1",
-                    "normalizedDeploymentTrustRoot": {
-                        "path": "Sources/TrustV4.swift",
-                        "assignments": [
-                            "builderSourceSHA256",
-                            "manifestSHA256",
-                            "sourceRevision",
-                        ],
-                    },
-                    "sources": ["Sources/TrustV4.swift"],
-                }
+                source_contract = copy.deepcopy(self.p06_source_contract)
                 p06_tool_bytes = {
+                    "buildRunnerSHA256": (
+                        "build-runner.sh",
+                        b"build runner\n",
+                    ),
                     "captureSourceSHA256": ("capture-tool.py", b"capture\n"),
-                    "evaluatorSHA256": ("evaluator.py", b"evaluator\n"),
+                    "evaluatorSHA256": (
+                        "evaluator.py",
+                        (SCRIPT_DIRECTORY / "p06_reproduction_v4.py").read_bytes(),
+                    ),
                     "runnerSHA256": ("runner.sh", b"runner\n"),
                     "runtimeLoadCheckRunnerSHA256": (
                         "runtime-load-check-runner.sh",
@@ -2822,10 +3407,13 @@ class EvidenceFixture:
                     path.write_bytes(contents)
                     p06_capture[key] = qualification.sha256(path)
                 suite_contract = {
-                    "schemaVersion": "mirmir-ash-v4-p06-reproduction-contract-v1",
-                    "suiteID": "mirmir-ash-v4-p06-reproduction-v1",
+                    "schemaVersion": "mirmir-ash-v4-p06-reproduction-contract-v2",
+                    "suiteID": "mirmir-ash-v4-p06-reproduction-v2",
                     "buildConfiguration": "Release",
+                    "builderID": "ash-p06-release-builder-v4-1",
+                    "candidateSourceArchiveFormat": "git-archive-tar-v1",
                     "sourceCheckoutState": "clean",
+                    "sourceTreeIdentityDomain": "mirmir-source-tree-v1",
                     "cleanBuildCount": 2,
                     "cleanBuildIDs": ["clean-build-a", "clean-build-b"],
                     "productionSourceCount": 1,
@@ -2839,10 +3427,17 @@ class EvidenceFixture:
                     "p05ProductionDependencyCount": 0,
                     "capture": p06_capture,
                     "verification": {
+                        "buildExecutionReceiptRequired": True,
+                        "buildOutputCausalBindingRequired": True,
+                        "buildTranscriptRequired": True,
                         "byteIdenticalToShippingBundle": True,
+                        "independentBuildExecutionRequired": True,
                         "productionLoaderAcceptanceRequired": True,
                         "sameLengthArtifactTamperRejectionRequired": True,
+                        "sealedCandidateSourceArchiveRequired": True,
+                        "sealedCandidateSourceCommitObjectRequired": True,
                         "sealedClosureRequired": True,
+                        "sourceManifestRecomputedFromSealedBytes": True,
                         "toolchainProvenanceEqualityRequired": True,
                     },
                 }
@@ -2860,6 +3455,16 @@ class EvidenceFixture:
                     ).read_bytes()
                 )
             contract_sha = qualification.sha256(contract_path)
+            if role == "p06_reproduction":
+                self.contract["p06ReproductionLaneContractSHA256"] = (
+                    contract_sha
+                )
+                self.contract["p06ReproductionLockedSources"] = copy.deepcopy(
+                    suite_contract["capture"]
+                )
+                self.contract["p06ProductionSourceCount"] = suite_contract[
+                    "productionSourceCount"
+                ]
             report = self._base(role, contract_sha)
             extra_bindings: list[tuple[str, Path]] = []
             if role == "same_scope_performance":
@@ -2955,17 +3560,37 @@ class EvidenceFixture:
                 )
             elif role == "p06_reproduction":
                 assert isinstance(suite_contract, dict)
+                p06 = p06_fixture_module.p06
                 source_contract = json.loads(
                     (role_dir / "source-provenance-contract.json").read_text()
                 )
-                source_bytes = b"normalized deployment trust source\n"
+                if source_contract != self.p06_source_contract:
+                    raise AssertionError("P06 fixture source contract differs")
+                for relative, content in self.runtime_artifacts.items():
+                    root_artifact = role_dir / relative
+                    root_artifact.parent.mkdir(parents=True, exist_ok=True)
+                    root_artifact.write_bytes(content)
+                source_manifest_bytes = p06.canonical_bytes(
+                    self.p06_source_manifest
+                )
+                source_manifest_sha256 = qualification.sha256_bytes(
+                    source_manifest_bytes
+                )
+                self.contract["p06ProductionSourceManifestSHA256"] = (
+                    source_manifest_sha256
+                )
                 builds = []
-                for build_id in suite_contract["cleanBuildIDs"]:
+                predecessor_execution_sha256 = "0" * 64
+                for build_index, build_id in enumerate(
+                    suite_contract["cleanBuildIDs"]
+                ):
                     build_dir = role_dir / build_id
                     build_dir.mkdir(parents=True, exist_ok=True)
                     build_runtime = build_dir / "runtime-manifest.json"
-                    builder = build_dir / "builder.sh"
-                    toolchain = build_dir / "toolchain-image.json"
+                    provenance_dir = build_dir / "provenance"
+                    provenance_dir.mkdir()
+                    builder = provenance_dir / "builder-source-manifest.txt"
+                    toolchain = provenance_dir / "toolchain-image.json"
                     build_runtime.write_bytes(self.runtime_bytes)
                     runtime_artifact_paths = []
                     for relative, content in self.runtime_artifacts.items():
@@ -2975,39 +3600,23 @@ class EvidenceFixture:
                         runtime_artifact_paths.append(artifact_path)
                     builder.write_bytes(self.builder_bytes)
                     toolchain.write_bytes(self.toolchain_bytes)
-                    production_source = build_dir / "production-source-manifest.json"
-                    production_source.write_bytes(
-                        qualification.canonical_bytes(
-                            {
-                                "schemaVersion": "mirmir-ash-v4-p06-production-source-manifest-v1",
-                                "contractSemanticSHA256": qualification.sha256_bytes(
-                                    qualification.canonical_bytes(source_contract)
-                                ),
-                                "identityDomain": "ash-p06-production-source-v1",
-                                "sourceCount": 1,
-                                "sourceRevision": self.candidate[
-                                    "runtimeSourceRevision"
-                                ],
-                                "sources": [
-                                    {
-                                        "path": "Sources/TrustV4.swift",
-                                        "byteCount": len(source_bytes),
-                                        "sha256": qualification.sha256_bytes(
-                                            source_bytes
-                                        ),
-                                        "normalizedByteCount": len(source_bytes),
-                                        "normalizedSHA256": qualification.sha256_bytes(
-                                            source_bytes
-                                        ),
-                                        "normalizations": [
-                                            "builderSourceSHA256",
-                                            "manifestSHA256",
-                                            "sourceRevision",
-                                        ],
-                                    }
-                                ],
-                            }
-                        )
+                    production_source = (
+                        provenance_dir / "production-source-manifest.json"
+                    )
+                    production_source.write_bytes(source_manifest_bytes)
+                    source_dir = build_dir / "source"
+                    source_dir.mkdir()
+                    source_listing = source_dir / "source-tree-listing.bin"
+                    source_listing.write_bytes(self.p06_source_listing)
+                    source_commit_object = source_dir / "source-commit-object.bin"
+                    source_commit_object.write_bytes(
+                        self.p06_source_commit_object
+                    )
+                    source_archive = source_dir / "candidate-source.tar"
+                    p06_fixture_module.write_source_archive(
+                        source_archive,
+                        self.p06_source_files,
+                        self.candidate["sourceCommit"],
                     )
                     loader = build_dir / "runtime-load-and-tamper-check.log"
                     loader.write_text(
@@ -3030,22 +3639,161 @@ class EvidenceFixture:
                         encoding="utf-8",
                     )
                     artifact_manifest = build_dir / "artifact-manifest.json"
+                    runtime_paths = [build_runtime, *runtime_artifact_paths]
                     write_json(
                         artifact_manifest,
                         {
                             "schemaVersion": "mirmir-p06-artifact-manifest-v1",
                             "artifacts": [
-                                *[
-                                    descriptor(path, build_dir)
-                                    for path in sorted(runtime_artifact_paths)
-                                ],
-                                descriptor(build_runtime, build_dir),
+                                descriptor(path, build_dir)
+                                for path in sorted(
+                                    runtime_paths,
+                                    key=lambda value: value.relative_to(
+                                        build_dir
+                                    ).as_posix(),
+                                )
                             ],
                         },
+                    )
+                    working_directory = Path(
+                        f"/private/tmp/p06-v2-fixture/{build_id}-worktree"
+                    )
+                    output_root = Path(
+                        f"/private/tmp/p06-v2-fixture/{build_id}-outputs"
+                    )
+                    build_challenge = f"{build_index + 101:064x}"
+                    build_environment = {
+                        "MIRMIR_P06_BUILD_CHALLENGE": build_challenge,
+                    }
+                    build_command = [
+                        str(
+                            working_directory
+                            / "script/v4/build_p06_release_runtime.sh"
+                        ),
+                        "--artifacts",
+                        str(output_root / "runtime-inputs"),
+                        "--output",
+                        str(output_root / "ASH-P06.bundle"),
+                        "--provenance",
+                        str(output_root / "provenance"),
+                        "--qualification-challenge",
+                        build_challenge,
+                    ]
+                    build_stdout = "\n".join(
+                        (
+                            f"fixture build transcript for {build_id}",
+                            f"qualification_challenge={build_challenge}",
+                            "qualification_runtime_artifact_set_sha256="
+                            + self.candidate["runtimeArtifactSetSHA256"],
+                            "qualification_runtime_manifest_file_sha256="
+                            + self.candidate["runtimeManifestFileSHA256"],
+                            "qualification_production_source_manifest_sha256="
+                            + source_manifest_sha256,
+                        )
+                    ) + "\n"
+                    build_transcript = build_dir / "build-transcript.json"
+                    build_transcript.write_bytes(
+                        p06.canonical_bytes(
+                            {
+                                "schemaVersion": p06.BUILD_TRANSCRIPT_SCHEMA,
+                                "command": build_command,
+                                "environment": build_environment,
+                                "workingDirectory": str(working_directory),
+                                "processID": 901 + build_index,
+                                "exitStatus": 0,
+                                "stdoutByteCount": len(
+                                    build_stdout.encode("utf-8")
+                                ),
+                                "stdoutSHA256": qualification.sha256_bytes(
+                                    build_stdout.encode("utf-8")
+                                ),
+                                "stdout": build_stdout,
+                            }
+                        )
+                    )
+                    started = 1_000_000_000 + build_index * 1_000_000
+                    execution = {
+                        "schemaVersion": p06.BUILD_EXECUTION_SCHEMA,
+                        "buildID": build_id,
+                        "invocationNonce": f"{build_index + 1:064x}",
+                        "captureProcessID": 900,
+                        "processID": 901 + build_index,
+                        "startedAtUnixNanoseconds": started,
+                        "finishedAtUnixNanoseconds": started + 500_000,
+                        "durationNanoseconds": 400_000,
+                        "exitStatus": 0,
+                        "workingDirectory": str(working_directory),
+                        "buildOutputRoot": str(output_root),
+                        "buildChallenge": build_challenge,
+                        "archiveCommand": [
+                            "git",
+                            "archive",
+                            "--format=tar",
+                            "--output",
+                            f"/private/tmp/p06-v2-capture/{build_id}/source/candidate-source.tar",
+                            "HEAD",
+                        ],
+                        "buildCommand": build_command,
+                        "buildEnvironment": build_environment,
+                        "sourceCommit": self.candidate["sourceCommit"],
+                        "sourceCommitObjectSHA256": qualification.sha256(
+                            source_commit_object
+                        ),
+                        "checkoutTreeObject": self.p06_checkout_tree_object,
+                        "sourceTreeIdentitySHA256": self.candidate[
+                            "sourceTreeIdentitySHA256"
+                        ],
+                        "sourceTreeListingSHA256": qualification.sha256(
+                            source_listing
+                        ),
+                        "sourceArchiveSHA256": qualification.sha256(
+                            source_archive
+                        ),
+                        "preBuildCheckoutStatusSHA256": qualification.sha256_bytes(
+                            b""
+                        ),
+                        "postBuildCheckoutStatusSHA256": qualification.sha256_bytes(
+                            b""
+                        ),
+                        "buildRunnerSHA256": suite_contract["capture"][
+                            "buildRunnerSHA256"
+                        ],
+                        "buildTranscriptSHA256": qualification.sha256(
+                            build_transcript
+                        ),
+                        "runtimeArtifactSetSHA256": self.candidate[
+                            "runtimeArtifactSetSHA256"
+                        ],
+                        "runtimeManifestFileSHA256": self.candidate[
+                            "runtimeManifestFileSHA256"
+                        ],
+                        "productionSourceManifestSHA256": source_manifest_sha256,
+                        "predecessorExecutionSHA256": predecessor_execution_sha256,
+                    }
+                    execution["causalBindingSHA256"] = p06.build_causal_binding(
+                        execution
+                    )
+                    build_execution = build_dir / "build-execution.json"
+                    build_execution.write_bytes(p06.canonical_bytes(execution))
+                    predecessor_execution_sha256 = qualification.sha256(
+                        build_execution
                     )
                     builds.append(
                         {
                             "id": build_id,
+                            "sourceCommit": self.candidate["sourceCommit"],
+                            "sourceTreeIdentitySHA256": self.candidate[
+                                "sourceTreeIdentitySHA256"
+                            ],
+                            "sourceTreeListingSHA256": qualification.sha256(
+                                source_listing
+                            ),
+                            "sourceArchiveSHA256": qualification.sha256(
+                                source_archive
+                            ),
+                            "sourceCommitObjectSHA256": qualification.sha256(
+                                source_commit_object
+                            ),
                             "runtimeArtifactSetSHA256": self.candidate["runtimeArtifactSetSHA256"],
                             "runtimeManifestSHA256": self.candidate["runtimeManifestSHA256"],
                             "builderSHA256": qualification.sha256(builder),
@@ -3056,14 +3804,29 @@ class EvidenceFixture:
                                 production_source
                             ),
                             "toolchainImageSHA256": qualification.sha256(toolchain),
-                            "artifactManifest": descriptor(artifact_manifest, self.root),
-                            "runtimeManifestArtifact": descriptor(build_runtime, self.root),
-                            "builderArtifact": descriptor(builder, self.root),
+                            "artifactManifest": descriptor(artifact_manifest, role_dir),
+                            "runtimeManifestArtifact": descriptor(build_runtime, role_dir),
+                            "builderArtifact": descriptor(builder, role_dir),
                             "productionSourceArtifact": descriptor(
-                                production_source, self.root
+                                production_source, role_dir
                             ),
-                            "toolchainImageArtifact": descriptor(toolchain, self.root),
-                            "loaderEvidenceArtifact": descriptor(loader, self.root),
+                            "toolchainImageArtifact": descriptor(toolchain, role_dir),
+                            "loaderEvidenceArtifact": descriptor(loader, role_dir),
+                            "sourceCommitObjectArtifact": descriptor(
+                                source_commit_object, role_dir
+                            ),
+                            "sourceTreeListingArtifact": descriptor(
+                                source_listing, role_dir
+                            ),
+                            "sourceArchiveArtifact": descriptor(
+                                source_archive, role_dir
+                            ),
+                            "buildTranscriptArtifact": descriptor(
+                                build_transcript, role_dir
+                            ),
+                            "buildExecutionArtifact": descriptor(
+                                build_execution, role_dir
+                            ),
                             "releaseQualifiedStatus": True,
                             "developmentArtifactDependencyCount": 0,
                             "p05ProductionDependencyCount": 0,
@@ -3074,6 +3837,22 @@ class EvidenceFixture:
                         "identities": suite_contract["capture"],
                         "buildConfiguration": "Release",
                         "sourceCheckoutState": "clean",
+                        "sourceEvidence": {
+                            "sourceCommit": self.candidate["sourceCommit"],
+                            "sourceTreeIdentitySHA256": self.candidate[
+                                "sourceTreeIdentitySHA256"
+                            ],
+                            "sourceTreeListingSHA256": builds[0][
+                                "sourceTreeListingSHA256"
+                            ],
+                            "sourceArchiveSHA256": builds[0][
+                                "sourceArchiveSHA256"
+                            ],
+                            "sourceCommitObjectSHA256": builds[0][
+                                "sourceCommitObjectSHA256"
+                            ],
+                            "sourceArchiveFormat": "git-archive-tar-v1",
+                        },
                         "builds": builds,
                         "productionLoaderAcceptancePass": True,
                         "tamperRejectionPass": True,
@@ -3081,6 +3860,7 @@ class EvidenceFixture:
                     }
                 )
                 for identity_name, relative in {
+                    "buildRunnerSHA256": "build-runner.sh",
                     "captureSourceSHA256": "capture-tool.py",
                     "evaluatorSHA256": "evaluator.py",
                     "runnerSHA256": "runner.sh",
@@ -3174,6 +3954,47 @@ class EvidenceFixture:
         write_json(sealed_path, sealed)
         sealed_descriptor.update(descriptor(sealed_path, self.root))
         self.save_index()
+
+    def substitute_lane_contract(
+        self,
+        role: str,
+        contract_path: Path,
+        mutation,
+        *,
+        report_pointer: tuple[str, ...],
+        binding_pointer: str,
+        entry_contract: bool = True,
+    ) -> str:
+        document = json.loads(contract_path.read_text())
+        mutation(document)
+        write_json(contract_path, document)
+        contract_sha = qualification.sha256(contract_path)
+        entry = self.entry(role)
+        report_path = self.root / entry["path"]
+        report = json.loads(report_path.read_text())
+        target = report
+        for key in report_pointer[:-1]:
+            target = target[key]
+        target[report_pointer[-1]] = contract_sha
+        if role == "quality":
+            report["contract"] = document
+        if role == "same_scope_performance":
+            unsigned = dict(report)
+            del unsigned["reportSHA256"]
+            report["reportSHA256"] = qualification.sha256_bytes(
+                qualification.canonical_bytes(unsigned) + b"\n"
+            )
+        write_json(report_path, report)
+        binding = next(
+            item
+            for item in entry["identityBindings"]
+            if item["jsonPointer"] == binding_pointer
+        )
+        binding.update(descriptor(contract_path, self.root))
+        if entry_contract:
+            entry["contractSHA256"] = contract_sha
+        self.reseal_role(role)
+        return contract_sha
 
     def refresh_notarized_smoke_nested_bindings(self) -> None:
         role = "notarized_smoke"
@@ -3277,9 +4098,13 @@ class EvidenceFixture:
                 qualification.RECOVERY_SUITE_MANIFEST_SCHEMA
                 if role == "recovery"
                 else (
-                    support_fixture_module.support.EVIDENCE_SCHEMA
-                    if role == "support_matrix"
-                    else "mirmir-test-sealed-evidence-v1"
+                    p06_fixture_module.p06.SEALED_SCHEMA
+                    if role == "p06_reproduction"
+                    else (
+                        support_fixture_module.support.EVIDENCE_SCHEMA
+                        if role == "support_matrix"
+                        else "mirmir-test-sealed-evidence-v1"
+                    )
                 )
             ),
             "artifacts": sealed_artifacts,
@@ -3338,6 +4163,36 @@ class EvidenceFixture:
         self._write_quality_evidence_manifest()
         self.reseal_role("quality")
 
+    def reseal_performance_baseline(
+        self, report_updates: dict[str, object]
+    ) -> None:
+        role_root = self.root / "same_scope_performance"
+        baseline_root = role_root / "baseline"
+        manifest_path = baseline_root / "artifact-manifest.json"
+        manifest = performance_gate.make_evidence_manifest(baseline_root)
+        manifest["schemaVersion"] = performance_gate.ARTIFACT_MANIFEST_SCHEMA
+        write_json(manifest_path, manifest)
+        report_path = role_root / "performance-gate-report.json"
+        report = json.loads(report_path.read_text())
+        report["baseline"].update(report_updates)
+        report["baseline"]["artifactManifestSHA256"] = qualification.sha256(
+            manifest_path
+        )
+        unsigned = dict(report)
+        del unsigned["reportSHA256"]
+        report["reportSHA256"] = qualification.sha256_bytes(
+            qualification.canonical_bytes(unsigned) + b"\n"
+        )
+        write_json(report_path, report)
+        entry = self.entry("same_scope_performance")
+        binding = next(
+            item
+            for item in entry["identityBindings"]
+            if item["jsonPointer"] == "/baseline/artifactManifestSHA256"
+        )
+        binding.update(descriptor(manifest_path, self.root))
+        self.reseal_role("same_scope_performance")
+
 
 class ReleaseQualificationV4Tests(unittest.TestCase):
     def setUp(self) -> None:
@@ -3351,8 +4206,41 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
             self.fixture.contract_path,
             "release-trust-root.json",
         )
+        self.performance_loader_patch = mock.patch.object(
+            qualification,
+            "load_locked_performance_evaluator",
+            return_value=performance_gate,
+        )
+        self.performance_summary_patch = mock.patch.object(
+            performance_gate,
+            "normalized_test_summary",
+            return_value={
+                "schemaVersion": performance_gate.TEST_SUMMARY_SCHEMA,
+                "testIdentifier": performance_gate.BASELINE_TEST_IDENTIFIER,
+                "result": "Passed",
+                "passedTests": 1,
+                "failedTests": 0,
+                "skippedTests": 0,
+            },
+        )
+        self.media_replay = mock.Mock()
+        self.media_replay.EvidenceError = ValueError
+        self.media_replay.verify_evidence.side_effect = lambda root: json.loads(
+            (root / "report.json").read_text()
+        )
+        self.media_loader_patch = mock.patch.object(
+            qualification,
+            "load_locked_media_evaluator",
+            return_value=self.media_replay,
+        )
+        self.performance_loader_patch.start()
+        self.performance_summary_patch.start()
+        self.media_loader_patch.start()
 
     def tearDown(self) -> None:
+        self.media_loader_patch.stop()
+        self.performance_summary_patch.stop()
+        self.performance_loader_patch.stop()
         self.trust_temporary.cleanup()
         self.temporary.cleanup()
 
@@ -3584,6 +4472,502 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
                         expected_trust_root_sha256=trust_builder.sha256(path),
                     )
 
+    def testQualityContractAndMetricSubstitutionFailExternalLocks(self) -> None:
+        contract_path = self.root / "quality" / "suite-contract.json"
+
+        def weaken_quality(value: dict[str, object]) -> None:
+            value["components"][0]["weight"] = 0.3499999999999999
+            value["cohortConstraints"]["contentCohorts"].pop()
+            value["cohortConstraints"]["minimumClipsPerCohort"] = 1
+            value["corpusConstruction"]["naturalClipCountPerCohort"] = 1
+
+        self.fixture.substitute_lane_contract(
+            "quality",
+            contract_path,
+            weaken_quality,
+            report_pointer=("identities", "contractSHA256"),
+            binding_pointer="/identities/contractSHA256",
+        )
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "quality lane contract identity is not release-locked",
+        ):
+            self.evaluate()
+
+        replacement_root = self.root / "metric-substitution"
+        self.fixture = EvidenceFixture(replacement_root)
+        self.root = replacement_root
+        metric_path = self.root / "quality" / "quality_gate_v4.py"
+        metric_path.write_bytes(metric_path.read_bytes() + b"\n# substituted metric\n")
+        metric_sha = qualification.sha256(metric_path)
+        entry = self.fixture.entry("quality")
+        report_path = self.root / entry["path"]
+        report = json.loads(report_path.read_text())
+        report["identities"]["metricToolSHA256"] = metric_sha
+        write_json(report_path, report)
+        binding = next(
+            item
+            for item in entry["identityBindings"]
+            if item["jsonPointer"] == "/identities/metricToolSHA256"
+        )
+        binding.update(descriptor(metric_path, self.root))
+        self.fixture.reseal_quality_evidence()
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "quality source differs from release lock: metricToolSHA256",
+        ):
+            self.evaluate()
+
+    def testQualityCorpusSubstitutionFailsExternalLockAfterReseal(self) -> None:
+        corpus_path = self.root / "quality" / "corpus-manifest.json"
+        corpus = json.loads(corpus_path.read_text())
+        removed_cohort = corpus["cohorts"].pop()
+        retained_cases = [
+            case for case in corpus["cases"] if case["cohort"] != removed_cohort
+        ]
+        retained_paths = {
+            case[field]
+            for case in retained_cases
+            for field in ("sourceFile", "referenceFile")
+        }
+        corpus["cases"] = retained_cases
+        corpus["artifacts"] = [
+            artifact
+            for artifact in corpus["artifacts"]
+            if artifact["path"] in retained_paths
+        ]
+        corpus["clipCount"] -= 1
+        corpus["caseCount"] = len(retained_cases)
+        corpus["artifactSetSHA256"] = quality_replay.artifact_set_sha(
+            (artifact["path"], artifact["sha256"])
+            for artifact in corpus["artifacts"]
+        )
+        corpus["corpusID"] = "resealed-easier-natural-corpus"
+        write_json(corpus_path, corpus)
+        corpus_sha = qualification.sha256(corpus_path)
+        entry = self.fixture.entry("quality")
+        report_path = self.root / entry["path"]
+        report = json.loads(report_path.read_text())
+        report["identities"]["corpusManifestSHA256"] = corpus_sha
+        report["identities"]["corpusArtifactSetSHA256"] = corpus[
+            "artifactSetSHA256"
+        ]
+        report["corpus"]["clipCount"] = corpus["clipCount"]
+        report["corpus"]["caseCount"] = corpus["caseCount"]
+        report["corpus"]["cohorts"] = corpus["cohorts"]
+        write_json(report_path, report)
+        binding = next(
+            item
+            for item in entry["identityBindings"]
+            if item["jsonPointer"] == "/identities/corpusManifestSHA256"
+        )
+        binding.update(descriptor(corpus_path, self.root))
+        self.fixture.reseal_quality_evidence()
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "quality corpus differs from release lock",
+        ):
+            self.evaluate()
+
+    def testQualityBaselineRunnerMustMatchExternalLock(self) -> None:
+        release_contract = json.loads(self.fixture.contract_path.read_text())
+        release_contract["qualityLockedSources"][
+            "baselineRunnerSHA256"
+        ] = "f" * 64
+        write_json(self.fixture.contract_path, release_contract)
+        trust_root_path, trust_root_sha256 = self.make_trust_root(
+            self.fixture.contract_path,
+            "quality-stale-baseline-runner-trust-root.json",
+        )
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "release-locked quality source is stale: baselineRunnerSHA256",
+        ):
+            qualification.evaluate_candidate(
+                self.fixture.index_path,
+                self.root,
+                self.fixture.contract_path,
+                trust_root_path=trust_root_path,
+                expected_trust_root_sha256=trust_root_sha256,
+            )
+
+    def testQualityDegradedP05PlanesFailExternalOutputLockAfterReseal(
+        self,
+    ) -> None:
+        role_root = self.root / "quality"
+        capture_path = role_root / "capture-manifest.json"
+        capture = json.loads(capture_path.read_text())
+        corpus = json.loads((role_root / "corpus-manifest.json").read_text())
+        corpus_cases = {case["id"]: case for case in corpus["cases"]}
+        for case in capture["cases"]:
+            output_path = role_root / case["outputs"]["baseline_p05"]
+            corpus_case = corpus_cases[case["id"]]
+            y_count = (
+                corpus_case["targetWidth"] * corpus_case["targetHeight"]
+            )
+            output_bytes = output_path.read_bytes()
+            luma_black = (
+                16 if corpus_case["pixelFormat"] == "420v" else 0
+            )
+            output_path.write_bytes(
+                bytes([luma_black]) * y_count
+                + bytes([128]) * (len(output_bytes) - y_count)
+            )
+            case["milliseconds"]["baseline_p05"] *= 0.5
+        write_json(capture_path, capture)
+
+        p05_path = role_root / "p05-capture-manifest.json"
+        p05_capture = json.loads(p05_path.read_text())
+        for case in p05_capture["cases"]:
+            case["milliseconds"] *= 0.5
+        self.assertEqual(
+            p05_capture["baselineIdentity"],
+            self.fixture.contract["qualityFrozenP05Baseline"],
+        )
+        write_json(p05_path, p05_capture)
+        with (role_root / "p05-xcodebuild.log").open(
+            "a", encoding="utf-8"
+        ) as log:
+            log.write("resealed substituted P05 output capture\n")
+
+        report_path = role_root / "report.json"
+        original_report = json.loads(report_path.read_text())
+        package_root = role_root / "packaged-candidate"
+        with contextlib.redirect_stdout(io.StringIO()), mock.patch.object(
+            quality_replay,
+            "validate_packaged_quality_capture",
+            return_value={
+                "packageIdentity": original_report["identities"][
+                    "packagedCandidateIdentity"
+                ],
+                "requestSHA256": original_report["identities"][
+                    "evidenceRequestSHA256"
+                ],
+                "observerSourceSHA256": original_report["identities"][
+                    "observerSourceSHA256"
+                ],
+                "captureTree": qualification.packaged_capture_tree(
+                    package_root / "capture"
+                ),
+            },
+        ):
+            quality_replay.evaluate(
+                role_root / "suite-contract.json",
+                role_root / "corpus-manifest.json",
+                capture_path,
+                report_path,
+                package_root,
+                self.root,
+                role_root / "runtime-manifest.json",
+            )
+        substituted_report = json.loads(report_path.read_text())
+        substituted_output_set = substituted_report["identities"][
+            "outputSetSHA256"
+        ]["baseline_p05"]
+        self.assertNotEqual(
+            substituted_output_set,
+            self.fixture.contract["qualityFrozenP05OutputSetSHA256"],
+        )
+        self.assertTrue(
+            substituted_report["quality"]["gates"]["releaseQualityGatePass"]
+        )
+        self.fixture.reseal_quality_evidence()
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "quality frozen P05 output set differs from release lock",
+        ):
+            self.evaluate()
+
+    def testPerformanceBaselineAndWorkloadSubstitutionFailExternalLock(
+        self,
+    ) -> None:
+        contract_path = (
+            self.root
+            / "same_scope_performance"
+            / "performance-gate-contract-v1.json"
+        )
+
+        def weaken(value: dict[str, object]) -> None:
+            value["baseline"]["sourceRevision"] = "f" * 40
+            value["baseline"]["implementationVersions"] = [
+                "substituted-baseline"
+            ]
+            value["workload"]["input"]["sha256"] = "e" * 64
+            value["workload"]["input"]["width"] = 32
+            value["workload"]["input"]["frameCount"] = 1
+            value["workload"]["cases"][0]["backendID"] = (
+                "substituted-backend"
+            )
+            value["workload"]["cases"][0]["targetWidth"] = 64
+            value["workload"]["cases"].pop()
+
+        self.fixture.substitute_lane_contract(
+            "same_scope_performance",
+            contract_path,
+            weaken,
+            report_pointer=("contractSHA256",),
+            binding_pointer="/contractSHA256",
+        )
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "same_scope_performance lane contract identity is not release-locked",
+        ):
+            self.evaluate()
+
+    def testPerformanceStableProducerSubstitutionFailsExternalLockAfterReseal(
+        self,
+    ) -> None:
+        baseline_root = self.root / "same_scope_performance" / "baseline"
+        executable_path = baseline_root / "producer/application-executable"
+        executable_path.write_bytes(
+            b"\xcf\xfa\xed\xfesubstituted baseline application\n"
+        )
+        receipt_path = baseline_root / "producer/producer-receipt.json"
+        receipt = json.loads(receipt_path.read_text())
+        receipt["applicationExecutableArtifact"] = descriptor(
+            executable_path, baseline_root
+        )
+        receipt["stableProducerFacts"]["applicationExecutableSHA256"] = (
+            qualification.sha256(executable_path)
+        )
+        receipt["stableProducerIdentitySHA256"] = (
+            performance_gate._stable_producer_identity(
+                receipt["stableProducerFacts"]
+            )
+        )
+        receipt["causalBindingSHA256"] = (
+            performance_gate._producer_causal_binding(receipt)
+        )
+        write_json(receipt_path, receipt)
+        producer = performance_gate.validate_baseline_producer_receipt(
+            baseline_root,
+            json.loads((baseline_root / "capture.json").read_text()),
+            json.loads(
+                (
+                    self.root
+                    / "same_scope_performance/performance-gate-contract-v1.json"
+                ).read_text()
+            ),
+            qualification.sha256(
+                self.root
+                / "same_scope_performance/performance-gate-contract-v1.json"
+            ),
+            True,
+        )
+        self.fixture.reseal_performance_baseline(producer)
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "performance baseline stable producer differs from release lock",
+        ):
+            self.evaluate()
+
+    def testPerformanceStableProducerMapHashMustMatchExternalLock(self) -> None:
+        release_contract = json.loads(self.fixture.contract_path.read_text())
+        release_contract["performanceFrozenP05Producer"][
+            "stableFactsSHA256"
+        ] = "f" * 64
+        write_json(self.fixture.contract_path, release_contract)
+        trust_root_path, trust_root_sha256 = self.make_trust_root(
+            self.fixture.contract_path,
+            "performance-bad-stable-fact-map-trust-root.json",
+        )
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "performance baseline stable fact map hash differs from release lock",
+        ):
+            qualification.evaluate_candidate(
+                self.fixture.index_path,
+                self.root,
+                self.fixture.contract_path,
+                trust_root_path=trust_root_path,
+                expected_trust_root_sha256=trust_root_sha256,
+            )
+
+    def testPerformanceCopiedProducerReceiptFailsCausalReplayAfterReseal(
+        self,
+    ) -> None:
+        baseline_root = self.root / "same_scope_performance" / "baseline"
+        receipt_path = baseline_root / "producer/producer-receipt.json"
+        receipt = json.loads(receipt_path.read_text())
+        copied_nonce = identity("copied performance producer receipt")
+        receipt["invocationNonce"] = copied_nonce
+        receipt["buildEnvironment"][
+            "MIRMIR_V4_PERFORMANCE_PRODUCER_NONCE"
+        ] = copied_nonce
+        receipt["buildCommand"] = performance_gate._expected_baseline_build_command(
+            receipt
+        )
+        receipt["causalBindingSHA256"] = (
+            performance_gate._producer_causal_binding(receipt)
+        )
+        write_json(receipt_path, receipt)
+        self.fixture.reseal_performance_baseline(
+            {
+                "producerReceiptSHA256": qualification.sha256(receipt_path),
+                "producerInvocationNonce": copied_nonce,
+            }
+        )
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "producer nonce is not capture-bound",
+        ):
+            self.evaluate()
+
+    def testPerformanceStableProducerIdentityIgnoresRootAndRunNonce(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(
+            prefix="mirmir-performance-stable-producer-second-"
+        ) as temporary:
+            second = EvidenceFixture(Path(temporary))
+            first_report = json.loads(
+                (
+                    self.root
+                    / "same_scope_performance/performance-gate-report.json"
+                ).read_text()
+            )
+            second_report = json.loads(
+                (
+                    Path(temporary)
+                    / "same_scope_performance/performance-gate-report.json"
+                ).read_text()
+            )
+            self.assertEqual(
+                first_report["baseline"]["producerStableFacts"],
+                second_report["baseline"]["producerStableFacts"],
+            )
+            self.assertEqual(
+                first_report["baseline"]["producerStableIdentitySHA256"],
+                second_report["baseline"]["producerStableIdentitySHA256"],
+            )
+            self.assertEqual(
+                first_report["baseline"]["sampleWorkloadIdentitySHA256"],
+                second_report["baseline"]["sampleWorkloadIdentitySHA256"],
+            )
+            self.assertNotEqual(
+                first_report["baseline"]["sampleMeasurementSetSHA256"],
+                second_report["baseline"]["sampleMeasurementSetSHA256"],
+            )
+            self.assertNotEqual(
+                first_report["baseline"]["producerReceiptSHA256"],
+                second_report["baseline"]["producerReceiptSHA256"],
+            )
+            self.assertNotEqual(
+                first_report["baseline"]["producerInvocationNonce"],
+                second_report["baseline"]["producerInvocationNonce"],
+            )
+
+    def testMediaFixtureSubstitutionFailsExternalLockAfterReseal(self) -> None:
+        contract_path = (
+            self.root
+            / "media_preservation"
+            / "bindings"
+            / "media-preservation-contract-v1.json"
+        )
+        def weaken_media(value: dict[str, object]) -> None:
+            removed = value["fixtures"].pop()
+            covered = {
+                label
+                for fixture in value["fixtures"]
+                for label in fixture["coverage"]
+            }
+            value["fixtures"][0]["coverage"].extend(
+                label for label in removed["coverage"] if label not in covered
+            )
+            value["fixtures"][0]["policy"] = "process_primary_preserve_auxiliary"
+
+        self.fixture.substitute_lane_contract(
+            "media_preservation",
+            contract_path,
+            weaken_media,
+            report_pointer=("identities", "laneContractSHA256"),
+            binding_pointer="/identities/laneContractSHA256",
+            entry_contract=False,
+        )
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "media_preservation lane contract identity is not release-locked",
+        ):
+            self.evaluate()
+
+    def testMediaLockedSemanticReplayFailureCannotBeClaimedAway(self) -> None:
+        self.media_replay.verify_evidence.side_effect = ValueError(
+            "independent absolute P010 oracle differs"
+        )
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "release-locked media semantic replay failed: independent absolute P010 oracle differs",
+        ):
+            self.evaluate()
+
+    def testP06SourceInventorySubstitutionFailsExternalLockAfterReseal(
+        self,
+    ) -> None:
+        role = "p06_reproduction"
+        role_root = self.root / role
+        source_path = role_root / "source-provenance-contract.json"
+        source_contract = json.loads(source_path.read_text())
+        source_contract["sources"] = ["Sources/Substituted.swift"]
+        source_contract["normalizedDeploymentTrustRoot"]["path"] = (
+            "Sources/Substituted.swift"
+        )
+        write_json(source_path, source_contract)
+        source_sha = qualification.sha256(source_path)
+        entry = self.fixture.entry(role)
+        report_path = self.root / entry["path"]
+        report = json.loads(report_path.read_text())
+        report["identities"]["sourceProvenanceContractSHA256"] = source_sha
+        write_json(report_path, report)
+        source_binding = next(
+            item
+            for item in entry["identityBindings"]
+            if item["jsonPointer"]
+            == "/identities/sourceProvenanceContractSHA256"
+        )
+        source_binding.update(descriptor(source_path, self.root))
+        contract_path = role_root / "suite-contract.json"
+
+        def substitute(value: dict[str, object]) -> None:
+            value["capture"]["sourceProvenanceContractSHA256"] = source_sha
+            value["productionSourceCount"] = 1
+
+        self.fixture.substitute_lane_contract(
+            role,
+            contract_path,
+            substitute,
+            report_pointer=("contractSHA256",),
+            binding_pointer="/contractSHA256",
+        )
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "p06_reproduction lane contract identity is not release-locked",
+        ):
+            self.evaluate()
+
+    def testSupportTeamAndToolSubstitutionFailExternalLockAfterReseal(
+        self,
+    ) -> None:
+        contract_path = self.root / "support_matrix" / "suite-contract.json"
+
+        def substitute(value: dict[str, object]) -> None:
+            value["developmentTeam"] = "SUBSTITUTED"
+            value["tools"]["captureSourceSHA256"] = identity(
+                "substituted support capture"
+            )
+
+        self.fixture.substitute_lane_contract(
+            "support_matrix",
+            contract_path,
+            substitute,
+            report_pointer=("contractSHA256",),
+            binding_pointer="/contractSHA256",
+        )
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "support_matrix lane contract identity is not release-locked",
+        ):
+            self.evaluate()
+
     def testP06NestedLoaderToolchainAndSourceTamperAreRecomputed(self) -> None:
         for mutation in ("loader", "toolchain", "source"):
             with self.subTest(mutation=mutation), tempfile.TemporaryDirectory(
@@ -3594,8 +4978,9 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
                 report_path = root / "p06_reproduction/report.json"
                 report = json.loads(report_path.read_text())
                 build = report["builds"][0]
+                role_root = root / "p06_reproduction"
                 if mutation == "loader":
-                    path = root / build["loaderEvidenceArtifact"]["path"]
+                    path = role_root / build["loaderEvidenceArtifact"]["path"]
                     path.write_text(
                         path.read_text().replace(
                             "same_length_artifact_tamper_rejection=pass",
@@ -3603,31 +4988,31 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
                         ),
                         encoding="utf-8",
                     )
-                    build["loaderEvidenceArtifact"] = descriptor(path, root)
+                    build["loaderEvidenceArtifact"] = descriptor(path, role_root)
                 elif mutation == "toolchain":
-                    path = root / build["toolchainImageArtifact"]["path"]
+                    path = role_root / build["toolchainImageArtifact"]["path"]
                     path.write_bytes(
                         qualification.canonical_bytes(
                             {"sdk": "resealed-but-not-runtime-provenance"}
                         )
                     )
                     build["toolchainImageSHA256"] = qualification.sha256(path)
-                    build["toolchainImageArtifact"] = descriptor(path, root)
+                    build["toolchainImageArtifact"] = descriptor(path, role_root)
                 else:
-                    path = root / build["productionSourceArtifact"]["path"]
+                    path = role_root / build["productionSourceArtifact"]["path"]
                     document = json.loads(path.read_text())
-                    document["sourceRevision"] = "f" * 64
+                    document["sources"][0]["sha256"] = "f" * 64
+                    document["sources"][0]["normalizedSHA256"] = "f" * 64
                     path.write_bytes(qualification.canonical_bytes(document))
-                    build["productionSourceRevision"] = "f" * 64
                     build["productionSourceManifestSHA256"] = qualification.sha256(
                         path
                     )
-                    build["productionSourceArtifact"] = descriptor(path, root)
+                    build["productionSourceArtifact"] = descriptor(path, role_root)
                 write_json(report_path, report)
                 fixture.reseal_role("p06_reproduction")
                 with self.assertRaisesRegex(
                     qualification.QualificationError,
-                    "loader/tamper|toolchain artifact differs|source revision/count",
+                    "loader/tamper|toolchain artifact differs|production source manifest differs from release lock",
                 ):
                     qualification.evaluate_candidate(
                         fixture.index_path,
@@ -3636,6 +5021,42 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
                         trust_root_path=self.trust_root_path,
                         expected_trust_root_sha256=self.trust_root_sha256,
                     )
+
+    def testP06ResealedCopiedBuildExecutionFailsCausalReplay(self) -> None:
+        role_root = self.root / "p06_reproduction"
+        report_path = role_root / "report.json"
+        report = json.loads(report_path.read_text())
+        first_build, second_build = report["builds"]
+        first_path = role_root / first_build["buildExecutionArtifact"]["path"]
+        second_path = role_root / second_build["buildExecutionArtifact"]["path"]
+        copied = json.loads(first_path.read_text())
+        original_second = json.loads(second_path.read_text())
+        for key in (
+            "buildID",
+            "invocationNonce",
+            "processID",
+            "startedAtUnixNanoseconds",
+            "finishedAtUnixNanoseconds",
+            "durationNanoseconds",
+            "workingDirectory",
+            "buildOutputRoot",
+            "archiveCommand",
+            "buildCommand",
+            "buildTranscriptSHA256",
+        ):
+            copied[key] = original_second[key]
+        copied["predecessorExecutionSHA256"] = qualification.sha256(first_path)
+        second_path.write_bytes(qualification.canonical_bytes(copied))
+        second_build["buildExecutionArtifact"] = descriptor(
+            second_path, role_root
+        )
+        write_json(report_path, report)
+        self.fixture.reseal_role("p06_reproduction")
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "nested P06 causal replay failed:.*(?:build argv|build causal binding) differs",
+        ):
+            self.evaluate_role("p06_reproduction")
 
     def testPublishedJSONSchemaAcceptsBindingAndRejectsExtraProperty(self) -> None:
         try:
@@ -4159,15 +5580,23 @@ class CentralMediaRouteV2Tests(unittest.TestCase):
                 for path in (root / "media_preservation").rglob("*")
                 if path.is_file()
             }
-            summary = qualification.validate_preservation(
-                report,
-                fixture.candidate,
-                fixture.contract,
-                entry["contractSHA256"],
-                entry,
-                root,
-                sealed_paths,
-            )
+            replay = mock.Mock()
+            replay.EvidenceError = ValueError
+            replay.verify_evidence.return_value = report
+            with mock.patch.object(
+                qualification,
+                "load_locked_media_evaluator",
+                return_value=replay,
+            ):
+                summary = qualification.validate_preservation(
+                    report,
+                    fixture.candidate,
+                    fixture.contract,
+                    entry["contractSHA256"],
+                    entry,
+                    root,
+                    sealed_paths,
+                )
             self.assertEqual(summary["fixtureCount"], 6)
             self.assertEqual(summary["accountedTrackCount"], 15)
 
@@ -4280,6 +5709,239 @@ class CentralMediaRouteV2Tests(unittest.TestCase):
             qualification.QualificationError, "alpha presentation time differs"
         ):
             self.validate(fixture)
+
+
+class CheckedInReleaseLockTests(unittest.TestCase):
+    def testStableLaneAndToolLocksMatchCanonicalFiles(self) -> None:
+        contract = json.loads(
+            (SCRIPT_DIRECTORY / "release-qualification-contract-v1.json").read_text()
+        )
+
+        def locked_lane(field: str, relative: str) -> None:
+            self.assertEqual(
+                contract[field],
+                qualification.sha256(SCRIPT_DIRECTORY.parent.parent / relative),
+                field,
+            )
+
+        def locked_sources(
+            field: str, paths: dict[str, str]
+        ) -> None:
+            self.assertEqual(
+                contract[field],
+                {
+                    key: qualification.sha256(
+                        SCRIPT_DIRECTORY.parent.parent / relative
+                    )
+                    for key, relative in paths.items()
+                },
+                field,
+            )
+
+        locked_lane(
+            "qualityLaneContractSHA256",
+            "script/v4/quality-gate-release-contract-v1.json",
+        )
+        locked_sources(
+            "qualityLockedSources",
+            {
+                "baselineRunnerSHA256": (
+                    "script/v4/run_p05_quality_baseline_v4.sh"
+                ),
+                "metricToolSHA256": "script/v4/quality_gate_v4.py",
+                "observerSourceSHA256": "Mirmir/App/MirmirApp.swift",
+            },
+        )
+        quality_contract = json.loads(
+            (SCRIPT_DIRECTORY / "quality-gate-release-contract-v1.json").read_text()
+        )
+        frozen_quality_baseline = dict(quality_contract["frozenP05Baseline"])
+        frozen_quality_baseline.pop("sourceManifestPath")
+        self.assertEqual(
+            contract["qualityFrozenP05Baseline"], frozen_quality_baseline
+        )
+        self.assertEqual(
+            contract["qualityFrozenP05OutputSetSHA256"],
+            "09101d396417f1acf701c6620a59104f812e87b2fb64c5461053bf505231886d",
+        )
+        self.assertEqual(
+            contract["qualityCorpusLock"]["releaseLockSHA256"],
+            qualification.sha256(
+                SCRIPT_DIRECTORY / "natural-quality-corpus-lock-v1.json"
+            ),
+        )
+
+        locked_lane(
+            "performanceLaneContractSHA256",
+            "script/v4/performance-gate-contract-v1.json",
+        )
+        locked_sources(
+            "performanceLockedSources",
+            {
+                "captureSourceSHA256": "script/v4/PerformanceGateCaptureTests.swift",
+                "evaluatorSourceSHA256": "script/v4/performance_gate_v4.py",
+                "runnerSourceSHA256": "script/v4/run_performance_gate_v4.sh",
+            },
+        )
+        performance_contract = json.loads(
+            (SCRIPT_DIRECTORY / "performance-gate-contract-v1.json").read_text()
+        )
+        self.assertEqual(
+            contract["performanceFrozenP05Baseline"],
+            {
+                **performance_contract["baseline"],
+                "sourceTreeIdentitySHA256": (
+                    "d9b89f1ca31c0d076826651b250459773bea0de11d7b0ffd12ac40451af7b69c"
+                ),
+            },
+        )
+        performance_producer = contract["performanceFrozenP05Producer"]
+        stable_facts = performance_producer["stableFacts"]
+        self.assertEqual(
+            set(stable_facts),
+            qualification.PERFORMANCE_STABLE_PRODUCER_FACT_KEYS,
+        )
+        self.assertEqual(
+            qualification.sha256_bytes(
+                performance_gate.canonical_json(stable_facts)
+            ),
+            performance_producer["stableFactsSHA256"],
+        )
+        self.assertEqual(
+            performance_producer["stableFactsSHA256"],
+            "a2b3b5f2ea0e2a09a3f1050c9397c4139c872370a7f35ae751f16f13b2da7f1e",
+        )
+        self.assertEqual(
+            performance_gate._stable_producer_identity(stable_facts),
+            performance_producer["stableIdentitySHA256"],
+        )
+        self.assertEqual(
+            performance_producer["stableIdentitySHA256"],
+            "54e96f20effe70b21a51832eef6e54962a4f272577113a096d9078790b2931d0",
+        )
+        self.assertEqual(
+            stable_facts["applicationExecutableSHA256"],
+            "835ac96f4afb64785238d1ec26be52078cfd3d57f2e81e64cb8bed702ee06635",
+        )
+        self.assertEqual(
+            stable_facts["testExecutableSHA256"],
+            "29b4d45177cb39635ba9951c0d5692d4f97cd63aa8a38d149018e43cb753ff9f",
+        )
+        self.assertEqual(
+            stable_facts["sampleWorkloadIdentitySHA256"],
+            "e3b82df0a00dc2d3b2e7b1904f3efb1ee425bd6e4908e9af7b27128b02d13e66",
+        )
+        self.assertEqual(
+            qualification.sha256_bytes(
+                performance_gate.canonical_json(
+                    stable_facts["compilerControlAudit"]
+                )
+            ),
+            "5bc9077c5f9b2737574e3d51c2bb84a89271198ca23b2fc625b27d9756066bd6",
+        )
+        self.assertEqual(
+            stable_facts["normalizedTestSummary"],
+            {
+                "failedTests": 0,
+                "passedTests": 1,
+                "result": "Passed",
+                "schemaVersion": (
+                    "mirmir-v4-performance-normalized-test-summary-v2"
+                ),
+                "skippedTests": 0,
+                "testIdentifier": (
+                    "MirmirTests/DeterministicEngineV4PerformanceCaptureTests/"
+                    "testCaptureSameScopePerformanceWhenRequested"
+                ),
+            },
+        )
+
+        locked_lane(
+            "supportMatrixLaneContractSHA256",
+            "script/v4/support-matrix-contract-v1.json",
+        )
+        locked_sources(
+            "supportMatrixLockedSources",
+            {
+                "captureSourceSHA256": "script/v4/capture_support_matrix_v4.py",
+                "evaluatorSHA256": "script/v4/support_matrix_v4.py",
+                "runnerSHA256": "script/v4/run_support_matrix_v4.sh",
+            },
+        )
+        support_contract = json.loads(
+            (SCRIPT_DIRECTORY / "support-matrix-contract-v1.json").read_text()
+        )
+        self.assertEqual(
+            contract["supportMatrixDevelopmentTeam"],
+            support_contract["developmentTeam"],
+        )
+
+        locked_lane(
+            "parityLaneContractSHA256",
+            "script/v4/cpu-metal-parity-contract-v2.json",
+        )
+        locked_sources(
+            "parityLockedSources",
+            {
+                "captureSourceSHA256": "Mirmir/App/MirmirApp.swift",
+                "evaluatorSHA256": "script/v4/cpu_metal_parity_v4.py",
+                "runnerSHA256": "script/v4/run_cpu_metal_parity_v4.sh",
+            },
+        )
+
+        locked_lane(
+            "recoveryLaneContractSHA256",
+            "script/v4/recovery-qualification-contract-v1.json",
+        )
+        locked_sources(
+            "recoveryLockedSources",
+            {
+                "archiveProvenanceSHA256": "script/v4/release_candidate_archive_v4.py",
+                "evaluatorSHA256": "script/v4/recovery_qualification_v4.py",
+                "observerSourceSHA256": "Mirmir/App/MirmirApp.swift",
+                "packagedEvidenceSHA256": "script/v4/packaged_candidate_evidence_v4.py",
+                "producerSourceSHA256": "Mirmir/App/WorkflowApplicationCoordinatorV4.swift",
+                "runnerSHA256": "script/v4/run_recovery_qualification_v4.sh",
+            },
+        )
+
+        locked_lane(
+            "notarizedSmokeLaneContractSHA256",
+            "script/v4/notarized-smoke-contract-v1.json",
+        )
+        locked_sources(
+            "notarizedSmokeLockedSources",
+            {
+                "evaluatorSHA256": "script/v4/notarized_smoke_v4.py",
+                "observerSourceSHA256": "Mirmir/App/MirmirApp.swift",
+                "runnerSHA256": "script/v4/run_notarized_smoke_v4.py",
+            },
+        )
+
+        locked_lane(
+            "p06ReproductionLaneContractSHA256",
+            "script/v4/p06-reproduction-contract-v2.json",
+        )
+        locked_sources(
+            "p06ReproductionLockedSources",
+            {
+                "buildRunnerSHA256": "script/v4/build_p06_release_runtime.sh",
+                "captureSourceSHA256": "script/v4/capture_p06_reproduction_v4.py",
+                "evaluatorSHA256": "script/v4/p06_reproduction_v4.py",
+                "runnerSHA256": "script/v4/run_p06_reproduction_v4.sh",
+                "runtimeLoadCheckRunnerSHA256": "script/v4/run_p06_runtime_load_check.sh",
+                "runtimeLoadCheckSourceSHA256": "script/v4/P06RuntimeLoadCheckMain.swift",
+                "sourceIdentityToolSHA256": "script/v4/p06_source_identity_v4.py",
+                "sourceProvenanceContractSHA256": "script/v4/p06-source-provenance-v1.json",
+            },
+        )
+        p06_contract = json.loads(
+            (SCRIPT_DIRECTORY / "p06-reproduction-contract-v2.json").read_text()
+        )
+        self.assertEqual(
+            contract["p06ProductionSourceCount"],
+            p06_contract["productionSourceCount"],
+        )
 
 
 if __name__ == "__main__":

@@ -53,9 +53,10 @@ OUTPUT=$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expandu
 CONTRACT=$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' "$CONTRACT")
 CORPUS_MANIFEST=$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' "$CORPUS_MANIFEST")
 IDENTITY_TOOL="$SCRIPT_DIR/p05_baseline_v4.py"
+CORPUS_TOOL="$SCRIPT_DIR/quality_gate_v4.py"
 SOURCE_MANIFEST="$SCRIPT_DIR/p05-baseline-source-manifest-v1.json"
 CAPTURE_SOURCE="$SCRIPT_DIR/P05QualityBaselineCaptureTests.swift"
-for path in "$IDENTITY_TOOL" "$SOURCE_MANIFEST" "$CAPTURE_SOURCE"; do
+for path in "$IDENTITY_TOOL" "$CORPUS_TOOL" "$SOURCE_MANIFEST" "$CAPTURE_SOURCE"; do
   [ -f "$path" ] || {
     echo "P05 baseline harness file is absent: $path" >&2
     exit 66
@@ -98,7 +99,131 @@ case "$BUILD_ROOT" in
 esac
 PROJECT="$BUILD_ROOT/project"
 DERIVED_DATA="$BUILD_ROOT/DerivedData"
+STAGED_CORPUS_ROOT="$BUILD_ROOT/corpus"
+STAGED_CORPUS_MANIFEST="$STAGED_CORPUS_ROOT/corpus-manifest.json"
 mkdir -p "$PROJECT"
+mkdir -m 0700 "$STAGED_CORPUS_ROOT"
+
+CORPUS_SHA=$(shasum -a 256 "$CORPUS_MANIFEST" | awk '{print $1}')
+python3 - "$CORPUS_MANIFEST" "$STAGED_CORPUS_ROOT" "$CORPUS_SHA" "$SCRIPT_DIR" <<'PY'
+from pathlib import Path
+import hashlib
+import json
+import os
+import re
+import shutil
+import stat
+import sys
+
+source_manifest = Path(sys.argv[1])
+destination_root = Path(sys.argv[2])
+expected_manifest_sha = sys.argv[3]
+sys.path.insert(0, sys.argv[4])
+import quality_gate_v4 as quality
+
+sha_pattern = re.compile(r"^[0-9a-f]{64}$")
+
+
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise SystemExit(message)
+
+
+manifest_information = os.lstat(source_manifest)
+require(
+    stat.S_ISREG(manifest_information.st_mode)
+    and not stat.S_ISLNK(manifest_information.st_mode),
+    "corpus manifest is not a regular non-symlink file",
+)
+manifest_bytes = source_manifest.read_bytes()
+manifest_sha = hashlib.sha256(manifest_bytes).hexdigest()
+require(sha_pattern.fullmatch(expected_manifest_sha), "invalid expected corpus SHA-256")
+require(manifest_sha == expected_manifest_sha, "corpus manifest changed during staging")
+try:
+    manifest = json.loads(manifest_bytes)
+except (UnicodeDecodeError, json.JSONDecodeError) as error:
+    raise SystemExit("corpus manifest is not canonical JSON input") from error
+require(
+    manifest.get("schemaVersion") == "mirmir-ash-v4-quality-corpus-v1",
+    "unsupported corpus manifest schema",
+)
+artifacts = manifest.get("artifacts")
+cases = manifest.get("cases")
+require(isinstance(artifacts, list) and artifacts, "corpus artifact inventory is empty")
+require(isinstance(cases, list) and cases, "corpus case inventory is empty")
+require(manifest.get("caseCount") == len(cases), "corpus case count differs")
+
+declared_paths: list[str] = []
+for artifact in artifacts:
+    require(
+        isinstance(artifact, dict)
+        and set(artifact) == {"path", "byteCount", "sha256"},
+        "corpus artifact descriptor field set differs",
+    )
+    relative_text = artifact["path"]
+    quality.checked_relative(source_manifest.parent, relative_text)
+    require(
+        isinstance(artifact["byteCount"], int) and artifact["byteCount"] >= 0,
+        f"invalid corpus artifact byte count: {relative_text}",
+    )
+    require(
+        isinstance(artifact["sha256"], str)
+        and sha_pattern.fullmatch(artifact["sha256"]),
+        f"invalid corpus artifact SHA-256: {relative_text}",
+    )
+    declared_paths.append(relative_text)
+require(len(declared_paths) == len(set(declared_paths)), "duplicate corpus artifact path")
+require(declared_paths == sorted(declared_paths), "corpus artifact inventory is not ordered")
+
+referenced_paths: list[str] = []
+for record in cases:
+    require(isinstance(record, dict), "corpus case is not an object")
+    for field in ("sourceFile", "referenceFile"):
+        relative = record.get(field)
+        require(isinstance(relative, str), f"corpus case {field} is not a string")
+        quality.checked_relative(source_manifest.parent, relative)
+        referenced_paths.append(relative)
+require(
+    len(referenced_paths) == len(set(referenced_paths)),
+    "corpus cases reuse an artifact path",
+)
+require(
+    sorted(referenced_paths) == declared_paths,
+    "corpus case paths differ from the exact artifact inventory",
+)
+
+require(
+    quality.artifact_set_sha(
+        (artifact["path"], artifact["sha256"]) for artifact in artifacts
+    ) == manifest.get("artifactSetSHA256"),
+    "corpus artifact-set identity mismatch",
+)
+
+source_root = source_manifest.parent.resolve(strict=True)
+quality.validate_artifacts(source_root, artifacts)
+require(destination_root.is_dir(), "staged corpus root is absent")
+require(
+    stat.S_IMODE(destination_root.stat().st_mode) == 0o700,
+    "staged corpus root is not mode 0700",
+)
+for artifact in artifacts:
+    source = quality.checked_relative(source_root, artifact["path"])
+    destination = destination_root / artifact["path"]
+    destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chmod(destination.parent, 0o700)
+    shutil.copyfile(source, destination, follow_symlinks=False)
+    os.chmod(destination, 0o600)
+
+staged_manifest = destination_root / "corpus-manifest.json"
+staged_manifest.write_bytes(manifest_bytes)
+os.chmod(staged_manifest, 0o600)
+quality.validate_artifacts(destination_root, artifacts)
+require(staged_manifest.read_bytes() == manifest_bytes, "staged corpus manifest bytes differ")
+for artifact in artifacts:
+    source = quality.checked_relative(source_root, artifact["path"])
+    destination = quality.checked_relative(destination_root, artifact["path"])
+    require(destination.read_bytes() == source.read_bytes(), f"staged bytes differ: {artifact['path']}")
+PY
 
 SOURCE_REVISION="d3a4de55c08391ea8a08c00beb766b5650dc9f58"
 ARCHIVE="$BUILD_ROOT/source.tar"
@@ -225,11 +350,10 @@ if identity["captureExecutableSHA256"] != sys.argv[4]:
 PY
 
 CONTRACT_SHA=$(shasum -a 256 "$CONTRACT" | awk '{print $1}')
-CORPUS_SHA=$(shasum -a 256 "$CORPUS_MANIFEST" | awk '{print $1}')
 python3 - \
   "$BUILD_ROOT/capture-config.json" \
   "$OUTPUT" \
-  "$CORPUS_MANIFEST" \
+  "$STAGED_CORPUS_MANIFEST" \
   "$CONTRACT_SHA" \
   "$SOURCE_REVISION" \
   "$SOURCE_TREE_SHA" \

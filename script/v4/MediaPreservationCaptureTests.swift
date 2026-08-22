@@ -1,3 +1,4 @@
+import CoreMedia
 import VideoToolbox
 
 /// Appended by the locked runner to the committed AVFoundation migration-test
@@ -25,6 +26,13 @@ final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
                 "policy": "p010_field_normalization",
                 "coverage": [
                     "p010_hdr_static_dynamic",
+                    "p010_absolute_pixel_oracle",
+                    "per_frame_p010_distribution_oracle",
+                    "pq_transfer_profile",
+                    "hdr10plus_in_band_pts_preservation",
+                    "bounded_dynamic_hdr_pts_ledger",
+                    "direct_media_target_timeline_mapping",
+                    "zero_normalized_replacement_media_pts",
                     "interlaced_field_order_cadence",
                     "non_square_pixel_aspect_ratio",
                     "clean_aperture",
@@ -40,7 +48,9 @@ final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
                     "clean_aperture",
                     "preferred_transform",
                     "straight_alpha",
-                    "combined_alpha_geometry"
+                    "combined_alpha_geometry",
+                    "canonical_dynamic_absent_one_pass",
+                    "plan_bound_absent_timeline_mapping"
                 ]
             ],
             [
@@ -51,7 +61,9 @@ final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
                     "clean_aperture",
                     "preferred_transform",
                     "premultiplied_alpha",
-                    "combined_alpha_geometry"
+                    "combined_alpha_geometry",
+                    "canonical_dynamic_absent_one_pass",
+                    "plan_bound_absent_timeline_mapping"
                 ]
             ],
             [
@@ -62,18 +74,33 @@ final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
                     "alternate_audio_tracks",
                     "chapters",
                     "timecode_tracks",
-                    "timed_metadata"
+                    "timed_metadata",
+                    "canonical_dynamic_absent_one_pass",
+                    "plan_bound_absent_timeline_mapping"
                 ]
             ],
             [
                 "id": "legible-track-graph",
                 "policy": "process_primary_preserve_auxiliary",
-                "coverage": ["subtitles", "captions"]
+                "coverage": [
+                    "subtitles",
+                    "captions",
+                    "canonical_dynamic_absent_one_pass",
+                    "plan_bound_absent_timeline_mapping"
+                ]
             ],
             [
                 "id": "auxiliary-picture-track",
                 "policy": "process_primary_preserve_auxiliary",
-                "coverage": ["auxiliary_tracks"]
+                "coverage": [
+                    "auxiliary_tracks",
+                    "p010_absolute_pixel_oracle",
+                    "per_frame_p010_distribution_oracle",
+                    "archived_hlg_p010_fixture",
+                    "canonical_dynamic_absent_one_pass",
+                    "plan_bound_absent_timeline_mapping",
+                    "hlg_transfer_profile"
+                ]
             ]
         ]
 
@@ -94,6 +121,7 @@ final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
             switch index {
             case 0:
                 try await makeInterlacedP010HDRMovie(at: source)
+                try await assertTimingMarkerFiltering(at: source)
                 targetWidth = 96
                 targetHeight = 72
                 outputCodec = OutputCodec.hevc.rawValue
@@ -133,7 +161,7 @@ final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
                     .makeVideoWithAuxiliaryPictureMovie(at: source)
                 targetWidth = 96
                 targetHeight = 72
-                outputCodec = OutputCodec.h264.rawValue
+                outputCodec = OutputCodec.hevc.rawValue
                 expectedProcessedFrameCount = 8
             }
             let sourceBytes = try Data(contentsOf: source)
@@ -160,6 +188,70 @@ final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
         ], to: root.appendingPathComponent("fixture-manifest.json"))
     }
 
+    private func assertTimingMarkerFiltering(at source: URL) async throws {
+        var marker: CMSampleBuffer?
+        let markerStatus = CMSampleBufferCreate(
+            allocator: kCFAllocatorDefault,
+            dataBuffer: nil,
+            dataReady: true,
+            makeDataReadyCallback: nil,
+            refcon: nil,
+            formatDescription: nil,
+            sampleCount: 0,
+            sampleTimingEntryCount: 0,
+            sampleTimingArray: nil,
+            sampleSizeEntryCount: 0,
+            sampleSizeArray: nil,
+            sampleBufferOut: &marker
+        )
+        guard markerStatus == noErr, let marker else {
+            throw M7MediaCaptureError.coreMedia(markerStatus)
+        }
+        XCTAssertFalse(MirmirPackagedMediaTimingSampleV4.admits(marker))
+
+        let asset = AVURLAsset(url: source)
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(tracks.first)
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(
+            track: track,
+            outputSettings: nil
+        )
+        guard reader.canAdd(output) else { throw M7MediaCaptureError.reader }
+        reader.add(output)
+        guard reader.startReading() else { throw M7MediaCaptureError.reader }
+        var presentationValues: [Int64] = []
+        var durationValues: [Int64] = []
+        while let sample = output.copyNextSampleBuffer() {
+            guard MirmirPackagedMediaTimingSampleV4.admits(sample) else {
+                continue
+            }
+            let presentation = CMSampleBufferGetPresentationTimeStamp(sample)
+            let duration = CMSampleBufferGetDuration(sample)
+            XCTAssertTrue(presentation.isNumeric)
+            XCTAssertTrue(duration.isNumeric)
+            presentationValues.append(
+                CMTimeConvertScale(
+                    presentation,
+                    timescale: 600,
+                    method: .default
+                ).value
+            )
+            durationValues.append(
+                CMTimeConvertScale(
+                    duration,
+                    timescale: 600,
+                    method: .default
+                ).value
+            )
+        }
+        guard reader.status == .completed else {
+            throw M7MediaCaptureError.reader
+        }
+        XCTAssertEqual(presentationValues, [0, 20, 40])
+        XCTAssertEqual(durationValues, [20, 20, 20])
+    }
+
     private func captureAlphaOracleInput(
         sourceURL: URL,
         association: AlphaAssociationV4,
@@ -167,9 +259,8 @@ final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
         root: URL
     ) async throws -> [String: Any] {
         let asset = AVURLAsset(url: sourceURL)
-        let track = try XCTUnwrap(
-            try await asset.loadTracks(withMediaType: .video).first
-        )
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(tracks.first)
         let reader = try AVAssetReader(asset: asset)
         let output = AVAssetReaderTrackOutput(
             track: track,
@@ -302,6 +393,15 @@ final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
     }
 
     private func makeInterlacedP010HDRMovie(at url: URL) async throws {
+        let encodedURL = url.deletingPathExtension()
+            .appendingPathExtension("encoded.mov")
+        try await encodeInterlacedP010HDRMovie(at: encodedURL)
+        try await remuxHDR10PlusPrefixSEI(from: encodedURL, to: url)
+        try await assertDynamicHDRMetadata(at: url)
+        try FileManager.default.removeItem(at: encodedURL)
+    }
+
+    private func encodeInterlacedP010HDRMovie(at url: URL) async throws {
         let staticMetadata = try M7MediaHDR.staticMetadata()
         let formatMetadata = HDRFormatMetadataV4(
             signal: try HDRSignalV4(
@@ -346,7 +446,9 @@ final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
             outputSettings: settings,
             forMediaType: .video
         ) else {
-            throw M7MediaCaptureError.writer
+            throw M7MediaCaptureError.writerDetail(
+                "canApply outputSettings=hevc-p010-64x48"
+            )
         }
         let input = AVAssetWriterInput(
             mediaType: .video,
@@ -361,21 +463,17 @@ final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
             ty: 0
         )
         guard writer.canAdd(input) else {
-            throw M7MediaCaptureError.writer
+            throw M7MediaCaptureError.writerDetail(
+                "canAdd: " + (writer.error?.localizedDescription
+                    ?? "status=\(writer.status.rawValue)")
+            )
         }
         writer.add(input)
-        let adaptor = AVAssetWriterInputPixelBufferAdaptor(
-            assetWriterInput: input,
-            sourcePixelBufferAttributes: [
-                kCVPixelBufferPixelFormatTypeKey as String:
-                    kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange,
-                kCVPixelBufferWidthKey as String: 64,
-                kCVPixelBufferHeightKey as String: 48,
-                kCVPixelBufferIOSurfacePropertiesKey as String: [:]
-            ]
-        )
         guard writer.startWriting() else {
-            throw M7MediaCaptureError.writer
+            throw M7MediaCaptureError.writerDetail(
+                "start: " + (writer.error?.localizedDescription
+                    ?? "status=\(writer.status.rawValue)")
+            )
         }
         writer.startSession(atSourceTime: .zero)
         for frame in 0..<3 {
@@ -397,10 +495,6 @@ final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
                 formatMetadata,
                 to: pixelBuffer
             )
-            try AVFoundationHDRMetadataAdapterV4.migrate(
-                M7MediaHDR.dynamicMetadata(seed: UInt8(0x31 + frame)),
-                to: pixelBuffer
-            )
             CVBufferSetAttachment(
                 pixelBuffer,
                 kCVImageBufferFieldCountKey,
@@ -415,25 +509,556 @@ final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
             )
             while !input.isReadyForMoreMediaData {
                 guard writer.status == .writing else {
-                    throw M7MediaCaptureError.writer
+                    throw M7MediaCaptureError.writerDetail(
+                        "readiness: " + (writer.error?.localizedDescription
+                            ?? "status=\(writer.status.rawValue)")
+                    )
                 }
                 try await Task.sleep(for: .milliseconds(1))
             }
-            guard adaptor.append(
-                pixelBuffer,
-                withPresentationTime: CMTime(
+            var formatDescription: CMVideoFormatDescription?
+            let formatStatus = CMVideoFormatDescriptionCreateForImageBuffer(
+                allocator: kCFAllocatorDefault,
+                imageBuffer: pixelBuffer,
+                formatDescriptionOut: &formatDescription
+            )
+            guard formatStatus == noErr, let formatDescription else {
+                throw M7MediaCaptureError.coreMedia(formatStatus)
+            }
+            var timing = CMSampleTimingInfo(
+                duration: CMTime(value: 1, timescale: 30),
+                presentationTimeStamp: CMTime(
                     value: Int64(frame),
                     timescale: 30
+                ),
+                decodeTimeStamp: .invalid
+            )
+            var sampleBuffer: CMSampleBuffer?
+            let sampleStatus = CMSampleBufferCreateReadyWithImageBuffer(
+                allocator: kCFAllocatorDefault,
+                imageBuffer: pixelBuffer,
+                formatDescription: formatDescription,
+                sampleTiming: &timing,
+                sampleBufferOut: &sampleBuffer
+            )
+            guard sampleStatus == noErr, let sampleBuffer else {
+                throw M7MediaCaptureError.coreMedia(sampleStatus)
+            }
+            guard input.append(sampleBuffer) else {
+                throw M7MediaCaptureError.writerDetail(
+                    writer.error?.localizedDescription
+                        ?? "status=\(writer.status.rawValue)"
                 )
-            ) else {
-                throw M7MediaCaptureError.writer
             }
         }
         input.markAsFinished()
         await writer.finishWriting()
         guard writer.status == .completed else {
-            throw M7MediaCaptureError.writer
+            throw M7MediaCaptureError.writerDetail(
+                "finish: " + (writer.error?.localizedDescription
+                    ?? "status=\(writer.status.rawValue)")
+            )
         }
+    }
+
+    private func remuxHDR10PlusPrefixSEI(
+        from encodedURL: URL,
+        to outputURL: URL
+    ) async throws {
+        let asset = AVURLAsset(url: encodedURL)
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(tracks.first)
+        let formatDescriptions = try await track.load(.formatDescriptions)
+        let sourceFormatHint = try XCTUnwrap(formatDescriptions.first)
+        let reader = try AVAssetReader(asset: asset)
+        let readerOutput = AVAssetReaderTrackOutput(
+            track: track,
+            outputSettings: nil
+        )
+        readerOutput.alwaysCopiesSampleData = false
+        guard reader.canAdd(readerOutput) else {
+            throw M7MediaCaptureError.reader
+        }
+        reader.add(readerOutput)
+
+        let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mov)
+        writer.metadata = try await asset.load(.metadata)
+        let writerInput = AVAssetWriterInput(
+            mediaType: .video,
+            outputSettings: nil,
+            sourceFormatHint: sourceFormatHint
+        )
+        writerInput.transform = try await track.load(.preferredTransform)
+        writerInput.naturalSize = try await track.load(.naturalSize)
+        writerInput.metadata = try await track.load(.metadata)
+        guard writer.canAdd(writerInput) else {
+            throw M7MediaCaptureError.writerDetail(
+                "remux canAdd: " + (writer.error?.localizedDescription
+                    ?? "status=\(writer.status.rawValue)")
+            )
+        }
+        writer.add(writerInput)
+        guard reader.startReading() else {
+            throw M7MediaCaptureError.reader
+        }
+        guard writer.startWriting() else {
+            reader.cancelReading()
+            throw M7MediaCaptureError.writerDetail(
+                "remux start: " + (writer.error?.localizedDescription
+                    ?? "status=\(writer.status.rawValue)")
+            )
+        }
+        writer.startSession(atSourceTime: .zero)
+
+        var seenFrames = Set<Int>()
+        while let encodedSample = readerOutput.copyNextSampleBuffer() {
+            guard CMSampleBufferGetNumSamples(encodedSample) > 0 else {
+                continue
+            }
+            let presentation = CMSampleBufferGetPresentationTimeStamp(
+                encodedSample
+            )
+            guard presentation.isNumeric else {
+                throw M7MediaCaptureError.dynamicHDRDetail(
+                    "remux presentation time is not numeric"
+                )
+            }
+            let frame = Int(CMTimeConvertScale(
+                presentation,
+                timescale: 30,
+                method: .default
+            ).value)
+            guard frame >= 0, frame < 3,
+                  seenFrames.insert(frame).inserted else {
+                throw M7MediaCaptureError.dynamicHDRDetail(
+                    "remux frame index \(frame)"
+                )
+            }
+            let dynamicMetadata = try M7MediaHDR.dynamicMetadata(
+                seed: UInt8(0x31 + frame)
+            )
+            guard let hdr10Plus = dynamicMetadata.hdr10Plus,
+                  dynamicMetadata.postDecodeProcessing == nil else {
+                throw M7MediaCaptureError.dynamicHDRDetail(
+                    "fixture metadata is not an HDR10+-only payload"
+                )
+            }
+            let rewrittenSample = try rewriteHEVCSampleWithHDR10Plus(
+                encodedSample,
+                payload: hdr10Plus.ituTT35Payload
+            )
+            while !writerInput.isReadyForMoreMediaData {
+                guard writer.status == .writing else {
+                    reader.cancelReading()
+                    throw M7MediaCaptureError.writerDetail(
+                        "remux readiness: "
+                            + (writer.error?.localizedDescription
+                                ?? "status=\(writer.status.rawValue)")
+                    )
+                }
+                try await Task.sleep(for: .milliseconds(1))
+            }
+            guard writerInput.append(rewrittenSample) else {
+                reader.cancelReading()
+                throw M7MediaCaptureError.writerDetail(
+                    "remux append: " + (writer.error?.localizedDescription
+                        ?? "status=\(writer.status.rawValue)")
+                )
+            }
+        }
+        guard reader.status == .completed else {
+            throw M7MediaCaptureError.reader
+        }
+        guard seenFrames == Set(0..<3) else {
+            throw M7MediaCaptureError.dynamicHDRDetail(
+                "remux observed frame indices \(seenFrames.sorted())"
+            )
+        }
+        writerInput.markAsFinished()
+        await writer.finishWriting()
+        guard writer.status == .completed else {
+            throw M7MediaCaptureError.writerDetail(
+                "remux finish: " + (writer.error?.localizedDescription
+                    ?? "status=\(writer.status.rawValue)")
+            )
+        }
+    }
+
+    private func rewriteHEVCSampleWithHDR10Plus(
+        _ encodedSample: CMSampleBuffer,
+        payload: Data
+    ) throws -> CMSampleBuffer {
+        guard CMSampleBufferGetNumSamples(encodedSample) == 1,
+              let format = CMSampleBufferGetFormatDescription(encodedSample),
+              CMFormatDescriptionGetMediaSubType(format) == kCMVideoCodecType_HEVC,
+              let blockBuffer = CMSampleBufferGetDataBuffer(encodedSample) else {
+            throw M7MediaCaptureError.dynamicHDRDetail(
+                "prefix-SEI source is not a single HEVC sample"
+            )
+        }
+
+        var parameterSetPointer: UnsafePointer<UInt8>?
+        var parameterSetSize = 0
+        var parameterSetCount = 0
+        var nalUnitHeaderLength: Int32 = 0
+        let formatStatus = CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(
+            format,
+            parameterSetIndex: 0,
+            parameterSetPointerOut: &parameterSetPointer,
+            parameterSetSizeOut: &parameterSetSize,
+            parameterSetCountOut: &parameterSetCount,
+            nalUnitHeaderLengthOut: &nalUnitHeaderLength
+        )
+        guard formatStatus == noErr,
+              parameterSetPointer != nil,
+              parameterSetSize > 0,
+              parameterSetCount >= 3,
+              (1...4).contains(Int(nalUnitHeaderLength)) else {
+            throw M7MediaCaptureError.dynamicHDRDetail(
+                "prefix-SEI HEVC format description is incomplete"
+            )
+        }
+
+        let sourceLength = CMBlockBufferGetDataLength(blockBuffer)
+        var source = Data(count: sourceLength)
+        let copyStatus = source.withUnsafeMutableBytes { bytes in
+            guard let baseAddress = bytes.baseAddress else {
+                return kCMBlockBufferBadLengthParameterErr
+            }
+            return CMBlockBufferCopyDataBytes(
+                blockBuffer,
+                atOffset: 0,
+                dataLength: sourceLength,
+                destination: baseAddress
+            )
+        }
+        guard copyStatus == kCMBlockBufferNoErr else {
+            throw M7MediaCaptureError.coreMedia(copyStatus)
+        }
+
+        let headerLength = Int(nalUnitHeaderLength)
+        let insertionOffset = try hevcPrefixSEIInsertionOffset(
+            in: source,
+            nalUnitHeaderLength: headerLength
+        )
+        let nalUnit = makeHDR10PlusPrefixSEINAL(payload: payload)
+        try validateHDR10PlusPrefixSEINAL(nalUnit, payload: payload)
+        var encodedLength = nalUnit.count
+        var lengthPrefix = Data(repeating: 0, count: headerLength)
+        for index in stride(from: headerLength - 1, through: 0, by: -1) {
+            lengthPrefix[index] = UInt8(encodedLength & 0xFF)
+            encodedLength >>= 8
+        }
+        guard encodedLength == 0 else {
+            throw M7MediaCaptureError.dynamicHDRDetail(
+                "prefix-SEI NAL does not fit the HEVC length prefix"
+            )
+        }
+
+        var rewrittenData = Data()
+        rewrittenData.reserveCapacity(
+            source.count + lengthPrefix.count + nalUnit.count
+        )
+        rewrittenData.append(source.prefix(insertionOffset))
+        rewrittenData.append(lengthPrefix)
+        rewrittenData.append(nalUnit)
+        rewrittenData.append(source.suffix(from: insertionOffset))
+
+        var rewrittenBlock: CMBlockBuffer?
+        var status = CMBlockBufferCreateWithMemoryBlock(
+            allocator: kCFAllocatorDefault,
+            memoryBlock: nil,
+            blockLength: rewrittenData.count,
+            blockAllocator: kCFAllocatorDefault,
+            customBlockSource: nil,
+            offsetToData: 0,
+            dataLength: rewrittenData.count,
+            flags: 0,
+            blockBufferOut: &rewrittenBlock
+        )
+        guard status == kCMBlockBufferNoErr, let rewrittenBlock else {
+            throw M7MediaCaptureError.coreMedia(status)
+        }
+        status = rewrittenData.withUnsafeBytes { bytes in
+            guard let baseAddress = bytes.baseAddress else {
+                return kCMBlockBufferBadLengthParameterErr
+            }
+            return CMBlockBufferReplaceDataBytes(
+                with: baseAddress,
+                blockBuffer: rewrittenBlock,
+                offsetIntoDestination: 0,
+                dataLength: rewrittenData.count
+            )
+        }
+        guard status == kCMBlockBufferNoErr else {
+            throw M7MediaCaptureError.coreMedia(status)
+        }
+
+        var timing = CMSampleTimingInfo()
+        status = CMSampleBufferGetSampleTimingInfo(
+            encodedSample,
+            at: 0,
+            timingInfoOut: &timing
+        )
+        guard status == noErr else {
+            throw M7MediaCaptureError.coreMedia(status)
+        }
+        var sampleSize = rewrittenData.count
+        var rewrittenSample: CMSampleBuffer?
+        status = CMSampleBufferCreate(
+            allocator: kCFAllocatorDefault,
+            dataBuffer: rewrittenBlock,
+            dataReady: true,
+            makeDataReadyCallback: nil,
+            refcon: nil,
+            formatDescription: format,
+            sampleCount: 1,
+            sampleTimingEntryCount: 1,
+            sampleTimingArray: &timing,
+            sampleSizeEntryCount: 1,
+            sampleSizeArray: &sampleSize,
+            sampleBufferOut: &rewrittenSample
+        )
+        guard status == noErr, let rewrittenSample else {
+            throw M7MediaCaptureError.coreMedia(status)
+        }
+        CMPropagateAttachments(encodedSample, destination: rewrittenSample)
+        try copySampleAttachments(
+            from: encodedSample,
+            to: rewrittenSample
+        )
+        return rewrittenSample
+    }
+
+    private func hevcPrefixSEIInsertionOffset(
+        in sample: Data,
+        nalUnitHeaderLength: Int
+    ) throws -> Int {
+        var offset = 0
+        var insertionOffset: Int?
+        while offset < sample.count {
+            guard offset + nalUnitHeaderLength <= sample.count else {
+                throw M7MediaCaptureError.dynamicHDRDetail(
+                    "truncated HEVC NAL length prefix"
+                )
+            }
+            var nalLength = 0
+            for byte in sample[offset..<(offset + nalUnitHeaderLength)] {
+                nalLength = (nalLength << 8) | Int(byte)
+            }
+            let nalOffset = offset + nalUnitHeaderLength
+            let nalEnd = nalOffset + nalLength
+            guard nalLength >= 2, nalEnd <= sample.count else {
+                throw M7MediaCaptureError.dynamicHDRDetail(
+                    "invalid length-prefixed HEVC NAL"
+                )
+            }
+            let nalType = (sample[nalOffset] >> 1) & 0x3F
+            if nalType <= 31, insertionOffset == nil {
+                insertionOffset = offset
+            }
+            offset = nalEnd
+        }
+        guard offset == sample.count, let insertionOffset else {
+            throw M7MediaCaptureError.dynamicHDRDetail(
+                "HEVC sample contains no complete VCL NAL"
+            )
+        }
+        return insertionOffset
+    }
+
+    private func makeHDR10PlusPrefixSEINAL(payload: Data) -> Data {
+        precondition(payload.count == 64)
+        var rbsp = Data([0x04, 0x40])
+        rbsp.append(payload)
+        rbsp.append(0x80)
+        var escaped = Data()
+        escaped.reserveCapacity(rbsp.count + 8)
+        var zeroCount = 0
+        for byte in rbsp {
+            if zeroCount >= 2, byte <= 0x03 {
+                escaped.append(0x03)
+                zeroCount = 0
+            }
+            escaped.append(byte)
+            zeroCount = byte == 0 ? zeroCount + 1 : 0
+        }
+        var nal = Data([0x4E, 0x01])
+        nal.append(escaped)
+        return nal
+    }
+
+    private func validateHDR10PlusPrefixSEINAL(
+        _ nal: Data,
+        payload: Data
+    ) throws {
+        guard nal.count >= 5,
+              (nal[0] >> 1) & 0x3F == 39,
+              nal[0] & 0x81 == 0,
+              nal[1] == 0x01 else {
+            throw M7MediaCaptureError.dynamicHDRDetail(
+                "invalid HDR10+ prefix-SEI NAL header"
+            )
+        }
+        var rbsp = Data()
+        var zeroCount = 0
+        var index = 2
+        while index < nal.count {
+            let byte = nal[index]
+            if zeroCount >= 2, byte == 0x03 {
+                guard index + 1 < nal.count, nal[index + 1] <= 0x03 else {
+                    throw M7MediaCaptureError.dynamicHDRDetail(
+                        "invalid prefix-SEI emulation-prevention byte"
+                    )
+                }
+                zeroCount = 0
+                index += 1
+                continue
+            }
+            rbsp.append(byte)
+            zeroCount = byte == 0 ? zeroCount + 1 : 0
+            index += 1
+        }
+        guard rbsp.count == payload.count + 3,
+              rbsp[0] == 0x04,
+              rbsp[1] == UInt8(payload.count),
+              rbsp.dropFirst(2).dropLast() == payload,
+              rbsp.last == 0x80 else {
+            throw M7MediaCaptureError.dynamicHDRDetail(
+                "HDR10+ prefix-SEI payload or trailing bits differ"
+            )
+        }
+    }
+
+    private func copySampleAttachments(
+        from source: CMSampleBuffer,
+        to destination: CMSampleBuffer
+    ) throws {
+        guard let sourceArray = CMSampleBufferGetSampleAttachmentsArray(
+            source,
+            createIfNecessary: false
+        ) else { return }
+        let sourceCount = CFArrayGetCount(sourceArray)
+        guard sourceCount == 1,
+              let destinationArray = CMSampleBufferGetSampleAttachmentsArray(
+                  destination,
+                  createIfNecessary: true
+              ),
+              CFArrayGetCount(destinationArray) == 1 else {
+            throw M7MediaCaptureError.dynamicHDRDetail(
+                "HEVC sample attachment cardinality differs"
+            )
+        }
+        let sourceDictionary = unsafeBitCast(
+            CFArrayGetValueAtIndex(sourceArray, 0),
+            to: CFDictionary.self
+        )
+        let destinationDictionary = unsafeBitCast(
+            CFArrayGetValueAtIndex(destinationArray, 0),
+            to: CFMutableDictionary.self
+        )
+        CFDictionaryApplyFunction(
+            sourceDictionary,
+            { key, value, context in
+                guard let key, let value, let context else { return }
+                let dictionary = Unmanaged<CFMutableDictionary>
+                    .fromOpaque(context)
+                    .takeUnretainedValue()
+                CFDictionarySetValue(dictionary, key, value)
+            },
+            Unmanaged.passUnretained(destinationDictionary).toOpaque()
+        )
+    }
+
+    private func assertDynamicHDRMetadata(at source: URL) async throws {
+        let compressed = try await dynamicHDRMetadata(
+            at: source,
+            outputSettings: nil
+        )
+        let decoded = try await dynamicHDRMetadata(
+            at: source,
+            outputSettings: [
+                kCVPixelBufferPixelFormatTypeKey as String:
+                    kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange,
+                AVVideoDecompressionPropertiesKey: [
+                    kVTDecompressionPropertyKey_PropagatePerFrameHDRDisplayMetadata
+                        as String: true
+                ]
+            ]
+        )
+        let expected = try (0..<3).map { frame in
+            try M7MediaHDR.dynamicMetadata(seed: UInt8(0x31 + frame))
+        }
+        guard compressed == expected, decoded == expected else {
+            func status(_ values: [HDRDynamicMetadataV4?]) -> String {
+                values.enumerated().map { index, value in
+                    guard let value else { return "empty" }
+                    return value == expected[index] ? "exact" : "mismatch"
+                }.joined(separator: ",")
+            }
+            throw M7MediaCaptureError.dynamicHDRDetail(
+                "compressed=[\(status(compressed))] "
+                    + "decoded=[\(status(decoded))]"
+            )
+        }
+    }
+
+    private func dynamicHDRMetadata(
+        at source: URL,
+        outputSettings: [String: Any]?
+    ) async throws -> [HDRDynamicMetadataV4?] {
+        let asset = AVURLAsset(url: source)
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(tracks.first)
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(
+            track: track,
+            outputSettings: outputSettings
+        )
+        guard reader.canAdd(output) else { throw M7MediaCaptureError.reader }
+        reader.add(output)
+        guard reader.startReading() else { throw M7MediaCaptureError.reader }
+        var seenFrames = Set<Int>()
+        var observations: [Int: HDRDynamicMetadataV4] = [:]
+        while let sample = output.copyNextSampleBuffer() {
+            guard CMSampleBufferGetNumSamples(sample) > 0 else {
+                continue
+            }
+            let presentation = CMSampleBufferGetPresentationTimeStamp(sample)
+            guard presentation.isNumeric else {
+                throw M7MediaCaptureError.dynamicHDRDetail(
+                    "decoded presentation time is not numeric"
+                )
+            }
+            let frameTime = CMTimeConvertScale(
+                presentation,
+                timescale: 30,
+                method: .default
+            )
+            let frame = Int(frameTime.value)
+            guard frame >= 0, frame < 3 else {
+                throw M7MediaCaptureError.dynamicHDRDetail(
+                    "decoded frame index \(frame)"
+                )
+            }
+            let observed = try AVFoundationHDRMetadataAdapterV4
+                .probeDynamicMetadata(from: sample)
+            guard seenFrames.insert(frame).inserted else {
+                throw M7MediaCaptureError.dynamicHDRDetail(
+                    "duplicate frame index \(frame)"
+                )
+            }
+            observations[frame] = observed
+        }
+        guard reader.status == .completed else {
+            throw M7MediaCaptureError.reader
+        }
+        guard seenFrames == Set(0..<3) else {
+            throw M7MediaCaptureError.dynamicHDRDetail(
+                "observed frame indices \(seenFrames.sorted())"
+            )
+        }
+        return (0..<3).map { observations[$0] }
     }
 
     private func environment(_ name: String) -> String? {
@@ -456,14 +1081,62 @@ private extension TrackMigrationFixtureFactoryV4 {
     static func makeVideoWithAuxiliaryPictureMovie(at url: URL) async throws {
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
         writer.metadata = assetMetadata()
-        let primary = makeVideoLane(seed: 31, title: "primary-video")
+        let formatMetadata = HDRFormatMetadataV4(
+            signal: try HDRSignalV4(
+                storage: .p010VideoRange10Bit,
+                transferFunction: .hlg
+            ),
+            staticMetadata: try M7MediaHDR.staticMetadata()
+        )
+        var compression = try AVFoundationHDRMetadataAdapterV4
+            .videoToolboxCompressionProperties(
+                for: formatMetadata,
+                dynamicPolicy: .preserveSourceWhenPixelsAreUnmodified,
+                pixelsWereModified: false
+            )
+        compression[AVVideoProfileLevelKey] =
+            kVTProfileLevel_HEVC_Main10_AutoLevel
+        compression[AVVideoExpectedSourceFrameRateKey] = frameRate
+        compression[AVVideoMaxKeyFrameIntervalKey] = frameCount
+        let primarySettings: [String: Any] = [
+            AVVideoCodecKey: AVVideoCodecType.hevc,
+            AVVideoWidthKey: width,
+            AVVideoHeightKey: height,
+            AVVideoColorPropertiesKey:
+                AVFoundationHDRMetadataAdapterV4
+                    .avFoundationColorProperties(for: formatMetadata.signal),
+            AVVideoCompressionPropertiesKey: compression
+        ]
+        guard writer.canApply(
+            outputSettings: primarySettings,
+            forMediaType: .video
+        ) else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                "Writer rejected the HLG Main10 primary settings."
+            )
+        }
+        let primary = AVAssetWriterInput(
+            mediaType: .video,
+            outputSettings: primarySettings
+        )
+        primary.mediaTimeScale = frameRate
+        let primaryAdaptor = AVAssetWriterInputPixelBufferAdaptor(
+            assetWriterInput: primary,
+            sourcePixelBufferAttributes: [
+                kCVPixelBufferPixelFormatTypeKey as String:
+                    kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange,
+                kCVPixelBufferWidthKey as String: width,
+                kCVPixelBufferHeightKey as String: height,
+                kCVPixelBufferIOSurfacePropertiesKey as String: [:]
+            ]
+        )
         let auxiliary = makeVideoLane(
             seed: 211,
             title: "auxiliary-picture",
             mediaType: .auxiliaryPicture
         )
         auxiliary.input.mediaTimeScale = frameRate
-        for input in [primary.input, auxiliary.input] {
+        for input in [primary, auxiliary.input] {
             guard writer.availableMediaTypes.contains(input.mediaType),
                   writer.canAdd(input) else {
                 throw TrackMigrationFixtureErrorV4.writer(
@@ -484,12 +1157,37 @@ private extension TrackMigrationFixtureFactoryV4 {
                 value: CMTimeValue(frameIndex),
                 timescale: frameRate
             )
-            try await appendFrame(
-                lane: primary,
-                frameIndex: frameIndex,
-                time: time,
-                writer: writer
+            try await waitUntilReady(primary, writer: writer)
+            var pixelBuffer: CVPixelBuffer?
+            let status = CVPixelBufferCreate(
+                kCFAllocatorDefault,
+                width,
+                height,
+                kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange,
+                [kCVPixelBufferIOSurfacePropertiesKey as String: [:]]
+                    as CFDictionary,
+                &pixelBuffer
             )
+            guard status == kCVReturnSuccess, let pixelBuffer else {
+                throw TrackMigrationFixtureErrorV4.coreMedia(status)
+            }
+            try M7MediaHDR.fillHLGP010(
+                pixelBuffer,
+                frame: frameIndex
+            )
+            try AVFoundationHDRMetadataAdapterV4.migrate(
+                formatMetadata,
+                to: pixelBuffer
+            )
+            guard primaryAdaptor.append(
+                pixelBuffer,
+                withPresentationTime: time
+            ) else {
+                throw TrackMigrationFixtureErrorV4.writer(
+                    writer.error?.localizedDescription
+                        ?? "HLG primary append failed."
+                )
+            }
             try await appendFrame(
                 lane: auxiliary,
                 frameIndex: frameIndex,
@@ -497,7 +1195,7 @@ private extension TrackMigrationFixtureFactoryV4 {
                 writer: writer
             )
         }
-        primary.input.markAsFinished()
+        primary.markAsFinished()
         auxiliary.input.markAsFinished()
         writer.endSession(atSourceTime: CMTime(
             value: CMTimeValue(frameCount),
@@ -626,6 +1324,8 @@ private enum M7MediaCaptureError: Error {
     case coreMedia(OSStatus)
     case reader
     case writer
+    case writerDetail(String)
+    case dynamicHDRDetail(String)
     case invalidProductionRoute
 }
 
@@ -701,7 +1401,7 @@ private enum M7MediaHDR {
         )
     }
 
-    static func dynamicMetadata(seed: UInt8) throws -> HDRDynamicMetadataV4 {
+    static func dynamicMetadata(seed _: UInt8) throws -> HDRDynamicMetadataV4 {
         // Standards-valid SMPTE ST 2094-40 Application 4, Version 1
         // metadata carried as registered ITU-T T.35 user data. The complete
         // 64-byte payload is deliberately stable across frames; the sample
@@ -720,12 +1420,6 @@ private enum M7MediaHDR {
         return HDRDynamicMetadataV4(
             hdr10Plus: try HDR10PlusMetadataV4(
                 ituTT35Payload: hdr10PlusPayload
-            ),
-            postDecodeProcessing: try PostDecodeProcessingMetadataV4(
-                propertyList: NSDictionary(dictionary: [
-                    "Profile": "M7",
-                    "Seed": Int(seed)
-                ])
             )
         )
     }
@@ -748,20 +1442,63 @@ private enum M7MediaHDR {
             let components = width * (plane == 0 ? 1 : 2)
             for y in 0..<height {
                 for x in 0..<components {
-                    // Keep the compressed/decompressed fixture well inside
-                    // legal P010 video range. Values at the 64/940 and
-                    // 64/960 endpoints can ring outside the admitted signal
-                    // interval after HEVC encoding even though the source
-                    // buffer itself is legal.
-                    let phase = (
-                        y * (plane == 0 ? 3 : 7)
-                            + x * (plane == 0 ? 5 : 11)
+                    // The two fields occupy disjoint code bands. The bounded
+                    // detail term retains more than 8-bit signal diversity,
+                    // while the large band separation makes field dominance
+                    // independently observable after Main10 encode/decode.
+                    let field = y & 1
+                    let fieldRow = y / 2
+                    let detail = (
+                        x * (plane == 0 ? 5 : 11)
+                            + fieldRow * (plane == 0 ? 7 : 13)
                             + frame * (plane == 0 ? 17 : 19)
-                    ) % 512
-                    let triangle = phase <= 255 ? phase : 511 - phase
+                    ) % 192
+                    let code: Int
+                    if plane == 0 {
+                        code = (field == 0 ? 160 : 672) + detail
+                    } else {
+                        let componentOffset = x & 1
+                        let base: Int
+                        if field == 0 {
+                            base = componentOffset == 0 ? 224 : 352
+                        } else {
+                            base = componentOffset == 0 ? 672 : 544
+                        }
+                        code = base + detail
+                    }
+                    base[y * stride + x] = UInt16(code << 6)
+                }
+            }
+        }
+    }
+
+    static func fillHLGP010(_ buffer: CVPixelBuffer, frame: Int) throws {
+        let status = CVPixelBufferLockBaseAddress(buffer, [])
+        guard status == kCVReturnSuccess else {
+            throw M7MediaCaptureError.coreVideo(status)
+        }
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+        for plane in 0..<2 {
+            let width = CVPixelBufferGetWidthOfPlane(buffer, plane)
+            let height = CVPixelBufferGetHeightOfPlane(buffer, plane)
+            let stride = CVPixelBufferGetBytesPerRowOfPlane(buffer, plane)
+                / MemoryLayout<UInt16>.stride
+            guard let base = CVPixelBufferGetBaseAddressOfPlane(buffer, plane)?
+                .assumingMemoryBound(to: UInt16.self) else {
+                throw M7MediaCaptureError.coreVideo(kCVReturnInvalidArgument)
+            }
+            let components = width * (plane == 0 ? 1 : 2)
+            for y in 0..<height {
+                for x in 0..<components {
+                    let detail = (
+                        x * (plane == 0 ? 7 : 9)
+                            + y * (plane == 0 ? 5 : 15)
+                            + frame * (plane == 0 ? 23 : 29)
+                    ) % 384
+                    let componentOffset = x & 1
                     let code = plane == 0
-                        ? 256 + triangle * 2
-                        : 384 + triangle
+                        ? 224 + detail
+                        : (componentOffset == 0 ? 288 : 416) + detail
                     base[y * stride + x] = UInt16(code << 6)
                 }
             }

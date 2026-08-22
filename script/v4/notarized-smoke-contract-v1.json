@@ -88,7 +88,7 @@
     "maximumNotarySubmissionAgeSeconds": 604800,
     "maximumSandboxEvidenceBytes": 536870912,
     "observerSourcePath": "Mirmir/App/MirmirApp.swift",
-    "observerSourceSHA256": "1ac48bf1f910ff53464cb37df59818d7e8d7eef5a927d02ab6961dc98760f6cf",
+    "observerSourceSHA256": "9fcf2009a18385524f65644cf13e744a0cdd58550808bc43089dff4f12f98a84",
     "qualificationNamespace": "MirmirQualificationV4/notarized-smoke",
     "runnerSHA256": "ffad88657112d7a39bb259589a66d1cc267c87c3db7e041aa938b20e3880bbce"
   },

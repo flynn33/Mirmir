@@ -2,11 +2,12 @@
 set -euo pipefail
 
 usage() {
-    print -u2 "usage: $0 --output DIRECTORY --candidate FILE --application-archive FILE --runtime DIRECTORY --release-configuration FILE [--derived-data DIRECTORY] [--warmups COUNT] [--samples COUNT] [--keep-work]"
+    print -u2 "usage: $0 --output DIRECTORY [--baseline-only | --candidate FILE --application-archive FILE --runtime DIRECTORY --release-configuration FILE] [--warmups COUNT] [--samples COUNT] [--keep-work]"
     exit 64
 }
 
 script_directory="${0:A:h}"
+runner_path="${0:A}"
 repository_root="${script_directory:h:h}"
 contract="${script_directory}/performance-gate-contract-v1.json"
 evaluator="${script_directory}/performance_gate_v4.py"
@@ -17,10 +18,10 @@ candidate_path=""
 application_archive=""
 runtime_directory=""
 release_configuration=""
-derived_data_root=""
 warmup_count=5
 sample_count=10
 keep_work=0
+baseline_only=0
 
 while (( $# > 0 )); do
     case "$1" in
@@ -49,11 +50,6 @@ while (( $# > 0 )); do
             release_configuration="$2"
             shift 2
             ;;
-        --derived-data)
-            (( $# >= 2 )) || usage
-            derived_data_root="$2"
-            shift 2
-            ;;
         --warmups)
             (( $# >= 2 )) || usage
             warmup_count="$2"
@@ -68,23 +64,34 @@ while (( $# > 0 )); do
             keep_work=1
             shift
             ;;
+        --baseline-only)
+            baseline_only=1
+            shift
+            ;;
         *) usage ;;
     esac
 done
 
 [[ -n "$output_directory" ]] || usage
-[[ -n "$candidate_path" ]] || usage
-[[ -n "$application_archive" ]] || usage
-[[ -n "$runtime_directory" ]] || usage
-[[ -n "$release_configuration" ]] || usage
+if (( baseline_only == 0 )); then
+    [[ -n "$candidate_path" ]] || usage
+    [[ -n "$application_archive" ]] || usage
+    [[ -n "$runtime_directory" ]] || usage
+    [[ -n "$release_configuration" ]] || usage
+else
+    [[ -z "$candidate_path" && -z "$application_archive" \
+        && -z "$runtime_directory" && -z "$release_configuration" ]] || usage
+fi
 [[ "$warmup_count" == <-> && "$warmup_count" -ge 5 ]] || usage
 [[ "$sample_count" == <-> && "$sample_count" -ge 10 ]] || usage
 
 output_directory="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve())' "$output_directory")"
-candidate_path="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' "$candidate_path")"
-application_archive="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' "$application_archive")"
-runtime_directory="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' "$runtime_directory")"
-release_configuration="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' "$release_configuration")"
+if (( baseline_only == 0 )); then
+    candidate_path="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' "$candidate_path")"
+    application_archive="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' "$application_archive")"
+    runtime_directory="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' "$runtime_directory")"
+    release_configuration="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve(strict=True))' "$release_configuration")"
+fi
 if [[ -e "$output_directory" ]] && [[ -n "$(find "$output_directory" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]; then
     print -u2 "refusing to overwrite nonempty output directory: $output_directory"
     exit 65
@@ -92,7 +99,70 @@ fi
 mkdir -p "$output_directory"
 
 work_directory="$(mktemp -d "${TMPDIR:-/tmp}/mirmir-v4-performance.XXXXXX")"
+work_directory="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve(strict=True))' "$work_directory")"
+request_lock_directory="/private/tmp/mirmir-v4-performance-request-v2.lock"
+request_path="$request_lock_directory/request.json"
+stable_capture_source="$request_lock_directory/PerformanceGateCaptureTests.swift"
+request_lock_owner_path="$request_lock_directory/owner-token"
+request_lock_owner_token="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+request_lock_acquired=0
+canonical_producer_root="/private/tmp/mirmir-v4-performance-producer-v2"
+canonical_producer_owner_path="$canonical_producer_root/owner-token"
+canonical_source_root="$canonical_producer_root/baseline-project"
+canonical_derived_data="$canonical_producer_root/DerivedData/baseline"
+canonical_module_cache="$canonical_producer_root/ModuleCache.noindex"
+canonical_swift_wrapper="$canonical_producer_root/swiftc"
+canonical_swift_audit="$canonical_producer_root/swift-driver-effective-argv.log"
+canonical_swift_frontend_shim="$canonical_producer_root/swift-frontend"
+canonical_swift_frontend_audit="$canonical_producer_root/swift-frontend-effective-argv.jsonl"
+canonical_swift_temporary="$canonical_producer_root/Temporary"
+canonical_swift_supplementary_maps="$canonical_producer_root/SupplementaryOutputMaps"
+canonical_root_acquired=0
 cleanup() {
+    local owns_canonical_root=0
+    if (( canonical_root_acquired == 1 )); then
+        owns_canonical_root=1
+    elif [[ -f "$canonical_producer_owner_path" ]] \
+        && [[ "$(<"$canonical_producer_owner_path")" == "$request_lock_owner_token" ]]; then
+        owns_canonical_root=1
+    fi
+    if (( owns_canonical_root == 1 )); then
+        if [[ ! -f "$canonical_producer_owner_path" ]] \
+            || [[ "$(<"$canonical_producer_owner_path")" != "$request_lock_owner_token" ]]; then
+            print -u2 "refusing to clean a canonical performance root owned by another producer"
+        else
+            case "$canonical_producer_root" in
+                /private/tmp/mirmir-v4-performance-producer-v2)
+                    rm -rf -- "$canonical_producer_root"
+                    ;;
+                *)
+                    print -u2 "refusing to clean unexpected canonical performance root: $canonical_producer_root"
+                    ;;
+            esac
+        fi
+    fi
+    local owns_request_lock=0
+    if (( request_lock_acquired == 1 )); then
+        owns_request_lock=1
+    elif [[ -f "$request_lock_owner_path" ]] \
+        && [[ "$(<"$request_lock_owner_path")" == "$request_lock_owner_token" ]]; then
+        owns_request_lock=1
+    fi
+    if (( owns_request_lock == 1 )); then
+        if [[ ! -f "$request_lock_owner_path" ]] \
+            || [[ "$(<"$request_lock_owner_path")" != "$request_lock_owner_token" ]]; then
+            print -u2 "refusing to clean a performance request lock owned by another producer"
+        else
+        [[ "$request_path" == "/private/tmp/mirmir-v4-performance-request-v2.lock/request.json" ]] \
+            && rm -f -- "$request_path"
+        [[ "$stable_capture_source" == "/private/tmp/mirmir-v4-performance-request-v2.lock/PerformanceGateCaptureTests.swift" ]] \
+            && rm -f -- "$stable_capture_source"
+        [[ "$request_lock_owner_path" == "/private/tmp/mirmir-v4-performance-request-v2.lock/owner-token" ]] \
+            && rm -f -- "$request_lock_owner_path"
+        [[ "$request_lock_directory" == "/private/tmp/mirmir-v4-performance-request-v2.lock" ]] \
+            && rmdir -- "$request_lock_directory" 2>/dev/null || true
+        fi
+    fi
     if (( keep_work == 1 )); then
         print -u2 "ephemeral performance workspace retained at $work_directory"
         return
@@ -104,22 +174,64 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+mkdir -m 700 "$request_lock_directory" 2>/dev/null || {
+    print -u2 "another performance producer owns the fixed request path"
+    exit 67
+}
+request_lock_acquired=1
+[[ ! -e "$request_path" && ! -e "$stable_capture_source" \
+    && ! -e "$request_lock_owner_path" ]] || {
+    print -u2 "stale performance producer request/source artifact exists"
+    exit 67
+}
+print -r -- "$request_lock_owner_token" > "$request_lock_owner_path"
+cp "$capture_source" "$stable_capture_source"
+
+[[ ! -e "$canonical_producer_root" ]] || {
+    print -u2 "foreign or stale canonical performance producer root exists"
+    exit 67
+}
+mkdir -m 700 "$canonical_producer_root"
+canonical_root_acquired=1
+[[ ! -e "$canonical_producer_owner_path" \
+    && ! -e "$canonical_source_root" \
+    && ! -e "$canonical_producer_root/DerivedData" \
+    && ! -e "$canonical_module_cache" \
+    && ! -e "$canonical_swift_wrapper" \
+    && ! -e "$canonical_swift_audit" \
+    && ! -e "$canonical_swift_frontend_shim" \
+    && ! -e "$canonical_swift_frontend_audit" \
+    && ! -e "$canonical_swift_temporary" \
+    && ! -e "$canonical_swift_supplementary_maps" ]] || {
+    print -u2 "canonical performance producer root was not empty"
+    exit 67
+}
+print -r -- "$request_lock_owner_token" > "$canonical_producer_owner_path"
+mkdir -p "$canonical_source_root" "$canonical_derived_data" \
+    "$canonical_module_cache"
+
+export SWIFT_DETERMINISTIC_HASHING=1
+export SWIFTC_MAXIMUM_DETERMINISM=1
+
 baseline_revision="$(python3 - "$contract" <<'PY'
 import json,sys
 print(json.load(open(sys.argv[1]))["baseline"]["sourceRevision"])
 PY
 )"
-candidate_revision="$(python3 - "$candidate_path" <<'PY'
+candidate_revision=""
+if (( baseline_only == 0 )); then
+    candidate_revision="$(python3 - "$candidate_path" <<'PY'
 import json,sys
 value=json.load(open(sys.argv[1]))
 print(value.get("candidate", value)["sourceCommit"])
 PY
-)"
-candidate_revision="$(git -C "$repository_root" rev-parse --verify "${candidate_revision}^{commit}")"
+    )"
+    candidate_revision="$(git -C "$repository_root" rev-parse --verify "${candidate_revision}^{commit}")"
+fi
 contract_sha256="$(shasum -a 256 "$contract" | awk '{print $1}')"
 capture_source_sha256="$(shasum -a 256 "$capture_source" | awk '{print $1}')"
 
-python3 - "$contract" "$capture_source" "$evaluator" "$0" <<'PY'
+python3 - "$contract" "$capture_source" "$evaluator" "$runner_path" <<'PY'
 import hashlib,json,pathlib,sys
 contract_path, capture_path, evaluator_path, runner_path = map(pathlib.Path, sys.argv[1:])
 contract = json.loads(contract_path.read_text())
@@ -133,25 +245,51 @@ for field, digest in actual.items():
         raise SystemExit(f"performance tool identity mismatch for {field}: {digest}")
 PY
 
-for bound_path in \
-    Mirmir/App/MirmirApp.swift \
-    script/v4/performance_gate_v4.py \
-    script/v4/PerformanceGateCaptureTests.swift \
-    script/v4/packaged_candidate_evidence_v4.py \
-    script/v4/release_candidate_archive_v4.py \
-    script/v4/run_performance_gate_v4.sh \
-    script/v4/performance-gate-contract-v1.json; do
-    git -C "$repository_root" cat-file -e "${candidate_revision}:${bound_path}" || {
-        print -u2 "candidate revision does not contain locked harness file: $bound_path"
-        exit 66
-    }
-    committed_hash="$(git -C "$repository_root" show "${candidate_revision}:${bound_path}" | shasum -a 256 | awk '{print $1}')"
-    working_hash="$(shasum -a 256 "$repository_root/$bound_path" | awk '{print $1}')"
-    [[ "$committed_hash" == "$working_hash" ]] || {
-        print -u2 "candidate revision does not bind the executing harness: $bound_path"
-        exit 66
-    }
-done
+underlying_swiftc="$(python3 <<'PY'
+import pathlib
+import subprocess
+
+raw = subprocess.check_output(
+    ["/usr/bin/xcrun", "--find", "swiftc"],
+    text=True,
+    stderr=subprocess.STDOUT,
+).strip()
+path = pathlib.Path(raw).resolve(strict=True)
+if not path.is_file():
+    raise SystemExit("resolved Swift compiler is not a file")
+print(path)
+PY
+)"
+python3 "$evaluator" write-swift-helpers \
+    --underlying-swiftc "$underlying_swiftc" \
+    --wrapper "$canonical_swift_wrapper" \
+    --driver-audit "$canonical_swift_audit" \
+    --frontend-shim "$canonical_swift_frontend_shim" \
+    --frontend-audit "$canonical_swift_frontend_audit" \
+    --temporary-directory "$canonical_swift_temporary" \
+    --supplementary-directory "$canonical_swift_supplementary_maps"
+
+if (( baseline_only == 0 )); then
+    for bound_path in \
+        Mirmir/App/MirmirApp.swift \
+        script/v4/performance_gate_v4.py \
+        script/v4/PerformanceGateCaptureTests.swift \
+        script/v4/packaged_candidate_evidence_v4.py \
+        script/v4/release_candidate_archive_v4.py \
+        script/v4/run_performance_gate_v4.sh \
+        script/v4/performance-gate-contract-v1.json; do
+        git -C "$repository_root" cat-file -e "${candidate_revision}:${bound_path}" || {
+            print -u2 "candidate revision does not contain locked harness file: $bound_path"
+            exit 66
+        }
+        committed_hash="$(git -C "$repository_root" show "${candidate_revision}:${bound_path}" | shasum -a 256 | awk '{print $1}')"
+        working_hash="$(shasum -a 256 "$repository_root/$bound_path" | awk '{print $1}')"
+        [[ "$committed_hash" == "$working_hash" ]] || {
+            print -u2 "candidate revision does not bind the executing harness: $bound_path"
+            exit 66
+        }
+    done
+fi
 
 locked_input="$repository_root/$(python3 - "$contract" <<'PY'
 import json,sys
@@ -169,17 +307,18 @@ actual_input_sha256="$(shasum -a 256 "$locked_input" | awk '{print $1}')"
     exit 66
 }
 
-mkdir -p "$work_directory/baseline-project" "$work_directory/candidate-project"
 git -C "$repository_root" archive --format=tar "$baseline_revision" \
-    | tar -xf - -C "$work_directory/baseline-project"
-git -C "$repository_root" archive --format=tar "$candidate_revision" \
-    | tar -xf - -C "$work_directory/candidate-project"
-cp "$capture_source" "$work_directory/baseline-project/script/v4/PerformanceGateCaptureTests.swift"
-
+    | tar -xf - -C "$canonical_source_root"
+if (( baseline_only == 0 )); then
+    mkdir -p "$work_directory/candidate-project"
+    git -C "$repository_root" archive --format=tar "$candidate_revision" \
+        | tar -xf - -C "$work_directory/candidate-project"
+fi
 inject_capture_source() {
     local project_root="$1"
+    local injected_source="$2"
     python3 - "$project_root/Mirmir.xcodeproj/project.pbxproj" \
-        "$project_root/script/v4/PerformanceGateCaptureTests.swift" <<'PY'
+        "$injected_source" <<'PY'
 from pathlib import Path
 import sys
 
@@ -222,7 +361,7 @@ PY
     plutil -lint "$project_root/Mirmir.xcodeproj/project.pbxproj" >/dev/null
 }
 
-inject_capture_source "$work_directory/baseline-project"
+inject_capture_source "$canonical_source_root" "$stable_capture_source"
 
 source_tree_identity() {
     local repository="$1"
@@ -486,111 +625,251 @@ run_capture() {
     local project_root="$3"
     local capture_directory="$4"
     local derived_data="$5"
-    mkdir -p "$capture_directory"
+    local invocation_nonce
+    invocation_nonce="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+    local producer_challenge
+    producer_challenge="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+    mkdir -p "$capture_directory/producer"
     make_source_identity "$variant" "$revision" "$project_root" \
         "$capture_directory/source-identity.json"
     local source_identity_sha256
     source_identity_sha256="$(shasum -a 256 "$capture_directory/source-identity.json" | awk '{print $1}')"
     local source_tree_sha256
     source_tree_sha256="$(source_tree_identity "$repository_root" "$revision")"
-    python3 - \
-        "$project_root/script/v4/PerformanceGateCaptureTests.swift" \
-        "$capture_directory" \
-        "$locked_input" \
-        "$variant" \
-        "$contract_sha256" \
-        "$capture_source_sha256" \
-        "$source_identity_sha256" \
-        "$revision" \
-        "$source_tree_sha256" \
-        "$warmup_count" \
-        "$sample_count" <<'PY'
-from pathlib import Path
-import json
+    capture_environment "$capture_directory/environment-before.json"
+    local result_bundle="$capture_directory/producer/baseline.xcresult"
+    local -a build_environment=(
+        "MIRMIR_V4_PERFORMANCE_CAPTURE_DIR=$capture_directory"
+        "MIRMIR_V4_PERFORMANCE_INPUT=$locked_input"
+        "MIRMIR_V4_PERFORMANCE_VARIANT=$variant"
+        "MIRMIR_V4_PERFORMANCE_CONTRACT_SHA256=$contract_sha256"
+        "MIRMIR_V4_PERFORMANCE_CAPTURE_SOURCE_SHA256=$capture_source_sha256"
+        "MIRMIR_V4_PERFORMANCE_SOURCE_IDENTITY_SHA256=$source_identity_sha256"
+        "MIRMIR_V4_PERFORMANCE_SOURCE_REVISION=$revision"
+        "MIRMIR_V4_PERFORMANCE_SOURCE_TREE_SHA256=$source_tree_sha256"
+        "MIRMIR_V4_PERFORMANCE_WARMUPS=$warmup_count"
+        "MIRMIR_V4_PERFORMANCE_SAMPLES=$sample_count"
+        "MIRMIR_V4_PERFORMANCE_PRODUCER_NONCE=$invocation_nonce"
+        "MIRMIR_V4_PERFORMANCE_PRODUCER_CHALLENGE=$producer_challenge"
+        "SWIFT_DETERMINISTIC_HASHING=1"
+        "SWIFTC_MAXIMUM_DETERMINISM=1"
+        "TMPDIR=$canonical_swift_temporary"
+    )
+    local source_root_alias
+    source_root_alias="$(python3 - "$project_root" <<'PY'
+import pathlib
 import sys
 
-path = Path(sys.argv[1])
-names = (
-    "CAPTURE_DIR",
-    "INPUT",
-    "VARIANT",
-    "CONTRACT_SHA256",
-    "CAPTURE_SOURCE_SHA256",
-    "SOURCE_IDENTITY_SHA256",
-    "SOURCE_REVISION",
-    "SOURCE_TREE_SHA256",
-    "WARMUPS",
-    "SAMPLES",
-)
-text = path.read_text()
-for name, value in zip(names, sys.argv[2:]):
-    sentinel = f"__MIRMIR_V4_PERFORMANCE_{name}__"
-    quoted = json.dumps(sentinel)
-    if text.count(quoted) != 1:
-        raise SystemExit(f"performance capture sentinel is not unique: {sentinel}")
-    text = text.replace(quoted, json.dumps(value))
-path.write_text(text)
+path = pathlib.PurePosixPath(sys.argv[1]).as_posix()
+if not path.startswith("/private/tmp/"):
+    raise SystemExit("canonical performance source is outside /private/tmp")
+print(path.removeprefix("/private"))
 PY
-    capture_environment "$capture_directory/environment-before.json"
+    )"
+    local derived_data_alias
+    derived_data_alias="$(python3 - "$derived_data" <<'PY'
+import pathlib
+import sys
+
+path = pathlib.PurePosixPath(sys.argv[1]).as_posix()
+if not path.startswith("/private/tmp/"):
+    raise SystemExit("canonical performance DerivedData is outside /private/tmp")
+print(path.removeprefix("/private"))
+PY
+    )"
+    local -a build_command=(
+        xcodebuild
+        -jobs 1
+        -project Mirmir.xcodeproj
+        -scheme Mirmir
+        -configuration Release
+        -destination platform=macOS
+        -derivedDataPath "$derived_data"
+        -resultBundlePath "$result_bundle"
+        -parallel-testing-enabled NO
+        test
+        -only-testing:MirmirTests/DeterministicEngineV4PerformanceCaptureTests/testCaptureSameScopePerformanceWhenRequested
+        CODE_SIGNING_ALLOWED=NO
+        ENABLE_TESTABILITY=YES
+        ONLY_ACTIVE_ARCH=YES
+        "SWIFT_EXEC=$canonical_swift_wrapper"
+        SWIFT_USE_INTEGRATED_DRIVER=NO
+        SWIFT_COMPILATION_MODE=wholemodule
+        SWIFT_ENABLE_BATCH_MODE=NO
+        SWIFT_ENABLE_EXPLICIT_MODULES=NO
+        SWIFT_EAGER_MODULE_EMISSION_IN_WMO=NO
+        SWIFT_USE_PARALLEL_WHOLE_MODULE_OPTIMIZATION=NO
+        SWIFT_USE_PARALLEL_WMO_TARGETS=NO
+        SWIFT_WHOLE_MODULE_OPTIMIZATION=YES
+        SWIFT_NUM_THREADS=1
+        "CLANG_MODULE_CACHE_PATH=$canonical_module_cache"
+        "SWIFT_MODULE_CACHE_PATH=$canonical_module_cache"
+        "MODULE_CACHE_DIR=$canonical_module_cache"
+        "OTHER_SWIFT_FLAGS=\$(inherited) -j 1 -num-threads 1 -file-prefix-map $project_root=/mirmir-performance-p05 -debug-prefix-map $project_root=/mirmir-performance-p05 -file-prefix-map $source_root_alias=/mirmir-performance-p05 -debug-prefix-map $source_root_alias=/mirmir-performance-p05 -file-prefix-map $derived_data=/mirmir-performance-derived -debug-prefix-map $derived_data=/mirmir-performance-derived -file-prefix-map $derived_data_alias=/mirmir-performance-derived -debug-prefix-map $derived_data_alias=/mirmir-performance-derived -Xllvm -rng-seed=1"
+        "OTHER_CFLAGS=\$(inherited) -ffile-prefix-map=$project_root=/mirmir-performance-p05 -fdebug-prefix-map=$project_root=/mirmir-performance-p05 -ffile-prefix-map=$source_root_alias=/mirmir-performance-p05 -fdebug-prefix-map=$source_root_alias=/mirmir-performance-p05 -ffile-prefix-map=$derived_data=/mirmir-performance-derived -fdebug-prefix-map=$derived_data=/mirmir-performance-derived -ffile-prefix-map=$derived_data_alias=/mirmir-performance-derived -fdebug-prefix-map=$derived_data_alias=/mirmir-performance-derived"
+        "${build_environment[@]}"
+    )
+    local command_json="$work_directory/baseline-build-command.json"
+    local environment_json="$work_directory/baseline-build-environment.json"
+    python3 - "$command_json" "${build_command[@]}" <<'PY'
+import json,pathlib,sys
+pathlib.Path(sys.argv[1]).write_text(
+    json.dumps(sys.argv[2:], indent=2, ensure_ascii=False) + "\n"
+)
+PY
+    python3 - "$environment_json" "${build_environment[@]}" <<'PY'
+import json,pathlib,sys
+environment = {}
+for pair in sys.argv[2:]:
+    key, value = pair.split("=", 1)
+    if key in environment:
+        raise SystemExit(f"duplicate performance producer environment key: {key}")
+    environment[key] = value
+pathlib.Path(sys.argv[1]).write_text(
+    json.dumps(environment, indent=2, sort_keys=True) + "\n"
+)
+PY
+    cp "$environment_json" "$request_path"
+    local started_ns
+    started_ns="$(python3 -c 'import time; print(time.time_ns())')"
+    set +e
     (
         cd "$project_root"
-        MIRMIR_V4_PERFORMANCE_CAPTURE_DIR="$capture_directory" \
-        MIRMIR_V4_PERFORMANCE_INPUT="$locked_input" \
-        MIRMIR_V4_PERFORMANCE_VARIANT="$variant" \
-        MIRMIR_V4_PERFORMANCE_CONTRACT_SHA256="$contract_sha256" \
-        MIRMIR_V4_PERFORMANCE_CAPTURE_SOURCE_SHA256="$capture_source_sha256" \
-        MIRMIR_V4_PERFORMANCE_SOURCE_IDENTITY_SHA256="$source_identity_sha256" \
-        MIRMIR_V4_PERFORMANCE_SOURCE_REVISION="$revision" \
-        MIRMIR_V4_PERFORMANCE_SOURCE_TREE_SHA256="$source_tree_sha256" \
-        MIRMIR_V4_PERFORMANCE_WARMUPS="$warmup_count" \
-        MIRMIR_V4_PERFORMANCE_SAMPLES="$sample_count" \
-        xcodebuild \
-            -project Mirmir.xcodeproj \
-            -scheme Mirmir \
-            -configuration Release \
-            -destination platform=macOS \
-            -derivedDataPath "$derived_data" \
-            -parallel-testing-enabled NO \
-            test \
-            -only-testing:MirmirTests/DeterministicEngineV4PerformanceCaptureTests/testCaptureSameScopePerformanceWhenRequested \
-            CODE_SIGNING_ALLOWED=NO \
-            ENABLE_TESTABILITY=YES \
-            ONLY_ACTIVE_ARCH=YES \
-            "MIRMIR_V4_PERFORMANCE_CAPTURE_DIR=$capture_directory" \
-            "MIRMIR_V4_PERFORMANCE_INPUT=$locked_input" \
-            "MIRMIR_V4_PERFORMANCE_VARIANT=$variant" \
-            "MIRMIR_V4_PERFORMANCE_CONTRACT_SHA256=$contract_sha256" \
-            "MIRMIR_V4_PERFORMANCE_CAPTURE_SOURCE_SHA256=$capture_source_sha256" \
-            "MIRMIR_V4_PERFORMANCE_SOURCE_IDENTITY_SHA256=$source_identity_sha256" \
-            "MIRMIR_V4_PERFORMANCE_SOURCE_REVISION=$revision" \
-            "MIRMIR_V4_PERFORMANCE_SOURCE_TREE_SHA256=$source_tree_sha256" \
-            "MIRMIR_V4_PERFORMANCE_WARMUPS=$warmup_count" \
-            "MIRMIR_V4_PERFORMANCE_SAMPLES=$sample_count"
-    ) >"$capture_directory/xcodebuild.log" 2>&1 || {
+        env "${build_environment[@]}" "${build_command[@]}"
+    ) >"$capture_directory/xcodebuild.log" 2>&1
+    local exit_status=$?
+    set -e
+    local finished_ns
+    finished_ns="$(python3 -c 'import time; print(time.time_ns())')"
+    if (( exit_status != 0 )); then
         tail -n 240 "$capture_directory/xcodebuild.log" >&2
-        exit 1
-    }
+        local failure_diagnostics="$capture_directory/producer/failure-diagnostics"
+        local preservation_status=0
+        mkdir -m 700 "$failure_diagnostics" || preservation_status=$?
+        if (( preservation_status == 0 )); then
+            cp -p -- "$canonical_swift_wrapper" \
+                "$failure_diagnostics/swiftc" || preservation_status=$?
+        fi
+        if (( preservation_status == 0 )); then
+            cp -p -- "$canonical_swift_audit" \
+                "$failure_diagnostics/swift-driver-effective-argv.log" \
+                || preservation_status=$?
+        fi
+        if (( preservation_status == 0 )); then
+            cp -p -- "$canonical_swift_frontend_shim" \
+                "$failure_diagnostics/swift-frontend" \
+                || preservation_status=$?
+        fi
+        if (( preservation_status == 0 )); then
+            cp -p -- "$canonical_swift_frontend_audit" \
+                "$failure_diagnostics/swift-frontend-effective-argv.jsonl" \
+                || preservation_status=$?
+        fi
+        if (( preservation_status == 0 )); then
+            cp -Rp -- "$canonical_swift_supplementary_maps" \
+                "$failure_diagnostics/SupplementaryOutputMaps" \
+                || preservation_status=$?
+        fi
+        if (( preservation_status == 0 )); then
+            cp -Rp -- "$canonical_swift_temporary" \
+                "$failure_diagnostics/Temporary" \
+                || preservation_status=$?
+        fi
+        cleanup
+        trap - EXIT INT TERM
+        if (( preservation_status != 0 )); then
+            print -u2 "failed to preserve the rejected Swift producer diagnostics"
+            return 66
+        fi
+        return "$exit_status"
+    fi
     [[ -f "$capture_directory/capture.json" ]] || {
         print -u2 "$variant test completed without capture.json"
         exit 66
     }
     capture_environment "$capture_directory/environment-after.json"
+    [[ -d "$result_bundle" ]] || {
+        print -u2 "baseline xcodebuild completed without an xcresult bundle"
+        exit 66
+    }
+    local application_executable
+    local test_executable
+    application_executable="$(python3 - "$derived_data/Build/Products/Release" \
+        '**/Mirmir.app/Contents/MacOS/Mirmir' <<'PY'
+import pathlib,sys
+root, pattern = pathlib.Path(sys.argv[1]), sys.argv[2]
+matches = sorted(path for path in root.glob(pattern) if path.is_file())
+if len(matches) != 1:
+    raise SystemExit(f"expected one built application executable, found {len(matches)}")
+print(matches[0].resolve())
+PY
+    )"
+    test_executable="$(python3 - "$derived_data/Build/Products/Release" \
+        '**/MirmirTests.xctest/Contents/MacOS/MirmirTests' <<'PY'
+import pathlib,sys
+root, pattern = pathlib.Path(sys.argv[1]), sys.argv[2]
+matches = sorted(path for path in root.glob(pattern) if path.is_file())
+if len(matches) != 1:
+    raise SystemExit(f"expected one built test executable, found {len(matches)}")
+print(matches[0].resolve())
+PY
+    )"
+    python3 "$evaluator" transcribe \
+        --capture "$capture_directory/capture.json" \
+        --output "$capture_directory/sample-transcripts.json"
+    python3 "$evaluator" summarize-result \
+        --result-bundle "$result_bundle" \
+        --output "$capture_directory/producer/test-summary.json"
+    python3 "$evaluator" seal-baseline-producer \
+        --directory "$capture_directory" \
+        --contract "$contract" \
+        --runner "$runner_path" \
+        --invocation-nonce "$invocation_nonce" \
+        --challenge "$producer_challenge" \
+        --started-ns "$started_ns" \
+        --finished-ns "$finished_ns" \
+        --working-directory "$project_root" \
+        --capture-directory "$capture_directory" \
+        --derived-data "$derived_data" \
+        --command-json "$command_json" \
+        --environment-json "$environment_json" \
+        --build-request "$request_path" \
+        --application-executable "$application_executable" \
+        --test-executable "$test_executable" \
+        --locked-input "$locked_input" \
+        --result-bundle "$result_bundle" \
+        --swift-driver-wrapper "$canonical_swift_wrapper" \
+        --swift-driver-audit "$canonical_swift_audit" \
+        --swift-frontend-shim "$canonical_swift_frontend_shim" \
+        --swift-frontend-audit "$canonical_swift_frontend_audit" \
+        --swift-supplementary-maps "$canonical_swift_supplementary_maps" \
+        --underlying-swiftc "$underlying_swiftc" || {
+            local seal_status=$?
+            cleanup
+            trap - EXIT INT TERM
+            return "$seal_status"
+        }
     python3 "$evaluator" seal --directory "$capture_directory"
 }
 
-if [[ -z "$derived_data_root" ]]; then
-    derived_data_root="$work_directory/DerivedData"
-else
-    derived_data_root="$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve())' "$derived_data_root")"
-fi
-mkdir -p "$output_directory/baseline" "$output_directory/candidate"
+mkdir -p "$output_directory/baseline"
 
 run_capture \
     baseline_p05 \
     "$baseline_revision" \
-    "$work_directory/baseline-project" \
+    "$canonical_source_root" \
     "$output_directory/baseline" \
-    "$derived_data_root/baseline"
+    "$canonical_derived_data"
+
+if (( baseline_only == 1 )); then
+    python3 "$evaluator" verify-baseline-capture \
+        --contract "$contract" \
+        --directory "$output_directory/baseline"
+    print "$output_directory/baseline"
+    exit 0
+fi
+
+mkdir -p "$output_directory/candidate"
 
 make_source_identity \
     candidate_p06 \
@@ -630,6 +909,9 @@ summary = {
 output_path.write_text(json.dumps(summary, separators=(",", ":"), sort_keys=True) + "\n")
 PY
 capture_environment "$output_directory/candidate/environment-after.json"
+python3 "$evaluator" transcribe \
+    --capture "$output_directory/candidate/capture.json" \
+    --output "$output_directory/candidate/sample-transcripts.json"
 python3 "$evaluator" seal --directory "$output_directory/candidate"
 
 python3 "$evaluator" evaluate \

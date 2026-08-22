@@ -43,7 +43,7 @@ enum WorkflowSegmentCheckpointStoreV4Error: Error, Equatable,
         case .invalidBoundaryOrdinal:
             "The segment boundary ordinal is not the next append-only ordinal."
         case .invalidSegmentSequence:
-            "The checkpoint segment sequence is not contiguous."
+            "The checkpoint segment sequence is not exactly boundary-bound."
         case .emptyTemporalCheckpoint:
             "The temporal backend returned an empty checkpoint."
         case .temporalCheckpointTooLarge:
@@ -79,6 +79,7 @@ struct WorkflowSegmentCheckpointPublicationRequestV4: Equatable, Sendable {
     let existingSegments: [WorkflowSegmentCheckpointV4]
     let startTime: WorkflowMediaTimeV4
     let endTimeExclusive: WorkflowMediaTimeV4
+    let nextStartTime: WorkflowMediaTimeV4?
     let codecSettingsHash: WorkflowOutputContractID
     let trackProgress: [WorkflowTrackProgressV4]
     let auxiliaryState: [WorkflowCheckpointArtifactV4]
@@ -95,6 +96,7 @@ struct WorkflowSegmentCheckpointPublicationRequestV4: Equatable, Sendable {
         existingSegments: [WorkflowSegmentCheckpointV4],
         startTime: WorkflowMediaTimeV4,
         endTimeExclusive: WorkflowMediaTimeV4,
+        nextStartTime: WorkflowMediaTimeV4?,
         codecSettingsHash: WorkflowOutputContractID,
         trackProgress: [WorkflowTrackProgressV4],
         auxiliaryState: [WorkflowCheckpointArtifactV4] = [],
@@ -110,6 +112,7 @@ struct WorkflowSegmentCheckpointPublicationRequestV4: Equatable, Sendable {
         self.existingSegments = existingSegments
         self.startTime = startTime
         self.endTimeExclusive = endTimeExclusive
+        self.nextStartTime = nextStartTime
         self.codecSettingsHash = codecSettingsHash
         self.trackProgress = trackProgress
         self.auxiliaryState = auxiliaryState
@@ -206,9 +209,20 @@ actor WorkflowSegmentCheckpointStoreV4 {
         guard temporalCheckpoint.count <= Self.maximumTemporalCheckpointBytes else {
             throw WorkflowSegmentCheckpointStoreV4Error.temporalCheckpointTooLarge
         }
+        let processedVideoProgress = request.trackProgress.filter {
+            $0.kind == .video && $0.nextOutputSampleIndex > 0
+        }
         guard request.lastCompletedInputOrdinal >= 0,
               request.startTime.timescale == request.endTimeExclusive.timescale,
-              request.startTime.value < request.endTimeExclusive.value else {
+              request.startTime.value >= 0,
+              request.startTime.value < request.endTimeExclusive.value,
+              request.nextStartTime.map({
+                  $0.timescale == request.startTime.timescale
+                      && $0.value >= request.endTimeExclusive.value
+              }) ?? true,
+              processedVideoProgress.count == 1,
+              (request.nextStartTime == nil)
+                == processedVideoProgress[0].isComplete else {
             throw WorkflowSegmentCheckpointStoreV4Error.invalidSegmentSequence
         }
         try Self.validateExistingSegments(
@@ -289,6 +303,7 @@ actor WorkflowSegmentCheckpointStoreV4 {
             artifact: segmentArtifact,
             startTime: request.startTime,
             endTimeExclusive: request.endTimeExclusive,
+            nextStartTime: request.nextStartTime,
             codecSettingsHash: request.codecSettingsHash,
             isIndependentlyDecodable: true
         )
@@ -607,8 +622,22 @@ private extension WorkflowSegmentCheckpointStoreV4 {
         }) else {
             throw WorkflowSegmentCheckpointStoreV4Error.invalidBoundaryOrdinal
         }
+        for index in segments.indices.dropFirst() {
+            let previous = segments[index - 1]
+            let current = segments[index]
+            guard previous.endTimeExclusive.timescale
+                    == current.startTime.timescale,
+                  previous.endTimeExclusive.value <= current.startTime.value,
+                  previous.nextStartTime == current.startTime,
+                  previous.codecSettingsHash == current.codecSettingsHash else {
+                throw WorkflowSegmentCheckpointStoreV4Error
+                    .invalidSegmentSequence
+            }
+        }
         if let last = segments.last {
-            guard last.endTimeExclusive == nextStart,
+            guard last.endTimeExclusive.timescale == nextStart.timescale,
+                  last.endTimeExclusive.value <= nextStart.value,
+                  last.nextStartTime == nextStart,
                   last.codecSettingsHash == codecSettingsHash else {
                 throw WorkflowSegmentCheckpointStoreV4Error
                     .invalidSegmentSequence

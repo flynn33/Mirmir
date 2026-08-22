@@ -5,6 +5,11 @@ import Foundation
 import VideoToolbox
 
 enum AVFoundationHDRMetadataAdapterV4 {
+    static let compressedParserID =
+        "ash.hevc-hdr10plus-length-prefixed-parser.v4.1"
+    static let compressedRewriterID =
+        "ash.hevc-hdr10plus-prefix-sei-rewriter.v4.1"
+
     static func probe(
         formatDescription: CMFormatDescription,
         decodedStorage: PixelStorageV4
@@ -136,20 +141,188 @@ enum AVFoundationHDRMetadataAdapterV4 {
         guard sampleCount <= 1 else {
             throw HDRMetadataV4Error.unsupportedSampleCount(sampleCount)
         }
-        // Image-backed buffers created by Core Media can report zero packet
-        // samples even though they represent one decoded video frame. In that
-        // representation the per-frame metadata lives on the image buffer.
-        if sampleCount == 0,
-           let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
-            return try probeDynamicMetadata(from: pixelBuffer)
-        }
-        guard let dictionary = try sampleAttachmentDictionary(
+        let attachmentMetadata: HDRDynamicMetadataV4?
+        if let dictionary = try sampleAttachmentDictionary(
             sampleBuffer,
             createIfNecessary: false
-        ) else {
-            return nil
+        ) {
+            attachmentMetadata = try dynamicMetadata(
+                from: dictionary as NSDictionary
+            )
+        } else {
+            attachmentMetadata = nil
         }
-        return try dynamicMetadata(from: dictionary as NSDictionary)
+        let compressedHDR10Plus = try compressedHDR10PlusMetadata(
+            from: sampleBuffer
+        )
+        let imageMetadata: HDRDynamicMetadataV4?
+        if let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
+            imageMetadata = try probeDynamicMetadata(from: imageBuffer)
+        } else {
+            imageMetadata = nil
+        }
+
+        func reconcile<Component: Equatable>(
+            _ sample: Component?,
+            _ image: Component?,
+            label: String
+        ) throws -> Component? {
+            if let sample, let image, sample != image {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "sample and image-buffer \(label) metadata differ"
+                )
+            }
+            return sample ?? image
+        }
+        let sampleHDR10Plus = try reconcile(
+            attachmentMetadata?.hdr10Plus,
+            compressedHDR10Plus,
+            label: "sample attachment and compressed HDR10+"
+        )
+        let merged = HDRDynamicMetadataV4(
+            hdr10Plus: try reconcile(
+                sampleHDR10Plus,
+                imageMetadata?.hdr10Plus,
+                label: "HDR10+"
+            ),
+            postDecodeProcessing: try reconcile(
+                attachmentMetadata?.postDecodeProcessing,
+                imageMetadata?.postDecodeProcessing,
+                label: "post-decode"
+            )
+        )
+        return merged.isEmpty ? nil : merged
+    }
+
+    /// Parses the length-prefixed HEVC access unit independently of Core
+    /// Media's optional HDR10+ attachment materialization. A valid access unit
+    /// may carry at most one HDR10+ registered-user-data SEI message.
+    static func probeHDR10PlusMetadata(
+        inLengthPrefixedHEVCSample sample: Data,
+        nalUnitHeaderLength: Int
+    ) throws -> HDR10PlusMetadataV4? {
+        guard (1...4).contains(nalUnitHeaderLength), !sample.isEmpty else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "compressed HEVC sample layout is invalid"
+            )
+        }
+        var payloads: [HDR10PlusMetadataV4] = []
+        var offset = 0
+        var sawVCL = false
+        while offset < sample.count {
+            guard offset + nalUnitHeaderLength <= sample.count else {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "compressed HEVC NAL length prefix is truncated"
+                )
+            }
+            var nalLength = 0
+            for byte in sample[offset..<(offset + nalUnitHeaderLength)] {
+                let (shifted, shiftOverflow) = nalLength
+                    .multipliedReportingOverflow(by: 256)
+                let (expanded, addOverflow) = shifted
+                    .addingReportingOverflow(Int(byte))
+                guard !shiftOverflow, !addOverflow else {
+                    throw HDRMetadataV4Error.contradictoryMetadata(
+                        "compressed HEVC NAL length overflows"
+                    )
+                }
+                nalLength = expanded
+            }
+            let nalOffset = offset + nalUnitHeaderLength
+            let (nalEnd, endOverflow) = nalOffset
+                .addingReportingOverflow(nalLength)
+            guard !endOverflow, nalLength >= 2, nalEnd <= sample.count else {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "compressed HEVC NAL payload is truncated"
+                )
+            }
+            let nal = sample[nalOffset..<nalEnd]
+            let first = nal[nal.startIndex]
+            let second = nal[nal.index(after: nal.startIndex)]
+            guard first & 0x80 == 0, second & 0x07 != 0 else {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "compressed HEVC NAL header is invalid"
+                )
+            }
+            let nalType = (first >> 1) & 0x3F
+            if nalType <= 31 {
+                sawVCL = true
+            } else if nalType == 39 || nalType == 40 {
+                let escapedRBSP = Data(nal.dropFirst(2))
+                let rbsp = try removeHEVCEmulationPrevention(escapedRBSP)
+                payloads.append(contentsOf: try hdr10PlusPayloads(in: rbsp))
+            }
+            offset = nalEnd
+        }
+        guard offset == sample.count, sawVCL else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "compressed HEVC sample has no complete VCL NAL"
+            )
+        }
+        guard payloads.count <= 1 else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "compressed HEVC sample carries multiple HDR10+ payloads"
+            )
+        }
+        return payloads.first
+    }
+
+    static func insertingHDR10PlusMetadata(
+        _ metadata: HDR10PlusMetadataV4,
+        into sampleBuffer: CMSampleBuffer
+    ) throws -> (sampleBuffer: CMSampleBuffer, rewritten: Bool) {
+        if let existing = try compressedHDR10PlusMetadata(from: sampleBuffer) {
+            guard existing == metadata else {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "encoded and expected HDR10+ metadata differ"
+                )
+            }
+            return (sampleBuffer, false)
+        }
+        let layout = try compressedHEVCSampleLayout(sampleBuffer)
+        let insertionOffset = try hevcPrefixSEIInsertionOffset(
+            in: layout.bytes,
+            nalUnitHeaderLength: layout.nalUnitHeaderLength
+        )
+        let nal = makeHDR10PlusPrefixSEINAL(metadata.ituTT35Payload)
+        guard nal.count < (1 << (layout.nalUnitHeaderLength * 8))
+                || layout.nalUnitHeaderLength == 4 else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "HDR10+ prefix SEI exceeds the HEVC NAL length domain"
+            )
+        }
+        var lengthPrefix = Data(
+            repeating: 0,
+            count: layout.nalUnitHeaderLength
+        )
+        var length = nal.count
+        for index in lengthPrefix.indices.reversed() {
+            lengthPrefix[index] = UInt8(length & 0xFF)
+            length >>= 8
+        }
+        guard length == 0 else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "HDR10+ prefix SEI length cannot be represented"
+            )
+        }
+        var rewritten = Data()
+        rewritten.reserveCapacity(
+            layout.bytes.count + lengthPrefix.count + nal.count
+        )
+        rewritten.append(layout.bytes.prefix(insertionOffset))
+        rewritten.append(lengthPrefix)
+        rewritten.append(nal)
+        rewritten.append(layout.bytes.suffix(
+            from: insertionOffset
+        ))
+        return (
+            try makeCompressedSample(
+                from: sampleBuffer,
+                format: layout.format,
+                bytes: rewritten
+            ),
+            true
+        )
     }
 
     static func migrate(
@@ -576,6 +749,364 @@ enum AVFoundationHDRMetadataAdapterV4 {
         return metadata.isEmpty ? nil : metadata
     }
 
+    static func compressedHDR10PlusMetadata(
+        from sampleBuffer: CMSampleBuffer
+    ) throws -> HDR10PlusMetadataV4? {
+        guard CMSampleBufferGetNumSamples(sampleBuffer) == 1,
+              let format = CMSampleBufferGetFormatDescription(sampleBuffer),
+              CMFormatDescriptionGetMediaSubType(format)
+                == kCMVideoCodecType_HEVC else {
+            return nil
+        }
+        let layout = try compressedHEVCSampleLayout(sampleBuffer)
+        return try probeHDR10PlusMetadata(
+            inLengthPrefixedHEVCSample: layout.bytes,
+            nalUnitHeaderLength: layout.nalUnitHeaderLength
+        )
+    }
+
+    private struct CompressedHEVCSampleLayout {
+        let format: CMFormatDescription
+        let bytes: Data
+        let nalUnitHeaderLength: Int
+    }
+
+    private static func compressedHEVCSampleLayout(
+        _ sampleBuffer: CMSampleBuffer
+    ) throws -> CompressedHEVCSampleLayout {
+        guard CMSampleBufferGetNumSamples(sampleBuffer) == 1,
+              let format = CMSampleBufferGetFormatDescription(sampleBuffer),
+              CMFormatDescriptionGetMediaSubType(format)
+                == kCMVideoCodecType_HEVC,
+              let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "dynamic HDR rewrite requires one compressed HEVC sample"
+            )
+        }
+        var parameterSetPointer: UnsafePointer<UInt8>?
+        var parameterSetSize = 0
+        var parameterSetCount = 0
+        var nalUnitHeaderLength: Int32 = 0
+        let formatStatus = CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(
+            format,
+            parameterSetIndex: 0,
+            parameterSetPointerOut: &parameterSetPointer,
+            parameterSetSizeOut: &parameterSetSize,
+            parameterSetCountOut: &parameterSetCount,
+            nalUnitHeaderLengthOut: &nalUnitHeaderLength
+        )
+        guard formatStatus == noErr,
+              parameterSetPointer != nil,
+              parameterSetSize > 0,
+              parameterSetCount >= 3,
+              (1...4).contains(Int(nalUnitHeaderLength)) else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "compressed HEVC format description is incomplete"
+            )
+        }
+        let byteCount = CMBlockBufferGetDataLength(blockBuffer)
+        guard byteCount > 0 else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "compressed HEVC sample is empty"
+            )
+        }
+        var bytes = Data(count: byteCount)
+        let copyStatus = bytes.withUnsafeMutableBytes { destination in
+            guard let baseAddress = destination.baseAddress else {
+                return kCMBlockBufferBadLengthParameterErr
+            }
+            return CMBlockBufferCopyDataBytes(
+                blockBuffer,
+                atOffset: 0,
+                dataLength: byteCount,
+                destination: baseAddress
+            )
+        }
+        guard copyStatus == kCMBlockBufferNoErr else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "compressed HEVC block-buffer copy failed with status "
+                    + "\(copyStatus)"
+            )
+        }
+        return CompressedHEVCSampleLayout(
+            format: format,
+            bytes: bytes,
+            nalUnitHeaderLength: Int(nalUnitHeaderLength)
+        )
+    }
+
+    private static func hevcPrefixSEIInsertionOffset(
+        in sample: Data,
+        nalUnitHeaderLength: Int
+    ) throws -> Int {
+        var offset = 0
+        while offset < sample.count {
+            guard offset + nalUnitHeaderLength <= sample.count else {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "compressed HEVC NAL length prefix is truncated"
+                )
+            }
+            var nalLength = 0
+            for byte in sample[offset..<(offset + nalUnitHeaderLength)] {
+                nalLength = (nalLength << 8) | Int(byte)
+            }
+            let nalOffset = offset + nalUnitHeaderLength
+            let (nalEnd, overflow) = nalOffset
+                .addingReportingOverflow(nalLength)
+            guard !overflow, nalLength >= 2, nalEnd <= sample.count else {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "compressed HEVC NAL payload is truncated"
+                )
+            }
+            let nalType = (sample[nalOffset] >> 1) & 0x3F
+            if nalType <= 31 { return offset }
+            offset = nalEnd
+        }
+        throw HDRMetadataV4Error.contradictoryMetadata(
+            "compressed HEVC sample has no complete VCL NAL"
+        )
+    }
+
+    private static func makeHDR10PlusPrefixSEINAL(_ payload: Data) -> Data {
+        var rbsp = Data()
+        rbsp.append(0x04)
+        var remaining = payload.count
+        while remaining >= 0xFF {
+            rbsp.append(0xFF)
+            remaining -= 0xFF
+        }
+        rbsp.append(UInt8(remaining))
+        rbsp.append(payload)
+        rbsp.append(0x80)
+
+        var escaped = Data()
+        escaped.reserveCapacity(rbsp.count + 8)
+        var zeroCount = 0
+        for byte in rbsp {
+            if zeroCount >= 2, byte <= 0x03 {
+                escaped.append(0x03)
+                zeroCount = 0
+            }
+            escaped.append(byte)
+            zeroCount = byte == 0 ? zeroCount + 1 : 0
+        }
+        var nal = Data([0x4E, 0x01])
+        nal.append(escaped)
+        return nal
+    }
+
+    private static func makeCompressedSample(
+        from source: CMSampleBuffer,
+        format: CMFormatDescription,
+        bytes: Data
+    ) throws -> CMSampleBuffer {
+        var blockBuffer: CMBlockBuffer?
+        var status = CMBlockBufferCreateWithMemoryBlock(
+            allocator: kCFAllocatorDefault,
+            memoryBlock: nil,
+            blockLength: bytes.count,
+            blockAllocator: kCFAllocatorDefault,
+            customBlockSource: nil,
+            offsetToData: 0,
+            dataLength: bytes.count,
+            flags: 0,
+            blockBufferOut: &blockBuffer
+        )
+        guard status == kCMBlockBufferNoErr, let blockBuffer else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "HDR10+ block-buffer allocation failed with status \(status)"
+            )
+        }
+        status = bytes.withUnsafeBytes { sourceBytes in
+            guard let baseAddress = sourceBytes.baseAddress else {
+                return kCMBlockBufferBadLengthParameterErr
+            }
+            return CMBlockBufferReplaceDataBytes(
+                with: baseAddress,
+                blockBuffer: blockBuffer,
+                offsetIntoDestination: 0,
+                dataLength: bytes.count
+            )
+        }
+        guard status == kCMBlockBufferNoErr else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "HDR10+ block-buffer write failed with status \(status)"
+            )
+        }
+        var timing = CMSampleTimingInfo()
+        status = CMSampleBufferGetSampleTimingInfo(
+            source,
+            at: 0,
+            timingInfoOut: &timing
+        )
+        guard status == noErr else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "HDR10+ sample timing read failed with status \(status)"
+            )
+        }
+        var sampleSize = bytes.count
+        var rewritten: CMSampleBuffer?
+        status = CMSampleBufferCreate(
+            allocator: kCFAllocatorDefault,
+            dataBuffer: blockBuffer,
+            dataReady: true,
+            makeDataReadyCallback: nil,
+            refcon: nil,
+            formatDescription: format,
+            sampleCount: 1,
+            sampleTimingEntryCount: 1,
+            sampleTimingArray: &timing,
+            sampleSizeEntryCount: 1,
+            sampleSizeArray: &sampleSize,
+            sampleBufferOut: &rewritten
+        )
+        guard status == noErr, let rewritten else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "HDR10+ sample creation failed with status \(status)"
+            )
+        }
+        CMPropagateAttachments(source, destination: rewritten)
+        try copySampleAttachments(from: source, to: rewritten)
+        return rewritten
+    }
+
+    private static func copySampleAttachments(
+        from source: CMSampleBuffer,
+        to destination: CMSampleBuffer
+    ) throws {
+        guard let sourceArray = CMSampleBufferGetSampleAttachmentsArray(
+            source,
+            createIfNecessary: false
+        ) else { return }
+        let sourceCount = CFArrayGetCount(sourceArray)
+        guard sourceCount == 1,
+              let destinationArray = CMSampleBufferGetSampleAttachmentsArray(
+                  destination,
+                  createIfNecessary: true
+              ),
+              CFArrayGetCount(destinationArray) == 1 else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "HDR10+ sample attachment cardinality differs"
+            )
+        }
+        let sourceDictionary = unsafeBitCast(
+            CFArrayGetValueAtIndex(sourceArray, 0),
+            to: CFDictionary.self
+        )
+        let destinationDictionary = unsafeBitCast(
+            CFArrayGetValueAtIndex(destinationArray, 0),
+            to: CFMutableDictionary.self
+        )
+        CFDictionaryApplyFunction(
+            sourceDictionary,
+            { key, value, context in
+                guard let key, let value, let context else { return }
+                let dictionary = Unmanaged<CFMutableDictionary>
+                    .fromOpaque(context)
+                    .takeUnretainedValue()
+                CFDictionarySetValue(dictionary, key, value)
+            },
+            Unmanaged.passUnretained(destinationDictionary).toOpaque()
+        )
+    }
+
+    private static func removeHEVCEmulationPrevention(
+        _ escaped: Data
+    ) throws -> Data {
+        var rbsp = Data()
+        rbsp.reserveCapacity(escaped.count)
+        var zeroCount = 0
+        var index = escaped.startIndex
+        while index < escaped.endIndex {
+            let byte = escaped[index]
+            if zeroCount >= 2, byte == 0x03 {
+                let next = escaped.index(after: index)
+                guard next < escaped.endIndex, escaped[next] <= 0x03 else {
+                    throw HDRMetadataV4Error.contradictoryMetadata(
+                        "invalid HEVC emulation-prevention sequence"
+                    )
+                }
+                zeroCount = 0
+                index = next
+                continue
+            }
+            if zeroCount >= 2, byte <= 0x02 {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "unescaped HEVC start-code sequence"
+                )
+            }
+            rbsp.append(byte)
+            zeroCount = byte == 0 ? zeroCount + 1 : 0
+            index = escaped.index(after: index)
+        }
+        return rbsp
+    }
+
+    private static func hdr10PlusPayloads(
+        in rbsp: Data
+    ) throws -> [HDR10PlusMetadataV4] {
+        guard rbsp.last == 0x80 else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "HEVC SEI RBSP trailing bits differ"
+            )
+        }
+        let messageEnd = rbsp.index(before: rbsp.endIndex)
+        var index = rbsp.startIndex
+        var result: [HDR10PlusMetadataV4] = []
+
+        func extendedValue(_ label: String) throws -> Int {
+            var value = 0
+            while index < messageEnd, rbsp[index] == 0xFF {
+                let (expanded, overflow) = value.addingReportingOverflow(255)
+                guard !overflow else {
+                    throw HDRMetadataV4Error.contradictoryMetadata(
+                        "HEVC SEI \(label) overflows"
+                    )
+                }
+                value = expanded
+                index = rbsp.index(after: index)
+            }
+            guard index < messageEnd else {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "HEVC SEI \(label) is truncated"
+                )
+            }
+            let (expanded, overflow) = value.addingReportingOverflow(
+                Int(rbsp[index])
+            )
+            guard !overflow else {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "HEVC SEI \(label) overflows"
+                )
+            }
+            value = expanded
+            index = rbsp.index(after: index)
+            return value
+        }
+
+        while index < messageEnd {
+            let payloadType = try extendedValue("payload type")
+            let payloadSize = try extendedValue("payload size")
+            guard payloadSize <= messageEnd - index else {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "HEVC SEI payload is truncated"
+                )
+            }
+            let end = index + payloadSize
+            let payload = Data(rbsp[index..<end])
+            if payloadType == 4,
+               payload.starts(with: [
+                   0xB5, 0x00, 0x3C, 0x00, 0x01, 0x04
+               ]) {
+                result.append(
+                    try HDR10PlusMetadataV4(ituTT35Payload: payload)
+                )
+            }
+            index = end
+        }
+        return result
+    }
+
     private static func dataValue(_ value: Any?, key: String) throws -> Data? {
         guard let value else { return nil }
         guard let data = value as? Data else {
@@ -685,5 +1216,214 @@ enum AVFoundationHDRMetadataAdapterV4 {
         value == kCMFormatDescriptionTransferFunction_SMPTE_ST_2084_PQ as String
             || value
                 == kCMFormatDescriptionTransferFunction_ITU_R_2100_HLG as String
+    }
+}
+
+struct HDR10PlusPresentationTimeV4: Codable, Comparable, Hashable, Sendable {
+    let value: Int64
+    let timescale: Int32
+    let epoch: Int64
+
+    init(_ time: CMTime) throws {
+        guard time.isNumeric,
+              !time.flags.contains(.hasBeenRounded),
+              time.timescale > 0 else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "dynamic HDR presentation time is not exact and numeric"
+            )
+        }
+        let divisor = Self.greatestCommonDivisor(
+            time.value.magnitude,
+            UInt64(time.timescale)
+        )
+        value = time.value / Int64(divisor)
+        timescale = time.timescale / Int32(divisor)
+        epoch = time.epoch
+    }
+
+    var cmTime: CMTime {
+        CMTime(
+            value: value,
+            timescale: timescale,
+            flags: .valid,
+            epoch: epoch
+        )
+    }
+
+    static func < (
+        lhs: HDR10PlusPresentationTimeV4,
+        rhs: HDR10PlusPresentationTimeV4
+    ) -> Bool {
+        if lhs.epoch != rhs.epoch { return lhs.epoch < rhs.epoch }
+        let comparison = CMTimeCompare(lhs.cmTime, rhs.cmTime)
+        if comparison != 0 { return comparison < 0 }
+        if lhs.value != rhs.value { return lhs.value < rhs.value }
+        return lhs.timescale < rhs.timescale
+    }
+
+    private static func greatestCommonDivisor(
+        _ lhs: UInt64,
+        _ rhs: UInt64
+    ) -> UInt64 {
+        var lhs = lhs
+        var rhs = rhs
+        while rhs != 0 {
+            (lhs, rhs) = (rhs, lhs % rhs)
+        }
+        return max(lhs, 1)
+    }
+}
+
+struct HDR10PlusPresentationRecordV4: Equatable, Hashable, Sendable {
+    let presentationTime: HDR10PlusPresentationTimeV4
+    let metadata: HDR10PlusMetadataV4?
+}
+
+struct HDR10PlusSegmentLedgerSnapshotV4: Equatable, Sendable {
+    private struct IdentityRecord: Codable {
+        let presentationTime: HDR10PlusPresentationTimeV4
+        let hdr10PlusSHA256: ASHSHA256V4?
+    }
+
+    let records: [HDR10PlusPresentationRecordV4]
+    let canonicalSHA256: ASHSHA256V4
+
+    init(_ records: [HDR10PlusPresentationRecordV4]) throws {
+        let sorted = records.sorted {
+            $0.presentationTime < $1.presentationTime
+        }
+        guard Set(sorted.map(\.presentationTime)).count == sorted.count else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "dynamic HDR ledger contains duplicate presentation times"
+            )
+        }
+        self.records = sorted
+        canonicalSHA256 = try ASHCanonicalJSONV4.hash(
+            sorted.map {
+                IdentityRecord(
+                    presentationTime: $0.presentationTime,
+                    hdr10PlusSHA256: $0.metadata.map {
+                        ASHSHA256V4(rawData: $0.ituTT35Payload)
+                    }
+                )
+            },
+            domain: "ash-hdr10plus-presentation-ledger-v4"
+        )
+    }
+}
+
+actor HDR10PlusSegmentLedgerV4 {
+    private let sourceSnapshot: HDR10PlusSegmentLedgerSnapshotV4
+    private let maximumOutputRecordCount: Int
+    private var unconsumedSource: [
+        HDR10PlusPresentationTimeV4: HDR10PlusMetadataV4?
+    ]
+    private var outputRecords: [
+        HDR10PlusPresentationTimeV4: HDR10PlusMetadataV4?
+    ] = [:]
+
+    init(
+        sourceRecords: [HDR10PlusPresentationRecordV4],
+        maximumInputFrames: Int,
+        maximumOutputFramesPerInput: Int
+    ) throws {
+        guard maximumInputFrames > 0,
+              maximumOutputFramesPerInput > 0,
+              sourceRecords.count <= maximumInputFrames else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "dynamic HDR source ledger exceeds its segment bound"
+            )
+        }
+        let (maximumOutputRecordCount, overflow) = maximumInputFrames
+            .multipliedReportingOverflow(by: maximumOutputFramesPerInput)
+        guard !overflow, maximumOutputRecordCount > 0 else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "dynamic HDR output ledger bound overflows"
+            )
+        }
+        let snapshot = try HDR10PlusSegmentLedgerSnapshotV4(sourceRecords)
+        self.sourceSnapshot = snapshot
+        self.maximumOutputRecordCount = maximumOutputRecordCount
+        unconsumedSource = Dictionary(
+            uniqueKeysWithValues: snapshot.records.map {
+                ($0.presentationTime, $0.metadata)
+            }
+        )
+    }
+
+    func consumeSource(
+        presentationTime: CMTime,
+        decodedMetadata: HDRDynamicMetadataV4?
+    ) throws -> HDR10PlusMetadataV4? {
+        if decodedMetadata?.postDecodeProcessing != nil {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "post-decode metadata has no HEVC/MOV preservation contract"
+            )
+        }
+        let key = try HDR10PlusPresentationTimeV4(presentationTime)
+        guard let retained = unconsumedSource.removeValue(forKey: key) else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "decoded source presentation time is missing or duplicated"
+            )
+        }
+        let expected = retained
+        if let expected, let decoded = decodedMetadata?.hdr10Plus,
+           expected != decoded {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "decoded and compressed HDR10+ metadata differ"
+            )
+        }
+        if expected == nil, decodedMetadata?.hdr10Plus != nil {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "decoded HDR10+ metadata has no compressed source record"
+            )
+        }
+        return expected ?? decodedMetadata?.hdr10Plus
+    }
+
+    func recordOutput(
+        presentationTime: CMTime,
+        metadata: HDR10PlusMetadataV4?
+    ) throws {
+        guard outputRecords.count < maximumOutputRecordCount else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "dynamic HDR output ledger exceeds its segment bound"
+            )
+        }
+        let key = try HDR10PlusPresentationTimeV4(presentationTime)
+        guard outputRecords.updateValue(metadata, forKey: key) == nil else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "dynamic HDR output presentation time is duplicated"
+            )
+        }
+    }
+
+    func seal(
+        expectedSourceCount: Int,
+        expectedOutputCount: Int
+    ) throws -> (
+        source: HDR10PlusSegmentLedgerSnapshotV4,
+        output: HDR10PlusSegmentLedgerSnapshotV4
+    ) {
+        guard unconsumedSource.isEmpty,
+              sourceSnapshot.records.count == expectedSourceCount else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "compressed and decoded source presentation domains differ"
+            )
+        }
+        guard outputRecords.count == expectedOutputCount else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "dynamic HDR output presentation domain differs"
+            )
+        }
+        let output = try HDR10PlusSegmentLedgerSnapshotV4(
+            outputRecords.map {
+                HDR10PlusPresentationRecordV4(
+                    presentationTime: $0.key,
+                    metadata: $0.value
+                )
+            }
+        )
+        return (sourceSnapshot, output)
     }
 }

@@ -978,6 +978,177 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         XCTAssertEqual(observations.processCallCount, 2)
     }
 
+    func testRecreatedControllerResumesAtAuthenticatedTrueGapBoundary()
+        async throws {
+        let fixture = try makeFixture()
+        let resolver = WorkflowApplicationBookmarkResolverStubV4()
+        let binding = try preparedBinding()
+        let initialRequest = request(fixture: fixture)
+        let segmentTemplateURL = fixture.rootURL.appendingPathComponent(
+            "true-gap-segment-template.mov"
+        )
+        try await writePublicationSegment(
+            to: segmentTemplateURL,
+            frameCount: 2
+        )
+        let recorder = WorkflowApplicationStartTimeRecorderV4()
+        let latch = WorkflowApplicationBoundaryLatchV4()
+        let firstQueue = try makeQueue(
+            fixture: fixture,
+            resolver: resolver,
+            workerID: "application-worker-gap-initial"
+        )
+        let pausedJobID: WorkflowJobID
+        do {
+            let firstController = WorkflowApplicationCoordinatorV4(
+                queue: firstQueue,
+                engine: WorkflowApplicationTrueGapEngineV4(
+                    mode: .initial,
+                    binding: binding,
+                    segmentTemplateURL: segmentTemplateURL,
+                    recorder: recorder,
+                    latch: latch
+                ),
+                maximumInputFramesPerBoundary: 2
+            )
+            let firstRun = Task {
+                try await firstController.submit(
+                    request: initialRequest,
+                    progress: { _ in },
+                    snapshot: { _ in }
+                )
+            }
+            guard await latch.waitUntilReached() else {
+                await latch.release()
+                _ = try? await firstRun.value
+                return XCTFail("The first boundary was not dispatched")
+            }
+            do {
+                try await firstController.requestPause()
+            } catch {
+                await latch.release()
+                _ = try? await firstRun.value
+                throw error
+            }
+            await latch.release()
+            let outcome = try await firstRun.value
+            guard case .paused(let jobID, _) = outcome else {
+                return XCTFail("Expected a durable pause after the first boundary")
+            }
+            pausedJobID = jobID
+        }
+
+        let sourceSnapshotIdentityID: WorkflowSourceIdentityID
+        do {
+            let activation = await firstQueue.activate(jobID: pausedJobID)
+            guard case .active(let activated) = activation else {
+                return XCTFail("The paused job could not be reactivated")
+            }
+            defer { activated.close() }
+            try activated.revalidateAll()
+            sourceSnapshotIdentityID = activated.sourceSnapshot.identityID
+        }
+        let loadedCheckpoint: WorkflowCheckpointDocumentV4? =
+            try await firstQueue.compatibleApplicationCheckpoint(
+                jobID: pausedJobID,
+                outputContractID: binding.outputContractID,
+                sourceSnapshotIdentityID: sourceSnapshotIdentityID
+            )
+        let persisted = try XCTUnwrap(loadedCheckpoint)
+        let expectedStart = try WorkflowMediaTimeV4(
+            value: 0,
+            timescale: 30
+        )
+        let expectedEnd = try WorkflowMediaTimeV4(value: 2, timescale: 30)
+        let expectedNextStart = try WorkflowMediaTimeV4(
+            value: 3,
+            timescale: 30
+        )
+        let persistedTail = try XCTUnwrap(persisted.body.segments.last)
+        XCTAssertEqual(persistedTail.startTime, expectedStart)
+        XCTAssertEqual(persistedTail.endTimeExclusive, expectedEnd)
+        XCTAssertEqual(
+            persistedTail.nextStartTime,
+            expectedNextStart
+        )
+
+        let recreatedQueue = try makeQueue(
+            fixture: fixture,
+            resolver: resolver,
+            workerID: "application-worker-gap-recreated"
+        )
+        let recreatedController = WorkflowApplicationCoordinatorV4(
+            queue: recreatedQueue,
+            engine: WorkflowApplicationTrueGapEngineV4(
+                mode: .resumed,
+                binding: binding,
+                segmentTemplateURL: segmentTemplateURL,
+                recorder: recorder,
+                latch: latch
+            ),
+            maximumInputFramesPerBoundary: 2
+        )
+        do {
+            _ = try await recreatedController.resume(
+                jobID: pausedJobID,
+                progress: { _ in },
+                snapshot: { _ in }
+            )
+            XCTFail("The resumed proof engine must stop after dispatch")
+        } catch WorkflowApplicationTrueGapEngineErrorV4.stoppedAfterResumedDispatch {
+            // The recorded call is the assertion boundary.
+        }
+
+        let starts = await recorder.values()
+        XCTAssertEqual(starts, [nil, expectedNextStart])
+    }
+
+    func testAssemblyTimelineBindsPlanAndExactMediaBoundaryBeforeOpen()
+        async throws {
+        let context = try await makeTerminalPublicationContext()
+        defer { context.activated.close() }
+        let jobID = context.activated.specification.jobID
+        let planID = context.activated.preparedPlanBinding.planID
+        let mediaStart = try XCTUnwrap(
+            context.checkpoint.body.segments.first?.startTime
+        )
+        let outputStart = try WorkflowMediaTimeV4(value: 0, timescale: 1)
+        let invalidDescriptors = try [
+            WorkflowApplicationAssemblyTimelineDescriptorV4(
+                planID: WorkflowPlanID(workflowApplicationDigest(99)),
+                mediaTimelineStart: mediaStart,
+                outputTimelineStart: outputStart
+            ),
+            WorkflowApplicationAssemblyTimelineDescriptorV4(
+                planID: planID,
+                mediaTimelineStart: WorkflowMediaTimeV4(
+                    value: 1,
+                    timescale: 30
+                ),
+                outputTimelineStart: outputStart
+            )
+        ]
+
+        for (index, descriptor) in invalidDescriptors.enumerated() {
+            let destination = context.fixture.outputDirectoryURL
+                .appendingPathComponent("rejected-assembly-\(index).mov")
+            do {
+                _ = try await context.queue.assembleApplicationCheckpoint(
+                    context.checkpoint,
+                    timeline: descriptor,
+                    destinationURL: destination,
+                    overwriteExistingFile: false
+                )
+                XCTFail("A mismatched assembly timeline was accepted.")
+            } catch let error as WorkflowApplicationQueueErrorV4 {
+                XCTAssertEqual(error, .preparedPlanChanged(jobID))
+            }
+            XCTAssertFalse(
+                FileManager.default.fileExists(atPath: destination.path)
+            )
+        }
+    }
+
     func testPublicationCanonicalRecordTamperingFailsClosed() async throws {
         let context = try await makeTerminalPublicationContext()
         defer { context.activated.close() }
@@ -1266,7 +1437,13 @@ private extension WorkflowApplicationQueueV4Tests {
         )
     }
 
-    func writePublicationSegment(to url: URL) async throws {
+    func writePublicationSegment(
+        to url: URL,
+        frameCount: Int = 1
+    ) async throws {
+        guard frameCount > 0 else {
+            throw AVFoundationSegmentV4Error.exportUnavailable
+        }
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
         let input = AVAssetWriterInput(
             mediaType: .video,
@@ -1299,35 +1476,45 @@ private extension WorkflowApplicationQueueV4Tests {
             )
         }
         writer.startSession(atSourceTime: .zero)
-        while !input.isReadyForMoreMediaData { await Task.yield() }
         guard let pool = adaptor.pixelBufferPool else {
             throw AVFoundationSegmentV4Error.exportUnavailable
         }
-        var buffer: CVPixelBuffer?
-        guard CVPixelBufferPoolCreatePixelBuffer(
-            kCFAllocatorDefault,
-            pool,
-            &buffer
-        ) == kCVReturnSuccess, let buffer else {
-            throw AVFoundationSegmentV4Error.exportUnavailable
-        }
-        CVPixelBufferLockBaseAddress(buffer, [])
-        if let base = CVPixelBufferGetBaseAddress(buffer) {
-            memset(
-                base,
-                0x5a,
-                CVPixelBufferGetBytesPerRow(buffer)
-                    * CVPixelBufferGetHeight(buffer)
-            )
-        }
-        CVPixelBufferUnlockBaseAddress(buffer, [])
-        guard adaptor.append(buffer, withPresentationTime: .zero) else {
-            throw AVFoundationSegmentV4Error.exportFailed(
-                String(describing: writer.error)
-            )
+        for frameIndex in 0..<frameCount {
+            while !input.isReadyForMoreMediaData { await Task.yield() }
+            var buffer: CVPixelBuffer?
+            guard CVPixelBufferPoolCreatePixelBuffer(
+                kCFAllocatorDefault,
+                pool,
+                &buffer
+            ) == kCVReturnSuccess, let buffer else {
+                throw AVFoundationSegmentV4Error.exportUnavailable
+            }
+            CVPixelBufferLockBaseAddress(buffer, [])
+            if let base = CVPixelBufferGetBaseAddress(buffer) {
+                memset(
+                    base,
+                    0x5a,
+                    CVPixelBufferGetBytesPerRow(buffer)
+                        * CVPixelBufferGetHeight(buffer)
+                )
+            }
+            CVPixelBufferUnlockBaseAddress(buffer, [])
+            guard adaptor.append(
+                buffer,
+                withPresentationTime: CMTime(
+                    value: Int64(frameIndex),
+                    timescale: 30
+                )
+            ) else {
+                throw AVFoundationSegmentV4Error.exportFailed(
+                    String(describing: writer.error)
+                )
+            }
         }
         input.markAsFinished()
-        writer.endSession(atSourceTime: CMTime(value: 1, timescale: 30))
+        writer.endSession(
+            atSourceTime: CMTime(value: Int64(frameCount), timescale: 30)
+        )
         await writer.finishWriting()
         guard writer.status == .completed else {
             throw AVFoundationSegmentV4Error.exportFailed(
@@ -1356,6 +1543,218 @@ private final class WorkflowApplicationTokenSequenceV4: @unchecked Sendable {
 
 private enum WorkflowApplicationFailingEngineErrorV4: Error {
     case injectedAfterDispatch
+}
+
+private enum WorkflowApplicationTrueGapEngineErrorV4: Error {
+    case unexpectedInvocation
+    case stoppedAfterResumedDispatch
+}
+
+private actor WorkflowApplicationStartTimeRecorderV4 {
+    private var startTimes: [WorkflowMediaTimeV4?] = []
+
+    func append(_ startTime: WorkflowMediaTimeV4?) {
+        startTimes.append(startTime)
+    }
+
+    func values() -> [WorkflowMediaTimeV4?] {
+        startTimes
+    }
+}
+
+private actor WorkflowApplicationBoundaryLatchV4 {
+    private var reached = false
+    private var released = false
+
+    func reachAndWait() async {
+        reached = true
+        while !released, !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 2_000_000)
+        }
+    }
+
+    func waitUntilReached() async -> Bool {
+        for _ in 0..<1_500 {
+            if reached { return true }
+            try? await Task.sleep(nanoseconds: 2_000_000)
+        }
+        return reached
+    }
+
+    func release() {
+        released = true
+    }
+}
+
+private actor WorkflowApplicationTrueGapEngineV4:
+    WorkflowApplicationDeterministicExecutingV4
+{
+    enum Mode: Equatable, Sendable {
+        case initial
+        case resumed
+    }
+
+    let mode: Mode
+    let binding: WorkflowVerifiedPreparedPlanBindingV4
+    let segmentTemplateURL: URL
+    let recorder: WorkflowApplicationStartTimeRecorderV4
+    let latch: WorkflowApplicationBoundaryLatchV4
+
+    init(
+        mode: Mode,
+        binding: WorkflowVerifiedPreparedPlanBindingV4,
+        segmentTemplateURL: URL,
+        recorder: WorkflowApplicationStartTimeRecorderV4,
+        latch: WorkflowApplicationBoundaryLatchV4
+    ) {
+        self.mode = mode
+        self.binding = binding
+        self.segmentTemplateURL = segmentTemplateURL
+        self.recorder = recorder
+        self.latch = latch
+    }
+
+    func prepareSubmission(
+        request: UpscaleRequest
+    ) async throws -> WorkflowApplicationPreparedSubmissionV4 {
+        guard mode == .initial else {
+            throw WorkflowApplicationTrueGapEngineErrorV4
+                .unexpectedInvocation
+        }
+        return WorkflowApplicationPreparedSubmissionV4(
+            request: request,
+            binding: binding
+        )
+    }
+
+    func revalidateAndPrepare(
+        jobID _: WorkflowJobID,
+        request: UpscaleRequest,
+        expectedBinding: WorkflowVerifiedPreparedPlanBindingV4
+    ) async throws -> VideoInfo {
+        guard expectedBinding == binding else {
+            throw WorkflowApplicationTrueGapEngineErrorV4
+                .unexpectedInvocation
+        }
+        return workflowApplicationVideoInfo(url: request.inputURL)
+    }
+
+    func processPrepared(
+        jobID _: WorkflowJobID,
+        request: UpscaleRequest,
+        startingInputFrameIndex: Int,
+        startTime: WorkflowMediaTimeV4?,
+        maximumInputFrames _: Int,
+        previousCheckpoint: WorkflowCheckpointDocumentV4?,
+        cancellation _: ProcessingCancellation,
+        progress _: @escaping @Sendable (UpscaleProgress) -> Void
+    ) async throws -> WorkflowApplicationProcessedSegmentV4 {
+        await recorder.append(startTime)
+        switch mode {
+        case .initial:
+            guard startingInputFrameIndex == 0,
+                  startTime == nil,
+                  previousCheckpoint == nil else {
+                throw WorkflowApplicationTrueGapEngineErrorV4
+                    .unexpectedInvocation
+            }
+            await latch.reachAndWait()
+            try FileManager.default.copyItem(
+                at: segmentTemplateURL,
+                to: request.outputURL
+            )
+            let start = try WorkflowMediaTimeV4(value: 0, timescale: 30)
+            let last = try WorkflowMediaTimeV4(value: 1, timescale: 30)
+            let end = try WorkflowMediaTimeV4(value: 2, timescale: 30)
+            let next = try WorkflowMediaTimeV4(value: 3, timescale: 30)
+            return WorkflowApplicationProcessedSegmentV4(
+                source: workflowApplicationVideoInfo(url: request.inputURL),
+                segment: DeterministicV4MediaSegmentResultV4(
+                    segmentURL: request.outputURL,
+                    startTime: start,
+                    endTimeExclusive: end,
+                    inputSampleCount: 2,
+                    outputSampleCount: 2,
+                    lastCompletedInputOrdinal: 1,
+                    terminal: false,
+                    nextStartTime: next,
+                    processingDurationSeconds: 0.01
+                ),
+                temporalCheckpoint: Data("true-gap-temporal-state".utf8),
+                trackProgress: [
+                    try WorkflowTrackProgressV4(
+                        trackID: "video-primary",
+                        kind: .video,
+                        nextInputSampleIndex: 2,
+                        nextOutputSampleIndex: 2,
+                        lastInputTime: last,
+                        lastOutputTime: last,
+                        isComplete: false
+                    )
+                ]
+            )
+        case .resumed:
+            guard startingInputFrameIndex == 2,
+                  previousCheckpoint != nil else {
+                throw WorkflowApplicationTrueGapEngineErrorV4
+                    .unexpectedInvocation
+            }
+            throw WorkflowApplicationTrueGapEngineErrorV4
+                .stoppedAfterResumedDispatch
+        }
+    }
+
+    func restorePrepared(
+        jobID _: WorkflowJobID,
+        temporalCheckpoint: Data,
+        lastCompletedInputOrdinal: Int64
+    ) async throws {
+        guard mode == .resumed,
+              temporalCheckpoint == Data("true-gap-temporal-state".utf8),
+              lastCompletedInputOrdinal == 1 else {
+            throw WorkflowApplicationTrueGapEngineErrorV4
+                .unexpectedInvocation
+        }
+    }
+
+    func preparedAssemblyTimeline(
+        jobID _: WorkflowJobID
+    ) async throws -> WorkflowApplicationAssemblyTimelineDescriptorV4 {
+        WorkflowApplicationAssemblyTimelineDescriptorV4(
+            planID: binding.planID,
+            mediaTimelineStart: try WorkflowMediaTimeV4(
+                value: 0,
+                timescale: 30
+            ),
+            outputTimelineStart: try WorkflowMediaTimeV4(
+                value: 2,
+                timescale: 30
+            )
+        )
+    }
+
+    func finalizePreparedOutput(
+        jobID _: WorkflowJobID,
+        request _: UpscaleRequest,
+        assembledVideoURL _: URL,
+        publicationURL _: URL,
+        migrationTemporaryURL _: URL,
+        cancellation _: ProcessingCancellation,
+        progress _: @escaping @Sendable (UpscaleProgress) -> Void
+    ) async throws -> WorkflowApplicationFinalizedOutputV4 {
+        throw WorkflowApplicationTrueGapEngineErrorV4.unexpectedInvocation
+    }
+
+    func inspectCompletion(
+        request _: UpscaleRequest,
+        checkpoint _: WorkflowCheckpointDocumentV4,
+        segmentResult _: UpscaleResult?,
+        processingDurationSeconds _: TimeInterval
+    ) async throws -> WorkflowApplicationCompletionV4 {
+        throw WorkflowApplicationTrueGapEngineErrorV4.unexpectedInvocation
+    }
+
+    func abandonPrepared(jobID _: WorkflowJobID) async {}
 }
 
 private actor WorkflowApplicationSnapshotIsolationEngineV4:
@@ -1448,6 +1847,7 @@ private actor WorkflowApplicationSnapshotIsolationEngineV4:
                 outputSampleCount: 1,
                 lastCompletedInputOrdinal: 0,
                 terminal: false,
+                nextStartTime: end,
                 processingDurationSeconds: 0.01
             ),
             temporalCheckpoint: Data("snapshot-isolation-state".utf8),
@@ -1471,6 +1871,22 @@ private actor WorkflowApplicationSnapshotIsolationEngineV4:
         lastCompletedInputOrdinal _: Int64
     ) async throws {
         throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
+    func preparedAssemblyTimeline(
+        jobID _: WorkflowJobID
+    ) async throws -> WorkflowApplicationAssemblyTimelineDescriptorV4 {
+        WorkflowApplicationAssemblyTimelineDescriptorV4(
+            planID: binding.planID,
+            mediaTimelineStart: try WorkflowMediaTimeV4(
+                value: 0,
+                timescale: 30
+            ),
+            outputTimelineStart: try WorkflowMediaTimeV4(
+                value: 0,
+                timescale: 1
+            )
+        )
     }
 
     func finalizePreparedOutput(
@@ -1575,6 +1991,12 @@ private actor WorkflowApplicationFailingEngineV4:
         throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
     }
 
+    func preparedAssemblyTimeline(
+        jobID _: WorkflowJobID
+    ) async throws -> WorkflowApplicationAssemblyTimelineDescriptorV4 {
+        throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
     func finalizePreparedOutput(
         jobID _: WorkflowJobID,
         request _: UpscaleRequest,
@@ -1650,6 +2072,12 @@ private actor WorkflowApplicationPublicationRecoveryEngineV4:
         temporalCheckpoint _: Data,
         lastCompletedInputOrdinal _: Int64
     ) async throws {
+        throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
+    func preparedAssemblyTimeline(
+        jobID _: WorkflowJobID
+    ) async throws -> WorkflowApplicationAssemblyTimelineDescriptorV4 {
         throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
     }
 

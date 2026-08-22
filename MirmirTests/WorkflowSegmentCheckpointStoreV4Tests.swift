@@ -74,6 +74,7 @@ final class WorkflowSegmentCheckpointStoreV4Tests: XCTestCase {
             existing: [],
             start: 0,
             end: 2,
+            nextStart: 2,
             nextSample: 2
         )
         let firstPublication = try await store.publishBoundary(
@@ -196,6 +197,7 @@ final class WorkflowSegmentCheckpointStoreV4Tests: XCTestCase {
                 existing: firstCommit.document.body.segments,
                 start: 2,
                 end: 4,
+                nextStart: nil,
                 nextSample: 4
             ),
             using: resumedClaim,
@@ -239,6 +241,7 @@ final class WorkflowSegmentCheckpointStoreV4Tests: XCTestCase {
                 existing: uninterruptedFirstCommit.document.body.segments,
                 start: 2,
                 end: 4,
+                nextStart: nil,
                 nextSample: 4
             ),
             using: uninterruptedSetup.claim,
@@ -259,6 +262,14 @@ final class WorkflowSegmentCheckpointStoreV4Tests: XCTestCase {
             AVFoundationSegmentAssemblyRequestV4(
                 artifactRootURL: uninterruptedFixture.store,
                 segments: uninterruptedCommit.document.body.segments,
+                mediaTimelineStart: try WorkflowMediaTimeV4(
+                    value: 0,
+                    timescale: 30
+                ),
+                outputTimelineStart: try WorkflowMediaTimeV4(
+                    value: 0,
+                    timescale: 1
+                ),
                 destinationURL: uninterruptedURL
             )
         )
@@ -267,6 +278,14 @@ final class WorkflowSegmentCheckpointStoreV4Tests: XCTestCase {
             AVFoundationSegmentAssemblyRequestV4(
                 artifactRootURL: fixture.store,
                 segments: secondCommit.document.body.segments,
+                mediaTimelineStart: try WorkflowMediaTimeV4(
+                    value: 0,
+                    timescale: 30
+                ),
+                outputTimelineStart: try WorkflowMediaTimeV4(
+                    value: 0,
+                    timescale: 1
+                ),
                 destinationURL: resumedURL
             )
         )
@@ -303,6 +322,7 @@ final class WorkflowSegmentCheckpointStoreV4Tests: XCTestCase {
                 existing: [],
                 start: 0,
                 end: 2,
+                nextStart: 2,
                 nextSample: 2
             ),
             using: setup.claim,
@@ -366,6 +386,7 @@ final class WorkflowSegmentCheckpointStoreV4Tests: XCTestCase {
                     existing: [],
                     start: 0,
                     end: 2,
+                    nextStart: 2,
                     nextSample: 2
                 ),
                 using: setup.claim,
@@ -411,6 +432,7 @@ final class WorkflowSegmentCheckpointStoreV4Tests: XCTestCase {
                     existing: [],
                     start: 0,
                     end: 2,
+                    nextStart: 2,
                     nextSample: 2
                 ),
                 using: setup.claim,
@@ -427,6 +449,203 @@ final class WorkflowSegmentCheckpointStoreV4Tests: XCTestCase {
             try FileManager.default.contentsOfDirectory(atPath: outside.path),
             []
         )
+    }
+
+    func testBoundaryContractPersistsTrueGapAndRejectsInvalidTailStates()
+        async throws {
+        let fixture = try makeFixture()
+        let firstSource = fixture.root.appendingPathComponent("gap-source-0.mov")
+        let secondSource = fixture.root.appendingPathComponent("gap-source-1.mov")
+        try await writeSegment(
+            to: firstSource,
+            colors: [(20, 30, 40), (21, 31, 41)]
+        )
+        try await writeSegment(
+            to: secondSource,
+            colors: [(50, 60, 70), (51, 61, 71)]
+        )
+        let setup = try await makeRunningCoordinator(fixture: fixture)
+        let store = try WorkflowSegmentCheckpointStoreV4(rootURL: fixture.store)
+
+        let first = try await store.publishBoundary(
+            publicationRequest(
+                checkpoint: 0,
+                sourceURL: firstSource,
+                existing: [],
+                start: 0,
+                end: 2,
+                nextStart: 3,
+                nextSample: 2
+            ),
+            using: setup.claim,
+            temporalCheckpoint: Data("gap-state-0".utf8)
+        )
+        XCTAssertEqual(
+            first.draft.segments[0].nextStartTime,
+            try WorkflowMediaTimeV4(value: 3, timescale: 30)
+        )
+        _ = try await setup.coordinator.commitCheckpoint(
+            first.draft,
+            using: setup.claim
+        )
+        let specification = try makeSpecification()
+        let loadedFirst = try await setup.coordinator.loadCompatibleCheckpoint(
+            jobID: specification.jobID,
+            expectedCodecSettingsHash: specification.output.contractID
+        )
+        let reopenedFirst = try XCTUnwrap(loadedFirst)
+        XCTAssertEqual(
+            reopenedFirst.body.segments[0].nextStartTime,
+            try WorkflowMediaTimeV4(value: 3, timescale: 30)
+        )
+
+        let invalidRequests = try [
+            publicationRequest(
+                checkpoint: 10,
+                sourceURL: firstSource,
+                existing: [],
+                start: 0,
+                end: 2,
+                nextStart: 1,
+                nextSample: 2
+            ),
+            publicationRequest(
+                checkpoint: 11,
+                sourceURL: firstSource,
+                existing: [],
+                start: 0,
+                end: 2,
+                nextStart: nil,
+                nextSample: 2
+            ),
+            publicationRequest(
+                checkpoint: 12,
+                sourceURL: firstSource,
+                existing: [],
+                start: 0,
+                end: 2,
+                nextStart: 3,
+                nextSample: 4
+            ),
+            publicationRequest(
+                checkpoint: 13,
+                sourceURL: secondSource,
+                existing: reopenedFirst.body.segments,
+                start: 4,
+                end: 6,
+                nextStart: nil,
+                nextSample: 4
+            )
+        ]
+        for request in invalidRequests {
+            do {
+                _ = try await store.publishBoundary(
+                    request,
+                    using: setup.claim,
+                    temporalCheckpoint: Data("must-not-publish".utf8)
+                )
+                XCTFail("An invalid persisted boundary was published.")
+            } catch let error as WorkflowSegmentCheckpointStoreV4Error {
+                XCTAssertEqual(error, .invalidSegmentSequence)
+            }
+        }
+
+        let terminal = try await store.publishBoundary(
+            publicationRequest(
+                checkpoint: 1,
+                sourceURL: secondSource,
+                existing: reopenedFirst.body.segments,
+                start: 3,
+                end: 5,
+                nextStart: nil,
+                nextSample: 4
+            ),
+            using: setup.claim,
+            temporalCheckpoint: Data("gap-state-1".utf8)
+        )
+        XCTAssertEqual(
+            terminal.draft.segments.map(\.startTime.value),
+            [0, 3]
+        )
+        XCTAssertEqual(
+            terminal.draft.segments.map(\.endTimeExclusive.value),
+            [2, 5]
+        )
+        XCTAssertNil(terminal.draft.segments.last?.nextStartTime)
+        _ = try await setup.coordinator.commitCheckpoint(
+            terminal.draft,
+            using: setup.claim
+        )
+        let loadedTerminal = try await setup.coordinator.loadCompatibleCheckpoint(
+            jobID: specification.jobID,
+            expectedCodecSettingsHash: specification.output.contractID
+        )
+        let reopenedTerminal = try XCTUnwrap(loadedTerminal)
+        XCTAssertEqual(
+            reopenedTerminal.body.segments.map(\.nextStartTime?.value),
+            [3, nil]
+        )
+
+        let assembledURL = fixture.output.appendingPathComponent(
+            "dynamic-gap-assembled.mov"
+        )
+        let assembly = try await AVFoundationSegmentAssemblerV4().assemble(
+            AVFoundationSegmentAssemblyRequestV4(
+                artifactRootURL: fixture.store,
+                segments: reopenedTerminal.body.segments,
+                mediaTimelineStart: try WorkflowMediaTimeV4(
+                    value: 0,
+                    timescale: 30
+                ),
+                outputTimelineStart: try WorkflowMediaTimeV4(
+                    value: 2,
+                    timescale: 30
+                ),
+                destinationURL: assembledURL
+            )
+        )
+        XCTAssertEqual(assembly.segmentCount, 2)
+        XCTAssertEqual(
+            CMTimeCompare(
+                CMTime(
+                    value: assembly.outputIdentity.duration.value,
+                    timescale: assembly.outputIdentity.duration.timescale
+                ),
+                CMTime(value: 7, timescale: 30)
+            ),
+            0
+        )
+        let assembledAsset = AVURLAsset(
+            url: assembledURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let assembledVideoTracks = try await assembledAsset.loadTracks(
+            withMediaType: .video
+        )
+        let assembledVideoTrack = try XCTUnwrap(assembledVideoTracks.first)
+        let assembledTrackRange = try await assembledVideoTrack.load(
+            .timeRange
+        )
+        XCTAssertEqual(
+            CMTimeCompare(
+                assembledTrackRange.start,
+                CMTime(value: 2, timescale: 30)
+            ),
+            0
+        )
+        let presentationTimes = try await videoSamplePresentationTimes(
+            assembledURL
+        )
+        XCTAssertEqual(presentationTimes.count, 4)
+        for (actual, expected) in zip(presentationTimes, [0, 1, 3, 4]) {
+            XCTAssertEqual(
+                CMTimeCompare(
+                    actual,
+                    CMTime(value: Int64(expected), timescale: 30)
+                ),
+                0
+            )
+        }
     }
 }
 
@@ -560,6 +779,7 @@ private extension WorkflowSegmentCheckpointStoreV4Tests {
         existing: [WorkflowSegmentCheckpointV4],
         start: Int64,
         end: Int64,
+        nextStart: Int64?,
         nextSample: UInt64
     ) throws -> WorkflowSegmentCheckpointPublicationRequestV4 {
         try WorkflowSegmentCheckpointPublicationRequestV4(
@@ -577,6 +797,9 @@ private extension WorkflowSegmentCheckpointStoreV4Tests {
             existingSegments: existing,
             startTime: WorkflowMediaTimeV4(value: start, timescale: 30),
             endTimeExclusive: WorkflowMediaTimeV4(value: end, timescale: 30),
+            nextStartTime: try nextStart.map {
+                try WorkflowMediaTimeV4(value: $0, timescale: 30)
+            },
             codecSettingsHash: WorkflowOutputContractID(digest(9)),
             trackProgress: [
                 WorkflowTrackProgressV4(
@@ -854,6 +1077,50 @@ private extension WorkflowSegmentCheckpointStoreV4Tests {
             )
         }
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    func videoSamplePresentationTimes(_ url: URL) async throws -> [CMTime] {
+        let asset = AVURLAsset(
+            url: url,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        guard let track = try await asset.loadTracks(
+            withMediaType: .video
+        ).first else {
+            throw AVFoundationSegmentV4Error.unreadableAsset("missing video")
+        }
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(
+            track: track,
+            outputSettings: nil
+        )
+        output.alwaysCopiesSampleData = false
+        guard reader.canAdd(output) else {
+            throw AVFoundationSegmentV4Error.unreadableAsset(
+                "sample timing read rejected"
+            )
+        }
+        reader.add(output)
+        guard reader.startReading() else {
+            throw AVFoundationSegmentV4Error.unreadableAsset(
+                String(describing: reader.error)
+            )
+        }
+        var times: [CMTime] = []
+        while let sample = output.copyNextSampleBuffer() {
+            let time = CMSampleBufferGetPresentationTimeStamp(sample)
+            guard time.isNumeric,
+                  !time.flags.contains(.hasBeenRounded) else {
+                throw AVFoundationSegmentV4Error.assembledTimingMismatch
+            }
+            times.append(time)
+        }
+        guard reader.status == .completed else {
+            throw AVFoundationSegmentV4Error.unreadableAsset(
+                String(describing: reader.error)
+            )
+        }
+        return times
     }
 }
 

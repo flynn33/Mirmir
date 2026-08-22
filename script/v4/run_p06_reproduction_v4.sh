@@ -12,7 +12,7 @@ candidate=""
 runtime=""
 release_configuration=""
 output=""
-contract="${script_directory}/p06-reproduction-contract-v1.json"
+contract="${script_directory}/p06-reproduction-contract-v2.json"
 
 while (( $# > 0 )); do
     case "$1" in

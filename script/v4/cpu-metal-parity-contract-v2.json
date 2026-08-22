@@ -120,14 +120,16 @@
     {
       "association": "none",
       "checkpointBoundaries": [
-        1
+        1,
+        3
       ],
       "coverage": [
         "bounded_tiled_temporal_path",
         "tiled_allocation_contract",
         "tiled_checkpoint_schema",
         "temporal_tile_schedule",
-        "tile_schedule"
+        "tile_schedule",
+        "seek_reset"
       ],
       "frames": [
         {
@@ -174,6 +176,37 @@
             "value": 2002
           },
           "topToken": null
+        },
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "periodic_phase_0",
+          "presentationTime": {
+            "timescale": 30000,
+            "value": 3003
+          },
+          "temporalResetReason": "seek",
+          "topToken": null
+        },
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "periodic_phase_1",
+          "presentationTime": {
+            "timescale": 30000,
+            "value": 4004
+          },
+          "topToken": null
         }
       ],
       "id": "nv12-video-forced-tiled-temporal-16x12-to-32x24",
@@ -181,10 +214,127 @@
       "scanMode": "progressive",
       "sourceHeight": 12,
       "sourceWidth": 16,
-      "stateExpectations": [],
+      "stateExpectations": [
+        {
+          "cadenceID": "progressive",
+          "classification": null,
+          "dominance": null,
+          "historyGeneration": 1,
+          "inputOrdinal": 2
+        },
+        {
+          "cadenceID": "progressive",
+          "classification": null,
+          "dominance": null,
+          "historyGeneration": 2,
+          "inputOrdinal": 3
+        },
+        {
+          "cadenceID": "progressive",
+          "classification": null,
+          "dominance": null,
+          "historyGeneration": 2,
+          "inputOrdinal": 4
+        }
+      ],
       "storage": "nv12_video_range_8",
       "targetHeight": 24,
       "targetWidth": 32
+    },
+    {
+      "association": "none",
+      "checkpointBoundaries": [
+        1
+      ],
+      "coverage": [
+        "repeated_pattern"
+      ],
+      "frames": [
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "periodic_phase_0",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 0
+          },
+          "topToken": null
+        },
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "periodic_phase_1",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 1
+          },
+          "topToken": null
+        },
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "periodic_phase_0",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 2
+          },
+          "topToken": null
+        },
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "periodic_phase_1",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 3
+          },
+          "topToken": null
+        }
+      ],
+      "id": "nv12-video-periodic-ambiguous-8x6-to-15x11",
+      "kind": "pixel_temporal",
+      "scanMode": "progressive",
+      "sourceHeight": 6,
+      "sourceWidth": 8,
+      "stateExpectations": [
+        {
+          "cadenceID": "progressive",
+          "classification": null,
+          "dominance": null,
+          "historyGeneration": 1,
+          "inputOrdinal": 0
+        },
+        {
+          "cadenceID": "progressive",
+          "classification": null,
+          "dominance": null,
+          "historyGeneration": 1,
+          "inputOrdinal": 3
+        }
+      ],
+      "storage": "nv12_video_range_8",
+      "targetHeight": 11,
+      "targetWidth": 15
     },
     {
       "association": "none",
@@ -511,6 +661,8 @@
     "arbitrary_rational_phase",
     "temporal_history",
     "temporal_reset",
+    "seek_reset",
+    "repeated_pattern",
     "scene_cut",
     "interlaced_tff",
     "interlaced_bff",
@@ -570,8 +722,8 @@
     "even_then_odd"
   ],
   "tools": {
-    "captureSourceSHA256": "1ac48bf1f910ff53464cb37df59818d7e8d7eef5a927d02ab6961dc98760f6cf",
-    "evaluatorSHA256": "b24a958231cd17fb570d42922a810d321c0f6407a8f16a1d302d991b2cff66f3",
+    "captureSourceSHA256": "9fcf2009a18385524f65644cf13e744a0cdd58550808bc43089dff4f12f98a84",
+    "evaluatorSHA256": "ed0f88fd607268a817159554afbe39a60fca9d4ef8a7c74e44966dd0e2a10a3b",
     "runnerSHA256": "e503c1de7379b73874bf8195b31d90378a720ce1b75172895fdc6df6b884c268"
   }
 }

@@ -24,6 +24,29 @@ SPEC.loader.exec_module(capture)
 
 
 class P06ReproductionCaptureTests(unittest.TestCase):
+    def test_v2_contract_pins_current_capture_tools(self) -> None:
+        contract = json.loads(
+            (SCRIPT_DIRECTORY / "p06-reproduction-contract-v2.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        expected = {
+            "buildRunnerSHA256": SCRIPT_DIRECTORY / "build_p06_release_runtime.sh",
+            "captureSourceSHA256": SCRIPT_DIRECTORY / "capture_p06_reproduction_v4.py",
+            "evaluatorSHA256": SCRIPT_DIRECTORY / "p06_reproduction_v4.py",
+            "runnerSHA256": SCRIPT_DIRECTORY / "run_p06_reproduction_v4.sh",
+            "runtimeLoadCheckRunnerSHA256": SCRIPT_DIRECTORY
+            / "run_p06_runtime_load_check.sh",
+            "runtimeLoadCheckSourceSHA256": SCRIPT_DIRECTORY
+            / "P06RuntimeLoadCheckMain.swift",
+            "sourceIdentityToolSHA256": SCRIPT_DIRECTORY / "p06_source_identity_v4.py",
+            "sourceProvenanceContractSHA256": SCRIPT_DIRECTORY
+            / "p06-source-provenance-v1.json",
+        }
+        self.assertEqual(set(contract["capture"]), set(expected))
+        for key, path in expected.items():
+            self.assertEqual(contract["capture"][key], capture.sha256(path), key)
+
     def test_artifact_set_is_order_independent_and_path_sensitive(self) -> None:
         first = capture.artifact_set_sha([("b", "2" * 64), ("a", "1" * 64)])
         second = capture.artifact_set_sha([("a", "1" * 64), ("b", "2" * 64)])
@@ -128,6 +151,7 @@ class P06ReproductionCaptureTests(unittest.TestCase):
             invocations = invocation_log.read_text(encoding="utf-8").splitlines()
             self.assertEqual(len(invocations), 2)
             self.assertIn("capture_p06_reproduction_v4.py", invocations[0])
+            self.assertIn(f"--contract {contract.resolve()}", invocations[0])
             self.assertIn("p06_reproduction_v4.py verify", invocations[1])
 
             exported_runner = root / "exported-runner.sh"

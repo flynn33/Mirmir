@@ -1359,6 +1359,14 @@ private extension RecoveryQualificationProducerV4 {
         _ = try await AVFoundationSegmentAssemblerV4().assemble(.init(
             artifactRootURL: root,
             segments: committed.document.body.segments,
+            mediaTimelineStart: try WorkflowMediaTimeV4(
+                value: 0,
+                timescale: 30
+            ),
+            outputTimelineStart: try WorkflowMediaTimeV4(
+                value: 0,
+                timescale: 1
+            ),
             destinationURL: assembled,
             outputFileType: .mov,
             overwriteExistingFile: false
@@ -1800,6 +1808,7 @@ private extension RecoveryQualificationProducerV4 {
                 value: duration.value,
                 timescale: duration.timescale
             ),
+            nextStartTime: nil,
             codecSettingsHash: job.output.contractID,
             trackProgress: [
                 try WorkflowTrackProgressV4(
@@ -2804,6 +2813,12 @@ struct WorkflowApplicationProcessedSegmentV4: Sendable {
     let trackProgress: [WorkflowTrackProgressV4]
 }
 
+struct WorkflowApplicationAssemblyTimelineDescriptorV4: Equatable, Sendable {
+    let planID: WorkflowPlanID
+    let mediaTimelineStart: WorkflowMediaTimeV4
+    let outputTimelineStart: WorkflowMediaTimeV4
+}
+
 struct WorkflowApplicationCompletionV4: Sendable {
     let source: VideoInfo
     let result: UpscaleResult
@@ -2861,6 +2876,10 @@ protocol WorkflowApplicationDeterministicExecutingV4: Sendable {
         temporalCheckpoint: Data,
         lastCompletedInputOrdinal: Int64
     ) async throws
+
+    func preparedAssemblyTimeline(
+        jobID: WorkflowJobID
+    ) async throws -> WorkflowApplicationAssemblyTimelineDescriptorV4
 
     func finalizePreparedOutput(
         jobID: WorkflowJobID,
@@ -3052,10 +3071,16 @@ final class WorkflowSourceTrackProgressCursorV4: @unchecked Sendable {
 actor WorkflowDeterministicApplicationEngineV4:
     WorkflowApplicationDeterministicExecutingV4
 {
+    private struct PreparedTimeline: Sendable {
+        let primaryMapping: DeterministicV4PrimaryTimelineMappingV4?
+        let assembly: WorkflowApplicationAssemblyTimelineDescriptorV4
+    }
+
     private struct PreparedExecution: Sendable {
         let source: VideoInfo
         let backend: any PreparedDeterministicV4RuntimePlanningBackend
         let plan: DeterministicV4PreparedAssetPlan
+        let timeline: PreparedTimeline
         let sourceProgressCursors: [
             MediaTrackStableIDV4: WorkflowSourceTrackProgressCursorV4
         ]
@@ -3142,6 +3167,11 @@ actor WorkflowDeterministicApplicationEngineV4:
                 throw WorkflowApplicationControllerErrorV4
                     .preparedPlanChanged(jobID)
             }
+            let timeline = try Self.preparedTimeline(
+                plan: plan,
+                binding: actualBinding,
+                jobID: jobID
+            )
             let sourceProgressCursors = try await makeSourceProgressCursors(
                 sourceURL: request.inputURL,
                 plan: plan
@@ -3156,6 +3186,7 @@ actor WorkflowDeterministicApplicationEngineV4:
                 source: source,
                 backend: backend,
                 plan: plan,
+                timeline: timeline,
                 sourceProgressCursors: sourceProgressCursors
             )
             return source
@@ -3188,7 +3219,10 @@ actor WorkflowDeterministicApplicationEngineV4:
             maximumInputFrames: maximumInputFrames,
             segmentURL: request.outputURL,
             cancellation: cancellation,
-            progress: progress
+            progress: progress,
+            timelineMapping: prepared.timeline.primaryMapping,
+            progressPresentationOffset:
+                prepared.timeline.primaryMapping?.offset ?? .zero
         )
         let checkpointable = try prepared.plan
             .checkpointableProcessingBackend(
@@ -3230,6 +3264,22 @@ actor WorkflowDeterministicApplicationEngineV4:
             temporalCheckpoint,
             planSHA256: prepared.plan.ashPlan.planSHA256
         )
+    }
+
+    func preparedAssemblyTimeline(
+        jobID: WorkflowJobID
+    ) async throws -> WorkflowApplicationAssemblyTimelineDescriptorV4 {
+        guard let prepared = preparedByJobID[jobID] else {
+            throw WorkflowApplicationControllerErrorV4.noActiveJob
+        }
+        let planID = try WorkflowPlanID(
+            prepared.plan.ashPlan.planSHA256.rawValue
+        )
+        guard prepared.timeline.assembly.planID == planID else {
+            throw WorkflowApplicationControllerErrorV4
+                .preparedPlanChanged(jobID)
+        }
+        return prepared.timeline.assembly
     }
 
     func finalizePreparedOutput(
@@ -3360,6 +3410,81 @@ actor WorkflowDeterministicApplicationEngineV4:
 }
 
 private extension WorkflowDeterministicApplicationEngineV4 {
+    private nonisolated static func preparedTimeline(
+        plan: DeterministicV4PreparedAssetPlan,
+        binding: WorkflowVerifiedPreparedPlanBindingV4,
+        jobID: WorkflowJobID
+    ) throws -> PreparedTimeline {
+        let plannedPrimary = plan.trackPlan.plan.tracks.filter {
+            $0.source.identity.stableID
+                == plan.primaryGraphTrack.identity.stableID
+        }
+        guard let primaryVideo = plan.primaryCanonicalTrack.video,
+              plannedPrimary.count == 1,
+              let planned = plannedPrimary.first,
+              planned.action == .process,
+              planned.source.timeRange.start >= .zero else {
+            throw WorkflowApplicationControllerErrorV4
+                .preparedPlanChanged(jobID)
+        }
+
+        if !primaryVideo.color.dynamicHDRMetadata.isEmpty {
+            let mapping: DeterministicV4PrimaryTimelineMappingV4
+            do {
+                mapping = try DeterministicV4PrimaryTimelineMappingV4(
+                    plannedPrimary: planned
+                )
+            } catch {
+                throw WorkflowApplicationControllerErrorV4
+                    .preparedPlanChanged(jobID)
+            }
+            return PreparedTimeline(
+                primaryMapping: mapping,
+                assembly: WorkflowApplicationAssemblyTimelineDescriptorV4(
+                    planID: binding.planID,
+                    mediaTimelineStart: try workflowTime(
+                        mapping.mediaRange.start,
+                        jobID: jobID
+                    ),
+                    outputTimelineStart: try workflowTime(
+                        mapping.targetRange.start,
+                        jobID: jobID
+                    )
+                )
+            )
+        }
+
+        return PreparedTimeline(
+            primaryMapping: nil,
+            assembly: WorkflowApplicationAssemblyTimelineDescriptorV4(
+                planID: binding.planID,
+                mediaTimelineStart: try workflowTime(
+                    planned.source.timeRange.start,
+                    jobID: jobID
+                ),
+                outputTimelineStart: try WorkflowMediaTimeV4(
+                    value: 0,
+                    timescale: 1
+                )
+            )
+        )
+    }
+
+    nonisolated static func workflowTime(
+        _ time: ExactRationalV4,
+        jobID: WorkflowJobID
+    ) throws -> WorkflowMediaTimeV4 {
+        guard time.denominator <= Int64(Int32.max),
+              let timescale = Int32(exactly: time.denominator) else {
+            throw WorkflowApplicationControllerErrorV4
+                .preparedPlanChanged(jobID)
+        }
+        return try WorkflowMediaTimeV4(
+            value: time.numerator,
+            timescale: timescale
+        )
+    }
+
     private func checkpointTrackProgress(
         prepared: PreparedExecution,
         segment: DeterministicV4MediaSegmentResultV4,
@@ -3962,8 +4087,11 @@ private extension WorkflowApplicationCoordinatorV4 {
                     checkpointID: checkpoint.body.checkpointID
                 )
             do {
+                let assemblyTimeline = try await engine
+                    .preparedAssemblyTimeline(jobID: jobID)
                 _ = try await queue.assembleApplicationCheckpoint(
                     checkpoint,
+                    timeline: assemblyTimeline,
                     destinationURL: assembledVideoURL,
                     overwriteExistingFile: false
                 )
@@ -4332,6 +4460,19 @@ private extension WorkflowApplicationCoordinatorV4 {
 
         while true {
             try throwIfActiveControlFailed()
+            let authoritativeStartTime: WorkflowMediaTimeV4?
+            if let checkpoint {
+                guard let nextStartTime = checkpoint.body.segments.last?
+                    .nextStartTime else {
+                    throw WorkflowApplicationControllerErrorV4
+                        .invalidAssembledOutput(
+                            "a nonterminal checkpoint has no authenticated next boundary"
+                        )
+                }
+                authoritativeStartTime = nextStartTime
+            } else {
+                authoritativeStartTime = nil
+            }
             // Reopen and authenticate the complete immutable source before
             // every segment. Auxiliary-track finalization receives this same
             // queue-owned URL through `activated.request`.
@@ -4355,8 +4496,7 @@ private extension WorkflowApplicationCoordinatorV4 {
                     jobID: jobID,
                     request: workingRequest,
                     startingInputFrameIndex: nextFrameIndex,
-                    startTime: checkpoint?.body.segments.last?
-                        .endTimeExclusive,
+                    startTime: authoritativeStartTime,
                     maximumInputFrames: maximumInputFramesPerBoundary,
                     previousCheckpoint: checkpoint,
                     cancellation: cancellation,
@@ -4478,8 +4618,13 @@ private extension WorkflowApplicationCoordinatorV4 {
                     checkpointID: checkpoint.body.checkpointID
                 )
             do {
+                let assemblyTimeline = try await engine
+                    .preparedAssemblyTimeline(
+                        jobID: dispatch.claim.jobID
+                    )
                 _ = try await queue.assembleApplicationCheckpoint(
                     checkpoint,
+                    timeline: assemblyTimeline,
                     destinationURL: assembledVideoURL,
                     overwriteExistingFile: false
                 )
@@ -4732,6 +4877,7 @@ private extension WorkflowApplicationCoordinatorV4 {
         case WorkflowApplicationControllerErrorV4.activationBlocked,
              WorkflowApplicationControllerErrorV4.preparedPlanChanged,
              WorkflowApplicationControllerErrorV4.checkpointMissing,
+             WorkflowApplicationQueueErrorV4.preparedPlanChanged,
              WorkflowApplicationQueueErrorV4.requestDocumentMissing,
              WorkflowApplicationQueueErrorV4.requestDocumentCorrupt,
              WorkflowApplicationQueueErrorV4.requestDocumentBindingMismatch,

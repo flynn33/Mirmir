@@ -1308,10 +1308,10 @@ private extension AVCanonicalMediaStateAdapterV4 {
             if segment.isEmpty {
                 observations.append(
                     observation(
-                        severity: .unsupported,
+                        severity: .warning,
                         code: .unsupportedValue,
                         path: "\(root).edits[\(index)]",
-                        value: "empty edit fingerprinted; canonical edit schema has no empty-edit form"
+                        value: "empty edit omitted from canonical edit rows; exact mapping fingerprinted in segment-mapping metadata and route topology is admitted separately"
                     )
                 )
                 continue

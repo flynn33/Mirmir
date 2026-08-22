@@ -529,6 +529,48 @@ struct WorkflowSegmentCheckpointV4: Codable, Equatable, Hashable, Sendable {
     let artifact: WorkflowCheckpointArtifactV4
     let startTime: WorkflowMediaTimeV4
     let endTimeExclusive: WorkflowMediaTimeV4
+    let nextStartTime: WorkflowMediaTimeV4?
+    let codecSettingsHash: WorkflowOutputContractID
+    let isIndependentlyDecodable: Bool
+
+    init(
+        ordinal: UInt64,
+        artifact: WorkflowCheckpointArtifactV4,
+        startTime: WorkflowMediaTimeV4,
+        endTimeExclusive: WorkflowMediaTimeV4,
+        nextStartTime: WorkflowMediaTimeV4?,
+        codecSettingsHash: WorkflowOutputContractID,
+        isIndependentlyDecodable: Bool
+    ) throws {
+        guard artifact.kind == .segment,
+              startTime.timescale == endTimeExclusive.timescale,
+              nextStartTime.map({
+                  $0.timescale == startTime.timescale
+                      && $0.value >= endTimeExclusive.value
+              }) ?? true,
+              startTime.value >= 0,
+              startTime.value < endTimeExclusive.value,
+              isIndependentlyDecodable else {
+            throw WorkflowDurableCoordinatorErrorV4.invalidSegmentBoundary
+        }
+        self.ordinal = ordinal
+        self.artifact = artifact
+        self.startTime = startTime
+        self.endTimeExclusive = endTimeExclusive
+        self.nextStartTime = nextStartTime
+        self.codecSettingsHash = codecSettingsHash
+        self.isIndependentlyDecodable = isIndependentlyDecodable
+    }
+}
+
+/// Deployed checkpoint-segment representation used only while decoding the
+/// v1/v2 checkpoint envelopes. It intentionally has no next-boundary field;
+/// migration may derive that field only from the legacy contiguous topology.
+struct WorkflowSegmentCheckpointV2: Codable, Equatable, Hashable, Sendable {
+    let ordinal: UInt64
+    let artifact: WorkflowCheckpointArtifactV4
+    let startTime: WorkflowMediaTimeV4
+    let endTimeExclusive: WorkflowMediaTimeV4
     let codecSettingsHash: WorkflowOutputContractID
     let isIndependentlyDecodable: Bool
 
@@ -539,13 +581,7 @@ struct WorkflowSegmentCheckpointV4: Codable, Equatable, Hashable, Sendable {
         endTimeExclusive: WorkflowMediaTimeV4,
         codecSettingsHash: WorkflowOutputContractID,
         isIndependentlyDecodable: Bool
-    ) throws {
-        guard artifact.kind == .segment,
-              startTime.timescale == endTimeExclusive.timescale,
-              startTime.value < endTimeExclusive.value,
-              isIndependentlyDecodable else {
-            throw WorkflowDurableCoordinatorErrorV4.invalidSegmentBoundary
-        }
+    ) {
         self.ordinal = ordinal
         self.artifact = artifact
         self.startTime = startTime
@@ -622,7 +658,7 @@ enum WorkflowCheckpointIncompatibilityV4:
 }
 
 struct WorkflowCheckpointBodyV4: Codable, Equatable, Hashable, Sendable {
-    static let currentSchemaVersion: UInt16 = 2
+    static let currentSchemaVersion: UInt16 = 3
 
     let schemaVersion: UInt16
     let checkpointID: WorkflowCheckpointIDV4
@@ -670,6 +706,12 @@ struct WorkflowCheckpointBodyV4: Codable, Equatable, Hashable, Sendable {
                     value: segment.endTimeExclusive.value,
                     timescale: segment.endTimeExclusive.timescale
                 ),
+                nextStartTime: try segment.nextStartTime.map {
+                    try WorkflowMediaTimeV4(
+                        value: $0.value,
+                        timescale: $0.timescale
+                    )
+                },
                 codecSettingsHash: segment.codecSettingsHash,
                 isIndependentlyDecodable: segment.isIndependentlyDecodable
             )
@@ -705,8 +747,10 @@ struct WorkflowCheckpointBodyV4: Codable, Equatable, Hashable, Sendable {
                 reopenReceiptSHA256: artifact.reopenReceiptSHA256
             )
         }
-        guard (ordinal == 0) == (previousCheckpointHash == nil),
-              segments.count == Int(ordinal) + 1,
+        guard let exactOrdinal = Int(exactly: ordinal),
+              exactOrdinal < Int.max,
+              (ordinal == 0) == (previousCheckpointHash == nil),
+              segments.count == exactOrdinal + 1,
               segments.enumerated().allSatisfy({
                   $0.element.ordinal == UInt64($0.offset)
               }),
@@ -717,15 +761,24 @@ struct WorkflowCheckpointBodyV4: Codable, Equatable, Hashable, Sendable {
         for index in segments.indices.dropFirst() {
             let previous = segments[index - 1]
             let current = segments[index]
-            guard previous.endTimeExclusive == current.startTime,
+            guard previous.endTimeExclusive.timescale
+                    == current.startTime.timescale,
+                  previous.endTimeExclusive.value <= current.startTime.value,
+                  previous.nextStartTime == current.startTime,
                   previous.codecSettingsHash == current.codecSettingsHash else {
                 throw WorkflowDurableCoordinatorErrorV4.invalidCheckpoint
             }
         }
         let trackIDs = trackProgress.map(\.trackID)
+        let processedVideoProgress = trackProgress.filter {
+            $0.kind == .video && $0.nextOutputSampleIndex > 0
+        }
         guard !trackProgress.isEmpty,
               Set(trackIDs).count == trackIDs.count,
-              trackProgress.contains(where: { $0.kind == .video }) else {
+              processedVideoProgress.count == 1,
+              let tail = segments.last,
+              (tail.nextStartTime == nil)
+                == processedVideoProgress[0].isComplete else {
             throw WorkflowDurableCoordinatorErrorV4.invalidCheckpoint
         }
         let allArtifacts = segments.map(\.artifact)
@@ -826,8 +879,57 @@ struct WorkflowCheckpointBodyV4: Codable, Equatable, Hashable, Sendable {
     }
 }
 
+/// Deployed body schemas 1 and 2 retained solely as semantic-migration input.
+/// Their segment rows predate `nextStartTime`; no current writer emits this
+/// type.
+struct WorkflowCheckpointBodyV2: Codable, Equatable, Hashable, Sendable {
+    static let initialSchemaVersionValue: UInt16 = 1
+    static let latestSchemaVersionValue: UInt16 = 2
+
+    let schemaVersion: UInt16
+    let checkpointID: WorkflowCheckpointIDV4
+    let ordinal: UInt64
+    let previousCheckpointHash: WorkflowCheckpointDocumentHashV4?
+    let compatibility: WorkflowCheckpointCompatibilityBindingV4
+    let attemptID: WorkflowAttemptID
+    let committedAt: WorkflowWallClockInstantV4
+    let segments: [WorkflowSegmentCheckpointV2]
+    let trackProgress: [WorkflowTrackProgressV4]
+    let temporalHistory: WorkflowCheckpointArtifactV4
+    let measurementHysteresis: WorkflowCheckpointArtifactV4
+    let auxiliaryState: [WorkflowCheckpointArtifactV4]
+
+    init(
+        schemaVersion: UInt16,
+        checkpointID: WorkflowCheckpointIDV4,
+        ordinal: UInt64,
+        previousCheckpointHash: WorkflowCheckpointDocumentHashV4?,
+        compatibility: WorkflowCheckpointCompatibilityBindingV4,
+        attemptID: WorkflowAttemptID,
+        committedAt: WorkflowWallClockInstantV4,
+        segments: [WorkflowSegmentCheckpointV2],
+        trackProgress: [WorkflowTrackProgressV4],
+        temporalHistory: WorkflowCheckpointArtifactV4,
+        measurementHysteresis: WorkflowCheckpointArtifactV4,
+        auxiliaryState: [WorkflowCheckpointArtifactV4]
+    ) {
+        self.schemaVersion = schemaVersion
+        self.checkpointID = checkpointID
+        self.ordinal = ordinal
+        self.previousCheckpointHash = previousCheckpointHash
+        self.compatibility = compatibility
+        self.attemptID = attemptID
+        self.committedAt = committedAt
+        self.segments = segments
+        self.trackProgress = trackProgress
+        self.temporalHistory = temporalHistory
+        self.measurementHysteresis = measurementHysteresis
+        self.auxiliaryState = auxiliaryState
+    }
+}
+
 struct WorkflowCheckpointDocumentV4: Codable, Equatable, Hashable, Sendable {
-    static let currentSchemaVersion: UInt16 = 2
+    static let currentSchemaVersion: UInt16 = 3
 
     let schemaVersion: UInt16
     let bodyHash: WorkflowCheckpointDocumentHashV4
@@ -843,9 +945,33 @@ struct WorkflowCheckpointDocumentV4: Codable, Equatable, Hashable, Sendable {
     }
 }
 
-/// Canonical v1 checkpoint envelope.  Segment and temporal artifact hashes,
-/// compatibility bindings, and the predecessor hash are never rewritten by
-/// this envelope-only migration.
+/// Canonical deployed v2 checkpoint envelope. It shipped with both body
+/// schemas 1 and 2; the v3 body receives a new hash and archive name.
+struct WorkflowCheckpointDocumentV2:
+    Codable,
+    Equatable,
+    Hashable,
+    Sendable
+{
+    static let schemaVersionValue: UInt16 = 2
+
+    let schemaVersion: UInt16
+    let bodyHash: WorkflowCheckpointDocumentHashV4
+    let body: WorkflowCheckpointBodyV2
+
+    init(
+        bodyHash: WorkflowCheckpointDocumentHashV4,
+        body: WorkflowCheckpointBodyV2
+    ) {
+        schemaVersion = Self.schemaVersionValue
+        self.bodyHash = bodyHash
+        self.body = body
+    }
+}
+
+/// Canonical v1 checkpoint envelope. It requires the original body schema 1;
+/// migration verifies that legacy body hash before deriving current boundary
+/// semantics.
 struct WorkflowCheckpointDocumentV1:
     Codable,
     Equatable,
@@ -856,11 +982,11 @@ struct WorkflowCheckpointDocumentV1:
 
     let schemaVersion: UInt16
     let bodyHash: WorkflowCheckpointDocumentHashV4
-    let body: WorkflowCheckpointBodyV4
+    let body: WorkflowCheckpointBodyV2
 
     init(
         bodyHash: WorkflowCheckpointDocumentHashV4,
-        body: WorkflowCheckpointBodyV4
+        body: WorkflowCheckpointBodyV2
     ) {
         schemaVersion = Self.schemaVersionValue
         self.bodyHash = bodyHash
@@ -892,7 +1018,7 @@ struct WorkflowCheckpointDocumentV1:
                 forKey: .bodyHash
             ),
             body: try container.decode(
-                WorkflowCheckpointBodyV4.self,
+                WorkflowCheckpointBodyV2.self,
                 forKey: .body
             )
         )
@@ -1581,27 +1707,26 @@ actor WorkflowDurableCoordinatorV4 {
             auxiliaryState: draft.auxiliaryState
         )
         let document = try makeCheckpointDocument(body)
+        let data = try codec.canonicalData(document)
         let archiveURL = checkpointArchiveURL(
             jobID: claim.jobID,
             document: document
         )
         try fileSystem.ensureDirectory(checkpointDirectoryURL(jobID: claim.jobID))
         if try fileSystem.regularFileExists(archiveURL) {
-            let existing = try decodeCheckpointDocument(
-                fileSystem.readRegularFile(archiveURL, maximumBytes: 16 * 1_024 * 1_024)
+            let existingData = try fileSystem.readRegularFile(
+                archiveURL,
+                maximumBytes: 16 * 1_024 * 1_024
             )
-            guard existing == document else {
+            guard existingData == data,
+                  try decodeCheckpointDocument(existingData) == document else {
                 throw WorkflowDurableCoordinatorErrorV4.checkpointConflict
             }
         } else {
-            try fileSystem.writeNewAtomically(
-                try codec.canonicalData(document),
-                to: archiveURL
-            )
+            try fileSystem.writeNewAtomically(data, to: archiveURL)
         }
 
         let headURL = checkpointHeadURL(jobID: claim.jobID)
-        let data = try codec.canonicalData(document)
         if try fileSystem.regularFileExists(headURL) {
             if try decodeCheckpointDocument(
                 fileSystem.readRegularFile(headURL, maximumBytes: 16 * 1_024 * 1_024)
@@ -2025,6 +2150,94 @@ private extension WorkflowDurableCoordinatorV4 {
         )
     }
 
+    func makeLegacyCheckpointBodyHash(
+        _ body: WorkflowCheckpointBodyV2
+    ) throws -> WorkflowCheckpointDocumentHashV4 {
+        try WorkflowCheckpointDocumentHashV4(
+            WorkflowV4Validation.domainSeparatedSHA256(
+                domain: "Mirmir.WorkflowCheckpointV4\u{0}",
+                data: codec.canonicalData(body)
+            )
+        )
+    }
+
+    func migrateLegacyCheckpointBody(
+        _ legacy: WorkflowCheckpointBodyV2
+    ) throws -> WorkflowCheckpointBodyV4 {
+        guard legacy.schemaVersion
+                == WorkflowCheckpointBodyV2.initialSchemaVersionValue
+                || legacy.schemaVersion
+                    == WorkflowCheckpointBodyV2.latestSchemaVersionValue,
+              legacy.schemaVersion
+                    != WorkflowCheckpointBodyV2.initialSchemaVersionValue
+                || legacy.compatibility.sourceSnapshotIdentityID == nil,
+              let exactOrdinal = Int(exactly: legacy.ordinal),
+              exactOrdinal < Int.max,
+              (legacy.ordinal == 0)
+                == (legacy.previousCheckpointHash == nil),
+              legacy.segments.count == exactOrdinal + 1,
+              legacy.segments.enumerated().allSatisfy({
+                  $0.element.ordinal == UInt64($0.offset)
+              }) else {
+            throw WorkflowDurableCoordinatorErrorV4.corruptCheckpoint
+        }
+        for index in legacy.segments.indices.dropFirst() {
+            let previous = legacy.segments[index - 1]
+            let current = legacy.segments[index]
+            // A legacy document did not persist a next-boundary promise. Only
+            // its formerly required exact contiguous topology is derivable.
+            guard previous.endTimeExclusive == current.startTime,
+                  previous.codecSettingsHash == current.codecSettingsHash else {
+                throw WorkflowDurableCoordinatorErrorV4.corruptCheckpoint
+            }
+        }
+        let processedVideoProgress = legacy.trackProgress.filter {
+            $0.kind == .video && $0.nextOutputSampleIndex > 0
+        }
+        guard processedVideoProgress.count == 1 else {
+            throw WorkflowDurableCoordinatorErrorV4.corruptCheckpoint
+        }
+        let migratedSegments = try legacy.segments.enumerated().map {
+            index, segment in
+            let nextStartTime: WorkflowMediaTimeV4?
+            if index + 1 < legacy.segments.count {
+                nextStartTime = legacy.segments[index + 1].startTime
+            } else if processedVideoProgress[0].isComplete {
+                nextStartTime = nil
+            } else {
+                // Legacy paused/incomplete tails had no look-ahead field. The
+                // old contiguous contract permits exactly the tail end here.
+                nextStartTime = segment.endTimeExclusive
+            }
+            return try WorkflowSegmentCheckpointV4(
+                ordinal: segment.ordinal,
+                artifact: segment.artifact,
+                startTime: segment.startTime,
+                endTimeExclusive: segment.endTimeExclusive,
+                nextStartTime: nextStartTime,
+                codecSettingsHash: segment.codecSettingsHash,
+                isIndependentlyDecodable: segment.isIndependentlyDecodable
+            )
+        }
+        do {
+            return try WorkflowCheckpointBodyV4(
+                checkpointID: legacy.checkpointID,
+                ordinal: legacy.ordinal,
+                previousCheckpointHash: legacy.previousCheckpointHash,
+                compatibility: legacy.compatibility,
+                attemptID: legacy.attemptID,
+                committedAt: legacy.committedAt,
+                segments: migratedSegments,
+                trackProgress: legacy.trackProgress,
+                temporalHistory: legacy.temporalHistory,
+                measurementHysteresis: legacy.measurementHysteresis,
+                auxiliaryState: legacy.auxiliaryState
+            )
+        } catch {
+            throw WorkflowDurableCoordinatorErrorV4.corruptCheckpoint
+        }
+    }
+
     func decodeCheckpointDocument(
         _ data: Data
     ) throws -> WorkflowCheckpointDocumentV4 {
@@ -2053,16 +2266,39 @@ private extension WorkflowDurableCoordinatorV4 {
                     from: data
                 )
                 migratedFromSchemaVersion = nil
+            case WorkflowCheckpointDocumentV2.schemaVersionValue:
+                let legacy = try codec.decodeCanonical(
+                    WorkflowCheckpointDocumentV2.self,
+                    from: data
+                )
+                guard legacy.schemaVersion
+                        == WorkflowCheckpointDocumentV2.schemaVersionValue,
+                      legacy.body.schemaVersion
+                        == WorkflowCheckpointBodyV2.initialSchemaVersionValue
+                        || legacy.body.schemaVersion
+                            == WorkflowCheckpointBodyV2.latestSchemaVersionValue,
+                      try makeLegacyCheckpointBodyHash(legacy.body)
+                        == legacy.bodyHash else {
+                    throw WorkflowDurableCoordinatorErrorV4.corruptCheckpoint
+                }
+                document = try makeCheckpointDocument(
+                    migrateLegacyCheckpointBody(legacy.body)
+                )
+                migratedFromSchemaVersion = legacy.schemaVersion
             case WorkflowCheckpointDocumentV1.schemaVersionValue:
                 let legacy = try codec.decodeCanonical(
                     WorkflowCheckpointDocumentV1.self,
                     from: data
                 )
-                let migrated = try makeCheckpointDocument(legacy.body)
-                guard migrated.bodyHash == legacy.bodyHash else {
+                guard legacy.body.schemaVersion
+                        == WorkflowCheckpointBodyV2.initialSchemaVersionValue,
+                      try makeLegacyCheckpointBodyHash(legacy.body)
+                        == legacy.bodyHash else {
                     throw WorkflowDurableCoordinatorErrorV4.corruptCheckpoint
                 }
-                document = migrated
+                document = try makeCheckpointDocument(
+                    migrateLegacyCheckpointBody(legacy.body)
+                )
                 migratedFromSchemaVersion = legacy.schemaVersion
             default:
                 throw WorkflowDurableCoordinatorErrorV4
@@ -2101,14 +2337,29 @@ private extension WorkflowDurableCoordinatorV4 {
                 maximumBytes: 16 * 1_024 * 1_024
             )
         )
-        if decoded.migratedFromSchemaVersion != nil {
+        let holdsJobLease = heldLeases.values.contains {
+            $0.operatingSystemLease.isHeld
+                && $0.document.body.status == .active
+                && $0.document.body.jobBinding.jobID == jobID
+        }
+        if decoded.migratedFromSchemaVersion != nil, holdsJobLease {
+            // Migration is a head mutation. The per-job OS lease prevents an
+            // old decoded head from replacing a newer cross-process commit.
             let data = try codec.canonicalData(decoded.document)
             let archiveURL = checkpointArchiveURL(
                 jobID: jobID,
                 document: decoded.document
             )
             if try fileSystem.regularFileExists(archiveURL) {
-                try fileSystem.replaceAtomically(data, at: archiveURL)
+                let existingData = try fileSystem.readRegularFile(
+                    archiveURL,
+                    maximumBytes: 16 * 1_024 * 1_024
+                )
+                guard existingData == data,
+                      try decodeCheckpointDocument(existingData)
+                        == decoded.document else {
+                    throw WorkflowDurableCoordinatorErrorV4.checkpointConflict
+                }
             } else {
                 try fileSystem.writeNewAtomically(data, to: archiveURL)
             }

@@ -287,10 +287,20 @@ final class WorkflowDurableCoordinatorV4Tests: XCTestCase {
         )
     }
 
-    func testCheckpointEnvelopeV1MigratesHeadAndArchiveAtomically() async throws {
+    func testCheckpointEnvelopeV1MigratesHeadWithoutRewritingLegacyArchive()
+        async throws {
         let fixture = try makeFixture()
+        let fault = CheckpointMigrationFaultV4()
+        let fileSystem = try WorkflowLocalDurableFileSystem(
+            trustedRootURL: fixture.storeURL,
+            durabilityLevel: .processCrash,
+            operationHook: { [fault] point, url in
+                try fault.hook(point, url)
+            }
+        )
         let coordinator = try WorkflowDurableCoordinatorV4(
             rootURL: fixture.storeURL,
+            fileSystem: fileSystem,
             clock: fixture.clock
         )
         let specification = try makeSpecification(index: 22)
@@ -324,9 +334,14 @@ final class WorkflowDurableCoordinatorV4Tests: XCTestCase {
             using: claim
         ).document
         let codec = WorkflowCanonicalCodec()
+        let legacyBody = legacyCheckpointBody(
+            from: committed.body,
+            schemaVersion: 1
+        )
+        let legacyHash = try legacyCheckpointBodyHash(legacyBody)
         let legacy = WorkflowCheckpointDocumentV1(
-            bodyHash: committed.bodyHash,
-            body: committed.body
+            bodyHash: legacyHash,
+            body: legacyBody
         )
         let legacyData = try codec.canonicalData(legacy)
         let directory = fixture.storeURL
@@ -334,24 +349,374 @@ final class WorkflowDurableCoordinatorV4Tests: XCTestCase {
             .appendingPathComponent(specification.jobID.rawValue, isDirectory: true)
             .appendingPathComponent("checkpoints-v4", isDirectory: true)
         let headURL = directory.appendingPathComponent("head-v1.json")
-        let archiveURL = directory.appendingPathComponent(
+        let legacyArchiveURL = directory.appendingPathComponent(
+            String(
+                format: "checkpoint-%020llu-%@.json",
+                committed.body.ordinal,
+                String(legacyHash.rawValue.prefix(16))
+            )
+        )
+        let currentArchiveURL = directory.appendingPathComponent(
             String(
                 format: "checkpoint-%020llu-%@.json",
                 committed.body.ordinal,
                 String(committed.bodyHash.rawValue.prefix(16))
             )
         )
-        try legacyData.write(to: archiveURL, options: .atomic)
+        try FileManager.default.removeItem(at: currentArchiveURL)
+        try legacyData.write(to: legacyArchiveURL, options: .atomic)
         try legacyData.write(to: headURL, options: .atomic)
+
+        let currentData = try codec.canonicalData(committed)
+        fault.arm(targetName: currentArchiveURL.lastPathComponent)
+        do {
+            _ = try await coordinator.loadCompatibleCheckpoint(
+                jobID: specification.jobID,
+                expectedCodecSettingsHash: specification.output.contractID
+            )
+            XCTFail("The injected archive publication interruption was missed.")
+        } catch let error as WorkflowDurableFileSystemError {
+            XCTAssertEqual(
+                error,
+                .indeterminate(
+                    operation: "write_new_atomically",
+                    path: currentArchiveURL.path
+                )
+            )
+        }
+        XCTAssertTrue(fault.didFire)
+        XCTAssertEqual(try Data(contentsOf: headURL), legacyData)
+        XCTAssertEqual(try Data(contentsOf: legacyArchiveURL), legacyData)
+        XCTAssertEqual(try Data(contentsOf: currentArchiveURL), currentData)
 
         let loaded = try await coordinator.loadCompatibleCheckpoint(
             jobID: specification.jobID,
             expectedCodecSettingsHash: specification.output.contractID
         )
         XCTAssertEqual(loaded, committed)
-        let currentData = try codec.canonicalData(committed)
         XCTAssertEqual(try Data(contentsOf: headURL), currentData)
-        XCTAssertEqual(try Data(contentsOf: archiveURL), currentData)
+        XCTAssertEqual(try Data(contentsOf: legacyArchiveURL), legacyData)
+        XCTAssertEqual(try Data(contentsOf: currentArchiveURL), currentData)
+        let replayed = try await coordinator.loadCompatibleCheckpoint(
+            jobID: specification.jobID,
+            expectedCodecSettingsHash: specification.output.contractID
+        )
+        XCTAssertEqual(replayed, committed)
+    }
+
+    func testCheckpointEnvelopeV2MigratesTerminalTailToNilBoundary()
+        async throws {
+        let fixture = try makeFixture()
+        let coordinator = try WorkflowDurableCoordinatorV4(
+            rootURL: fixture.storeURL,
+            clock: fixture.clock
+        )
+        let specification = try makeSpecification(index: 23)
+        try await enqueue(specification, into: coordinator, index: 23)
+        let body = try checkpointBody(
+            specification: specification,
+            segments: [
+                WorkflowSegmentCheckpointV4(
+                    ordinal: 0,
+                    artifact: checkpointArtifact(index: 1, kind: .segment),
+                    startTime: WorkflowMediaTimeV4(value: 0, timescale: 600),
+                    endTimeExclusive: WorkflowMediaTimeV4(
+                        value: 600,
+                        timescale: 600
+                    ),
+                    nextStartTime: WorkflowMediaTimeV4(
+                        value: 600,
+                        timescale: 600
+                    ),
+                    codecSettingsHash: specification.output.contractID,
+                    isIndependentlyDecodable: true
+                ),
+                WorkflowSegmentCheckpointV4(
+                    ordinal: 1,
+                    artifact: checkpointArtifact(index: 5, kind: .segment),
+                    startTime: WorkflowMediaTimeV4(
+                        value: 600,
+                        timescale: 600
+                    ),
+                    endTimeExclusive: WorkflowMediaTimeV4(
+                        value: 1_200,
+                        timescale: 600
+                    ),
+                    nextStartTime: nil,
+                    codecSettingsHash: specification.output.contractID,
+                    isIndependentlyDecodable: true
+                )
+            ],
+            videoIsComplete: true
+        )
+        let expectedPreviousCheckpointHash = try XCTUnwrap(
+            body.previousCheckpointHash
+        )
+        let directory = fixture.storeURL
+            .appendingPathComponent("jobs", isDirectory: true)
+            .appendingPathComponent(specification.jobID.rawValue, isDirectory: true)
+            .appendingPathComponent("checkpoints-v4", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let headURL = directory.appendingPathComponent("head-v1.json")
+        for legacyBodySchema in [UInt16(1), UInt16(2)] {
+            let legacyBody = legacyCheckpointBody(
+                from: body,
+                schemaVersion: legacyBodySchema
+            )
+            let legacy = WorkflowCheckpointDocumentV2(
+                bodyHash: try legacyCheckpointBodyHash(legacyBody),
+                body: legacyBody
+            )
+            try WorkflowCanonicalCodec().canonicalData(legacy).write(
+                to: headURL,
+                options: .atomic
+            )
+
+            let loaded = try await coordinator.loadCompatibleCheckpoint(
+                jobID: specification.jobID,
+                expectedCodecSettingsHash: specification.output.contractID
+            )
+            let decoded = try XCTUnwrap(loaded)
+            XCTAssertEqual(decoded.body, body)
+            XCTAssertEqual(decoded.bodyHash, try currentCheckpointBodyHash(body))
+            XCTAssertEqual(
+                decoded.body.previousCheckpointHash,
+                expectedPreviousCheckpointHash
+            )
+            XCTAssertNil(decoded.body.segments.last?.nextStartTime)
+        }
+    }
+
+    func testCheckpointBodyBindsTrueGapPairsAndTailStateExactly() throws {
+        let specification = try makeSpecification(index: 24)
+        let codec = specification.output.contractID
+        let first = try WorkflowSegmentCheckpointV4(
+            ordinal: 0,
+            artifact: checkpointArtifact(index: 1, kind: .segment),
+            startTime: WorkflowMediaTimeV4(value: 0, timescale: 600),
+            endTimeExclusive: WorkflowMediaTimeV4(value: 600, timescale: 600),
+            nextStartTime: WorkflowMediaTimeV4(value: 900, timescale: 600),
+            codecSettingsHash: codec,
+            isIndependentlyDecodable: true
+        )
+        let pausedTail = try WorkflowSegmentCheckpointV4(
+            ordinal: 1,
+            artifact: checkpointArtifact(index: 5, kind: .segment),
+            startTime: WorkflowMediaTimeV4(value: 900, timescale: 600),
+            endTimeExclusive: WorkflowMediaTimeV4(value: 1_200, timescale: 600),
+            nextStartTime: WorkflowMediaTimeV4(value: 1_200, timescale: 600),
+            codecSettingsHash: codec,
+            isIndependentlyDecodable: true
+        )
+        XCTAssertNoThrow(try checkpointBody(
+            specification: specification,
+            segments: [first, pausedTail],
+            videoIsComplete: false
+        ))
+
+        let mismatched = try WorkflowSegmentCheckpointV4(
+            ordinal: 1,
+            artifact: checkpointArtifact(index: 5, kind: .segment),
+            startTime: WorkflowMediaTimeV4(value: 1_000, timescale: 600),
+            endTimeExclusive: WorkflowMediaTimeV4(value: 1_200, timescale: 600),
+            nextStartTime: WorkflowMediaTimeV4(value: 1_200, timescale: 600),
+            codecSettingsHash: codec,
+            isIndependentlyDecodable: true
+        )
+        XCTAssertThrowsError(try checkpointBody(
+            specification: specification,
+            segments: [first, mismatched],
+            videoIsComplete: false
+        )) { error in
+            XCTAssertEqual(
+                error as? WorkflowDurableCoordinatorErrorV4,
+                .invalidCheckpoint
+            )
+        }
+        XCTAssertThrowsError(try WorkflowSegmentCheckpointV4(
+            ordinal: 0,
+            artifact: checkpointArtifact(index: 1, kind: .segment),
+            startTime: WorkflowMediaTimeV4(value: 0, timescale: 600),
+            endTimeExclusive: WorkflowMediaTimeV4(value: 600, timescale: 600),
+            nextStartTime: WorkflowMediaTimeV4(value: 500, timescale: 600),
+            codecSettingsHash: codec,
+            isIndependentlyDecodable: true
+        )) { error in
+            XCTAssertEqual(
+                error as? WorkflowDurableCoordinatorErrorV4,
+                .invalidSegmentBoundary
+            )
+        }
+
+        let pausedWithoutNext = try WorkflowSegmentCheckpointV4(
+            ordinal: 0,
+            artifact: checkpointArtifact(index: 1, kind: .segment),
+            startTime: WorkflowMediaTimeV4(value: 0, timescale: 600),
+            endTimeExclusive: WorkflowMediaTimeV4(value: 600, timescale: 600),
+            nextStartTime: nil,
+            codecSettingsHash: codec,
+            isIndependentlyDecodable: true
+        )
+        XCTAssertThrowsError(try checkpointBody(
+            specification: specification,
+            segments: [pausedWithoutNext],
+            videoIsComplete: false
+        ))
+        let terminalWithNext = try WorkflowSegmentCheckpointV4(
+            ordinal: 0,
+            artifact: checkpointArtifact(index: 1, kind: .segment),
+            startTime: WorkflowMediaTimeV4(value: 0, timescale: 600),
+            endTimeExclusive: WorkflowMediaTimeV4(value: 600, timescale: 600),
+            nextStartTime: WorkflowMediaTimeV4(value: 600, timescale: 600),
+            codecSettingsHash: codec,
+            isIndependentlyDecodable: true
+        )
+        XCTAssertThrowsError(try checkpointBody(
+            specification: specification,
+            segments: [terminalWithNext],
+            videoIsComplete: true
+        ))
+    }
+
+    func testResealedLegacyGapAndHybridSchemaForgeriesAreRejected()
+        async throws {
+        let fixture = try makeFixture()
+        let coordinator = try WorkflowDurableCoordinatorV4(
+            rootURL: fixture.storeURL,
+            clock: fixture.clock
+        )
+        let specification = try makeSpecification(index: 25)
+        try await enqueue(specification, into: coordinator, index: 25)
+        let codec = specification.output.contractID
+        let current = try checkpointBody(
+            specification: specification,
+            segments: [
+                WorkflowSegmentCheckpointV4(
+                    ordinal: 0,
+                    artifact: checkpointArtifact(index: 1, kind: .segment),
+                    startTime: WorkflowMediaTimeV4(value: 0, timescale: 600),
+                    endTimeExclusive: WorkflowMediaTimeV4(
+                        value: 600,
+                        timescale: 600
+                    ),
+                    nextStartTime: WorkflowMediaTimeV4(
+                        value: 900,
+                        timescale: 600
+                    ),
+                    codecSettingsHash: codec,
+                    isIndependentlyDecodable: true
+                ),
+                WorkflowSegmentCheckpointV4(
+                    ordinal: 1,
+                    artifact: checkpointArtifact(index: 5, kind: .segment),
+                    startTime: WorkflowMediaTimeV4(value: 900, timescale: 600),
+                    endTimeExclusive: WorkflowMediaTimeV4(
+                        value: 1_200,
+                        timescale: 600
+                    ),
+                    nextStartTime: WorkflowMediaTimeV4(
+                        value: 1_200,
+                        timescale: 600
+                    ),
+                    codecSettingsHash: codec,
+                    isIndependentlyDecodable: true
+                )
+            ],
+            videoIsComplete: false
+        )
+        // Removing the v3 next-boundary field creates a legacy body that has
+        // an unprovable gap. Refreshing its hash must not make it migratable.
+        let forgedBody = legacyCheckpointBody(
+            from: current,
+            schemaVersion: 2
+        )
+        let forged = WorkflowCheckpointDocumentV2(
+            bodyHash: try legacyCheckpointBodyHash(forgedBody),
+            body: forgedBody
+        )
+        let directory = fixture.storeURL
+            .appendingPathComponent("jobs", isDirectory: true)
+            .appendingPathComponent(specification.jobID.rawValue, isDirectory: true)
+            .appendingPathComponent("checkpoints-v4", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        try WorkflowCanonicalCodec().canonicalData(forged).write(
+            to: directory.appendingPathComponent("head-v1.json")
+        )
+
+        do {
+            _ = try await coordinator.loadCompatibleCheckpoint(
+                jobID: specification.jobID,
+                expectedCodecSettingsHash: codec
+            )
+            XCTFail("A resealed legacy gap was inferred without evidence.")
+        } catch let error as WorkflowDurableCoordinatorErrorV4 {
+            XCTAssertEqual(error, .corruptCheckpoint)
+        }
+
+        let terminal = try checkpointBody(
+            specification: specification,
+            segments: [
+                WorkflowSegmentCheckpointV4(
+                    ordinal: 0,
+                    artifact: checkpointArtifact(index: 1, kind: .segment),
+                    startTime: WorkflowMediaTimeV4(value: 0, timescale: 600),
+                    endTimeExclusive: WorkflowMediaTimeV4(
+                        value: 600,
+                        timescale: 600
+                    ),
+                    nextStartTime: nil,
+                    codecSettingsHash: codec,
+                    isIndependentlyDecodable: true
+                )
+            ],
+            videoIsComplete: true
+        )
+        let authenticBody1 = legacyCheckpointBody(
+            from: terminal,
+            schemaVersion: 1
+        )
+        let hybridBody1 = WorkflowCheckpointBodyV2(
+            schemaVersion: 1,
+            checkpointID: authenticBody1.checkpointID,
+            ordinal: authenticBody1.ordinal,
+            previousCheckpointHash: authenticBody1.previousCheckpointHash,
+            compatibility: WorkflowCheckpointCompatibilityBindingV4(
+                specification: specification,
+                sourceSnapshotIdentityID: try WorkflowSourceIdentityID(
+                    testDigest(90)
+                )
+            ),
+            attemptID: authenticBody1.attemptID,
+            committedAt: authenticBody1.committedAt,
+            segments: authenticBody1.segments,
+            trackProgress: authenticBody1.trackProgress,
+            temporalHistory: authenticBody1.temporalHistory,
+            measurementHysteresis: authenticBody1.measurementHysteresis,
+            auxiliaryState: authenticBody1.auxiliaryState
+        )
+        let hybrid = WorkflowCheckpointDocumentV1(
+            bodyHash: try legacyCheckpointBodyHash(hybridBody1),
+            body: hybridBody1
+        )
+        try WorkflowCanonicalCodec().canonicalData(hybrid).write(
+            to: directory.appendingPathComponent("head-v1.json"),
+            options: .atomic
+        )
+        do {
+            _ = try await coordinator.loadCompatibleCheckpoint(
+                jobID: specification.jobID,
+                expectedCodecSettingsHash: codec
+            )
+            XCTFail("A resealed hybrid body-schema-1 field was accepted.")
+        } catch let error as WorkflowDurableCoordinatorErrorV4 {
+            XCTAssertEqual(error, .corruptCheckpoint)
+        }
     }
 
     func testStartupScavengerUsesRegistryAndInodeOwnership() async throws {
@@ -484,6 +849,39 @@ private final class WorkflowTestClockV4: WorkflowWallClockV4, @unchecked Sendabl
     }
 }
 
+private enum CheckpointMigrationFaultErrorV4: Error {
+    case injected
+}
+
+private final class CheckpointMigrationFaultV4: @unchecked Sendable {
+    private let lock = NSLock()
+    private var targetName: String?
+    private var fired = false
+
+    func arm(targetName: String) {
+        lock.withLock {
+            self.targetName = targetName
+            fired = false
+        }
+    }
+
+    var didFire: Bool { lock.withLock { fired } }
+
+    func hook(_ point: WorkflowFileSystemFaultPoint, _ url: URL) throws {
+        let shouldFire = lock.withLock { () -> Bool in
+            guard !fired,
+                  let targetName,
+                  point == .afterPublishParentSync,
+                  url.lastPathComponent == targetName else {
+                return false
+            }
+            fired = true
+            return true
+        }
+        if shouldFire { throw CheckpointMigrationFaultErrorV4.injected }
+    }
+}
+
 private struct WorkflowCoordinatorFixtureV4 {
     let rootURL: URL
     let storeURL: URL
@@ -591,6 +989,7 @@ private extension WorkflowDurableCoordinatorV4Tests {
             artifact: checkpointArtifact(index: 1, kind: .segment),
             startTime: WorkflowMediaTimeV4(value: 0, timescale: 600),
             endTimeExclusive: WorkflowMediaTimeV4(value: 600, timescale: 600),
+            nextStartTime: WorkflowMediaTimeV4(value: 600, timescale: 600),
             codecSettingsHash: codec,
             isIndependentlyDecodable: true
         )
@@ -631,6 +1030,110 @@ private extension WorkflowDurableCoordinatorV4Tests {
             auxiliaryState: [
                 try checkpointArtifact(index: 4, kind: .trackState)
             ]
+        )
+    }
+
+    func checkpointBody(
+        specification: WorkflowJobSpecification,
+        segments: [WorkflowSegmentCheckpointV4],
+        videoIsComplete: Bool
+    ) throws -> WorkflowCheckpointBodyV4 {
+        guard let ordinal = UInt64(exactly: segments.count - 1) else {
+            throw WorkflowDurableCoordinatorErrorV4.invalidCheckpoint
+        }
+        return try WorkflowCheckpointBodyV4(
+            checkpointID: WorkflowCheckpointIDV4("checkpoint-body"),
+            ordinal: ordinal,
+            previousCheckpointHash: ordinal == 0
+                ? nil
+                : WorkflowCheckpointDocumentHashV4(testDigest(88)),
+            compatibility: WorkflowCheckpointCompatibilityBindingV4(
+                specification: specification
+            ),
+            attemptID: WorkflowAttemptID("checkpoint-body-attempt"),
+            committedAt: WorkflowWallClockInstantV4(
+                nanosecondsSinceUnixEpoch: 1_000_000_000
+            ),
+            segments: segments,
+            trackProgress: [
+                WorkflowTrackProgressV4(
+                    trackID: "video-primary",
+                    kind: .video,
+                    nextInputSampleIndex: 30,
+                    nextOutputSampleIndex: 30,
+                    lastInputTime: WorkflowMediaTimeV4(
+                        value: 580,
+                        timescale: 600
+                    ),
+                    lastOutputTime: WorkflowMediaTimeV4(
+                        value: 580,
+                        timescale: 600
+                    ),
+                    isComplete: videoIsComplete
+                )
+            ],
+            temporalHistory: checkpointArtifact(
+                index: 2,
+                kind: .temporalHistory
+            ),
+            measurementHysteresis: checkpointArtifact(
+                index: 3,
+                kind: .measurementHysteresis
+            ),
+            auxiliaryState: [
+                checkpointArtifact(index: 4, kind: .trackState)
+            ]
+        )
+    }
+
+    func legacyCheckpointBody(
+        from body: WorkflowCheckpointBodyV4,
+        schemaVersion: UInt16
+    ) -> WorkflowCheckpointBodyV2 {
+        WorkflowCheckpointBodyV2(
+            schemaVersion: schemaVersion,
+            checkpointID: body.checkpointID,
+            ordinal: body.ordinal,
+            previousCheckpointHash: body.previousCheckpointHash,
+            compatibility: body.compatibility,
+            attemptID: body.attemptID,
+            committedAt: body.committedAt,
+            segments: body.segments.map {
+                WorkflowSegmentCheckpointV2(
+                    ordinal: $0.ordinal,
+                    artifact: $0.artifact,
+                    startTime: $0.startTime,
+                    endTimeExclusive: $0.endTimeExclusive,
+                    codecSettingsHash: $0.codecSettingsHash,
+                    isIndependentlyDecodable: $0.isIndependentlyDecodable
+                )
+            },
+            trackProgress: body.trackProgress,
+            temporalHistory: body.temporalHistory,
+            measurementHysteresis: body.measurementHysteresis,
+            auxiliaryState: body.auxiliaryState
+        )
+    }
+
+    func legacyCheckpointBodyHash(
+        _ body: WorkflowCheckpointBodyV2
+    ) throws -> WorkflowCheckpointDocumentHashV4 {
+        try WorkflowCheckpointDocumentHashV4(
+            WorkflowV4Validation.domainSeparatedSHA256(
+                domain: "Mirmir.WorkflowCheckpointV4\u{0}",
+                data: WorkflowCanonicalCodec().canonicalData(body)
+            )
+        )
+    }
+
+    func currentCheckpointBodyHash(
+        _ body: WorkflowCheckpointBodyV4
+    ) throws -> WorkflowCheckpointDocumentHashV4 {
+        try WorkflowCheckpointDocumentHashV4(
+            WorkflowV4Validation.domainSeparatedSHA256(
+                domain: "Mirmir.WorkflowCheckpointV4\u{0}",
+                data: WorkflowCanonicalCodec().canonicalData(body)
+            )
         )
     }
 

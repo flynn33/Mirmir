@@ -12,30 +12,21 @@ import XCTest
 /// from entering the shipping binary while its SHA-256 remains contract-locked.
 @available(macOS 15.4, *)
 final class DeterministicEngineV4PerformanceCaptureTests: XCTestCase {
-    // The runner replaces these sentinels only in each ephemeral source copy.
-    // Environment lookup remains as a direct-development fallback.
-    private static let injectedEnvironment = [
-        "MIRMIR_V4_PERFORMANCE_CAPTURE_DIR":
-            "__MIRMIR_V4_PERFORMANCE_CAPTURE_DIR__",
-        "MIRMIR_V4_PERFORMANCE_INPUT":
-            "__MIRMIR_V4_PERFORMANCE_INPUT__",
-        "MIRMIR_V4_PERFORMANCE_VARIANT":
-            "__MIRMIR_V4_PERFORMANCE_VARIANT__",
-        "MIRMIR_V4_PERFORMANCE_CONTRACT_SHA256":
-            "__MIRMIR_V4_PERFORMANCE_CONTRACT_SHA256__",
-        "MIRMIR_V4_PERFORMANCE_CAPTURE_SOURCE_SHA256":
-            "__MIRMIR_V4_PERFORMANCE_CAPTURE_SOURCE_SHA256__",
-        "MIRMIR_V4_PERFORMANCE_SOURCE_IDENTITY_SHA256":
-            "__MIRMIR_V4_PERFORMANCE_SOURCE_IDENTITY_SHA256__",
-        "MIRMIR_V4_PERFORMANCE_SOURCE_REVISION":
-            "__MIRMIR_V4_PERFORMANCE_SOURCE_REVISION__",
-        "MIRMIR_V4_PERFORMANCE_SOURCE_TREE_SHA256":
-            "__MIRMIR_V4_PERFORMANCE_SOURCE_TREE_SHA256__",
-        "MIRMIR_V4_PERFORMANCE_WARMUPS":
-            "__MIRMIR_V4_PERFORMANCE_WARMUPS__",
-        "MIRMIR_V4_PERFORMANCE_SAMPLES":
-            "__MIRMIR_V4_PERFORMANCE_SAMPLES__"
-    ]
+    // The runner owns this fixed path under an exclusive lock. Keeping
+    // run-specific values out of the source makes independently built test
+    // executables byte-identical while the request bytes remain evidence-bound.
+    private static let requestURL = URL(
+        fileURLWithPath:
+            "/private/tmp/mirmir-v4-performance-request-v2.lock/request.json"
+    )
+    private static let requestData = try? Data(contentsOf: requestURL)
+    private static let requestEnvironment: [String: String] = {
+        guard let requestData else { return [:] }
+        return (try? JSONDecoder().decode(
+            [String: String].self,
+            from: requestData
+        )) ?? [:]
+    }()
 
     private struct BenchmarkCase: Codable, Sendable {
         let id: String
@@ -126,6 +117,9 @@ final class DeterministicEngineV4PerformanceCaptureTests: XCTestCase {
         let buildConfiguration: String
         let warmupCount: Int
         let sampleCount: Int
+        let producerInvocationNonce: String
+        let producerChallenge: String
+        let producerRequestSHA256: String
         let input: InputIdentity
         let cases: [CaseCapture]
     }
@@ -196,6 +190,10 @@ final class DeterministicEngineV4PerformanceCaptureTests: XCTestCase {
         guard let captureDirectory = environment("MIRMIR_V4_PERFORMANCE_CAPTURE_DIR") else {
             throw XCTSkip("The locked performance runner did not request a capture.")
         }
+        let producerRequestData = try XCTUnwrap(
+            Self.requestData,
+            "the locked performance request artifact is missing"
+        )
         let inputURL = URL(fileURLWithPath: try requiredEnvironment(
             "MIRMIR_V4_PERFORMANCE_INPUT"
         ))
@@ -299,6 +297,13 @@ final class DeterministicEngineV4PerformanceCaptureTests: XCTestCase {
             buildConfiguration: "Release",
             warmupCount: warmupCount,
             sampleCount: sampleCount,
+            producerInvocationNonce: try requiredEnvironment(
+                "MIRMIR_V4_PERFORMANCE_PRODUCER_NONCE"
+            ),
+            producerChallenge: try requiredEnvironment(
+                "MIRMIR_V4_PERFORMANCE_PRODUCER_CHALLENGE"
+            ),
+            producerRequestSHA256: sha256(producerRequestData),
             input: inputIdentity,
             cases: captures
         )
@@ -710,9 +715,8 @@ final class DeterministicEngineV4PerformanceCaptureTests: XCTestCase {
     }
 
     private func environment(_ name: String) -> String? {
-        if let injected = Self.injectedEnvironment[name],
-           !injected.hasPrefix("__MIRMIR_V4_PERFORMANCE_") {
-            return injected
+        if let requested = Self.requestEnvironment[name], !requested.isEmpty {
+            return requested
         }
         let value = ProcessInfo.processInfo.environment[name]
         return value?.isEmpty == false ? value : nil

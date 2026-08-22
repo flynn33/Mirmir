@@ -33,14 +33,26 @@ CONTRACT_SCHEMA = "mirmir-ash-v4-media-preservation-contract-v1"
 CAPTURE_SCHEMA = "mirmir-ash-v4-media-preservation-capture-v2"
 REPORT_SCHEMA = "mirmir-ash-v4-media-preservation-report-v2"
 SIDE_MANIFEST_SCHEMA = "mirmir-ash-v4-media-side-manifest-v1"
-VERIFIER_SCHEMA = "mirmir-ash-v4-media-semantic-verifier-v1"
+VERIFIER_SCHEMA = "mirmir-ash-v4-media-semantic-verifier-v3"
 SEALED_MANIFEST_SCHEMA = "mirmir-ash-v4-media-preservation-sealed-manifest-v2"
 TRACK_SCHEMA = "mirmir-ash-v4-track-observation-v2"
 TIMING_SCHEMA = "mirmir-ash-v4-timing-observation-v1"
 PIXEL_SCHEMA = "mirmir-ash-v4-pixel-observation-v2"
 ATTACHMENT_SCHEMA = "mirmir-ash-v4-attachment-observation-v1"
 ROUTE_SCHEMA = "mirmir-ash-v4-media-production-route-receipt-v2"
-EXECUTION_RECEIPT_SCHEMA = "ash.deterministic-media-execution-receipt.v4.1"
+EXECUTION_RECEIPT_SCHEMA = "ash.deterministic-media-execution-receipt.v4.3"
+HDR10PLUS_PRESERVATION_REPORT_SCHEMA = (
+    "ash.hdr10plus-segment-preservation-report.v4.3"
+)
+HDR10PLUS_PARSER_ID = "ash.hevc-hdr10plus-length-prefixed-parser.v4.1"
+HDR10PLUS_REWRITER_ID = "ash.hevc-hdr10plus-prefix-sei-rewriter.v4.1"
+HDR10PLUS_ABSENT_ONE_PASS_ROUTE = (
+    "ash.canonical-dynamic-absent-one-pass.v4"
+)
+HDR10PLUS_BOUNDED_SEGMENT_ROUTE = (
+    "ash.bounded-hdr10plus-segment-prefix-sei.v4"
+)
+DIRECT_SEGMENT_MAXIMUM_INPUT_FRAMES = 60
 PREFLIGHT_SCHEMA = "mirmir-ash-v4-media-independent-preflight-v2"
 EXPECTED_PREPARED_BACKEND_TYPE_BY_FIXTURE = {
     "combined-p010-hdr-interlaced": "Mirmir.PreparedDeterministicV4Upscaler",
@@ -51,6 +63,52 @@ EXPECTED_PREPARED_BACKEND_TYPE_BY_FIXTURE = {
     "rich-track-graph": "Mirmir.PreparedDeterministicV4Upscaler",
     "legible-track-graph": "Mirmir.PreparedDeterministicV4Upscaler",
     "auxiliary-picture-track": "Mirmir.PreparedDeterministicV4Upscaler",
+}
+LOCKED_P010_ABSOLUTE_ORACLE = {
+    "algorithmID":
+        "independent_scalar_causal_edge_bob_temporal_gate_catmull_rom_q14_v1",
+    "metricProcedureID":
+        "per_frame_absolute_max_mean_nearest_rank_p95_p99_signed_bias_v2",
+    "fixtures": {
+        "auxiliary-picture-track": {
+            "chromaMaximumAbsoluteCodeError": 160,
+            "chromaMaximumAbsoluteMeanSignedCodeError": "1/1",
+            "chromaMaximumMeanAbsoluteCodeError": "18/1",
+            "chromaMaximumP95AbsoluteCodeError": 56,
+            "chromaMaximumP99AbsoluteCodeError": 88,
+            "dominance": "progressive",
+            "expectedTransferFunction": "ITU_R_2100_HLG",
+            "lumaMaximumAbsoluteCodeError": 272,
+            "lumaMaximumAbsoluteMeanSignedCodeError": "2/1",
+            "lumaMaximumMeanAbsoluteCodeError": "8/1",
+            "lumaMaximumP95AbsoluteCodeError": 32,
+            "lumaMaximumP99AbsoluteCodeError": 72,
+            "minimumInputFieldMeanSeparation": "0/1",
+            "outputFrameMultiplier": 1,
+            "staticMetadataPolicy": "preserve_all",
+            "dynamicMetadataPolicy": "forbid",
+        },
+        "combined-p010-hdr-interlaced": {
+            "chromaMaximumAbsoluteCodeError": 320,
+            "chromaMaximumAbsoluteMeanSignedCodeError": "4/1",
+            "chromaMaximumMeanAbsoluteCodeError": "43/1",
+            "chromaMaximumP95AbsoluteCodeError": 128,
+            "chromaMaximumP99AbsoluteCodeError": 208,
+            "dominance": "top_field_first",
+            "expectedTransferFunction": "SMPTE_ST_2084_PQ",
+            "lumaMaximumAbsoluteCodeError": 448,
+            "lumaMaximumAbsoluteMeanSignedCodeError": "8/1",
+            "lumaMaximumMeanAbsoluteCodeError": "76/1",
+            "lumaMaximumP95AbsoluteCodeError": 224,
+            "lumaMaximumP99AbsoluteCodeError": 304,
+            "minimumInputFieldMeanSeparation": "496/1",
+            "outputFrameMultiplier": 2,
+            "staticMetadataPolicy": "preserve_all",
+            "dynamicMetadataPolicy": "replicate_per_output_field",
+        },
+    },
+    "sampleStorage": "little_endian_uint16_msb_aligned_p010",
+    "schemaVersion": "mirmir-ash-v4-p010-absolute-oracle-contract-v3",
 }
 PACKAGE_SCHEMA = "mirmir-v4-packaged-candidate-identity-v1"
 ATTESTATION_SCHEMA = "mirmir-v4-release-build-attestation-v1"
@@ -166,6 +224,14 @@ def write_json(path: Path, value: Any) -> None:
 
 def sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
+
+
+def ash_domain_hash(domain: str, value: Any) -> str:
+    require(
+        0 < len(domain.encode("ascii")) <= 128,
+        "ASH hash domain is invalid",
+    )
+    return sha256_bytes(domain.encode("ascii") + b"\0" + canonical_bytes(value))
 
 
 def sha256_file(path: Path) -> str:
@@ -460,6 +526,7 @@ def load_contract(path: Path) -> tuple[dict[str, Any], str]:
     require(len(fixtures) == 6, "media-preservation contract must lock six fixtures")
     seen: set[str] = set()
     covered: set[str] = set()
+    coverage_by_fixture: dict[str, set[str]] = {}
     for index, raw in enumerate(fixtures):
         fixture = require_mapping(raw, f"contract fixture {index}")
         require_exact_keys(fixture, ("id", "coverage", "policy"), f"contract fixture {index}")
@@ -468,6 +535,7 @@ def load_contract(path: Path) -> tuple[dict[str, Any], str]:
         seen.add(identifier)
         coverage = require_list(fixture["coverage"], f"contract fixture {identifier}.coverage")
         require(coverage and len(coverage) == len(set(coverage)), f"contract fixture {identifier} coverage is empty/repeated")
+        coverage_by_fixture[identifier] = set(coverage)
         covered.update(coverage)
         require(
             fixture["policy"] in {
@@ -478,6 +546,82 @@ def load_contract(path: Path) -> tuple[dict[str, Any], str]:
             f"contract fixture {identifier} policy is invalid",
         )
     require("combined_p010_hdr_interlaced" in covered and "combined_alpha_geometry" in covered, "mandatory combined fixtures are absent")
+    require(
+        {
+            "p010_absolute_pixel_oracle",
+            "per_frame_p010_distribution_oracle",
+            "pq_transfer_profile",
+            "hlg_transfer_profile",
+            "archived_hlg_p010_fixture",
+            "hdr10plus_in_band_pts_preservation",
+            "bounded_dynamic_hdr_pts_ledger",
+            "canonical_dynamic_absent_one_pass",
+            "direct_media_target_timeline_mapping",
+            "zero_normalized_replacement_media_pts",
+            "plan_bound_absent_timeline_mapping",
+        }
+        <= covered,
+        "mandatory absolute P010 and dual-transfer coverage is absent",
+    )
+    require(
+        set(coverage_by_fixture) == set(EXPECTED_PREPARED_BACKEND_TYPE_BY_FIXTURE),
+        "media-preservation fixture inventory differs",
+    )
+    pq_coverage = coverage_by_fixture["combined-p010-hdr-interlaced"]
+    hlg_coverage = coverage_by_fixture["auxiliary-picture-track"]
+    require(
+        {
+            "p010_absolute_pixel_oracle",
+            "per_frame_p010_distribution_oracle",
+            "pq_transfer_profile",
+            "hdr10plus_in_band_pts_preservation",
+            "bounded_dynamic_hdr_pts_ledger",
+            "direct_media_target_timeline_mapping",
+            "zero_normalized_replacement_media_pts",
+        } <= pq_coverage
+        and "archived_hlg_p010_fixture" not in pq_coverage
+        and "hlg_transfer_profile" not in pq_coverage,
+        "PQ absolute-oracle coverage mapping differs",
+    )
+    require(
+        {
+            "p010_absolute_pixel_oracle",
+            "per_frame_p010_distribution_oracle",
+            "archived_hlg_p010_fixture",
+            "canonical_dynamic_absent_one_pass",
+            "hlg_transfer_profile",
+        } <= hlg_coverage
+        and "hdr10plus_in_band_pts_preservation" not in hlg_coverage
+        and "bounded_dynamic_hdr_pts_ledger" not in hlg_coverage
+        and "pq_transfer_profile" not in hlg_coverage,
+        "archived HLG absolute-oracle coverage mapping differs",
+    )
+    for fixture_id, fixture_coverage in coverage_by_fixture.items():
+        if fixture_id == "combined-p010-hdr-interlaced":
+            require(
+                "canonical_dynamic_absent_one_pass" not in fixture_coverage,
+                "declared dynamic HDR fixture cannot claim the absent route",
+            )
+            require(
+                "direct_media_target_timeline_mapping" in fixture_coverage
+                and "zero_normalized_replacement_media_pts"
+                    in fixture_coverage
+                and "plan_bound_absent_timeline_mapping"
+                    not in fixture_coverage,
+                "declared dynamic HDR timeline mapping coverage differs",
+            )
+        else:
+            require(
+                "canonical_dynamic_absent_one_pass" in fixture_coverage
+                and "plan_bound_absent_timeline_mapping" in fixture_coverage
+                and "bounded_dynamic_hdr_pts_ledger" not in fixture_coverage
+                and "direct_media_target_timeline_mapping"
+                    not in fixture_coverage
+                and "zero_normalized_replacement_media_pts"
+                    not in fixture_coverage,
+                f"{fixture_id} absent dynamic HDR route mapping differs",
+            )
+    validate_p010_oracle_contract(contract.get("p010AbsoluteOracle"))
     capture = require_mapping(contract.get("capture"), "contract.capture")
     require_exact_keys(
         capture,
@@ -497,6 +641,15 @@ def load_contract(path: Path) -> tuple[dict[str, Any], str]:
     ):
         require_sha256(capture.get(key), f"contract.capture.{key}")
     return contract, sha256_file(path)
+
+
+def validate_p010_oracle_contract(value: Any) -> dict[str, Any]:
+    oracle = require_mapping(value, "contract.p010AbsoluteOracle")
+    require(
+        canonical_bytes(oracle) == canonical_bytes(LOCKED_P010_ABSOLUTE_ORACLE),
+        "contract P010 absolute-oracle thresholds or algorithm differ from the release lock",
+    )
+    return dict(oracle)
 
 
 def validate_raw_descriptor(capture_root: Path, value: Any, label: str) -> Path:
@@ -633,6 +786,15 @@ def validate_pixel_observation(value: Mapping[str, Any], pixel_path: Path, label
                 require_sha256(
                     identity, f"{label}.track[{ordinal}].{key}[{index}]"
                 )
+    expected_byte_count = sum(
+        pixel_track_frame_byte_count(track, f"{label}.track[{ordinal}]")
+        * track["frameCount"]
+        for ordinal, track in tracks.items()
+    )
+    require(
+        pixel_path.stat().st_size == expected_byte_count,
+        f"{label} pixel artifact layout differs",
+    )
     return tracks
 
 
@@ -788,6 +950,366 @@ def compare_processed_primary_preservation(
             require(input_pixels[ordinal]["visibleSHA256"] == output_pixels[ordinal]["visibleSHA256"], f"{fixture_id} auxiliary track {ordinal} decoded pixels differ")
 
 
+def hdr10plus_presentation_time(value: Fraction) -> dict[str, int]:
+    return {
+        "epoch": 0,
+        "timescale": value.denominator,
+        "value": value.numerator,
+    }
+
+
+def hdr10plus_dynamic_by_pts(
+    attachment: Mapping[str, Any],
+    label: str,
+) -> dict[Fraction, str]:
+    result: dict[Fraction, str] = {}
+    for index, raw in enumerate(require_list(
+        attachment.get("dynamicHDRSamples", []), f"{label}.dynamicHDRSamples"
+    )):
+        sample = require_mapping(raw, f"{label}.dynamicHDRSamples[{index}]")
+        pts = require_fraction(sample["pts"], f"{label}.dynamic[{index}].pts")
+        payload = require_sha256(
+            sample["hdr10PlusSHA256"],
+            f"{label}.dynamic[{index}].hdr10PlusSHA256",
+        )
+        require(
+            sample.get("postDecodeSHA256") is None and pts not in result,
+            f"{label} dynamic HDR presentation domain differs",
+        )
+        result[pts] = payload
+    return result
+
+
+def hdr10plus_ledger_sha256(
+    samples: list[Mapping[str, Any]],
+    metadata_by_pts: Mapping[Fraction, str],
+    label: str,
+    pts_offset: Fraction = Fraction(0),
+) -> str:
+    records: list[dict[str, Any]] = []
+    seen: set[Fraction] = set()
+    for index, sample in enumerate(samples):
+        pts = require_fraction(sample["pts"], f"{label}[{index}].pts")
+        require(pts not in seen, f"{label} presentation time is duplicated")
+        seen.add(pts)
+        records.append({
+            "hdr10PlusSHA256": metadata_by_pts.get(pts),
+            "presentationTime": hdr10plus_presentation_time(
+                pts - pts_offset
+            ),
+        })
+    require(
+        set(metadata_by_pts).issubset(seen),
+        f"{label} HDR10+ metadata has an extra presentation time",
+    )
+    return ash_domain_hash("ash-hdr10plus-presentation-ledger-v4", records)
+
+
+def exact_rational_json(value: Fraction) -> dict[str, int]:
+    return {
+        "denominator": value.denominator,
+        "numerator": value.numerator,
+    }
+
+
+def exact_range_json(start: Fraction, duration: Fraction) -> dict[str, Any]:
+    return {
+        "duration": exact_rational_json(duration),
+        "start": exact_rational_json(start),
+    }
+
+
+def sample_media_range(
+    samples: list[Mapping[str, Any]], label: str
+) -> tuple[Fraction, Fraction]:
+    require(samples, f"{label} sample range is empty")
+    start = require_fraction(samples[0]["pts"], f"{label}[0].pts")
+    prior: Fraction | None = None
+    end = start
+    for index, sample in enumerate(samples):
+        pts = require_fraction(sample["pts"], f"{label}[{index}].pts")
+        duration = require_fraction(
+            sample["duration"], f"{label}[{index}].duration"
+        )
+        require(duration > 0, f"{label}[{index}] duration is not positive")
+        require(
+            prior is None or pts > prior,
+            f"{label} presentation times are not strictly increasing",
+        )
+        prior = pts
+        end = max(end, pts + duration)
+    require(end > start, f"{label} sample range is not positive")
+    return start, end - start
+
+
+def direct_timeline_mapping_sha256(
+    input_samples: list[Mapping[str, Any]],
+    output_samples: list[Mapping[str, Any]],
+    label: str,
+    *,
+    target_timeline_start: Fraction | None = None,
+    topology: str | None = None,
+) -> str:
+    media_start, media_duration = sample_media_range(
+        input_samples, f"{label}.inputMediaRange"
+    )
+    output_start, output_duration = sample_media_range(
+        output_samples, f"{label}.replacementMediaRange"
+    )
+    require(
+        output_start == 0 and output_duration == media_duration,
+        f"{label} replacement media is not zero-normalized with exact duration",
+    )
+    target_start = (
+        media_start if target_timeline_start is None
+        else target_timeline_start
+    )
+    require(target_start >= 0, f"{label} target timeline start is negative")
+    selected_topology = topology or (
+        "single_nonempty" if target_start == 0
+        else "leading_empty_then_single_nonempty"
+    )
+    source_range = exact_range_json(media_start, media_duration)
+    target_range = exact_range_json(target_start, media_duration)
+    nonempty_ordinal = 0
+    edits: list[dict[str, Any]] = []
+    if selected_topology == "leading_empty_then_single_nonempty":
+        require(
+            target_start > 0,
+            f"{label} leading-empty topology has no leading interval",
+        )
+        edits.append({
+            "isEmpty": True,
+            "ordinal": 0,
+            "source": None,
+            "target": exact_range_json(Fraction(0), target_start),
+        })
+        nonempty_ordinal = 1
+    else:
+        require(
+            selected_topology == "single_nonempty",
+            f"{label} timeline edit topology is unsupported",
+        )
+    edits.append({
+        "isEmpty": False,
+        "ordinal": nonempty_ordinal,
+        "source": source_range,
+        "target": target_range,
+    })
+    return ash_domain_hash(
+        "ash-direct-primary-timeline-mapping-v4",
+        {
+            "acceptedEdits": edits,
+            "mediaRange": source_range,
+            "offset": exact_rational_json(target_start - media_start),
+            "schemaID": "ash.direct-primary-timeline-mapping.v4",
+            "targetRange": target_range,
+            "topology": selected_topology,
+        },
+    )
+
+
+def absent_timeline_mapping_sha256(track_plan_sha256: str) -> str:
+    require_sha256(track_plan_sha256, "absent timeline track plan")
+    return ash_domain_hash(
+        "ash-hdr10plus-timeline-mapping-not-applicable-v4",
+        {
+            "routeID": HDR10PLUS_ABSENT_ONE_PASS_ROUTE,
+            "schemaID":
+                "ash.hdr10plus-timeline-mapping-not-applicable.v4",
+            "trackPlanSHA256": track_plan_sha256,
+        },
+    )
+
+
+def expected_hdr10plus_preservation_report(
+    input_samples_value: Any,
+    output_samples_value: Any,
+    input_attachment: Mapping[str, Any],
+    output_attachment: Mapping[str, Any],
+    label: str,
+    track_plan_sha256: str,
+    *,
+    target_timeline_start: Fraction | None = None,
+    topology: str | None = None,
+) -> dict[str, Any]:
+    input_samples = [
+        require_mapping(value, f"{label}.inputSamples[{index}]")
+        for index, value in enumerate(require_list(
+            input_samples_value, f"{label}.inputSamples"
+        ))
+    ]
+    output_samples = [
+        require_mapping(value, f"{label}.outputSamples[{index}]")
+        for index, value in enumerate(require_list(
+            output_samples_value, f"{label}.outputSamples"
+        ))
+    ]
+    require(input_samples and output_samples, f"{label} HDR ledger is empty")
+    input_dynamic = hdr10plus_dynamic_by_pts(
+        input_attachment, f"{label}.inputAttachment"
+    )
+    output_dynamic = hdr10plus_dynamic_by_pts(
+        output_attachment, f"{label}.outputAttachment"
+    )
+    output_inventory = {
+        require_fraction(sample["pts"], f"{label}.outputPTS[{index}]")
+        for index, sample in enumerate(output_samples)
+    }
+    require(
+        set(output_dynamic).issubset(output_inventory),
+        f"{label} output HDR10+ metadata has an extra presentation time",
+    )
+    if not input_dynamic:
+        require(
+            not output_dynamic,
+            f"{label} output invented HDR10+ metadata",
+        )
+        return {
+            "schemaID": HDR10PLUS_PRESERVATION_REPORT_SCHEMA,
+            "routeID": HDR10PLUS_ABSENT_ONE_PASS_ROUTE,
+            "parserID": HDR10PLUS_PARSER_ID,
+            "rewriterID": HDR10PLUS_REWRITER_ID,
+            "timelineMappingSHA256": absent_timeline_mapping_sha256(
+                track_plan_sha256
+            ),
+            "sourceLedgerSHA256": ash_domain_hash(
+                "ash-hdr10plus-canonical-absent-source-ledger-v4",
+                "empty",
+            ),
+            "outputLedgerSHA256": ash_domain_hash(
+                "ash-hdr10plus-canonical-absent-output-ledger-v4",
+                "empty",
+            ),
+            "rewrittenSampleCount": 0,
+            "segmentCount": 0,
+        }
+
+    timeline_mapping_sha256 = direct_timeline_mapping_sha256(
+        input_samples,
+        output_samples,
+        label,
+        target_timeline_start=target_timeline_start,
+        topology=topology,
+    )
+    source_root = ash_domain_hash(
+        "ash-hdr10plus-segment-source-ledgers-v4-root", "empty"
+    )
+    output_root = ash_domain_hash(
+        "ash-hdr10plus-segment-output-ledgers-v4-root", "empty"
+    )
+    assigned_output_pts: set[Fraction] = set()
+    media_origin, _ = sample_media_range(
+        input_samples, f"{label}.inputMediaRange"
+    )
+    segment_count = 0
+    for start in range(0, len(input_samples), DIRECT_SEGMENT_MAXIMUM_INPUT_FRAMES):
+        chunk = input_samples[
+            start : start + DIRECT_SEGMENT_MAXIMUM_INPUT_FRAMES
+        ]
+        chunk_start = require_fraction(
+            chunk[0]["pts"], f"{label}.segment[{segment_count}].start"
+        )
+        last = chunk[-1]
+        chunk_end = require_fraction(
+            last["pts"], f"{label}.segment[{segment_count}].lastPTS"
+        ) + require_fraction(
+            last["duration"], f"{label}.segment[{segment_count}].duration"
+        )
+        # The repaired replacement stream is normalized only by the first
+        # source-media PTS. The target presentation edit remains a separate
+        # graph property and never shifts compressed or decoded sample PTS.
+        output_start = chunk_start - media_origin
+        output_end = chunk_end - media_origin
+        segment_output = [
+            sample for sample in output_samples
+            if output_start <= require_fraction(
+                sample["pts"], f"{label}.segmentOutputPTS"
+            ) < output_end
+        ]
+        require(
+            segment_output,
+            f"{label} segment {segment_count} has no output samples",
+        )
+        segment_output_pts = {
+            require_fraction(sample["pts"], f"{label}.segmentOutputPTS")
+            for sample in segment_output
+        }
+        require(
+            assigned_output_pts.isdisjoint(segment_output_pts),
+            f"{label} output presentation domain overlaps segments",
+        )
+        assigned_output_pts.update(segment_output_pts)
+        source_ledger = hdr10plus_ledger_sha256(
+            chunk,
+            {
+                pts: payload for pts, payload in input_dynamic.items()
+                if chunk_start <= pts < chunk_end
+            },
+            f"{label}.sourceLedger[{segment_count}]",
+        )
+        output_ledger = hdr10plus_ledger_sha256(
+            segment_output,
+            {
+                pts: payload for pts, payload in output_dynamic.items()
+                if output_start <= pts < output_end
+            },
+            f"{label}.outputLedger[{segment_count}]",
+            pts_offset=output_start,
+        )
+        source_root = ash_domain_hash(
+            "ash-hdr10plus-segment-source-ledgers-v4-fold",
+            {
+                "ledger": source_ledger,
+                "previous": source_root,
+                "segmentOrdinal": segment_count,
+            },
+        )
+        output_root = ash_domain_hash(
+            "ash-hdr10plus-segment-output-ledgers-v4-fold",
+            {
+                "ledger": output_ledger,
+                "previous": output_root,
+                "segmentOrdinal": segment_count,
+            },
+        )
+        segment_count += 1
+    require(
+        assigned_output_pts == output_inventory,
+        f"{label} output presentation domain is missing a segment",
+    )
+    return {
+        "schemaID": HDR10PLUS_PRESERVATION_REPORT_SCHEMA,
+        "routeID": HDR10PLUS_BOUNDED_SEGMENT_ROUTE,
+        "parserID": HDR10PLUS_PARSER_ID,
+        "rewriterID": HDR10PLUS_REWRITER_ID,
+        "timelineMappingSHA256": timeline_mapping_sha256,
+        "sourceLedgerSHA256": source_root,
+        "outputLedgerSHA256": output_root,
+        "rewrittenSampleCount": len(output_dynamic),
+        "segmentCount": segment_count,
+    }
+
+
+def validate_hdr10plus_preservation_report(
+    value: Any,
+    expected: Mapping[str, Any],
+    label: str,
+) -> None:
+    report = require_mapping(value, label)
+    require_exact_keys(report, expected.keys(), label)
+    for key in (
+        "timelineMappingSHA256", "sourceLedgerSHA256", "outputLedgerSHA256"
+    ):
+        require_sha256(report[key], f"{label}.{key}")
+    for key in ("rewrittenSampleCount", "segmentCount"):
+        require_integer(report[key], f"{label}.{key}")
+    require(
+        report == expected,
+        f"{label} route, parser, rewriter, ledger, or count identity differs, including timeline identity",
+    )
+
+
 def validate_production_route(
     fixture_id: str,
     production_value: Any,
@@ -875,7 +1397,7 @@ def validate_production_route(
         "targetWidth", "targetHeight", "encodedWidth", "encodedHeight",
         "processedFrameCount", "sourceVideoTrackCount",
         "sourceAudioTrackCount", "plannedEnabledTrackCount",
-        "alphaVerification",
+        "alphaVerification", "hdr10PlusPreservation",
     }
     first_preflight = require_mapping(
         route["independentPreflight"], f"{fixture_id}.independentPreflight"
@@ -947,12 +1469,22 @@ def validate_production_route(
 
     input_track_observation = observations["inputTrackObservation"]
     output_track_observation = observations["outputTrackObservation"]
+    input_timing = observations["inputTiming"]
     output_pixels = observations["outputPixels"]
     output_timing = observations["outputTiming"]
+    input_attachments = observations["inputAttachments"]
     output_attachments = observations["outputAttachments"]
     output_pixel = output_pixels[output_primary]
     input_enabled = input_track_observation["enabledTrackCount"]
     output_enabled = output_track_observation["enabledTrackCount"]
+    expected_hdr10plus_preservation = expected_hdr10plus_preservation_report(
+        input_timing[input_primary]["samples"],
+        output_timing[output_primary]["samples"],
+        input_attachments[input_primary],
+        output_attachments[output_primary],
+        fixture_id,
+        first_preflight["trackPlanSHA256"],
+    )
 
     def validate_receipt(
         value: Any, label: str, expected_alpha_frames: list[str]
@@ -1016,6 +1548,11 @@ def validate_production_route(
             == output_track_observation["chapterMetadataSHA256"],
             f"{fixture_id} {label} actual metadata receipt differs",
         )
+        validate_hdr10plus_preservation_report(
+            receipt["hdr10PlusPreservation"],
+            expected_hdr10plus_preservation,
+            f"{fixture_id}.{label}.hdr10PlusPreservation",
+        )
         require(
             require_integer(receipt["primaryTrackOrdinal"], f"{fixture_id}.{label}.primary")
             == input_primary
@@ -1072,7 +1609,7 @@ def validate_production_route(
             )
             source_stream = migrated["sourceSampleStreamSHA256"]
             output_stream = migrated["outputSampleStreamSHA256"]
-            if planned["action"] == "pass_through":
+            if planned["action"] in {"pass_through", "process"}:
                 require(
                     require_sha256(
                         source_stream,
@@ -1081,7 +1618,7 @@ def validate_production_route(
                         output_stream,
                         f"{fixture_id}.{label}.migratedTracks[{index}].outputStream",
                     ),
-                    f"{fixture_id} {label} pass-through stream identity differs",
+                    f"{fixture_id} {label} encoded stream identity differs",
                 )
             else:
                 require(
@@ -1411,9 +1948,863 @@ def validate_alpha_oracle_input(
     return oracle_output
 
 
+def pixel_track_frame_byte_count(track: Mapping[str, Any], label: str) -> int:
+    width = require_integer(track.get("width"), f"{label}.width", 1)
+    height = require_integer(track.get("height"), f"{label}.height", 1)
+    pixel_format = require_string(track.get("pixelFormat"), f"{label}.pixelFormat")
+    bit_depth = require_integer(track.get("bitDepth"), f"{label}.bitDepth", 1)
+    if bit_depth == 10 and pixel_format in {"x420", "xf20"}:
+        require(width % 2 == 0 and height % 2 == 0, f"{label} P010 geometry must be even")
+        return width * height * 3
+    require(bit_depth == 8 and pixel_format == "BGRA", f"{label} pixel layout is unsupported")
+    return width * height * 4
+
+
+def read_p010_frames(
+    pixel_path: Path,
+    tracks: Mapping[int, Mapping[str, Any]],
+    ordinal: int,
+    label: str,
+) -> list[dict[str, list[int]]]:
+    require(ordinal in tracks, f"{label} P010 track is absent")
+    offset = 0
+    for current_ordinal in sorted(tracks):
+        track = tracks[current_ordinal]
+        frame_bytes = pixel_track_frame_byte_count(
+            track, f"{label}.track[{current_ordinal}]"
+        )
+        if current_ordinal == ordinal:
+            break
+        offset += frame_bytes * track["frameCount"]
+    track = tracks[ordinal]
+    require(
+        track["bitDepth"] == 10 and track["pixelFormat"] in {"x420", "xf20"},
+        f"{label} oracle track is not P010",
+    )
+    width = track["width"]
+    height = track["height"]
+    frame_bytes = pixel_track_frame_byte_count(track, label)
+    byte_count = frame_bytes * track["frameCount"]
+    raw = pixel_path.read_bytes()
+    require(offset + byte_count <= len(raw), f"{label} P010 artifact is truncated")
+    result: list[dict[str, list[int]]] = []
+    luma_samples = width * height
+    chroma_samples = width * height // 2
+    cursor = offset
+    for frame_index in range(track["frameCount"]):
+        words: list[int] = []
+        frame_end = cursor + frame_bytes
+        for byte_offset in range(cursor, frame_end, 2):
+            word = int.from_bytes(raw[byte_offset : byte_offset + 2], "little")
+            require(
+                word & 0x003F == 0,
+                f"{label} frame {frame_index} has nonzero P010 padding bits",
+            )
+            words.append(word >> 6)
+        require(
+            len(words) == luma_samples + chroma_samples,
+            f"{label} frame {frame_index} sample count differs",
+        )
+        result.append({
+            "luma": words[:luma_samples],
+            "chroma": words[luma_samples:],
+        })
+        cursor = frame_end
+    return result
+
+
+def round_ratio_ties_to_even(numerator: int, denominator: int) -> int:
+    require(numerator >= 0 and denominator > 0, "oracle rounding input is invalid")
+    quotient, remainder = divmod(numerator, denominator)
+    doubled = remainder * 2
+    if doubled > denominator or (doubled == denominator and quotient & 1):
+        quotient += 1
+    return quotient
+
+
+def edge_directed_field_plane(
+    samples: list[int],
+    element_width: int,
+    height: int,
+    components_per_element: int,
+    field_parity: int,
+    previous: list[int] | None,
+    motion_code_difference: int,
+    scene_cut_mean_absolute_difference: int,
+    label: str,
+) -> list[int]:
+    require(
+        element_width > 0
+        and height > 1
+        and components_per_element in {1, 2}
+        and field_parity in {0, 1}
+        and len(samples)
+            == element_width * height * components_per_element,
+        f"{label} edge-bob input differs",
+    )
+    if previous is not None:
+        require(
+            len(previous) == len(samples),
+            f"{label} temporal predecessor differs",
+        )
+    temporal_allowed = False
+    if previous is not None:
+        analysis_pairs = (
+            (
+                previous[(y * element_width + x) * components_per_element],
+                samples[(y * element_width + x) * components_per_element],
+            )
+            for y in range(height)
+            for x in range(element_width)
+        )
+        temporal_allowed = (
+            Fraction(
+                sum(abs(first - second) for first, second in analysis_pairs),
+                element_width * height,
+            )
+            <= scene_cut_mean_absolute_difference
+        )
+    output = list(samples)
+    for y in range(height):
+        if y & 1 == field_parity:
+            continue
+        for x in range(element_width):
+            for component in range(components_per_element):
+                def code(sample_values: list[int], sample_x: int, sample_y: int) -> int:
+                    return sample_values[
+                        (sample_y * element_width + sample_x)
+                        * components_per_element
+                        + component
+                    ]
+
+                index = (
+                    (y * element_width + x) * components_per_element
+                    + component
+                )
+                upper_y = y - 1
+                lower_y = y + 1
+                if upper_y < 0:
+                    spatial = code(samples, x, lower_y)
+                elif lower_y >= height:
+                    spatial = code(samples, x, upper_y)
+                else:
+                    first = code(samples, x, upper_y)
+                    second = code(samples, x, lower_y)
+                    best_gradient = abs(first - second)
+                    if 0 < x < element_width - 1:
+                        diagonal_first = code(samples, x - 1, upper_y)
+                        diagonal_second = code(samples, x + 1, lower_y)
+                        gradient = abs(diagonal_first - diagonal_second)
+                        if gradient < best_gradient:
+                            first = diagonal_first
+                            second = diagonal_second
+                            best_gradient = gradient
+                        reverse_first = code(samples, x + 1, upper_y)
+                        reverse_second = code(samples, x - 1, lower_y)
+                        reverse_gradient = abs(reverse_first - reverse_second)
+                        if reverse_gradient < best_gradient:
+                            first = reverse_first
+                            second = reverse_second
+                    spatial = round_ratio_ties_to_even(first + second, 2)
+                if previous is not None and temporal_allowed:
+                    temporal = previous[index]
+                    if abs(samples[index] - temporal) <= motion_code_difference:
+                        output[index] = temporal
+                        continue
+                output[index] = spatial
+    return output
+
+
+def catmull_rom_q14_coefficients(phase: Fraction) -> tuple[int, int, int, int]:
+    require(0 <= phase < 1, "oracle cubic phase differs")
+    numerator = phase.numerator
+    denominator = phase.denominator
+    denominator_squared = denominator * denominator
+    denominator_cubed = denominator_squared * denominator
+    numerator_squared = numerator * numerator
+    numerator_cubed = numerator_squared * numerator
+    common_denominator = 2 * denominator_cubed
+    weight_numerators = (
+        -numerator * denominator_squared
+        + 2 * numerator_squared * denominator
+        - numerator_cubed,
+        2 * denominator_cubed
+        - 5 * numerator_squared * denominator
+        + 3 * numerator_cubed,
+        numerator * denominator_squared
+        + 4 * numerator_squared * denominator
+        - 3 * numerator_cubed,
+        -numerator_squared * denominator + numerator_cubed,
+    )
+    require(
+        sum(weight_numerators) == common_denominator,
+        "oracle cubic coefficient normalization differs",
+    )
+    normalization = 1 << 14
+    quantized: list[list[int]] = []
+    for tap, value in enumerate(weight_numerators):
+        quotient, remainder = divmod(value * normalization, common_denominator)
+        quantized.append([quotient, remainder, tap])
+    residual = normalization - sum(item[0] for item in quantized)
+    require(0 <= residual <= 3, "oracle cubic residual differs")
+    preferred = (1, 2, 0, 3) if phase <= Fraction(1, 2) else (2, 1, 3, 0)
+    rank = {tap: index for index, tap in enumerate(preferred)}
+    order = sorted(
+        range(4),
+        key=lambda index: (-quantized[index][1], rank[quantized[index][2]]),
+    )
+    for index in order[:residual]:
+        quantized[index][0] += 1
+    coefficients = tuple(item[0] for item in quantized)
+    require(sum(coefficients) == normalization, "oracle cubic Q14 sum differs")
+    return coefficients  # type: ignore[return-value]
+
+
+def reflect101_index(index: int, count: int) -> int:
+    require(count > 0, "oracle border extent differs")
+    if count == 1:
+        return 0
+    period = 2 * (count - 1)
+    reflected = index % period
+    return reflected if reflected < count else period - reflected
+
+
+def catmull_rom_q14_axis(
+    source_count: int, target_count: int
+) -> list[tuple[tuple[int, int, int, int], tuple[int, int, int, int]]]:
+    result = []
+    coefficient_cache: dict[Fraction, tuple[int, int, int, int]] = {}
+    denominator = 2 * target_count
+    for index in range(target_count):
+        numerator = (2 * index + 1) * source_count - target_count
+        source_base, remainder = divmod(numerator, denominator)
+        phase = Fraction(remainder, denominator)
+        coefficients = coefficient_cache.get(phase)
+        if coefficients is None:
+            coefficients = catmull_rom_q14_coefficients(phase)
+            coefficient_cache[phase] = coefficients
+        indices = tuple(
+            reflect101_index(source_base + offset, source_count)
+            for offset in (-1, 0, 1, 2)
+        )
+        result.append((indices, coefficients))
+    return result
+
+
+def round_signed_ratio_ties_to_even(numerator: int, denominator: int) -> int:
+    require(denominator > 0, "oracle signed rounding input is invalid")
+    quotient, remainder = divmod(numerator, denominator)
+    doubled = remainder * 2
+    if doubled > denominator or (doubled == denominator and quotient & 1):
+        quotient += 1
+    return quotient
+
+
+def catmull_rom_q14_plane(
+    samples: list[int],
+    source_width: int,
+    source_height: int,
+    target_width: int,
+    target_height: int,
+    components_per_element: int,
+    label: str,
+) -> list[int]:
+    require(
+        components_per_element in {1, 2}
+        and source_width > 0
+        and target_width > 0
+        and source_height > 0
+        and target_height > 0
+        and len(samples) == source_width * source_height * components_per_element,
+        f"{label} scale input differs",
+    )
+    x_coordinates = catmull_rom_q14_axis(source_width, target_width)
+    y_coordinates = catmull_rom_q14_axis(source_height, target_height)
+    horizontal: dict[tuple[int, int, int], int] = {}
+    for source_y in range(source_height):
+        for target_x, (source_x, coefficient_x) in enumerate(x_coordinates):
+            for component in range(components_per_element):
+                horizontal[(source_y, target_x, component)] = sum(
+                    samples[
+                        (source_y * source_width + source_x[tap])
+                        * components_per_element
+                        + component
+                    ]
+                    * coefficient_x[tap]
+                    for tap in range(4)
+                )
+    output: list[int] = []
+    for source_y, coefficient_y in y_coordinates:
+        for target_x in range(target_width):
+            for component in range(components_per_element):
+                accumulator = sum(
+                    horizontal[(source_y[tap], target_x, component)]
+                    * coefficient_y[tap]
+                    for tap in range(4)
+                )
+                code = round_signed_ratio_ties_to_even(accumulator, 1 << 28)
+                minimum, maximum = (64, 940) if components_per_element == 1 else (64, 960)
+                output.append(min(maximum, max(minimum, code)))
+    return output
+
+
+def independent_p010_oracle_frames(
+    source_frames: list[dict[str, list[int]]],
+    source_width: int,
+    source_height: int,
+    target_width: int,
+    target_height: int,
+    dominance: str,
+) -> list[dict[str, list[int]]]:
+    require(
+        source_width % 2 == source_height % 2 == target_width % 2 == target_height % 2 == 0,
+        "P010 oracle requires even geometry",
+    )
+    if dominance == "progressive":
+        field_order: list[int | None] = [None]
+    elif dominance == "top_field_first":
+        field_order = [0, 1]
+    elif dominance == "bottom_field_first":
+        field_order = [1, 0]
+    else:
+        raise EvidenceError("P010 oracle dominance differs")
+    output: list[dict[str, list[int]]] = []
+    previous_luma: list[int] | None = None
+    previous_chroma: list[int] | None = None
+    for frame_index, frame in enumerate(source_frames):
+        require_exact_keys(frame, ("luma", "chroma"), f"oracle source frame {frame_index}")
+        for field_parity in field_order:
+            luma = frame["luma"]
+            chroma = frame["chroma"]
+            if field_parity is not None:
+                luma = edge_directed_field_plane(
+                    luma,
+                    source_width,
+                    source_height,
+                    1,
+                    field_parity,
+                    previous_luma,
+                    16,
+                    128,
+                    f"oracle source frame {frame_index}.luma",
+                )
+                chroma = edge_directed_field_plane(
+                    chroma,
+                    source_width // 2,
+                    source_height // 2,
+                    2,
+                    field_parity,
+                    previous_chroma,
+                    16,
+                    128,
+                    f"oracle source frame {frame_index}.chroma",
+                )
+            output.append({
+                "luma": catmull_rom_q14_plane(
+                    luma,
+                    source_width,
+                    source_height,
+                    target_width,
+                    target_height,
+                    1,
+                    f"oracle source frame {frame_index}.luma",
+                ),
+                "chroma": catmull_rom_q14_plane(
+                    chroma,
+                    source_width // 2,
+                    source_height // 2,
+                    target_width // 2,
+                    target_height // 2,
+                    2,
+                    f"oracle source frame {frame_index}.chroma",
+                ),
+            })
+        previous_luma = frame["luma"]
+        previous_chroma = frame["chroma"]
+    return output
+
+
+def p010_plane_metrics(
+    expected_frames: list[dict[str, list[int]]],
+    actual_frames: list[dict[str, list[int]]],
+    plane: str,
+    maximum_absolute: int,
+    maximum_mean: Fraction,
+    maximum_p95: int,
+    maximum_p99: int,
+    maximum_absolute_mean_signed: Fraction,
+    label: str,
+) -> dict[str, Any]:
+    require(len(expected_frames) == len(actual_frames), f"{label} frame count differs")
+    require(expected_frames, f"{label} {plane} oracle has no frames")
+    computed: list[dict[str, Any]] = []
+    for frame_index, (expected, actual) in enumerate(zip(expected_frames, actual_frames)):
+        require(
+            len(expected[plane]) == len(actual[plane]),
+            f"{label} {plane} frame {frame_index} sample count differs",
+        )
+        maximum = 0
+        total = 0
+        signed_total = 0
+        absolute_differences: list[int] = []
+        for expected_code, actual_code in zip(expected[plane], actual[plane]):
+            difference = abs(expected_code - actual_code)
+            maximum = max(maximum, difference)
+            total += difference
+            signed_total += actual_code - expected_code
+            absolute_differences.append(difference)
+        count = len(absolute_differences)
+        require(count > 0, f"{label} {plane} frame {frame_index} has no samples")
+        absolute_differences.sort()
+
+        def nearest_rank(percent: int) -> int:
+            require(0 < percent <= 100, "oracle percentile differs")
+            rank = (percent * count + 99) // 100
+            return absolute_differences[rank - 1]
+
+        p95 = nearest_rank(95)
+        p99 = nearest_rank(99)
+        mean = Fraction(total, count)
+        mean_signed = Fraction(signed_total, count)
+        require(
+            maximum <= maximum_absolute,
+            f"{label} {plane} frame {frame_index} maximum absolute code error "
+            "exceeds the release lock",
+        )
+        require(
+            mean <= maximum_mean,
+            f"{label} {plane} frame {frame_index} mean absolute code error "
+            "exceeds the release lock",
+        )
+        require(
+            p95 <= maximum_p95,
+            f"{label} {plane} frame {frame_index} p95 absolute code error "
+            "exceeds the release lock",
+        )
+        require(
+            p99 <= maximum_p99,
+            f"{label} {plane} frame {frame_index} p99 absolute code error "
+            "exceeds the release lock",
+        )
+        require(
+            abs(mean_signed) <= maximum_absolute_mean_signed,
+            f"{label} {plane} frame {frame_index} absolute mean signed code "
+            "error exceeds the release lock",
+        )
+        computed.append({
+            "absoluteMeanSignedCodeError": abs(mean_signed),
+            "frameIndex": frame_index,
+            "maximumAbsoluteCodeError": maximum,
+            "meanAbsoluteCodeError": mean,
+            "meanSignedCodeError": mean_signed,
+            "p95AbsoluteCodeError": p95,
+            "p99AbsoluteCodeError": p99,
+            "sampleCount": count,
+            "sumAbsoluteCodeError": total,
+        })
+
+    def worst_frame_index(key: str) -> int:
+        return max(range(len(computed)), key=lambda index: computed[index][key])
+
+    worst_indexes = {
+        key: worst_frame_index(key)
+        for key in (
+            "absoluteMeanSignedCodeError",
+            "maximumAbsoluteCodeError",
+            "meanAbsoluteCodeError",
+            "p95AbsoluteCodeError",
+            "p99AbsoluteCodeError",
+        )
+    }
+    signed_index = worst_indexes["absoluteMeanSignedCodeError"]
+    frames = [{
+        **row,
+        "absoluteMeanSignedCodeError": str(row["absoluteMeanSignedCodeError"]),
+        "meanAbsoluteCodeError": str(row["meanAbsoluteCodeError"]),
+        "meanSignedCodeError": str(row["meanSignedCodeError"]),
+    } for row in computed]
+    return {
+        "acceptanceScope": "every_frame",
+        "absoluteMeanSignedCodeError": str(
+            computed[signed_index]["absoluteMeanSignedCodeError"]
+        ),
+        "frameCount": len(frames),
+        "frames": frames,
+        "maximumAbsoluteCodeError": computed[
+            worst_indexes["maximumAbsoluteCodeError"]
+        ]["maximumAbsoluteCodeError"],
+        "meanAbsoluteCodeError": str(computed[
+            worst_indexes["meanAbsoluteCodeError"]
+        ]["meanAbsoluteCodeError"]),
+        "meanSignedCodeError": str(computed[signed_index]["meanSignedCodeError"]),
+        "p95AbsoluteCodeError": computed[
+            worst_indexes["p95AbsoluteCodeError"]
+        ]["p95AbsoluteCodeError"],
+        "p99AbsoluteCodeError": computed[
+            worst_indexes["p99AbsoluteCodeError"]
+        ]["p99AbsoluteCodeError"],
+        "totalSampleCount": sum(row["sampleCount"] for row in computed),
+        "worstFrameIndexes": worst_indexes,
+    }
+
+
+def p010_frame_set_sha256(frames: list[dict[str, list[int]]]) -> str:
+    payload = bytearray()
+    for frame in frames:
+        for plane in ("luma", "chroma"):
+            for code in frame[plane]:
+                require(0 <= code <= 1023, "oracle produced an invalid P010 code")
+                payload.extend(int(code << 6).to_bytes(2, "little"))
+    return sha256_bytes(bytes(payload))
+
+
+def minimum_luma_field_mean_separation(
+    frames: list[dict[str, list[int]]], width: int, height: int
+) -> Fraction:
+    require(frames and width > 0 and height > 1, "field-separation input differs")
+    minimum: Fraction | None = None
+    for frame in frames:
+        luma = frame["luma"]
+        field_sums = [0, 0]
+        field_counts = [0, 0]
+        for y in range(height):
+            parity = y & 1
+            row = luma[y * width : (y + 1) * width]
+            field_sums[parity] += sum(row)
+            field_counts[parity] += len(row)
+        separation = abs(
+            Fraction(field_sums[0], field_counts[0])
+            - Fraction(field_sums[1], field_counts[1])
+        )
+        minimum = separation if minimum is None else min(minimum, separation)
+    assert minimum is not None
+    return minimum
+
+
+def validate_p010_absolute_oracle(
+    fixture_id: str,
+    oracle: Mapping[str, Any],
+    input_pixel: Mapping[str, Any],
+    output_pixel: Mapping[str, Any],
+    input_pixels: Mapping[int, Mapping[str, Any]],
+    output_pixels: Mapping[int, Mapping[str, Any]],
+    input_ordinal: int,
+    output_ordinal: int,
+    input_path: Path,
+    output_path: Path,
+) -> dict[str, Any]:
+    source_frames = read_p010_frames(
+        input_path, input_pixels, input_ordinal, f"{fixture_id}.input"
+    )
+    actual_frames = read_p010_frames(
+        output_path, output_pixels, output_ordinal, f"{fixture_id}.output"
+    )
+    source_identity = p010_frame_set_sha256(source_frames)
+    actual_identity = p010_frame_set_sha256(actual_frames)
+    require(
+        input_pixel["visibleSHA256"]
+        == input_pixel["repeatVisibleSHA256"]
+        == source_identity,
+        f"{fixture_id} input P010 track identity differs from artifact bytes",
+    )
+    require(
+        output_pixel["visibleSHA256"]
+        == output_pixel["repeatVisibleSHA256"]
+        == actual_identity,
+        f"{fixture_id} repeat P010 identity differs from artifact bytes",
+    )
+    expected_frames = independent_p010_oracle_frames(
+        source_frames,
+        input_pixel["width"],
+        input_pixel["height"],
+        output_pixel["width"],
+        output_pixel["height"],
+        oracle["dominance"],
+    )
+    multiplier = require_integer(
+        oracle["outputFrameMultiplier"], f"{fixture_id}.oracle.outputFrameMultiplier", 1
+    )
+    require(
+        len(expected_frames) == len(source_frames) * multiplier
+        and len(actual_frames) == len(expected_frames),
+        f"{fixture_id} absolute-oracle cadence differs",
+    )
+    separation = minimum_luma_field_mean_separation(
+        source_frames, input_pixel["width"], input_pixel["height"]
+    )
+    minimum_separation = require_fraction(
+        oracle["minimumInputFieldMeanSeparation"],
+        f"{fixture_id}.oracle.minimumInputFieldMeanSeparation",
+    )
+    require(
+        separation >= minimum_separation,
+        f"{fixture_id} input fields are not sufficiently discriminatory",
+    )
+    luma = p010_plane_metrics(
+        expected_frames,
+        actual_frames,
+        "luma",
+        require_integer(
+            oracle["lumaMaximumAbsoluteCodeError"],
+            f"{fixture_id}.oracle.lumaMaximumAbsoluteCodeError",
+        ),
+        require_fraction(
+            oracle["lumaMaximumMeanAbsoluteCodeError"],
+            f"{fixture_id}.oracle.lumaMaximumMeanAbsoluteCodeError",
+        ),
+        require_integer(
+            oracle["lumaMaximumP95AbsoluteCodeError"],
+            f"{fixture_id}.oracle.lumaMaximumP95AbsoluteCodeError",
+        ),
+        require_integer(
+            oracle["lumaMaximumP99AbsoluteCodeError"],
+            f"{fixture_id}.oracle.lumaMaximumP99AbsoluteCodeError",
+        ),
+        require_fraction(
+            oracle["lumaMaximumAbsoluteMeanSignedCodeError"],
+            f"{fixture_id}.oracle.lumaMaximumAbsoluteMeanSignedCodeError",
+        ),
+        fixture_id,
+    )
+    chroma = p010_plane_metrics(
+        expected_frames,
+        actual_frames,
+        "chroma",
+        require_integer(
+            oracle["chromaMaximumAbsoluteCodeError"],
+            f"{fixture_id}.oracle.chromaMaximumAbsoluteCodeError",
+        ),
+        require_fraction(
+            oracle["chromaMaximumMeanAbsoluteCodeError"],
+            f"{fixture_id}.oracle.chromaMaximumMeanAbsoluteCodeError",
+        ),
+        require_integer(
+            oracle["chromaMaximumP95AbsoluteCodeError"],
+            f"{fixture_id}.oracle.chromaMaximumP95AbsoluteCodeError",
+        ),
+        require_integer(
+            oracle["chromaMaximumP99AbsoluteCodeError"],
+            f"{fixture_id}.oracle.chromaMaximumP99AbsoluteCodeError",
+        ),
+        require_fraction(
+            oracle["chromaMaximumAbsoluteMeanSignedCodeError"],
+            f"{fixture_id}.oracle.chromaMaximumAbsoluteMeanSignedCodeError",
+        ),
+        fixture_id,
+    )
+    return {
+        "algorithmID": LOCKED_P010_ABSOLUTE_ORACLE["algorithmID"],
+        "metricProcedureID": LOCKED_P010_ABSOLUTE_ORACLE[
+            "metricProcedureID"
+        ],
+        "actualVisibleSHA256": actual_identity,
+        "chroma": chroma,
+        "dominance": oracle["dominance"],
+        "expectedVisibleSHA256": p010_frame_set_sha256(expected_frames),
+        "inputFieldMeanSeparationMinimum": str(separation),
+        "inputFrameCount": len(source_frames),
+        "inputVisibleSHA256": source_identity,
+        "luma": luma,
+        "outputFrameCount": len(actual_frames),
+        "sampleStorage": LOCKED_P010_ABSOLUTE_ORACLE["sampleStorage"],
+        "thresholds": {
+            key: oracle[key]
+            for key in (
+                "chromaMaximumAbsoluteCodeError",
+                "chromaMaximumAbsoluteMeanSignedCodeError",
+                "chromaMaximumMeanAbsoluteCodeError",
+                "chromaMaximumP95AbsoluteCodeError",
+                "chromaMaximumP99AbsoluteCodeError",
+                "lumaMaximumAbsoluteCodeError",
+                "lumaMaximumAbsoluteMeanSignedCodeError",
+                "lumaMaximumMeanAbsoluteCodeError",
+                "lumaMaximumP95AbsoluteCodeError",
+                "lumaMaximumP99AbsoluteCodeError",
+                "minimumInputFieldMeanSeparation",
+            )
+        },
+    }
+
+
+def validate_hdr_transfer_profile(
+    fixture_id: str,
+    oracle: Mapping[str, Any],
+    source: Mapping[str, Any],
+    target: Mapping[str, Any],
+    input_samples: list[Mapping[str, Any]],
+    output_samples: list[Mapping[str, Any]],
+) -> None:
+    expected_transfer = oracle["expectedTransferFunction"]
+    require(
+        source["colorPrimaries"] == target["colorPrimaries"] == "ITU_R_2020",
+        f"{fixture_id} BT.2020 primaries differ",
+    )
+    require(
+        source["transferFunction"] == target["transferFunction"] == expected_transfer,
+        f"{fixture_id} locked HDR transfer differs",
+    )
+    require(
+        source["yCbCrMatrix"] == target["yCbCrMatrix"] == "ITU_R_2020",
+        f"{fixture_id} BT.2020 matrix differs",
+    )
+    require(
+        oracle["staticMetadataPolicy"] == "preserve_all",
+        f"{fixture_id} static metadata policy differs",
+    )
+    for key in (
+        "masteringDisplaySHA256",
+        "contentLightSHA256",
+        "ambientViewingEnvironmentSHA256",
+    ):
+        require(
+            source[key] is not None and source[key] == target[key],
+            f"{fixture_id} static HDR {key} differs",
+        )
+    input_dynamic = source["dynamicHDRSamples"]
+    output_dynamic = target["dynamicHDRSamples"]
+    dynamic_policy = oracle["dynamicMetadataPolicy"]
+    if dynamic_policy == "forbid":
+        require(
+            input_dynamic == [] and output_dynamic == [],
+            f"{fixture_id} has forbidden dynamic HDR metadata",
+        )
+    elif dynamic_policy == "replicate_per_output_field":
+        require(
+            input_dynamic
+            and len(input_dynamic) == len(input_samples)
+            and len(output_dynamic) == len(output_samples)
+            == len(input_dynamic) * 2,
+            f"{fixture_id} dynamic HDR field replication count differs",
+        )
+        require(
+            all(item["postDecodeSHA256"] is None for item in input_dynamic)
+            and all(item["postDecodeSHA256"] is None for item in output_dynamic),
+            f"{fixture_id} unsupported on-disk post-decode metadata is present",
+        )
+        input_sample_pts = [
+            require_fraction(
+                sample["pts"], f"{fixture_id}.input.sample[{index}].pts"
+            )
+            for index, sample in enumerate(input_samples)
+        ]
+        output_sample_pts = [
+            require_fraction(
+                sample["pts"], f"{fixture_id}.output.sample[{index}].pts"
+            )
+            for index, sample in enumerate(output_samples)
+        ]
+        require(
+            len(set(input_sample_pts)) == len(input_sample_pts)
+            and len(set(output_sample_pts)) == len(output_sample_pts),
+            f"{fixture_id} dynamic HDR sample times are not unique",
+        )
+        input_dynamic_by_pts: dict[Fraction, Mapping[str, Any]] = {}
+        for index, item in enumerate(input_dynamic):
+            item_pts = require_fraction(
+                item["pts"], f"{fixture_id}.input.dynamic[{index}].pts"
+            )
+            require(
+                item["sampleOrdinal"] == index
+                and item["hdr10PlusSHA256"] is not None
+                and item_pts not in input_dynamic_by_pts,
+                f"{fixture_id} input dynamic HDR sample binding differs",
+            )
+            input_dynamic_by_pts[item_pts] = item
+        require(
+            set(input_dynamic_by_pts) == set(input_sample_pts),
+            f"{fixture_id} input dynamic HDR sample binding differs",
+        )
+
+        output_dynamic_by_pts: dict[Fraction, Mapping[str, Any]] = {}
+        for index, item in enumerate(output_dynamic):
+            item_pts = require_fraction(
+                item["pts"], f"{fixture_id}.output.dynamic[{index}].pts"
+            )
+            require(
+                item["sampleOrdinal"] == index
+                and item["hdr10PlusSHA256"] is not None
+                and item_pts not in output_dynamic_by_pts,
+                f"{fixture_id} dynamic HDR field binding differs",
+            )
+            output_dynamic_by_pts[item_pts] = item
+        require(
+            set(output_dynamic_by_pts) == set(output_sample_pts),
+            f"{fixture_id} dynamic HDR field binding differs",
+        )
+
+        ordered_input = [input_dynamic_by_pts[pts] for pts in sorted(input_sample_pts)]
+        ordered_output = [
+            output_dynamic_by_pts[pts] for pts in sorted(output_sample_pts)
+        ]
+        for index, item in enumerate(ordered_input):
+            for field_offset, duplicate in enumerate(
+                ordered_output[index * 2 : index * 2 + 2]
+            ):
+                require(
+                    duplicate["hdr10PlusSHA256"]
+                        == item["hdr10PlusSHA256"]
+                    and duplicate["postDecodeSHA256"] is None,
+                    f"{fixture_id} dynamic HDR field binding differs",
+                )
+    else:
+        raise EvidenceError(f"{fixture_id} dynamic HDR policy differs")
+
+
+def validate_interlaced_cadence(
+    fixture_id: str,
+    dominance: str,
+    source: Mapping[str, Any],
+    target: Mapping[str, Any],
+    input_samples: list[Mapping[str, Any]],
+    output_samples: list[Mapping[str, Any]],
+) -> None:
+    detail_by_dominance = {
+        "top_field_first": ("temporal_top_first", "interlaced_tff_2_fields_per_sample"),
+        "bottom_field_first": ("temporal_bottom_first", "interlaced_bff_2_fields_per_sample"),
+    }
+    require(dominance in detail_by_dominance, f"{fixture_id} dominance is not interlaced")
+    detail, cadence = detail_by_dominance[dominance]
+    require(
+        source["fieldCount"] == 2
+        and source["fieldDetail"] == detail
+        and source["cadence"] == cadence,
+        f"{fixture_id} input field dominance/cadence differs",
+    )
+    require(
+        target["fieldCount"] == 1
+        and target["fieldDetail"] == "progressive"
+        and target["cadence"] == "progressive_double_rate",
+        f"{fixture_id} output field normalization differs",
+    )
+    require(
+        len(output_samples) == len(input_samples) * 2,
+        f"{fixture_id} field-normalized sample count differs",
+    )
+    for index, source_sample in enumerate(input_samples):
+        duration = require_fraction(source_sample["duration"], f"{fixture_id}.source.duration")
+        first, second = output_samples[index * 2 : index * 2 + 2]
+        source_pts = require_fraction(source_sample["pts"], f"{fixture_id}.source.pts")
+        require(
+            require_fraction(first["pts"], f"{fixture_id}.first.pts") == source_pts,
+            f"{fixture_id} first-field PTS differs",
+        )
+        require(
+            require_fraction(second["pts"], f"{fixture_id}.second.pts")
+            == source_pts + duration / 2,
+            f"{fixture_id} second-field PTS differs",
+        )
+        require(
+            require_fraction(first["duration"], f"{fixture_id}.first.duration")
+            == duration / 2
+            and require_fraction(second["duration"], f"{fixture_id}.second.duration")
+            == duration / 2,
+            f"{fixture_id} field durations differ",
+        )
+
+
 def coverage_checks(
     fixture: Mapping[str, Any],
-    observations: Mapping[str, Mapping[str, Any]],
+    observations: Mapping[str, Any],
     capture_root: Path,
 ) -> list[dict[str, Any]]:
     fixture_id = fixture["id"]
@@ -1427,6 +2818,59 @@ def coverage_checks(
     input_attachments = observations["inputAttachments"]
     output_attachments = observations["outputAttachments"]
     checks: list[dict[str, Any]] = []
+
+    require(
+        ("per_frame_p010_distribution_oracle" in coverage)
+            == ("p010_absolute_pixel_oracle" in coverage),
+        f"{fixture_id} per-frame P010 distribution coverage differs",
+    )
+    require(
+        ("archived_hlg_p010_fixture" in coverage)
+            == (fixture_id == "auxiliary-picture-track"),
+        f"{fixture_id} archived HLG fixture coverage differs",
+    )
+    require(
+        ("hdr10plus_in_band_pts_preservation" in coverage)
+            == (fixture_id == "combined-p010-hdr-interlaced"),
+        f"{fixture_id} in-band HDR10+ coverage differs",
+    )
+    require(
+        ("canonical_dynamic_absent_one_pass" in coverage)
+            == (fixture_id != "combined-p010-hdr-interlaced"),
+        f"{fixture_id} canonical absent dynamic HDR coverage differs",
+    )
+    require(
+        ("plan_bound_absent_timeline_mapping" in coverage)
+            == (fixture_id != "combined-p010-hdr-interlaced"),
+        f"{fixture_id} plan-bound absent timeline coverage differs",
+    )
+    require(
+        ("direct_media_target_timeline_mapping" in coverage)
+            == (fixture_id == "combined-p010-hdr-interlaced")
+        and ("zero_normalized_replacement_media_pts" in coverage)
+            == (fixture_id == "combined-p010-hdr-interlaced"),
+        f"{fixture_id} direct media/presentation timeline coverage differs",
+    )
+    if "canonical_dynamic_absent_one_pass" in coverage:
+        checks.append({
+            "id": "canonical-dynamic-hdr-absent-one-pass-route",
+            "pass": True,
+        })
+        checks.append({
+            "id": "plan-bound-absent-timeline-mapping-identity",
+            "pass": True,
+        })
+    if "direct_media_target_timeline_mapping" in coverage:
+        checks.extend([
+            {
+                "id": "direct-source-media-target-presentation-mapping",
+                "pass": True,
+            },
+            {
+                "id": "replacement-media-pts-zero-normalized",
+                "pass": True,
+            },
+        ])
 
     def checked(identifier: str, operation: Any) -> None:
         operation()
@@ -1470,7 +2914,12 @@ def coverage_checks(
         require(output_pixels[output_video_ordinal]["visibleSHA256"] == output_pixels[output_video_ordinal]["repeatVisibleSHA256"], f"{fixture_id} repeat output pixels differ")
         checks.append({"id": "repeat-output-visible-pixel-identity", "pass": True})
 
-    if "p010_hdr_static_dynamic" in coverage:
+    if "p010_absolute_pixel_oracle" in coverage:
+        require(
+            fixture_id in LOCKED_P010_ABSOLUTE_ORACLE["fixtures"],
+            f"{fixture_id} lacks a release-locked P010 oracle",
+        )
+        oracle = LOCKED_P010_ABSOLUTE_ORACLE["fixtures"][fixture_id]
         input_ordinal, _ = first_video(input_tracks, f"{fixture_id} input")
         output_ordinal, _ = first_video(output_tracks, f"{fixture_id} output")
         input_pixel = input_pixels[input_ordinal]
@@ -1481,40 +2930,84 @@ def coverage_checks(
             require(pixel["uniqueSignalCodeCount"] > 256, f"{fixture_id} {side} does not prove retained 10-bit precision")
         source = input_attachments[input_ordinal]
         target = output_attachments[output_ordinal]
-        require(source["colorPrimaries"] == target["colorPrimaries"] == "ITU_R_2020", f"{fixture_id} BT.2020 primaries differ")
-        require(source["transferFunction"] == target["transferFunction"] == "SMPTE_ST_2084_PQ", f"{fixture_id} PQ transfer differs")
-        require(source["yCbCrMatrix"] == target["yCbCrMatrix"] == "ITU_R_2020", f"{fixture_id} BT.2020 matrix differs")
-        for key in ("masteringDisplaySHA256", "contentLightSHA256", "ambientViewingEnvironmentSHA256"):
-            require(source[key] is not None and source[key] == target[key], f"{fixture_id} static HDR {key} differs")
-        input_dynamic = source["dynamicHDRSamples"]
-        output_dynamic = target["dynamicHDRSamples"]
-        require(input_dynamic and len(output_dynamic) == len(input_dynamic) * 2, f"{fixture_id} dynamic HDR field replication count differs")
-        for index, item in enumerate(input_dynamic):
-            for duplicate in output_dynamic[index * 2 : index * 2 + 2]:
-                require(duplicate["hdr10PlusSHA256"] == item["hdr10PlusSHA256"], f"{fixture_id} HDR10+ payload differs")
-                require(duplicate["postDecodeSHA256"] == item["postDecodeSHA256"], f"{fixture_id} post-decode payload differs")
-        checks.append({"id": "p010-static-and-frame-bound-dynamic-hdr-identity", "pass": True})
+        validate_hdr_transfer_profile(
+            fixture_id,
+            oracle,
+            source,
+            target,
+            input_timing[input_ordinal]["samples"],
+            output_timing[output_ordinal]["samples"],
+        )
+        if "pq_transfer_profile" in coverage:
+            require(
+                oracle["expectedTransferFunction"] == "SMPTE_ST_2084_PQ"
+                and "p010_hdr_static_dynamic" in coverage,
+                f"{fixture_id} PQ coverage differs",
+            )
+        if "hlg_transfer_profile" in coverage:
+            require(
+                oracle["expectedTransferFunction"] == "ITU_R_2100_HLG"
+                and "p010_hdr_static_dynamic" not in coverage,
+                f"{fixture_id} HLG coverage differs",
+            )
+        oracle_result = validate_p010_absolute_oracle(
+            fixture_id,
+            oracle,
+            input_pixel,
+            output_pixel,
+            input_pixels,
+            output_pixels,
+            input_ordinal,
+            output_ordinal,
+            observations["inputPixelArtifact"],
+            observations["outputPixelArtifact"],
+        )
+        checks.append({
+            "id": "independent-absolute-p010-luma-chroma-oracle",
+            "pass": True,
+            "result": oracle_result,
+        })
+        checks.append({
+            "id": "per-frame-independent-p010-distribution-lock",
+            "pass": True,
+        })
+        checks.append({
+            "id": "p010-release-locked-hdr-transfer-and-metadata-identity",
+            "pass": True,
+        })
+        if "archived_hlg_p010_fixture" in coverage:
+            checks.append({
+                "id": "archived-hlg-p010-input-output-artifact-identity",
+                "pass": True,
+            })
+        if "hdr10plus_in_band_pts_preservation" in coverage:
+            checks.append({
+                "id": "hdr10plus-in-band-exact-presentation-time-preservation",
+                "pass": True,
+            })
+        if "bounded_dynamic_hdr_pts_ledger" in coverage:
+            checks.append({
+                "id": "bounded-segment-hdr10plus-ledger-recomputation",
+                "pass": True,
+            })
 
     if "interlaced_field_order_cadence" in coverage:
         input_ordinal, _ = first_video(input_tracks, f"{fixture_id} input")
         output_ordinal, _ = first_video(output_tracks, f"{fixture_id} output")
         source = input_attachments[input_ordinal]
         target = output_attachments[output_ordinal]
-        require(source["fieldCount"] == 2 and source["fieldDetail"] == "temporal_top_first", f"{fixture_id} input field dominance is not TFF")
-        require(source["cadence"] == "interlaced_tff_2_fields_per_sample", f"{fixture_id} input cadence differs")
-        require(target["fieldCount"] == 1 and target["fieldDetail"] == "progressive", f"{fixture_id} output is not progressive")
-        require(target["cadence"] == "progressive_double_rate", f"{fixture_id} output cadence differs")
         input_samples = input_timing[input_ordinal]["samples"]
         output_samples = output_timing[output_ordinal]["samples"]
-        require(len(output_samples) == len(input_samples) * 2, f"{fixture_id} field-normalized sample count differs")
-        for index, source_sample in enumerate(input_samples):
-            duration = require_fraction(source_sample["duration"], f"{fixture_id}.source.duration")
-            first, second = output_samples[index * 2 : index * 2 + 2]
-            source_pts = require_fraction(source_sample["pts"], f"{fixture_id}.source.pts")
-            require(require_fraction(first["pts"], f"{fixture_id}.first.pts") == source_pts, f"{fixture_id} first-field PTS differs")
-            require(require_fraction(second["pts"], f"{fixture_id}.second.pts") == source_pts + duration / 2, f"{fixture_id} second-field PTS differs")
-            require(require_fraction(first["duration"], f"{fixture_id}.first.duration") == duration / 2 and require_fraction(second["duration"], f"{fixture_id}.second.duration") == duration / 2, f"{fixture_id} field durations differ")
-        checks.append({"id": "tff-field-order-and-double-rate-cadence", "pass": True})
+        oracle = LOCKED_P010_ABSOLUTE_ORACLE["fixtures"][fixture_id]
+        validate_interlaced_cadence(
+            fixture_id,
+            oracle["dominance"],
+            source,
+            target,
+            input_samples,
+            output_samples,
+        )
+        checks.append({"id": "locked-field-order-and-double-rate-cadence", "pass": True})
 
     if "straight_alpha" in coverage or "premultiplied_alpha" in coverage:
         expected = "straight" if "straight_alpha" in coverage else "premultiplied"
@@ -1870,6 +3363,7 @@ def _evaluate_capture_snapshot(
                 "tracks": tracks,
                 "timing": timing,
                 "pixels": pixels,
+                "pixelPath": copied["pixels"],
                 "attachments": attachments,
             }
             manifest = {
@@ -1904,6 +3398,8 @@ def _evaluate_capture_snapshot(
             "outputTiming": side_values["output"]["timing"],
             "inputPixels": side_values["input"]["pixels"],
             "outputPixels": side_values["output"]["pixels"],
+            "inputPixelArtifact": side_values["input"]["pixelPath"],
+            "outputPixelArtifact": side_values["output"]["pixelPath"],
             "inputAttachments": side_values["input"]["attachments"],
             "outputAttachments": side_values["output"]["attachments"],
         }
@@ -1978,6 +3474,7 @@ def _evaluate_capture_snapshot(
                 "source_fixture_generation_and_source_alpha_observation_only",
             "actualSessionReceiptRequired": True,
             "independentAlphaOracleRequired": True,
+            "independentP010AbsoluteOracleRequired": True,
         },
         "identities": {
             "laneContractSHA256": contract_sha,

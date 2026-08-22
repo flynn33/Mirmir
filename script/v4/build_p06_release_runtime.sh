@@ -7,6 +7,7 @@ repository_root="${script_directory:h:h}"
 artifact_output=""
 bundle_output=""
 provenance_output=""
+qualification_challenge=""
 while (( $# > 0 )); do
     case "$1" in
         --artifacts)
@@ -33,6 +34,14 @@ while (( $# > 0 )); do
             provenance_output="$2"
             shift 2
             ;;
+        --qualification-challenge)
+            (( $# >= 2 )) || {
+                print -u2 "Missing value for --qualification-challenge"
+                exit 64
+            }
+            qualification_challenge="$2"
+            shift 2
+            ;;
         *)
             print -u2 "Unknown option: $1"
             exit 64
@@ -42,6 +51,23 @@ done
 if [[ -z "${artifact_output}" || -z "${bundle_output}" ]]; then
     print -u2 \
         "usage: $0 --artifacts <new-input-directory> --output <new-bundle-directory> [--provenance <new-directory>]"
+    exit 64
+fi
+if [[ -n "${qualification_challenge}" ]]; then
+    if [[ ! "${qualification_challenge}" =~ '^[0-9a-f]{64}$' ]]; then
+        print -u2 "Qualification challenge must be 64 lowercase hexadecimal characters"
+        exit 64
+    fi
+    if [[ "${MIRMIR_P06_BUILD_CHALLENGE:-}" != "${qualification_challenge}" ]]; then
+        print -u2 "Qualification challenge argv/environment binding differs"
+        exit 64
+    fi
+    if [[ -z "${provenance_output}" ]]; then
+        print -u2 "Qualification challenge requires a provenance output"
+        exit 64
+    fi
+elif [[ -n "${MIRMIR_P06_BUILD_CHALLENGE:-}" ]]; then
+    print -u2 "Qualification challenge environment is present without argv binding"
     exit 64
 fi
 artifact_output="${artifact_output:A}"
@@ -246,3 +272,38 @@ fi
 print -r -- "source_revision=${source_revision}"
 print -r -- "builder_source_sha256=${builder_source_sha256}"
 print -r -- "artifact_set_sha256=${artifact_set_sha256}"
+if [[ -n "${qualification_challenge}" ]]; then
+    qualification_runtime_artifact_set_sha256="$(
+        python3 - "${bundle_output}" <<'PY'
+import hashlib
+from pathlib import Path
+import sys
+
+root = Path(sys.argv[1]).resolve(strict=True)
+digest = hashlib.sha256()
+digest.update(b"mirmir-artifact-set-v1\0")
+for path in sorted(item for item in root.rglob("*") if item.is_file()):
+    relative = path.relative_to(root).as_posix()
+    identity = hashlib.sha256(path.read_bytes()).hexdigest()
+    digest.update(relative.encode("utf-8"))
+    digest.update(b"\0")
+    digest.update(identity.encode("ascii"))
+    digest.update(b"\n")
+print(digest.hexdigest())
+PY
+    )"
+    qualification_runtime_manifest_file_sha256="$(
+        shasum -a 256 "${bundle_output}/runtime-manifest.json" | awk '{print $1}'
+    )"
+    qualification_production_source_manifest_sha256="$(
+        shasum -a 256 \
+            "${provenance_output}/production-source-manifest.json" | awk '{print $1}'
+    )"
+    print -r -- "qualification_challenge=${qualification_challenge}"
+    print -r -- \
+        "qualification_runtime_artifact_set_sha256=${qualification_runtime_artifact_set_sha256}"
+    print -r -- \
+        "qualification_runtime_manifest_file_sha256=${qualification_runtime_manifest_file_sha256}"
+    print -r -- \
+        "qualification_production_source_manifest_sha256=${qualification_production_source_manifest_sha256}"
+fi

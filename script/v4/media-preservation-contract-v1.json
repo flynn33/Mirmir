@@ -7,10 +7,10 @@
   },
   "capture": {
     "buildConfiguration": "Release",
-    "captureSourceSHA256": "a6a56c39f1f11b3a02098725023ff01194c14a7fce3aa6a919d12db88ad46c45",
-    "evaluatorSHA256": "e58b45ae7fcd536e4c3dd4542cd9c29d8524bf050c165cf58505845cf1ef2ef0",
-    "fixtureSourceSHA256": "80bd160957785c46a81ba33c88d3a6c59eb5cf2dec253332523b6036991deb3c",
-    "observerSourceSHA256": "1ac48bf1f910ff53464cb37df59818d7e8d7eef5a927d02ab6961dc98760f6cf",
+    "captureSourceSHA256": "d38285352101b93a9318118d15c0a3a798633f9cbb61e95db08d69c981a7313e",
+    "evaluatorSHA256": "2455bf16309d5e1115c4033bcc1e6b973440bda56378df654dfe17f76957315f",
+    "fixtureSourceSHA256": "97e10ea3503630afe59ffe72adbf905bed7e1b2c0fbb95965bcfb82303c973b9",
+    "observerSourceSHA256": "9fcf2009a18385524f65644cf13e744a0cdd58550808bc43089dff4f12f98a84",
     "packagedEvidenceToolSHA256": "5ea4b53d5d696714d1d0f00a1df22cb1a0b8f9769f2e70b133139cb05132f117",
     "releaseCandidateArchiveToolSHA256": "b53d8d20847a951f326feebead3a263632b219fe1ee720c6c4361d7d2ee5189a",
     "runnerSHA256": "85e674aeb3edad5447128cc492c850910254b5f22157ad3870f271f1044e9774"
@@ -19,6 +19,13 @@
     {
       "coverage": [
         "p010_hdr_static_dynamic",
+        "p010_absolute_pixel_oracle",
+        "per_frame_p010_distribution_oracle",
+        "pq_transfer_profile",
+        "hdr10plus_in_band_pts_preservation",
+        "bounded_dynamic_hdr_pts_ledger",
+        "direct_media_target_timeline_mapping",
+        "zero_normalized_replacement_media_pts",
         "interlaced_field_order_cadence",
         "non_square_pixel_aspect_ratio",
         "clean_aperture",
@@ -34,7 +41,9 @@
         "clean_aperture",
         "preferred_transform",
         "straight_alpha",
-        "combined_alpha_geometry"
+        "combined_alpha_geometry",
+        "canonical_dynamic_absent_one_pass",
+        "plan_bound_absent_timeline_mapping"
       ],
       "id": "combined-alpha-geometry-straight",
       "policy": "alpha_geometry"
@@ -45,7 +54,9 @@
         "clean_aperture",
         "preferred_transform",
         "premultiplied_alpha",
-        "combined_alpha_geometry"
+        "combined_alpha_geometry",
+        "canonical_dynamic_absent_one_pass",
+        "plan_bound_absent_timeline_mapping"
       ],
       "id": "combined-alpha-geometry-premultiplied",
       "policy": "alpha_geometry"
@@ -56,7 +67,9 @@
         "alternate_audio_tracks",
         "chapters",
         "timecode_tracks",
-        "timed_metadata"
+        "timed_metadata",
+        "canonical_dynamic_absent_one_pass",
+        "plan_bound_absent_timeline_mapping"
       ],
       "id": "rich-track-graph",
       "policy": "process_primary_preserve_auxiliary"
@@ -64,19 +77,71 @@
     {
       "coverage": [
         "subtitles",
-        "captions"
+        "captions",
+        "canonical_dynamic_absent_one_pass",
+        "plan_bound_absent_timeline_mapping"
       ],
       "id": "legible-track-graph",
       "policy": "process_primary_preserve_auxiliary"
     },
     {
       "coverage": [
-        "auxiliary_tracks"
+        "auxiliary_tracks",
+        "p010_absolute_pixel_oracle",
+        "per_frame_p010_distribution_oracle",
+        "archived_hlg_p010_fixture",
+        "canonical_dynamic_absent_one_pass",
+        "plan_bound_absent_timeline_mapping",
+        "hlg_transfer_profile"
       ],
       "id": "auxiliary-picture-track",
       "policy": "process_primary_preserve_auxiliary"
     }
   ],
+  "p010AbsoluteOracle": {
+    "algorithmID": "independent_scalar_causal_edge_bob_temporal_gate_catmull_rom_q14_v1",
+    "metricProcedureID": "per_frame_absolute_max_mean_nearest_rank_p95_p99_signed_bias_v2",
+    "fixtures": {
+      "auxiliary-picture-track": {
+        "chromaMaximumAbsoluteCodeError": 160,
+        "chromaMaximumAbsoluteMeanSignedCodeError": "1/1",
+        "chromaMaximumMeanAbsoluteCodeError": "18/1",
+        "chromaMaximumP95AbsoluteCodeError": 56,
+        "chromaMaximumP99AbsoluteCodeError": 88,
+        "dominance": "progressive",
+        "expectedTransferFunction": "ITU_R_2100_HLG",
+        "lumaMaximumAbsoluteCodeError": 272,
+        "lumaMaximumAbsoluteMeanSignedCodeError": "2/1",
+        "lumaMaximumMeanAbsoluteCodeError": "8/1",
+        "lumaMaximumP95AbsoluteCodeError": 32,
+        "lumaMaximumP99AbsoluteCodeError": 72,
+        "minimumInputFieldMeanSeparation": "0/1",
+        "outputFrameMultiplier": 1,
+        "staticMetadataPolicy": "preserve_all",
+        "dynamicMetadataPolicy": "forbid"
+      },
+      "combined-p010-hdr-interlaced": {
+        "chromaMaximumAbsoluteCodeError": 320,
+        "chromaMaximumAbsoluteMeanSignedCodeError": "4/1",
+        "chromaMaximumMeanAbsoluteCodeError": "43/1",
+        "chromaMaximumP95AbsoluteCodeError": 128,
+        "chromaMaximumP99AbsoluteCodeError": 208,
+        "dominance": "top_field_first",
+        "expectedTransferFunction": "SMPTE_ST_2084_PQ",
+        "lumaMaximumAbsoluteCodeError": 448,
+        "lumaMaximumAbsoluteMeanSignedCodeError": "8/1",
+        "lumaMaximumMeanAbsoluteCodeError": "76/1",
+        "lumaMaximumP95AbsoluteCodeError": 224,
+        "lumaMaximumP99AbsoluteCodeError": 304,
+        "minimumInputFieldMeanSeparation": "496/1",
+        "outputFrameMultiplier": 2,
+        "staticMetadataPolicy": "preserve_all",
+        "dynamicMetadataPolicy": "replicate_per_output_field"
+      }
+    },
+    "sampleStorage": "little_endian_uint16_msb_aligned_p010",
+    "schemaVersion": "mirmir-ash-v4-p010-absolute-oracle-contract-v3"
+  },
   "releaseQualificationContractPath": "script/v4/release-qualification-contract-v1.json",
   "requiredCaptureArtifacts": [
     "track-observation.json",

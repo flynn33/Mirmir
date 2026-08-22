@@ -401,6 +401,17 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
         AVFoundationTrackMigrationProgressV4
     ) -> Void
 
+    static func accountAppendedRealSamples(
+        in sample: CMSampleBuffer,
+        sampleCount: inout Int64,
+        lastPresentationTime: inout CMTime?
+    ) {
+        let appendedCount = CMSampleBufferGetNumSamples(sample)
+        guard appendedCount > 0 else { return }
+        sampleCount += 1
+        lastPresentationTime = CMSampleBufferGetPresentationTimeStamp(sample)
+    }
+
     static func validatePassThroughFormatInventory(
         _ descriptions: [CMFormatDescription],
         planned: MediaTrackPlannedTrackV4,
@@ -2432,9 +2443,17 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                                 failure: .init(writer.error)
                             )
                     }
-                    pipes[index].sampleCount += 1
-                    pipes[index].lastOutputPresentationTime
-                        = CMSampleBufferGetPresentationTimeStamp(outputSample)
+                    var migratedSampleCount = pipes[index].sampleCount
+                    var lastPresentationTime =
+                        pipes[index].lastOutputPresentationTime
+                    Self.accountAppendedRealSamples(
+                        in: outputSample,
+                        sampleCount: &migratedSampleCount,
+                        lastPresentationTime: &lastPresentationTime
+                    )
+                    pipes[index].sampleCount = migratedSampleCount
+                    pipes[index].lastOutputPresentationTime =
+                        lastPresentationTime
                     emit(
                         .migrating,
                         trackID: pipes[index].trackID,

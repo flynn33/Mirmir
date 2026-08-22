@@ -8,16 +8,22 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import secrets
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from typing import Any, Iterable, Mapping
 
 
 SCRIPT_DIRECTORY = Path(__file__).resolve().parent
-DEFAULT_CONTRACT = SCRIPT_DIRECTORY / "p06-reproduction-contract-v1.json"
-REPORT_SCHEMA = "mirmir-ash-v4-p06-reproduction-report-v1"
+DEFAULT_CONTRACT = SCRIPT_DIRECTORY / "p06-reproduction-contract-v2.json"
+REPORT_SCHEMA = "mirmir-ash-v4-p06-reproduction-report-v2"
+SOURCE_TREE_DOMAIN = b"mirmir-source-tree-v1\0"
+BUILD_EXECUTION_SCHEMA = "mirmir-ash-v4-p06-build-execution-v2"
+BUILD_TRANSCRIPT_SCHEMA = "mirmir-ash-v4-p06-build-transcript-v2"
+BUILD_CAUSAL_DOMAIN = b"mirmir-p06-build-causal-binding-v1\0"
 MANIFEST_DOMAIN = b"ash-p06-runtime-manifest-v4\0"
 CANDIDATE_FIELDS = {
     "sourceCommit",
@@ -32,6 +38,32 @@ CANDIDATE_FIELDS = {
     "productVersion",
     "productBuild",
 }
+BUILD_CAUSAL_FIELDS = (
+    "buildID",
+    "invocationNonce",
+    "captureProcessID",
+    "processID",
+    "startedAtUnixNanoseconds",
+    "finishedAtUnixNanoseconds",
+    "durationNanoseconds",
+    "workingDirectory",
+    "buildOutputRoot",
+    "buildChallenge",
+    "buildCommand",
+    "buildEnvironment",
+    "sourceCommit",
+    "sourceCommitObjectSHA256",
+    "checkoutTreeObject",
+    "sourceTreeIdentitySHA256",
+    "sourceTreeListingSHA256",
+    "sourceArchiveSHA256",
+    "buildRunnerSHA256",
+    "buildTranscriptSHA256",
+    "runtimeArtifactSetSHA256",
+    "runtimeManifestFileSHA256",
+    "productionSourceManifestSHA256",
+    "predecessorExecutionSHA256",
+)
 
 
 class CaptureError(ValueError):
@@ -102,6 +134,13 @@ def artifact_set_sha(entries: Iterable[tuple[str, str]]) -> str:
     return digest.hexdigest()
 
 
+def build_causal_binding(execution: Mapping[str, Any]) -> str:
+    return sha256_bytes(
+        BUILD_CAUSAL_DOMAIN
+        + canonical_bytes({key: execution[key] for key in BUILD_CAUSAL_FIELDS})
+    )
+
+
 def regular_files(root: Path) -> list[Path]:
     files: list[Path] = []
     for path in root.rglob("*"):
@@ -139,7 +178,45 @@ def source_tree_identity(repository: Path, commit: str) -> str:
             "cannot resolve source tree: "
             + process.stderr.decode("utf-8", errors="replace").strip()
         )
-    return sha256_bytes(b"mirmir-source-tree-v1\0" + process.stdout)
+    return sha256_bytes(SOURCE_TREE_DOMAIN + process.stdout)
+
+
+def source_tree_listing(repository: Path, commit: str) -> bytes:
+    process = subprocess.run(
+        ["git", "ls-tree", "-r", "-z", "--full-tree", commit],
+        cwd=repository,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if process.returncode != 0:
+        raise CaptureError(
+            "cannot capture source tree listing: "
+            + process.stderr.decode("utf-8", errors="replace").strip()
+        )
+    return process.stdout
+
+
+def source_commit_object(repository: Path, commit: str) -> bytes:
+    process = subprocess.run(
+        ["git", "cat-file", "commit", commit],
+        cwd=repository,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if process.returncode != 0:
+        raise CaptureError(
+            "cannot capture source commit object: "
+            + process.stderr.decode("utf-8", errors="replace").strip()
+        )
+    payload = process.stdout
+    identity = hashlib.sha1(
+        b"commit " + str(len(payload)).encode("ascii") + b"\0" + payload
+    ).hexdigest()
+    if identity != commit:
+        raise CaptureError("captured source commit object identity differs")
+    return payload
 
 
 def committed_bytes(repository: Path, commit: str, relative_path: str) -> bytes:
@@ -212,6 +289,8 @@ def validate_runtime(runtime_root: Path, candidate: Mapping[str, Any]) -> dict[s
         raise CaptureError("runtime provenance is missing")
     if provenance.get("sourceRevision") != candidate["runtimeSourceRevision"]:
         raise CaptureError("runtime source revision differs from the candidate")
+    if provenance.get("builderID") != "ash-p06-release-builder-v4-1":
+        raise CaptureError("runtime builder identity is not the P06 release builder")
     builder_identity = require_hex(
         provenance.get("builderSourceSHA256"), (64,), "runtime builderSourceSHA256"
     )
@@ -250,6 +329,55 @@ def run_checked(
     return process.stdout
 
 
+def run_build_command(
+    command: list[str],
+    *,
+    cwd: Path,
+    environment: Mapping[str, str],
+    transcript: Path,
+) -> dict[str, Any]:
+    started_unix = time.time_ns()
+    started_monotonic = time.monotonic_ns()
+    process = subprocess.Popen(
+        command,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env={**os.environ, **environment},
+    )
+    stdout, _ = process.communicate()
+    finished_monotonic = time.monotonic_ns()
+    finished_unix = time.time_ns()
+    stdout_bytes = stdout.encode("utf-8")
+    transcript.write_bytes(
+        canonical_bytes(
+            {
+                "schemaVersion": BUILD_TRANSCRIPT_SCHEMA,
+                "command": command,
+                "environment": dict(environment),
+                "workingDirectory": str(cwd),
+                "processID": process.pid,
+                "exitStatus": process.returncode,
+                "stdoutByteCount": len(stdout_bytes),
+                "stdoutSHA256": sha256_bytes(stdout_bytes),
+                "stdout": stdout,
+            }
+        )
+    )
+    if process.returncode != 0:
+        raise CaptureError(
+            f"P06 build command failed ({process.returncode}): {' '.join(command)}\n{stdout}"
+        )
+    return {
+        "processID": process.pid,
+        "startedAtUnixNanoseconds": started_unix,
+        "finishedAtUnixNanoseconds": finished_unix,
+        "durationNanoseconds": finished_monotonic - started_monotonic,
+        "exitStatus": process.returncode,
+    }
+
+
 def capture_build(
     *,
     repository: Path,
@@ -260,6 +388,7 @@ def capture_build(
     candidate_runtime: Path,
     candidate: Mapping[str, Any],
     production_source_count: int,
+    predecessor_execution_sha256: str,
 ) -> dict[str, Any]:
     worktree = temporary_root / f"{identifier}-worktree"
     build_root = temporary_root / f"{identifier}-outputs"
@@ -267,34 +396,74 @@ def capture_build(
     runtime_output = build_root / "ASH-P06.bundle"
     provenance_output = build_root / "provenance"
     build_root.mkdir()
+    evidence_build = staging_root / identifier
+    source_evidence = evidence_build / "source"
+    source_evidence.mkdir(parents=True)
+    source_archive = source_evidence / "candidate-source.tar"
+    source_listing_path = source_evidence / "source-tree-listing.bin"
+    source_commit_path = source_evidence / "source-commit-object.bin"
+    build_transcript = evidence_build / "build-transcript.json"
+    build_execution_path = evidence_build / "build-execution.json"
     run_checked(
         ["git", "worktree", "add", "--detach", str(worktree), commit],
         cwd=repository,
     )
     load_transcript = staging_root / identifier / "runtime-load-and-tamper-check.log"
     try:
-        if run_checked(
+        checkout_commit = run_checked(["git", "rev-parse", "HEAD"], cwd=worktree).strip()
+        checkout_tree_object = run_checked(
+            ["git", "rev-parse", "HEAD^{tree}"], cwd=worktree
+        ).strip()
+        if checkout_commit != commit:
+            raise CaptureError(f"{identifier} detached checkout resolved another commit")
+        require_hex(checkout_tree_object, (40, 64), f"{identifier} checkout tree object")
+        pre_build_status = run_checked(
             ["git", "status", "--porcelain", "--untracked-files=all"], cwd=worktree
-        ).strip():
+        )
+        if pre_build_status:
             raise CaptureError(f"{identifier} detached checkout was not clean before building")
-        build_transcript = staging_root / identifier / "build-transcript.log"
-        build_transcript.parent.mkdir(parents=True)
-        run_checked(
-            [
-                str(worktree / "script/v4/build_p06_release_runtime.sh"),
-                "--artifacts",
-                str(artifacts_output),
-                "--output",
-                str(runtime_output),
-                "--provenance",
-                str(provenance_output),
-            ],
+        listing = source_tree_listing(worktree, "HEAD")
+        if sha256_bytes(SOURCE_TREE_DOMAIN + listing) != candidate["sourceTreeIdentitySHA256"]:
+            raise CaptureError(f"{identifier} source listing differs from the candidate tree")
+        source_listing_path.write_bytes(listing)
+        source_commit_path.write_bytes(
+            source_commit_object(worktree, checkout_commit)
+        )
+        archive_command = [
+            "git",
+            "archive",
+            "--format=tar",
+            "--output",
+            str(source_archive),
+            "HEAD",
+        ]
+        run_checked(archive_command, cwd=worktree)
+        invocation_nonce = secrets.token_hex(32)
+        build_challenge = secrets.token_hex(32)
+        build_environment = {
+            "MIRMIR_P06_BUILD_CHALLENGE": build_challenge,
+        }
+        build_command = [
+            str(worktree / "script/v4/build_p06_release_runtime.sh"),
+            "--artifacts",
+            str(artifacts_output),
+            "--output",
+            str(runtime_output),
+            "--provenance",
+            str(provenance_output),
+            "--qualification-challenge",
+            build_challenge,
+        ]
+        execution = run_build_command(
+            build_command,
             cwd=worktree,
+            environment=build_environment,
             transcript=build_transcript,
         )
-        if run_checked(
+        post_build_status = run_checked(
             ["git", "status", "--porcelain", "--untracked-files=all"], cwd=worktree
-        ).strip():
+        )
+        if post_build_status:
             raise CaptureError(f"{identifier} build changed its clean source checkout")
         runtime = validate_runtime(runtime_output, candidate)
         compare_directories(runtime_output, candidate_runtime, f"{identifier} and shipping P06")
@@ -312,7 +481,6 @@ def capture_build(
     finally:
         run_checked(["git", "worktree", "remove", "--force", str(worktree)], cwd=repository)
 
-    evidence_build = staging_root / identifier
     shutil.copytree(runtime_output / "artifacts", evidence_build / "artifacts")
     shutil.copy2(runtime_output / "runtime-manifest.json", evidence_build / "runtime-manifest.json")
     shutil.copytree(provenance_output, evidence_build / "provenance")
@@ -367,8 +535,51 @@ def capture_build(
     if computed_artifact_set != candidate["runtimeArtifactSetSHA256"]:
         raise CaptureError(f"{identifier} sealed artifact set differs from candidate")
 
+    execution_record = {
+        "schemaVersion": BUILD_EXECUTION_SCHEMA,
+        "buildID": identifier,
+        "invocationNonce": invocation_nonce,
+        "captureProcessID": os.getpid(),
+        "processID": execution["processID"],
+        "startedAtUnixNanoseconds": execution["startedAtUnixNanoseconds"],
+        "finishedAtUnixNanoseconds": execution["finishedAtUnixNanoseconds"],
+        "durationNanoseconds": execution["durationNanoseconds"],
+        "exitStatus": execution["exitStatus"],
+        "workingDirectory": str(worktree),
+        "buildOutputRoot": str(build_root),
+        "buildChallenge": build_challenge,
+        "archiveCommand": archive_command,
+        "buildCommand": build_command,
+        "buildEnvironment": build_environment,
+        "sourceCommit": checkout_commit,
+        "sourceCommitObjectSHA256": sha256(source_commit_path),
+        "checkoutTreeObject": checkout_tree_object,
+        "sourceTreeIdentitySHA256": candidate["sourceTreeIdentitySHA256"],
+        "sourceTreeListingSHA256": sha256(source_listing_path),
+        "sourceArchiveSHA256": sha256(source_archive),
+        "preBuildCheckoutStatusSHA256": sha256_bytes(pre_build_status.encode("utf-8")),
+        "postBuildCheckoutStatusSHA256": sha256_bytes(post_build_status.encode("utf-8")),
+        "buildRunnerSHA256": sha256(
+            repository / "script/v4/build_p06_release_runtime.sh"
+        ),
+        "buildTranscriptSHA256": sha256(build_transcript),
+        "runtimeArtifactSetSHA256": computed_artifact_set,
+        "runtimeManifestFileSHA256": sha256(
+            evidence_build / "runtime-manifest.json"
+        ),
+        "productionSourceManifestSHA256": sha256(production_source_path),
+        "predecessorExecutionSHA256": predecessor_execution_sha256,
+    }
+    execution_record["causalBindingSHA256"] = build_causal_binding(execution_record)
+    build_execution_path.write_bytes(canonical_bytes(execution_record))
+
     return {
         "id": identifier,
+        "sourceCommit": checkout_commit,
+        "sourceCommitObjectSHA256": sha256(source_commit_path),
+        "sourceTreeIdentitySHA256": candidate["sourceTreeIdentitySHA256"],
+        "sourceTreeListingSHA256": sha256(source_listing_path),
+        "sourceArchiveSHA256": sha256(source_archive),
         "runtimeArtifactSetSHA256": computed_artifact_set,
         "runtimeManifestSHA256": candidate["runtimeManifestSHA256"],
         "builderSHA256": sha256(builder_path),
@@ -385,6 +596,11 @@ def capture_build(
         ),
         "toolchainImageArtifact": descriptor(toolchain_path, staging_root),
         "loaderEvidenceArtifact": descriptor(load_transcript, staging_root),
+        "sourceTreeListingArtifact": descriptor(source_listing_path, staging_root),
+        "sourceCommitObjectArtifact": descriptor(source_commit_path, staging_root),
+        "sourceArchiveArtifact": descriptor(source_archive, staging_root),
+        "buildTranscriptArtifact": descriptor(build_transcript, staging_root),
+        "buildExecutionArtifact": descriptor(build_execution_path, staging_root),
         "releaseQualifiedStatus": True,
         "developmentArtifactDependencyCount": 0,
         "p05ProductionDependencyCount": 0,
@@ -408,9 +624,16 @@ def capture(arguments: argparse.Namespace) -> Path:
     if (
         not isinstance(contract, dict)
         or contract.get("schemaVersion")
-        != "mirmir-ash-v4-p06-reproduction-contract-v1"
+        != "mirmir-ash-v4-p06-reproduction-contract-v2"
     ):
         raise CaptureError("unsupported P06 reproduction contract")
+    if (
+        contract.get("suiteID") != "mirmir-ash-v4-p06-reproduction-v2"
+        or contract.get("builderID") != "ash-p06-release-builder-v4-1"
+        or contract.get("candidateSourceArchiveFormat") != "git-archive-tar-v1"
+        or contract.get("sourceTreeIdentityDomain") != "mirmir-source-tree-v1"
+    ):
+        raise CaptureError("P06 reproduction source/archive contract is unsupported")
     if type(contract.get("productionSourceCount")) is not int or contract[
         "productionSourceCount"
     ] < 1:
@@ -418,6 +641,8 @@ def capture(arguments: argparse.Namespace) -> Path:
     capture_contract = contract.get("capture")
     required_capture_identities = {
         "captureSourceSHA256": Path(__file__).resolve(),
+        "buildRunnerSHA256": repository
+        / "script/v4/build_p06_release_runtime.sh",
         "evaluatorSHA256": repository / "script/v4/p06_reproduction_v4.py",
         "runnerSHA256": repository / "script/v4/run_p06_reproduction_v4.sh",
         "runtimeLoadCheckRunnerSHA256": repository
@@ -442,6 +667,8 @@ def capture(arguments: argparse.Namespace) -> Path:
         raise CaptureError("candidate source-tree identity does not match its source commit")
     locked_tools = {
         "script/v4/capture_p06_reproduction_v4.py": Path(__file__).resolve(),
+        "script/v4/build_p06_release_runtime.sh": repository
+        / "script/v4/build_p06_release_runtime.sh",
         "script/v4/p06_reproduction_v4.py": repository
         / "script/v4/p06_reproduction_v4.py",
         "script/v4/run_p06_reproduction_v4.sh": repository
@@ -454,7 +681,7 @@ def capture(arguments: argparse.Namespace) -> Path:
         / "script/v4/p06_source_identity_v4.py",
         "script/v4/p06-source-provenance-v1.json": repository
         / "script/v4/p06-source-provenance-v1.json",
-        "script/v4/p06-reproduction-contract-v1.json": contract_path,
+        "script/v4/p06-reproduction-contract-v2.json": contract_path,
     }
     for relative_path, local_path in locked_tools.items():
         if committed_bytes(repository, candidate["sourceCommit"], relative_path) != local_path.read_bytes():
@@ -471,6 +698,10 @@ def capture(arguments: argparse.Namespace) -> Path:
         shutil.copytree(candidate_runtime / "artifacts", staging / "artifacts")
         shutil.copy2(release_configuration, staging / "Release.xcconfig")
         shutil.copy2(Path(__file__).resolve(), staging / "capture-tool.py")
+        shutil.copy2(
+            repository / "script/v4/build_p06_release_runtime.sh",
+            staging / "build-runner.sh",
+        )
         shutil.copy2(
             repository / "script/v4/p06_reproduction_v4.py",
             staging / "evaluator.py",
@@ -496,8 +727,10 @@ def capture(arguments: argparse.Namespace) -> Path:
             staging / "source-provenance-contract.json",
         )
 
-        builds = [
-            capture_build(
+        builds: list[dict[str, Any]] = []
+        predecessor_execution_sha256 = "0" * 64
+        for identifier in contract.get("cleanBuildIDs", ()):
+            build = capture_build(
                 repository=repository,
                 commit=candidate["sourceCommit"],
                 identifier=identifier,
@@ -506,15 +739,41 @@ def capture(arguments: argparse.Namespace) -> Path:
                 candidate_runtime=candidate_runtime,
                 candidate=candidate,
                 production_source_count=contract.get("productionSourceCount"),
+                predecessor_execution_sha256=predecessor_execution_sha256,
             )
-            for identifier in contract.get("cleanBuildIDs", ())
-        ]
+            builds.append(build)
+            predecessor_execution_sha256 = build["buildExecutionArtifact"]["sha256"]
         if len(builds) != contract.get("cleanBuildCount"):
             raise CaptureError("P06 contract clean-build count or identities are invalid")
         if {build["builderSHA256"] for build in builds} != {runtime["builderSHA256"]}:
             raise CaptureError("clean builds changed the P06 builder identity")
         if len({build["toolchainImageSHA256"] for build in builds}) != 1:
             raise CaptureError("clean builds changed the P06 toolchain image")
+        for key in (
+            "sourceTreeIdentitySHA256",
+            "sourceCommitObjectSHA256",
+            "sourceTreeListingSHA256",
+            "sourceArchiveSHA256",
+            "productionSourceManifestSHA256",
+        ):
+            if len({build[key] for build in builds}) != 1:
+                raise CaptureError(f"clean builds changed the P06 {key}")
+        execution_records = [
+            load_json(
+                staging
+                / build["buildExecutionArtifact"]["path"]
+            )
+            for build in builds
+        ]
+        if len({record.get("invocationNonce") for record in execution_records}) != len(builds):
+            raise CaptureError("clean builds reused an invocation nonce")
+        if len({record.get("processID") for record in execution_records}) != len(builds):
+            raise CaptureError("clean builds reused a builder process")
+        if any(
+            first["finishedAtUnixNanoseconds"] > second["startedAtUnixNanoseconds"]
+            for first, second in zip(execution_records, execution_records[1:])
+        ):
+            raise CaptureError("clean build execution intervals overlap")
 
         report = {
             "schemaVersion": REPORT_SCHEMA,
@@ -523,6 +782,7 @@ def capture(arguments: argparse.Namespace) -> Path:
             "releaseEligible": True,
             "identities": {
                 "captureSourceSHA256": sha256(staging / "capture-tool.py"),
+                "buildRunnerSHA256": sha256(staging / "build-runner.sh"),
                 "evaluatorSHA256": sha256(staging / "evaluator.py"),
                 "runnerSHA256": sha256(staging / "runner.sh"),
                 "runtimeLoadCheckRunnerSHA256": sha256(
@@ -540,6 +800,14 @@ def capture(arguments: argparse.Namespace) -> Path:
             },
             "buildConfiguration": "Release",
             "sourceCheckoutState": "clean",
+            "sourceEvidence": {
+                "sourceCommit": candidate["sourceCommit"],
+                "sourceTreeIdentitySHA256": builds[0]["sourceTreeIdentitySHA256"],
+                "sourceCommitObjectSHA256": builds[0]["sourceCommitObjectSHA256"],
+                "sourceTreeListingSHA256": builds[0]["sourceTreeListingSHA256"],
+                "sourceArchiveSHA256": builds[0]["sourceArchiveSHA256"],
+                "sourceArchiveFormat": "git-archive-tar-v1",
+            },
             "builds": builds,
             "productionLoaderAcceptancePass": True,
             "tamperRejectionPass": True,
@@ -551,7 +819,7 @@ def capture(arguments: argparse.Namespace) -> Path:
         write_json(
             manifest_path,
             {
-                "schemaVersion": "mirmir-ash-v4-p06-reproduction-evidence-v1",
+                "schemaVersion": "mirmir-ash-v4-p06-reproduction-evidence-v2",
                 "artifacts": [descriptor(path, staging) for path in regular_files(staging)],
             },
         )

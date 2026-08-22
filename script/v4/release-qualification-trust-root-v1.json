@@ -77,7 +77,7 @@
       "validator": "validate_recovery"
     },
     {
-      "evidenceSchema": "mirmir-ash-v4-p06-reproduction-report-v1",
+      "evidenceSchema": "mirmir-ash-v4-p06-reproduction-report-v2",
       "replayHelperRoles": [],
       "role": "p06_reproduction",
       "validator": "validate_p06"
