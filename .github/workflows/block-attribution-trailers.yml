@@ -1,0 +1,174 @@
+name: Block disallowed attribution
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: Scan commits and files for disallowed attribution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve commit range
+        id: range
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_HEAD: ${{ github.sha }}
+        run: |
+          set -eu
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BASE="$PR_BASE"
+            HEAD="$PR_HEAD"
+          else
+            BASE="${PUSH_BEFORE:-}"
+            HEAD="$PUSH_HEAD"
+            if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+              BASE=""
+            fi
+          fi
+
+          # Validate BASE is reachable. After a force-push or branch reset
+          # the recorded BEFORE commit may no longer exist in the repo, in
+          # which case fall back to the parent of HEAD.
+          if [ -z "$BASE" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            if git rev-parse --verify "${HEAD}~1" >/dev/null 2>&1; then
+              BASE="${HEAD}~1"
+            else
+              BASE="$HEAD"
+            fi
+          fi
+
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "head=$HEAD" >> "$GITHUB_OUTPUT"
+          echo "Range: $BASE..$HEAD"
+
+      - name: Scan commit metadata (messages, authors, committers, trailers)
+        env:
+          BASE: ${{ steps.range.outputs.base }}
+          HEAD: ${{ steps.range.outputs.head }}
+        run: |
+          set -euo pipefail
+
+          provider_01="clau""de"
+          provider_02="copi""lot"
+          provider_03="chat""g""pt"
+          provider_04="g""pt"
+          provider_05="anthro""pic"
+          provider_06="open""ai"
+          provider_07="aid""er"
+          provider_08="cur""sor"
+          provider_09="co""dex"
+          provider_10="co""dy"
+          provider_11="tab""nine"
+          provider_12="gem""ini"
+          provider_13="ba""rd"
+          provider_14="git""hub[- ]${provider_02}"
+          provider_15="l""lm"
+          provider_16="gr""ok"
+          provider_17="x""ai"
+          providers="(${provider_01}|${provider_02}|${provider_03}|${provider_04}[-_ ]?[0-9]?|${provider_05}|${provider_06}|${provider_07}|${provider_08}|${provider_09}|${provider_10}|${provider_11}|${provider_12}|${provider_13}|${provider_14}|${provider_01}[- ]code|${provider_15}|${provider_16}|${provider_17})"
+          trailer="co-authored""-by"
+          marker="🤖[[:space:]]*generated[[:space:]]+(with|by)"
+          PATTERN="(${trailer}:[[:space:]]*[^<]*${providers})|(generated[[:space:]]+(with|by)[[:space:]]+${providers})|(${marker})|(noreply@${provider_05}\.com)|(${provider_01}\.ai/code)"
+
+          if [ "$BASE" = "$HEAD" ]; then
+            COMMITS="$HEAD"
+          else
+            COMMITS="$(git rev-list --no-merges "$BASE".."$HEAD")"
+          fi
+
+          if [ -z "${COMMITS:-}" ]; then
+            echo "No commits in range."
+            exit 0
+          fi
+
+          fail=0
+          while IFS= read -r sha; do
+            [ -z "$sha" ] && continue
+            BLOB="$(git log -1 --format='AUTHOR: %an <%ae>%nCOMMITTER: %cn <%ce>%nSUBJECT: %s%nBODY:%n%b' "$sha")"
+            if printf '%s\n' "$BLOB" | grep -iqE "$PATTERN"; then
+              echo "::error::Disallowed attribution found in commit $sha"
+              printf '%s\n' "$BLOB" | sed 's/^/  | /'
+              fail=1
+            fi
+          done <<< "$COMMITS"
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::This repository does not accept disallowed attribution. Rewrite the offending commits and force-push, or close and resubmit the PR with clean history."
+            exit 1
+          fi
+          echo "Commit metadata is clean."
+
+      - name: Scan modified file contents
+        env:
+          BASE: ${{ steps.range.outputs.base }}
+          HEAD: ${{ steps.range.outputs.head }}
+        run: |
+          set -euo pipefail
+
+          provider_01="clau""de"
+          provider_02="copi""lot"
+          provider_03="chat""g""pt"
+          provider_04="g""pt"
+          provider_05="anthro""pic"
+          provider_06="open""ai"
+          provider_07="aid""er"
+          provider_08="cur""sor"
+          provider_09="co""dex"
+          provider_10="co""dy"
+          provider_11="tab""nine"
+          provider_12="gem""ini"
+          provider_13="ba""rd"
+          provider_14="git""hub[- ]${provider_02}"
+          provider_15="l""lm"
+          provider_16="gr""ok"
+          provider_17="x""ai"
+          providers="(${provider_01}|${provider_02}|${provider_03}|${provider_04}[-_ ]?[0-9]?|${provider_05}|${provider_06}|${provider_07}|${provider_08}|${provider_09}|${provider_10}|${provider_11}|${provider_12}|${provider_13}|${provider_14}|${provider_01}[- ]code|${provider_15}|${provider_16}|${provider_17})"
+          trailer="co-authored""-by"
+          marker="🤖[[:space:]]*generated[[:space:]]+(with|by)"
+          PATTERN="(${trailer}:[[:space:]]*[^<]*${providers})|(generated[[:space:]]+(with|by)[[:space:]]+${providers})|(${marker})|(noreply@${provider_05}\.com)|(${provider_01}\.ai/code)"
+
+          if [ "$BASE" = "$HEAD" ]; then
+            FILES="$(git show --name-only --diff-filter=ACMRT --pretty=format: "$HEAD" | sed '/^$/d' || true)"
+          else
+            FILES="$(git diff --name-only --diff-filter=ACMRT "$BASE..$HEAD" || true)"
+          fi
+
+          # Exclude this workflow itself — by definition it contains the
+          # phrases it scans for.
+          FILTERED="$(printf '%s\n' "$FILES" | grep -v -F '.github/workflows/block-attribution-trailers.yml' || true)"
+          if [ -z "${FILTERED:-}" ]; then
+            echo "No content files to scan."
+            exit 0
+          fi
+
+          fail=0
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            [ -f "$file" ] || continue
+            grep -Iq . "$file" 2>/dev/null || continue   # skip binaries
+            if grep -inE "$PATTERN" "$file" > /tmp/match 2>/dev/null; then
+              echo "::error file=$file::Disallowed attribution found"
+              while IFS= read -r line; do echo "  $line"; done < /tmp/match
+              fail=1
+            fi
+          done <<< "$FILTERED"
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::Disallowed attribution found in changed files."
+            exit 1
+          fi
+          echo "File contents are clean."
