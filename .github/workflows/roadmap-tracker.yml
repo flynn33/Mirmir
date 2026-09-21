@@ -13,7 +13,9 @@ permissions:
 jobs:
   verify-roadmap-tracker:
     name: Verify live roadmap status
-    runs-on: ubuntu-latest
+    # Raw simulator-metric replay is architecture-sensitive at percentile tie
+    # boundaries, so use the same macOS/ARM64 runner family as M7 qualification.
+    runs-on: macos-15
     timeout-minutes: 10
     steps:
       - name: Check out repository
