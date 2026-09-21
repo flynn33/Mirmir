@@ -2,7 +2,7 @@
   "contract": {
     "byteCount": 92145,
     "repositoryRelativePath": "script/v4/release-qualification-contract-v1.json",
-    "sha256": "f5f835a48cc6d6b4dda5ad5922191aaaa9a0245cc575b3b4e14d6b83d95f5661"
+    "sha256": "5d23ad54e99cb28cc2ef7bb45f1a3b3f171127f9326b08dc52d957d1a227f0f9"
   },
   "evaluator": {
     "byteCount": 369670,
@@ -98,5 +98,5 @@
     }
   ],
   "schemaVersion": "mirmir-ash-v4-release-qualification-trust-root-v1",
-  "trustedToolSetSHA256": "44f9ae6ef70591b14a608737ea44db370fcb7451b26856ca29dd028125e8caf8"
+  "trustedToolSetSHA256": "dba6b95187cca92267bb9ce22b668d80b5e389785dc050d7b4235baa86610e97"
 }

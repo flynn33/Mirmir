@@ -41,14 +41,21 @@ canonical document binds:
   transcript, and successful build receipt.
 
 The replayed product must have the same processed Info.plist, runtime,
-signature-stripped executable SHA-256 and mode, every non-signature bundle file
-and directory (including modes), code identifier, semantic entitlements on
-both slices, and per-architecture signing policy flags as the candidate. The
-ad-hoc-only CodeDirectory flag is normalized; hardened-runtime and other policy
-flags are not. A truthy `com.apple.security.get-task-allow` on either slice is
-always rejected. Identity-backed slices must have one designated requirement;
-ad-hoc slices must use the default requirement for their own cdhash. Mixed
-signature modes and custom ad-hoc requirements fail closed.
+canonically ad-hoc-normalized and signature-stripped executable SHA-256 and
+mode, every non-signature bundle file and directory (including modes), code
+identifier, semantic entitlements on both slices, and per-architecture signing
+policy flags as the candidate. The private normalization copy is signed with
+the already-observed identifier, semantic entitlements, and hardened-runtime
+policy before its signature is removed. This removes only the preceding
+signer's allocation-derived Mach-O metadata, including the observed
+`__LINKEDIT.vmsize` difference. Compiled code remains bound by applying this
+same deterministic normalization before the universal and per-slice hashes;
+the final raw executable is bound separately as described below.
+The ad-hoc-only CodeDirectory flag is normalized; hardened-runtime and other
+policy flags are not. A truthy `com.apple.security.get-task-allow` on either
+slice is always rejected. Identity-backed slices must have one designated
+requirement; ad-hoc slices must use the default requirement for their own
+cdhash. Mixed signature modes and custom ad-hoc requirements fail closed.
 
 The final signed executable's raw SHA-256, full per-architecture CodeDirectory
 SHA-256 set, and designated requirement remain separately verified and bound by
@@ -59,7 +66,10 @@ different certificate-dependent designated requirements and CMS payloads. The
 CMS size changes `LC_CODE_SIGNATURE` allocation in the Mach-O header, and that
 header page is itself hashed by the CodeDirectory. Exact CodeDirectory equality
 therefore applies to the signed candidate and its verified extractions, while
-source replay uses the signer-independent content boundary above.
+source replay uses the signer-independent content boundary above. Merely
+removing the prior signature is insufficient because `codesign` leaves that
+allocation-derived `__LINKEDIT.vmsize`; canonical ad-hoc normalization removes
+that residual signer dependency before hashing.
 
 The payload identity deliberately excludes only the attestation entry. The
 candidate record's raw `appBundleSHA256` includes that entry, so the two hashes
@@ -250,14 +260,17 @@ That focused proof validates the external Metal path; final acceptance still
 requires the complete canonical receipt equality below.
 
 Release qualification instead requires at least three fresh sequential builds
-at the canonical physical root. No object or product bytes may be normalized.
-All three normalized receipts and signer-independent application identities
-must match exactly, including the signature-stripped universal executable,
-independently extracted `arm64` and `x86_64` slices and sizes, every resource
-and directory mode, processed Info.plist, runtime, entitlements, code
-identifier, and signing-policy flags. Candidate construction, sealing replay,
-and preparation replay provide the three independent compiler-process
-boundaries in the release workflow.
+at the canonical physical root. No compiler-produced object, code, or resource
+byte may be normalized. All three normalized receipts and signer-independent
+application identities must match exactly, including the canonically
+ad-hoc-normalized and signature-stripped universal executable, independently
+extracted `arm64` and `x86_64` slices and sizes, every resource and directory
+mode, processed Info.plist, runtime, entitlements, code identifier, and
+signing-policy flags. The only permitted executable-header normalization is
+the deterministic signature-allocation normalization described above, which
+includes the observed `__LINKEDIT.vmsize` difference. Candidate construction,
+sealing replay, and preparation replay provide the three independent
+compiler-process boundaries in the release workflow.
 
 This reproducible executable build intentionally emits no dSYM. A separate
 symbol-generation build may be retained for diagnostics, but it is not the

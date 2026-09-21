@@ -2080,6 +2080,65 @@ class ReleaseCandidateTests(unittest.TestCase):
                 provenance.source_build_application_identity(alternate_slice),
             )
 
+    def test_unsigned_identity_normalizes_signature_allocation_only(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mirmir-candidate-") as temporary:
+            fixture = Fixture(Path(temporary))
+            original = fixture.root / "original"
+            inflated = fixture.root / "inflated"
+            changed_code = fixture.root / "changed-code"
+            shutil.copyfile(fixture.primary_executable, original)
+            shutil.copyfile(fixture.primary_executable, inflated)
+            shutil.copyfile(fixture.alternate_executable, changed_code)
+            for executable in (original, inflated, changed_code):
+                executable.chmod(0o755)
+
+            inflated_entitlements = {
+                **plistlib.loads(fixture.entitlements.read_bytes()),
+                "com.mirmir.signature-allocation-padding": "x" * 65536,
+            }
+            inflated_entitlements_path = fixture.root / "inflated.entitlements"
+            inflated_entitlements_path.write_bytes(
+                plistlib.dumps(inflated_entitlements, sort_keys=True)
+            )
+            run(
+                "/usr/bin/codesign",
+                "--force",
+                "--sign",
+                "-",
+                "--timestamp=none",
+                "--options",
+                "runtime",
+                "--generate-entitlement-der",
+                "--identifier",
+                "com.mirmir.app",
+                "--entitlements",
+                inflated_entitlements_path,
+                inflated,
+                cwd=fixture.root,
+            )
+            entitlements = plistlib.loads(fixture.entitlements.read_bytes())
+            self.assertIsInstance(entitlements, dict)
+            arguments = {
+                "architectures": provenance.EXPECTED_APPLICATION_ARCHITECTURES,
+                "code_identifier": "com.mirmir.app",
+                "entitlements": entitlements,
+                "policy_flags": provenance.HARDENED_RUNTIME_CODE_DIRECTORY_FLAGS,
+            }
+            original_identity = provenance._canonical_unsigned_executable_identity(
+                original,
+                **arguments,
+            )
+            inflated_identity = provenance._canonical_unsigned_executable_identity(
+                inflated,
+                **arguments,
+            )
+            changed_identity = provenance._canonical_unsigned_executable_identity(
+                changed_code,
+                **arguments,
+            )
+            self.assertEqual(original_identity, inflated_identity)
+            self.assertNotEqual(original_identity, changed_identity)
+
     def test_code_directory_and_requirement_swaps_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mirmir-candidate-") as temporary:
             fixture = Fixture(Path(temporary))

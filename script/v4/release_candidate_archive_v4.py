@@ -1428,6 +1428,103 @@ def _entitlements_observation(
     return sha256_bytes(ENTITLEMENTS_DOMAIN + normalized), entitlements
 
 
+def _canonical_unsigned_executable_identity(
+    executable: Path,
+    architectures: Sequence[str],
+    *,
+    code_identifier: str,
+    entitlements: Mapping[str, Any],
+    policy_flags: int,
+) -> tuple[str, list[dict[str, Any]]]:
+    """Hash code after removing only a canonicalized signature allocation.
+
+    Replacing an ad-hoc signature with a certificate-backed CMS can enlarge
+    ``__LINKEDIT.vmsize`` even after ``codesign --remove-signature``.  Re-sign
+    a private copy with one deterministic ad-hoc policy first so the remaining
+    Mach-O bytes do not depend on the preceding signer's allocation.
+    """
+
+    require(
+        policy_flags in (0, HARDENED_RUNTIME_CODE_DIRECTORY_FLAGS),
+        "application uses unsupported CodeDirectory policy flags",
+    )
+    with tempfile.TemporaryDirectory(
+        prefix="mirmir-v4-canonical-unsigned-executable-"
+    ) as temporary:
+        root = Path(temporary)
+        unsigned_executable = root / executable.name
+        shutil.copyfile(executable, unsigned_executable)
+        unsigned_executable.chmod(0o755)
+        entitlement_path = root / "entitlements.plist"
+        entitlement_path.write_bytes(
+            plistlib.dumps(
+                dict(entitlements),
+                fmt=plistlib.FMT_XML,
+                sort_keys=True,
+            )
+        )
+        command = [
+            "/usr/bin/codesign",
+            "--force",
+            "--sign",
+            "-",
+            "--timestamp=none",
+        ]
+        if policy_flags == HARDENED_RUNTIME_CODE_DIRECTORY_FLAGS:
+            command.extend(("--options", "runtime"))
+        command.extend(
+            (
+                "--generate-entitlement-der",
+                "--identifier",
+                code_identifier,
+                "--entitlements",
+                str(entitlement_path),
+                str(unsigned_executable),
+            )
+        )
+        _run(command, "canonical executable ad-hoc normalization")
+        _run(
+            [
+                "/usr/bin/codesign",
+                "--remove-signature",
+                str(unsigned_executable),
+            ],
+            "canonical executable signature removal",
+        )
+        unsigned_identity = sha256_file(unsigned_executable)
+        unsigned_slices = []
+        for architecture in sorted(architectures):
+            slice_path = root / f"{executable.name}-{architecture}"
+            _run(
+                [
+                    "/usr/bin/lipo",
+                    str(unsigned_executable),
+                    "-thin",
+                    architecture,
+                    "-output",
+                    str(slice_path),
+                ],
+                f"unsigned executable extraction for {architecture}",
+            )
+            require(
+                _run(
+                    ["/usr/bin/lipo", "-archs", str(slice_path)],
+                    f"unsigned executable architecture inspection for {architecture}",
+                ).split()
+                == [architecture],
+                "unsigned executable extraction produced another architecture for "
+                + architecture,
+            )
+            unsigned_slices.append(
+                {
+                    "architecture": architecture,
+                    "byteCount": slice_path.stat().st_size,
+                    "sha256": sha256_file(slice_path),
+                }
+            )
+    return unsigned_identity, unsigned_slices
+
+
 def _signing_identity(application: Path, executable: Path) -> dict[str, Any]:
     _run(
         ["/usr/bin/codesign", "--verify", "--deep", "--strict", "--verbose=4", str(application)],
@@ -1450,7 +1547,9 @@ def _signing_identity(application: Path, executable: Path) -> dict[str, Any]:
     designated_requirements: list[dict[str, str]] = []
     entitlements_by_architecture: list[dict[str, str]] = []
     entitlement_identities: set[str] = set()
+    semantic_entitlements: list[dict[str, Any]] = []
     identifiers: set[str] = set()
+    policy_flag_values: set[int] = set()
     signature_modes: set[bool] = set()
     non_ad_hoc_requirements: set[str] = set()
     for architecture in sorted(architectures):
@@ -1496,17 +1595,19 @@ def _signing_identity(application: Path, executable: Path) -> dict[str, Any]:
         is_ad_hoc = bool(raw_flags & SIGNATURE_MODE_CODE_DIRECTORY_FLAGS)
         signature_modes.add(is_ad_hoc)
         policy_flags = raw_flags & ~SIGNATURE_MODE_CODE_DIRECTORY_FLAGS
+        policy_flag_values.add(policy_flags)
         code_directory_policy_flags.append(
             {
                 "architecture": architecture,
                 "flags": f"0x{policy_flags:08x}",
             }
         )
-        entitlement_identity, _ = _entitlements_observation(
+        entitlement_identity, entitlements = _entitlements_observation(
             executable,
             architecture,
         )
         entitlement_identities.add(entitlement_identity)
+        semantic_entitlements.append(entitlements)
         entitlements_by_architecture.append(
             {
                 "architecture": architecture,
@@ -1584,46 +1685,24 @@ def _signing_identity(application: Path, executable: Path) -> dict[str, Any]:
         len(entitlement_identities) == 1,
         "application architectures use different entitlements",
     )
+    require(
+        semantic_entitlements
+        and all(value == semantic_entitlements[0] for value in semantic_entitlements),
+        "application architectures use semantically different entitlements",
+    )
+    require(
+        len(policy_flag_values) == 1,
+        "application architectures use different CodeDirectory policy flags",
+    )
     code_identifier = next(iter(identifiers))
     designated = designated_requirements[0]["requirement"]
-    with tempfile.TemporaryDirectory(prefix="mirmir-v4-unsigned-executable-") as temporary:
-        unsigned_executable = Path(temporary) / executable.name
-        shutil.copyfile(executable, unsigned_executable)
-        unsigned_executable.chmod(0o755)
-        _run(
-            ["/usr/bin/codesign", "--remove-signature", str(unsigned_executable)],
-            "executable signature normalization",
-        )
-        unsigned_identity = sha256_file(unsigned_executable)
-        unsigned_slices = []
-        for architecture in sorted(architectures):
-            slice_path = Path(temporary) / f"{executable.name}-{architecture}"
-            _run(
-                [
-                    "/usr/bin/lipo",
-                    str(unsigned_executable),
-                    "-thin",
-                    architecture,
-                    "-output",
-                    str(slice_path),
-                ],
-                f"unsigned executable extraction for {architecture}",
-            )
-            require(
-                _run(
-                    ["/usr/bin/lipo", "-archs", str(slice_path)],
-                    f"unsigned executable architecture inspection for {architecture}",
-                ).split()
-                == [architecture],
-                f"unsigned executable extraction produced another architecture for {architecture}",
-            )
-            unsigned_slices.append(
-                {
-                    "architecture": architecture,
-                    "byteCount": slice_path.stat().st_size,
-                    "sha256": sha256_file(slice_path),
-                }
-            )
+    unsigned_identity, unsigned_slices = _canonical_unsigned_executable_identity(
+        executable,
+        architectures,
+        code_identifier=code_identifier,
+        entitlements=semantic_entitlements[0],
+        policy_flags=next(iter(policy_flag_values)),
+    )
     executable_mode = stat.S_IMODE(executable.stat().st_mode) & 0o777
     require(
         executable_mode & 0o022 == 0,

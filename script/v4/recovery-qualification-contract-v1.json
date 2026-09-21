@@ -18,7 +18,7 @@
   },
   "buildConfiguration": "Release",
   "capture": {
-    "archiveProvenanceSourceSHA256": "98c745c48b80644e508d1395f77c94ecabd55a7d4fb2564d5b8c63a05d0d5fb7",
+    "archiveProvenanceSourceSHA256": "bac8770246f38e5000a33ebb7193717eca04c15eb331f78e33ca58f7229b3b3e",
     "evaluatorSourceSHA256": "5d7b19b4b072170f9549534936136a1a43a06e433468b4c31720a1b5b15362ee",
     "observerSourceSHA256": "9fcf2009a18385524f65644cf13e744a0cdd58550808bc43089dff4f12f98a84",
     "packagedEvidenceSourceSHA256": "5ea4b53d5d696714d1d0f00a1df22cb1a0b8f9769f2e70b133139cb05132f117",
