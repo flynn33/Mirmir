@@ -1673,17 +1673,37 @@ class ReleaseCandidateTests(unittest.TestCase):
             app_directory = fixture.root / "ditto-app"
             app_directory.mkdir()
             application = fixture.make_application(app_directory)
+            metadata_source = application / "Contents/Resources/default.metallib"
+            run(
+                "/usr/bin/xattr",
+                "-w",
+                "com.mirmir.v4-appledouble-fixture",
+                "appledouble-fixture",
+                metadata_source,
+                cwd=fixture.root,
+            )
 
             metadata_archive = fixture.root / "metadata.zip"
             run(
                 "/usr/bin/ditto",
                 "-c",
                 "-k",
+                "--rsrc",
+                "--extattr",
+                "--sequesterRsrc",
                 "--keepParent",
                 application,
                 metadata_archive,
                 cwd=fixture.root,
             )
+            with zipfile.ZipFile(metadata_archive) as archive:
+                self.assertTrue(
+                    any(
+                        provenance._is_appledouble_path(info.filename)
+                        for info in archive.infolist()
+                    ),
+                    "ditto metadata fixture did not contain AppleDouble records",
+                )
             with self.assertRaisesRegex(
                 provenance.ArchiveProvenanceError,
                 "unsupported AppleDouble metadata",

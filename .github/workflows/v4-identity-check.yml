@@ -15,14 +15,30 @@ jobs:
     name: Replay corpus, runtime, and evidence identities
     runs-on: macos-15
     timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.2.app/Contents/Developer
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
+      - name: Select frozen qualification Xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_version=$'Xcode 26.2\nBuild version 17C52'
+          test -x "${DEVELOPER_DIR}/usr/bin/xcodebuild"
+          test "$(/usr/bin/xcode-select --print-path)" = "${DEVELOPER_DIR}"
+          test "$("${DEVELOPER_DIR}/usr/bin/xcodebuild" -version)" = "${expected_version}"
+          component_json="$("${DEVELOPER_DIR}/usr/bin/xcodebuild" \
+            -showComponent MetalToolchain \
+            -json)"
+          test "$(printf '%s' "${component_json}" | \
+            /usr/bin/plutil -extract status raw -)" = "installed"
+
       - name: Install locked Python test runtime
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
