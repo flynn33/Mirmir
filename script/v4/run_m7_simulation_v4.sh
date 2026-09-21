@@ -449,6 +449,7 @@ for relative in \
 done
 cp "$CANONICAL_CAPTURE_SOURCE" "$OUTPUT/bindings/QualityGateCaptureTests.swift"
 cp "$CAPTURE_SOURCE" "$OUTPUT/bindings/QualityGateCaptureTests.injected.swift"
+cp "$CANONICAL_CONTRACT" "$OUTPUT/bindings/quality-gate-contract-v1.json"
 cp "$CAPTURE_BINDING" "$OUTPUT/m7-capture-binding.json"
 cp "$SIMULATOR_ENVIRONMENT" "$OUTPUT/simulator-environment.json"
 cp "$P05_DISCOVERY" "$OUTPUT/p05-discovery.json"
@@ -485,10 +486,10 @@ PY
 }
 
 write_seal
-python3 "$QUALITY_TOOL" verify \
+python3 "$OUTPUT/bindings/quality_gate_v4.py" verify \
   --contract "$OUTPUT/quality-gate-contract-v1.json" \
   --report "$OUTPUT/quality-gate-report.json"
-python3 "$SELECTION_TOOL" select \
+python3 "$OUTPUT/bindings/select_simulated_candidate_v4.py" select \
   --contract "$OUTPUT/m7-simulation-selection-contract-v1.json" \
   --quality-contract "$OUTPUT/quality-gate-contract-v1.json" \
   --quality-report "$OUTPUT/quality-gate-report.json" \
@@ -539,10 +540,10 @@ lines.extend([
 Path(sys.argv[2]).write_text("\n".join(lines) + "\n", encoding="utf-8")
 PY
 write_seal
-python3 "$QUALITY_TOOL" verify \
+python3 "$OUTPUT/bindings/quality_gate_v4.py" verify \
   --contract "$OUTPUT/quality-gate-contract-v1.json" \
   --report "$OUTPUT/quality-gate-report.json"
-python3 "$SELECTION_TOOL" verify \
+python3 "$OUTPUT/bindings/select_simulated_candidate_v4.py" verify \
   --contract "$OUTPUT/m7-simulation-selection-contract-v1.json" \
   --quality-contract "$OUTPUT/quality-gate-contract-v1.json" \
   --quality-report "$OUTPUT/quality-gate-report.json" \
@@ -551,7 +552,7 @@ python3 "$SELECTION_TOOL" verify \
   --p05-discovery "$OUTPUT/p05-discovery.json" \
   --p05-binding "$OUTPUT/m7-p05-toolchain-binding.json" \
   --output "$OUTPUT/m7-simulation-selection-report.json"
-python3 "$DERIVE_TOOL" \
+python3 "$OUTPUT/bindings/derive_m7_quality_contract_v4.py" \
   --canonical "$OUTPUT/quality-gate-canonical-contract-v1.json" \
   --discovery "$OUTPUT/p05-discovery.json" \
   --output "$OUTPUT/quality-gate-contract-v1.json" \
