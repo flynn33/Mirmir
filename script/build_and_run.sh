@@ -6,7 +6,7 @@ APP_NAME="Mirmir"
 BUNDLE_ID="com.mirmir.app"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DERIVED_DATA="$ROOT_DIR/.codex/DerivedData"
+DERIVED_DATA="$ROOT_DIR/.mirmir-build/DerivedData"
 APP_BUNDLE="$DERIVED_DATA/Build/Products/Debug/$APP_NAME.app"
 APP_BINARY="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 

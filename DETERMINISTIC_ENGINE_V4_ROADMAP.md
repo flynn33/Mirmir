@@ -1,6 +1,6 @@
 # Deterministic Engine v4 roadmap
 
-Status: 1.3.0 implementation landed; M7 frozen-candidate qualification remains open
+Status: 1.3.0 (3) implementation and canonical pre-notarization archive complete; final M7 qualification remains open
 
 Scope: Mirmir deterministic CPU and Metal engines, media pipeline, and durable job workflow
 
@@ -8,18 +8,18 @@ Target release runtime: ASH P06, release-qualified
 
 Baseline: the checked-in P05 CPU reference and Metal preview behavior before v4 work
 
-Current checkpoint: pull request 44 merged the v4 engine, media, workflow, and
-qualification tooling into `main` as version 1.3.0. Pull request 45 made the
-identity workflow derive the production P06 manifest identity, source revision,
-and builder hash from the bundled runtime manifest and pass them into the
-runtime load check. The follow-on qualification branch contains hardened
-exact-candidate observers, causal recovery evidence, the bounded temporal
-parity route, media receipts, and deterministic canonical build tooling. The
-5% quality and 20% processing-time gates remain release-blocking until every
-lane is recaptured from one final candidate. External lane-contract locking,
-causal P06 reproduction receipts, independent PQ/HLG pixel oracles, the final
-frozen-candidate qualification rerun, Developer ID signing, Apple notarization,
-stapling, and publication remain in progress or operator-owned.
+Current checkpoint: pull requests 44 and 45 landed the v4 engine, media,
+workflow, qualification tooling, and production P06 identity loading as version
+1.3.0. Follow-on qualification work hardened the exact-candidate observers,
+causal recovery evidence, bounded temporal parity route, media receipts,
+independent HDR pixel oracles, and canonical build controls. A universal
+Developer ID archive for source commit
+`36b749d20b173eb324385cdae552a9698d5d74b9` passed the canonical
+pre-notarization archive audit as version 1.3.0 build 3. The 5% quality and 20%
+processing-time gates remain release-blocking until every lane is recaptured
+from the final sealed candidate. Apple notarization, stapling, distribution,
+and the final M7 rerun are operator-owned or still open. The exact checkpoint
+is recorded in `docs/v4/CURRENT_QUALIFICATION_STATUS.md`.
 
 ## Executive decision
 
@@ -562,7 +562,7 @@ resumed output or an explicit contained failure with no unowned artifacts.
 
 ### M7 — Release qualification
 
-Status: qualification tooling landed in 1.3.0; the frozen-candidate rerun is still open
+Status: qualification tooling and canonical pre-notarization archive complete; the sealed-candidate rerun is still open
 
 Deliver:
 
@@ -576,15 +576,17 @@ Exit: every release gate at the top of this document passes on the exact
 candidate. A waiver cannot convert a failed determinism, preservation, P06,
 quality, or processing-time gate into a release.
 
-Open M7 items after pull request 44:
+Current M7 state:
 
-- finish external contract/tool/corpus locks for every qualification lane;
-- finish causal P06 source/build receipts and independent PQ/HLG pixel oracles;
-- commit the integrated source and repeat canonical build equality;
-- recapture quality, performance, P06, parity, media, and recovery from that
-  one candidate;
-- capture the operator-signed support matrix and notarized smoke evidence;
-- Developer ID signing, Apple notarization, stapling, and release publication.
+- external contracts, tools, corpora, causal P06 build receipts, independent
+  PQ/HLG pixel oracles, and exact-candidate observers are locked and tested;
+- canonical build equality and the universal Developer ID archive audit pass
+  for source commit `36b749d20b173eb324385cdae552a9698d5d74b9`;
+- Apple notarization, stapling, and distribution are owner-deferred;
+- after the final candidate is sealed, recapture quality, performance, P06,
+  parity, media, recovery, and support evidence from that one artifact;
+- run notarized smoke last, then assemble and independently verify the complete
+  release decision.
 
 ## Implementation status
 
@@ -608,8 +610,9 @@ Pull request 45 then bound the identity workflow to the committed P06 bundle:
 the load check now receives the domain-separated manifest identity, source
 revision, and builder hash instead of invoking the helper with no trust roots.
 
-These changes close M0 through M6 in source. They do not by themselves satisfy
-the 5% quality, 20% processing-time, or frozen-candidate M7 gates.
+These changes close M0 through M6 in source, and the follow-on qualification
+work prepares a canonical signed archive. They do not by themselves satisfy
+the 5% quality, 20% processing-time, notarized-smoke, or aggregate M7 gates.
 
 ## Risks and decisions that must remain explicit
 

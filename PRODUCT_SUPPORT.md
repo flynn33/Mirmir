@@ -1,5 +1,7 @@
 # Mirmir product support
 
+Current product identity: **Mirmir 1.3.0 (3)**.
+
 Mirmir is a sandboxed macOS 15.4-or-later application. It reads local media
 through security-scoped bookmarks, builds an explicit whole-asset plan, and
 publishes a semantically verified QuickTime movie atomically. An explicit
@@ -111,3 +113,17 @@ backends. It excludes both Deterministic routes and Smooth Motion.
 - Apple-native backends retain the narrower contracts in the table above; they
   do not inherit P010/HDR, alpha, deinterlacing, or fixed-point parity merely
   because the Deterministic engine supports them.
+
+## Qualification boundary
+
+A universal Developer ID archive for source commit
+`36b749d20b173eb324385cdae552a9698d5d74b9` passed canonical-build,
+provenance, signing, entitlement, hardened-runtime, architecture, and
+pre-notarization archive checks on September 21, 2026. It is intentionally not
+represented as notarized, stapled, distributed, or release-qualified.
+
+The at-least-5% quality and at-least-20% processing-time gates remain open
+until they are recaptured with every other M7 lane from the final sealed
+candidate. Apple notarization, stapling, and distribution are owner-operated.
+See [`docs/v4/CURRENT_QUALIFICATION_STATUS.md`](docs/v4/CURRENT_QUALIFICATION_STATUS.md)
+for the exact evidence boundary.

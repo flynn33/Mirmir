@@ -9,12 +9,16 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ### Added
 
-- Exact archived-executable qualification for whole-asset media preservation,
-  bounded tiled-temporal CPU/Metal parity, and all 15 recovery fault scenarios.
+- Exact archived-executable qualification tooling for whole-asset media
+  preservation, bounded tiled-temporal CPU/Metal parity, and all 15 recovery
+  fault scenarios.
 - Session-derived media execution receipts, independent alpha verification,
   and fail-closed preservation checks for HDR metadata and enabled track graphs.
 - Canonical Swift and external Metal build receipts that bind effective compiler
   controls, transitive Metal resources, and three-run reproducibility evidence.
+- A dated qualification-status record for the signed universal 1.3.0 (3)
+  Developer ID archive, its reproducible identities, completed controls, and
+  owner-deferred distribution boundary.
 
 ### Changed
 
@@ -26,6 +30,13 @@ do not publish, sign, notarize, or distribute the application automatically.
 - The v4 identity workflow now derives the production P06 manifest identity,
   source revision, and builder hash from the bundled runtime manifest and
   passes those values into the runtime load check.
+- Preserved exact edit-list offsets and terminal marker timing through media
+  assembly, including high-timescale HDR inputs.
+- Serialized Swift 6.4 release compilation and hardened archive publication so
+  canonical builds and failed staging cleanup remain deterministic.
+- Added a canonical `BUILD_NUMBER` authority and drift checks, and aligned all
+  Xcode target configurations at version 1.3.0 build 3, the Developer ID team,
+  and the video application category.
 
 ## [1.3.0] - 2026-08-14
 

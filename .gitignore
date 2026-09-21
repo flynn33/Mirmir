@@ -24,7 +24,7 @@ Package.pins
 Package.resolved
 *.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
 .pytest_cache/
-.codex/
+.mirmir-build/
 
 # Coverage / profiling
 *.profraw

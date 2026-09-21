@@ -3,12 +3,14 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-Version 1.3.0 lands the deterministic ASH P06 CPU and Metal engine beside the
-supported Apple scaling frameworks, while keeping every backend choice,
-preservation decision, and fallback boundary visible to the user.
+Version 1.3.0 build 3 lands the deterministic ASH P06 CPU and Metal engine
+beside the supported Apple scaling frameworks, while keeping every backend
+choice, preservation decision, and fallback boundary visible to the user.
 
-The current application version is recorded in [`VERSION`](VERSION). Release
-packaging, signing, notarization, and publication remain manual operations.
+The current marketing version and build number are recorded in
+[`VERSION`](VERSION) and [`BUILD_NUMBER`](BUILD_NUMBER), then synchronized with
+Xcode. Release packaging, signing, notarization, and publication remain
+deliberate operator actions.
 
 ## Highlights
 
@@ -51,8 +53,14 @@ testing procedures, and troubleshooting material.
 The [`DETERMINISTIC_ENGINE_V4_ROADMAP.md`](DETERMINISTIC_ENGINE_V4_ROADMAP.md)
 records the v4 architecture, delivery sequence, and remaining M7 release gates
 for at least 5% higher quality and 20% lower processing time. Engine, media,
-and durable-workflow implementation is in 1.3.0; frozen-candidate qualification
-and operator publication remain open.
+and durable-workflow implementation is in 1.3.0. A universal Developer ID
+archive for source commit `36b749d20b173eb324385cdae552a9698d5d74b9` has
+passed the pre-notarization provenance and signing audit. Apple notarization,
+stapling, final frozen-candidate qualification, and publication remain open;
+no distribution is performed by repository automation.
+
+The dated identities, completed checks, and precise open gates are recorded in
+[`docs/v4/CURRENT_QUALIFICATION_STATUS.md`](docs/v4/CURRENT_QUALIFICATION_STATUS.md).
 
 ## Requirements
 
@@ -139,8 +147,10 @@ result, and commits the change to the pull-request branch. Repeated runs resolve
 to the same target rather than incrementing again. Conflicting version labels
 fail the workflow. Fork pull requests are never given write access.
 
-`CFBundleShortVersionString` is sourced from `MARKETING_VERSION`, and
-`CFBundleVersion` remains the separate Xcode build number.
+`CFBundleShortVersionString` is sourced from `MARKETING_VERSION`.
+`CFBundleVersion` is sourced from `CURRENT_PROJECT_VERSION`; `BUILD_NUMBER`
+keeps every Xcode build setting synchronized and can be updated with
+`python3 script/update_version.py --set-build N`.
 
 Notable changes are recorded in [`CHANGELOG.md`](CHANGELOG.md).
 
