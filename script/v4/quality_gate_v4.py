@@ -698,7 +698,7 @@ def aggregate_ratios(
         component: float(statistics.fmean(by_cohort[c][component] for c in sorted(by_cohort)))
         for component in weights
     }
-    error = float(sum(weights[c] * aggregate[c] for c in weights))
+    error = ordered_float_sum(weights[c] * aggregate[c] for c in weights)
     quality = 100.0 * (2.0 - error)
     return aggregate, by_cohort, error, quality
 

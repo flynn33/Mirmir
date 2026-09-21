@@ -33,6 +33,25 @@ class QualityGateV4Tests(unittest.TestCase):
             1.0e16,
         )
 
+    def testAggregateRatiosUsesStableComponentOrder(self) -> None:
+        metrics = {
+            "clip": {
+                "baseline_p05": {"large": 1.0, "smallA": 1.0, "smallB": 1.0},
+                "candidate_v4": {
+                    "large": 1.0e16,
+                    "smallA": 1.0,
+                    "smallB": 1.0,
+                },
+            }
+        }
+        _, _, error, _ = quality_gate.aggregate_ratios(
+            metrics,
+            {"cohort": ["clip"]},
+            "candidate_v4",
+            {"large": 1.0, "smallA": 1.0, "smallB": 1.0},
+        )
+        self.assertEqual(error, 1.0e16)
+
     def sealEvidence(self, root: Path) -> None:
         seal_path = root / "artifact-manifest.json"
         if seal_path.exists():
