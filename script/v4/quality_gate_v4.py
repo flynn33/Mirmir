@@ -27,6 +27,7 @@ import p05_baseline_v4 as p05
 SCHEMA_CORPUS = "mirmir-ash-v4-quality-corpus-v1"
 SCHEMA_CAPTURE = "mirmir-ash-v4-quality-capture-v1"
 SCHEMA_REPORT = "mirmir-ash-v4-quality-report-v1"
+REPLAY_NUMERIC_TOLERANCE = 1e-13
 VARIANTS = (
     "baseline_p05",
     "candidate_v4",
@@ -1511,15 +1512,30 @@ def verify_report(
         else:
             require_hex(value, 64, key)
 
-    tool_path = Path(__file__).resolve()
+    verifier_path = Path(__file__).resolve()
+    evaluator_path = verifier_path
+    if identities["metricToolSHA256"] != sha256(verifier_path):
+        try:
+            bound_evaluator = checked_relative(
+                report_path.parent.resolve(), "bindings/quality_gate_v4.py"
+            )
+        except ValueError as error:
+            raise SystemExit("metric tool identity mismatch") from error
+        if (
+            not bound_evaluator.is_file()
+            or bound_evaluator.is_symlink()
+            or identities["metricToolSHA256"] != sha256(bound_evaluator)
+        ):
+            raise SystemExit("metric tool identity mismatch")
+        evaluator_path = bound_evaluator
     contract_path = (
         contract_path.resolve()
         if contract_path is not None
         else report_path.parent.resolve() / "quality-gate-contract-v1.json"
     )
-    p05_capture_source = tool_path.with_name("P05QualityBaselineCaptureTests.swift")
-    p05_source_manifest = tool_path.with_name("p05-baseline-source-manifest-v1.json")
-    p05_identity_tool = tool_path.with_name("p05_baseline_v4.py")
+    p05_capture_source = evaluator_path.with_name("P05QualityBaselineCaptureTests.swift")
+    p05_source_manifest = evaluator_path.with_name("p05-baseline-source-manifest-v1.json")
+    p05_identity_tool = evaluator_path.with_name("p05_baseline_v4.py")
     if not all(
         path.is_file() and not path.is_symlink()
         for path in (
@@ -1533,8 +1549,6 @@ def verify_report(
     contract = json.loads(contract_path.read_text())
     if report.get("contract") != contract or identities["contractSHA256"] != sha256(contract_path):
         raise SystemExit("contract identity mismatch")
-    if identities["metricToolSHA256"] != sha256(tool_path):
-        raise SystemExit("metric tool identity mismatch")
     crop_identity = sha256_bytes(
         canonical_bytes([{item["id"]: item["crop"]} for item in contract["components"]])
     )
@@ -1596,14 +1610,6 @@ def verify_report(
     ]:
         raise SystemExit("report P05 implementation identity mismatch")
 
-    # Replay every component from the recursively sealed reference, P05,
-    # candidate, and ablation planes before trusting perClip or aggregates.
-    replayed_per_clip = replay_sealed_evidence(
-        report_path.resolve(), contract_path, contract, identities
-    )
-    if report.get("perClip") != replayed_per_clip:
-        raise SystemExit("perClip metrics differ from sealed raw-plane replay")
-
     def require_equal(actual: Any, expected: Any, label: str) -> None:
         if isinstance(expected, dict):
             if not isinstance(actual, dict) or set(actual) != set(expected):
@@ -1624,17 +1630,39 @@ def verify_report(
             except (TypeError, ValueError) as error:
                 raise SystemExit(f"non-numeric report value: {label}") from error
             if not math.isfinite(number) or not math.isclose(
-                number, float(expected), rel_tol=1e-13, abs_tol=1e-13
+                number,
+                float(expected),
+                rel_tol=REPLAY_NUMERIC_TOLERANCE,
+                abs_tol=REPLAY_NUMERIC_TOLERANCE,
             ):
-                raise SystemExit(f"report value mismatch: {label}")
+                raise SystemExit(
+                    f"report value mismatch: {label}; "
+                    f"actual={number!r}; expected={float(expected)!r}; "
+                    f"absoluteDelta={abs(number - float(expected))!r}"
+                )
         elif actual != expected:
             raise SystemExit(f"report value mismatch: {label}")
+
+    # Replay every component from the recursively sealed reference, P05,
+    # candidate, and ablation planes before trusting perClip or aggregates.
+    # Numerical reductions can differ across admitted Python/NumPy platforms.
+    # Apply the same explicit 1e-13 bound used by aggregate replay; hashes,
+    # structure, nonnumeric values, and recomputed gates remain exact.
+    replayed_per_clip = replay_sealed_evidence(
+        report_path.resolve(), contract_path, contract, identities
+    )
+    try:
+        require_equal(report.get("perClip"), replayed_per_clip, "perClip")
+    except SystemExit as error:
+        raise SystemExit(
+            f"perClip metrics differ from sealed raw-plane replay: {error}"
+        ) from error
 
     cohorts = contract["cohortConstraints"]["contentCohorts"]
     weights = {item["id"]: float(item["weight"]) for item in contract["components"]}
     if not math.isclose(sum(weights.values()), 1.0, rel_tol=0, abs_tol=1e-15):
         raise SystemExit("quality weights do not sum exactly to one")
-    per_clip = report.get("perClip")
+    per_clip = replayed_per_clip
     if not isinstance(per_clip, list):
         raise SystemExit("per-clip evidence is absent")
     metrics: dict[str, dict[str, dict[str, float]]] = {}

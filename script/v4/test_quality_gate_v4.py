@@ -318,6 +318,86 @@ class QualityGateV4Tests(unittest.TestCase):
             ):
                 quality_gate.verify_report(report_path, contract_path)
 
+    def testRawReplayAllowsBoundedCrossRuntimeRoundoff(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ash-quality-test-") as temporary:
+            root = Path(temporary)
+            report_path, contract_path = self.materializeValidEvidence(root)
+            report = json.loads(report_path.read_text())
+            original_value = report["perClip"][0]["components"]["candidate_v4"][
+                "luma_multiscale_structural_error"
+            ]
+            clip_id = report["perClip"][0]["clipID"]
+            report["perClip"][0]["components"]["candidate_v4"][
+                "luma_multiscale_structural_error"
+            ] += 5e-15
+            quality_gate.write_json(report_path, report)
+            self.sealEvidence(root)
+            with mock.patch.object(
+                quality_gate,
+                "aggregate_ratios",
+                wraps=quality_gate.aggregate_ratios,
+            ) as aggregate, contextlib.redirect_stdout(io.StringIO()):
+                quality_gate.verify_report(report_path, contract_path)
+            replayed_metrics = aggregate.call_args_list[0].args[0]
+            self.assertEqual(
+                replayed_metrics[clip_id]["candidate_v4"][
+                    "luma_multiscale_structural_error"
+                ],
+                original_value,
+            )
+
+    def testRawReplayRejectsDriftOutsideNumericTolerance(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ash-quality-test-") as temporary:
+            root = Path(temporary)
+            report_path, contract_path = self.materializeValidEvidence(root)
+            report = json.loads(report_path.read_text())
+            report["perClip"][0]["components"]["candidate_v4"][
+                "luma_multiscale_structural_error"
+            ] += 2 * quality_gate.REPLAY_NUMERIC_TOLERANCE
+            quality_gate.write_json(report_path, report)
+            self.sealEvidence(root)
+            with self.assertRaisesRegex(
+                SystemExit, "perClip metrics differ from sealed raw-plane replay"
+            ):
+                quality_gate.verify_report(report_path, contract_path)
+
+    def testVerifierEvolutionUsesExactSealedEvaluatorIdentity(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="ash-quality-test-") as temporary:
+            root = Path(temporary)
+            report_path, contract_path = self.materializeValidEvidence(root)
+            bindings = root / "bindings"
+            bindings.mkdir()
+            evaluator = bindings / "quality_gate_v4.py"
+            evaluator.write_bytes(
+                (SCRIPT_DIRECTORY / "quality_gate_v4.py").read_bytes()
+                + b"\n# frozen evaluator fixture\n"
+            )
+            for name in (
+                "P05QualityBaselineCaptureTests.swift",
+                "p05-baseline-source-manifest-v1.json",
+                "p05_baseline_v4.py",
+            ):
+                shutil.copy2(SCRIPT_DIRECTORY / name, bindings / name)
+
+            report = json.loads(report_path.read_text())
+            evaluator_identity = quality_gate.sha256(evaluator)
+            report["identities"]["metricToolSHA256"] = evaluator_identity
+            report["identities"]["metricModelSHA256"] = quality_gate.sha256_bytes(
+                b"mirmir-analytic-quality-model-v1\0"
+                + quality_gate.canonical_bytes(report["contract"]["components"])
+                + bytes.fromhex(evaluator_identity)
+            )
+            quality_gate.write_json(report_path, report)
+            self.sealEvidence(root)
+
+            with contextlib.redirect_stdout(io.StringIO()):
+                quality_gate.verify_report(report_path, contract_path)
+
+            evaluator.write_bytes(evaluator.read_bytes() + b"tamper")
+            self.sealEvidence(root)
+            with self.assertRaisesRegex(SystemExit, "metric tool identity mismatch"):
+                quality_gate.verify_report(report_path, contract_path)
+
     def testOuterReleaseEnvelopeDoesNotWeakenRecursiveSeal(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ash-quality-test-") as temporary:
             root = Path(temporary)
