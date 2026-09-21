@@ -580,6 +580,8 @@ struct AVFoundationTransientSegmentAssemblyRequestV4: @unchecked Sendable {
     let segments: [AVFoundationTransientSegmentV4]
     let mediaTimelineStart: WorkflowMediaTimeV4
     let outputTimelineStart: WorkflowMediaTimeV4
+    let expectedTimeRange: MediaExactTimeRangeV4
+    let expectedEdits: [MediaTrackEditV4]
     let destinationURL: URL
     let outputFileType: AVFileType
     let overwriteExistingFile: Bool
@@ -589,6 +591,8 @@ struct AVFoundationTransientSegmentAssemblyRequestV4: @unchecked Sendable {
         segments: [AVFoundationTransientSegmentV4],
         mediaTimelineStart: WorkflowMediaTimeV4,
         outputTimelineStart: WorkflowMediaTimeV4,
+        expectedTimeRange: MediaExactTimeRangeV4,
+        expectedEdits: [MediaTrackEditV4],
         destinationURL: URL,
         outputFileType: AVFileType = .mov,
         overwriteExistingFile: Bool = false
@@ -597,6 +601,8 @@ struct AVFoundationTransientSegmentAssemblyRequestV4: @unchecked Sendable {
         self.segments = segments
         self.mediaTimelineStart = mediaTimelineStart
         self.outputTimelineStart = outputTimelineStart
+        self.expectedTimeRange = expectedTimeRange
+        self.expectedEdits = expectedEdits
         self.destinationURL = destinationURL
         self.outputFileType = outputFileType
         self.overwriteExistingFile = overwriteExistingFile
@@ -782,17 +788,542 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
               ) == 0 else {
             throw AVFoundationSegmentV4Error.invalidSegmentSequence
         }
-        return try await assembleVerified(
+        return try await assembleTransientVerified(
             assets: assets,
             identities: identities,
             segmentURLs: segmentURLs,
             segments: boundaries,
             mediaTimelineStart: mediaTimelineStart,
             outputTimelineStart: outputTimelineStart,
+            expectedTimeRange: request.expectedTimeRange,
+            expectedEdits: request.expectedEdits,
             destinationURL: request.destinationURL,
             outputFileType: request.outputFileType,
             overwriteExistingFile: request.overwriteExistingFile
         )
+    }
+
+    /// Directly appends the compressed transient segment samples on their
+    /// canonical media timeline. A composition export represents a gap between
+    /// independently encoded segments as an empty edit and packs the raw media
+    /// samples together. That changes the media-domain timestamps. Direct
+    /// append retains the raw PTS gap while packing decode timestamps across
+    /// independent GOPs. One edit then maps the complete media range onto the
+    /// requested output timeline.
+    private func assembleTransientVerified(
+        assets: [AVURLAsset],
+        identities: [AVFoundationSegmentIdentityV4],
+        segmentURLs: [URL],
+        segments: [WorkflowSegmentCheckpointV4],
+        mediaTimelineStart: CMTime,
+        outputTimelineStart: CMTime,
+        expectedTimeRange: MediaExactTimeRangeV4,
+        expectedEdits: [MediaTrackEditV4],
+        destinationURL: URL,
+        outputFileType: AVFileType,
+        overwriteExistingFile: Bool
+    ) async throws -> AVFoundationSegmentAssemblyResultV4 {
+        guard assets.count == segments.count,
+              identities.count == segments.count,
+              segmentURLs.count == segments.count,
+              let firstAsset = assets.first,
+              let firstIdentity = identities.first else {
+            throw AVFoundationSegmentV4Error.invalidSegmentSequence
+        }
+        let firstDescriptors = try await Self.descriptors(
+            firstAsset.load(.tracks)
+        )
+        guard firstDescriptors.count == 1,
+              let firstDescriptor = firstDescriptors.first,
+              firstDescriptor.track.mediaType == .video,
+              firstIdentity.tracks.count == 1,
+              let firstTrackIdentity = firstIdentity.tracks.first else {
+            throw AVFoundationSegmentV4Error.unsupportedTrackLayout(
+                "transient assembly requires exactly one video track"
+            )
+        }
+        let firstFormats = try await firstDescriptor.track.load(
+            .formatDescriptions
+        )
+        guard firstFormats.count == 1,
+              let firstFormat = firstFormats.first else {
+            throw AVFoundationSegmentV4Error.unsupportedTrackLayout(
+                "transient video track must have one format description"
+            )
+        }
+        let mediaDuration = CMTimeSubtract(
+            Self.cmTime(segments.last!.endTimeExclusive),
+            mediaTimelineStart
+        )
+        let movieTimescale = segments[0].startTime.timescale
+        guard mediaTimelineStart.isNumeric,
+              outputTimelineStart.isNumeric,
+              mediaTimelineStart.timescale > 0,
+              outputTimelineStart.timescale > 0,
+              movieTimescale > 0,
+              firstTrackIdentity.naturalTimeScale > 0,
+              mediaDuration.isNumeric,
+              mediaDuration.value > 0,
+              !mediaTimelineStart.flags.contains(.hasBeenRounded),
+              !outputTimelineStart.flags.contains(.hasBeenRounded),
+              !mediaDuration.flags.contains(.hasBeenRounded),
+              CMTimeCompare(
+                  mediaTimelineStart,
+                  Self.cmTime(segments[0].startTime)
+              ) == 0 else {
+            throw AVFoundationSegmentV4Error.invalidSegmentSequence
+        }
+
+        let expectedMediaRange = CMTimeRange(
+            start: mediaTimelineStart,
+            duration: mediaDuration
+        )
+        let expectedTargetRange = CMTimeRange(
+            start: outputTimelineStart,
+            duration: mediaDuration
+        )
+        let expectedTrackRange = try Self.cmTimeRange(
+            expectedTimeRange,
+            timescale: movieTimescale
+        )
+        let resolvedEdits = try expectedEdits.map {
+            ResolvedTransientEdit(
+                source: try $0.source.map {
+                    try Self.cmTimeRange(
+                        $0,
+                        timescale: movieTimescale
+                    )
+                },
+                target: try Self.cmTimeRange(
+                    $0.target,
+                    timescale: movieTimescale
+                ),
+                isEmpty: $0.isEmpty
+            )
+        }
+        try Self.validateTransientEditTopology(
+            expectedEdits: expectedEdits,
+            resolvedEdits: resolvedEdits,
+            expectedMediaRange: expectedMediaRange,
+            expectedTargetRange: expectedTargetRange,
+            expectedTrackRange: expectedTrackRange
+        )
+
+        let destination = try AtomicOutputFile(
+            finalURL: destinationURL,
+            overwriteExistingFile: overwriteExistingFile
+        )
+        defer { destination.discard() }
+        try Self.createOwnerOnlyEmptyFile(at: destination.temporaryURL)
+
+        let movie = AVMutableMovie()
+        movie.timescale = movieTimescale
+        movie.metadata = try await firstAsset.load(.commonMetadata)
+        let storage = AVMediaDataStorage(
+            url: destination.temporaryURL,
+            options: nil
+        )
+        movie.defaultMediaDataStorage = storage
+        guard let outputTrack = movie.addMutableTrack(
+            withMediaType: .video,
+            copySettingsFrom: firstDescriptor.track,
+            options: nil
+        ) else {
+            throw AVFoundationSegmentV4Error.assembledLayoutMismatch
+        }
+        outputTrack.mediaDataStorage = storage
+        outputTrack.timescale = firstTrackIdentity.naturalTimeScale
+
+        var totalSampleCount: UInt64 = 0
+        var decodeTimelineIsNumeric: Bool?
+        var previousDecodeEnd: CMTime?
+        for index in assets.indices {
+            let sourceDescriptors = try await Self.descriptors(
+                assets[index].load(.tracks)
+            )
+            guard sourceDescriptors.count == 1,
+                  let sourceDescriptor = sourceDescriptors.first,
+                  sourceDescriptor.key == firstDescriptor.key else {
+                throw AVFoundationSegmentV4Error.trackLayoutMismatch(
+                    ordinal: segments[index].ordinal
+                )
+            }
+            let sourceFormats = try await sourceDescriptor.track.load(
+                .formatDescriptions
+            )
+            guard sourceFormats.count == 1,
+                  let sourceFormat = sourceFormats.first,
+                  CMFormatDescriptionEqual(
+                      firstFormat,
+                      otherFormatDescription: sourceFormat
+                  ) else {
+                throw AVFoundationSegmentV4Error.trackLayoutMismatch(
+                    ordinal: segments[index].ordinal
+                )
+            }
+            let declaredDuration = try Self.cmTime(Self.subtract(
+                segments[index].endTimeExclusive,
+                segments[index].startTime
+            ))
+            let presentationOffset = Self.cmTime(segments[index].startTime)
+            guard declaredDuration.isNumeric,
+                  declaredDuration.value > 0,
+                  presentationOffset.isNumeric,
+                  CMTimeCompare(
+                      presentationOffset,
+                      mediaTimelineStart
+                  ) >= 0,
+                  !declaredDuration.flags.contains(.hasBeenRounded),
+                  !presentationOffset.flags.contains(.hasBeenRounded) else {
+                throw AVFoundationSegmentV4Error.invalidSegmentSequence
+            }
+
+            let reader: AVAssetReader
+            do {
+                reader = try AVAssetReader(asset: assets[index])
+            } catch {
+                throw AVFoundationSegmentV4Error.unreadableAsset(
+                    String(describing: error)
+                )
+            }
+            reader.timeRange = CMTimeRange(
+                start: .zero,
+                duration: declaredDuration
+            )
+            let sourceOutput = AVAssetReaderTrackOutput(
+                track: sourceDescriptor.track,
+                outputSettings: nil
+            )
+            sourceOutput.alwaysCopiesSampleData = true
+            guard reader.canAdd(sourceOutput) else {
+                throw AVFoundationSegmentV4Error.unsupportedTrackLayout(
+                    "transient compressed-video reader rejected its track"
+                )
+            }
+            reader.add(sourceOutput)
+            guard reader.startReading() else {
+                throw AVFoundationSegmentV4Error.unreadableAsset(
+                    String(describing: reader.error)
+                )
+            }
+            var segmentSampleCount: UInt64 = 0
+            var segmentDecodeOffset: CMTime?
+            while let sample = sourceOutput.copyNextSampleBuffer() {
+                let sampleCount = CMSampleBufferGetNumSamples(sample)
+                if sampleCount == 0 { continue }
+                guard sampleCount == 1,
+                      CMSampleBufferDataIsReady(sample) else {
+                    reader.cancelReading()
+                    throw AVFoundationSegmentV4Error.assembledTimingMismatch
+                }
+                let sourcePresentation = CMSampleBufferGetPresentationTimeStamp(
+                    sample
+                )
+                let sourceDecode = CMSampleBufferGetDecodeTimeStamp(sample)
+                let sourceDuration = CMSampleBufferGetDuration(sample)
+                guard sourcePresentation.isNumeric,
+                      !sourcePresentation.flags.contains(.hasBeenRounded),
+                      sourceDuration.isNumeric,
+                      sourceDuration.value > 0,
+                      !sourceDuration.flags.contains(.hasBeenRounded),
+                      segmentSampleCount > 0
+                        || CMTimeCompare(sourcePresentation, .zero) == 0 else {
+                    reader.cancelReading()
+                    throw AVFoundationSegmentV4Error.assembledTimingMismatch
+                }
+                let sampleHasNumericDecode = sourceDecode.isNumeric
+                if let decodeTimelineIsNumeric {
+                    guard decodeTimelineIsNumeric == sampleHasNumericDecode else {
+                        reader.cancelReading()
+                        throw AVFoundationSegmentV4Error.assembledTimingMismatch
+                    }
+                } else {
+                    decodeTimelineIsNumeric = sampleHasNumericDecode
+                }
+                if sampleHasNumericDecode {
+                    guard !sourceDecode.flags.contains(.hasBeenRounded) else {
+                        reader.cancelReading()
+                        throw AVFoundationSegmentV4Error.assembledTimingMismatch
+                    }
+                    if segmentDecodeOffset == nil {
+                        let desiredDecode = previousDecodeEnd
+                            ?? .zero
+                        let offset = CMTimeSubtract(desiredDecode, sourceDecode)
+                        guard offset.isNumeric,
+                              !offset.flags.contains(.hasBeenRounded) else {
+                            reader.cancelReading()
+                            throw AVFoundationSegmentV4Error
+                                .assembledTimingMismatch
+                        }
+                        segmentDecodeOffset = offset
+                    }
+                }
+                let shifted = try Self.retime(
+                    sample,
+                    presentationOffset: presentationOffset,
+                    decodeOffset: segmentDecodeOffset
+                )
+                let shiftedPresentation = CMSampleBufferGetPresentationTimeStamp(
+                    shifted
+                )
+                let shiftedDecode = CMSampleBufferGetDecodeTimeStamp(shifted)
+                var appendedDecode = CMTime.invalid
+                var appendedPresentation = CMTime.invalid
+                do {
+                    try outputTrack.append(
+                        shifted,
+                        decodeTime: &appendedDecode,
+                        presentationTime: &appendedPresentation
+                    )
+                } catch {
+                    reader.cancelReading()
+                    throw AVFoundationSegmentV4Error.exportFailed(
+                        String(describing: error)
+                    )
+                }
+                guard Self.timesEqual(appendedPresentation, shiftedPresentation),
+                      Self.timesEqual(appendedDecode, shiftedDecode) else {
+                    reader.cancelReading()
+                    throw AVFoundationSegmentV4Error.assembledTimingMismatch
+                }
+                let (nextSegmentCount, segmentOverflow) = segmentSampleCount
+                    .addingReportingOverflow(1)
+                let (nextTotalCount, totalOverflow) = totalSampleCount
+                    .addingReportingOverflow(1)
+                guard !segmentOverflow, !totalOverflow else {
+                    reader.cancelReading()
+                    throw AVFoundationSegmentV4Error.assembledTimingMismatch
+                }
+                segmentSampleCount = nextSegmentCount
+                totalSampleCount = nextTotalCount
+                if appendedDecode.isNumeric {
+                    let decodeEnd = CMTimeAdd(appendedDecode, sourceDuration)
+                    guard decodeEnd.isNumeric,
+                          !decodeEnd.flags.contains(.hasBeenRounded) else {
+                        reader.cancelReading()
+                        throw AVFoundationSegmentV4Error
+                            .assembledTimingMismatch
+                    }
+                    previousDecodeEnd = decodeEnd
+                }
+            }
+            guard reader.status == .completed,
+                  segmentSampleCount > 0 else {
+                throw AVFoundationSegmentV4Error.unreadableAsset(
+                    String(describing: reader.error)
+                )
+            }
+        }
+        guard totalSampleCount > 0 else {
+            throw AVFoundationSegmentV4Error.emptySegmentSet
+        }
+
+        let appendedMediaRange = outputTrack.mediaPresentationTimeRange
+        guard CMTimeCompare(
+                  appendedMediaRange.start,
+                  expectedMediaRange.start
+              ) == 0,
+              CMTimeCompare(
+                  appendedMediaRange.duration,
+                  expectedMediaRange.duration
+              ) == 0 else {
+            throw AVFoundationSegmentV4Error.assembledTimingMismatch
+        }
+        for edit in resolvedEdits {
+            if edit.isEmpty {
+                outputTrack.insertEmptyTimeRange(edit.target)
+            } else if let source = edit.source {
+                guard outputTrack.insertMediaTimeRange(
+                    source,
+                    into: edit.target
+                ) else {
+                    throw AVFoundationSegmentV4Error.assembledTimingMismatch
+                }
+            } else {
+                throw AVFoundationSegmentV4Error.assembledTimingMismatch
+            }
+        }
+        do {
+            try movie.writeHeader(
+                to: destination.temporaryURL,
+                fileType: outputFileType,
+                options: .addMovieHeaderToDestination
+            )
+        } catch {
+            throw AVFoundationSegmentV4Error.exportFailed(
+                String(describing: error)
+            )
+        }
+
+        let assembledGraph = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(
+                url: destination.temporaryURL,
+                options: [
+                    AVURLAssetPreferPreciseDurationAndTimingKey: true
+                ]
+            )
+        )
+        let assembledVideos = assembledGraph.tracks.filter {
+            $0.kind == .video
+        }
+        guard assembledVideos.count == 1,
+              assembledVideos[0].timeRange == expectedTimeRange,
+              assembledVideos[0].edits == expectedEdits else {
+            throw AVFoundationSegmentV4Error.assembledTimingMismatch
+        }
+
+        let outputIdentity = try await AVFoundationSegmentProbeV4().probe(
+            url: destination.temporaryURL
+        )
+        try Self.verifyAssembledIdentity(
+            outputIdentity,
+            from: identities,
+            segments: segments,
+            outputTimelineStart: outputTimelineStart
+        )
+        let elementaryPayloadsPreserved = try await Self.verifyAssembledStreams(
+            outputURL: destination.temporaryURL,
+            segmentURLs: segmentURLs,
+            segments: segments,
+            mediaTimelineStart: mediaTimelineStart,
+            outputTimelineStart: outputTimelineStart,
+            allowsIndependentDecodeRebasing: true
+        )
+        let outputSHA = try WorkflowSegmentCheckpointStoreV4.rawFileIdentity(
+            destination.temporaryURL
+        ).sha256
+        try destination.publish()
+        return AVFoundationSegmentAssemblyResultV4(
+            destinationURL: destinationURL,
+            segmentCount: segments.count,
+            outputIdentity: outputIdentity,
+            outputFileSHA256: outputSHA,
+            preservation: [
+                elementaryPayloadsPreserved
+                    ? .trackPayloads : .decodedVideoPayloads,
+                .exactSampleTiming,
+                .commonMetadata,
+                .languageTags,
+                .preferredTransforms,
+                .physicalTrackIDsNotPreserved,
+                .trackAssociationsNotRepresentable,
+                .mediaSelectionGroupsNotRepresentable,
+                .containerBytesNotContractual
+            ]
+        )
+    }
+
+    private struct ResolvedTransientEdit {
+        let source: CMTimeRange?
+        let target: CMTimeRange
+        let isEmpty: Bool
+    }
+
+    private static func validateTransientEditTopology(
+        expectedEdits: [MediaTrackEditV4],
+        resolvedEdits: [ResolvedTransientEdit],
+        expectedMediaRange: CMTimeRange,
+        expectedTargetRange: CMTimeRange,
+        expectedTrackRange: CMTimeRange
+    ) throws {
+        guard expectedEdits.count == resolvedEdits.count,
+              expectedEdits.enumerated().allSatisfy({
+                  $0.element.ordinal == UInt32($0.offset)
+              }),
+              let mappingIndex = resolvedEdits.indices.first(where: {
+                  !resolvedEdits[$0].isEmpty
+              }),
+              resolvedEdits.indices.filter({
+                  !resolvedEdits[$0].isEmpty
+              }).count == 1,
+              let source = resolvedEdits[mappingIndex].source,
+              rangeEquals(source, expectedMediaRange),
+              rangeEquals(
+                  resolvedEdits[mappingIndex].target,
+                  expectedTargetRange
+              ) else {
+            throw AVFoundationSegmentV4Error.invalidSegmentSequence
+        }
+        switch resolvedEdits.count {
+        case 1:
+            guard mappingIndex == 0,
+                  rangeEquals(
+                      resolvedEdits[0].target,
+                      expectedTrackRange
+                  ) else {
+                throw AVFoundationSegmentV4Error.invalidSegmentSequence
+            }
+        case 2:
+            let leading = resolvedEdits[0]
+            let media = resolvedEdits[1]
+            guard mappingIndex == 1,
+                  leading.isEmpty,
+                  leading.source == nil,
+                  leading.target.duration.isNumeric,
+                  leading.target.duration.value > 0,
+                  CMTimeCompare(
+                      leading.target.start,
+                      expectedTrackRange.start
+                  ) == 0,
+                  CMTimeCompare(
+                      CMTimeRangeGetEnd(leading.target),
+                      media.target.start
+                  ) == 0,
+                  CMTimeCompare(
+                      CMTimeRangeGetEnd(expectedTrackRange),
+                      CMTimeRangeGetEnd(media.target)
+                  ) == 0 else {
+                throw AVFoundationSegmentV4Error.invalidSegmentSequence
+            }
+        default:
+            throw AVFoundationSegmentV4Error.invalidSegmentSequence
+        }
+    }
+
+    private static func cmTimeRange(
+        _ range: MediaExactTimeRangeV4,
+        timescale: Int32
+    ) throws -> CMTimeRange {
+        CMTimeRange(
+            start: try exactTime(range.start, timescale: timescale),
+            duration: try exactTime(range.duration, timescale: timescale)
+        )
+    }
+
+    private static func exactTime(
+        _ value: ExactRationalV4,
+        timescale: Int32
+    ) throws -> CMTime {
+        guard timescale > 0,
+              value.denominator > 0,
+              value.denominator <= Int64(Int32.max),
+              let sourceTimescale = Int32(exactly: value.denominator) else {
+            throw AVFoundationSegmentV4Error.invalidSegmentSequence
+        }
+        let source = CMTime(
+            value: value.numerator,
+            timescale: sourceTimescale
+        )
+        let converted = CMTimeConvertScale(
+            source,
+            timescale: timescale,
+            method: .default
+        )
+        guard converted.isNumeric,
+              converted.epoch == 0,
+              !converted.flags.contains(.hasBeenRounded),
+              CMTimeCompare(source, converted) == 0 else {
+            throw AVFoundationSegmentV4Error.invalidSegmentSequence
+        }
+        return converted
+    }
+
+    private static func rangeEquals(
+        _ lhs: CMTimeRange,
+        _ rhs: CMTimeRange
+    ) -> Bool {
+        CMTimeCompare(lhs.start, rhs.start) == 0
+            && CMTimeCompare(lhs.duration, rhs.duration) == 0
     }
 
     private func assembleVerified(
@@ -942,7 +1473,8 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
             outputURL: destination.temporaryURL,
             segmentURLs: segmentURLs,
             segments: segments,
-            mediaTimelineStart: mediaTimelineStart
+            mediaTimelineStart: mediaTimelineStart,
+            outputTimelineStart: outputTimelineStart
         )
         let outputSHA = try WorkflowSegmentCheckpointStoreV4.rawFileIdentity(
             destination.temporaryURL
@@ -1170,7 +1702,9 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
         outputURL: URL,
         segmentURLs: [URL],
         segments: [WorkflowSegmentCheckpointV4],
-        mediaTimelineStart: CMTime
+        mediaTimelineStart: CMTime,
+        outputTimelineStart: CMTime,
+        allowsIndependentDecodeRebasing: Bool = false
     ) async throws -> Bool {
         let outputAsset = AVURLAsset(
             url: outputURL,
@@ -1187,7 +1721,10 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
                     outputAsset: outputAsset,
                     segmentURLs: segmentURLs,
                     segments: segments,
-                    mediaTimelineStart: mediaTimelineStart
+                    mediaTimelineStart: mediaTimelineStart,
+                    outputTimelineStart: outputTimelineStart,
+                    allowsIndependentDecodeRebasing:
+                        allowsIndependentDecodeRebasing
                 )
                 continue
             } catch AVFoundationSegmentV4Error.assembledPayloadMismatch
@@ -1198,7 +1735,10 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
                     outputAsset: outputAsset,
                     segmentURLs: segmentURLs,
                     segments: segments,
-                    mediaTimelineStart: mediaTimelineStart
+                    mediaTimelineStart: mediaTimelineStart,
+                    outputTimelineStart: outputTimelineStart,
+                    allowsIndependentDecodeRebasing:
+                        allowsIndependentDecodeRebasing
                 )
             }
         }
@@ -1210,96 +1750,108 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
         outputAsset: AVURLAsset,
         segmentURLs: [URL],
         segments: [WorkflowSegmentCheckpointV4],
-        mediaTimelineStart: CMTime
+        mediaTimelineStart: CMTime,
+        outputTimelineStart: CMTime,
+        allowsIndependentDecodeRebasing: Bool
     ) async throws {
-            let outputReader = try AVAssetReader(asset: outputAsset)
-            let output = AVAssetReaderTrackOutput(
-                track: outputDescriptor.track,
-                outputSettings: nil
+        let outputReader = try AVAssetReader(asset: outputAsset)
+        let output = AVAssetReaderTrackOutput(
+            track: outputDescriptor.track,
+            outputSettings: nil
+        )
+        output.alwaysCopiesSampleData = false
+        guard outputReader.canAdd(output) else {
+            throw AVFoundationSegmentV4Error.assembledLayoutMismatch
+        }
+        outputReader.add(output)
+        guard outputReader.startReading() else {
+            throw AVFoundationSegmentV4Error.exportFailed(
+                String(describing: outputReader.error)
             )
-            output.alwaysCopiesSampleData = false
-            guard outputReader.canAdd(output) else {
+        }
+        var outputSample = nextConcreteSample(from: output)
+        for index in segmentURLs.indices {
+            let sourceAsset = AVURLAsset(
+                url: segmentURLs[index],
+                options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+            )
+            let sourceDescriptors = try await descriptors(
+                sourceAsset.load(.tracks)
+            )
+            guard let sourceDescriptor = sourceDescriptors.first(where: {
+                $0.key == outputDescriptor.key
+            }) else {
                 throw AVFoundationSegmentV4Error.assembledLayoutMismatch
             }
-            outputReader.add(output)
-            guard outputReader.startReading() else {
-                throw AVFoundationSegmentV4Error.exportFailed(
-                    String(describing: outputReader.error)
+            let sourceReader = try AVAssetReader(asset: sourceAsset)
+            sourceReader.timeRange = CMTimeRange(
+                start: .zero,
+                duration: CMTime(
+                    value: segments[index].endTimeExclusive.value
+                        - segments[index].startTime.value,
+                    timescale: segments[index].startTime.timescale
+                )
+            )
+            let source = AVAssetReaderTrackOutput(
+                track: sourceDescriptor.track,
+                outputSettings: nil
+            )
+            source.alwaysCopiesSampleData = false
+            guard sourceReader.canAdd(source) else {
+                throw AVFoundationSegmentV4Error.assembledLayoutMismatch
+            }
+            sourceReader.add(source)
+            guard sourceReader.startReading() else {
+                throw AVFoundationSegmentV4Error.unreadableAsset(
+                    String(describing: sourceReader.error)
                 )
             }
-            for index in segmentURLs.indices {
-                let sourceAsset = AVURLAsset(
-                    url: segmentURLs[index],
-                    options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
-                )
-                let sourceDescriptors = try await descriptors(
-                    sourceAsset.load(.tracks)
-                )
-                guard let sourceDescriptor = sourceDescriptors.first(where: {
-                    $0.key == outputDescriptor.key
-                }) else {
-                    throw AVFoundationSegmentV4Error.assembledLayoutMismatch
-                }
-                let sourceReader = try AVAssetReader(asset: sourceAsset)
-                sourceReader.timeRange = CMTimeRange(
-                    start: .zero,
-                    duration: CMTime(
-                        value: segments[index].endTimeExclusive.value
-                            - segments[index].startTime.value,
-                        timescale: segments[index].startTime.timescale
-                    )
-                )
-                let source = AVAssetReaderTrackOutput(
-                    track: sourceDescriptor.track,
-                    outputSettings: nil
-                )
-                source.alwaysCopiesSampleData = false
-                guard sourceReader.canAdd(source) else {
-                    throw AVFoundationSegmentV4Error.assembledLayoutMismatch
-                }
-                sourceReader.add(source)
-                guard sourceReader.startReading() else {
-                    throw AVFoundationSegmentV4Error.unreadableAsset(
-                        String(describing: sourceReader.error)
-                    )
-                }
-                let offset = CMTimeSubtract(
+            let logicalOffset = CMTimeAdd(
+                outputTimelineStart,
+                CMTimeSubtract(
                     cmTime(segments[index].startTime),
                     mediaTimelineStart
                 )
-                while let sourceSample = source.copyNextSampleBuffer() {
-                    guard let outputSample = output.copyNextSampleBuffer() else {
-                        throw AVFoundationSegmentV4Error.assembledPayloadMismatch
-                    }
-                    guard try sampleData(sourceSample) == sampleData(outputSample),
-                          isSync(sourceSample) == isSync(outputSample) else {
-                        throw AVFoundationSegmentV4Error.assembledPayloadMismatch
-                    }
-                    guard shiftedTimeEquals(
-                        CMSampleBufferGetPresentationTimeStamp(sourceSample),
-                        CMSampleBufferGetPresentationTimeStamp(outputSample),
-                        offset: offset
-                    ), shiftedTimeEquals(
-                        CMSampleBufferGetDecodeTimeStamp(sourceSample),
-                        CMSampleBufferGetDecodeTimeStamp(outputSample),
-                        offset: offset
-                    ), CMTimeCompare(
-                        CMSampleBufferGetDuration(sourceSample),
-                        CMSampleBufferGetDuration(outputSample)
-                    ) == 0 else {
-                        throw AVFoundationSegmentV4Error.assembledTimingMismatch
-                    }
+            )
+            var rawPresentationOffset: CMTime?
+            var rawDecodeOffset: CMTime?
+            var sourceSample = nextConcreteSample(from: source)
+            while let currentSource = sourceSample {
+                let nextSource = nextConcreteSample(from: source)
+                guard let currentOutput = outputSample else {
+                    throw AVFoundationSegmentV4Error.assembledPayloadMismatch
                 }
-                guard sourceReader.status == .completed else {
-                    throw AVFoundationSegmentV4Error.unreadableAsset(
-                        String(describing: sourceReader.error)
-                    )
+                let nextOutput = nextConcreteSample(from: output)
+                guard try sampleData(currentSource) == sampleData(currentOutput),
+                      isSync(currentSource) == isSync(currentOutput) else {
+                    throw AVFoundationSegmentV4Error.assembledPayloadMismatch
                 }
+                guard sampleTimingsMatch(
+                    currentSource,
+                    currentOutput,
+                    nextSource: nextSource,
+                    nextOutput: nextOutput,
+                    logicalOffset: logicalOffset,
+                    rawPresentationOffset: &rawPresentationOffset,
+                    rawDecodeOffset: &rawDecodeOffset,
+                    allowsIndependentDecodeRebasing:
+                        allowsIndependentDecodeRebasing
+                ) else {
+                    throw AVFoundationSegmentV4Error.assembledTimingMismatch
+                }
+                sourceSample = nextSource
+                outputSample = nextOutput
             }
-            guard output.copyNextSampleBuffer() == nil,
-                  outputReader.status == .completed else {
-                throw AVFoundationSegmentV4Error.assembledPayloadMismatch
+            guard sourceReader.status == .completed else {
+                throw AVFoundationSegmentV4Error.unreadableAsset(
+                    String(describing: sourceReader.error)
+                )
             }
+        }
+        guard outputSample == nil,
+              outputReader.status == .completed else {
+            throw AVFoundationSegmentV4Error.assembledPayloadMismatch
+        }
     }
 
     private static func verifyDecodedVideoStream(
@@ -1307,7 +1859,9 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
         outputAsset: AVURLAsset,
         segmentURLs: [URL],
         segments: [WorkflowSegmentCheckpointV4],
-        mediaTimelineStart: CMTime
+        mediaTimelineStart: CMTime,
+        outputTimelineStart: CMTime,
+        allowsIndependentDecodeRebasing: Bool
     ) async throws {
         let outputReader = try AVAssetReader(asset: outputAsset)
         let output = AVAssetReaderTrackOutput(
@@ -1368,26 +1922,32 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
                     "source reader failed to start for segment \(index)"
                 )
             }
-            let offset = CMTimeSubtract(
-                cmTime(segments[index].startTime),
-                mediaTimelineStart
+            let logicalOffset = CMTimeAdd(
+                outputTimelineStart,
+                CMTimeSubtract(
+                    cmTime(segments[index].startTime),
+                    mediaTimelineStart
+                )
             )
-            while let sourceSample = source.copyNextSampleBuffer() {
-                guard let outputSample = output.copyNextSampleBuffer(),
+            var rawPresentationOffset: CMTime?
+            var rawDecodeOffset: CMTime?
+            while let sourceSample = nextConcreteSample(from: source) {
+                guard let outputSample = nextConcreteSample(from: output),
                       try decodedPixelData(sourceSample)
                         == decodedPixelData(outputSample) else {
                     throw AVFoundationSegmentV4Error.assembledDecodedPayloadMismatch(
                         "pixel or sample-count mismatch in segment \(index)"
                     )
                 }
-                guard shiftedTimeEquals(
-                    CMSampleBufferGetPresentationTimeStamp(sourceSample),
-                    CMSampleBufferGetPresentationTimeStamp(outputSample),
-                    offset: offset
-                ), CMTimeCompare(
-                    CMSampleBufferGetDuration(sourceSample),
-                    CMSampleBufferGetDuration(outputSample)
-                ) == 0 else {
+                guard sampleTimingsMatch(
+                    sourceSample,
+                    outputSample,
+                    logicalOffset: logicalOffset,
+                    rawPresentationOffset: &rawPresentationOffset,
+                    rawDecodeOffset: &rawDecodeOffset,
+                    allowsIndependentDecodeRebasing:
+                        allowsIndependentDecodeRebasing
+                ) else {
                     throw AVFoundationSegmentV4Error.assembledTimingMismatch
                 }
             }
@@ -1397,12 +1957,183 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
                 )
             }
         }
-        guard output.copyNextSampleBuffer() == nil,
+        guard nextConcreteSample(from: output) == nil,
               outputReader.status == .completed else {
             throw AVFoundationSegmentV4Error.assembledDecodedPayloadMismatch(
                 "assembled output has trailing or unreadable frames"
             )
         }
+    }
+
+    /// Empty edits may surface as zero-sample marker buffers. They carry no
+    /// elementary or decoded payload, so stream equality compares only the
+    /// concrete samples while the independent duration/timing checks retain
+    /// responsibility for the edit-list gaps.
+    private static func nextConcreteSample(
+        from output: AVAssetReaderOutput
+    ) -> CMSampleBuffer? {
+        while let sample = output.copyNextSampleBuffer() {
+            if CMSampleBufferGetNumSamples(sample) > 0 { return sample }
+        }
+        return nil
+    }
+
+    /// A passthrough export may pack each segment into a contiguous media
+    /// timeline while carrying its absolute placement in the track edit list.
+    /// Preserve both contracts: raw sample timing may move only by one constant
+    /// per-segment offset, and output timing must match the logical edit offset.
+    private static func sampleTimingsMatch(
+        _ source: CMSampleBuffer,
+        _ output: CMSampleBuffer,
+        nextSource: CMSampleBuffer? = nil,
+        nextOutput: CMSampleBuffer? = nil,
+        logicalOffset: CMTime,
+        rawPresentationOffset: inout CMTime?,
+        rawDecodeOffset: inout CMTime?,
+        allowsIndependentDecodeRebasing: Bool
+    ) -> Bool {
+        let sourceRawPTS = CMSampleBufferGetPresentationTimeStamp(source)
+        let outputRawPTS = CMSampleBufferGetPresentationTimeStamp(output)
+        guard sourceRawPTS.isNumeric,
+              outputRawPTS.isNumeric,
+              !sourceRawPTS.flags.contains(.hasBeenRounded),
+              !outputRawPTS.flags.contains(.hasBeenRounded) else {
+            return false
+        }
+        if rawPresentationOffset == nil {
+            let candidate = CMTimeSubtract(outputRawPTS, sourceRawPTS)
+            guard candidate.isNumeric,
+                  !candidate.flags.contains(.hasBeenRounded) else {
+                return false
+            }
+            rawPresentationOffset = candidate
+        }
+        guard let rawPresentationOffset,
+              shiftedTimeEquals(
+                sourceRawPTS,
+                outputRawPTS,
+                offset: rawPresentationOffset
+              ) else {
+            return false
+        }
+        if !allowsIndependentDecodeRebasing {
+            guard CMTimeCompare(
+                    CMSampleBufferGetDuration(source),
+                    CMSampleBufferGetDuration(output)
+                  ) == 0,
+                  shiftedTimeEquals(
+                    CMSampleBufferGetDecodeTimeStamp(source),
+                    CMSampleBufferGetDecodeTimeStamp(output),
+                    offset: rawPresentationOffset
+                  ), shiftedTimeEquals(
+                    CMSampleBufferGetOutputPresentationTimeStamp(source),
+                    CMSampleBufferGetOutputPresentationTimeStamp(output),
+                    offset: logicalOffset
+                  ), shiftedTimeEquals(
+                    CMSampleBufferGetOutputDecodeTimeStamp(source),
+                    CMSampleBufferGetOutputDecodeTimeStamp(output),
+                    offset: logicalOffset
+                  ), CMTimeCompare(
+                    CMSampleBufferGetOutputDuration(source),
+                    CMSampleBufferGetOutputDuration(output)
+                  ) == 0 else {
+                return false
+            }
+            return true
+        }
+
+        let sourceRawDTS = CMSampleBufferGetDecodeTimeStamp(source)
+        let outputRawDTS = CMSampleBufferGetDecodeTimeStamp(output)
+        if rawDecodeOffset == nil {
+            if sourceRawDTS.isNumeric, outputRawDTS.isNumeric {
+                let candidate = CMTimeSubtract(outputRawDTS, sourceRawDTS)
+                guard candidate.isNumeric,
+                      !candidate.flags.contains(.hasBeenRounded) else {
+                    return false
+                }
+                rawDecodeOffset = candidate
+            } else {
+                guard sourceRawDTS == outputRawDTS else { return false }
+                rawDecodeOffset = .invalid
+            }
+        }
+        guard let rawDecodeOffset else { return false }
+        if rawDecodeOffset.isNumeric {
+            guard shiftedTimeEquals(
+                sourceRawDTS,
+                outputRawDTS,
+                offset: rawDecodeOffset
+            ) else {
+                return false
+            }
+        } else if sourceRawDTS != outputRawDTS {
+            return false
+        }
+        guard let sourceDuration = authoritativeSampleDuration(
+                  source,
+                  next: nextSource
+              ), let outputDuration = authoritativeSampleDuration(
+                  output,
+                  next: nextOutput
+              ), CMTimeCompare(sourceDuration, outputDuration) == 0 else {
+            return false
+        }
+        let editOffset = CMTimeSubtract(
+            logicalOffset,
+            rawPresentationOffset
+        )
+        guard editOffset.isNumeric,
+              !editOffset.flags.contains(.hasBeenRounded),
+              shiftedTimeEquals(
+                outputRawPTS,
+                CMSampleBufferGetOutputPresentationTimeStamp(output),
+                offset: editOffset
+              ), shiftedTimeEquals(
+                outputRawDTS,
+                CMSampleBufferGetOutputDecodeTimeStamp(output),
+                offset: editOffset
+              ) else {
+            return false
+        }
+        return true
+    }
+
+    /// AVFoundation may report a presentation-gap-sized duration for a
+    /// nonterminal compressed sample even when the sample table retains a
+    /// continuous decode cadence. For numeric decode timelines, the adjacent
+    /// DTS delta is the authoritative nonterminal duration. The reader's
+    /// stored duration remains authoritative only for a terminal sample or an
+    /// entirely nonnumeric decode timeline.
+    private static func authoritativeSampleDuration(
+        _ sample: CMSampleBuffer,
+        next: CMSampleBuffer?
+    ) -> CMTime? {
+        let reported = CMSampleBufferGetDuration(sample)
+        guard reported.isNumeric,
+              reported.value > 0,
+              !reported.flags.contains(.hasBeenRounded) else {
+            return nil
+        }
+        guard let next else { return reported }
+        let decode = CMSampleBufferGetDecodeTimeStamp(sample)
+        let nextDecode = CMSampleBufferGetDecodeTimeStamp(next)
+        if !decode.isNumeric, !nextDecode.isNumeric {
+            return reported
+        }
+        guard decode.isNumeric,
+              nextDecode.isNumeric,
+              decode.epoch == nextDecode.epoch,
+              !decode.flags.contains(.hasBeenRounded),
+              !nextDecode.flags.contains(.hasBeenRounded) else {
+            return nil
+        }
+        let delta = CMTimeSubtract(nextDecode, decode)
+        guard delta.isNumeric,
+              delta.value > 0,
+              !delta.flags.contains(.hasBeenRounded) else {
+            return nil
+        }
+        return delta
     }
 
     private static func decodedPixelData(
@@ -1468,6 +2199,102 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
             return true
         }
         return !notSync
+    }
+
+    private static func retime(
+        _ sample: CMSampleBuffer,
+        presentationOffset: CMTime,
+        decodeOffset: CMTime?
+    ) throws -> CMSampleBuffer {
+        let sampleCount = CMSampleBufferGetNumSamples(sample)
+        guard sampleCount > 0 else {
+            throw AVFoundationSegmentV4Error.assembledTimingMismatch
+        }
+        var timing = [CMSampleTimingInfo](
+            repeating: CMSampleTimingInfo(),
+            count: sampleCount
+        )
+        var needed = 0
+        var status = CMSampleBufferGetSampleTimingInfoArray(
+            sample,
+            entryCount: timing.count,
+            arrayToFill: &timing,
+            entriesNeededOut: &needed
+        )
+        guard status == noErr, needed == sampleCount else {
+            throw AVFoundationSegmentV4Error.assembledTimingMismatch
+        }
+        for index in timing.indices {
+            let presentation = timing[index].presentationTimeStamp
+            guard presentation.isNumeric,
+                  !presentation.flags.contains(.hasBeenRounded) else {
+                throw AVFoundationSegmentV4Error.assembledTimingMismatch
+            }
+            timing[index].presentationTimeStamp = CMTimeAdd(
+                presentation,
+                presentationOffset
+            )
+            let decode = timing[index].decodeTimeStamp
+            if decode.isNumeric {
+                guard let decodeOffset,
+                      !decode.flags.contains(.hasBeenRounded) else {
+                    throw AVFoundationSegmentV4Error.assembledTimingMismatch
+                }
+                timing[index].decodeTimeStamp = CMTimeAdd(
+                    decode,
+                    decodeOffset
+                )
+            } else if decodeOffset != nil {
+                throw AVFoundationSegmentV4Error.assembledTimingMismatch
+            }
+            guard timing[index].presentationTimeStamp.isNumeric,
+                  !timing[index].presentationTimeStamp.flags.contains(
+                      .hasBeenRounded
+                  ),
+                  !timing[index].decodeTimeStamp.isNumeric
+                    || !timing[index].decodeTimeStamp.flags.contains(
+                        .hasBeenRounded
+                    ) else {
+                throw AVFoundationSegmentV4Error.assembledTimingMismatch
+            }
+        }
+        var copy: CMSampleBuffer?
+        status = CMSampleBufferCreateCopyWithNewTiming(
+            allocator: kCFAllocatorDefault,
+            sampleBuffer: sample,
+            sampleTimingEntryCount: timing.count,
+            sampleTimingArray: &timing,
+            sampleBufferOut: &copy
+        )
+        guard status == noErr, let copy else {
+            throw AVFoundationSegmentV4Error.assembledTimingMismatch
+        }
+        return copy
+    }
+
+    private static func timesEqual(_ lhs: CMTime, _ rhs: CMTime) -> Bool {
+        if lhs.isNumeric, rhs.isNumeric {
+            return CMTimeCompare(lhs, rhs) == 0
+        }
+        return lhs == rhs
+    }
+
+    private static func createOwnerOnlyEmptyFile(at url: URL) throws {
+        let descriptor = Darwin.open(
+            url.path,
+            O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
+            mode_t(S_IRUSR | S_IWUSR)
+        )
+        guard descriptor >= 0 else {
+            throw AVFoundationSegmentV4Error.exportFailed(
+                String(cString: strerror(errno))
+            )
+        }
+        guard Darwin.close(descriptor) == 0 else {
+            let message = String(cString: strerror(errno))
+            try? FileManager.default.removeItem(at: url)
+            throw AVFoundationSegmentV4Error.exportFailed(message)
+        }
     }
 
     private static func shiftedTimeEquals(

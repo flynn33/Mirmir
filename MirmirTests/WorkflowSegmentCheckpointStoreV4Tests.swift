@@ -629,15 +629,64 @@ final class WorkflowSegmentCheckpointStoreV4Tests: XCTestCase {
         XCTAssertEqual(
             CMTimeCompare(
                 assembledTrackRange.start,
-                CMTime(value: 2, timescale: 30)
+                .zero
             ),
             0
         )
-        let presentationTimes = try await videoSamplePresentationTimes(
+        let trackSegments = try await assembledVideoTrack.load(.segments)
+        XCTAssertEqual(trackSegments.count, 4)
+        let expectedTargetEdits: [
+            (isEmpty: Bool, start: Int64, duration: Int64)
+        ] = [
+            (true, 0, 2),
+            (false, 2, 2),
+            (true, 4, 1),
+            (false, 5, 2)
+        ]
+        for (actual, expected) in zip(trackSegments, expectedTargetEdits) {
+            XCTAssertEqual(actual.isEmpty, expected.isEmpty)
+            XCTAssertEqual(
+                CMTimeCompare(
+                    actual.timeMapping.target.start,
+                    CMTime(value: expected.start, timescale: 30)
+                ),
+                0
+            )
+            XCTAssertEqual(
+                CMTimeCompare(
+                    actual.timeMapping.target.duration,
+                    CMTime(value: expected.duration, timescale: 30)
+                ),
+                0
+            )
+        }
+        let mediaEdits = trackSegments.filter { !$0.isEmpty }
+        XCTAssertEqual(mediaEdits.count, 2)
+        let expectedSourceEdits: [(start: Int64, duration: Int64)] = [
+            (0, 2),
+            (2, 2)
+        ]
+        for (actual, expected) in zip(mediaEdits, expectedSourceEdits) {
+            XCTAssertEqual(
+                CMTimeCompare(
+                    actual.timeMapping.source.start,
+                    CMTime(value: expected.start, timescale: 30)
+                ),
+                0
+            )
+            XCTAssertEqual(
+                CMTimeCompare(
+                    actual.timeMapping.source.duration,
+                    CMTime(value: expected.duration, timescale: 30)
+                ),
+                0
+            )
+        }
+        let presentationTimes = try await videoConcreteOutputPresentationTimes(
             assembledURL
         )
         XCTAssertEqual(presentationTimes.count, 4)
-        for (actual, expected) in zip(presentationTimes, [0, 1, 3, 4]) {
+        for (actual, expected) in zip(presentationTimes, [2, 3, 5, 6]) {
             XCTAssertEqual(
                 CMTimeCompare(
                     actual,
@@ -1079,7 +1128,9 @@ private extension WorkflowSegmentCheckpointStoreV4Tests {
         return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
-    func videoSamplePresentationTimes(_ url: URL) async throws -> [CMTime] {
+    func videoConcreteOutputPresentationTimes(
+        _ url: URL
+    ) async throws -> [CMTime] {
         let asset = AVURLAsset(
             url: url,
             options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
@@ -1108,7 +1159,8 @@ private extension WorkflowSegmentCheckpointStoreV4Tests {
         }
         var times: [CMTime] = []
         while let sample = output.copyNextSampleBuffer() {
-            let time = CMSampleBufferGetPresentationTimeStamp(sample)
+            guard CMSampleBufferGetNumSamples(sample) > 0 else { continue }
+            let time = CMSampleBufferGetOutputPresentationTimeStamp(sample)
             guard time.isNumeric,
                   !time.flags.contains(.hasBeenRounded) else {
                 throw AVFoundationSegmentV4Error.assembledTimingMismatch

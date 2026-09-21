@@ -34,6 +34,69 @@ struct DeterministicV4DecodedDurationRecordV4: Equatable, Sendable {
     let duration: CMTime
 }
 
+struct DeterministicV4CompressedTimingRecordV4: Equatable, Sendable {
+    let presentationTime: HDR10PlusPresentationTimeV4
+    let decodeTime: CMTime
+    let readerReportedDuration: CMTime
+}
+
+struct DeterministicV4CompressedPrefixSelectorV4: Sendable {
+    private let selectedPresentationTimes:
+        Set<HDR10PlusPresentationTimeV4>
+    private let maximumScannedRecordCount: Int
+    private var seenPresentationTimes:
+        Set<HDR10PlusPresentationTimeV4> = []
+    private var foundSelectedPresentationTimes:
+        Set<HDR10PlusPresentationTimeV4> = []
+
+    init(
+        selectedPresentationTimes: Set<HDR10PlusPresentationTimeV4>,
+        maximumScannedRecordCount: Int
+    ) throws {
+        guard !selectedPresentationTimes.isEmpty,
+              maximumScannedRecordCount
+                >= selectedPresentationTimes.count else {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming
+        }
+        self.selectedPresentationTimes = selectedPresentationTimes
+        self.maximumScannedRecordCount = maximumScannedRecordCount
+    }
+
+    var isComplete: Bool {
+        foundSelectedPresentationTimes.count
+            == selectedPresentationTimes.count
+    }
+
+    var hasRemainingCapacity: Bool {
+        seenPresentationTimes.count < maximumScannedRecordCount
+    }
+
+    var scannedRecordCount: Int { seenPresentationTimes.count }
+
+    func hasSeen(_ presentationTime: HDR10PlusPresentationTimeV4) -> Bool {
+        seenPresentationTimes.contains(presentationTime)
+    }
+
+    mutating func admit(
+        _ presentationTime: HDR10PlusPresentationTimeV4
+    ) throws -> Bool {
+        guard !isComplete,
+              hasRemainingCapacity,
+              seenPresentationTimes.insert(presentationTime).inserted else {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming
+        }
+        guard selectedPresentationTimes.contains(presentationTime) else {
+            return false
+        }
+        guard foundSelectedPresentationTimes.insert(
+            presentationTime
+        ).inserted else {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming
+        }
+        return true
+    }
+}
+
 struct DeterministicV4DecodedDurationLedgerV4: Sendable {
     private let records: [DeterministicV4DecodedDurationRecordV4]
     private var nextIndex = 0
@@ -942,6 +1005,198 @@ struct DeterministicV4MediaProcessingSession: Sendable {
 
     private static let directSegmentMaximumInputFrames = 60
 
+    static func segmentBoundaryTimescale(
+        for primaryTimebase: ExactRationalV4
+    ) throws -> CMTimeScale {
+        guard primaryTimebase.numerator == 1,
+              primaryTimebase.denominator <= 1_000_000_000,
+              let timescale = CMTimeScale(
+                exactly: primaryTimebase.denominator
+              ),
+              timescale > 0 else {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming
+        }
+        return timescale
+    }
+
+    static func workflowTime(
+        _ time: ExactRationalV4,
+        timescale: CMTimeScale
+    ) throws -> WorkflowMediaTimeV4 {
+        let scale = Int64(timescale)
+        guard timescale > 0,
+              timescale <= 1_000_000_000,
+              scale.isMultiple(of: time.denominator) else {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming
+        }
+        let multiplier = scale / time.denominator
+        let scaled = time.numerator.multipliedReportingOverflow(
+            by: multiplier
+        )
+        guard !scaled.overflow else {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming
+        }
+        return try WorkflowMediaTimeV4(
+            value: scaled.partialValue,
+            timescale: timescale
+        )
+    }
+
+    static func authoritativeDecodedDuration(
+        currentDecodeTime: CMTime,
+        followingDecodeTime: CMTime?,
+        currentPresentationTime: CMTime,
+        terminalReaderReportedDuration: CMTime?
+    ) throws -> CMTime {
+        guard currentDecodeTime.isNumeric,
+              currentPresentationTime.isNumeric,
+              currentDecodeTime.epoch == 0,
+              currentPresentationTime.epoch == currentDecodeTime.epoch,
+              !currentDecodeTime.flags.contains(.hasBeenRounded),
+              !currentPresentationTime.flags.contains(.hasBeenRounded) else {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming
+        }
+
+        let duration: CMTime
+        if let followingDecodeTime {
+            guard terminalReaderReportedDuration == nil,
+                  followingDecodeTime.isNumeric,
+                  followingDecodeTime.epoch == currentDecodeTime.epoch,
+                  !followingDecodeTime.flags.contains(.hasBeenRounded),
+                  CMTimeCompare(
+                    followingDecodeTime,
+                    currentDecodeTime
+                  ) > 0 else {
+                throw DeterministicV4MediaSegmentError.invalidSampleTiming
+            }
+            duration = CMTimeSubtract(
+                followingDecodeTime,
+                currentDecodeTime
+            )
+        } else {
+            guard let terminalReaderReportedDuration else {
+                throw DeterministicV4MediaSegmentError.invalidSampleTiming
+            }
+            duration = terminalReaderReportedDuration
+        }
+
+        guard duration.isNumeric,
+              duration.epoch == 0,
+              duration.value > 0,
+              !duration.flags.contains(.hasBeenRounded) else {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming
+        }
+        let currentEnd = CMTimeAdd(currentPresentationTime, duration)
+        guard currentEnd.isNumeric,
+              currentEnd.epoch == currentPresentationTime.epoch,
+              !currentEnd.flags.contains(.hasBeenRounded) else {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming
+        }
+        return duration
+    }
+
+    static func authoritativeDecodedDurationRecords(
+        compressed: [DeterministicV4CompressedTimingRecordV4],
+        selectedPresentationTimes:
+            Set<HDR10PlusPresentationTimeV4>? = nil,
+        followingDecodeTime: CMTime?,
+        readerIsExhausted: Bool,
+        maximumRecordCount: Int
+    ) throws -> [DeterministicV4DecodedDurationRecordV4] {
+        guard maximumRecordCount > 0,
+              !compressed.isEmpty,
+              compressed.count <= maximumRecordCount,
+              (followingDecodeTime == nil) == readerIsExhausted else {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming
+        }
+        var seen = Set<HDR10PlusPresentationTimeV4>()
+        var records: [DeterministicV4DecodedDurationRecordV4] = []
+        records.reserveCapacity(compressed.count)
+        for index in compressed.indices {
+            let current = compressed[index]
+            guard seen.insert(current.presentationTime).inserted else {
+                throw DeterministicV4MediaSegmentError.invalidSampleTiming
+            }
+            let nextDecodeTime = compressed.indices.contains(index + 1)
+                ? compressed[index + 1].decodeTime
+                : followingDecodeTime
+            let duration = try authoritativeDecodedDuration(
+                currentDecodeTime: current.decodeTime,
+                followingDecodeTime: nextDecodeTime,
+                currentPresentationTime: current.presentationTime.cmTime,
+                terminalReaderReportedDuration: nextDecodeTime == nil
+                    ? current.readerReportedDuration : nil
+            )
+            records.append(DeterministicV4DecodedDurationRecordV4(
+                presentationTime: current.presentationTime,
+                duration: duration
+            ))
+        }
+        records.sort { $0.presentationTime < $1.presentationTime }
+        _ = try DeterministicV4DecodedDurationLedgerV4(
+            records: records,
+            maximumRecordCount: maximumRecordCount
+        )
+        guard let selectedPresentationTimes else { return records }
+        guard !selectedPresentationTimes.isEmpty,
+              selectedPresentationTimes.count <= maximumRecordCount else {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming
+        }
+        let selectedRecords = records.filter {
+            selectedPresentationTimes.contains($0.presentationTime)
+        }
+        guard selectedRecords.count == selectedPresentationTimes.count else {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming
+        }
+        _ = try DeterministicV4DecodedDurationLedgerV4(
+            records: selectedRecords,
+            maximumRecordCount: maximumRecordCount
+        )
+        return selectedRecords
+    }
+
+    static func maximumCompressedPreflightRecordCount(
+        maximumInputFrames: Int
+    ) throws -> Int {
+        let bounded = maximumInputFrames.multipliedReportingOverflow(by: 2)
+        guard maximumInputFrames > 0,
+              !bounded.overflow,
+              bounded.partialValue >= maximumInputFrames else {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming
+        }
+        return bounded.partialValue
+    }
+
+    static func assembledScratchPresentationTime(
+        localPresentationTime: CMTime,
+        segmentMediaStart: CMTime,
+        segmentDuration: CMTime
+    ) throws -> CMTime {
+        let rawPresentation = CMTimeAdd(
+            localPresentationTime,
+            segmentMediaStart
+        )
+        guard localPresentationTime.isNumeric,
+              segmentMediaStart.isNumeric,
+              segmentDuration.isNumeric,
+              rawPresentation.isNumeric,
+              localPresentationTime.epoch == 0,
+              segmentMediaStart.epoch == 0,
+              segmentDuration.epoch == 0,
+              rawPresentation.epoch == 0,
+              CMTimeCompare(localPresentationTime, .zero) >= 0,
+              CMTimeCompare(localPresentationTime, segmentDuration) < 0,
+              CMTimeCompare(segmentMediaStart, .zero) >= 0,
+              segmentDuration.value > 0,
+              !localPresentationTime.flags.contains(.hasBeenRounded),
+              !segmentMediaStart.flags.contains(.hasBeenRounded),
+              !segmentDuration.flags.contains(.hasBeenRounded),
+              !rawPresentation.flags.contains(.hasBeenRounded) else {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming
+        }
+        return rawPresentation
+    }
+
     private let planner: DeterministicV4WholeAssetPlanner
     private let executor: AVFoundationTrackMigrationExecutorV4
     private let outputValidator: OutputMediaValidator
@@ -1033,17 +1288,25 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                 DeterministicV4PrimaryTimelineMappingV4(
                     plannedPrimary: plannedPrimary
                 )
-            let primaryMediaTimelineStart = try workflowTime(
-                primaryTimelineMapping.mediaRange.start
+            let segmentBoundaryTimescale = try Self
+                .segmentBoundaryTimescale(
+                    for: preparedPlan.primaryGraphTrack.timebase
+                )
+            let primaryMediaTimelineStart = try Self.workflowTime(
+                primaryTimelineMapping.mediaRange.start,
+                timescale: segmentBoundaryTimescale
             )
-            let primaryMediaTimelineEnd = try workflowTime(
-                primaryTimelineMapping.mediaEnd
+            let primaryMediaTimelineEnd = try Self.workflowTime(
+                primaryTimelineMapping.mediaEnd,
+                timescale: segmentBoundaryTimescale
             )
-            let primaryOutputTimelineStart = try workflowTime(
-                primaryTimelineMapping.targetRange.start
+            let primaryOutputTimelineStart = try Self.workflowTime(
+                primaryTimelineMapping.targetRange.start,
+                timescale: segmentBoundaryTimescale
             )
-            let primaryOutputTimelineEnd = try workflowTime(
-                primaryTimelineMapping.targetEnd
+            let primaryOutputTimelineEnd = try Self.workflowTime(
+                primaryTimelineMapping.targetEnd,
+                timescale: segmentBoundaryTimescale
             )
             guard primaryMediaTimelineStart.value >= 0,
                   primaryOutputTimelineStart.value >= 0,
@@ -1090,6 +1353,10 @@ struct DeterministicV4MediaProcessingSession: Sendable {
             var segmentOrdinal = 0
             while true {
                 try cancellation.check()
+                guard let expectedSegmentStart = nextStartTime else {
+                    throw DeterministicV4MediaSegmentError
+                        .incompleteSegmentSequence
+                }
                 let segmentURL = temporaryRoot.appendingPathComponent(
                     String(format: "segment-%08d.mov", segmentOrdinal),
                     isDirectory: false
@@ -1100,7 +1367,7 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                     preparedPlan: preparedPlan,
                     preparedBackend: preparedBackend,
                     startingInputFrameIndex: nextInputFrameIndex,
-                    startTime: nextStartTime,
+                    startTime: expectedSegmentStart,
                     maximumInputFrames: Self
                         .directSegmentMaximumInputFrames,
                     segmentURL: segmentURL,
@@ -1115,8 +1382,7 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                         == Int64(
                             nextInputFrameIndex + segment.inputSampleCount - 1
                         ),
-                      segment.startTime
-                        == (nextStartTime ?? segment.startTime),
+                      segment.startTime == expectedSegmentStart,
                       segment.endTimeExclusive.timescale
                         == segment.startTime.timescale,
                       segment.endTimeExclusive.value
@@ -1178,10 +1444,8 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                     .incompleteSegmentSequence
             }
             guard let finalSegment = directSegmentFacts.last,
-                  CMTimeCompare(
-                    cmTime(finalSegment.endTimeExclusive),
-                    cmTime(primaryMediaTimelineEnd)
-                  ) == 0 else {
+                  finalSegment.endTimeExclusive
+                    == primaryMediaTimelineEnd else {
                 throw DeterministicV4MediaSegmentError
                     .incompleteSegmentSequence
             }
@@ -1204,6 +1468,8 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                         segments: transientSegments,
                         mediaTimelineStart: primaryMediaTimelineStart,
                         outputTimelineStart: primaryOutputTimelineStart,
+                        expectedTimeRange: plannedPrimaryOutput.timeRange,
+                        expectedEdits: plannedPrimaryOutput.edits,
                         destinationURL: assembledVideoURL,
                         outputFileType: .mov,
                         overwriteExistingFile: false
@@ -1222,6 +1488,7 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                 videoTrackOrdinal: 0,
                 segments: directSegmentFacts,
                 mediaTimelineStart: primaryMediaTimelineStart,
+                outputTimelineStart: primaryOutputTimelineStart,
                 trustedRoot: temporaryRoot,
                 maximumRecordCount:
                     maximumScratchRecordCount.partialValue,
@@ -1290,6 +1557,7 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                 videoTrackOrdinal: primaryOrdinal,
                 segments: directSegmentFacts,
                 mediaTimelineStart: primaryMediaTimelineStart,
+                outputTimelineStart: primaryOutputTimelineStart,
                 trustedRoot: temporaryRoot,
                 maximumRecordCount:
                     maximumScratchRecordCount.partialValue,
@@ -1435,6 +1703,10 @@ struct DeterministicV4MediaProcessingSession: Sendable {
             throw DeterministicV4MediaSegmentError.primaryTrackMissing
         }
         let sourceTrack = tracks[primaryOrdinal]
+        let primaryTimebase = preparedPlan.primaryGraphTrack.timebase
+        let segmentBoundaryTimescale = try Self.segmentBoundaryTimescale(
+            for: primaryTimebase
+        )
         let hook = try preparedPlan.makeProcessingHook(
             backend: preparedBackend,
             startingFrameIndex: startingInputFrameIndex,
@@ -1707,8 +1979,7 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                   let globalEnd else {
                 throw DeterministicV4MediaSegmentError.emptySegment
             }
-            let preferredTimescale = startTime?.timescale
-                ?? segmentOrigin.timescale
+            let preferredTimescale = segmentBoundaryTimescale
             try cancellation.check()
             var nextPresentationTime: CMTime?
             if inputCount == maximumInputFrames {
@@ -2300,6 +2571,7 @@ private extension DeterministicV4MediaProcessingSession {
         videoTrackOrdinal: Int,
         segments: [DirectSegmentFact],
         mediaTimelineStart: WorkflowMediaTimeV4,
+        outputTimelineStart: WorkflowMediaTimeV4,
         trustedRoot: URL,
         maximumRecordCount: Int,
         cancellation: ProcessingCancellation
@@ -2322,8 +2594,16 @@ private extension DeterministicV4MediaProcessingSession {
             timescale: first.startTime.timescale
         )
         let mediaStart = cmTime(mediaTimelineStart)
+        let outputStart = cmTime(outputTimelineStart)
         guard mediaStart.isNumeric,
+              outputStart.isNumeric,
+              mediaStart.epoch == 0,
+              outputStart.epoch == 0,
+              !mediaStart.flags.contains(.hasBeenRounded),
+              !outputStart.flags.contains(.hasBeenRounded),
+              mediaTimelineStart.timescale == outputTimelineStart.timescale,
               CMTimeCompare(mediaStart, .zero) >= 0,
+              CMTimeCompare(outputStart, .zero) >= 0,
               CMTimeCompare(mediaStart, origin) == 0 else {
             throw DeterministicV4MediaSegmentError
                 .incompleteSegmentSequence
@@ -2355,11 +2635,24 @@ private extension DeterministicV4MediaProcessingSession {
             priorEnd = globalEnd
             let offset = CMTimeSubtract(globalStart, mediaStart)
             let duration = CMTimeSubtract(globalEnd, globalStart)
+            let readerStart = CMTimeAdd(outputStart, offset)
+            let readerEnd = CMTimeAdd(readerStart, duration)
             guard offset.isNumeric,
                   duration.isNumeric,
+                  readerStart.isNumeric,
+                  readerEnd.isNumeric,
+                  offset.epoch == 0,
+                  duration.epoch == 0,
+                  readerStart.epoch == 0,
+                  readerEnd.epoch == 0,
+                  CMTimeCompare(offset, .zero) >= 0,
                   duration.value > 0,
                   !offset.flags.contains(.hasBeenRounded),
-                  !duration.flags.contains(.hasBeenRounded) else {
+                  !duration.flags.contains(.hasBeenRounded),
+                  !readerStart.flags.contains(.hasBeenRounded),
+                  !readerEnd.flags.contains(.hasBeenRounded),
+                  CMTimeCompare(readerStart, outputStart) >= 0,
+                  CMTimeCompare(readerEnd, readerStart) > 0 else {
                 throw DeterministicV4MediaSegmentError.invalidSampleTiming
             }
             let document = try loadHDR10PlusScratchLedger(
@@ -2373,14 +2666,19 @@ private extension DeterministicV4MediaProcessingSession {
             expected.reserveCapacity(document.records.count)
             for record in document.records {
                 let local = record.presentationTime.cmTime
-                guard CMTimeCompare(local, .zero) >= 0,
-                      CMTimeCompare(local, duration) < 0 else {
+                let shifted: HDR10PlusPresentationTimeV4
+                do {
+                    shifted = try HDR10PlusPresentationTimeV4(
+                        Self.assembledScratchPresentationTime(
+                            localPresentationTime: local,
+                            segmentMediaStart: globalStart,
+                            segmentDuration: duration
+                        )
+                    )
+                } catch {
                     throw DeterministicV4MediaSegmentError
                         .scratchLedgerMismatch
                 }
-                let shifted = try HDR10PlusPresentationTimeV4(
-                    CMTimeAdd(local, offset)
-                )
                 guard expected.updateValue(
                     record.hdr10PlusSHA256,
                     forKey: shifted
@@ -2400,7 +2698,10 @@ private extension DeterministicV4MediaProcessingSession {
                 throw DeterministicV4MediaSegmentError.readerRejectedTrack
             }
             reader.add(output)
-            reader.timeRange = CMTimeRange(start: offset, duration: duration)
+            reader.timeRange = CMTimeRange(
+                start: readerStart,
+                duration: duration
+            )
             guard reader.startReading() else {
                 throw DeterministicV4MediaSegmentError.readerStartFailed
             }
@@ -2645,12 +2946,23 @@ private extension DeterministicV4MediaProcessingSession {
         var compressed: [
             HDR10PlusPresentationTimeV4: HDR10PlusMetadataV4?
         ] = [:]
-        var compressedOrder: [HDR10PlusPresentationTimeV4] = []
         var decodedDurations: [
             DeterministicV4DecodedDurationRecordV4
         ] = []
-        while (timelineMapping == nil
-                || compressedOrder.count < decodedTimes.count),
+        var compressedTiming: [
+            DeterministicV4CompressedTimingRecordV4
+        ] = []
+        let maximumCompressedRecordCount = try Self
+            .maximumCompressedPreflightRecordCount(
+                maximumInputFrames: maximumInputFrames
+            )
+        var compressedSelector = try
+            DeterministicV4CompressedPrefixSelectorV4(
+                selectedPresentationTimes: decodedTimeSet,
+                maximumScannedRecordCount: maximumCompressedRecordCount
+            )
+        while !compressedSelector.isComplete,
+              compressedSelector.hasRemainingCapacity,
               let sample = compressedOutput.copyNextSampleBuffer() {
             try cancellation.check()
             let sampleCount = CMSampleBufferGetNumSamples(sample)
@@ -2663,52 +2975,30 @@ private extension DeterministicV4MediaProcessingSession {
             let key = try HDR10PlusPresentationTimeV4(
                 CMSampleBufferGetPresentationTimeStamp(sample)
             )
-            guard decodedTimeSet.contains(key),
-                  timelineMapping == nil
-                    || (decodedTimes.indices.contains(compressedOrder.count)
-                        && decodedTimes[compressedOrder.count] == key) else {
-                throw HDRMetadataV4Error.contradictoryMetadata(
-                    "compressed source has an extra presentation time"
-                )
-            }
-            if let timelineMapping {
-                let duration = CMSampleBufferGetDuration(sample)
-                let mediaPresentation = key.cmTime
-                let mediaEnd = CMTimeAdd(mediaPresentation, duration)
-                let offset = cmTime(try workflowTime(
-                    timelineMapping.offset
-                ))
-                let targetPresentation = CMTimeAdd(
-                    mediaPresentation,
-                    offset
-                )
-                let targetEnd = CMTimeAdd(targetPresentation, duration)
-                let admittedMediaEnd = cmTime(try workflowTime(
-                    timelineMapping.mediaEnd
-                ))
-                let admittedTargetEnd = cmTime(try workflowTime(
-                    timelineMapping.targetEnd
-                ))
-                guard duration.isNumeric,
-                      duration.value > 0,
-                      !duration.flags.contains(.hasBeenRounded),
-                      mediaEnd.isNumeric,
-                      targetPresentation.isNumeric,
-                      targetEnd.isNumeric,
-                      !mediaEnd.flags.contains(.hasBeenRounded),
-                      !targetPresentation.flags.contains(.hasBeenRounded),
-                      !targetEnd.flags.contains(.hasBeenRounded),
-                      CMTimeCompare(mediaEnd, admittedMediaEnd) <= 0,
-                      CMTimeCompare(targetEnd, admittedTargetEnd) <= 0 else {
+            let isSelected = try compressedSelector.admit(key)
+            if timelineMapping != nil {
+                let decodeTime = CMSampleBufferGetDecodeTimeStamp(sample)
+                let readerReportedDuration = CMSampleBufferGetDuration(sample)
+                guard decodeTime.isNumeric,
+                      decodeTime.epoch == key.epoch,
+                      !decodeTime.flags.contains(.hasBeenRounded)
+                else {
                     throw DeterministicV4MediaSegmentError
                         .invalidSampleTiming
                 }
-                decodedDurations.append(
-                    DeterministicV4DecodedDurationRecordV4(
+                compressedTiming.append(
+                    DeterministicV4CompressedTimingRecordV4(
                         presentationTime: key,
-                        duration: duration
+                        decodeTime: decodeTime,
+                        readerReportedDuration: readerReportedDuration
                     )
                 )
+            }
+            guard isSelected else {
+                // Decode-order samples outside the selected presentation
+                // prefix establish cadence only. They never enter the
+                // segment HDR ledger.
+                continue
             }
             let dynamic = try AVFoundationHDRMetadataAdapterV4
                 .probeDynamicMetadata(from: sample)
@@ -2725,11 +3015,53 @@ private extension DeterministicV4MediaProcessingSession {
                     "compressed source presentation time is duplicated"
                 )
             }
-            compressedOrder.append(key)
         }
-        if timelineMapping != nil, decodedReaderExhausted {
+        guard compressedSelector.isComplete else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "compressed source presentation prefix is incomplete"
+            )
+        }
+        var lookaheadDecodeTime: CMTime?
+        if timelineMapping != nil,
+           !decodedReaderExhausted {
             while let sample = compressedOutput.copyNextSampleBuffer() {
                 try cancellation.check()
+                let sampleCount = CMSampleBufferGetNumSamples(sample)
+                if sampleCount == 0 { continue }
+                guard sampleCount == 1 else {
+                    throw HDRMetadataV4Error.contradictoryMetadata(
+                        "compressed source sample aggregation is unsupported"
+                    )
+                }
+                let key = try HDR10PlusPresentationTimeV4(
+                    CMSampleBufferGetPresentationTimeStamp(sample)
+                )
+                guard !compressedSelector.hasSeen(key),
+                      !decodedTimeSet.contains(key) else {
+                    throw HDRMetadataV4Error.contradictoryMetadata(
+                        "compressed source presentation time is duplicated"
+                    )
+                }
+                let decodeTime = CMSampleBufferGetDecodeTimeStamp(sample)
+                guard decodeTime.isNumeric,
+                      decodeTime.epoch == key.epoch,
+                      !decodeTime.flags.contains(.hasBeenRounded) else {
+                    throw DeterministicV4MediaSegmentError.invalidSampleTiming
+                }
+                lookaheadDecodeTime = decodeTime
+                break
+            }
+        }
+        if timelineMapping == nil || decodedReaderExhausted {
+            var drainedBufferCount = 0
+            while let sample = compressedOutput.copyNextSampleBuffer() {
+                try cancellation.check()
+                guard drainedBufferCount < maximumCompressedRecordCount else {
+                    throw HDRMetadataV4Error.contradictoryMetadata(
+                        "compressed source tail exceeds its scan bound"
+                    )
+                }
+                drainedBufferCount += 1
                 let sampleCount = CMSampleBufferGetNumSamples(sample)
                 if sampleCount == 0 { continue }
                 guard sampleCount == 1 else {
@@ -2741,8 +3073,6 @@ private extension DeterministicV4MediaProcessingSession {
                     "compressed source has an extra presentation time"
                 )
             }
-        }
-        if timelineMapping == nil || decodedReaderExhausted {
             guard compressedReader.status == .completed else {
                 throw DeterministicV4MediaSegmentError.readerFailed
             }
@@ -2753,9 +3083,57 @@ private extension DeterministicV4MediaProcessingSession {
             }
             compressedReader.cancelReading()
         }
+        if let timelineMapping {
+            guard compressedTiming.count
+                    == compressedSelector.scannedRecordCount,
+                  compressedTiming.count <= maximumCompressedRecordCount else {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "compressed and decoded source timing domains differ"
+                )
+            }
+            let offset = cmTime(try workflowTime(timelineMapping.offset))
+            let admittedMediaEnd = cmTime(try workflowTime(
+                timelineMapping.mediaEnd
+            ))
+            let admittedTargetEnd = cmTime(try workflowTime(
+                timelineMapping.targetEnd
+            ))
+            decodedDurations = try Self.authoritativeDecodedDurationRecords(
+                compressed: compressedTiming,
+                selectedPresentationTimes: decodedTimeSet,
+                followingDecodeTime: lookaheadDecodeTime,
+                readerIsExhausted: compressedReader.status == .completed,
+                maximumRecordCount: maximumCompressedRecordCount
+            )
+            for record in decodedDurations {
+                let duration = record.duration
+                let mediaPresentation = record.presentationTime.cmTime
+                let mediaEnd = CMTimeAdd(mediaPresentation, duration)
+                let targetPresentation = CMTimeAdd(
+                    mediaPresentation,
+                    offset
+                )
+                let targetEnd = CMTimeAdd(targetPresentation, duration)
+                guard duration.isNumeric,
+                      duration.value > 0,
+                      !duration.flags.contains(.hasBeenRounded),
+                      mediaEnd.isNumeric,
+                      targetPresentation.isNumeric,
+                      targetEnd.isNumeric,
+                      !mediaEnd.flags.contains(.hasBeenRounded),
+                      !targetPresentation.flags.contains(.hasBeenRounded),
+                      !targetEnd.flags.contains(.hasBeenRounded),
+                      CMTimeCompare(mediaEnd, admittedMediaEnd) <= 0,
+                      CMTimeCompare(targetEnd, admittedTargetEnd) <= 0 else {
+                    throw DeterministicV4MediaSegmentError
+                        .invalidSampleTiming
+                }
+            }
+        }
         try cancellation.check()
         guard Set(compressed.keys) == decodedTimeSet,
-              timelineMapping == nil || compressedOrder == decodedTimes,
+              timelineMapping == nil
+                || decodedDurations.map(\.presentationTime) == decodedTimes,
               timelineMapping == nil
                 || decodedDurations.count == decodedTimes.count else {
             throw HDRMetadataV4Error.contradictoryMetadata(

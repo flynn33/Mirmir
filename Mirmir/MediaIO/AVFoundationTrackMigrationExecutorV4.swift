@@ -794,6 +794,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         let passThroughFormatContract: PassThroughFormatContract?
         let edits: [MediaTrackEditV4]
         let requiresEditMapRebuild: Bool
+        let sampleStreamTerminalPresentationEnd: CMTime?
         let verifiesEncodedSampleStream: Bool
         let accumulatesSourceStreamDuringDrain: Bool
         let verifiesDynamicHDRStream: Bool
@@ -1791,6 +1792,26 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             pipeReader.add(readerOutput)
             writer.add(writerInput)
             let expectedEdits = planned.expectedOutput?.edits ?? []
+            let sampleStreamTerminalPresentationEnd: CMTime?
+            if replacementForTrack != nil {
+                let timelineMapping: DeterministicV4PrimaryTimelineMappingV4
+                do {
+                    timelineMapping = try .init(plannedPrimary: planned)
+                } catch {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .invalidProcessedVideoReplacement(
+                            id,
+                            reason:
+                                "replacement_requires_authorized_media_mapping"
+                        )
+                }
+                sampleStreamTerminalPresentationEnd = try cmTime(
+                    timelineMapping.mediaEnd,
+                    trackID: id
+                )
+            } else {
+                sampleStreamTerminalPresentationEnd = nil
+            }
             let containsScaledEdit = expectedEdits.contains { edit in
                 guard let source = edit.source else { return false }
                 return source.duration != edit.target.duration
@@ -1800,6 +1821,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             // empty and discontiguous edits remain explicit in the movie.
             let requiresTranscodeEditRebuild = planned.action == .transcode
                 && expectedEdits != planned.source.edits
+            let requiresReplacementEditRebuild = replacementForTrack != nil
             var pipe = TrackPipe(
                 trackID: id,
                 action: planned.action,
@@ -1812,13 +1834,20 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 passThroughFormatContract: passThroughFormatContract,
                 edits: expectedEdits,
                 requiresEditMapRebuild: containsScaledEdit
-                    || requiresTranscodeEditRebuild,
+                    || requiresTranscodeEditRebuild
+                    || requiresReplacementEditRebuild,
+                sampleStreamTerminalPresentationEnd:
+                    sampleStreamTerminalPresentationEnd,
                 verifiesEncodedSampleStream: verifiesEncodedSampleStream,
                 accumulatesSourceStreamDuringDrain:
                     verifiesEncodedSampleStream && sourceStreamIdentity == nil,
                 verifiesDynamicHDRStream: verifiesDynamicHDRStream,
                 accumulatesDynamicHDRStreamDuringDrain:
                     verifiesDynamicHDRStream && sourceStreamIdentity == nil
+            )
+            pipe.sampleStream = SampleStreamAccumulatorV4(
+                authorizedTerminalPresentationEnd:
+                    sampleStreamTerminalPresentationEnd
             )
             if let sourceStreamIdentity {
                 pipe.sampleStream = sourceStreamIdentity.encoded
@@ -2521,6 +2550,13 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     || pipe.verifiesDynamicHDRStream else {
                 continue
             }
+            let authorizedTerminalPresentationEnd = try Self
+                .authorizedTerminalPresentationEndForReopen(
+                    trackID: pipe.trackID,
+                    planned: pipe.sampleStreamTerminalPresentationEnd,
+                    plannedEdits: pipe.edits,
+                    observedEdits: observedNode.edits
+                )
             let reader: AVAssetReader
             do {
                 reader = try AVAssetReader(asset: outputAsset)
@@ -2551,7 +2587,10 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                         failure: .init(reader.error)
                     )
             }
-            var encoded = SampleStreamAccumulatorV4()
+            var encoded = SampleStreamAccumulatorV4(
+                authorizedTerminalPresentationEnd:
+                    authorizedTerminalPresentationEnd
+            )
             var dynamicHDR = DynamicHDRMetadataStreamAccumulatorV4()
             while let sample = output.copyNextSampleBuffer() {
                 try cancellation.check()
@@ -3202,6 +3241,23 @@ extension AVFoundationTrackMigrationExecutorV4 {
                 .dynamicHDRMetadataMismatch
         }
     }
+
+    static func authorizedTerminalPresentationEndForReopen(
+        trackID: MediaTrackStableIDV4,
+        planned: CMTime?,
+        plannedEdits: [MediaTrackEditV4],
+        observedEdits: [MediaTrackEditV4]
+    ) throws -> CMTime? {
+        guard let planned else { return nil }
+        guard observedEdits == plannedEdits else {
+            throw AVFoundationTrackMigrationExecutorV4Error
+                .invalidProcessedVideoReplacement(
+                    trackID,
+                    reason: "observed_media_mapping_disagrees_with_plan"
+                )
+        }
+        return planned
+    }
 }
 
 struct SampleStreamAccumulatorV4 {
@@ -3215,32 +3271,62 @@ struct SampleStreamAccumulatorV4 {
         let fixedStateByteCount: Int
     }
 
-    private static let hashDomain = "ash-avfoundation-sample-stream-v4"
+    private struct PendingSample {
+        let timing: CMSampleTimingInfo
+        let mediaType: CMMediaType
+        let mediaSubtype: FourCharCode
+        let formatFingerprint: ASHSHA256V4
+        let sampleSize: UInt64
+        let payloadSHA256: ASHSHA256V4
+
+        var retainedCanonicalByteCount: Int {
+            MemoryLayout<CMSampleTimingInfo>.stride
+                + MemoryLayout<CMMediaType>.stride
+                + MemoryLayout<FourCharCode>.stride
+                + MemoryLayout<UInt64>.stride
+                + formatFingerprint.rawValue.utf8.count
+                + payloadSHA256.rawValue.utf8.count
+        }
+    }
+
+    private static let hashDomain = "ash-avfoundation-sample-stream-v4.2"
 
     private var hasher: SHA256
     private var processedCanonicalByteCount: UInt64 = 0
+    private var pendingSample: PendingSample?
+    private let authorizedTerminalPresentationEnd: CMTime?
+    private var precedingFinalizedTiming: CMSampleTimingInfo?
+    private var maximumFinalizedPresentationTime: CMTime?
+    private var finalizedPresentationTimesAreExact = true
 
-    init() {
+    init(authorizedTerminalPresentationEnd: CMTime? = nil) {
         var hasher = SHA256()
         hasher.update(data: Data(Self.hashDomain.utf8))
         hasher.update(data: Data([0]))
         self.hasher = hasher
+        self.authorizedTerminalPresentationEnd =
+            authorizedTerminalPresentationEnd
     }
 
     var digest: ASHSHA256V4 {
-        let snapshot = hasher
-        let rawValue = snapshot.finalize().map {
+        var snapshot = self
+        snapshot.flushPending(following: nil)
+        let rawValue = snapshot.hasher.finalize().map {
             String(format: "%02x", $0)
         }.joined()
         // CryptoKit always emits exactly 32 bytes, formatted above as 64
         // lowercase hexadecimal characters.
-        return try! ASHSHA256V4(rawValue)
+        guard let digest = try? ASHSHA256V4(rawValue) else {
+            preconditionFailure("CryptoKit emitted an invalid SHA-256 digest.")
+        }
+        return digest
     }
 
     var retentionDiagnosticForQualification: RetentionDiagnostic {
         RetentionDiagnostic(
             processedCanonicalByteCount: processedCanonicalByteCount,
-            retainedCanonicalByteCount: 0,
+            retainedCanonicalByteCount:
+                pendingSample?.retainedCanonicalByteCount ?? 0,
             fixedStateByteCount: MemoryLayout<Self>.stride
         )
     }
@@ -3286,11 +3372,14 @@ struct SampleStreamAccumulatorV4 {
                 }
                 var bytes = Data(count: sampleSize)
                 let copyStatus = bytes.withUnsafeMutableBytes { destination in
-                    CMBlockBufferCopyDataBytes(
+                    guard let destinationAddress = destination.baseAddress else {
+                        return kCMBlockBufferBadPointerParameterErr
+                    }
+                    return CMBlockBufferCopyDataBytes(
                         dataBuffer,
                         atOffset: dataOffset,
                         dataLength: sampleSize,
-                        destination: destination.baseAddress!
+                        destination: destinationAddress
                     )
                 }
                 guard copyStatus == kCMBlockBufferNoErr else {
@@ -3298,24 +3387,201 @@ struct SampleStreamAccumulatorV4 {
                 }
                 payload = bytes
             }
-            appendCanonicalByte(1)
-            appendTime(timing.presentationTimeStamp)
-            appendTime(timing.decodeTimeStamp)
-            appendTime(timing.duration)
-            appendInteger(mediaType)
-            appendInteger(mediaSubtype)
-            appendCanonicalData(Data(formatFingerprint.rawValue.utf8))
-            appendInteger(UInt64(sampleSize))
-            appendCanonicalData(Data(ASHSHA256V4(
-                rawData: payload
-            ).rawValue.utf8))
+            let next = PendingSample(
+                timing: timing,
+                mediaType: mediaType,
+                mediaSubtype: mediaSubtype,
+                formatFingerprint: formatFingerprint,
+                sampleSize: UInt64(sampleSize),
+                payloadSHA256: ASHSHA256V4(rawData: payload)
+            )
+            flushPending(following: next)
+            pendingSample = next
             dataOffset += sampleSize
         }
     }
 
+    private mutating func flushPending(following: PendingSample?) {
+        guard let pendingSample else { return }
+        let duration = canonicalDuration(
+            for: pendingSample,
+            following: following
+        )
+        appendCanonicalByte(1)
+        appendTime(pendingSample.timing.presentationTimeStamp)
+        appendTime(pendingSample.timing.decodeTimeStamp)
+        appendTime(duration)
+        appendInteger(pendingSample.mediaType)
+        appendInteger(pendingSample.mediaSubtype)
+        appendCanonicalData(Data(
+            pendingSample.formatFingerprint.rawValue.utf8
+        ))
+        appendInteger(pendingSample.sampleSize)
+        appendCanonicalData(Data(
+            pendingSample.payloadSHA256.rawValue.utf8
+        ))
+        if following != nil {
+            retainFinalizedTiming(pendingSample.timing)
+        }
+        self.pendingSample = nil
+    }
+
+    private func canonicalDuration(
+        for sample: PendingSample,
+        following: PendingSample?
+    ) -> CMTime {
+        let reported = sample.timing.duration
+        if let following,
+           let cadence = Self.positiveExactDifference(
+               following.timing.decodeTimeStamp,
+               sample.timing.decodeTimeStamp
+           ) {
+            guard Self.isPositiveExact(reported) else { return cadence }
+            if CMTimeCompare(reported, cadence) == 0
+                || isReaderBoundarySynthesis(
+                    reported: reported,
+                    cadence: cadence,
+                    presentationTime: sample.timing.presentationTimeStamp,
+                    followingPresentationTime:
+                        following.timing.presentationTimeStamp
+                ) {
+                return cadence
+            }
+            // A reported duration that disagrees with an otherwise valid DTS
+            // cadence remains part of the identity unless an exact PTS gap
+            // proves it is AVAssetReader boundary synthesis.
+            return reported
+        }
+        if following == nil {
+            let authorized = isAuthorizedTerminalBoundarySynthesis(
+                sample: sample,
+                reported: reported
+            )
+            if authorized,
+               let precedingFinalizedTiming,
+               let cadence = Self.positiveExactDifference(
+                   sample.timing.decodeTimeStamp,
+                   precedingFinalizedTiming.decodeTimeStamp
+               ) {
+                return cadence
+            }
+        }
+        return reported
+    }
+
+    private func isAuthorizedTerminalBoundarySynthesis(
+        sample: PendingSample,
+        reported: CMTime
+    ) -> Bool {
+        guard let authorizedTerminalPresentationEnd,
+              let precedingFinalizedTiming,
+              let maximumFinalizedPresentationTime,
+              finalizedPresentationTimesAreExact,
+              Self.isPositiveExact(reported),
+              sample.timing.presentationTimeStamp.epoch
+                == maximumFinalizedPresentationTime.epoch,
+              CMTimeCompare(
+                  sample.timing.presentationTimeStamp,
+                  maximumFinalizedPresentationTime
+              ) > 0,
+              let cadence = Self.positiveExactDifference(
+                  sample.timing.decodeTimeStamp,
+                  precedingFinalizedTiming.decodeTimeStamp
+              ),
+              let remaining = Self.positiveExactDifference(
+                  authorizedTerminalPresentationEnd,
+                  sample.timing.presentationTimeStamp
+              ),
+              CMTimeCompare(cadence, remaining) == 0,
+              CMTimeCompare(reported, cadence) > 0,
+              let boundaryPresentationGap = Self.positiveExactDifference(
+                  sample.timing.presentationTimeStamp,
+                  maximumFinalizedPresentationTime
+              ) else { return false }
+        return CMTimeCompare(reported, boundaryPresentationGap) == 0
+    }
+
+    private mutating func retainFinalizedTiming(
+        _ timing: CMSampleTimingInfo
+    ) {
+        precedingFinalizedTiming = timing
+        guard finalizedPresentationTimesAreExact,
+              Self.isExactNumeric(timing.presentationTimeStamp) else {
+            finalizedPresentationTimesAreExact = false
+            maximumFinalizedPresentationTime = nil
+            return
+        }
+        guard let maximumFinalizedPresentationTime else {
+            self.maximumFinalizedPresentationTime =
+                timing.presentationTimeStamp
+            return
+        }
+        guard maximumFinalizedPresentationTime.epoch
+                == timing.presentationTimeStamp.epoch else {
+            finalizedPresentationTimesAreExact = false
+            self.maximumFinalizedPresentationTime = nil
+            return
+        }
+        if CMTimeCompare(
+            timing.presentationTimeStamp,
+            maximumFinalizedPresentationTime
+        ) > 0 {
+            self.maximumFinalizedPresentationTime =
+                timing.presentationTimeStamp
+        }
+    }
+
+    private func isReaderBoundarySynthesis(
+        reported: CMTime,
+        cadence: CMTime,
+        presentationTime: CMTime,
+        followingPresentationTime: CMTime
+    ) -> Bool {
+        guard CMTimeCompare(reported, cadence) > 0,
+              let gap = Self.positiveExactDifference(
+                  followingPresentationTime,
+                  presentationTime
+              ) else { return false }
+        return CMTimeCompare(gap, reported) == 0
+    }
+
+    private static func positiveExactDifference(
+        _ end: CMTime,
+        _ start: CMTime
+    ) -> CMTime? {
+        guard isExactNumeric(end),
+              isExactNumeric(start),
+              end.epoch == start.epoch else { return nil }
+        let difference = CMTimeSubtract(end, start)
+        guard isPositiveExact(difference) else { return nil }
+        return difference
+    }
+
+    private static func isPositiveExact(_ time: CMTime) -> Bool {
+        isExactNumeric(time) && CMTimeCompare(time, .zero) > 0
+    }
+
+    private static func isExactNumeric(_ time: CMTime) -> Bool {
+        time.isNumeric
+            && time.timescale > 0
+            && !time.flags.contains(.hasBeenRounded)
+    }
+
     private mutating func appendTime(_ time: CMTime) {
-        appendInteger(time.value)
-        appendInteger(time.timescale)
+        if time.isNumeric,
+           time.timescale != 0,
+           let exact = try? ExactRationalV4(
+               time.value,
+               Int64(time.timescale)
+           ) {
+            appendCanonicalByte(1)
+            appendInteger(exact.numerator)
+            appendInteger(exact.denominator)
+        } else {
+            appendCanonicalByte(0)
+            appendInteger(time.value)
+            appendInteger(time.timescale)
+        }
         appendInteger(time.flags.rawValue)
         appendInteger(time.epoch)
     }

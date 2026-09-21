@@ -6,6 +6,213 @@ import XCTest
 @testable import Mirmir
 
 final class HDRMetadataV4Tests: XCTestCase {
+    func testPrimaryGraphTimebaseNormalizesSegmentBoundariesExactly() throws {
+        let timescale = try DeterministicV4MediaProcessingSession
+            .segmentBoundaryTimescale(for: ExactRationalV4(1, 600))
+
+        XCTAssertEqual(timescale, 600)
+        XCTAssertEqual(
+            try DeterministicV4MediaProcessingSession.workflowTime(
+                ExactRationalV4(91, 30),
+                timescale: timescale
+            ),
+            try WorkflowMediaTimeV4(value: 1_820, timescale: 600)
+        )
+        XCTAssertThrowsError(
+            try DeterministicV4MediaProcessingSession.workflowTime(
+                ExactRationalV4(1, 7),
+                timescale: timescale
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? DeterministicV4MediaSegmentError,
+                .invalidSampleTiming
+            )
+        }
+        XCTAssertThrowsError(
+            try DeterministicV4MediaProcessingSession
+                .segmentBoundaryTimescale(for: ExactRationalV4(1_001, 30_000))
+        ) { error in
+            XCTAssertEqual(
+                error as? DeterministicV4MediaSegmentError,
+                .invalidSampleTiming
+            )
+        }
+    }
+
+    func testDecodedDurationUsesAdjacentDecodeTimeAcrossPresentationGap()
+        throws
+    {
+        let duration = try DeterministicV4MediaProcessingSession
+            .authoritativeDecodedDuration(
+                currentDecodeTime: time(59),
+                followingDecodeTime: time(60),
+                currentPresentationTime: time(59),
+                terminalReaderReportedDuration: nil
+            )
+        XCTAssertEqual(duration, time(1))
+
+        let terminal = try DeterministicV4MediaProcessingSession
+            .authoritativeDecodedDuration(
+                currentDecodeTime: time(60),
+                followingDecodeTime: nil,
+                currentPresentationTime: time(90),
+                terminalReaderReportedDuration: time(1)
+            )
+        XCTAssertEqual(terminal, time(1))
+    }
+
+    func testDecodedDurationRecordsBindDecodeCadenceToReorderedPresentation()
+        throws
+    {
+        let presentationOrder: [Int64] = [0, 2, 1, 3]
+        let compressed = try presentationOrder.enumerated().map {
+            decodeOrdinal, presentationOrdinal in
+            DeterministicV4CompressedTimingRecordV4(
+                presentationTime: try HDR10PlusPresentationTimeV4(
+                    time(presentationOrdinal)
+                ),
+                decodeTime: time(Int64(decodeOrdinal)),
+                readerReportedDuration: time(1)
+            )
+        }
+        let records = try DeterministicV4MediaProcessingSession
+            .authoritativeDecodedDurationRecords(
+                compressed: compressed,
+                followingDecodeTime: nil,
+                readerIsExhausted: true,
+                maximumRecordCount: compressed.count
+            )
+
+        XCTAssertEqual(
+            records.map(\.presentationTime),
+            try (0..<4).map {
+                try HDR10PlusPresentationTimeV4(time(Int64($0)))
+            }
+        )
+        XCTAssertEqual(records.map(\.duration), Array(repeating: time(1), count: 4))
+
+        XCTAssertThrowsError(
+            try DeterministicV4MediaProcessingSession
+                .authoritativeDecodedDurationRecords(
+                    compressed: [compressed[0], compressed[0]],
+                    followingDecodeTime: nil,
+                    readerIsExhausted: true,
+                    maximumRecordCount: 2
+                )
+        )
+    }
+
+    func testDecodedDurationRecordsScanSelectedPrefixAcrossDecodePermutation()
+        throws
+    {
+        let decodeOrder: [Int64] = [0, 3, 1, 2]
+        let compressed = try decodeOrder.enumerated().map {
+            decodeOrdinal, presentationOrdinal in
+            DeterministicV4CompressedTimingRecordV4(
+                presentationTime: try HDR10PlusPresentationTimeV4(
+                    time(presentationOrdinal)
+                ),
+                decodeTime: time(Int64(decodeOrdinal)),
+                readerReportedDuration: time(1)
+            )
+        }
+        let selected = Set(try [Int64(0), 1].map {
+            try HDR10PlusPresentationTimeV4(time($0))
+        })
+        var selector = try DeterministicV4CompressedPrefixSelectorV4(
+            selectedPresentationTimes: selected,
+            maximumScannedRecordCount: 4
+        )
+        var admissions: [Bool] = []
+        for record in compressed where !selector.isComplete {
+            admissions.append(try selector.admit(record.presentationTime))
+        }
+
+        XCTAssertEqual(admissions, [true, false, true])
+        XCTAssertTrue(selector.isComplete)
+        XCTAssertEqual(selector.scannedRecordCount, 3)
+
+        let records = try DeterministicV4MediaProcessingSession
+            .authoritativeDecodedDurationRecords(
+                compressed: Array(compressed.prefix(3)),
+                selectedPresentationTimes: selected,
+                followingDecodeTime: compressed[3].decodeTime,
+                readerIsExhausted: false,
+                maximumRecordCount: 4
+            )
+        XCTAssertEqual(
+            records.map(\.presentationTime),
+            try [Int64(0), 1].map {
+                try HDR10PlusPresentationTimeV4(time($0))
+            }
+        )
+        XCTAssertEqual(records.map(\.duration), [time(1), time(1)])
+
+        var bounded = try DeterministicV4CompressedPrefixSelectorV4(
+            selectedPresentationTimes: selected,
+            maximumScannedRecordCount: 2
+        )
+        XCTAssertTrue(try bounded.admit(compressed[0].presentationTime))
+        XCTAssertFalse(try bounded.admit(compressed[1].presentationTime))
+        XCTAssertFalse(bounded.isComplete)
+        XCTAssertFalse(bounded.hasRemainingCapacity)
+        XCTAssertThrowsError(
+            try bounded.admit(compressed[2].presentationTime)
+        )
+    }
+
+    func testScratchLedgerProjectionRetainsNonzeroMediaOrigin() throws {
+        let mediaStart = time(150)
+        let segmentStart = time(180)
+        let local = time(2)
+        let duration = time(30)
+        let outputStart = time(300)
+        let readerStart = CMTimeAdd(
+            outputStart,
+            CMTimeSubtract(segmentStart, mediaStart)
+        )
+
+        XCTAssertEqual(
+            try DeterministicV4MediaProcessingSession
+                .assembledScratchPresentationTime(
+                    localPresentationTime: local,
+                    segmentMediaStart: segmentStart,
+                    segmentDuration: duration
+                ),
+            time(182)
+        )
+        XCTAssertEqual(readerStart, time(330))
+        XCTAssertNotEqual(time(182), CMTimeAdd(local, CMTimeSubtract(
+            segmentStart,
+            mediaStart
+        )))
+    }
+
+    func testDecodedDurationRejectsInvalidAdjacentAndTerminalTiming() {
+        assertDecodedDurationRejected(
+            currentDecodeTime: time(1),
+            followingDecodeTime: time(1),
+            currentPresentationTime: time(1)
+        )
+        assertDecodedDurationRejected(
+            currentDecodeTime: time(2),
+            followingDecodeTime: time(1),
+            currentPresentationTime: time(1)
+        )
+        assertDecodedDurationRejected(
+            currentDecodeTime: time(1),
+            followingDecodeTime: time(2, epoch: 1),
+            currentPresentationTime: time(1)
+        )
+        assertDecodedDurationRejected(
+            currentDecodeTime: time(1),
+            followingDecodeTime: nil,
+            currentPresentationTime: time(1),
+            terminalReaderReportedDuration: .invalid
+        )
+    }
+
     func testMasteringCLLAndAmbientPayloadsRoundTripBigEndianExactly() throws {
         let staticMetadata = try makeStaticMetadata()
         let mastering = try XCTUnwrap(
@@ -758,6 +965,44 @@ final class HDRMetadataV4Tests: XCTestCase {
             ),
             staticMetadata: try makeStaticMetadata()
         )
+    }
+
+    private func time(_ value: Int64, epoch: Int64 = 0) -> CMTime {
+        CMTime(
+            value: value,
+            timescale: 30,
+            flags: .valid,
+            epoch: epoch
+        )
+    }
+
+    private func assertDecodedDurationRejected(
+        currentDecodeTime: CMTime,
+        followingDecodeTime: CMTime?,
+        currentPresentationTime: CMTime,
+        terminalReaderReportedDuration: CMTime? = nil,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertThrowsError(
+            try DeterministicV4MediaProcessingSession
+                .authoritativeDecodedDuration(
+                    currentDecodeTime: currentDecodeTime,
+                    followingDecodeTime: followingDecodeTime,
+                    currentPresentationTime: currentPresentationTime,
+                    terminalReaderReportedDuration:
+                        terminalReaderReportedDuration
+                ),
+            file: file,
+            line: line
+        ) { error in
+            XCTAssertEqual(
+                error as? DeterministicV4MediaSegmentError,
+                .invalidSampleTiming,
+                file: file,
+                line: line
+            )
+        }
     }
 
     private func makeStaticMetadata() throws -> HDRStaticMetadataV4 {

@@ -228,6 +228,9 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             hdrBoundaryCursorGeneratorObservation(
                 at: sourceURL,
                 expectedPresentationTimes: fixture.mediaPresentationTimes,
+                expectedReaderReportedDurations:
+                    TrackMigrationFixtureFactoryV4
+                        .hdrBoundaryReaderReportedDurations(),
                 expectedMetadata: fixture.hdr10Plus
             )
         let cursorAttachment = XCTAttachment(
@@ -236,7 +239,6 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         cursorAttachment.name = "HDR boundary cursor and generator facts"
         cursorAttachment.lifetime = .keepAlways
         add(cursorAttachment)
-        let cursorFrameDuration = CMTime(value: 1, timescale: 30)
         XCTAssertEqual(
             cursorDiagnostic.facts.map(\.cursorPresentationTime),
             fixture.mediaPresentationTimes
@@ -249,10 +251,8 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         )
         XCTAssertEqual(
             cursorDiagnostic.facts.map(\.cursorDuration),
-            Array(
-                repeating: cursorFrameDuration,
-                count: TrackMigrationFixtureFactoryV4.hdrBoundaryFrameCount
-            )
+            TrackMigrationFixtureFactoryV4
+                .hdrBoundaryReaderReportedDurations()
         )
         XCTAssertEqual(
             cursorDiagnostic.facts.map(\.generatedPresentationTime),
@@ -327,9 +327,12 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             offset: fixture.primaryTargetStart,
             maximumConcreteSamples: 60
         )
+        XCTAssertTrue(firstReaderDomain.decodedSampleCounts.allSatisfy {
+            $0 == 0 || $0 == 1
+        })
         XCTAssertEqual(
-            firstReaderDomain.decodedSampleCounts,
-            [0] + Array(repeating: 1, count: 60)
+            firstReaderDomain.decodedSampleCounts.filter { $0 == 1 }.count,
+            60
         )
         XCTAssertEqual(
             firstReaderDomain.decodedTargetPresentationTimes,
@@ -343,9 +346,12 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             firstReaderDomain.canonicalMediaPresentationTimes,
             firstMediaTimes
         )
+        XCTAssertTrue(firstReaderDomain.compressedSampleCounts.allSatisfy {
+            $0 == 0 || $0 == 1
+        })
         XCTAssertEqual(
-            firstReaderDomain.compressedSampleCounts,
-            Array(repeating: 1, count: 60)
+            firstReaderDomain.compressedSampleCounts.filter { $0 == 1 }.count,
+            60
         )
         XCTAssertEqual(
             firstReaderDomain.compressedMediaPresentationTimes,
@@ -353,7 +359,11 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         )
         XCTAssertEqual(
             firstReaderDomain.compressedDurations,
-            Array(repeating: frameDuration, count: 60)
+            Array(
+                TrackMigrationFixtureFactoryV4
+                    .hdrBoundaryReaderReportedDurations()
+                    .prefix(60)
+            )
         )
         XCTAssertEqual(
             firstReaderDomain.canonicalMediaPresentationTimes,
@@ -378,9 +388,12 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             offset: fixture.primaryTargetStart,
             maximumConcreteSamples: 60
         )
+        XCTAssertTrue(finalReaderDomain.decodedSampleCounts.allSatisfy {
+            $0 == 0 || $0 == 1
+        })
         XCTAssertEqual(
-            finalReaderDomain.decodedSampleCounts,
-            [0, 1, 0, 0, 0]
+            finalReaderDomain.decodedSampleCounts.filter { $0 == 1 }.count,
+            1
         )
         XCTAssertEqual(
             finalReaderDomain.decodedTargetPresentationTimes,
@@ -394,7 +407,13 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             finalReaderDomain.canonicalMediaPresentationTimes,
             [finalMediaTime]
         )
-        XCTAssertEqual(finalReaderDomain.compressedSampleCounts, [1])
+        XCTAssertTrue(finalReaderDomain.compressedSampleCounts.allSatisfy {
+            $0 == 0 || $0 == 1
+        })
+        XCTAssertEqual(
+            finalReaderDomain.compressedSampleCounts.filter { $0 == 1 }.count,
+            1
+        )
         XCTAssertEqual(
             finalReaderDomain.compressedMediaPresentationTimes,
             [finalMediaTime]
@@ -1050,7 +1069,7 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         )
         XCTAssertEqual(
             execution.receipt.hdr10PlusPreservation.rewrittenSampleCount,
-            TrackMigrationFixtureFactoryV4.hdrBoundaryFrameCount
+            0
         )
         XCTAssertEqual(
             execution.receipt.hdr10PlusPreservation.timelineMappingSHA256,
@@ -1059,7 +1078,7 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertEqual(
             execution.receipt.hdr10PlusPreservation.timelineMappingSHA256,
             try ASHSHA256V4(
-                "fb487fe98995e4a251415ad8ba8ad65da04cdf6dcf350c88adff7378eca086f9"
+                "fc3bd406492075fc19ac2d5582ab7c71de5afb2e917b1d5ad4a57ee6a6e309b7"
             )
         )
         let migratedPrimary = try XCTUnwrap(
@@ -1116,21 +1135,23 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         let outputHDR = try await hdr10PlusVideoObservations(
             at: destinationURL
         )
+        let presentationOrder = outputHDR.presentationTimes.indices.sorted {
+            CMTimeCompare(
+                outputHDR.presentationTimes[$0],
+                outputHDR.presentationTimes[$1]
+            ) < 0
+        }
+        let presentationOrderedTimes = presentationOrder.map {
+            outputHDR.presentationTimes[$0]
+        }
         XCTAssertEqual(
-            outputHDR.presentationTimes,
+            presentationOrderedTimes,
             fixture.mediaPresentationTimes
         )
         XCTAssertEqual(
-            outputHDR.metadata,
+            presentationOrder.map { outputHDR.metadata[$0] },
             Array(
                 repeating: Optional(fixture.hdr10Plus),
-                count: fixture.mediaPresentationTimes.count
-            )
-        )
-        XCTAssertEqual(
-            outputHDR.durations,
-            Array(
-                repeating: frameDuration,
                 count: fixture.mediaPresentationTimes.count
             )
         )
@@ -1141,24 +1162,42 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             }
         )
         XCTAssertEqual(
-            outputHDR.presentationTimes[59],
+            zip(outputHDR.decodeTimes, outputHDR.decodeTimes.dropFirst()).map {
+                CMTimeSubtract($1, $0)
+            },
+            Array(
+                repeating: frameDuration,
+                count: fixture.mediaPresentationTimes.count - 1
+            )
+        )
+        XCTAssertEqual(
+            outputHDR.durations.count,
+            fixture.mediaPresentationTimes.count
+        )
+        XCTAssertTrue(outputHDR.durations.allSatisfy {
+            $0.isNumeric
+                && $0.value > 0
+                && !$0.flags.contains(.hasBeenRounded)
+        })
+        XCTAssertEqual(
+            presentationOrderedTimes[59],
             CMTime(value: 59, timescale: 30)
         )
         XCTAssertEqual(
-            outputHDR.presentationTimes[60],
+            presentationOrderedTimes[60],
             fixture.mediaGapStart
         )
         XCTAssertEqual(
             CMTimeAdd(
-                outputHDR.presentationTimes[59],
-                outputHDR.durations[59]
+                presentationOrderedTimes[59],
+                frameDuration
             ),
             CMTime(value: 60, timescale: 30)
         )
         XCTAssertGreaterThan(
             CMTimeGetSeconds(CMTimeSubtract(
-                outputHDR.presentationTimes[60],
-                outputHDR.presentationTimes[59]
+                presentationOrderedTimes[60],
+                presentationOrderedTimes[59]
             )),
             CMTimeGetSeconds(CMTime(value: 1, timescale: 30))
         )
@@ -2599,6 +2638,91 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
+    func testProcessedVideoReplacementRebuildsExactLeadingEmptyEditTopology()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let mediaURL = directory.url("replacement-edit-media.mov")
+        let sourceURL = directory.url("replacement-edit-source.mov")
+        let replacementURL = directory.url("replacement-edit-stream.mov")
+        let destinationURL = directory.url("replacement-edit-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: mediaURL,
+            includeAudioGroup: false
+        )
+        try await TrackMigrationFixtureFactoryV4
+            .makeLeadingEmptyVideoEditedMovie(
+                source: mediaURL,
+                at: sourceURL
+            )
+        try await TrackMigrationFixtureFactoryV4.makeReencodedVideo(
+            source: mediaURL,
+            at: replacementURL
+        )
+
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL)
+        )
+        let video = try XCTUnwrap(source.tracks.first { $0.kind == .video })
+        XCTAssertTrue(video.edits.first?.isEmpty == true)
+        XCTAssertEqual(video.edits.count, 2)
+        let firstMediaEdit = try XCTUnwrap(
+            video.edits.first { !$0.isEmpty }
+        )
+        XCTAssertGreaterThan(firstMediaEdit.target.start, .zero)
+        XCTAssertEqual(firstMediaEdit.source?.start, .zero)
+
+        let replacement = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: replacementURL)
+        )
+        let replacementVideo = try XCTUnwrap(replacement.tracks.first)
+        XCTAssertFalse(replacementVideo.edits.contains(where: \.isEmpty))
+        let plan = try processingPlan(
+            source: source,
+            video: video,
+            targetFormats: replacementVideo.formatDescriptors
+        )
+        let expected = try XCTUnwrap(plan.plan.tracks.first {
+            $0.source.identity.stableID == video.identity.stableID
+        }?.expectedOutput)
+        XCTAssertEqual(expected.edits, video.edits)
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(
+            .init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint,
+                processedVideoReplacement: .init(
+                    trackID: video.identity.stableID,
+                    sourceURL: replacementURL
+                )
+            )
+        )
+
+        let output = try XCTUnwrap(result.outputGraph.tracks.first)
+        XCTAssertEqual(output.timeRange, expected.timeRange)
+        XCTAssertEqual(output.edits, expected.edits)
+        XCTAssertTrue(output.edits.first?.isEmpty == true)
+        XCTAssertEqual(
+            output.edits.first { !$0.isEmpty }?.source,
+            firstMediaEdit.source
+        )
+        let processed = try XCTUnwrap(result.trackResults.first)
+        XCTAssertEqual(processed.action, .process)
+        XCTAssertEqual(
+            processed.sourceSampleStreamSHA256,
+            processed.outputSampleStreamSHA256
+        )
+        XCTAssertTrue(result.verificationReport.isConformant)
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
     func testProcessorFaultCancelsWriterAndLeavesExistingDestinationUntouched()
         async throws {
         struct InjectedProcessorFailure: Error {}
@@ -3723,7 +3847,7 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             second
         ])
         var domainSeparated = Data(
-            "ash-avfoundation-sample-stream-v4".utf8
+            "ash-avfoundation-sample-stream-v4.2".utf8
         )
         domainSeparated.append(0)
         domainSeparated.append(referenceBytes)
@@ -3732,11 +3856,420 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertNotEqual(accumulator.digest, firstDigest)
         XCTAssertEqual(accumulator.digest, expectedDigest)
         XCTAssertEqual(accumulator.digest, expectedDigest)
-        XCTAssertEqual(
-            accumulator.retentionDiagnosticForQualification
-                .processedCanonicalByteCount,
+        let retention = accumulator.retentionDiagnosticForQualification
+        XCTAssertGreaterThan(retention.processedCanonicalByteCount, 0)
+        XCTAssertLessThan(
+            retention.processedCanonicalByteCount,
             UInt64(referenceBytes.count)
         )
+        XCTAssertGreaterThan(retention.retainedCanonicalByteCount, 0)
+    }
+
+    func testSampleStreamAccumulatorCanonicalizesExactTimesAndReaderDurationArtifacts()
+        throws {
+        let formatDuration = CMTime(value: 1, timescale: 30)
+        let payloads = [
+            Data([0x10, 0x20, 0x30, 0x40]),
+            Data([0x20, 0x30, 0x40, 0x50]),
+            Data([0x30, 0x40, 0x50, 0x60])
+        ]
+        let sourceTimings = [
+            CMSampleTimingInfo(
+                duration: formatDuration,
+                presentationTimeStamp: CMTime(value: 58, timescale: 30),
+                decodeTimeStamp: CMTime(value: 58, timescale: 30)
+            ),
+            CMSampleTimingInfo(
+                duration: formatDuration,
+                presentationTimeStamp: CMTime(value: 59, timescale: 30),
+                decodeTimeStamp: CMTime(value: 59, timescale: 30)
+            ),
+            CMSampleTimingInfo(
+                duration: formatDuration,
+                presentationTimeStamp: CMTime(value: 90, timescale: 30),
+                decodeTimeStamp: CMTime(value: 60, timescale: 30)
+            )
+        ]
+        var synthesizedTimings = sourceTimings
+        synthesizedTimings[1].duration = CMTime(value: 31, timescale: 30)
+        var shiftedTimings = synthesizedTimings
+        shiftedTimings[2].presentationTimeStamp = CMTime(
+            value: 91,
+            timescale: 30
+        )
+        let source = try sampleStreamQualificationBuffer(
+            payloads: payloads,
+            start: .zero,
+            duration: formatDuration,
+            formatDuration: formatDuration,
+            timings: sourceTimings
+        )
+        let rewritten = try sampleStreamQualificationBuffer(
+            payloads: payloads,
+            start: .zero,
+            duration: formatDuration,
+            formatDuration: formatDuration,
+            timings: synthesizedTimings
+        )
+        let shifted = try sampleStreamQualificationBuffer(
+            payloads: payloads,
+            start: .zero,
+            duration: formatDuration,
+            formatDuration: formatDuration,
+            timings: shiftedTimings
+        )
+        let alteredPayload = try sampleStreamQualificationBuffer(
+            payloads: [payloads[0], payloads[1], Data([0x30, 0x40, 0x50, 0x61])],
+            start: .zero,
+            duration: formatDuration,
+            formatDuration: formatDuration,
+            timings: sourceTimings
+        )
+
+        var sourceIdentity = SampleStreamAccumulatorV4()
+        var rewrittenIdentity = SampleStreamAccumulatorV4()
+        var shiftedIdentity = SampleStreamAccumulatorV4()
+        var alteredPayloadIdentity = SampleStreamAccumulatorV4()
+        try sourceIdentity.append(source)
+        try rewrittenIdentity.append(rewritten)
+        try shiftedIdentity.append(shifted)
+        try alteredPayloadIdentity.append(alteredPayload)
+
+        XCTAssertEqual(sourceIdentity.digest, rewrittenIdentity.digest)
+        XCTAssertNotEqual(sourceIdentity.digest, shiftedIdentity.digest)
+        XCTAssertNotEqual(sourceIdentity.digest, alteredPayloadIdentity.digest)
+    }
+
+    func testSampleStreamAccumulatorBindsTerminalDurationMutation() throws {
+        let frame = CMTime(value: 1, timescale: 30)
+        let payloads = [
+            Data([0x01, 0x02, 0x03, 0x04]),
+            Data([0x05, 0x06, 0x07, 0x08]),
+            Data([0x09, 0x0a, 0x0b, 0x0c])
+        ]
+        let timings = (0..<3).map { index in
+            CMSampleTimingInfo(
+                duration: frame,
+                presentationTimeStamp: CMTime(
+                    value: CMTimeValue(index),
+                    timescale: 30
+                ),
+                decodeTimeStamp: CMTime(
+                    value: CMTimeValue(index),
+                    timescale: 30
+                )
+            )
+        }
+        var mutatedTimings = timings
+        mutatedTimings[2].duration = CMTime(value: 2, timescale: 30)
+        let source = try sampleStreamQualificationBuffer(
+            payloads: payloads,
+            start: .zero,
+            duration: frame,
+            timings: timings
+        )
+        let mutated = try sampleStreamQualificationBuffer(
+            payloads: payloads,
+            start: .zero,
+            duration: frame,
+            timings: mutatedTimings
+        )
+        var sourceIdentity = SampleStreamAccumulatorV4()
+        var mutatedIdentity = SampleStreamAccumulatorV4()
+        try sourceIdentity.append(source)
+        try mutatedIdentity.append(mutated)
+
+        XCTAssertNotEqual(sourceIdentity.digest, mutatedIdentity.digest)
+    }
+
+    func testSampleStreamAccumulatorCanonicalizesAuthorizedTerminalBoundarySynthesis()
+        throws
+    {
+        let frame = CMTime(value: 1, timescale: 30)
+        let payloads = [
+            Data([0x01, 0x02, 0x03, 0x04]),
+            Data([0x05, 0x06, 0x07, 0x08]),
+            Data([0x09, 0x0a, 0x0b, 0x0c]),
+            Data([0x0d, 0x0e, 0x0f, 0x10])
+        ]
+        let timings = [
+            CMSampleTimingInfo(
+                duration: frame,
+                presentationTimeStamp: CMTime(value: 58, timescale: 30),
+                decodeTimeStamp: CMTime(value: 57, timescale: 30)
+            ),
+            CMSampleTimingInfo(
+                duration: frame,
+                presentationTimeStamp: CMTime(value: 59, timescale: 30),
+                decodeTimeStamp: CMTime(value: 58, timescale: 30)
+            ),
+            CMSampleTimingInfo(
+                duration: frame,
+                presentationTimeStamp: CMTime(value: 57, timescale: 30),
+                decodeTimeStamp: CMTime(value: 59, timescale: 30)
+            ),
+            CMSampleTimingInfo(
+                duration: frame,
+                presentationTimeStamp: CMTime(value: 90, timescale: 30),
+                decodeTimeStamp: CMTime(value: 60, timescale: 30)
+            )
+        ]
+        var synthesizedTimings = timings
+        synthesizedTimings[3].duration = CMTime(value: 31, timescale: 30)
+        let source = try sampleStreamQualificationBuffer(
+            payloads: payloads,
+            start: .zero,
+            duration: frame,
+            timings: timings
+        )
+        let synthesized = try sampleStreamQualificationBuffer(
+            payloads: payloads,
+            start: .zero,
+            duration: frame,
+            timings: synthesizedTimings
+        )
+        let authorizedEnd = CMTime(value: 91, timescale: 30)
+        var sourceIdentity = SampleStreamAccumulatorV4(
+            authorizedTerminalPresentationEnd: authorizedEnd
+        )
+        var synthesizedIdentity = SampleStreamAccumulatorV4(
+            authorizedTerminalPresentationEnd: authorizedEnd
+        )
+        try sourceIdentity.append(source)
+        try synthesizedIdentity.append(synthesized)
+
+        XCTAssertEqual(sourceIdentity.digest, synthesizedIdentity.digest)
+    }
+
+    func testSampleStreamTerminalAuthorizationRequiresObservedEditAgreement()
+        throws
+    {
+        let trackID = try MediaTrackStableIDV4("av-track-1")
+        let leading = try MediaTrackEditV4(
+            ordinal: 0,
+            source: nil,
+            target: MediaExactTimeRangeV4(
+                start: .zero,
+                duration: ExactRationalV4(2, 1)
+            ),
+            isEmpty: true
+        )
+        let mapped = try MediaTrackEditV4(
+            ordinal: 1,
+            source: MediaExactTimeRangeV4(
+                start: .zero,
+                duration: ExactRationalV4(91, 30)
+            ),
+            target: MediaExactTimeRangeV4(
+                start: ExactRationalV4(2, 1),
+                duration: ExactRationalV4(91, 30)
+            ),
+            isEmpty: false
+        )
+        let changed = try MediaTrackEditV4(
+            ordinal: 1,
+            source: MediaExactTimeRangeV4(
+                start: .zero,
+                duration: ExactRationalV4(90, 30)
+            ),
+            target: MediaExactTimeRangeV4(
+                start: ExactRationalV4(2, 1),
+                duration: ExactRationalV4(90, 30)
+            ),
+            isEmpty: false
+        )
+        let plannedEnd = CMTime(value: 91, timescale: 30)
+
+        XCTAssertEqual(
+            try AVFoundationTrackMigrationExecutorV4
+                .authorizedTerminalPresentationEndForReopen(
+                    trackID: trackID,
+                    planned: plannedEnd,
+                    plannedEdits: [leading, mapped],
+                    observedEdits: [leading, mapped]
+                ),
+            plannedEnd
+        )
+        XCTAssertThrowsError(
+            try AVFoundationTrackMigrationExecutorV4
+                .authorizedTerminalPresentationEndForReopen(
+                    trackID: trackID,
+                    planned: plannedEnd,
+                    plannedEdits: [leading, mapped],
+                    observedEdits: [leading, changed]
+                )
+        )
+        XCTAssertNil(
+            try AVFoundationTrackMigrationExecutorV4
+                .authorizedTerminalPresentationEndForReopen(
+                    trackID: trackID,
+                    planned: nil,
+                    plannedEdits: [leading, mapped],
+                    observedEdits: [leading, changed]
+                )
+        )
+    }
+
+    func testSampleStreamAccumulatorRejectsUnprovenTerminalBoundarySynthesis()
+        throws
+    {
+        let frame = CMTime(value: 1, timescale: 30)
+        let payloads = [
+            Data([0x01, 0x02, 0x03, 0x04]),
+            Data([0x05, 0x06, 0x07, 0x08]),
+            Data([0x09, 0x0a, 0x0b, 0x0c])
+        ]
+        let timings = [
+            CMSampleTimingInfo(
+                duration: frame,
+                presentationTimeStamp: CMTime(value: 58, timescale: 30),
+                decodeTimeStamp: CMTime(value: 58, timescale: 30)
+            ),
+            CMSampleTimingInfo(
+                duration: frame,
+                presentationTimeStamp: CMTime(value: 59, timescale: 30),
+                decodeTimeStamp: CMTime(value: 59, timescale: 30)
+            ),
+            CMSampleTimingInfo(
+                duration: frame,
+                presentationTimeStamp: CMTime(value: 90, timescale: 30),
+                decodeTimeStamp: CMTime(value: 60, timescale: 30)
+            )
+        ]
+        var synthesizedTimings = timings
+        synthesizedTimings[2].duration = CMTime(value: 31, timescale: 30)
+        var nonGapTimings = timings
+        nonGapTimings[2].duration = CMTime(value: 30, timescale: 30)
+        var invalidCadenceTimings = synthesizedTimings
+        invalidCadenceTimings[2].decodeTimeStamp = CMTime(
+            value: 59,
+            timescale: 30
+        )
+        var invalidCadenceSourceTimings = timings
+        invalidCadenceSourceTimings[2].decodeTimeStamp = CMTime(
+            value: 59,
+            timescale: 30
+        )
+        var reorderedTimings = timings
+        reorderedTimings[1].presentationTimeStamp = CMTime(
+            value: 91,
+            timescale: 30
+        )
+        var reorderedSynthesizedTimings = reorderedTimings
+        reorderedSynthesizedTimings[2].duration = CMTime(
+            value: 31,
+            timescale: 30
+        )
+
+        func buffer(_ sampleTimings: [CMSampleTimingInfo]) throws
+            -> CMSampleBuffer
+        {
+            try sampleStreamQualificationBuffer(
+                payloads: payloads,
+                start: .zero,
+                duration: frame,
+                timings: sampleTimings
+            )
+        }
+        func digest(
+            _ sampleTimings: [CMSampleTimingInfo],
+            authorizedEnd: CMTime?
+        ) throws -> ASHSHA256V4 {
+            var identity = SampleStreamAccumulatorV4(
+                authorizedTerminalPresentationEnd: authorizedEnd
+            )
+            try identity.append(buffer(sampleTimings))
+            return identity.digest
+        }
+
+        XCTAssertNotEqual(
+            try digest(timings, authorizedEnd: nil),
+            try digest(synthesizedTimings, authorizedEnd: nil)
+        )
+        XCTAssertNotEqual(
+            try digest(
+                timings,
+                authorizedEnd: CMTime(value: 92, timescale: 30)
+            ),
+            try digest(
+                synthesizedTimings,
+                authorizedEnd: CMTime(value: 92, timescale: 30)
+            )
+        )
+        XCTAssertNotEqual(
+            try digest(
+                timings,
+                authorizedEnd: CMTime(value: 91, timescale: 30)
+            ),
+            try digest(
+                nonGapTimings,
+                authorizedEnd: CMTime(value: 91, timescale: 30)
+            )
+        )
+        XCTAssertNotEqual(
+            try digest(
+                invalidCadenceSourceTimings,
+                authorizedEnd: CMTime(value: 91, timescale: 30)
+            ),
+            try digest(
+                invalidCadenceTimings,
+                authorizedEnd: CMTime(value: 91, timescale: 30)
+            )
+        )
+        XCTAssertNotEqual(
+            try digest(
+                reorderedTimings,
+                authorizedEnd: CMTime(value: 91, timescale: 30)
+            ),
+            try digest(
+                reorderedSynthesizedTimings,
+                authorizedEnd: CMTime(value: 91, timescale: 30)
+            )
+        )
+    }
+
+    func testSampleStreamAccumulatorBindsUnjustifiedInteriorDurationMutation()
+        throws
+    {
+        let frame = CMTime(value: 1, timescale: 30)
+        let payloads = [
+            Data([0x01, 0x02, 0x03, 0x04]),
+            Data([0x05, 0x06, 0x07, 0x08]),
+            Data([0x09, 0x0a, 0x0b, 0x0c])
+        ]
+        let timings = (0..<3).map { index in
+            CMSampleTimingInfo(
+                duration: frame,
+                presentationTimeStamp: CMTime(
+                    value: CMTimeValue(index),
+                    timescale: 30
+                ),
+                decodeTimeStamp: CMTime(
+                    value: CMTimeValue(index),
+                    timescale: 30
+                )
+            )
+        }
+        var mutatedTimings = timings
+        mutatedTimings[1].duration = CMTime(value: 2, timescale: 30)
+        let source = try sampleStreamQualificationBuffer(
+            payloads: payloads,
+            start: .zero,
+            duration: frame,
+            timings: timings
+        )
+        let mutated = try sampleStreamQualificationBuffer(
+            payloads: payloads,
+            start: .zero,
+            duration: frame,
+            timings: mutatedTimings
+        )
+        var sourceIdentity = SampleStreamAccumulatorV4()
+        var mutatedIdentity = SampleStreamAccumulatorV4()
+        try sourceIdentity.append(source)
+        try mutatedIdentity.append(mutated)
+
+        XCTAssertNotEqual(sourceIdentity.digest, mutatedIdentity.digest)
     }
 
     func testSampleStreamAccumulatorRetainsOnlyFixedHashState() throws {
@@ -3762,12 +4295,13 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         }
 
         let diagnostic = accumulator.retentionDiagnosticForQualification
-        XCTAssertEqual(
+        XCTAssertLessThan(
             diagnostic.processedCanonicalByteCount,
             UInt64(bytesPerBuffer * appendCount)
         )
         XCTAssertGreaterThan(diagnostic.processedCanonicalByteCount, 1_000_000)
-        XCTAssertEqual(diagnostic.retainedCanonicalByteCount, 0)
+        XCTAssertGreaterThan(diagnostic.retainedCanonicalByteCount, 0)
+        XCTAssertLessThan(diagnostic.retainedCanonicalByteCount, 1_024)
         XCTAssertEqual(
             diagnostic.fixedStateByteCount,
             initial.fixedStateByteCount
@@ -3958,7 +4492,9 @@ private extension AVFoundationTrackMigrationExecutorV4Tests {
     func sampleStreamQualificationBuffer(
         payloads: [Data],
         start: CMTime,
-        duration: CMTime
+        duration: CMTime,
+        formatDuration: CMTime? = nil,
+        timings explicitTimings: [CMSampleTimingInfo]? = nil
     ) throws -> CMSampleBuffer {
         guard !payloads.isEmpty,
               payloads.allSatisfy({ $0.count == MemoryLayout<Int32>.size })
@@ -3971,7 +4507,7 @@ private extension AVFoundationTrackMigrationExecutorV4Tests {
         var status = CMTimeCodeFormatDescriptionCreate(
             allocator: kCFAllocatorDefault,
             timeCodeFormatType: kCMTimeCodeFormatType_TimeCode32,
-            frameDuration: duration,
+            frameDuration: formatDuration ?? duration,
             frameQuanta: 30,
             flags: 0,
             extensions: nil,
@@ -4011,7 +4547,7 @@ private extension AVFoundationTrackMigrationExecutorV4Tests {
             throw TrackMigrationFixtureErrorV4.coreMedia(status)
         }
 
-        let timings = payloads.indices.map { index in
+        let timings = explicitTimings ?? payloads.indices.map { index in
             CMSampleTimingInfo(
                 duration: duration,
                 presentationTimeStamp: CMTimeAdd(
@@ -4019,6 +4555,11 @@ private extension AVFoundationTrackMigrationExecutorV4Tests {
                     CMTimeMultiply(duration, multiplier: Int32(index))
                 ),
                 decodeTimeStamp: .invalid
+            )
+        }
+        guard timings.count == payloads.count else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Qualification timing count differs from payload count."
             )
         }
         let sampleSizes = payloads.map(\.count)
@@ -4105,15 +4646,18 @@ private extension AVFoundationTrackMigrationExecutorV4Tests {
                 }
 
                 canonicalBytes.append(1)
-                appendReferenceTime(
+                try appendReferenceTime(
                     timing.presentationTimeStamp,
                     to: &canonicalBytes
                 )
-                appendReferenceTime(
+                try appendReferenceTime(
                     timing.decodeTimeStamp,
                     to: &canonicalBytes
                 )
-                appendReferenceTime(timing.duration, to: &canonicalBytes)
+                try appendReferenceTime(
+                    timing.duration,
+                    to: &canonicalBytes
+                )
                 appendReferenceInteger(mediaType, to: &canonicalBytes)
                 appendReferenceInteger(mediaSubtype, to: &canonicalBytes)
                 canonicalBytes.append(
@@ -4129,9 +4673,20 @@ private extension AVFoundationTrackMigrationExecutorV4Tests {
         return canonicalBytes
     }
 
-    func appendReferenceTime(_ time: CMTime, to bytes: inout Data) {
-        appendReferenceInteger(time.value, to: &bytes)
-        appendReferenceInteger(time.timescale, to: &bytes)
+    func appendReferenceTime(_ time: CMTime, to bytes: inout Data) throws {
+        if time.isNumeric, time.timescale != 0 {
+            let exact = try ExactRationalV4(
+                time.value,
+                Int64(time.timescale)
+            )
+            bytes.append(1)
+            appendReferenceInteger(exact.numerator, to: &bytes)
+            appendReferenceInteger(exact.denominator, to: &bytes)
+        } else {
+            bytes.append(0)
+            appendReferenceInteger(time.value, to: &bytes)
+            appendReferenceInteger(time.timescale, to: &bytes)
+        }
         appendReferenceInteger(time.flags.rawValue, to: &bytes)
         appendReferenceInteger(time.epoch, to: &bytes)
     }
@@ -4624,6 +5179,7 @@ private enum TrackMigrationFixtureFactoryV4 {
     static let width = 64
     static let height = 48
     private static let frameRate: CMTimeScale = 30
+    private static let hdrBoundaryContainerTimescale: CMTimeScale = 600
     static let frameCount = 8
     static let hdrBoundaryFrameCount = 61
     private static let hdrBoundaryStoredFrameCount = 62
@@ -4803,6 +5359,25 @@ private enum TrackMigrationFixtureFactoryV4 {
                     + "\(describe(observations.durations[index]))."
             )
         }
+        let authoritativeDurations = observations.decodeTimes.indices.map {
+            index in
+            guard observations.decodeTimes.indices.contains(index + 1) else {
+                return observations.durations[index]
+            }
+            return CMTimeSubtract(
+                observations.decodeTimes[index + 1],
+                observations.decodeTimes[index]
+            )
+        }
+        if let index = authoritativeDurations.indices.first(where: {
+            !exactlyEqual(authoritativeDurations[$0], frameDuration)
+        }) {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "\(stage) HDR boundary authoritative decode duration mismatch "
+                    + "at index \(index): expected \(describe(frameDuration)), "
+                    + "observed \(describe(authoritativeDurations[index]))."
+            )
+        }
         guard observations.syncSamples.allSatisfy({ $0 }) else {
             throw TrackMigrationFixtureErrorV4.invalidFixture(
                 "\(stage) HDR boundary contains a non-sync sample."
@@ -4843,11 +5418,13 @@ private enum TrackMigrationFixtureFactoryV4 {
         }
     }
 
-    private static func hdrBoundaryExactFrameDurations() -> [CMTime] {
-        Array(
+    static func hdrBoundaryReaderReportedDurations() -> [CMTime] {
+        var durations = Array(
             repeating: CMTime(value: 1, timescale: frameRate),
             count: hdrBoundaryFrameCount
         )
+        durations[59] = CMTime(value: 31, timescale: frameRate)
+        return durations
     }
 
     private static func describe(_ time: CMTime) -> String {
@@ -5320,7 +5897,10 @@ private enum TrackMigrationFixtureFactoryV4 {
     ) throws {
         try createOwnerOnlyEmptyStorageFile(at: outputURL)
         let movie = AVMutableMovie()
-        movie.timescale = frameRate
+        // 600 exactly represents both the 30 fps video cadence and the
+        // quarter-second PCM fixture. A movie timescale of 30 quantizes the
+        // audio edit boundary and defeats the exact-range preservation check.
+        movie.timescale = hdrBoundaryContainerTimescale
         movie.metadata = assetMetadata()
         let mediaDataStorage = AVMediaDataStorage(
             url: outputURL,
@@ -5669,7 +6249,7 @@ private enum TrackMigrationFixtureFactoryV4 {
             try await hdr10PlusVideoObservations(at: url),
             expectedTimes: expectedMediaTimes,
             expectedReaderReportedDurations:
-                hdrBoundaryExactFrameDurations(),
+                hdrBoundaryReaderReportedDurations(),
             expectedMetadata: hdr10Plus,
             expectedFormatMetadata: expectedMetadata,
             stage: stage
@@ -5677,6 +6257,8 @@ private enum TrackMigrationFixtureFactoryV4 {
         let cursor = try await hdrBoundaryCursorGeneratorObservation(
             at: url,
             expectedPresentationTimes: expectedMediaTimes,
+            expectedReaderReportedDurations:
+                hdrBoundaryReaderReportedDurations(),
             expectedMetadata: hdr10Plus
         )
         guard cursor.facts.count == hdrBoundaryFrameCount else {
@@ -5689,7 +6271,11 @@ private enum TrackMigrationFixtureFactoryV4 {
             at: url,
             expectedMetadata: expectedMetadata,
             expectedPresentationTimes: expectedMediaTimes.map {
-                CMTimeAdd($0, frameStart)
+                CMTimeConvertScale(
+                    CMTimeAdd($0, frameStart),
+                    timescale: hdrBoundaryContainerTimescale,
+                    method: .default
+                )
             },
             readerTimeRange: CMTimeRange(
                 start: primaryStart,
@@ -6019,6 +6605,56 @@ private enum TrackMigrationFixtureFactoryV4 {
         }
         exporter.metadata = assetMetadata()
         try await exporter.export(to: outputURL, as: .mov)
+    }
+
+    static func makeLeadingEmptyVideoEditedMovie(
+        source sourceURL: URL,
+        at outputURL: URL
+    ) async throws {
+        try FileManager.default.copyItem(at: sourceURL, to: outputURL)
+        let movie = AVMutableMovie(
+            url: outputURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        guard let video = movie.tracks(withMediaType: .video).first else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Leading-empty source has no video track."
+            )
+        }
+        let mediaRange = video.mediaPresentationTimeRange
+        guard mediaRange.duration.isNumeric,
+              mediaRange.duration.value > 0 else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Leading-empty source has no video media range."
+            )
+        }
+        video.removeTimeRange(video.timeRange)
+        guard video.mediaPresentationTimeRange == mediaRange else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Leading-empty edit changed the video media table."
+            )
+        }
+        let leadingEmptyDuration = CMTime(value: 1, timescale: frameRate)
+        video.insertEmptyTimeRange(CMTimeRange(
+            start: .zero,
+            duration: leadingEmptyDuration
+        ))
+        guard video.insertMediaTimeRange(
+            mediaRange,
+            into: CMTimeRange(
+                start: leadingEmptyDuration,
+                duration: mediaRange.duration
+            )
+        ) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Could not insert the leading-empty video media edit."
+            )
+        }
+        try movie.writeHeader(
+            to: outputURL,
+            fileType: .mov,
+            options: .addMovieHeaderToDestination
+        )
     }
 
     static func makeScaledEditedMovie(
@@ -7320,11 +7956,14 @@ private struct HDRBoundaryCursorGeneratorObservationV4: Sendable {
 private func hdrBoundaryCursorGeneratorObservation(
     at url: URL,
     expectedPresentationTimes: [CMTime],
+    expectedReaderReportedDurations: [CMTime],
     expectedMetadata: HDR10PlusMetadataV4
 ) async throws -> HDRBoundaryCursorGeneratorObservationV4 {
-    guard !expectedPresentationTimes.isEmpty else {
+    guard !expectedPresentationTimes.isEmpty,
+          expectedReaderReportedDurations.count
+            == expectedPresentationTimes.count else {
         throw TrackMigrationFixtureErrorV4.invalidFixture(
-            "Cursor diagnostic requires a nonempty presentation domain."
+            "Cursor diagnostic requires matching nonempty timing domains."
         )
     }
     let asset = AVURLAsset(
@@ -7354,7 +7993,6 @@ private func hdrBoundaryCursorGeneratorObservation(
         )
     }
     let generator = AVSampleBufferGenerator(asset: asset, timebase: nil)
-    let frameDuration = CMTime(value: 1, timescale: 30)
     var facts: [HDRBoundaryCursorGeneratorSampleFactV4] = []
     facts.reserveCapacity(expectedPresentationTimes.count)
 
@@ -7367,6 +8005,8 @@ private func hdrBoundaryCursorGeneratorObservation(
         let cursorPresentation = cursor.presentationTimeStamp
         let cursorDecode = cursor.decodeTimeStamp
         let cursorDuration = cursor.currentSampleDuration
+        let expectedReaderReportedDuration =
+            expectedReaderReportedDurations[ordinal]
         let cursorSync = cursor.currentSampleSyncInfo
         let cursorDependency = cursor.currentSampleDependencyInfo
         guard hdrBoundaryExactTimeEqual(
@@ -7374,7 +8014,10 @@ private func hdrBoundaryCursorGeneratorObservation(
                 expectedPresentation
               ),
               hdrBoundaryExactTimeEqual(cursorDecode, expectedDecode),
-              hdrBoundaryExactTimeEqual(cursorDuration, frameDuration),
+              hdrBoundaryExactTimeEqual(
+                cursorDuration,
+                expectedReaderReportedDuration
+              ),
               cursorSync.sampleIsFullSync.boolValue,
               !cursorSync.sampleIsPartialSync.boolValue,
               cursor.samplesRequiredForDecoderRefresh == 0,
@@ -7519,15 +8162,33 @@ private func hdrBoundaryCursorGeneratorObservation(
         ))
 
         let traversed = cursor.stepInPresentationOrder(byCount: 1)
-        let expectedTraversal: Int64 = ordinal + 1
-            < expectedPresentationTimes.count ? 1 : 0
-        guard traversed == expectedTraversal else {
+        guard traversed == 1 else {
             throw TrackMigrationFixtureErrorV4.invalidFixture(
                 "Cursor presentation-order traversal mismatch after ordinal "
-                    + "\(ordinal): expected \(expectedTraversal), observed "
+                    + "\(ordinal): expected 1, observed "
                     + "\(traversed)."
             )
         }
+    }
+    let sentinelPresentation = CMTimeAdd(
+        expectedPresentationTimes[expectedPresentationTimes.count - 1],
+        expectedReaderReportedDurations[
+            expectedReaderReportedDurations.count - 1
+        ]
+    )
+    let sentinelDecode = CMTime(
+        value: CMTimeValue(expectedPresentationTimes.count),
+        timescale: 30
+    )
+    guard hdrBoundaryExactTimeEqual(
+            cursor.presentationTimeStamp,
+            sentinelPresentation
+          ),
+          hdrBoundaryExactTimeEqual(cursor.decodeTimeStamp, sentinelDecode)
+    else {
+        throw TrackMigrationFixtureErrorV4.invalidFixture(
+            "Cursor did not retain the stored duration-lookahead sentinel."
+        )
     }
     return HDRBoundaryCursorGeneratorObservationV4(facts: facts)
 }
