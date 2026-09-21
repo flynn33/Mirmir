@@ -123,6 +123,9 @@ class EvidenceFixture:
         self.contract = json.loads(
             (SCRIPT_DIRECTORY / "release-qualification-contract-v1.json").read_text()
         )
+        self.contract["mediaPreservationCoverage"] = list(
+            qualification.MEDIA_PRESERVATION_COVERAGE
+        )
         write_json(self.contract_path, self.contract)
         p06 = p06_fixture_module.p06
         self.p06_source_contract = {
@@ -1825,7 +1828,13 @@ class EvidenceFixture:
                 "policy": "p010_field_normalization",
                 "coverage": [
                     "p010_hdr_static_dynamic", "p010_absolute_pixel_oracle",
-                    "pq_transfer_profile", "interlaced_field_order_cadence",
+                    "per_frame_p010_distribution_oracle",
+                    "pq_transfer_profile",
+                    "hdr10plus_in_band_pts_preservation",
+                    "bounded_dynamic_hdr_pts_ledger",
+                    "direct_media_target_timeline_mapping",
+                    "zero_normalized_replacement_media_pts",
+                    "interlaced_field_order_cadence",
                     "non_square_pixel_aspect_ratio", "clean_aperture", "preferred_transform",
                     "combined_p010_hdr_interlaced",
                 ],
@@ -1836,6 +1845,8 @@ class EvidenceFixture:
                 "coverage": [
                     "non_square_pixel_aspect_ratio", "clean_aperture", "preferred_transform",
                     "straight_alpha", "combined_alpha_geometry",
+                    "canonical_dynamic_absent_one_pass",
+                    "plan_bound_absent_timeline_mapping",
                 ],
             },
             {
@@ -1844,6 +1855,8 @@ class EvidenceFixture:
                 "coverage": [
                     "non_square_pixel_aspect_ratio", "clean_aperture", "preferred_transform",
                     "premultiplied_alpha", "combined_alpha_geometry",
+                    "canonical_dynamic_absent_one_pass",
+                    "plan_bound_absent_timeline_mapping",
                 ],
             },
             {
@@ -1852,18 +1865,28 @@ class EvidenceFixture:
                 "coverage": [
                     "multiple_enabled_video_tracks", "alternate_audio_tracks", "chapters",
                     "timecode_tracks", "timed_metadata",
+                    "canonical_dynamic_absent_one_pass",
+                    "plan_bound_absent_timeline_mapping",
                 ],
             },
             {
                 "id": "legible-track-graph",
                 "policy": "process_primary_preserve_auxiliary",
-                "coverage": ["subtitles", "captions"],
+                "coverage": [
+                    "subtitles", "captions",
+                    "canonical_dynamic_absent_one_pass",
+                    "plan_bound_absent_timeline_mapping",
+                ],
             },
             {
                 "id": "auxiliary-picture-track",
                 "policy": "process_primary_preserve_auxiliary",
                 "coverage": [
                     "auxiliary_tracks", "p010_absolute_pixel_oracle",
+                    "per_frame_p010_distribution_oracle",
+                    "archived_hlg_p010_fixture",
+                    "canonical_dynamic_absent_one_pass",
+                    "plan_bound_absent_timeline_mapping",
                     "hlg_transfer_profile",
                 ],
             },
@@ -2107,12 +2130,21 @@ class EvidenceFixture:
                         "uniqueSignalCodeCount": 512, "lowPaddingBitViolationCount": 0,
                     }]
                     dynamic_hash = identity("hdr10-plus")
-                    post_hash = identity("post-decode")
-                    dynamic = [{"sampleOrdinal": 0, "pts": "0", "hdr10PlusSHA256": dynamic_hash, "postDecodeSHA256": post_hash}]
+                    dynamic = [{
+                        "sampleOrdinal": 0,
+                        "pts": "0",
+                        "hdr10PlusSHA256": dynamic_hash,
+                        "postDecodeSHA256": None,
+                    }]
                     if side == "output":
                         dynamic = [
                             dynamic[0],
-                            {"sampleOrdinal": 1, "pts": "1/60", "hdr10PlusSHA256": dynamic_hash, "postDecodeSHA256": post_hash},
+                            {
+                                "sampleOrdinal": 1,
+                                "pts": "1/60",
+                                "hdr10PlusSHA256": dynamic_hash,
+                                "postDecodeSHA256": None,
+                            },
                         ]
                     attachments = [attachment_row(
                         0,
@@ -2163,6 +2195,10 @@ class EvidenceFixture:
                         if kind not in {"video", "auxiliary"}:
                             continue
                         is_primary = ordinal == 0
+                        is_archived_hlg = (
+                            fixture_id == "auxiliary-picture-track"
+                            and is_primary
+                        )
                         width = 96 if is_primary and side == "output" else 64
                         height = 72 if is_primary and side == "output" else 48
                         signal_label = (
@@ -2174,8 +2210,10 @@ class EvidenceFixture:
                         pixels.append({
                             "ordinal": ordinal,
                             "kind": "video",
-                            "pixelFormat": "BGRA",
-                            "bitDepth": 8,
+                            "pixelFormat": (
+                                "x420" if is_archived_hlg else "BGRA"
+                            ),
+                            "bitDepth": 10 if is_archived_hlg else 8,
                             "width": width,
                             "height": height,
                             "frameCount": 1,
@@ -2186,15 +2224,21 @@ class EvidenceFixture:
                             "preEncodeAlphaFrameSHA256": [],
                             "repeatPreEncodeAlphaFrameSHA256": [],
                             "decodedAlphaSHA256": None,
-                            "uniqueSignalCodeCount": 0,
+                            "uniqueSignalCodeCount": (
+                                512 if is_archived_hlg else 0
+                            ),
                             "lowPaddingBitViolationCount": 0,
                         })
-                        attachments.append(attachment_row(
+                        attachment = attachment_row(
                             ordinal,
                             aperture=(
                                 str(width), str(height), "0", "0"
                             ),
-                        ))
+                            hdr=is_archived_hlg,
+                        )
+                        if is_archived_hlg:
+                            attachment["transferFunction"] = "ITU_R_2100_HLG"
+                        attachments.append(attachment)
                 pixel_observation = {
                     "schemaVersion": qualification.MEDIA_PIXEL_SCHEMA,
                     "fixtureID": fixture_id,
@@ -2245,32 +2289,111 @@ class EvidenceFixture:
                     raw_path = raw_side_dir / path.name
                     raw_path.write_bytes(path.read_bytes())
                     raw_side[name] = descriptor(raw_path, capture_root)
-                side_results[side] = {"manifest": manifest, "manifestPath": manifest_path}
+                side_results[side] = {
+                    "manifest": manifest,
+                    "manifestPath": manifest_path,
+                    "timing": {
+                        row["ordinal"]: row for row in timing_rows
+                    },
+                    "attachments": {
+                        row["ordinal"]: row for row in attachments
+                    },
+                }
                 raw_descriptors[side] = raw_side
 
+            checks: list[dict[str, object]] = []
+            if "canonical_dynamic_absent_one_pass" in spec["coverage"]:
+                checks.extend([
+                    {
+                        "id": "canonical-dynamic-hdr-absent-one-pass-route",
+                        "pass": True,
+                    },
+                    {
+                        "id": "plan-bound-absent-timeline-mapping-identity",
+                        "pass": True,
+                    },
+                ])
+            if "direct_media_target_timeline_mapping" in spec["coverage"]:
+                checks.extend([
+                    {
+                        "id": "direct-source-media-target-presentation-mapping",
+                        "pass": True,
+                    },
+                    {
+                        "id": "replacement-media-pts-zero-normalized",
+                        "pass": True,
+                    },
+                ])
             if policy == "p010_field_normalization":
-                checks = [
+                checks.extend([
                     {"id": "exact-rational-geometry-transform", "pass": True},
                     {"id": "repeat-output-visible-pixel-identity", "pass": True},
-                    {"id": "p010-static-and-frame-bound-dynamic-hdr-identity", "pass": True},
-                    {"id": "tff-field-order-and-double-rate-cadence", "pass": True},
-                ]
+                    {
+                        "id": "independent-absolute-p010-luma-chroma-oracle",
+                        "pass": True,
+                        "result": {},
+                    },
+                    {
+                        "id": "per-frame-independent-p010-distribution-lock",
+                        "pass": True,
+                    },
+                    {
+                        "id": "p010-release-locked-hdr-transfer-and-metadata-identity",
+                        "pass": True,
+                    },
+                    {
+                        "id": "hdr10plus-in-band-exact-presentation-time-preservation",
+                        "pass": True,
+                    },
+                    {
+                        "id": "bounded-segment-hdr10plus-ledger-recomputation",
+                        "pass": True,
+                    },
+                    {
+                        "id": "locked-field-order-and-double-rate-cadence",
+                        "pass": True,
+                    },
+                ])
             elif policy == "alpha_geometry":
                 association = "straight" if "straight_alpha" in spec["coverage"] else "premultiplied"
-                checks = [
+                checks.extend([
                     {"id": "exact-rational-geometry-transform", "pass": True},
                     {"id": "repeat-output-visible-pixel-identity", "pass": True},
-                    {"id": f"exact-prores4444-{association}-alpha", "pass": True},
-                ]
+                    {
+                        "id": f"independent-scalar-prores4444-{association}-alpha",
+                        "pass": True,
+                    },
+                ])
             else:
-                checks = [
+                checks.extend([
                     {
                         "id": "processed-primary-exact-auxiliary-preservation",
                         "pass": True,
                     },
                     {"id": "exact-rational-geometry-transform", "pass": True},
                     {"id": "repeat-output-visible-pixel-identity", "pass": True},
-                ]
+                ])
+                if "p010_absolute_pixel_oracle" in spec["coverage"]:
+                    checks.extend([
+                        {
+                            "id": "independent-absolute-p010-luma-chroma-oracle",
+                            "pass": True,
+                            "result": {},
+                        },
+                        {
+                            "id": "per-frame-independent-p010-distribution-lock",
+                            "pass": True,
+                        },
+                        {
+                            "id": "p010-release-locked-hdr-transfer-and-metadata-identity",
+                            "pass": True,
+                        },
+                    ])
+                if "archived_hlg_p010_fixture" in spec["coverage"]:
+                    checks.append({
+                        "id": "archived-hlg-p010-input-output-artifact-identity",
+                        "pass": True,
+                    })
                 for coverage_id in ("subtitles", "captions", "chapters", "timecode_tracks", "timed_metadata", "auxiliary_tracks"):
                     if coverage_id in spec["coverage"]:
                         checks.append({"id": f"{coverage_id}-present-and-accounted", "pass": True})
@@ -2333,10 +2456,8 @@ class EvidenceFixture:
             }
             migrated_tracks: list[dict[str, object]] = []
             for planned in planned_tracks:
-                is_pass_through = planned["action"] == "pass_through"
-                stream_sha = (
-                    identity(f"{fixture_id}-{planned['ordinal']}-sample-stream")
-                    if is_pass_through else None
+                stream_sha = identity(
+                    f"{fixture_id}-{planned['ordinal']}-sample-stream"
                 )
                 migrated_tracks.append({
                     "stableID": planned["stableID"],
@@ -2425,6 +2546,17 @@ class EvidenceFixture:
                 ),
                 "plannedEnabledTrackCount": len(kinds),
                 "alphaVerification": alpha_verification,
+                "hdr10PlusPreservation": (
+                    media_fixture_module.media
+                    .expected_hdr10plus_preservation_report(
+                        side_results["input"]["timing"][0]["samples"],
+                        side_results["output"]["timing"][0]["samples"],
+                        side_results["input"]["attachments"][0],
+                        side_results["output"]["attachments"][0],
+                        fixture_id,
+                        track_plan_sha256,
+                    )
+                ),
             }
             route_receipt = {
                 "schemaVersion": qualification.MEDIA_ROUTE_SCHEMA,
@@ -5534,6 +5666,8 @@ class CentralMediaRouteV2Tests(unittest.TestCase):
             {
                 "tracks": observations["inputTracks"],
                 "trackObservation": observations["inputTrackObservation"],
+                "timing": observations["inputTiming"],
+                "attachments": observations["inputAttachments"],
             },
             {
                 "tracks": observations["outputTracks"],
@@ -5561,6 +5695,64 @@ class CentralMediaRouteV2Tests(unittest.TestCase):
             "combined-alpha-geometry-straight"
         )
         self.assertEqual(self.validate(fixture), fixture.route["routeProofSHA256"])
+
+    def testAbsentHDRTimelineForgeryFailsAfterAllHashesAreRefreshed(self) -> None:
+        fixture = media_fixture_module.MediaRouteFixture()
+        for key in ("executionReceipt", "repeatExecutionReceipt"):
+            fixture.route[key]["hdr10PlusPreservation"][
+                "timelineMappingSHA256"
+            ] = identity("forged-absent-hdr-timeline")
+        fixture.reseal()
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "timeline identity differs",
+        ):
+            self.validate(fixture)
+
+    def testBoundedHDRLedgerForgeryFailsAfterAllHashesAreRefreshed(self) -> None:
+        fixture = media_fixture_module.MediaRouteFixture(
+            "combined-p010-hdr-interlaced"
+        )
+        for side in ("input", "output"):
+            fixture.observations[f"{side}Attachments"][0][
+                "dynamicHDRSamples"
+            ] = [
+                {
+                    "sampleOrdinal": index,
+                    "pts": pts,
+                    "hdr10PlusSHA256": identity(
+                        f"bounded-hdr-payload-{index}"
+                    ),
+                    "postDecodeSHA256": None,
+                }
+                for index, pts in enumerate(("0", "1/30"))
+            ]
+        expected = media_fixture_module.media.expected_hdr10plus_preservation_report(
+            fixture.observations["inputTiming"][0]["samples"],
+            fixture.observations["outputTiming"][0]["samples"],
+            fixture.observations["inputAttachments"][0],
+            fixture.observations["outputAttachments"][0],
+            fixture.fixture_id,
+            fixture.preflight["trackPlanSHA256"],
+        )
+        for key in ("executionReceipt", "repeatExecutionReceipt"):
+            fixture.route[key]["hdr10PlusPreservation"] = copy.deepcopy(
+                expected
+            )
+        fixture.reseal()
+        self.assertEqual(
+            self.validate(fixture), fixture.route["routeProofSHA256"]
+        )
+        for key in ("executionReceipt", "repeatExecutionReceipt"):
+            fixture.route[key]["hdr10PlusPreservation"][
+                "outputLedgerSHA256"
+            ] = identity("forged-bounded-hdr-ledger")
+        fixture.reseal()
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "ledger, count, or timeline identity differs",
+        ):
+            self.validate(fixture)
 
     def testSyntheticSixFixtureEvidencePassesCentralEvaluator(self) -> None:
         with tempfile.TemporaryDirectory(
@@ -5711,6 +5903,144 @@ class CentralMediaRouteV2Tests(unittest.TestCase):
             self.validate(fixture)
 
 
+class ReleaseContractInvariantTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.contract = json.loads(
+            (SCRIPT_DIRECTORY / "release-qualification-contract-v1.json").read_text()
+        )
+        _, media_sources_field, media_source_keys = (
+            qualification.RELEASE_LANE_LOCKS["media_preservation"]
+        )
+        self.contract["mediaPreservationLaneContractSHA256"] = identity(
+            "media-preservation-lane-contract"
+        )
+        self.contract[media_sources_field] = {
+            key: identity(f"media-preservation-{key}")
+            for key in media_source_keys
+        }
+        self.contract["mediaPreservationCoverage"] = list(
+            qualification.MEDIA_PRESERVATION_COVERAGE
+        )
+
+    def testCompleteLaneLockSetPassesEagerValidation(self) -> None:
+        self.assertIs(
+            qualification.validate_contract(self.contract),
+            self.contract,
+        )
+
+    def testEveryLaneSHAAndSourceMapIsRequired(self) -> None:
+        for role, (lane_field, sources_field, _) in (
+            qualification.RELEASE_LANE_LOCKS.items()
+        ):
+            with self.subTest(role=role, field=lane_field):
+                missing_lane = copy.deepcopy(self.contract)
+                missing_lane.pop(lane_field)
+                with self.assertRaisesRegex(
+                    qualification.QualificationError,
+                    lane_field,
+                ):
+                    qualification.validate_contract(missing_lane)
+            with self.subTest(role=role, field=sources_field):
+                missing_sources = copy.deepcopy(self.contract)
+                missing_sources.pop(sources_field)
+                with self.assertRaisesRegex(
+                    qualification.QualificationError,
+                    sources_field,
+                ):
+                    qualification.validate_contract(missing_sources)
+
+    def testEveryLaneSourceKeyIsRequired(self) -> None:
+        for role, (_, sources_field, source_keys) in (
+            qualification.RELEASE_LANE_LOCKS.items()
+        ):
+            for source_key in source_keys:
+                with self.subTest(role=role, sourceKey=source_key):
+                    missing_source = copy.deepcopy(self.contract)
+                    missing_source[sources_field].pop(source_key)
+                    with self.assertRaisesRegex(
+                        qualification.QualificationError,
+                        source_key,
+                    ):
+                        qualification.validate_contract(missing_source)
+
+    def testRoleBoundMappingsCoverExactlyEveryRole(self) -> None:
+        cases = (
+            ("requiredEvidenceRoles", "media_preservation"),
+            ("evidenceSchemas", "media_preservation"),
+            ("identityBindings", "media_preservation"),
+        )
+        for field, role in cases:
+            with self.subTest(field=field):
+                mutation = copy.deepcopy(self.contract)
+                if isinstance(mutation[field], list):
+                    mutation[field].remove(role)
+                else:
+                    mutation[field].pop(role)
+                with self.assertRaisesRegex(
+                    qualification.QualificationError,
+                    "missing=.*media_preservation",
+                ):
+                    qualification.validate_contract(mutation)
+
+        duplicate_role = copy.deepcopy(self.contract)
+        duplicate_role["requiredEvidenceRoles"].append("quality")
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "duplicates=.*quality",
+        ):
+            qualification.validate_contract(duplicate_role)
+
+        unexpected_role = copy.deepcopy(self.contract)
+        unexpected_role["requiredEvidenceRoles"].remove("media_preservation")
+        unexpected_role["requiredEvidenceRoles"].append("unreviewed_lane")
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "unexpected=.*unreviewed_lane",
+        ):
+            qualification.validate_contract(unexpected_role)
+
+    def testMediaCoverageDriftHasExplicitDiagnostics(self) -> None:
+        expected = list(qualification.MEDIA_PRESERVATION_COVERAGE)
+        cases = {
+            "missing": (
+                expected[:-1],
+                "missing=['hlg_transfer_profile']",
+                "unexpected=[]",
+            ),
+            "unexpected": (
+                expected[:-1] + ["unreviewed_media_semantic"],
+                "missing=['hlg_transfer_profile']",
+                "unexpected=['unreviewed_media_semantic']",
+            ),
+            "duplicate": (
+                expected + [expected[0]],
+                "missing=[]",
+                "duplicates=['p010_hdr_static_dynamic']",
+            ),
+            "reordered": (
+                [expected[1], expected[0], *expected[2:]],
+                "missing=[]",
+                "unexpected=[]",
+            ),
+        }
+        for name, (coverage, first_diagnostic, second_diagnostic) in cases.items():
+            with self.subTest(name=name):
+                mutation = copy.deepcopy(self.contract)
+                mutation["mediaPreservationCoverage"] = coverage
+                with self.assertRaises(
+                    qualification.QualificationError
+                ) as context:
+                    qualification.validate_contract(mutation)
+                message = str(context.exception)
+                self.assertIn(
+                    "release contract media preservation coverage differs",
+                    message,
+                )
+                self.assertIn(first_diagnostic, message)
+                self.assertIn(second_diagnostic, message)
+                self.assertIn("orderMatches=false", message)
+
+
 class CheckedInReleaseLockTests(unittest.TestCase):
     def testStableLaneAndToolLocksMatchCanonicalFiles(self) -> None:
         contract = json.loads(
@@ -5718,6 +6048,7 @@ class CheckedInReleaseLockTests(unittest.TestCase):
         )
 
         def locked_lane(field: str, relative: str) -> None:
+            self.assertIn(field, contract)
             self.assertEqual(
                 contract[field],
                 qualification.sha256(SCRIPT_DIRECTORY.parent.parent / relative),
@@ -5727,6 +6058,7 @@ class CheckedInReleaseLockTests(unittest.TestCase):
         def locked_sources(
             field: str, paths: dict[str, str]
         ) -> None:
+            self.assertIn(field, contract)
             self.assertEqual(
                 contract[field],
                 {
@@ -5783,6 +6115,24 @@ class CheckedInReleaseLockTests(unittest.TestCase):
                 "runnerSourceSHA256": "script/v4/run_performance_gate_v4.sh",
             },
         )
+        self.assertEqual(
+            contract["performanceLaneContractSHA256"],
+            "42cc36f29a385ba77c50a8aa673ea6808ef98eecf562e6f4742fc89a83729430",
+        )
+        self.assertEqual(
+            contract["performanceLockedSources"],
+            {
+                "captureSourceSHA256": (
+                    "8a6acc0b976a5408e2d0ce496b6fb62972607c5ff80039c3e5b102c9a8b04a3b"
+                ),
+                "evaluatorSourceSHA256": (
+                    "7e89bf754d6dde082d1cf506750d8912898489929b5a315f62229cad4c29f758"
+                ),
+                "runnerSourceSHA256": (
+                    "ebec53b106ad04712f4e266f27ee29157938e28e1e649dd9df81c0a996aa08dc"
+                ),
+            },
+        )
         performance_contract = json.loads(
             (SCRIPT_DIRECTORY / "performance-gate-contract-v1.json").read_text()
         )
@@ -5809,7 +6159,7 @@ class CheckedInReleaseLockTests(unittest.TestCase):
         )
         self.assertEqual(
             performance_producer["stableFactsSHA256"],
-            "a2b3b5f2ea0e2a09a3f1050c9397c4139c872370a7f35ae751f16f13b2da7f1e",
+            "b97f267680098abd50290e82c780e754555b3badc6d3f94133c2e569aec53c07",
         )
         self.assertEqual(
             performance_gate._stable_producer_identity(stable_facts),
@@ -5817,15 +6167,15 @@ class CheckedInReleaseLockTests(unittest.TestCase):
         )
         self.assertEqual(
             performance_producer["stableIdentitySHA256"],
-            "54e96f20effe70b21a51832eef6e54962a4f272577113a096d9078790b2931d0",
+            "5f5b745fa0955dafc7bdf1edc1f4241415bba2159e9f418c6e02aa75aad94150",
         )
         self.assertEqual(
             stable_facts["applicationExecutableSHA256"],
-            "835ac96f4afb64785238d1ec26be52078cfd3d57f2e81e64cb8bed702ee06635",
+            "5bb7eb60e41741dc84bf74018e4303e11a752a4d623dccde9be7dd9d16b7edfb",
         )
         self.assertEqual(
             stable_facts["testExecutableSHA256"],
-            "29b4d45177cb39635ba9951c0d5692d4f97cd63aa8a38d149018e43cb753ff9f",
+            "e022a89179fde414343d08aec37e63b7e9ae660f9cb4a6c48cef001ab44359b1",
         )
         self.assertEqual(
             stable_facts["sampleWorkloadIdentitySHA256"],
@@ -5837,7 +6187,7 @@ class CheckedInReleaseLockTests(unittest.TestCase):
                     stable_facts["compilerControlAudit"]
                 )
             ),
-            "5bc9077c5f9b2737574e3d51c2bb84a89271198ca23b2fc625b27d9756066bd6",
+            "89285cfc2f64ac732ec2b8257fff8ad957a8ec4ac27f38dfcfedcb194f2ac56b",
         )
         self.assertEqual(
             stable_facts["normalizedTestSummary"],
@@ -5886,6 +6236,31 @@ class CheckedInReleaseLockTests(unittest.TestCase):
                 "captureSourceSHA256": "Mirmir/App/MirmirApp.swift",
                 "evaluatorSHA256": "script/v4/cpu_metal_parity_v4.py",
                 "runnerSHA256": "script/v4/run_cpu_metal_parity_v4.sh",
+            },
+        )
+
+        locked_lane(
+            "mediaPreservationLaneContractSHA256",
+            "script/v4/media-preservation-contract-v1.json",
+        )
+        locked_sources(
+            "mediaPreservationLockedSources",
+            {
+                "captureSourceSHA256": (
+                    "script/v4/MediaPreservationCaptureTests.swift"
+                ),
+                "evaluatorSHA256": "script/v4/media_preservation_v4.py",
+                "fixtureSourceSHA256": (
+                    "MirmirTests/AVFoundationTrackMigrationExecutorV4Tests.swift"
+                ),
+                "observerSourceSHA256": "Mirmir/App/MirmirApp.swift",
+                "packagedEvidenceToolSHA256": (
+                    "script/v4/packaged_candidate_evidence_v4.py"
+                ),
+                "releaseCandidateArchiveToolSHA256": (
+                    "script/v4/release_candidate_archive_v4.py"
+                ),
+                "runnerSHA256": "script/v4/run_media_preservation_v4.sh",
             },
         )
 
@@ -5941,6 +6316,43 @@ class CheckedInReleaseLockTests(unittest.TestCase):
         self.assertEqual(
             contract["p06ProductionSourceCount"],
             p06_contract["productionSourceCount"],
+        )
+
+    def testCheckedInMediaCoverageIsTheExactLaneContractUnion(self) -> None:
+        release_contract = json.loads(
+            (SCRIPT_DIRECTORY / "release-qualification-contract-v1.json").read_text()
+        )
+        media_contract = json.loads(
+            (SCRIPT_DIRECTORY / "media-preservation-contract-v1.json").read_text()
+        )
+        ordered_coverage: list[str] = []
+        for fixture in media_contract["fixtures"]:
+            for value in fixture["coverage"]:
+                if value not in ordered_coverage:
+                    ordered_coverage.append(value)
+        self.assertEqual(
+            tuple(ordered_coverage),
+            qualification.MEDIA_PRESERVATION_COVERAGE,
+        )
+        self.assertEqual(len(ordered_coverage), 28)
+        self.assertEqual(
+            release_contract["mediaPreservationCoverage"],
+            ordered_coverage,
+        )
+
+    def testCheckedInTrustRootEstablishesExternalTrust(self) -> None:
+        contract_path = SCRIPT_DIRECTORY / "release-qualification-contract-v1.json"
+        trust_root_path = (
+            SCRIPT_DIRECTORY / "release-qualification-trust-root-v1.json"
+        )
+        trust = qualification.establish_external_trust(
+            trust_root_path,
+            qualification.sha256(trust_root_path),
+            contract_path,
+        )
+        self.assertEqual(
+            trust["trustRootSHA256"],
+            qualification.sha256(trust_root_path),
         )
 
 

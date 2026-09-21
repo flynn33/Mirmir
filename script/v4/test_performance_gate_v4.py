@@ -2145,15 +2145,58 @@ class PerformanceGateTests(unittest.TestCase):
         with self.assertRaisesRegex(gate.EvidenceError, "report seal differs"):
             self._verify(report)
 
-    def test_locked_runner_uses_semantic_p06_manifest_identity(self) -> None:
+    def test_baseline_build_uses_xcode_single_thread_setting_once(self) -> None:
+        receipt = json.loads(
+            (self.baseline / "producer/producer-receipt.json").read_text()
+        )
+        command = gate._expected_baseline_build_command(receipt)
+        self.assertEqual(command.count("SWIFT_NUM_THREADS=1"), 1)
+        swift_flags = [
+            value for value in command
+            if value.startswith("OTHER_SWIFT_FLAGS=")
+        ]
+        self.assertEqual(len(swift_flags), 1)
+        self.assertIn(" -j 1 ", swift_flags[0])
+        self.assertNotIn("-num-threads", swift_flags[0])
+
+    def test_locked_tools_and_runner_use_semantic_p06_manifest_identity(self) -> None:
+        contract_path = SCRIPT_DIRECTORY / "performance-gate-contract-v1.json"
         runner = SCRIPT_DIRECTORY / "run_performance_gate_v4.sh"
         locked_contract = json.loads(
-            (SCRIPT_DIRECTORY / "performance-gate-contract-v1.json").read_text()
+            contract_path.read_text()
         )
+        self.assertEqual(contract_path.stat().st_size, 5_152)
         self.assertEqual(
-            sha256(runner),
-            locked_contract["capture"]["runnerSourceSHA256"],
+            sha256(contract_path),
+            "42cc36f29a385ba77c50a8aa673ea6808ef98eecf562e6f4742fc89a83729430",
         )
+        locked_tools = {
+            "captureSourceSHA256": (
+                SCRIPT_DIRECTORY / "PerformanceGateCaptureTests.swift",
+                30_267,
+                "8a6acc0b976a5408e2d0ce496b6fb62972607c5ff80039c3e5b102c9a8b04a3b",
+            ),
+            "evaluatorSourceSHA256": (
+                SCRIPT_DIRECTORY / "performance_gate_v4.py",
+                187_072,
+                "7e89bf754d6dde082d1cf506750d8912898489929b5a315f62229cad4c29f758",
+            ),
+            "runnerSourceSHA256": (
+                runner,
+                39_826,
+                "ebec53b106ad04712f4e266f27ee29157938e28e1e649dd9df81c0a996aa08dc",
+            ),
+        }
+        for field, (source, expected_size, expected_sha256) in (
+            locked_tools.items()
+        ):
+            with self.subTest(field=field):
+                self.assertEqual(source.stat().st_size, expected_size)
+                self.assertEqual(sha256(source), expected_sha256)
+                self.assertEqual(
+                    locked_contract["capture"][field],
+                    expected_sha256,
+                )
         source = runner.read_text()
         self.assertIn('b"ash-p06-runtime-manifest-v4\\0"', source)
         self.assertIn("manifest_bytes != canonical_manifest_bytes", source)
@@ -2170,7 +2213,12 @@ class PerformanceGateTests(unittest.TestCase):
         self.assertIn("SWIFT_USE_INTEGRATED_DRIVER=NO", source)
         self.assertIn("path.removeprefix(\"/private\")", source)
         self.assertIn("-Xllvm -rng-seed=1", source)
-        self.assertIn("-j 1 -num-threads 1", source)
+        runner_flags = next(
+            line for line in source.splitlines()
+            if '"OTHER_SWIFT_FLAGS=' in line
+        )
+        self.assertIn("-j 1", runner_flags)
+        self.assertNotIn("-num-threads", runner_flags)
         self.assertIn("SWIFT_NUM_THREADS=1", source)
         self.assertNotIn('${project_root/#\\/private\\/tmp/\\/tmp}', source)
         capture_source = (

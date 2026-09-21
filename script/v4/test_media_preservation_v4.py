@@ -330,6 +330,44 @@ class MediaRouteFixture:
 
 
 class MediaPreservationV2Tests(unittest.TestCase):
+    def testCheckedInContractPinsEveryNormativeMediaTool(self) -> None:
+        repository = SCRIPT_DIRECTORY.parent.parent
+        contract_path = SCRIPT_DIRECTORY / "media-preservation-contract-v1.json"
+        contract, contract_sha256 = media.load_contract(contract_path)
+        self.assertEqual(
+            contract_sha256,
+            media.sha256_file(contract_path),
+        )
+        expected_capture = {
+            "buildConfiguration": "Release",
+            "captureSourceSHA256": media.sha256_file(
+                repository / "script/v4/MediaPreservationCaptureTests.swift"
+            ),
+            "evaluatorSHA256": media.sha256_file(
+                repository / "script/v4/media_preservation_v4.py"
+            ),
+            "fixtureSourceSHA256": media.sha256_file(
+                repository
+                / "MirmirTests/AVFoundationTrackMigrationExecutorV4Tests.swift"
+            ),
+            "observerSourceSHA256": media.sha256_file(
+                repository / "Mirmir/App/MirmirApp.swift"
+            ),
+            "packagedEvidenceToolSHA256": media.sha256_file(
+                repository / "script/v4/packaged_candidate_evidence_v4.py"
+            ),
+            "releaseCandidateArchiveToolSHA256": media.sha256_file(
+                repository / "script/v4/release_candidate_archive_v4.py"
+            ),
+            "runnerSHA256": media.sha256_file(
+                repository / "script/v4/run_media_preservation_v4.sh"
+            ),
+        }
+        self.assertEqual(set(contract["capture"]), set(expected_capture))
+        for key, expected in expected_capture.items():
+            with self.subTest(key=key):
+                self.assertEqual(contract["capture"][key], expected)
+
     def boundedHDRRouteFixture(self) -> MediaRouteFixture:
         fixture = MediaRouteFixture()
         dynamic = [

@@ -1,13 +1,13 @@
 {
   "contract": {
-    "byteCount": 10749,
+    "byteCount": 92145,
     "repositoryRelativePath": "script/v4/release-qualification-contract-v1.json",
-    "sha256": "aa5d684f7211cd5f258309812c43facf8dc784e3b7079e5fcc0472f0166bfe9c"
+    "sha256": "031671274655453e12af9310f432550f8ee3a8d2a13c73df4cb829a08ec8f9d3"
   },
   "evaluator": {
-    "byteCount": 315060,
+    "byteCount": 369670,
     "repositoryRelativePath": "script/v4/release_qualification_v4.py",
-    "sha256": "d58a8c3b5f288a2a0c7fffabc5b0e998a3df4881ed45fb4f99dfee6b78e04f66"
+    "sha256": "d2c2a355f2f54ef5a9f14115eca5eeceb07b85a68441d36b6deb51d2f361e68a"
   },
   "hashAlgorithm": "sha256",
   "helpers": [
@@ -19,11 +19,11 @@
       "sha256": "23c0d874e27b7eb37702d18612a969ede2cfda61ed0f968e7c078fd402511403"
     },
     {
-      "byteCount": 93787,
+      "byteCount": 97604,
       "moduleName": "cpu_metal_parity_v4_for_release_qualification",
       "repositoryRelativePath": "script/v4/cpu_metal_parity_v4.py",
       "role": "cpu_metal_parity_replay",
-      "sha256": "b24a958231cd17fb570d42922a810d321c0f6407a8f16a1d302d991b2cff66f3"
+      "sha256": "ed0f88fd607268a817159554afbe39a60fca9d4ef8a7c74e44966dd0e2a10a3b"
     },
     {
       "byteCount": 11337,
@@ -98,5 +98,5 @@
     }
   ],
   "schemaVersion": "mirmir-ash-v4-release-qualification-trust-root-v1",
-  "trustedToolSetSHA256": "04e3c6b982bff5f6208c809e6f1e03bd561a50cad0d2d36608e15fb586b03844"
+  "trustedToolSetSHA256": "76baa7aad2b167d40b071c3823baa8feedaecbe913de353de6b128082caf3138"
 }

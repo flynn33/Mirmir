@@ -22,7 +22,7 @@
     "evaluatorSourceSHA256": "5d7b19b4b072170f9549534936136a1a43a06e433468b4c31720a1b5b15362ee",
     "observerSourceSHA256": "9fcf2009a18385524f65644cf13e744a0cdd58550808bc43089dff4f12f98a84",
     "packagedEvidenceSourceSHA256": "5ea4b53d5d696714d1d0f00a1df22cb1a0b8f9769f2e70b133139cb05132f117",
-    "producerSourceSHA256": "ab7830c27debc9d7afdf704202ab7dc1270c54b0f904fed535e69aa33e5439ce",
+    "producerSourceSHA256": "7b4e429e0dc7ddac50d5eda303c5371d86902fb0682b5a4153d844c0a273a9ac",
     "runnerSourceSHA256": "4552b7e7d631ea12a2f712fe32122083dd7c9dba576b4655beca319d41076b27"
   },
   "crossProcessCaptureCount": 2,

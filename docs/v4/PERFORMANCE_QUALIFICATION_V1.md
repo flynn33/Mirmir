@@ -240,6 +240,62 @@ with SHA-256
 all 18 stable-equality checks and all 17 designed-per-run-difference checks
 passed.
 
+### Current-host producer relock reproduction (2026-09-20)
+
+After upgrading the qualification host, the frozen P05 producer was reproduced
+twice with macOS build `26A428`, Xcode `27.0` build `27A266a`, and Apple Swift
+`6.4` (`swiftlang-6.4.0.34.1 clang-2100.3.34.1`). The captures used fresh
+evidence roots, five warmups, ten samples, and no concurrent build or timing
+workload:
+
+- A: `/private/tmp/mirmir-p05-requal-a.NXlfJn/evidence/baseline`
+- B: `/private/tmp/mirmir-p05-requal-b.ZaObAY/evidence/baseline`
+
+Both captures independently passed `verify-baseline-capture`. Their exact
+24-key stable fact maps were byte-identical. The canonical newline-terminated
+map is `57,999` bytes with SHA-256
+`b97f267680098abd50290e82c780e754555b3badc6d3f94133c2e569aec53c07`;
+the recomputed domain-separated stable producer identity is
+`5f5b745fa0955dafc7bdf1edc1f4241415bba2159e9f418c6e02aa75aad94150`
+for both runs. The timing-neutral workload identity remained the frozen
+`e3b82df0a00dc2d3b2e7b1904f3efb1ee425bd6e4908e9af7b27128b02d13e66`.
+
+The application executable was byte-identical at `4,361,496` bytes and
+`5bb7eb60e41741dc84bf74018e4303e11a752a4d623dccde9be7dd9d16b7edfb`.
+The test executable was byte-identical at `1,718,248` bytes and
+`e022a89179fde414343d08aec37e63b7e9ae660f9cb4a6c48cef001ab44359b1`.
+The stable compiler-control audit was byte-identical with canonical SHA-256
+`89285cfc2f64ac732ec2b8257fff8ad957a8ec4ac27f38dfcfedcb194f2ac56b`.
+It retained exactly one Mirmir and one MirmirTests driver/frontend job, driver
+audit SHA-256
+`f8d1fe1db2db2d393d606d53d4472967dc2591f7dab6485bd1bbdcb97d5e7f5e`,
+driver-wrapper identity
+`5a82e5414ddf7cb5e30696e6a9f49c50fff643c78552d3cfab2088e2c16f2b49`,
+and frontend-shim identity
+`87bd25a172008efb455d5d09804658c146ca157597fbdb945090f3f6d8639826`.
+
+Per-run evidence remained distinct as required. A and B producer receipt
+SHA-256 values were respectively
+`d3d56d240b53798ecfeafcd02c1abc8ccc1c0ef64aa23e1852cce3ab7409e0bb`
+and
+`5e5cb7f2dfac7c712012cc2f322bda62f047ea3f5f424034897ffccd72d2a94d`.
+Their measurement-set identities were
+`fb4c45e71c9d5652b7129947c0db2e5b881f366a475ca108a6398c3605259568`
+and
+`20331074be11b5d0343c98a6c82a8a7348fddf5f304c2fb75521711c8e84f2ef`;
+their 80-row transcript-set identities were
+`560220ee5fb5b76ace29f63dc7d43317cc3aed5e5ec3e12242f981066710f3d9`
+and
+`69e58a3aed423d75db25b5588e0c25f6baad64675fedb7132550173aff775d24`.
+
+An earlier attempt on this host produced no measurements because Swift 6.4
+received duplicate frontend thread-count controls. It is excluded from all
+evidence. The runner now supplies the single driver job control and verifies
+the one projected `-num-threads 1` frontend control; the protected P05 source,
+input, workload, thresholds, sampling counts, and bootstrap policy did not
+change. The release contract's frozen producer authority is the successful
+two-run identity above.
+
 This proof qualifies reproducibility and causal evidence for the frozen P05
 baseline producer only. It does not establish that a final P06 candidate meets
 the required 20% processing-time reduction; that decision still requires the

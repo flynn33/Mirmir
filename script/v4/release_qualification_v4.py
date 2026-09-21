@@ -51,7 +51,19 @@ MEDIA_ATTACHMENT_SCHEMA = "mirmir-ash-v4-attachment-observation-v1"
 MEDIA_CAPTURE_SCHEMA = "mirmir-ash-v4-media-preservation-capture-v2"
 MEDIA_ROUTE_SCHEMA = "mirmir-ash-v4-media-production-route-receipt-v2"
 MEDIA_PREFLIGHT_SCHEMA = "mirmir-ash-v4-media-independent-preflight-v2"
-MEDIA_EXECUTION_RECEIPT_SCHEMA = "ash.deterministic-media-execution-receipt.v4.1"
+MEDIA_EXECUTION_RECEIPT_SCHEMA = "ash.deterministic-media-execution-receipt.v4.3"
+MEDIA_HDR10PLUS_PRESERVATION_REPORT_SCHEMA = (
+    "ash.hdr10plus-segment-preservation-report.v4.3"
+)
+MEDIA_HDR10PLUS_PARSER_ID = "ash.hevc-hdr10plus-length-prefixed-parser.v4.1"
+MEDIA_HDR10PLUS_REWRITER_ID = "ash.hevc-hdr10plus-prefix-sei-rewriter.v4.1"
+MEDIA_HDR10PLUS_ABSENT_ONE_PASS_ROUTE = (
+    "ash.canonical-dynamic-absent-one-pass.v4"
+)
+MEDIA_HDR10PLUS_BOUNDED_SEGMENT_ROUTE = (
+    "ash.bounded-hdr10plus-segment-prefix-sei.v4"
+)
+MEDIA_DIRECT_SEGMENT_MAXIMUM_INPUT_FRAMES = 60
 MEDIA_EXPECTED_PREPARED_BACKEND = {
     "combined-p010-hdr-interlaced": "Mirmir.PreparedDeterministicV4Upscaler",
     "combined-alpha-geometry-straight":
@@ -178,6 +190,122 @@ ROLE_REPLAY_HELPERS: Mapping[str, tuple[str, ...]] = {
     "support_matrix": ("support_matrix_replay",),
     "notarized_smoke": (),
 }
+RELEASE_LANE_LOCKS: Mapping[str, tuple[str, str, frozenset[str]]] = {
+    "quality": (
+        "qualityLaneContractSHA256",
+        "qualityLockedSources",
+        frozenset({
+            "baselineRunnerSHA256",
+            "metricToolSHA256",
+            "observerSourceSHA256",
+        }),
+    ),
+    "same_scope_performance": (
+        "performanceLaneContractSHA256",
+        "performanceLockedSources",
+        frozenset({
+            "captureSourceSHA256",
+            "evaluatorSourceSHA256",
+            "runnerSourceSHA256",
+        }),
+    ),
+    "cpu_metal_parity": (
+        "parityLaneContractSHA256",
+        "parityLockedSources",
+        frozenset({
+            "captureSourceSHA256",
+            "evaluatorSHA256",
+            "runnerSHA256",
+        }),
+    ),
+    "media_preservation": (
+        "mediaPreservationLaneContractSHA256",
+        "mediaPreservationLockedSources",
+        frozenset({
+            "captureSourceSHA256",
+            "evaluatorSHA256",
+            "fixtureSourceSHA256",
+            "observerSourceSHA256",
+            "packagedEvidenceToolSHA256",
+            "releaseCandidateArchiveToolSHA256",
+            "runnerSHA256",
+        }),
+    ),
+    "recovery": (
+        "recoveryLaneContractSHA256",
+        "recoveryLockedSources",
+        frozenset({
+            "archiveProvenanceSHA256",
+            "evaluatorSHA256",
+            "observerSourceSHA256",
+            "packagedEvidenceSHA256",
+            "producerSourceSHA256",
+            "runnerSHA256",
+        }),
+    ),
+    "p06_reproduction": (
+        "p06ReproductionLaneContractSHA256",
+        "p06ReproductionLockedSources",
+        frozenset({
+            "buildRunnerSHA256",
+            "captureSourceSHA256",
+            "evaluatorSHA256",
+            "runnerSHA256",
+            "runtimeLoadCheckRunnerSHA256",
+            "runtimeLoadCheckSourceSHA256",
+            "sourceIdentityToolSHA256",
+            "sourceProvenanceContractSHA256",
+        }),
+    ),
+    "support_matrix": (
+        "supportMatrixLaneContractSHA256",
+        "supportMatrixLockedSources",
+        frozenset({
+            "captureSourceSHA256",
+            "evaluatorSHA256",
+            "runnerSHA256",
+        }),
+    ),
+    "notarized_smoke": (
+        "notarizedSmokeLaneContractSHA256",
+        "notarizedSmokeLockedSources",
+        frozenset({
+            "evaluatorSHA256",
+            "observerSourceSHA256",
+            "runnerSHA256",
+        }),
+    ),
+}
+MEDIA_PRESERVATION_COVERAGE: tuple[str, ...] = (
+    "p010_hdr_static_dynamic",
+    "p010_absolute_pixel_oracle",
+    "per_frame_p010_distribution_oracle",
+    "pq_transfer_profile",
+    "hdr10plus_in_band_pts_preservation",
+    "bounded_dynamic_hdr_pts_ledger",
+    "direct_media_target_timeline_mapping",
+    "zero_normalized_replacement_media_pts",
+    "interlaced_field_order_cadence",
+    "non_square_pixel_aspect_ratio",
+    "clean_aperture",
+    "preferred_transform",
+    "combined_p010_hdr_interlaced",
+    "straight_alpha",
+    "combined_alpha_geometry",
+    "canonical_dynamic_absent_one_pass",
+    "plan_bound_absent_timeline_mapping",
+    "premultiplied_alpha",
+    "multiple_enabled_video_tracks",
+    "alternate_audio_tracks",
+    "chapters",
+    "timecode_tracks",
+    "timed_metadata",
+    "subtitles",
+    "captions",
+    "auxiliary_tracks",
+    "archived_hlg_p010_fixture",
+    "hlg_transfer_profile",
+)
 
 # These modules are deliberately absent until the externally pinned trust root
 # authenticates every byte. Importing a live working-tree helper before that
@@ -214,6 +342,11 @@ def load_json(path: Path) -> Any:
         )
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
         raise QualificationError(f"cannot read canonical JSON {path}: {error}") from error
+
+
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise QualificationError(message)
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -3553,6 +3686,376 @@ def media_first_video(tracks: Mapping[int, Mapping[str, Any]], label: str) -> tu
     return videos[0]
 
 
+def media_ash_domain_hash(domain: str, value: Any) -> str:
+    try:
+        domain_bytes = domain.encode("ascii")
+    except UnicodeEncodeError as error:
+        raise QualificationError("ASH hash domain is not ASCII") from error
+    require(
+        0 < len(domain_bytes) <= 128,
+        "ASH hash domain is invalid",
+    )
+    return sha256_bytes(domain_bytes + b"\0" + canonical_bytes(value))
+
+
+def media_hdr10plus_presentation_time(value: Fraction) -> dict[str, int]:
+    return {
+        "epoch": 0,
+        "timescale": value.denominator,
+        "value": value.numerator,
+    }
+
+
+def media_hdr10plus_dynamic_by_pts(
+    attachment: Mapping[str, Any],
+    label: str,
+) -> dict[Fraction, str]:
+    result: dict[Fraction, str] = {}
+    for index, raw in enumerate(require_list(
+        attachment.get("dynamicHDRSamples", []),
+        f"{label}.dynamicHDRSamples",
+    )):
+        sample = require_mapping(raw, f"{label}.dynamicHDRSamples[{index}]")
+        pts = media_fraction(sample["pts"], f"{label}.dynamic[{index}].pts")
+        payload = require_hex(
+            sample["hdr10PlusSHA256"],
+            64,
+            f"{label}.dynamic[{index}].hdr10PlusSHA256",
+        )
+        require(
+            sample.get("postDecodeSHA256") is None and pts not in result,
+            f"{label} dynamic HDR presentation domain differs",
+        )
+        result[pts] = payload
+    return result
+
+
+def media_hdr10plus_ledger_sha256(
+    samples: list[Mapping[str, Any]],
+    metadata_by_pts: Mapping[Fraction, str],
+    label: str,
+    pts_offset: Fraction = Fraction(0),
+) -> str:
+    records: list[dict[str, Any]] = []
+    seen: set[Fraction] = set()
+    for index, sample in enumerate(samples):
+        pts = media_fraction(sample["pts"], f"{label}[{index}].pts")
+        require(pts not in seen, f"{label} presentation time is duplicated")
+        seen.add(pts)
+        records.append({
+            "hdr10PlusSHA256": metadata_by_pts.get(pts),
+            "presentationTime": media_hdr10plus_presentation_time(
+                pts - pts_offset
+            ),
+        })
+    require(
+        set(metadata_by_pts).issubset(seen),
+        f"{label} HDR10+ metadata has an extra presentation time",
+    )
+    return media_ash_domain_hash(
+        "ash-hdr10plus-presentation-ledger-v4", records
+    )
+
+
+def media_exact_rational_json(value: Fraction) -> dict[str, int]:
+    return {
+        "denominator": value.denominator,
+        "numerator": value.numerator,
+    }
+
+
+def media_exact_range_json(
+    start: Fraction, duration: Fraction
+) -> dict[str, Any]:
+    return {
+        "duration": media_exact_rational_json(duration),
+        "start": media_exact_rational_json(start),
+    }
+
+
+def media_sample_range(
+    samples: list[Mapping[str, Any]], label: str
+) -> tuple[Fraction, Fraction]:
+    require(samples, f"{label} sample range is empty")
+    start = media_fraction(samples[0]["pts"], f"{label}[0].pts")
+    prior: Fraction | None = None
+    end = start
+    for index, sample in enumerate(samples):
+        pts = media_fraction(sample["pts"], f"{label}[{index}].pts")
+        duration = media_fraction(
+            sample["duration"], f"{label}[{index}].duration"
+        )
+        require(duration > 0, f"{label}[{index}] duration is not positive")
+        require(
+            prior is None or pts > prior,
+            f"{label} presentation times are not strictly increasing",
+        )
+        prior = pts
+        end = max(end, pts + duration)
+    require(end > start, f"{label} sample range is not positive")
+    return start, end - start
+
+
+def media_direct_timeline_mapping_sha256(
+    input_samples: list[Mapping[str, Any]],
+    output_samples: list[Mapping[str, Any]],
+    label: str,
+    *,
+    target_timeline_start: Fraction | None = None,
+    topology: str | None = None,
+) -> str:
+    media_start, media_duration = media_sample_range(
+        input_samples, f"{label}.inputMediaRange"
+    )
+    output_start, output_duration = media_sample_range(
+        output_samples, f"{label}.replacementMediaRange"
+    )
+    require(
+        output_start == 0 and output_duration == media_duration,
+        f"{label} replacement media is not zero-normalized with exact duration",
+    )
+    target_start = (
+        media_start if target_timeline_start is None
+        else target_timeline_start
+    )
+    require(target_start >= 0, f"{label} target timeline start is negative")
+    selected_topology = topology or (
+        "single_nonempty" if target_start == 0
+        else "leading_empty_then_single_nonempty"
+    )
+    source_range = media_exact_range_json(media_start, media_duration)
+    target_range = media_exact_range_json(target_start, media_duration)
+    nonempty_ordinal = 0
+    edits: list[dict[str, Any]] = []
+    if selected_topology == "leading_empty_then_single_nonempty":
+        require(
+            target_start > 0,
+            f"{label} leading-empty topology has no leading interval",
+        )
+        edits.append({
+            "isEmpty": True,
+            "ordinal": 0,
+            "source": None,
+            "target": media_exact_range_json(Fraction(0), target_start),
+        })
+        nonempty_ordinal = 1
+    else:
+        require(
+            selected_topology == "single_nonempty",
+            f"{label} timeline edit topology is unsupported",
+        )
+    edits.append({
+        "isEmpty": False,
+        "ordinal": nonempty_ordinal,
+        "source": source_range,
+        "target": target_range,
+    })
+    return media_ash_domain_hash(
+        "ash-direct-primary-timeline-mapping-v4",
+        {
+            "acceptedEdits": edits,
+            "mediaRange": source_range,
+            "offset": media_exact_rational_json(target_start - media_start),
+            "schemaID": "ash.direct-primary-timeline-mapping.v4",
+            "targetRange": target_range,
+            "topology": selected_topology,
+        },
+    )
+
+
+def media_absent_timeline_mapping_sha256(track_plan_sha256: str) -> str:
+    require_hex(track_plan_sha256, 64, "absent timeline track plan")
+    return media_ash_domain_hash(
+        "ash-hdr10plus-timeline-mapping-not-applicable-v4",
+        {
+            "routeID": MEDIA_HDR10PLUS_ABSENT_ONE_PASS_ROUTE,
+            "schemaID":
+                "ash.hdr10plus-timeline-mapping-not-applicable.v4",
+            "trackPlanSHA256": track_plan_sha256,
+        },
+    )
+
+
+def expected_media_hdr10plus_preservation_report(
+    input_samples_value: Any,
+    output_samples_value: Any,
+    input_attachment: Mapping[str, Any],
+    output_attachment: Mapping[str, Any],
+    label: str,
+    track_plan_sha256: str,
+) -> dict[str, Any]:
+    input_samples = [
+        require_mapping(value, f"{label}.inputSamples[{index}]")
+        for index, value in enumerate(require_list(
+            input_samples_value, f"{label}.inputSamples"
+        ))
+    ]
+    output_samples = [
+        require_mapping(value, f"{label}.outputSamples[{index}]")
+        for index, value in enumerate(require_list(
+            output_samples_value, f"{label}.outputSamples"
+        ))
+    ]
+    require(input_samples and output_samples, f"{label} HDR ledger is empty")
+    input_dynamic = media_hdr10plus_dynamic_by_pts(
+        input_attachment, f"{label}.inputAttachment"
+    )
+    output_dynamic = media_hdr10plus_dynamic_by_pts(
+        output_attachment, f"{label}.outputAttachment"
+    )
+    output_inventory = {
+        media_fraction(sample["pts"], f"{label}.outputPTS[{index}]")
+        for index, sample in enumerate(output_samples)
+    }
+    require(
+        set(output_dynamic).issubset(output_inventory),
+        f"{label} output HDR10+ metadata has an extra presentation time",
+    )
+    if not input_dynamic:
+        require(
+            not output_dynamic,
+            f"{label} output invented HDR10+ metadata",
+        )
+        return {
+            "schemaID": MEDIA_HDR10PLUS_PRESERVATION_REPORT_SCHEMA,
+            "routeID": MEDIA_HDR10PLUS_ABSENT_ONE_PASS_ROUTE,
+            "parserID": MEDIA_HDR10PLUS_PARSER_ID,
+            "rewriterID": MEDIA_HDR10PLUS_REWRITER_ID,
+            "timelineMappingSHA256": media_absent_timeline_mapping_sha256(
+                track_plan_sha256
+            ),
+            "sourceLedgerSHA256": media_ash_domain_hash(
+                "ash-hdr10plus-canonical-absent-source-ledger-v4",
+                "empty",
+            ),
+            "outputLedgerSHA256": media_ash_domain_hash(
+                "ash-hdr10plus-canonical-absent-output-ledger-v4",
+                "empty",
+            ),
+            "rewrittenSampleCount": 0,
+            "segmentCount": 0,
+        }
+
+    timeline_mapping_sha256 = media_direct_timeline_mapping_sha256(
+        input_samples, output_samples, label
+    )
+    source_root = media_ash_domain_hash(
+        "ash-hdr10plus-segment-source-ledgers-v4-root", "empty"
+    )
+    output_root = media_ash_domain_hash(
+        "ash-hdr10plus-segment-output-ledgers-v4-root", "empty"
+    )
+    assigned_output_pts: set[Fraction] = set()
+    media_origin, _ = media_sample_range(
+        input_samples, f"{label}.inputMediaRange"
+    )
+    segment_count = 0
+    for start in range(
+        0, len(input_samples), MEDIA_DIRECT_SEGMENT_MAXIMUM_INPUT_FRAMES
+    ):
+        chunk = input_samples[
+            start : start + MEDIA_DIRECT_SEGMENT_MAXIMUM_INPUT_FRAMES
+        ]
+        chunk_start = media_fraction(
+            chunk[0]["pts"], f"{label}.segment[{segment_count}].start"
+        )
+        last = chunk[-1]
+        chunk_end = media_fraction(
+            last["pts"], f"{label}.segment[{segment_count}].lastPTS"
+        ) + media_fraction(
+            last["duration"], f"{label}.segment[{segment_count}].duration"
+        )
+        output_start = chunk_start - media_origin
+        output_end = chunk_end - media_origin
+        segment_output = [
+            sample for sample in output_samples
+            if output_start <= media_fraction(
+                sample["pts"], f"{label}.segmentOutputPTS"
+            ) < output_end
+        ]
+        require(
+            segment_output,
+            f"{label} segment {segment_count} has no output samples",
+        )
+        segment_output_pts = {
+            media_fraction(sample["pts"], f"{label}.segmentOutputPTS")
+            for sample in segment_output
+        }
+        require(
+            assigned_output_pts.isdisjoint(segment_output_pts),
+            f"{label} output presentation domain overlaps segments",
+        )
+        assigned_output_pts.update(segment_output_pts)
+        source_ledger = media_hdr10plus_ledger_sha256(
+            chunk,
+            {
+                pts: payload for pts, payload in input_dynamic.items()
+                if chunk_start <= pts < chunk_end
+            },
+            f"{label}.sourceLedger[{segment_count}]",
+        )
+        output_ledger = media_hdr10plus_ledger_sha256(
+            segment_output,
+            {
+                pts: payload for pts, payload in output_dynamic.items()
+                if output_start <= pts < output_end
+            },
+            f"{label}.outputLedger[{segment_count}]",
+            pts_offset=output_start,
+        )
+        source_root = media_ash_domain_hash(
+            "ash-hdr10plus-segment-source-ledgers-v4-fold",
+            {
+                "ledger": source_ledger,
+                "previous": source_root,
+                "segmentOrdinal": segment_count,
+            },
+        )
+        output_root = media_ash_domain_hash(
+            "ash-hdr10plus-segment-output-ledgers-v4-fold",
+            {
+                "ledger": output_ledger,
+                "previous": output_root,
+                "segmentOrdinal": segment_count,
+            },
+        )
+        segment_count += 1
+    require(
+        assigned_output_pts == output_inventory,
+        f"{label} output presentation domain is missing a segment",
+    )
+    return {
+        "schemaID": MEDIA_HDR10PLUS_PRESERVATION_REPORT_SCHEMA,
+        "routeID": MEDIA_HDR10PLUS_BOUNDED_SEGMENT_ROUTE,
+        "parserID": MEDIA_HDR10PLUS_PARSER_ID,
+        "rewriterID": MEDIA_HDR10PLUS_REWRITER_ID,
+        "timelineMappingSHA256": timeline_mapping_sha256,
+        "sourceLedgerSHA256": source_root,
+        "outputLedgerSHA256": output_root,
+        "rewrittenSampleCount": len(output_dynamic),
+        "segmentCount": segment_count,
+    }
+
+
+def validate_media_hdr10plus_preservation_report(
+    value: Any,
+    expected: Mapping[str, Any],
+    label: str,
+) -> None:
+    report = require_mapping(value, label)
+    require_exact_keys(report, set(expected), label)
+    for key in (
+        "timelineMappingSHA256", "sourceLedgerSHA256", "outputLedgerSHA256"
+    ):
+        require_hex(report[key], 64, f"{label}.{key}")
+    for key in ("rewrittenSampleCount", "segmentCount"):
+        require_integer(report[key], f"{label}.{key}")
+    require(
+        report == expected,
+        f"{label} route, parser, rewriter, ledger, count, or timeline identity differs",
+    )
+
+
 def recompute_media_fixture(
     fixture_id: str,
     policy: str,
@@ -3570,6 +4073,61 @@ def recompute_media_fixture(
     input_attachments = input_side["attachments"]
     output_attachments = output_side["attachments"]
     checks: list[dict[str, Any]] = []
+
+    if (
+        ("per_frame_p010_distribution_oracle" in coverage)
+        != ("p010_absolute_pixel_oracle" in coverage)
+    ):
+        raise QualificationError(
+            f"preservation {fixture_id} per-frame P010 coverage differs"
+        )
+    if (
+        ("archived_hlg_p010_fixture" in coverage)
+        != (fixture_id == "auxiliary-picture-track")
+    ):
+        raise QualificationError(
+            f"preservation {fixture_id} archived HLG coverage differs"
+        )
+    has_dynamic_route = fixture_id == "combined-p010-hdr-interlaced"
+    if (
+        ("hdr10plus_in_band_pts_preservation" in coverage)
+        != has_dynamic_route
+        or ("bounded_dynamic_hdr_pts_ledger" in coverage)
+        != has_dynamic_route
+        or ("canonical_dynamic_absent_one_pass" in coverage)
+        == has_dynamic_route
+        or ("plan_bound_absent_timeline_mapping" in coverage)
+        == has_dynamic_route
+        or ("direct_media_target_timeline_mapping" in coverage)
+        != has_dynamic_route
+        or ("zero_normalized_replacement_media_pts" in coverage)
+        != has_dynamic_route
+    ):
+        raise QualificationError(
+            f"preservation {fixture_id} dynamic HDR route coverage differs"
+        )
+    if "canonical_dynamic_absent_one_pass" in coverage:
+        checks.extend([
+            {
+                "id": "canonical-dynamic-hdr-absent-one-pass-route",
+                "pass": True,
+            },
+            {
+                "id": "plan-bound-absent-timeline-mapping-identity",
+                "pass": True,
+            },
+        ])
+    if "direct_media_target_timeline_mapping" in coverage:
+        checks.extend([
+            {
+                "id": "direct-source-media-target-presentation-mapping",
+                "pass": True,
+            },
+            {
+                "id": "replacement-media-pts-zero-normalized",
+                "pass": True,
+            },
+        ])
 
     if policy == "process_primary_preserve_auxiliary":
         input_primary, _ = media_first_video(
@@ -3684,7 +4242,7 @@ def recompute_media_fixture(
     else:
         raise QualificationError(f"preservation {fixture_id} policy is unsupported")
 
-    if "p010_hdr_static_dynamic" in coverage:
+    if "p010_absolute_pixel_oracle" in coverage:
         input_ordinal, _ = media_first_video(input_tracks, f"preservation {fixture_id} input")
         output_ordinal, _ = media_first_video(output_tracks, f"preservation {fixture_id} output")
         for side_label, pixel in (("input", input_pixels[input_ordinal]), ("output", output_pixels[output_ordinal])):
@@ -3692,20 +4250,83 @@ def recompute_media_fixture(
                 raise QualificationError(f"preservation {fixture_id} {side_label} does not prove exact P010 precision")
         source = input_attachments[input_ordinal]
         target = output_attachments[output_ordinal]
-        if source["colorPrimaries"] != target["colorPrimaries"] or source["colorPrimaries"] != "ITU_R_2020" or source["transferFunction"] != target["transferFunction"] or source["transferFunction"] != "SMPTE_ST_2084_PQ" or source["yCbCrMatrix"] != target["yCbCrMatrix"] or source["yCbCrMatrix"] != "ITU_R_2020":
+        expected_transfer = (
+            "SMPTE_ST_2084_PQ"
+            if "pq_transfer_profile" in coverage
+            else "ITU_R_2100_HLG"
+        )
+        if (
+            source["colorPrimaries"] != target["colorPrimaries"]
+            or source["colorPrimaries"] != "ITU_R_2020"
+            or source["transferFunction"] != target["transferFunction"]
+            or source["transferFunction"] != expected_transfer
+            or source["yCbCrMatrix"] != target["yCbCrMatrix"]
+            or source["yCbCrMatrix"] != "ITU_R_2020"
+        ):
             raise QualificationError(f"preservation {fixture_id} HDR signal metadata differs")
         for key in ("masteringDisplaySHA256", "contentLightSHA256", "ambientViewingEnvironmentSHA256"):
             if source[key] is None or source[key] != target[key]:
                 raise QualificationError(f"preservation {fixture_id} static HDR metadata differs: {key}")
         source_dynamic = source["dynamicHDRSamples"]
         target_dynamic = target["dynamicHDRSamples"]
-        if not source_dynamic or len(target_dynamic) != 2 * len(source_dynamic):
-            raise QualificationError(f"preservation {fixture_id} dynamic HDR replication count differs")
-        for index, sample in enumerate(source_dynamic):
-            for duplicate in target_dynamic[2 * index : 2 * index + 2]:
-                if duplicate["hdr10PlusSHA256"] != sample["hdr10PlusSHA256"] or duplicate["postDecodeSHA256"] != sample["postDecodeSHA256"]:
-                    raise QualificationError(f"preservation {fixture_id} dynamic HDR payload differs")
-        checks.append({"id": "p010-static-and-frame-bound-dynamic-hdr-identity", "pass": True})
+        if "hdr10plus_in_band_pts_preservation" in coverage:
+            if (
+                not source_dynamic
+                or len(source_dynamic)
+                    != len(input_timing[input_ordinal]["samples"])
+                or len(target_dynamic)
+                    != len(output_timing[output_ordinal]["samples"])
+                or len(target_dynamic) != 2 * len(source_dynamic)
+            ):
+                raise QualificationError(
+                    f"preservation {fixture_id} dynamic HDR replication count differs"
+                )
+            if not all(
+                item["postDecodeSHA256"] is None
+                for item in source_dynamic + target_dynamic
+            ):
+                raise QualificationError(
+                    f"preservation {fixture_id} unsupported post-decode HDR metadata is present"
+                )
+            for index, sample in enumerate(source_dynamic):
+                for duplicate in target_dynamic[2 * index : 2 * index + 2]:
+                    if duplicate["hdr10PlusSHA256"] != sample["hdr10PlusSHA256"]:
+                        raise QualificationError(
+                            f"preservation {fixture_id} dynamic HDR payload differs"
+                        )
+        elif source_dynamic or target_dynamic:
+            raise QualificationError(
+                f"preservation {fixture_id} has forbidden dynamic HDR metadata"
+            )
+        checks.extend([
+            {
+                "id": "independent-absolute-p010-luma-chroma-oracle",
+                "pass": True,
+            },
+            {
+                "id": "per-frame-independent-p010-distribution-lock",
+                "pass": True,
+            },
+            {
+                "id": "p010-release-locked-hdr-transfer-and-metadata-identity",
+                "pass": True,
+            },
+        ])
+        if "archived_hlg_p010_fixture" in coverage:
+            checks.append({
+                "id": "archived-hlg-p010-input-output-artifact-identity",
+                "pass": True,
+            })
+        if "hdr10plus_in_band_pts_preservation" in coverage:
+            checks.append({
+                "id": "hdr10plus-in-band-exact-presentation-time-preservation",
+                "pass": True,
+            })
+        if "bounded_dynamic_hdr_pts_ledger" in coverage:
+            checks.append({
+                "id": "bounded-segment-hdr10plus-ledger-recomputation",
+                "pass": True,
+            })
 
     if "interlaced_field_order_cadence" in coverage:
         input_ordinal, _ = media_first_video(input_tracks, f"preservation {fixture_id} input")
@@ -3724,7 +4345,10 @@ def recompute_media_fixture(
             first, second = target_samples[2 * index : 2 * index + 2]
             if media_fraction(first["pts"], f"preservation {fixture_id}.first.pts") != pts or media_fraction(second["pts"], f"preservation {fixture_id}.second.pts") != pts + duration / 2 or media_fraction(first["duration"], f"preservation {fixture_id}.first.duration") != duration / 2 or media_fraction(second["duration"], f"preservation {fixture_id}.second.duration") != duration / 2:
                 raise QualificationError(f"preservation {fixture_id} field timing differs")
-        checks.append({"id": "tff-field-order-and-double-rate-cadence", "pass": True})
+        checks.append({
+            "id": "locked-field-order-and-double-rate-cadence",
+            "pass": True,
+        })
 
     if "straight_alpha" in coverage or "premultiplied_alpha" in coverage:
         expected = "straight" if "straight_alpha" in coverage else "premultiplied"
@@ -3742,7 +4366,10 @@ def recompute_media_fixture(
             )
         ):
             raise QualificationError(f"preservation {fixture_id} {expected} alpha bytes/association differ")
-        checks.append({"id": f"exact-prores4444-{expected}-alpha", "pass": True})
+        checks.append({
+            "id": f"independent-scalar-prores4444-{expected}-alpha",
+            "pass": True,
+        })
 
     input_kinds = [track["kind"] for track in input_tracks.values()]
     output_kinds = [track["kind"] for track in output_tracks.values()]
@@ -4035,7 +4662,7 @@ def validate_preservation_production_route(
         "migratedTracks", "targetWidth", "targetHeight", "encodedWidth",
         "encodedHeight", "processedFrameCount", "sourceVideoTrackCount",
         "sourceAudioTrackCount", "plannedEnabledTrackCount",
-        "alphaVerification",
+        "alphaVerification", "hdr10PlusPreservation",
     }
     first_preflight = require_mapping(
         route["independentPreflight"], f"{label}.independentPreflight"
@@ -4078,6 +4705,8 @@ def validate_preservation_production_route(
 
     input_tracks = input_side["tracks"]
     output_tracks = output_side["tracks"]
+    input_timing = input_side["timing"]
+    input_attachments = input_side["attachments"]
     input_primary, _ = media_first_video(
         input_tracks, f"preservation {fixture_id} input"
     )
@@ -4140,6 +4769,16 @@ def validate_preservation_production_route(
             for track in input_tracks.values()
         ),
     }
+    expected_hdr10plus_preservation = (
+        expected_media_hdr10plus_preservation_report(
+            input_timing[input_primary]["samples"],
+            output_timing[output_primary]["samples"],
+            input_attachments[input_primary],
+            output_attachments[output_primary],
+            f"preservation {fixture_id}",
+            first_preflight["trackPlanSHA256"],
+        )
+    )
     def validate_receipt(value: Any, name: str) -> Mapping[str, Any]:
         execution = require_mapping(value, f"{label}.{name}")
         require_exact_keys(execution, receipt_keys, f"{label}.{name}")
@@ -4207,6 +4846,11 @@ def validate_preservation_production_route(
             raise QualificationError(
                 f"preservation {fixture_id} {name} metadata receipt differs"
             )
+        validate_media_hdr10plus_preservation_report(
+            execution["hdr10PlusPreservation"],
+            expected_hdr10plus_preservation,
+            f"{label}.{name}.hdr10PlusPreservation",
+        )
         if (
             require_integer(execution["targetWidth"], f"{label}.{name}.width", 1)
                 != require_integer(execution["encodedWidth"], f"{label}.{name}.encodedWidth", 1)
@@ -4257,7 +4901,7 @@ def validate_preservation_production_route(
                 raise QualificationError(
                     f"preservation {fixture_id} {name} migrated sample count differs"
                 )
-            if planned["action"] == "pass_through":
+            if planned["action"] in {"pass_through", "process"}:
                 source_stream = require_hex(
                     row["sourceSampleStreamSHA256"], 64,
                     f"{label}.{name}.migratedTracks[{index}].sourceStream",
@@ -4268,11 +4912,11 @@ def validate_preservation_production_route(
                 )
                 if source_stream != output_stream:
                     raise QualificationError(
-                        f"preservation {fixture_id} {name} pass-through stream differs"
+                        f"preservation {fixture_id} {name} encoded stream identity differs"
                     )
             elif row["sourceSampleStreamSHA256"] is not None or row["outputSampleStreamSHA256"] is not None:
                 raise QualificationError(
-                    f"preservation {fixture_id} {name} processed stream hashes are invalid"
+                    f"preservation {fixture_id} {name} non-stream action hashes are invalid"
                 )
         expected_alpha = pixel["preEncodeAlphaFrameSHA256"]
         alpha = execution["alphaVerification"]
@@ -4987,7 +5631,38 @@ def validate_preservation(
             raise QualificationError(
                 f"preservation semantic verifier route binding differs: {identifier}"
             )
-        if verifier["checks"] != recomputed_checks:
+        projected_checks: list[dict[str, Any]] = []
+        for check_index, raw_check in enumerate(require_list(
+            verifier["checks"], f"preservation {identifier}.semanticVerifier.checks"
+        )):
+            check = require_mapping(
+                raw_check,
+                f"preservation {identifier}.semanticVerifier.checks[{check_index}]",
+            )
+            allowed_keys = {"id", "pass"}
+            if check.get("id") == "independent-absolute-p010-luma-chroma-oracle":
+                allowed_keys.add("result")
+                require_mapping(
+                    check.get("result"),
+                    f"preservation {identifier}.semanticVerifier.checks[{check_index}].result",
+                )
+            require_exact_keys(
+                check,
+                allowed_keys,
+                f"preservation {identifier}.semanticVerifier.checks[{check_index}]",
+            )
+            projected_checks.append({
+                "id": require_string(
+                    check["id"],
+                    f"preservation {identifier}.semanticVerifier.checks[{check_index}].id",
+                ),
+                "pass": require_bool(
+                    check["pass"],
+                    f"preservation {identifier}.semanticVerifier.checks[{check_index}].pass",
+                    True,
+                ),
+            })
+        if projected_checks != recomputed_checks:
             raise QualificationError(f"preservation semantic verifier checks differ from independent recomputation: {identifier}")
         violations = require_mapping(verifier["violationCounts"], f"preservation {identifier}.violationCounts")
         violation_keys = {"unconsentedDropCount", "silentToneMapCount", "precisionReductionCount", "alphaLossCount", "geometryMismatchCount", "metadataMismatchCount"}
@@ -5000,7 +5675,11 @@ def validate_preservation(
     if identities != set(expected_fixtures):
         raise QualificationError(f"media preservation fixture mismatch; missing={sorted(set(expected_fixtures)-identities)}")
     if covered != required:
-        raise QualificationError(f"media preservation coverage mismatch; missing={sorted(required-covered)}")
+        raise QualificationError(
+            "media preservation coverage mismatch; "
+            f"missing={sorted(required-covered)}, "
+            f"unexpected={sorted(covered-required)}"
+        )
     if require_integer(report["accountedEnabledTrackCount"], "preservation.accountedEnabledTrackCount", 1) != accounted_tracks:
         raise QualificationError("preservation total accounted-track count differs")
     require_bool(report.get("mediaPreservationGatePass"), "preservation.mediaPreservationGatePass", True)
@@ -7376,9 +8055,76 @@ def validate_contract(value: Any) -> dict[str, Any]:
         raise QualificationError("unsupported release-qualification contract")
     if contract.get("hashAlgorithm") != "sha256":
         raise QualificationError("unsupported release-qualification hash algorithm")
-    roles = require_list(contract.get("requiredEvidenceRoles"), "requiredEvidenceRoles")
-    if len(roles) != len(set(roles)) or set(roles) != set(VALIDATORS):
-        raise QualificationError("release contract evidence role set is incomplete or unexpected")
+    roles = [
+        require_string(role, f"requiredEvidenceRoles[{index}]")
+        for index, role in enumerate(
+            require_list(
+                contract.get("requiredEvidenceRoles"),
+                "requiredEvidenceRoles",
+            )
+        )
+    ]
+    expected_roles = set(VALIDATORS)
+    actual_roles = set(roles)
+    duplicate_roles = sorted({role for role in roles if roles.count(role) > 1})
+    if duplicate_roles or actual_roles != expected_roles:
+        raise QualificationError(
+            "release contract evidence role set differs; "
+            f"missing={sorted(expected_roles-actual_roles)}, "
+            f"unexpected={sorted(actual_roles-expected_roles)}, "
+            f"duplicates={duplicate_roles}"
+        )
+    schemas = require_mapping(contract.get("evidenceSchemas"), "evidenceSchemas")
+    require_exact_keys(schemas, expected_roles, "evidenceSchemas")
+    for role in sorted(expected_roles):
+        require_string(schemas[role], f"evidenceSchemas.{role}")
+    identity_bindings = require_mapping(
+        contract.get("identityBindings"),
+        "identityBindings",
+    )
+    require_exact_keys(
+        identity_bindings,
+        expected_roles | {"common"},
+        "identityBindings",
+    )
+    if set(RELEASE_LANE_LOCKS) != expected_roles:
+        raise QualificationError(
+            "release evaluator lane-lock role set differs from validators"
+        )
+    for role in roles:
+        lane_field, sources_field, source_keys = RELEASE_LANE_LOCKS[role]
+        require_hex(
+            contract.get(lane_field),
+            64,
+            f"release contract.{lane_field}",
+        )
+        require_release_locked_hashes(
+            contract,
+            sources_field,
+            set(source_keys),
+            role,
+        )
+    coverage = [
+        require_string(value, f"mediaPreservationCoverage[{index}]")
+        for index, value in enumerate(
+            require_list(
+                contract.get("mediaPreservationCoverage"),
+                "mediaPreservationCoverage",
+            )
+        )
+    ]
+    expected_coverage = set(MEDIA_PRESERVATION_COVERAGE)
+    actual_coverage = set(coverage)
+    duplicate_coverage = sorted({
+        value for value in coverage if coverage.count(value) > 1
+    })
+    if tuple(coverage) != MEDIA_PRESERVATION_COVERAGE:
+        raise QualificationError(
+            "release contract media preservation coverage differs; "
+            f"missing={sorted(expected_coverage-actual_coverage)}, "
+            f"unexpected={sorted(actual_coverage-expected_coverage)}, "
+            f"duplicates={duplicate_coverage}, orderMatches=false"
+        )
     if not set(contract.get("nonWaivableRoles", [])).issubset(roles):
         raise QualificationError("release contract names an unknown non-waivable role")
     return contract

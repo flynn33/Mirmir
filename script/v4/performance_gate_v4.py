@@ -1083,7 +1083,7 @@ def _expected_baseline_build_command(receipt: dict[str, Any]) -> list[str]:
         f"CLANG_MODULE_CACHE_PATH={CANONICAL_MODULE_CACHE}",
         f"SWIFT_MODULE_CACHE_PATH={CANONICAL_MODULE_CACHE}",
         f"MODULE_CACHE_DIR={CANONICAL_MODULE_CACHE}",
-        "OTHER_SWIFT_FLAGS=$(inherited) -j 1 -num-threads 1 -file-prefix-map "
+        "OTHER_SWIFT_FLAGS=$(inherited) -j 1 -file-prefix-map "
         + working_directory
         + "=/mirmir-performance-p05 -debug-prefix-map "
         + working_directory

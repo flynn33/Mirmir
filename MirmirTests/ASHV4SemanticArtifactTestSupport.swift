@@ -13,7 +13,7 @@ struct ASHV4FixtureMetalValidator: ASHMetalLibraryValidatingV4 {
 enum ASHV4SemanticArtifactTestSupport {
     static let sourceRevision = String(repeating: "a", count: 40)
     static let expectedPlanSHA256 =
-        "03acd71e6fa721235a8e27b3d261ece8014fe9b5a87dd5f67a4638bdcdcfe0f2"
+        "9d1680c42aab1ad94814ef5d7feb607c5bc678d7bd401f26086730b596eead84"
     static let builderHash = ASHSHA256V4(
         rawData: Data("ash-p06-builder-source-v1".utf8)
     )

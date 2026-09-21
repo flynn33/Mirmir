@@ -503,8 +503,8 @@ enum ASHP06LockedPerformanceGateV4 {
     static func contract() throws -> ASHP06LockedFileIdentityV4 {
         try identity(
             "script/v4/performance-gate-contract-v1.json",
-            3_869,
-            "03a51fec79269f2df023e33866d955b8eb7ff110bae3309d3ae1e141f391142b"
+            5_152,
+            "42cc36f29a385ba77c50a8aa673ea6808ef98eecf562e6f4742fc89a83729430"
         )
     }
 
@@ -512,8 +512,8 @@ enum ASHP06LockedPerformanceGateV4 {
         -> ASHP06LockedFileIdentityV4 {
         try identity(
             "script/v4/PerformanceGateCaptureTests.swift",
-            30_219,
-            "180a97cdd6e9cc3277db738c95261e85161ac48bde5336ccfd37089fbb8e6d39"
+            30_267,
+            "8a6acc0b976a5408e2d0ce496b6fb62972607c5ff80039c3e5b102c9a8b04a3b"
         )
     }
 
@@ -521,8 +521,8 @@ enum ASHP06LockedPerformanceGateV4 {
         -> ASHP06LockedFileIdentityV4 {
         try identity(
             "script/v4/performance_gate_v4.py",
-            50_801,
-            "97199617f75e5009aaed0e13f84bf070e8fff6bddec65f57a9df9d21bfdd33d8"
+            187_072,
+            "7e89bf754d6dde082d1cf506750d8912898489929b5a315f62229cad4c29f758"
         )
     }
 
@@ -530,8 +530,8 @@ enum ASHP06LockedPerformanceGateV4 {
         -> ASHP06LockedFileIdentityV4 {
         try identity(
             "script/v4/run_performance_gate_v4.sh",
-            26_853,
-            "91ec923eff8e5246445bf20d97b804a774732751355288da03bed54b71f2aaa7"
+            39_826,
+            "ebec53b106ad04712f4e266f27ee29157938e28e1e649dd9df81c0a996aa08dc"
         )
     }
 
@@ -634,8 +634,8 @@ enum ASHP06LockedNaturalQualityEvidenceV4 {
     static func captureImplementation() throws -> ASHP06LockedFileIdentityV4 {
         try identity(
             "Mirmir/App/MirmirApp.swift",
-            338_425,
-            "1ac48bf1f910ff53464cb37df59818d7e8d7eef5a927d02ab6961dc98760f6cf"
+            342_264,
+            "9fcf2009a18385524f65644cf13e744a0cdd58550808bc43089dff4f12f98a84"
         )
     }
 
