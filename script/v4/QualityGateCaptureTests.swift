@@ -750,8 +750,9 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
                 }
                 _ = mirrorMilliseconds
                 let mirrorBytes = try visibleBytes(mirror)
+                let capturedCandidateBytes = try XCTUnwrap(candidateBytes)
                 fullMirrorIdentityPass = fullMirrorIdentityPass
-                    && mirrorBytes == XCTUnwrap(candidateBytes)
+                    && mirrorBytes == capturedCandidateBytes
                 captures.append(CaptureCase(
                     id: record.id,
                     outputs: outputs,
