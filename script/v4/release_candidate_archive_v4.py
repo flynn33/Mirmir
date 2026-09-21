@@ -167,12 +167,13 @@ REPRODUCIBLE_SWIFT_BUILD_SETTINGS = {
     "OTHER_SWIFT_FLAGS": (
         "$(inherited) -disable-incremental-imports "
         "-gnone -Xfrontend -enable-single-module-llvm-emission "
-        "-j 1 -num-threads 1 -Xllvm -rng-seed=1 "
+        "-j 1 -Xllvm -rng-seed=1 "
         "-Xfrontend -file-compilation-dir -Xfrontend /mirmir/source "
         "-file-prefix-map $(SRCROOT)=/mirmir/source "
         "-debug-prefix-map $(SRCROOT)=/mirmir/source"
     ),
     "SDK_STAT_CACHE_ENABLE": "NO",
+    "SWIFT_NUM_THREADS": "1",
     "SWIFT_COMPILATION_MODE": "wholemodule",
     "SWIFT_ENABLE_BATCH_MODE": "NO",
     "SWIFT_ENABLE_EXPLICIT_MODULES": "NO",

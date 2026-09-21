@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import tempfile
 import unittest
+from unittest import mock
 
 
 SCRIPT_DIRECTORY = Path(__file__).resolve().parent
@@ -53,6 +54,11 @@ class ReleaseEvidenceIndexAssemblerV4Tests(unittest.TestCase):
         self.external_root = Path(self.external.name)
         self.fixture = fixture_module.EvidenceFixture(self.root)
         self.fixture.index_path.unlink()
+        external_contract = (
+            self.external_root / "release-qualification-contract-v1.json"
+        )
+        self.fixture.contract_path.replace(external_contract)
+        self.fixture.contract_path = external_contract
         self.suites = {
             role: self.root / role for role in assembler.EXPECTED_ROLES
         }
@@ -133,20 +139,48 @@ class ReleaseEvidenceIndexAssemblerV4Tests(unittest.TestCase):
             ),
         )
         trust_identity = fixture_module.trust_builder.sha256(trust_path)
-        first = fixture_module.qualification.evaluate_candidate(
-            self.output,
-            self.root,
-            self.fixture.contract_path,
-            trust_root_path=trust_path,
-            expected_trust_root_sha256=trust_identity,
+        media_replay = mock.Mock()
+        media_replay.EvidenceError = ValueError
+        media_replay.verify_evidence.side_effect = lambda root: json.loads(
+            (root / "report.json").read_text()
         )
-        second = fixture_module.qualification.evaluate_candidate(
-            self.output,
-            self.root,
-            self.fixture.contract_path,
-            trust_root_path=trust_path,
-            expected_trust_root_sha256=trust_identity,
-        )
+        normalized_summary = {
+            "schemaVersion": fixture_module.performance_gate.TEST_SUMMARY_SCHEMA,
+            "testIdentifier": (
+                fixture_module.performance_gate.BASELINE_TEST_IDENTIFIER
+            ),
+            "result": "Passed",
+            "passedTests": 1,
+            "failedTests": 0,
+            "skippedTests": 0,
+        }
+        with mock.patch.object(
+            fixture_module.qualification,
+            "load_locked_performance_evaluator",
+            return_value=fixture_module.performance_gate,
+        ), mock.patch.object(
+            fixture_module.performance_gate,
+            "normalized_test_summary",
+            return_value=normalized_summary,
+        ), mock.patch.object(
+            fixture_module.qualification,
+            "load_locked_media_evaluator",
+            return_value=media_replay,
+        ):
+            first = fixture_module.qualification.evaluate_candidate(
+                self.output,
+                self.root,
+                self.fixture.contract_path,
+                trust_root_path=trust_path,
+                expected_trust_root_sha256=trust_identity,
+            )
+            second = fixture_module.qualification.evaluate_candidate(
+                self.output,
+                self.root,
+                self.fixture.contract_path,
+                trust_root_path=trust_path,
+                expected_trust_root_sha256=trust_identity,
+            )
         self.assertEqual(first, second)
         self.assertTrue(first["releaseQualified"])
         self.assertTrue(all(first["gates"].values()))

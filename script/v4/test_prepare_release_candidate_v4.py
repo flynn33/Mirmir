@@ -828,8 +828,15 @@ class ReleaseCandidateTests(unittest.TestCase):
         self.assertNotIn("-enable-misched=false", flags)
         self.assertNotIn("-enable-post-misched=false", flags)
         self.assertIn("-enable-single-module-llvm-emission", flags)
-        self.assertEqual(flags.count("-num-threads 1"), 1)
+        self.assertEqual(flags.count("-j 1"), 1)
+        self.assertNotIn("-num-threads", flags)
         self.assertEqual(flags.count("-Xllvm -rng-seed=1"), 1)
+        self.assertEqual(
+            provenance.REPRODUCIBLE_SWIFT_BUILD_SETTINGS[
+                "SWIFT_NUM_THREADS"
+            ],
+            "1",
+        )
         self.assertEqual(
             provenance.REPRODUCIBLE_SWIFT_BUILD_SETTINGS[
                 "SWIFT_COMPILATION_MODE"

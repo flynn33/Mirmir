@@ -160,14 +160,14 @@
     "archived_hlg_p010_fixture",
     "hlg_transfer_profile"
   ],
-  "mediaPreservationLaneContractSHA256": "a3fe0c559e3e7d2cf1d1533e1963d77d7d3fdff1941050f06fb08c2a06be5c18",
+  "mediaPreservationLaneContractSHA256": "bc7716d2211a547529d9ab7a07913da3a04e9ba6085fb369160b9f6fdcebd103",
   "mediaPreservationLockedSources": {
     "captureSourceSHA256": "d38285352101b93a9318118d15c0a3a798633f9cbb61e95db08d69c981a7313e",
     "evaluatorSHA256": "2455bf16309d5e1115c4033bcc1e6b973440bda56378df654dfe17f76957315f",
     "fixtureSourceSHA256": "856fb8e850da6d5f394f85466b1eaf5dd86e676f48c33c4fdefcc1ac344ee6dc",
     "observerSourceSHA256": "9fcf2009a18385524f65644cf13e744a0cdd58550808bc43089dff4f12f98a84",
     "packagedEvidenceToolSHA256": "5ea4b53d5d696714d1d0f00a1df22cb1a0b8f9769f2e70b133139cb05132f117",
-    "releaseCandidateArchiveToolSHA256": "b53d8d20847a951f326feebead3a263632b219fe1ee720c6c4361d7d2ee5189a",
+    "releaseCandidateArchiveToolSHA256": "98c745c48b80644e508d1395f77c94ecabd55a7d4fb2564d5b8c63a05d0d5fb7",
     "runnerSHA256": "85e674aeb3edad5447128cc492c850910254b5f22157ad3870f271f1044e9774"
   },
   "nonWaivableRoles": [
@@ -1547,9 +1547,9 @@
     "orphan_partial_reconciliation",
     "unowned_artifact_rejection"
   ],
-  "recoveryLaneContractSHA256": "18dd5cdb046461c23f4ec66b3d5db52d57dbb690f1f952b0ab605f6af4c33740",
+  "recoveryLaneContractSHA256": "6847abfd94f5505498a57f1b61854df738c92d8288485c19b0a090d10d6d9dde",
   "recoveryLockedSources": {
-    "archiveProvenanceSHA256": "b53d8d20847a951f326feebead3a263632b219fe1ee720c6c4361d7d2ee5189a",
+    "archiveProvenanceSHA256": "98c745c48b80644e508d1395f77c94ecabd55a7d4fb2564d5b8c63a05d0d5fb7",
     "evaluatorSHA256": "5d7b19b4b072170f9549534936136a1a43a06e433468b4c31720a1b5b15362ee",
     "observerSourceSHA256": "9fcf2009a18385524f65644cf13e744a0cdd58550808bc43089dff4f12f98a84",
     "packagedEvidenceSHA256": "5ea4b53d5d696714d1d0f00a1df22cb1a0b8f9769f2e70b133139cb05132f117",

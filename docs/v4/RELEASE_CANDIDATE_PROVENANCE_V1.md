@@ -152,9 +152,12 @@ argument it synthesizes. The clean builder therefore creates a mode-`0755`
 `SWIFT_EXEC` wrapper at the canonical build root with exclusive creation and
 binds its exact bytes, filesystem identity, interpreter, underlying `swiftc`
 path, executable hashes, and versions in the receipt. The wrapper removes every
-joined or separated driver `-j` option and appends one terminal `-j 1`. It also
-fails closed unless each architecture's driver invocation contains exactly one
-`-num-threads 1`, one `-Xllvm -rng-seed=1`, and its expected target. Before
+joined or separated driver `-j` option and appends one terminal `-j 1`.
+`SWIFT_NUM_THREADS=1` supplies the single driver-level `-num-threads 1` control;
+it is deliberately absent from `OTHER_SWIFT_FLAGS` so newer Swift drivers
+cannot receive the option twice. The wrapper fails closed unless each
+architecture's driver invocation contains exactly one `-num-threads 1`, one
+`-Xllvm -rng-seed=1`, and its expected target. Before
 execution, it asks the exact inspected Swift executable for `-driver-print-jobs`
 and independently requires one projected frontend job with the same target and
 the same single thread and RNG controls. Missing, duplicate, substituted,
