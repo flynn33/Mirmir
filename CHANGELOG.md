@@ -15,6 +15,9 @@ do not publish, sign, notarize, or distribute the application automatically.
   for comparing the full v4 policy with four deterministic ablations.
 - A pinned Xcode 26.2 M7 workflow that uploads sealed simulator evidence while
   preserving negative no-winner results for audit.
+- Sealed 168-case M7 evidence from source commit
+  `ce780af87107d90142d860f328dca4a72fea3047`, selecting `candidate_v4` after
+  all five policies passed the quality and processing-time targets.
 - Exact archived-executable qualification tooling for whole-asset media
   preservation, bounded tiled-temporal CPU/Metal parity, and all 15 recovery
   fault scenarios.

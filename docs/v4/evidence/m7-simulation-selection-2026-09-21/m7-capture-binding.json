@@ -1,0 +1,23 @@
+{
+  "canonicalCaptureSourceSHA256": "0a0ad63f00fd75772698ddc7cefe134ad3b402029390ee6fccd83f152deb27cd",
+  "injectedCaptureSourceSHA256": "0e404838721c97c8ed1994a33cbe071b835b26264365dab9b14397b22808de8e",
+  "injections": {
+    "__MIRMIR_V4_QUALITY_CAPTURE_DIR__": "/var/folders/tz/42vs04ls56q51168sddqb5940000gn/T//mirmir-m7-simulation.v06CsT/capture",
+    "__MIRMIR_V4_QUALITY_CONTRACT_SHA256__": "8d265b11093d7ce182b61a6f6f5d7cf63173e4657cd845473aa78cd25d7aab6d",
+    "__MIRMIR_V4_QUALITY_CORPUS_MANIFEST__": "/var/folders/tz/42vs04ls56q51168sddqb5940000gn/T//mirmir-m7-simulation.v06CsT/corpus/corpus-manifest.json",
+    "__MIRMIR_V4_QUALITY_SOURCE_COMMIT__": "ce780af87107d90142d860f328dca4a72fea3047",
+    "__MIRMIR_V4_QUALITY_SOURCE_TREE_SHA256__": "e17353adcf6ef500d96ef495713320dd402b3ff0d79187814c45130391ab1616"
+  },
+  "schemaVersion": "mirmir-ash-v4-m7-capture-binding-v1",
+  "sourceCommit": "ce780af87107d90142d860f328dca4a72fea3047",
+  "sourceTreeIdentitySHA256": "e17353adcf6ef500d96ef495713320dd402b3ff0d79187814c45130391ab1616",
+  "timedVariantBaseOrder": [
+    "candidate_v4",
+    "uniform_priors",
+    "randomized_state_message",
+    "temporal_hysteresis_off",
+    "motion_history_off"
+  ],
+  "timedVariantOrder": "left rotation by sorted-case ordinal modulo five",
+  "warmupCountPerVariant": 5
+}

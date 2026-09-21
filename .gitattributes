@@ -1,1 +1,3 @@
 Mirmir/Resources/ASH/*.csv binary
+docs/v4/evidence/m7-simulation-selection-*/artifacts/*.nv12 binary
+docs/v4/evidence/m7-simulation-selection-*/*.log -whitespace

@@ -1,10 +1,19 @@
 # Deterministic engine v4 evidence
 
-For the current 1.3.0 (3) implementation and revised M7 simulator-selection
-status, see
+For the current 1.3.0 (3) implementation and completed M7 simulator selection,
+see
 [`../CURRENT_QUALIFICATION_STATUS.md`](../CURRENT_QUALIFICATION_STATUS.md).
-The checked directories below are historical milestone evidence and must not be
-mistaken for the fresh M7 simulator decision.
+
+The `m7-simulation-selection-2026-09-21` directory is the current, sealed M7
+decision from source commit
+`ce780af87107d90142d860f328dca4a72fea3047`. Its independently replayed report
+selects `candidate_v4` after all five candidates clear the locked 5% quality
+and 20% processing-time thresholds. Its README contains the complete ranking;
+`artifact-manifest.json` seals every raw plane, log, contract, binding, and
+report used by the decision.
+
+The other checked directories below are historical milestone evidence and
+must not be mistaken for the fresh M7 simulator decision.
 
 The `v3-p05-baseline-2026-08-02` directory is the locked pre-v4 M0 reference
 for quality, engine time, end-to-end time, and allocation pressure. The checked
@@ -54,9 +63,9 @@ output validation, and atomic publication. CPU backend processing accounts for
 a median 269.405 ms of the 292.161 ms wall time; Metal backend processing
 accounts for 14.086 ms of the 75.228 ms wall time.
 
-These values document M0. Release qualification uses the separately captured
-and sealed P05/reference/candidate planes defined by the v4 quality and
-performance contracts.
+These values document M0. The revised M7 decision uses the separately captured
+and sealed P05/reference/candidate planes in
+`m7-simulation-selection-2026-09-21`.
 
 ## Allocation evidence
 

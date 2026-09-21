@@ -7,6 +7,7 @@ import importlib.util
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 
@@ -106,8 +107,28 @@ Verified September 21, 2026.
         self.assertEqual(len(state.open_steps), 2)
         self.assertIn("M0–M6 implementation complete", document)
         self.assertIn("M7 simulator selection open", document)
+        self.assertIn(
+            '<text class="summary-open" x="1148" y="103" text-anchor="end">M7 simulator selection open</text>',
+            document,
+        )
         self.assertIn("≥5% · OPEN", document)
         self.assertIn("simulation source pending", document)
+
+        completed_document = tracker.render_svg(
+            replace(
+                state,
+                simulation_source_commit="0" * 40,
+                selected_candidate="candidate_v4",
+                open_steps=(),
+                m7_satisfied=True,
+                milestones=state.milestones[:-1]
+                + (replace(state.milestones[-1], state="complete"),),
+            )
+        )
+        self.assertIn(
+            '<text class="summary" x="1148" y="103" text-anchor="end">M7 simulator selection complete</text>',
+            completed_document,
+        )
 
     def test_check_rejects_stale_output(self) -> None:
         output = self.root / "docs/v4/roadmap-status.svg"

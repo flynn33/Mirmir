@@ -118,9 +118,12 @@ backends. It excludes both Deterministic routes and Smooth Motion.
 
 M0 through M6 are implemented and covered by the repository’s deterministic,
 media, workflow, and recovery tests. M7 is a headless frame-simulator comparison
-of five policy candidates against frozen P05. It is complete only when one
-candidate proves at least 5% higher quality and at least 20% lower total,
-median, and p95 processing time, then wins the locked deterministic ranking.
+of five policy candidates against frozen P05. The sealed 168-case run from
+commit `ce780af87107d90142d860f328dca4a72fea3047` selected `candidate_v4`.
+It measured a 22.792052% quality increase with a 22.312761% paired-bootstrap
+lower bound, plus a 97.478689% reduction in total engine time; median and p95
+ratios also passed the 0.80 limit. This completes M7 in its declared simulator
+scope.
 
 M7 does not require a physical-machine matrix, signing, notarization, stapling,
 shipping, or distribution. Those are separate owner decisions and are not

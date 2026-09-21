@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="roadmap-title roadmap-description">
   <title id="roadmap-title">Mirmir deterministic engine v4 roadmap status</title>
-  <desc id="roadmap-description">M0–M6 implementation complete. M7 simulator selection open. 3 simulator steps open. Quality and processing-time simulation targets are open.</desc>
+  <desc id="roadmap-description">M0–M6 implementation complete. M7 simulator selection complete. Selected candidate_v4. Quality and processing-time simulation targets are passed.</desc>
   <style>
     .background { fill: #101d29; }
     text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #dce9f3; }
@@ -34,8 +34,8 @@
   <text class="eyebrow" x="44" y="39">MIRMIR · ASH P06 · VERSION 1.3.0 (3)</text>
   <text class="title" x="44" y="78">Deterministic Engine v4</text>
   <text class="summary" x="44" y="103">M0–M6 implementation complete</text>
-  <text class="summary-open" x="1148" y="103" text-anchor="end">M7 simulator selection open</text>
-  <rect class="segment-complete" x="44" y="119" width="125" height="10" rx="5"/><rect class="segment-complete" x="183" y="119" width="125" height="10" rx="5"/><rect class="segment-proof" x="322" y="119" width="125" height="10" rx="5"/><rect class="segment-proof" x="461" y="119" width="125" height="10" rx="5"/><rect class="segment-complete" x="600" y="119" width="125" height="10" rx="5"/><rect class="segment-complete" x="739" y="119" width="125" height="10" rx="5"/><rect class="segment-complete" x="878" y="119" width="125" height="10" rx="5"/><rect class="segment-open" x="1017" y="119" width="125" height="10" rx="5"/>
+  <text class="summary" x="1148" y="103" text-anchor="end">M7 simulator selection complete</text>
+  <rect class="segment-complete" x="44" y="119" width="125" height="10" rx="5"/><rect class="segment-complete" x="183" y="119" width="125" height="10" rx="5"/><rect class="segment-complete" x="322" y="119" width="125" height="10" rx="5"/><rect class="segment-complete" x="461" y="119" width="125" height="10" rx="5"/><rect class="segment-complete" x="600" y="119" width="125" height="10" rx="5"/><rect class="segment-complete" x="739" y="119" width="125" height="10" rx="5"/><rect class="segment-complete" x="878" y="119" width="125" height="10" rx="5"/><rect class="segment-complete" x="1017" y="119" width="125" height="10" rx="5"/>
   <g class="milestone complete">
   <rect x="44" y="154" width="259" height="124" rx="14"/>
   <text class="milestone-id" x="62" y="183">M0</text>
@@ -48,16 +48,16 @@
   <text class="milestone-state" x="564" y="183" text-anchor="end">Complete</text>
   <text class="card-title" x="341" y="212">Semantic spine and P06</text>
 <text class="card-title" x="341" y="234">artifact pipeline</text>
-</g><g class="milestone proof-open">
+</g><g class="milestone complete">
   <rect x="602" y="154" width="259" height="124" rx="14"/>
   <text class="milestone-id" x="620" y="183">M2</text>
-  <text class="milestone-state" x="843" y="183" text-anchor="end">Implemented · simulator proof open</text>
+  <text class="milestone-state" x="843" y="183" text-anchor="end">Complete</text>
   <text class="card-title" x="620" y="212">Spatial v4, arbitrary scale,</text>
 <text class="card-title" x="620" y="234">parity, and hot-path…</text>
-</g><g class="milestone proof-open">
+</g><g class="milestone complete">
   <rect x="881" y="154" width="259" height="124" rx="14"/>
   <text class="milestone-id" x="899" y="183">M3</text>
-  <text class="milestone-state" x="1122" y="183" text-anchor="end">Implemented · simulator proof open</text>
+  <text class="milestone-state" x="1122" y="183" text-anchor="end">Complete</text>
   <text class="card-title" x="899" y="212">Temporal quality</text>
 </g><g class="milestone complete">
   <rect x="44" y="296" width="259" height="124" rx="14"/>
@@ -77,34 +77,34 @@
   <text class="milestone-state" x="843" y="325" text-anchor="end">Complete</text>
   <text class="card-title" x="620" y="354">Durable queue, pause/resume,</text>
 <text class="card-title" x="620" y="376">and crash recovery</text>
-</g><g class="milestone open">
+</g><g class="milestone complete">
   <rect x="881" y="296" width="259" height="124" rx="14"/>
   <text class="milestone-id" x="899" y="325">M7</text>
-  <text class="milestone-state" x="1122" y="325" text-anchor="end">Simulator selection open</text>
+  <text class="milestone-state" x="1122" y="325" text-anchor="end">Complete</text>
   <text class="card-title" x="899" y="354">Simulator candidate selection</text>
 </g>
   <text class="section-label" x="44" y="466">M7 SIMULATOR DECISION</text>
-  <g class="release-gate gate-open">
+  <g class="release-gate gate-complete">
   <rect x="44" y="489" width="205" height="73" rx="12"/>
   <text class="gate-name" x="58" y="516">Quality</text>
-  <text class="gate-value" x="58" y="540">≥5% · OPEN</text>
-</g><g class="release-gate gate-open">
+  <text class="gate-value" x="58" y="540">≥5% · PASSED</text>
+</g><g class="release-gate gate-complete">
   <rect x="267" y="489" width="205" height="73" rx="12"/>
   <text class="gate-name" x="281" y="516">Processing time</text>
-  <text class="gate-value" x="281" y="540">≥20% faster · OPEN</text>
-</g><g class="release-gate gate-open">
+  <text class="gate-value" x="281" y="540">≥20% faster · PASSED</text>
+</g><g class="release-gate gate-complete">
   <rect x="490" y="489" width="205" height="73" rx="12"/>
   <text class="gate-name" x="504" y="516">Candidates</text>
-  <text class="gate-value" x="504" y="540">5 variants · OPEN</text>
-</g><g class="release-gate gate-open">
+  <text class="gate-value" x="504" y="540">5 variants · PASSED</text>
+</g><g class="release-gate gate-complete">
   <rect x="713" y="489" width="205" height="73" rx="12"/>
   <text class="gate-name" x="727" y="516">Selection</text>
-  <text class="gate-value" x="727" y="540">deterministic rank · OPEN</text>
-</g><g class="release-gate gate-open">
+  <text class="gate-value" x="727" y="540">deterministic rank · PASSED</text>
+</g><g class="release-gate gate-complete">
   <rect x="936" y="489" width="205" height="73" rx="12"/>
   <text class="gate-name" x="950" y="516">Evidence</text>
-  <text class="gate-value" x="950" y="540">independent replay · OPEN</text>
+  <text class="gate-value" x="950" y="540">independent replay · PASSED</text>
 </g>
-  <text class="footer" x="44" y="591">3 simulator steps open · simulation source pending · verified September 21, 2026</text>
+  <text class="footer" x="44" y="591">Selected candidate_v4 · simulation source ce780af87107 · verified September 21, 2026</text>
   <text class="footer" x="1156" y="591" text-anchor="end">Source: roadmap + current qualification status</text>
 </svg>

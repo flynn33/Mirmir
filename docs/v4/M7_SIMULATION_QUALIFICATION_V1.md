@@ -72,6 +72,22 @@ five current candidates through the real Swift implementation in Release mode,
 replays the quality report, selects the winner, and seals the evidence tree.
 
 Even a no-winner result is sealed with every candidate’s metrics and failure
-reason before the runner returns nonzero. M7 is satisfied when the independently reproduced selection report has
-`m7Satisfied: true` and names exactly one selected candidate. Packaging and
-shipment remain separate owner decisions and are not implied by this result.
+reason before the runner returns nonzero. M7 is satisfied when the independently
+reproduced selection report has `m7Satisfied: true` and names exactly one
+selected candidate. Packaging and shipment remain separate owner decisions and
+are not implied by this result.
+
+## Qualified result
+
+The run from source commit
+`ce780af87107d90142d860f328dca4a72fea3047` completed on September 21, 2026.
+All five policies passed. `candidate_v4` ranked first with quality index
+122.792052, paired-bootstrap 95% lower bound 122.312761, and total, median, and
+p95 processing-time ratios 0.025213, 0.026859, and 0.030117 versus P05.
+
+The complete evidence tree is
+`docs/v4/evidence/m7-simulation-selection-2026-09-21`. It contains all raw
+planes and per-case timings, the 10,000-replicate confidence calculations,
+canonical and run-specific contracts, P05 and capture-source bindings, build
+logs, environment context, selection report, and a 1,372-entry recursive
+artifact seal.

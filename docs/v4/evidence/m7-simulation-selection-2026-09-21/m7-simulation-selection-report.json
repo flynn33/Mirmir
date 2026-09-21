@@ -1,0 +1,176 @@
+{
+  "candidates": [
+    {
+      "candidateID": "candidate_v4",
+      "eligible": true,
+      "gates": {
+        "medianProcessingTimePass": true,
+        "p95ProcessingTimePass": true,
+        "qualityIndexPass": true,
+        "qualityLowerConfidenceBoundPass": true,
+        "totalProcessingTimePass": true
+      },
+      "quality": {
+        "gainPercentVersusP05": 22.792052324698275,
+        "index": 122.79205232469828,
+        "pairedBootstrap95PercentCI": {
+          "lower": 122.31276109657409,
+          "lowerOrderStatisticIndex": 250,
+          "replicateCount": 10000,
+          "upper": 123.2986955342342
+        }
+      },
+      "rank": 1,
+      "timing": {
+        "medianRatioVersusP05": 0.026859361115852288,
+        "p95RatioVersusP05": 0.03011701293316308,
+        "totalRatioVersusP05": 0.025213109895633325,
+        "totalReductionPercentVersusP05": 97.47868901043667
+      }
+    },
+    {
+      "candidateID": "temporal_hysteresis_off",
+      "eligible": true,
+      "gates": {
+        "medianProcessingTimePass": true,
+        "p95ProcessingTimePass": true,
+        "qualityIndexPass": true,
+        "qualityLowerConfidenceBoundPass": true,
+        "totalProcessingTimePass": true
+      },
+      "quality": {
+        "gainPercentVersusP05": 22.787508064671712,
+        "index": 122.78750806467171,
+        "pairedBootstrap95PercentCI": {
+          "lower": 122.29696367619655,
+          "lowerOrderStatisticIndex": 250,
+          "replicateCount": 10000,
+          "upper": 123.30589241292635
+        }
+      },
+      "rank": 2,
+      "timing": {
+        "medianRatioVersusP05": 0.026915729134983146,
+        "p95RatioVersusP05": 0.030093592470284272,
+        "totalRatioVersusP05": 0.025655293145324345,
+        "totalReductionPercentVersusP05": 97.43447068546757
+      }
+    },
+    {
+      "candidateID": "randomized_state_message",
+      "eligible": true,
+      "gates": {
+        "medianProcessingTimePass": true,
+        "p95ProcessingTimePass": true,
+        "qualityIndexPass": true,
+        "qualityLowerConfidenceBoundPass": true,
+        "totalProcessingTimePass": true
+      },
+      "quality": {
+        "gainPercentVersusP05": 22.802557421546197,
+        "index": 122.8025574215462,
+        "pairedBootstrap95PercentCI": {
+          "lower": 122.29353809463932,
+          "lowerOrderStatisticIndex": 250,
+          "replicateCount": 10000,
+          "upper": 123.33862100888071
+        }
+      },
+      "rank": 3,
+      "timing": {
+        "medianRatioVersusP05": 0.029550934029350603,
+        "p95RatioVersusP05": 0.03271111500906618,
+        "totalRatioVersusP05": 0.027946501033740304,
+        "totalReductionPercentVersusP05": 97.20534989662598
+      }
+    },
+    {
+      "candidateID": "uniform_priors",
+      "eligible": true,
+      "gates": {
+        "medianProcessingTimePass": true,
+        "p95ProcessingTimePass": true,
+        "qualityIndexPass": true,
+        "qualityLowerConfidenceBoundPass": true,
+        "totalProcessingTimePass": true
+      },
+      "quality": {
+        "gainPercentVersusP05": 22.773417536432433,
+        "index": 122.77341753643243,
+        "pairedBootstrap95PercentCI": {
+          "lower": 122.27112002135398,
+          "lowerOrderStatisticIndex": 250,
+          "replicateCount": 10000,
+          "upper": 123.30294403042714
+        }
+      },
+      "rank": 4,
+      "timing": {
+        "medianRatioVersusP05": 0.030369848611283664,
+        "p95RatioVersusP05": 0.03374346105873007,
+        "totalRatioVersusP05": 0.028668046618075614,
+        "totalReductionPercentVersusP05": 97.13319533819244
+      }
+    },
+    {
+      "candidateID": "motion_history_off",
+      "eligible": true,
+      "gates": {
+        "medianProcessingTimePass": true,
+        "p95ProcessingTimePass": true,
+        "qualityIndexPass": true,
+        "qualityLowerConfidenceBoundPass": true,
+        "totalProcessingTimePass": true
+      },
+      "quality": {
+        "gainPercentVersusP05": 21.171288940626283,
+        "index": 121.17128894062628,
+        "pairedBootstrap95PercentCI": {
+          "lower": 120.70095397809753,
+          "lowerOrderStatisticIndex": 250,
+          "replicateCount": 10000,
+          "upper": 121.66650026604817
+        }
+      },
+      "rank": 5,
+      "timing": {
+        "medianRatioVersusP05": 0.015952149414031894,
+        "p95RatioVersusP05": 0.019586520562066168,
+        "totalRatioVersusP05": 0.0163889389216874,
+        "totalReductionPercentVersusP05": 98.36110610783126
+      }
+    }
+  ],
+  "canonicalQualityContractSHA256": "ca9aef57b88085f20a39b950470ba6aee89706b0da55145843dc21bf02461f19",
+  "captureBindingSHA256": "964bca3adffb61851f05fbe36ee2d5c0164b3ed7c61ff680f841b5b7cc86e6f3",
+  "contractSHA256": "6791dab79d0d61694a1cec69079813b7025e96b327a5733e7a2a482b7a1f5ea6",
+  "corpus": {
+    "caseCount": 168,
+    "clipCount": 28,
+    "corpusID": "ash-v4-seven-cohort-synthetic-diagnostic-v1",
+    "corpusKind": "synthetic_diagnostic"
+  },
+  "m7Satisfied": true,
+  "p05BindingSHA256": "3fcce7076d4c73eba6f94ea168759d4900168eed2b3b45e228ceedeb36f6800d",
+  "p05DiscoverySHA256": "26457d52fa4482e6d35d22e963c9041187c42b6527aa317b4000c85e99c50088",
+  "qualificationFailureReason": null,
+  "qualityReportSHA256": "e533d222666b4537db8437a0a776d11e4522c75d049246dd112bb39d887c5a30",
+  "schemaVersion": "mirmir-ash-v4-m7-simulation-selection-report-v1",
+  "selectedCandidateID": "candidate_v4",
+  "selectionOrder": [
+    "qualityLowerConfidenceBoundDescending",
+    "qualityIndexDescending",
+    "totalProcessingTimeRatioAscending",
+    "p95ProcessingTimeRatioAscending",
+    "medianProcessingTimeRatioAscending",
+    "candidateIDAscending"
+  ],
+  "sourceCommit": "ce780af87107d90142d860f328dca4a72fea3047",
+  "thresholds": {
+    "maximumMedianProcessingTimeRatio": 0.8,
+    "maximumP95ProcessingTimeRatio": 0.8,
+    "maximumTotalProcessingTimeRatio": 0.8,
+    "minimumQualityIndex": 105.0,
+    "minimumQualityLowerConfidenceBound": 105.0
+  }
+}

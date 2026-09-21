@@ -1,0 +1,23 @@
+{
+  "architecture": "arm64",
+  "executionScope": "headless native macOS XCTest frame simulator",
+  "hardware": {
+    "cpuBrand": "Apple M4 Pro",
+    "logicalCPUCount": "14",
+    "model": "Mac16,7",
+    "physicalCPUCount": "14"
+  },
+  "macOS": {
+    "BuildVersion": "26A428",
+    "ProductName": "macOS",
+    "ProductVersion": "27.0"
+  },
+  "processor": "arm",
+  "schemaVersion": "mirmir-ash-v4-m7-simulator-environment-v1",
+  "sourceCommit": "ce780af87107d90142d860f328dca4a72fea3047",
+  "sourceTreeIdentitySHA256": "e17353adcf6ef500d96ef495713320dd402b3ff0d79187814c45130391ab1616",
+  "xcodebuildVersion": [
+    "Xcode 27.0",
+    "Build version 27A266a"
+  ]
+}

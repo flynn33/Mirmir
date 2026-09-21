@@ -1,6 +1,6 @@
 # Deterministic Engine v4 roadmap
 
-Status: 1.3.0 (3) implementation complete; M7 simulator candidate selection pending
+Status: 1.3.0 (3) implementation and M7 simulator candidate selection complete
 
 Scope: Mirmir deterministic CPU and Metal engines, media pipeline, and durable job workflow
 
@@ -10,14 +10,14 @@ Baseline: the checked-in P05 CPU reference and Metal preview behavior before v4 
 
 Current checkpoint: pull requests 44 and 45 landed the v4 engine, media,
 workflow, qualification tooling, and production P06 identity loading as version
-1.3.0. Follow-on work closed M0 through M6 in source and tests. M7 is now a
-deterministic, headless simulator comparison of the production v4 policy and
-four locked test-harness policy ablations against frozen P05. The selected
-policy candidate must prove the 5%
-quality and 20% processing-time targets in that same run. External devices,
-physical-machine matrices, signing, notarization, stapling, shipping, and
-distribution are outside M7. The exact checkpoint is recorded in
-`docs/v4/CURRENT_QUALIFICATION_STATUS.md`.
+1.3.0. Follow-on work closed M0 through M6 in source and tests. The sealed M7
+headless simulator run from commit
+`ce780af87107d90142d860f328dca4a72fea3047` compared the production v4 policy
+and four locked test-harness policy ablations against frozen P05, then selected
+`candidate_v4`. It proved the 5% quality and 20% processing-time targets in the
+same run. External devices, physical-machine matrices, signing, notarization,
+stapling, shipping, and distribution are outside M7. The exact checkpoint is
+recorded in `docs/v4/CURRENT_QUALIFICATION_STATUS.md`.
 
 ## Executive decision
 
@@ -41,6 +41,10 @@ CPU/Metal parity, P06 integrity, media preservation, and recovery remain M0–M6
 implementation invariants covered by their existing tests. They are not
 repeated as packaging or hardware gates in M7. Shipping fitness is a separate
 owner decision and is not claimed by this roadmap.
+
+The completed run selected `candidate_v4` with a quality index of 122.792052,
+a paired-bootstrap 95% lower bound of 122.312761, and total, median, and p95
+processing-time ratios of 0.025213, 0.026859, and 0.030117 versus P05.
 
 ## What the research establishes
 
@@ -137,16 +141,15 @@ reconstructor. Neither changes the canonical codeword set.
 ### Evidence in the current repository
 
 The 1.3.0 landing closed the implementation gaps recorded when this roadmap was
-proposed. Remaining work is simulator candidate selection, not missing engine
-surface:
+proposed. The completed M7 simulation supplies the final roadmap decision:
 
-| Area | 1.3.0 evidence | Remaining M7 simulation work |
+| Area | 1.3.0 evidence | M7 simulator result |
 | --- | --- | --- |
-| Runtime identity | Bundled ASH P06 runtime with a hashed manifest and fail-closed loader. | Use the committed P06 runtime in the simulator run. |
-| Scale | Shared fixed-point execution accepts independent rational scale factors and arbitrary integral target dimensions. | Covered by M0–M6 tests; no M7 device replay. |
-| Temporal state | Bounded, motion-compensated history with scene/reset policy and checkpoint identity. | Compare the full policy with temporal ablations in simulation. |
-| Backend parity | CPU and Metal consume one fixed-point contract. | Covered by M0–M6 tests; no M7 hardware matrix. |
-| Media and workflow | Pixel formats, geometry, tracks, atomic output, durable jobs, and recovery are implemented and tested. | No packaging or shipping replay in M7. |
+| Runtime identity | Bundled ASH P06 runtime with a hashed manifest and fail-closed loader. | The committed P06 runtime lock passed; frozen P05 source identity and run-specific executable identity both reproduced. |
+| Scale | Shared fixed-point execution accepts independent rational scale factors and arbitrary integral target dimensions. | Covered by M0–M6 tests; no M7 device replay was required. |
+| Temporal state | Bounded, motion-compensated history with scene/reset policy and checkpoint identity. | Full policy and temporal ablations were measured across 168 cases. |
+| Backend parity | CPU and Metal consume one fixed-point contract. | Covered by M0–M6 tests; no M7 hardware matrix was required. |
+| Media and workflow | Pixel formats, geometry, tracks, atomic output, durable jobs, and recovery are implemented and tested. | Packaging and shipping replay remained outside M7. |
 
 ## Measurable M7 simulator contract
 
@@ -173,7 +176,7 @@ execution context:
   aggregates for P05 and all five candidates.
 
 The original M0 Debug timing figures remain historical calibration data. They
-are not inputs to, and cannot substitute for, the M7 Release simulation.
+were not inputs to, and cannot substitute for, the M7 Release-mode simulation.
 
 ### Quality gate: at least 5%
 
@@ -471,7 +474,7 @@ incomplete runtime assets cannot prepare an engine.
 
 ### M2 — Spatial v4, arbitrary scale, parity, and hot-path efficiency
 
-Status: implementation landed in 1.3.0; simulator performance comparison remains part of M7
+Status: implementation landed in 1.3.0; M7 simulator processing-time comparison passed
 
 Deliver:
 
@@ -489,7 +492,7 @@ and p95 ratios are all at most 0.80 on the complete locked simulation corpus.
 
 ### M3 — Temporal quality
 
-Status: implementation landed in 1.3.0; simulator quality comparison remains part of M7
+Status: implementation landed in 1.3.0; M7 simulator quality comparison passed
 
 Deliver:
 
@@ -552,7 +555,7 @@ resumed output or an explicit contained failure with no unowned artifacts.
 
 ### M7 — Simulator candidate selection
 
-Status: simulator contract, runner, and selector in progress; candidate comparison remains open
+Status: complete — `candidate_v4` selected from sealed simulator evidence
 
 Deliver:
 
@@ -569,12 +572,12 @@ shipping readiness, or distribution.
 
 Current M7 state:
 
-- the five simulator candidates already exist in the quality harness;
-- the machine-readable eligibility and ordering contract is locked;
-- the reproducible runner and independent selector are being verified;
-- the source-frozen P05 executable is rebound and reproduced under the recorded
-  simulator toolchain without changing its source identities;
-- the committed-source simulation run and final selection remain open.
+- all five policies ran over 168 cases from 28 clips and seven cohorts;
+- every candidate passed the quality and total/median/p95 processing-time gates;
+- `candidate_v4` ranked first under the locked confidence-first ordering;
+- the source-frozen P05 executable and candidate capture source reproduced under
+  the recorded toolchain without changing their canonical identities;
+- independent replay verified 1,372 sealed artifacts and reproduced the winner.
 
 ## Implementation status
 
@@ -598,9 +601,9 @@ Pull request 45 then bound the identity workflow to the committed P06 bundle:
 the load check now receives the domain-separated manifest identity, source
 revision, and builder hash instead of invoking the helper with no trust roots.
 
-These changes close M0 through M6 in source. They do not by themselves satisfy
-the simulator quality, processing-time, and best-candidate selection required
-for M7.
+These changes close M0 through M6 in source. The later committed-source M7 run
+then satisfied the simulator quality, processing-time, and best-candidate
+selection gates, completing this roadmap within its declared scope.
 
 ## Risks and decisions that must remain explicit
 

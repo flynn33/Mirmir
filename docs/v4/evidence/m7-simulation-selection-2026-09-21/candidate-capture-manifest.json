@@ -1,0 +1,2875 @@
+{
+  "candidateBackendID": "mirmir_deterministic_cpu",
+  "candidateImplementationVersion": "ash-p06-deterministic-v4",
+  "cases": [
+    {
+      "id": "animation-c00-420v-f00",
+      "milliseconds": {
+        "candidate_v4": 0.144417,
+        "motion_history_off": 0.121625,
+        "randomized_state_message": 0.124333,
+        "temporal_hysteresis_off": 0.136416,
+        "uniform_priors": 0.126084
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c00-420v-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c00-420v-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c00-420v-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c00-420v-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c00-420v-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c00-420v-f01",
+      "milliseconds": {
+        "candidate_v4": 0.326333,
+        "motion_history_off": 0.178708,
+        "randomized_state_message": 0.373,
+        "temporal_hysteresis_off": 0.332208,
+        "uniform_priors": 0.420125
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c00-420v-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c00-420v-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c00-420v-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c00-420v-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c00-420v-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c00-420v-f02",
+      "milliseconds": {
+        "candidate_v4": 0.308875,
+        "motion_history_off": 0.179583,
+        "randomized_state_message": 0.398917,
+        "temporal_hysteresis_off": 0.326833,
+        "uniform_priors": 0.360458
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c00-420v-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c00-420v-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c00-420v-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c00-420v-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c00-420v-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c00-420v-f03",
+      "milliseconds": {
+        "candidate_v4": 0.324125,
+        "motion_history_off": 0.203791,
+        "randomized_state_message": 0.375583,
+        "temporal_hysteresis_off": 0.3745,
+        "uniform_priors": 0.394084
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c00-420v-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c00-420v-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c00-420v-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c00-420v-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c00-420v-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c00-420v-f04",
+      "milliseconds": {
+        "candidate_v4": 0.317292,
+        "motion_history_off": 0.22875,
+        "randomized_state_message": 0.35875,
+        "temporal_hysteresis_off": 0.308959,
+        "uniform_priors": 0.376166
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c00-420v-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c00-420v-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c00-420v-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c00-420v-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c00-420v-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c00-420v-f05",
+      "milliseconds": {
+        "candidate_v4": 0.368708,
+        "motion_history_off": 0.177833,
+        "randomized_state_message": 0.383666,
+        "temporal_hysteresis_off": 0.329917,
+        "uniform_priors": 0.385416
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c00-420v-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c00-420v-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c00-420v-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c00-420v-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c00-420v-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c01-420f-f00",
+      "milliseconds": {
+        "candidate_v4": 0.136083,
+        "motion_history_off": 0.1285,
+        "randomized_state_message": 0.142,
+        "temporal_hysteresis_off": 0.146375,
+        "uniform_priors": 0.182791
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c01-420f-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c01-420f-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c01-420f-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c01-420f-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c01-420f-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c01-420f-f01",
+      "milliseconds": {
+        "candidate_v4": 0.336542,
+        "motion_history_off": 0.182083,
+        "randomized_state_message": 0.421125,
+        "temporal_hysteresis_off": 0.337166,
+        "uniform_priors": 0.380375
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c01-420f-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c01-420f-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c01-420f-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c01-420f-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c01-420f-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c01-420f-f02",
+      "milliseconds": {
+        "candidate_v4": 0.314167,
+        "motion_history_off": 0.194834,
+        "randomized_state_message": 0.356541,
+        "temporal_hysteresis_off": 0.374958,
+        "uniform_priors": 0.380583
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c01-420f-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c01-420f-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c01-420f-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c01-420f-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c01-420f-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c01-420f-f03",
+      "milliseconds": {
+        "candidate_v4": 0.342625,
+        "motion_history_off": 0.244542,
+        "randomized_state_message": 0.378333,
+        "temporal_hysteresis_off": 0.335,
+        "uniform_priors": 0.39275
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c01-420f-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c01-420f-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c01-420f-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c01-420f-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c01-420f-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c01-420f-f04",
+      "milliseconds": {
+        "candidate_v4": 0.359333,
+        "motion_history_off": 0.166375,
+        "randomized_state_message": 0.361333,
+        "temporal_hysteresis_off": 0.3165,
+        "uniform_priors": 0.378459
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c01-420f-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c01-420f-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c01-420f-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c01-420f-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c01-420f-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c01-420f-f05",
+      "milliseconds": {
+        "candidate_v4": 0.331125,
+        "motion_history_off": 0.177708,
+        "randomized_state_message": 0.370833,
+        "temporal_hysteresis_off": 0.333583,
+        "uniform_priors": 0.4205
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c01-420f-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c01-420f-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c01-420f-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c01-420f-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c01-420f-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c02-420v-f00",
+      "milliseconds": {
+        "candidate_v4": 0.117708,
+        "motion_history_off": 0.127958,
+        "randomized_state_message": 0.176625,
+        "temporal_hysteresis_off": 0.145208,
+        "uniform_priors": 0.15
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c02-420v-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c02-420v-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c02-420v-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c02-420v-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c02-420v-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c02-420v-f01",
+      "milliseconds": {
+        "candidate_v4": 0.395083,
+        "motion_history_off": 0.234333,
+        "randomized_state_message": 0.349958,
+        "temporal_hysteresis_off": 0.442958,
+        "uniform_priors": 0.41425
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c02-420v-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c02-420v-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c02-420v-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c02-420v-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c02-420v-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c02-420v-f02",
+      "milliseconds": {
+        "candidate_v4": 0.321416,
+        "motion_history_off": 0.224625,
+        "randomized_state_message": 0.354666,
+        "temporal_hysteresis_off": 0.30425,
+        "uniform_priors": 0.349667
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c02-420v-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c02-420v-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c02-420v-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c02-420v-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c02-420v-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c02-420v-f03",
+      "milliseconds": {
+        "candidate_v4": 0.417333,
+        "motion_history_off": 0.203583,
+        "randomized_state_message": 0.3855,
+        "temporal_hysteresis_off": 0.331292,
+        "uniform_priors": 0.369375
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c02-420v-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c02-420v-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c02-420v-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c02-420v-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c02-420v-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c02-420v-f04",
+      "milliseconds": {
+        "candidate_v4": 0.332833,
+        "motion_history_off": 0.219542,
+        "randomized_state_message": 0.345334,
+        "temporal_hysteresis_off": 0.390917,
+        "uniform_priors": 0.424917
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c02-420v-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c02-420v-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c02-420v-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c02-420v-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c02-420v-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c02-420v-f05",
+      "milliseconds": {
+        "candidate_v4": 0.327333,
+        "motion_history_off": 0.180542,
+        "randomized_state_message": 0.404792,
+        "temporal_hysteresis_off": 0.325792,
+        "uniform_priors": 0.361375
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c02-420v-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c02-420v-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c02-420v-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c02-420v-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c02-420v-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c03-420f-f00",
+      "milliseconds": {
+        "candidate_v4": 0.122,
+        "motion_history_off": 0.137125,
+        "randomized_state_message": 0.126667,
+        "temporal_hysteresis_off": 0.198333,
+        "uniform_priors": 0.144625
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c03-420f-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c03-420f-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c03-420f-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c03-420f-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c03-420f-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c03-420f-f01",
+      "milliseconds": {
+        "candidate_v4": 0.330708,
+        "motion_history_off": 0.256833,
+        "randomized_state_message": 0.363208,
+        "temporal_hysteresis_off": 0.317125,
+        "uniform_priors": 0.380459
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c03-420f-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c03-420f-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c03-420f-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c03-420f-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c03-420f-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c03-420f-f02",
+      "milliseconds": {
+        "candidate_v4": 0.384791,
+        "motion_history_off": 0.169833,
+        "randomized_state_message": 0.363958,
+        "temporal_hysteresis_off": 0.315,
+        "uniform_priors": 0.363375
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c03-420f-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c03-420f-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c03-420f-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c03-420f-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c03-420f-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c03-420f-f03",
+      "milliseconds": {
+        "candidate_v4": 0.322375,
+        "motion_history_off": 0.178583,
+        "randomized_state_message": 0.365459,
+        "temporal_hysteresis_off": 0.35175,
+        "uniform_priors": 0.420291
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c03-420f-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c03-420f-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c03-420f-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c03-420f-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c03-420f-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c03-420f-f04",
+      "milliseconds": {
+        "candidate_v4": 0.316041,
+        "motion_history_off": 0.178209,
+        "randomized_state_message": 0.3995,
+        "temporal_hysteresis_off": 0.308583,
+        "uniform_priors": 0.355208
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c03-420f-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c03-420f-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c03-420f-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c03-420f-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c03-420f-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "animation-c03-420f-f05",
+      "milliseconds": {
+        "candidate_v4": 0.323041,
+        "motion_history_off": 0.186084,
+        "randomized_state_message": 0.364083,
+        "temporal_hysteresis_off": 0.372667,
+        "uniform_priors": 0.378125
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/animation-c03-420f-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/animation-c03-420f-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/animation-c03-420f-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/animation-c03-420f-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/animation-c03-420f-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c00-420f-f00",
+      "milliseconds": {
+        "candidate_v4": 0.148708,
+        "motion_history_off": 0.205209,
+        "randomized_state_message": 0.153,
+        "temporal_hysteresis_off": 0.150458,
+        "uniform_priors": 0.175541
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c00-420f-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c00-420f-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c00-420f-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c00-420f-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c00-420f-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c00-420f-f01",
+      "milliseconds": {
+        "candidate_v4": 0.383333,
+        "motion_history_off": 0.188167,
+        "randomized_state_message": 0.388791,
+        "temporal_hysteresis_off": 0.35575,
+        "uniform_priors": 0.410375
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c00-420f-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c00-420f-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c00-420f-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c00-420f-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c00-420f-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c00-420f-f02",
+      "milliseconds": {
+        "candidate_v4": 0.3385,
+        "motion_history_off": 0.206292,
+        "randomized_state_message": 0.3865,
+        "temporal_hysteresis_off": 0.368333,
+        "uniform_priors": 0.431375
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c00-420f-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c00-420f-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c00-420f-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c00-420f-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c00-420f-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c00-420f-f03",
+      "milliseconds": {
+        "candidate_v4": 0.364834,
+        "motion_history_off": 0.18875,
+        "randomized_state_message": 0.427917,
+        "temporal_hysteresis_off": 0.35525,
+        "uniform_priors": 0.396209
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c00-420f-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c00-420f-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c00-420f-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c00-420f-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c00-420f-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c00-420f-f04",
+      "milliseconds": {
+        "candidate_v4": 0.353208,
+        "motion_history_off": 0.201584,
+        "randomized_state_message": 0.374959,
+        "temporal_hysteresis_off": 0.372625,
+        "uniform_priors": 0.384291
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c00-420f-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c00-420f-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c00-420f-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c00-420f-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c00-420f-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c00-420f-f05",
+      "milliseconds": {
+        "candidate_v4": 0.347292,
+        "motion_history_off": 0.217666,
+        "randomized_state_message": 0.378041,
+        "temporal_hysteresis_off": 0.360625,
+        "uniform_priors": 0.385875
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c00-420f-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c00-420f-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c00-420f-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c00-420f-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c00-420f-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c01-420v-f00",
+      "milliseconds": {
+        "candidate_v4": 0.187291,
+        "motion_history_off": 0.165209,
+        "randomized_state_message": 0.1755,
+        "temporal_hysteresis_off": 0.154209,
+        "uniform_priors": 0.178125
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c01-420v-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c01-420v-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c01-420v-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c01-420v-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c01-420v-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c01-420v-f01",
+      "milliseconds": {
+        "candidate_v4": 0.35525,
+        "motion_history_off": 0.191417,
+        "randomized_state_message": 0.397375,
+        "temporal_hysteresis_off": 0.348,
+        "uniform_priors": 0.434958
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c01-420v-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c01-420v-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c01-420v-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c01-420v-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c01-420v-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c01-420v-f02",
+      "milliseconds": {
+        "candidate_v4": 0.35725,
+        "motion_history_off": 0.21625,
+        "randomized_state_message": 0.425541,
+        "temporal_hysteresis_off": 0.377625,
+        "uniform_priors": 0.408667
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c01-420v-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c01-420v-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c01-420v-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c01-420v-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c01-420v-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c01-420v-f03",
+      "milliseconds": {
+        "candidate_v4": 0.343625,
+        "motion_history_off": 0.21225,
+        "randomized_state_message": 0.381459,
+        "temporal_hysteresis_off": 0.384458,
+        "uniform_priors": 0.39475
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c01-420v-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c01-420v-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c01-420v-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c01-420v-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c01-420v-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c01-420v-f04",
+      "milliseconds": {
+        "candidate_v4": 0.355,
+        "motion_history_off": 0.22375,
+        "randomized_state_message": 0.39875,
+        "temporal_hysteresis_off": 0.362791,
+        "uniform_priors": 0.388375
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c01-420v-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c01-420v-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c01-420v-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c01-420v-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c01-420v-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c01-420v-f05",
+      "milliseconds": {
+        "candidate_v4": 0.387375,
+        "motion_history_off": 0.203875,
+        "randomized_state_message": 0.389959,
+        "temporal_hysteresis_off": 0.346208,
+        "uniform_priors": 0.394083
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c01-420v-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c01-420v-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c01-420v-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c01-420v-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c01-420v-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c02-420f-f00",
+      "milliseconds": {
+        "candidate_v4": 0.148917,
+        "motion_history_off": 0.151416,
+        "randomized_state_message": 0.179583,
+        "temporal_hysteresis_off": 0.153042,
+        "uniform_priors": 0.205917
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c02-420f-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c02-420f-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c02-420f-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c02-420f-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c02-420f-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c02-420f-f01",
+      "milliseconds": {
+        "candidate_v4": 0.354667,
+        "motion_history_off": 0.212292,
+        "randomized_state_message": 0.442333,
+        "temporal_hysteresis_off": 0.372833,
+        "uniform_priors": 0.404542
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c02-420f-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c02-420f-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c02-420f-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c02-420f-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c02-420f-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c02-420f-f02",
+      "milliseconds": {
+        "candidate_v4": 0.358958,
+        "motion_history_off": 0.211667,
+        "randomized_state_message": 0.3775,
+        "temporal_hysteresis_off": 0.38975,
+        "uniform_priors": 0.382792
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c02-420f-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c02-420f-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c02-420f-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c02-420f-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c02-420f-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c02-420f-f03",
+      "milliseconds": {
+        "candidate_v4": 0.351542,
+        "motion_history_off": 0.221875,
+        "randomized_state_message": 0.380292,
+        "temporal_hysteresis_off": 0.357292,
+        "uniform_priors": 0.387834
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c02-420f-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c02-420f-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c02-420f-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c02-420f-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c02-420f-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c02-420f-f04",
+      "milliseconds": {
+        "candidate_v4": 0.376083,
+        "motion_history_off": 0.186042,
+        "randomized_state_message": 0.379291,
+        "temporal_hysteresis_off": 0.350583,
+        "uniform_priors": 0.400708
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c02-420f-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c02-420f-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c02-420f-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c02-420f-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c02-420f-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c02-420f-f05",
+      "milliseconds": {
+        "candidate_v4": 0.361792,
+        "motion_history_off": 0.204625,
+        "randomized_state_message": 0.403583,
+        "temporal_hysteresis_off": 0.35725,
+        "uniform_priors": 0.418
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c02-420f-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c02-420f-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c02-420f-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c02-420f-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c02-420f-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c03-420v-f00",
+      "milliseconds": {
+        "candidate_v4": 0.157292,
+        "motion_history_off": 0.158167,
+        "randomized_state_message": 0.224,
+        "temporal_hysteresis_off": 0.163917,
+        "uniform_priors": 0.157333
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c03-420v-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c03-420v-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c03-420v-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c03-420v-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c03-420v-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c03-420v-f01",
+      "milliseconds": {
+        "candidate_v4": 0.353625,
+        "motion_history_off": 0.249625,
+        "randomized_state_message": 0.366541,
+        "temporal_hysteresis_off": 0.394,
+        "uniform_priors": 0.428666
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c03-420v-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c03-420v-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c03-420v-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c03-420v-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c03-420v-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c03-420v-f02",
+      "milliseconds": {
+        "candidate_v4": 0.347625,
+        "motion_history_off": 0.237459,
+        "randomized_state_message": 0.36675,
+        "temporal_hysteresis_off": 0.33775,
+        "uniform_priors": 0.377167
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c03-420v-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c03-420v-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c03-420v-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c03-420v-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c03-420v-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c03-420v-f03",
+      "milliseconds": {
+        "candidate_v4": 0.372292,
+        "motion_history_off": 0.207958,
+        "randomized_state_message": 0.37475,
+        "temporal_hysteresis_off": 0.340042,
+        "uniform_priors": 0.385375
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c03-420v-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c03-420v-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c03-420v-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c03-420v-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c03-420v-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c03-420v-f04",
+      "milliseconds": {
+        "candidate_v4": 0.367167,
+        "motion_history_off": 0.19025,
+        "randomized_state_message": 0.369875,
+        "temporal_hysteresis_off": 0.362708,
+        "uniform_priors": 0.426583
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c03-420v-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c03-420v-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c03-420v-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c03-420v-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c03-420v-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "faces-c03-420v-f05",
+      "milliseconds": {
+        "candidate_v4": 0.335375,
+        "motion_history_off": 0.211791,
+        "randomized_state_message": 0.425625,
+        "temporal_hysteresis_off": 0.333292,
+        "uniform_priors": 0.397083
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/faces-c03-420v-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/faces-c03-420v-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/faces-c03-420v-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/faces-c03-420v-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/faces-c03-420v-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c00-420f-f00",
+      "milliseconds": {
+        "candidate_v4": 0.153375,
+        "motion_history_off": 0.162334,
+        "randomized_state_message": 0.172,
+        "temporal_hysteresis_off": 0.202042,
+        "uniform_priors": 0.158208
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c00-420f-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c00-420f-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c00-420f-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c00-420f-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c00-420f-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c00-420f-f01",
+      "milliseconds": {
+        "candidate_v4": 0.362625,
+        "motion_history_off": 0.236292,
+        "randomized_state_message": 0.367417,
+        "temporal_hysteresis_off": 0.329167,
+        "uniform_priors": 0.372167
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c00-420f-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c00-420f-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c00-420f-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c00-420f-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c00-420f-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c00-420f-f02",
+      "milliseconds": {
+        "candidate_v4": 0.376292,
+        "motion_history_off": 0.212333,
+        "randomized_state_message": 0.386834,
+        "temporal_hysteresis_off": 0.364292,
+        "uniform_priors": 0.39975
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c00-420f-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c00-420f-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c00-420f-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c00-420f-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c00-420f-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c00-420f-f03",
+      "milliseconds": {
+        "candidate_v4": 0.357333,
+        "motion_history_off": 0.206875,
+        "randomized_state_message": 0.379916,
+        "temporal_hysteresis_off": 0.353459,
+        "uniform_priors": 0.452958
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c00-420f-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c00-420f-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c00-420f-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c00-420f-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c00-420f-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c00-420f-f04",
+      "milliseconds": {
+        "candidate_v4": 0.353917,
+        "motion_history_off": 0.197625,
+        "randomized_state_message": 0.422167,
+        "temporal_hysteresis_off": 0.348833,
+        "uniform_priors": 0.379791
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c00-420f-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c00-420f-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c00-420f-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c00-420f-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c00-420f-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c00-420f-f05",
+      "milliseconds": {
+        "candidate_v4": 0.356833,
+        "motion_history_off": 0.208125,
+        "randomized_state_message": 0.405791,
+        "temporal_hysteresis_off": 0.384625,
+        "uniform_priors": 0.4915
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c00-420f-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c00-420f-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c00-420f-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c00-420f-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c00-420f-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c01-420v-f00",
+      "milliseconds": {
+        "candidate_v4": 0.15975,
+        "motion_history_off": 0.221875,
+        "randomized_state_message": 0.158625,
+        "temporal_hysteresis_off": 0.152375,
+        "uniform_priors": 0.166041
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c01-420v-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c01-420v-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c01-420v-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c01-420v-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c01-420v-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c01-420v-f01",
+      "milliseconds": {
+        "candidate_v4": 0.38375,
+        "motion_history_off": 0.181833,
+        "randomized_state_message": 0.372458,
+        "temporal_hysteresis_off": 0.349583,
+        "uniform_priors": 0.383125
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c01-420v-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c01-420v-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c01-420v-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c01-420v-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c01-420v-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c01-420v-f02",
+      "milliseconds": {
+        "candidate_v4": 0.338417,
+        "motion_history_off": 0.209041,
+        "randomized_state_message": 0.393834,
+        "temporal_hysteresis_off": 0.334417,
+        "uniform_priors": 0.43025
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c01-420v-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c01-420v-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c01-420v-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c01-420v-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c01-420v-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c01-420v-f03",
+      "milliseconds": {
+        "candidate_v4": 0.350917,
+        "motion_history_off": 0.203708,
+        "randomized_state_message": 0.440833,
+        "temporal_hysteresis_off": 0.345292,
+        "uniform_priors": 0.391875
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c01-420v-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c01-420v-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c01-420v-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c01-420v-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c01-420v-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c01-420v-f04",
+      "milliseconds": {
+        "candidate_v4": 0.335375,
+        "motion_history_off": 0.207208,
+        "randomized_state_message": 0.375333,
+        "temporal_hysteresis_off": 0.389083,
+        "uniform_priors": 0.396458
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c01-420v-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c01-420v-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c01-420v-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c01-420v-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c01-420v-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c01-420v-f05",
+      "milliseconds": {
+        "candidate_v4": 0.365583,
+        "motion_history_off": 0.25825,
+        "randomized_state_message": 0.368125,
+        "temporal_hysteresis_off": 0.344208,
+        "uniform_priors": 0.404167
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c01-420v-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c01-420v-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c01-420v-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c01-420v-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c01-420v-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c02-420f-f00",
+      "milliseconds": {
+        "candidate_v4": 0.190459,
+        "motion_history_off": 0.16275,
+        "randomized_state_message": 0.172041,
+        "temporal_hysteresis_off": 0.154416,
+        "uniform_priors": 0.168667
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c02-420f-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c02-420f-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c02-420f-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c02-420f-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c02-420f-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c02-420f-f01",
+      "milliseconds": {
+        "candidate_v4": 0.359333,
+        "motion_history_off": 0.202667,
+        "randomized_state_message": 0.382125,
+        "temporal_hysteresis_off": 0.357166,
+        "uniform_priors": 0.442083
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c02-420f-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c02-420f-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c02-420f-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c02-420f-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c02-420f-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c02-420f-f02",
+      "milliseconds": {
+        "candidate_v4": 0.358792,
+        "motion_history_off": 0.209709,
+        "randomized_state_message": 0.438,
+        "temporal_hysteresis_off": 0.348417,
+        "uniform_priors": 0.382292
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c02-420f-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c02-420f-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c02-420f-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c02-420f-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c02-420f-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c02-420f-f03",
+      "milliseconds": {
+        "candidate_v4": 0.351125,
+        "motion_history_off": 0.21225,
+        "randomized_state_message": 0.395625,
+        "temporal_hysteresis_off": 0.390083,
+        "uniform_priors": 0.388833
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c02-420f-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c02-420f-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c02-420f-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c02-420f-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c02-420f-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c02-420f-f04",
+      "milliseconds": {
+        "candidate_v4": 0.340958,
+        "motion_history_off": 0.265334,
+        "randomized_state_message": 0.381792,
+        "temporal_hysteresis_off": 0.338458,
+        "uniform_priors": 0.404375
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c02-420f-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c02-420f-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c02-420f-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c02-420f-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c02-420f-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c02-420f-f05",
+      "milliseconds": {
+        "candidate_v4": 0.384459,
+        "motion_history_off": 0.209958,
+        "randomized_state_message": 0.400458,
+        "temporal_hysteresis_off": 0.36375,
+        "uniform_priors": 0.396417
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c02-420f-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c02-420f-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c02-420f-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c02-420f-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c02-420f-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c03-420v-f00",
+      "milliseconds": {
+        "candidate_v4": 0.147291,
+        "motion_history_off": 0.148833,
+        "randomized_state_message": 0.171167,
+        "temporal_hysteresis_off": 0.164792,
+        "uniform_priors": 0.201625
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c03-420v-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c03-420v-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c03-420v-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c03-420v-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c03-420v-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c03-420v-f01",
+      "milliseconds": {
+        "candidate_v4": 0.344208,
+        "motion_history_off": 0.19175,
+        "randomized_state_message": 0.43075,
+        "temporal_hysteresis_off": 0.334666,
+        "uniform_priors": 0.404
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c03-420v-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c03-420v-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c03-420v-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c03-420v-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c03-420v-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c03-420v-f02",
+      "milliseconds": {
+        "candidate_v4": 0.3425,
+        "motion_history_off": 0.206875,
+        "randomized_state_message": 0.361625,
+        "temporal_hysteresis_off": 0.367666,
+        "uniform_priors": 0.371042
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c03-420v-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c03-420v-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c03-420v-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c03-420v-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c03-420v-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c03-420v-f03",
+      "milliseconds": {
+        "candidate_v4": 0.338833,
+        "motion_history_off": 0.234375,
+        "randomized_state_message": 0.38675,
+        "temporal_hysteresis_off": 0.333708,
+        "uniform_priors": 0.379167
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c03-420v-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c03-420v-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c03-420v-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c03-420v-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c03-420v-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c03-420v-f04",
+      "milliseconds": {
+        "candidate_v4": 0.362209,
+        "motion_history_off": 0.206875,
+        "randomized_state_message": 0.379834,
+        "temporal_hysteresis_off": 0.332041,
+        "uniform_priors": 0.391375
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c03-420v-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c03-420v-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c03-420v-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c03-420v-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c03-420v-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "high_motion-c03-420v-f05",
+      "milliseconds": {
+        "candidate_v4": 0.348916,
+        "motion_history_off": 0.1925,
+        "randomized_state_message": 0.370166,
+        "temporal_hysteresis_off": 0.363458,
+        "uniform_priors": 0.423709
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/high_motion-c03-420v-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/high_motion-c03-420v-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/high_motion-c03-420v-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/high_motion-c03-420v-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/high_motion-c03-420v-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c00-420v-f00",
+      "milliseconds": {
+        "candidate_v4": 0.171792,
+        "motion_history_off": 0.187625,
+        "randomized_state_message": 0.241708,
+        "temporal_hysteresis_off": 0.195,
+        "uniform_priors": 0.181166
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c00-420v-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c00-420v-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c00-420v-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c00-420v-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c00-420v-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c00-420v-f01",
+      "milliseconds": {
+        "candidate_v4": 0.378792,
+        "motion_history_off": 0.24725,
+        "randomized_state_message": 0.395709,
+        "temporal_hysteresis_off": 0.428958,
+        "uniform_priors": 0.416875
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c00-420v-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c00-420v-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c00-420v-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c00-420v-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c00-420v-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c00-420v-f02",
+      "milliseconds": {
+        "candidate_v4": 0.409958,
+        "motion_history_off": 0.292792,
+        "randomized_state_message": 0.407667,
+        "temporal_hysteresis_off": 0.368083,
+        "uniform_priors": 0.41075
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c00-420v-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c00-420v-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c00-420v-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c00-420v-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c00-420v-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c00-420v-f03",
+      "milliseconds": {
+        "candidate_v4": 0.444792,
+        "motion_history_off": 0.20475,
+        "randomized_state_message": 0.418042,
+        "temporal_hysteresis_off": 0.367833,
+        "uniform_priors": 0.427291
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c00-420v-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c00-420v-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c00-420v-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c00-420v-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c00-420v-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c00-420v-f04",
+      "milliseconds": {
+        "candidate_v4": 0.377083,
+        "motion_history_off": 0.220917,
+        "randomized_state_message": 0.435125,
+        "temporal_hysteresis_off": 0.373792,
+        "uniform_priors": 0.480125
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c00-420v-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c00-420v-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c00-420v-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c00-420v-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c00-420v-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c00-420v-f05",
+      "milliseconds": {
+        "candidate_v4": 0.369042,
+        "motion_history_off": 0.248625,
+        "randomized_state_message": 0.472959,
+        "temporal_hysteresis_off": 0.388417,
+        "uniform_priors": 0.426292
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c00-420v-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c00-420v-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c00-420v-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c00-420v-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c00-420v-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c01-420f-f00",
+      "milliseconds": {
+        "candidate_v4": 0.1835,
+        "motion_history_off": 0.188458,
+        "randomized_state_message": 0.168959,
+        "temporal_hysteresis_off": 0.259083,
+        "uniform_priors": 0.18025
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c01-420f-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c01-420f-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c01-420f-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c01-420f-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c01-420f-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c01-420f-f01",
+      "milliseconds": {
+        "candidate_v4": 0.395875,
+        "motion_history_off": 0.269583,
+        "randomized_state_message": 0.404417,
+        "temporal_hysteresis_off": 0.359125,
+        "uniform_priors": 0.428167
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c01-420f-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c01-420f-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c01-420f-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c01-420f-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c01-420f-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c01-420f-f02",
+      "milliseconds": {
+        "candidate_v4": 0.421708,
+        "motion_history_off": 0.209875,
+        "randomized_state_message": 0.41725,
+        "temporal_hysteresis_off": 0.359833,
+        "uniform_priors": 0.424042
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c01-420f-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c01-420f-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c01-420f-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c01-420f-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c01-420f-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c01-420f-f03",
+      "milliseconds": {
+        "candidate_v4": 0.360542,
+        "motion_history_off": 0.234792,
+        "randomized_state_message": 0.416292,
+        "temporal_hysteresis_off": 0.394125,
+        "uniform_priors": 0.4705
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c01-420f-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c01-420f-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c01-420f-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c01-420f-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c01-420f-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c01-420f-f04",
+      "milliseconds": {
+        "candidate_v4": 0.3685,
+        "motion_history_off": 0.215791,
+        "randomized_state_message": 0.471,
+        "temporal_hysteresis_off": 0.375292,
+        "uniform_priors": 0.417708
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c01-420f-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c01-420f-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c01-420f-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c01-420f-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c01-420f-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c01-420f-f05",
+      "milliseconds": {
+        "candidate_v4": 0.367125,
+        "motion_history_off": 0.251708,
+        "randomized_state_message": 0.398541,
+        "temporal_hysteresis_off": 0.425917,
+        "uniform_priors": 0.425709
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c01-420f-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c01-420f-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c01-420f-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c01-420f-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c01-420f-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c02-420v-f00",
+      "milliseconds": {
+        "candidate_v4": 0.181,
+        "motion_history_off": 0.246958,
+        "randomized_state_message": 0.177417,
+        "temporal_hysteresis_off": 0.169916,
+        "uniform_priors": 0.208041
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c02-420v-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c02-420v-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c02-420v-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c02-420v-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c02-420v-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c02-420v-f01",
+      "milliseconds": {
+        "candidate_v4": 0.416333,
+        "motion_history_off": 0.236292,
+        "randomized_state_message": 0.424042,
+        "temporal_hysteresis_off": 0.37275,
+        "uniform_priors": 0.439833
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c02-420v-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c02-420v-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c02-420v-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c02-420v-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c02-420v-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c02-420v-f02",
+      "milliseconds": {
+        "candidate_v4": 0.373125,
+        "motion_history_off": 0.207959,
+        "randomized_state_message": 0.421709,
+        "temporal_hysteresis_off": 0.372042,
+        "uniform_priors": 0.495833
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c02-420v-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c02-420v-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c02-420v-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c02-420v-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c02-420v-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c02-420v-f03",
+      "milliseconds": {
+        "candidate_v4": 0.371541,
+        "motion_history_off": 0.234458,
+        "randomized_state_message": 0.484583,
+        "temporal_hysteresis_off": 0.394375,
+        "uniform_priors": 0.41075
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c02-420v-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c02-420v-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c02-420v-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c02-420v-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c02-420v-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c02-420v-f04",
+      "milliseconds": {
+        "candidate_v4": 0.378083,
+        "motion_history_off": 0.261292,
+        "randomized_state_message": 0.40475,
+        "temporal_hysteresis_off": 0.423583,
+        "uniform_priors": 0.433584
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c02-420v-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c02-420v-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c02-420v-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c02-420v-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c02-420v-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c02-420v-f05",
+      "milliseconds": {
+        "candidate_v4": 0.395042,
+        "motion_history_off": 0.286375,
+        "randomized_state_message": 0.403541,
+        "temporal_hysteresis_off": 0.383917,
+        "uniform_priors": 0.420875
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c02-420v-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c02-420v-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c02-420v-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c02-420v-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c02-420v-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c03-420f-f00",
+      "milliseconds": {
+        "candidate_v4": 0.236,
+        "motion_history_off": 0.173459,
+        "randomized_state_message": 0.202042,
+        "temporal_hysteresis_off": 0.169875,
+        "uniform_priors": 0.19825
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c03-420f-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c03-420f-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c03-420f-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c03-420f-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c03-420f-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c03-420f-f01",
+      "milliseconds": {
+        "candidate_v4": 0.369833,
+        "motion_history_off": 0.212792,
+        "randomized_state_message": 0.427125,
+        "temporal_hysteresis_off": 0.36325,
+        "uniform_priors": 0.48725
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c03-420f-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c03-420f-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c03-420f-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c03-420f-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c03-420f-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c03-420f-f02",
+      "milliseconds": {
+        "candidate_v4": 0.370208,
+        "motion_history_off": 0.231417,
+        "randomized_state_message": 0.455041,
+        "temporal_hysteresis_off": 0.397167,
+        "uniform_priors": 0.419209
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c03-420f-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c03-420f-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c03-420f-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c03-420f-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c03-420f-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c03-420f-f03",
+      "milliseconds": {
+        "candidate_v4": 0.383125,
+        "motion_history_off": 0.237875,
+        "randomized_state_message": 0.396084,
+        "temporal_hysteresis_off": 0.418875,
+        "uniform_priors": 0.416042
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c03-420f-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c03-420f-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c03-420f-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c03-420f-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c03-420f-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c03-420f-f04",
+      "milliseconds": {
+        "candidate_v4": 0.372041,
+        "motion_history_off": 0.266833,
+        "randomized_state_message": 0.397583,
+        "temporal_hysteresis_off": 0.349375,
+        "uniform_priors": 0.402541
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c03-420f-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c03-420f-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c03-420f-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c03-420f-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c03-420f-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "low_light_noise-c03-420f-f05",
+      "milliseconds": {
+        "candidate_v4": 0.410167,
+        "motion_history_off": 0.217167,
+        "randomized_state_message": 0.430041,
+        "temporal_hysteresis_off": 0.350333,
+        "uniform_priors": 0.410875
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/low_light_noise-c03-420f-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/low_light_noise-c03-420f-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/low_light_noise-c03-420f-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/low_light_noise-c03-420f-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/low_light_noise-c03-420f-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c00-420v-f00",
+      "milliseconds": {
+        "candidate_v4": 0.200667,
+        "motion_history_off": 0.261625,
+        "randomized_state_message": 0.220708,
+        "temporal_hysteresis_off": 0.197375,
+        "uniform_priors": 0.258083
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c00-420v-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c00-420v-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c00-420v-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c00-420v-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c00-420v-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c00-420v-f01",
+      "milliseconds": {
+        "candidate_v4": 0.382292,
+        "motion_history_off": 0.236291,
+        "randomized_state_message": 0.464875,
+        "temporal_hysteresis_off": 0.387,
+        "uniform_priors": 0.416625
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c00-420v-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c00-420v-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c00-420v-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c00-420v-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c00-420v-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c00-420v-f02",
+      "milliseconds": {
+        "candidate_v4": 0.388709,
+        "motion_history_off": 0.259375,
+        "randomized_state_message": 0.400417,
+        "temporal_hysteresis_off": 0.420916,
+        "uniform_priors": 0.426083
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c00-420v-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c00-420v-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c00-420v-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c00-420v-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c00-420v-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c00-420v-f03",
+      "milliseconds": {
+        "candidate_v4": 0.390542,
+        "motion_history_off": 0.291166,
+        "randomized_state_message": 0.420959,
+        "temporal_hysteresis_off": 0.37875,
+        "uniform_priors": 0.442416
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c00-420v-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c00-420v-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c00-420v-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c00-420v-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c00-420v-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c00-420v-f04",
+      "milliseconds": {
+        "candidate_v4": 0.422583,
+        "motion_history_off": 0.221,
+        "randomized_state_message": 0.419,
+        "temporal_hysteresis_off": 0.411709,
+        "uniform_priors": 0.456792
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c00-420v-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c00-420v-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c00-420v-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c00-420v-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c00-420v-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c00-420v-f05",
+      "milliseconds": {
+        "candidate_v4": 0.38225,
+        "motion_history_off": 0.24625,
+        "randomized_state_message": 0.433833,
+        "temporal_hysteresis_off": 0.384875,
+        "uniform_priors": 0.47825
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c00-420v-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c00-420v-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c00-420v-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c00-420v-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c00-420v-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c01-420f-f00",
+      "milliseconds": {
+        "candidate_v4": 0.18625,
+        "motion_history_off": 0.201584,
+        "randomized_state_message": 0.256958,
+        "temporal_hysteresis_off": 0.213875,
+        "uniform_priors": 0.215833
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c01-420f-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c01-420f-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c01-420f-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c01-420f-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c01-420f-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c01-420f-f01",
+      "milliseconds": {
+        "candidate_v4": 0.394584,
+        "motion_history_off": 0.250583,
+        "randomized_state_message": 0.424625,
+        "temporal_hysteresis_off": 0.445708,
+        "uniform_priors": 0.435583
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c01-420f-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c01-420f-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c01-420f-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c01-420f-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c01-420f-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c01-420f-f02",
+      "milliseconds": {
+        "candidate_v4": 0.406542,
+        "motion_history_off": 0.297875,
+        "randomized_state_message": 0.439834,
+        "temporal_hysteresis_off": 0.374875,
+        "uniform_priors": 0.439459
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c01-420f-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c01-420f-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c01-420f-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c01-420f-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c01-420f-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c01-420f-f03",
+      "milliseconds": {
+        "candidate_v4": 0.445666,
+        "motion_history_off": 0.249,
+        "randomized_state_message": 0.541,
+        "temporal_hysteresis_off": 0.413125,
+        "uniform_priors": 0.438417
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c01-420f-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c01-420f-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c01-420f-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c01-420f-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c01-420f-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c01-420f-f04",
+      "milliseconds": {
+        "candidate_v4": 0.449167,
+        "motion_history_off": 0.228375,
+        "randomized_state_message": 0.429333,
+        "temporal_hysteresis_off": 0.388958,
+        "uniform_priors": 0.491708
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c01-420f-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c01-420f-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c01-420f-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c01-420f-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c01-420f-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c01-420f-f05",
+      "milliseconds": {
+        "candidate_v4": 0.37875,
+        "motion_history_off": 0.231334,
+        "randomized_state_message": 0.457083,
+        "temporal_hysteresis_off": 0.385667,
+        "uniform_priors": 0.417958
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c01-420f-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c01-420f-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c01-420f-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c01-420f-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c01-420f-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c02-420v-f00",
+      "milliseconds": {
+        "candidate_v4": 0.194458,
+        "motion_history_off": 0.208333,
+        "randomized_state_message": 0.181375,
+        "temporal_hysteresis_off": 0.27575,
+        "uniform_priors": 0.216625
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c02-420v-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c02-420v-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c02-420v-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c02-420v-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c02-420v-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c02-420v-f01",
+      "milliseconds": {
+        "candidate_v4": 0.399666,
+        "motion_history_off": 0.322958,
+        "randomized_state_message": 0.42,
+        "temporal_hysteresis_off": 0.388083,
+        "uniform_priors": 0.445291
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c02-420v-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c02-420v-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c02-420v-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c02-420v-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c02-420v-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c02-420v-f02",
+      "milliseconds": {
+        "candidate_v4": 0.444333,
+        "motion_history_off": 0.23875,
+        "randomized_state_message": 0.435084,
+        "temporal_hysteresis_off": 0.40925,
+        "uniform_priors": 0.470917
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c02-420v-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c02-420v-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c02-420v-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c02-420v-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c02-420v-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c02-420v-f03",
+      "milliseconds": {
+        "candidate_v4": 0.382167,
+        "motion_history_off": 0.247542,
+        "randomized_state_message": 0.442042,
+        "temporal_hysteresis_off": 0.415958,
+        "uniform_priors": 0.502084
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c02-420v-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c02-420v-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c02-420v-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c02-420v-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c02-420v-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c02-420v-f04",
+      "milliseconds": {
+        "candidate_v4": 0.39825,
+        "motion_history_off": 0.2375,
+        "randomized_state_message": 0.491417,
+        "temporal_hysteresis_off": 0.405542,
+        "uniform_priors": 0.437666
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c02-420v-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c02-420v-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c02-420v-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c02-420v-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c02-420v-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c02-420v-f05",
+      "milliseconds": {
+        "candidate_v4": 0.396458,
+        "motion_history_off": 0.261292,
+        "randomized_state_message": 0.421083,
+        "temporal_hysteresis_off": 0.43775,
+        "uniform_priors": 0.429542
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c02-420v-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c02-420v-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c02-420v-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c02-420v-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c02-420v-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c03-420f-f00",
+      "milliseconds": {
+        "candidate_v4": 0.197584,
+        "motion_history_off": 0.273334,
+        "randomized_state_message": 0.19875,
+        "temporal_hysteresis_off": 0.194,
+        "uniform_priors": 0.226208
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c03-420f-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c03-420f-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c03-420f-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c03-420f-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c03-420f-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c03-420f-f01",
+      "milliseconds": {
+        "candidate_v4": 0.427042,
+        "motion_history_off": 0.252208,
+        "randomized_state_message": 0.476542,
+        "temporal_hysteresis_off": 0.402584,
+        "uniform_priors": 0.457833
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c03-420f-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c03-420f-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c03-420f-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c03-420f-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c03-420f-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c03-420f-f02",
+      "milliseconds": {
+        "candidate_v4": 0.386708,
+        "motion_history_off": 0.224292,
+        "randomized_state_message": 0.4265,
+        "temporal_hysteresis_off": 0.386584,
+        "uniform_priors": 0.46225
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c03-420f-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c03-420f-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c03-420f-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c03-420f-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c03-420f-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c03-420f-f03",
+      "milliseconds": {
+        "candidate_v4": 0.397625,
+        "motion_history_off": 0.235459,
+        "randomized_state_message": 0.490875,
+        "temporal_hysteresis_off": 0.406584,
+        "uniform_priors": 0.432792
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c03-420f-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c03-420f-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c03-420f-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c03-420f-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c03-420f-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c03-420f-f04",
+      "milliseconds": {
+        "candidate_v4": 0.400209,
+        "motion_history_off": 0.271708,
+        "randomized_state_message": 0.408959,
+        "temporal_hysteresis_off": 0.445583,
+        "uniform_priors": 0.433375
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c03-420f-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c03-420f-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c03-420f-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c03-420f-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c03-420f-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "natural_detail-c03-420f-f05",
+      "milliseconds": {
+        "candidate_v4": 0.432917,
+        "motion_history_off": 0.282583,
+        "randomized_state_message": 0.430708,
+        "temporal_hysteresis_off": 0.37675,
+        "uniform_priors": 0.437875
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/natural_detail-c03-420f-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/natural_detail-c03-420f-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/natural_detail-c03-420f-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/natural_detail-c03-420f-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/natural_detail-c03-420f-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c00-420v-f00",
+      "milliseconds": {
+        "candidate_v4": 0.223416,
+        "motion_history_off": 0.173291,
+        "randomized_state_message": 0.172167,
+        "temporal_hysteresis_off": 0.167542,
+        "uniform_priors": 0.212708
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c00-420v-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c00-420v-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c00-420v-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c00-420v-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c00-420v-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c00-420v-f01",
+      "milliseconds": {
+        "candidate_v4": 0.37625,
+        "motion_history_off": 0.215958,
+        "randomized_state_message": 0.397,
+        "temporal_hysteresis_off": 0.37225,
+        "uniform_priors": 0.462958
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c00-420v-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c00-420v-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c00-420v-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c00-420v-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c00-420v-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c00-420v-f02",
+      "milliseconds": {
+        "candidate_v4": 0.361625,
+        "motion_history_off": 0.212167,
+        "randomized_state_message": 0.444333,
+        "temporal_hysteresis_off": 0.358958,
+        "uniform_priors": 0.398916
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c00-420v-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c00-420v-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c00-420v-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c00-420v-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c00-420v-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c00-420v-f03",
+      "milliseconds": {
+        "candidate_v4": 0.175583,
+        "motion_history_off": 0.22875,
+        "randomized_state_message": 0.354333,
+        "temporal_hysteresis_off": 0.420375,
+        "uniform_priors": 0.364708
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c00-420v-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c00-420v-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c00-420v-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c00-420v-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c00-420v-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c00-420v-f04",
+      "milliseconds": {
+        "candidate_v4": 0.387958,
+        "motion_history_off": 0.275833,
+        "randomized_state_message": 0.423417,
+        "temporal_hysteresis_off": 0.378708,
+        "uniform_priors": 0.415166
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c00-420v-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c00-420v-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c00-420v-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c00-420v-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c00-420v-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c00-420v-f05",
+      "milliseconds": {
+        "candidate_v4": 0.40325,
+        "motion_history_off": 0.220167,
+        "randomized_state_message": 0.407333,
+        "temporal_hysteresis_off": 0.362416,
+        "uniform_priors": 0.425625
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c00-420v-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c00-420v-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c00-420v-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c00-420v-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c00-420v-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c01-420f-f00",
+      "milliseconds": {
+        "candidate_v4": 0.153833,
+        "motion_history_off": 0.178042,
+        "randomized_state_message": 0.185416,
+        "temporal_hysteresis_off": 0.185083,
+        "uniform_priors": 0.218208
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c01-420f-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c01-420f-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c01-420f-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c01-420f-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c01-420f-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c01-420f-f01",
+      "milliseconds": {
+        "candidate_v4": 0.3605,
+        "motion_history_off": 0.21075,
+        "randomized_state_message": 0.426958,
+        "temporal_hysteresis_off": 0.36225,
+        "uniform_priors": 0.39675
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c01-420f-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c01-420f-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c01-420f-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c01-420f-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c01-420f-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c01-420f-f02",
+      "milliseconds": {
+        "candidate_v4": 0.354125,
+        "motion_history_off": 0.207375,
+        "randomized_state_message": 0.396875,
+        "temporal_hysteresis_off": 0.398833,
+        "uniform_priors": 0.394167
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c01-420f-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c01-420f-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c01-420f-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c01-420f-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c01-420f-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c01-420f-f03",
+      "milliseconds": {
+        "candidate_v4": 0.193333,
+        "motion_history_off": 0.278959,
+        "randomized_state_message": 0.376792,
+        "temporal_hysteresis_off": 0.392708,
+        "uniform_priors": 0.376167
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c01-420f-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c01-420f-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c01-420f-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c01-420f-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c01-420f-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c01-420f-f04",
+      "milliseconds": {
+        "candidate_v4": 0.430791,
+        "motion_history_off": 0.232667,
+        "randomized_state_message": 0.407542,
+        "temporal_hysteresis_off": 0.381625,
+        "uniform_priors": 0.441792
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c01-420f-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c01-420f-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c01-420f-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c01-420f-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c01-420f-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c01-420f-f05",
+      "milliseconds": {
+        "candidate_v4": 0.373417,
+        "motion_history_off": 0.216875,
+        "randomized_state_message": 0.409667,
+        "temporal_hysteresis_off": 0.366917,
+        "uniform_priors": 0.474125
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c01-420f-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c01-420f-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c01-420f-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c01-420f-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c01-420f-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c02-420v-f00",
+      "milliseconds": {
+        "candidate_v4": 0.166083,
+        "motion_history_off": 0.178416,
+        "randomized_state_message": 0.249708,
+        "temporal_hysteresis_off": 0.176,
+        "uniform_priors": 0.182834
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c02-420v-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c02-420v-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c02-420v-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c02-420v-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c02-420v-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c02-420v-f01",
+      "milliseconds": {
+        "candidate_v4": 0.354042,
+        "motion_history_off": 0.23825,
+        "randomized_state_message": 0.402834,
+        "temporal_hysteresis_off": 0.412375,
+        "uniform_priors": 0.410084
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c02-420v-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c02-420v-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c02-420v-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c02-420v-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c02-420v-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c02-420v-f02",
+      "milliseconds": {
+        "candidate_v4": 0.35225,
+        "motion_history_off": 0.273125,
+        "randomized_state_message": 0.395834,
+        "temporal_hysteresis_off": 0.353167,
+        "uniform_priors": 0.408917
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c02-420v-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c02-420v-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c02-420v-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c02-420v-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c02-420v-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c02-420v-f03",
+      "milliseconds": {
+        "candidate_v4": 0.215583,
+        "motion_history_off": 0.172708,
+        "randomized_state_message": 0.365459,
+        "temporal_hysteresis_off": 0.37275,
+        "uniform_priors": 0.390833
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c02-420v-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c02-420v-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c02-420v-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c02-420v-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c02-420v-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c02-420v-f04",
+      "milliseconds": {
+        "candidate_v4": 0.369625,
+        "motion_history_off": 0.206292,
+        "randomized_state_message": 0.433958,
+        "temporal_hysteresis_off": 0.37925,
+        "uniform_priors": 0.463667
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c02-420v-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c02-420v-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c02-420v-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c02-420v-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c02-420v-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c02-420v-f05",
+      "milliseconds": {
+        "candidate_v4": 0.380875,
+        "motion_history_off": 0.22075,
+        "randomized_state_message": 0.431791,
+        "temporal_hysteresis_off": 0.360333,
+        "uniform_priors": 0.4115
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c02-420v-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c02-420v-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c02-420v-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c02-420v-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c02-420v-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c03-420f-f00",
+      "milliseconds": {
+        "candidate_v4": 0.163125,
+        "motion_history_off": 0.1725,
+        "randomized_state_message": 0.160166,
+        "temporal_hysteresis_off": 0.239375,
+        "uniform_priors": 0.18425
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c03-420f-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c03-420f-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c03-420f-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c03-420f-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c03-420f-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c03-420f-f01",
+      "milliseconds": {
+        "candidate_v4": 0.369833,
+        "motion_history_off": 0.263875,
+        "randomized_state_message": 0.384209,
+        "temporal_hysteresis_off": 0.344667,
+        "uniform_priors": 0.406292
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c03-420f-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c03-420f-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c03-420f-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c03-420f-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c03-420f-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c03-420f-f02",
+      "milliseconds": {
+        "candidate_v4": 0.393125,
+        "motion_history_off": 0.207292,
+        "randomized_state_message": 0.395291,
+        "temporal_hysteresis_off": 0.349625,
+        "uniform_priors": 0.424
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c03-420f-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c03-420f-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c03-420f-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c03-420f-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c03-420f-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c03-420f-f03",
+      "milliseconds": {
+        "candidate_v4": 0.173125,
+        "motion_history_off": 0.182,
+        "randomized_state_message": 0.3755,
+        "temporal_hysteresis_off": 0.37225,
+        "uniform_priors": 0.419834
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c03-420f-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c03-420f-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c03-420f-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c03-420f-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c03-420f-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c03-420f-f04",
+      "milliseconds": {
+        "candidate_v4": 0.368,
+        "motion_history_off": 0.213334,
+        "randomized_state_message": 0.454084,
+        "temporal_hysteresis_off": 0.375875,
+        "uniform_priors": 0.399833
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c03-420f-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c03-420f-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c03-420f-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c03-420f-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c03-420f-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "scene_cuts-c03-420f-f05",
+      "milliseconds": {
+        "candidate_v4": 0.365,
+        "motion_history_off": 0.232625,
+        "randomized_state_message": 0.393917,
+        "temporal_hysteresis_off": 0.400625,
+        "uniform_priors": 0.419625
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/scene_cuts-c03-420f-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/scene_cuts-c03-420f-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/scene_cuts-c03-420f-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/scene_cuts-c03-420f-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/scene_cuts-c03-420f-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c00-420f-f00",
+      "milliseconds": {
+        "candidate_v4": 0.161875,
+        "motion_history_off": 0.239125,
+        "randomized_state_message": 0.17525,
+        "temporal_hysteresis_off": 0.1595,
+        "uniform_priors": 0.172125
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c00-420f-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c00-420f-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c00-420f-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c00-420f-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c00-420f-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c00-420f-f01",
+      "milliseconds": {
+        "candidate_v4": 0.395667,
+        "motion_history_off": 0.212792,
+        "randomized_state_message": 0.396083,
+        "temporal_hysteresis_off": 0.372041,
+        "uniform_priors": 0.4165
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c00-420f-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c00-420f-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c00-420f-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c00-420f-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c00-420f-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c00-420f-f02",
+      "milliseconds": {
+        "candidate_v4": 0.357417,
+        "motion_history_off": 0.197417,
+        "randomized_state_message": 0.398417,
+        "temporal_hysteresis_off": 0.354458,
+        "uniform_priors": 0.451458
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c00-420f-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c00-420f-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c00-420f-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c00-420f-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c00-420f-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c00-420f-f03",
+      "milliseconds": {
+        "candidate_v4": 0.3465,
+        "motion_history_off": 0.2165,
+        "randomized_state_message": 0.436333,
+        "temporal_hysteresis_off": 0.356584,
+        "uniform_priors": 0.40375
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c00-420f-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c00-420f-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c00-420f-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c00-420f-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c00-420f-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c00-420f-f04",
+      "milliseconds": {
+        "candidate_v4": 0.374,
+        "motion_history_off": 0.23025,
+        "randomized_state_message": 0.386333,
+        "temporal_hysteresis_off": 0.402875,
+        "uniform_priors": 0.411708
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c00-420f-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c00-420f-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c00-420f-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c00-420f-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c00-420f-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c00-420f-f05",
+      "milliseconds": {
+        "candidate_v4": 0.3545,
+        "motion_history_off": 0.245209,
+        "randomized_state_message": 0.38075,
+        "temporal_hysteresis_off": 0.356834,
+        "uniform_priors": 0.411625
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c00-420f-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c00-420f-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c00-420f-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c00-420f-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c00-420f-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c01-420v-f00",
+      "milliseconds": {
+        "candidate_v4": 0.201542,
+        "motion_history_off": 0.159875,
+        "randomized_state_message": 0.171917,
+        "temporal_hysteresis_off": 0.17975,
+        "uniform_priors": 0.204583
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c01-420v-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c01-420v-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c01-420v-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c01-420v-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c01-420v-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c01-420v-f01",
+      "milliseconds": {
+        "candidate_v4": 0.360167,
+        "motion_history_off": 0.202583,
+        "randomized_state_message": 0.399333,
+        "temporal_hysteresis_off": 0.351417,
+        "uniform_priors": 0.458708
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c01-420v-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c01-420v-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c01-420v-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c01-420v-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c01-420v-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c01-420v-f02",
+      "milliseconds": {
+        "candidate_v4": 0.357541,
+        "motion_history_off": 0.19425,
+        "randomized_state_message": 0.425375,
+        "temporal_hysteresis_off": 0.347584,
+        "uniform_priors": 0.388333
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c01-420v-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c01-420v-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c01-420v-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c01-420v-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c01-420v-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c01-420v-f03",
+      "milliseconds": {
+        "candidate_v4": 0.357,
+        "motion_history_off": 0.228709,
+        "randomized_state_message": 0.392541,
+        "temporal_hysteresis_off": 0.402209,
+        "uniform_priors": 0.418042
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c01-420v-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c01-420v-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c01-420v-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c01-420v-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c01-420v-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c01-420v-f04",
+      "milliseconds": {
+        "candidate_v4": 0.362584,
+        "motion_history_off": 0.248042,
+        "randomized_state_message": 0.38675,
+        "temporal_hysteresis_off": 0.34375,
+        "uniform_priors": 0.393625
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c01-420v-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c01-420v-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c01-420v-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c01-420v-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c01-420v-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c01-420v-f05",
+      "milliseconds": {
+        "candidate_v4": 0.39625,
+        "motion_history_off": 0.207916,
+        "randomized_state_message": 0.41225,
+        "temporal_hysteresis_off": 0.355834,
+        "uniform_priors": 0.416541
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c01-420v-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c01-420v-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c01-420v-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c01-420v-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c01-420v-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c02-420f-f00",
+      "milliseconds": {
+        "candidate_v4": 0.149291,
+        "motion_history_off": 0.1505,
+        "randomized_state_message": 0.17325,
+        "temporal_hysteresis_off": 0.161375,
+        "uniform_priors": 0.235084
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c02-420f-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c02-420f-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c02-420f-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c02-420f-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c02-420f-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c02-420f-f01",
+      "milliseconds": {
+        "candidate_v4": 0.368,
+        "motion_history_off": 0.194292,
+        "randomized_state_message": 0.416416,
+        "temporal_hysteresis_off": 0.356958,
+        "uniform_priors": 0.377583
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c02-420f-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c02-420f-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c02-420f-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c02-420f-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c02-420f-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c02-420f-f02",
+      "milliseconds": {
+        "candidate_v4": 0.341417,
+        "motion_history_off": 0.210625,
+        "randomized_state_message": 0.371708,
+        "temporal_hysteresis_off": 0.375042,
+        "uniform_priors": 0.392583
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c02-420f-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c02-420f-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c02-420f-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c02-420f-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c02-420f-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c02-420f-f03",
+      "milliseconds": {
+        "candidate_v4": 0.346583,
+        "motion_history_off": 0.237792,
+        "randomized_state_message": 0.374917,
+        "temporal_hysteresis_off": 0.352584,
+        "uniform_priors": 0.40125
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c02-420f-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c02-420f-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c02-420f-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c02-420f-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c02-420f-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c02-420f-f04",
+      "milliseconds": {
+        "candidate_v4": 0.378292,
+        "motion_history_off": 0.207625,
+        "randomized_state_message": 0.401625,
+        "temporal_hysteresis_off": 0.339375,
+        "uniform_priors": 0.394833
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c02-420f-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c02-420f-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c02-420f-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c02-420f-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c02-420f-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c02-420f-f05",
+      "milliseconds": {
+        "candidate_v4": 0.347291,
+        "motion_history_off": 0.193625,
+        "randomized_state_message": 0.38625,
+        "temporal_hysteresis_off": 0.351625,
+        "uniform_priors": 0.442542
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c02-420f-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c02-420f-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c02-420f-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c02-420f-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c02-420f-f05-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c03-420v-f00",
+      "milliseconds": {
+        "candidate_v4": 0.154625,
+        "motion_history_off": 0.171375,
+        "randomized_state_message": 0.225333,
+        "temporal_hysteresis_off": 0.16975,
+        "uniform_priors": 0.162084
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c03-420v-f00-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c03-420v-f00-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c03-420v-f00-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c03-420v-f00-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c03-420v-f00-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c03-420v-f01",
+      "milliseconds": {
+        "candidate_v4": 0.34525,
+        "motion_history_off": 0.227875,
+        "randomized_state_message": 0.384708,
+        "temporal_hysteresis_off": 0.377,
+        "uniform_priors": 0.405542
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c03-420v-f01-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c03-420v-f01-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c03-420v-f01-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c03-420v-f01-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c03-420v-f01-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c03-420v-f02",
+      "milliseconds": {
+        "candidate_v4": 0.34525,
+        "motion_history_off": 0.261083,
+        "randomized_state_message": 0.377625,
+        "temporal_hysteresis_off": 0.343667,
+        "uniform_priors": 0.407542
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c03-420v-f02-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c03-420v-f02-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c03-420v-f02-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c03-420v-f02-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c03-420v-f02-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c03-420v-f03",
+      "milliseconds": {
+        "candidate_v4": 0.390333,
+        "motion_history_off": 0.203875,
+        "randomized_state_message": 0.412,
+        "temporal_hysteresis_off": 0.362375,
+        "uniform_priors": 0.414042
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c03-420v-f03-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c03-420v-f03-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c03-420v-f03-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c03-420v-f03-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c03-420v-f03-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c03-420v-f04",
+      "milliseconds": {
+        "candidate_v4": 0.357291,
+        "motion_history_off": 0.193583,
+        "randomized_state_message": 0.392458,
+        "temporal_hysteresis_off": 0.351542,
+        "uniform_priors": 0.449333
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c03-420v-f04-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c03-420v-f04-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c03-420v-f04-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c03-420v-f04-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c03-420v-f04-uniform_priors.nv12"
+      }
+    },
+    {
+      "id": "text_graphics-c03-420v-f05",
+      "milliseconds": {
+        "candidate_v4": 0.356833,
+        "motion_history_off": 0.217416,
+        "randomized_state_message": 0.433125,
+        "temporal_hysteresis_off": 0.360084,
+        "uniform_priors": 0.399333
+      },
+      "outputs": {
+        "candidate_v4": "artifacts/text_graphics-c03-420v-f05-candidate_v4.nv12",
+        "motion_history_off": "artifacts/text_graphics-c03-420v-f05-motion_history_off.nv12",
+        "randomized_state_message": "artifacts/text_graphics-c03-420v-f05-randomized_state_message.nv12",
+        "temporal_hysteresis_off": "artifacts/text_graphics-c03-420v-f05-temporal_hysteresis_off.nv12",
+        "uniform_priors": "artifacts/text_graphics-c03-420v-f05-uniform_priors.nv12"
+      }
+    }
+  ],
+  "contractSHA256": "8d265b11093d7ce182b61a6f6f5d7cf63173e4657cd845473aa78cd25d7aab6d",
+  "corpusManifestSHA256": "9ffee89a2b41f0fa6c0f49eb85e508ec2fbcefbcc637f867ae52899e2e138eae",
+  "evidenceRequestSHA256": null,
+  "fullMirrorIdentityPass": true,
+  "observerSourceSHA256": null,
+  "packagedCandidateIdentity": null,
+  "productionRuntimeLocked": true,
+  "runtimeManifestSHA256": "f048ee49e4134a7b513e8008140b5e17cd9cfd875ab43912790cd45c1e616d84",
+  "runtimeSourceRevision": "a5fa447172d59d3dc1efffe39c9911a4a62857f49d424e79aa6360dfb2e7459f",
+  "schemaVersion": "mirmir-ash-v4-quality-candidate-capture-v1",
+  "sourceCommit": "ce780af87107d90142d860f328dca4a72fea3047",
+  "sourceTreeIdentitySHA256": "e17353adcf6ef500d96ef495713320dd402b3ff0d79187814c45130391ab1616",
+  "warmupCount": 5
+}

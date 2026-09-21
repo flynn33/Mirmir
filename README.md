@@ -60,15 +60,18 @@ tracker fails the check.
 The [`DETERMINISTIC_ENGINE_V4_ROADMAP.md`](DETERMINISTIC_ENGINE_V4_ROADMAP.md)
 records the v4 architecture, delivery sequence, and M7 simulator selection for
 at least 5% higher quality and 20% lower processing time. Engine, media, and
-durable-workflow implementation is in 1.3.0. M7 compares the full v4 policy and
-four deterministic policy ablations against frozen P05 in a headless frame simulator,
-then selects the best eligible candidate under a locked ordering. External
-devices, notarization, shipping, and distribution are outside this roadmap.
+durable-workflow implementation is in 1.3.0. The sealed 168-case run from
+commit `ce780af87107d90142d860f328dca4a72fea3047` selected `candidate_v4`:
+quality improved 22.792052% with a 22.312761% paired-bootstrap lower bound, and
+total measured engine time fell 97.478689% versus frozen P05. External devices,
+notarization, shipping, and distribution are outside this roadmap.
 
-The dated identities, completed checks, and precise open gates are recorded in
+The dated identities, completed checks, and exact simulator result are recorded in
 [`docs/v4/CURRENT_QUALIFICATION_STATUS.md`](docs/v4/CURRENT_QUALIFICATION_STATUS.md).
 The simulator protocol and deterministic winner-selection rule are documented
 in [`docs/v4/M7_SIMULATION_QUALIFICATION_V1.md`](docs/v4/M7_SIMULATION_QUALIFICATION_V1.md).
+The complete sealed evidence and five-candidate ranking are in
+[`docs/v4/evidence/m7-simulation-selection-2026-09-21/`](docs/v4/evidence/m7-simulation-selection-2026-09-21/).
 
 ## Requirements
 

@@ -440,6 +440,7 @@ def render_svg(state: TrackerState) -> str:
 
     implementation_label = "M0–M6 implementation complete" if implementation_complete else "Implementation in progress"
     qualification_label = "M7 simulator selection open" if m7_open else "M7 simulator selection complete"
+    qualification_summary_class = "summary-open" if m7_open else "summary"
     step_label = (
         f"{len(state.open_steps)} simulator steps open"
         if state.open_steps
@@ -495,7 +496,7 @@ def render_svg(state: TrackerState) -> str:
   <text class="eyebrow" x="44" y="39">MIRMIR · ASH P06 · VERSION {html.escape(state.version)} ({html.escape(state.build)})</text>
   <text class="title" x="44" y="78">Deterministic Engine v4</text>
   <text class="summary" x="44" y="103">{html.escape(implementation_label)}</text>
-  <text class="summary-open" x="1148" y="103" text-anchor="end">{html.escape(qualification_label)}</text>
+  <text class="{qualification_summary_class}" x="1148" y="103" text-anchor="end">{html.escape(qualification_label)}</text>
   {''.join(segments)}
   {''.join(cards)}
   <text class="section-label" x="44" y="466">M7 SIMULATOR DECISION</text>
