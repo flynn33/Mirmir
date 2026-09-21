@@ -117,6 +117,8 @@ done
 cp "$CANONICAL_CAPTURE_SOURCE" "$CAPTURE_SOURCE"
 
 python3 - "$SIMULATOR_ENVIRONMENT" "$SOURCE_COMMIT" "$SOURCE_TREE_SHA" "$XCODE_VERSION" <<'PY'
+from __future__ import annotations
+
 from pathlib import Path
 import json
 import platform
