@@ -1267,6 +1267,67 @@ class ReleaseCandidateTests(unittest.TestCase):
                 )
             self.assertEqual(sealed_output.read_bytes(), b"competing file")
 
+    def test_identity_backed_xcarchive_cleans_private_signing_input(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mirmir-candidate-") as temporary:
+            fixture = Fixture(Path(temporary))
+            app_directory = fixture.root / "identity-publication-app"
+            app_directory.mkdir()
+            application = fixture.make_application(app_directory)
+
+            def fake_candidate_build(
+                context: dict[str, str],
+                output: Path,
+            ) -> dict[str, object]:
+                shutil.copytree(application, output, copy_function=shutil.copy2)
+                copied = provenance.application_directory_observation(
+                    output,
+                    context,
+                )
+                return fixture.source_build_receipt(
+                    context,
+                    copied,
+                    provenance.CLEAN_REPLAY_BUILD_SETTINGS,
+                )
+
+            actual_run = provenance._run
+            signing_commands: list[list[str]] = []
+
+            def simulate_identity_signing(
+                command: list[str],
+                label: str,
+            ) -> str:
+                if label == "identity-backed candidate signing":
+                    signing_commands.append(list(command))
+                    return ""
+                return actual_run(command, label)
+
+            output = fixture.root / "identity-backed.xcarchive"
+            with mock.patch.object(
+                provenance,
+                "build_candidate_application",
+                side_effect=fake_candidate_build,
+            ), mock.patch.object(
+                provenance,
+                "_run",
+                side_effect=simulate_identity_signing,
+            ):
+                provenance.build_candidate_xcarchive(
+                    fixture.context,
+                    output,
+                    signing_identity="Fixture Developer ID",
+                )
+
+            self.assertTrue(output.is_dir())
+            self.assertTrue(
+                (output / "MirmirV4CanonicalBuildReceipt.json").is_file()
+            )
+            self.assertEqual(len(signing_commands), 1)
+            self.assertIn("--entitlements", signing_commands[0])
+            self.assertEqual(
+                list(output.parent.glob(f".{output.name}.*")),
+                [],
+            )
+
     def test_candidate_record_rejects_symlink_and_competing_output_races(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mirmir-candidate-output-") as temporary:
             root = Path(temporary)

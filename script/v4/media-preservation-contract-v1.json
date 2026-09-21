@@ -12,7 +12,7 @@
     "fixtureSourceSHA256": "856fb8e850da6d5f394f85466b1eaf5dd86e676f48c33c4fdefcc1ac344ee6dc",
     "observerSourceSHA256": "9fcf2009a18385524f65644cf13e744a0cdd58550808bc43089dff4f12f98a84",
     "packagedEvidenceToolSHA256": "5ea4b53d5d696714d1d0f00a1df22cb1a0b8f9769f2e70b133139cb05132f117",
-    "releaseCandidateArchiveToolSHA256": "bac8770246f38e5000a33ebb7193717eca04c15eb331f78e33ca58f7229b3b3e",
+    "releaseCandidateArchiveToolSHA256": "b4638c3bfe698fc4c291e3f8f522e7e0d2025dd741efab8c74bc6217b815986d",
     "runnerSHA256": "85e674aeb3edad5447128cc492c850910254b5f22157ad3870f271f1044e9774"
   },
   "fixtures": [

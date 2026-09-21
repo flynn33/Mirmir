@@ -3729,6 +3729,7 @@ def build_candidate_xcarchive(
             }
             if any(value & 0x00010000 for value in policy_flags):
                 command.extend(("--options", "runtime"))
+            entitlement_path: Path | None = None
             if entitlements:
                 entitlement_path = staging_root / "candidate-entitlements.plist"
                 entitlement_path.write_bytes(
@@ -3743,6 +3744,8 @@ def build_candidate_xcarchive(
                 ("--timestamp", "--sign", signing_identity, str(application))
             )
             _run(command, "identity-backed candidate signing")
+            if entitlement_path is not None:
+                entitlement_path.unlink()
             signed_observation = application_directory_observation(
                 application,
                 context,
