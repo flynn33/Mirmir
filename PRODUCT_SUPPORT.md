@@ -116,14 +116,14 @@ backends. It excludes both Deterministic routes and Smooth Motion.
 
 ## Qualification boundary
 
-A universal Developer ID archive for source commit
-`36b749d20b173eb324385cdae552a9698d5d74b9` passed canonical-build,
-provenance, signing, entitlement, hardened-runtime, architecture, and
-pre-notarization archive checks on September 21, 2026. It is intentionally not
-represented as notarized, stapled, distributed, or release-qualified.
+M0 through M6 are implemented and covered by the repository’s deterministic,
+media, workflow, and recovery tests. M7 is a headless frame-simulator comparison
+of five policy candidates against frozen P05. It is complete only when one
+candidate proves at least 5% higher quality and at least 20% lower total,
+median, and p95 processing time, then wins the locked deterministic ranking.
 
-The at-least-5% quality and at-least-20% processing-time gates remain open
-until they are recaptured with every other M7 lane from the final sealed
-candidate. Apple notarization, stapling, and distribution are owner-operated.
-See [`docs/v4/CURRENT_QUALIFICATION_STATUS.md`](docs/v4/CURRENT_QUALIFICATION_STATUS.md)
+M7 does not require a physical-machine matrix, signing, notarization, stapling,
+shipping, or distribution. Those are separate owner decisions and are not
+implied by simulator qualification. See
+[`docs/v4/CURRENT_QUALIFICATION_STATUS.md`](docs/v4/CURRENT_QUALIFICATION_STATUS.md)
 for the exact evidence boundary.

@@ -1,10 +1,10 @@
 # Deterministic engine v4 evidence
 
-For the current 1.3.0 (3) candidate identity, completed pre-notarization
-controls, and remaining M7 lanes, see
+For the current 1.3.0 (3) implementation and revised M7 simulator-selection
+status, see
 [`../CURRENT_QUALIFICATION_STATUS.md`](../CURRENT_QUALIFICATION_STATUS.md).
 The checked directories below are historical milestone evidence and must not be
-mistaken for the final frozen-candidate decision.
+mistaken for the fresh M7 simulator decision.
 
 The `v3-p05-baseline-2026-08-02` directory is the locked pre-v4 M0 reference
 for quality, engine time, end-to-end time, and allocation pressure. The checked

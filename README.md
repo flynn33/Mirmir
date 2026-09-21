@@ -48,19 +48,27 @@ testing procedures, and troubleshooting material.
 
 ## Deterministic Engine v4
 
-![Deterministic Engine v4 roadmap](docs/v4/deterministic-engine-v4-roadmap.png)
+[![Roadmap tracker](https://github.com/flynn33/Mirmir/actions/workflows/roadmap-tracker.yml/badge.svg?branch=main&event=push)](https://github.com/flynn33/Mirmir/actions/workflows/roadmap-tracker.yml)
+
+![Live Deterministic Engine v4 roadmap status](docs/v4/roadmap-status.svg)
+
+The tracker is generated from the canonical roadmap, version authorities, and
+current qualification status. Its workflow recomputes and byte-compares the
+graphic on every push and pull request; a stale or contradictory
+tracker fails the check.
 
 The [`DETERMINISTIC_ENGINE_V4_ROADMAP.md`](DETERMINISTIC_ENGINE_V4_ROADMAP.md)
-records the v4 architecture, delivery sequence, and remaining M7 release gates
-for at least 5% higher quality and 20% lower processing time. Engine, media,
-and durable-workflow implementation is in 1.3.0. A universal Developer ID
-archive for source commit `36b749d20b173eb324385cdae552a9698d5d74b9` has
-passed the pre-notarization provenance and signing audit. Apple notarization,
-stapling, final frozen-candidate qualification, and publication remain open;
-no distribution is performed by repository automation.
+records the v4 architecture, delivery sequence, and M7 simulator selection for
+at least 5% higher quality and 20% lower processing time. Engine, media, and
+durable-workflow implementation is in 1.3.0. M7 compares the full v4 policy and
+four deterministic policy ablations against frozen P05 in a headless frame simulator,
+then selects the best eligible candidate under a locked ordering. External
+devices, notarization, shipping, and distribution are outside this roadmap.
 
 The dated identities, completed checks, and precise open gates are recorded in
 [`docs/v4/CURRENT_QUALIFICATION_STATUS.md`](docs/v4/CURRENT_QUALIFICATION_STATUS.md).
+The simulator protocol and deterministic winner-selection rule are documented
+in [`docs/v4/M7_SIMULATION_QUALIFICATION_V1.md`](docs/v4/M7_SIMULATION_QUALIFICATION_V1.md).
 
 ## Requirements
 
@@ -118,6 +126,20 @@ python3 script/v4/test_p06_source_identity_v4.py
 python3 script/v4/test_repository_identity_v4.py
 python3 script/v4/repository_identity_v4.py --repository "$PWD"
 ```
+
+Run the simulator-only M7 candidate comparison from a clean committed checkout:
+
+```bash
+script/v4/run_m7_simulation_v4.sh \
+  --output /tmp/mirmir-m7-simulation-evidence
+```
+
+The runner preserves the frozen P05 source, tree, and capture-source identities,
+then discovers and reproduces run-specific executable hashes under the active
+toolchain before comparing candidates. The
+[`M7 simulator qualification`](.github/workflows/m7-simulation-qualification.yml)
+workflow offers a pinned Xcode 26.2 (17C52) environment and uploads the sealed
+evidence tree for independent replay.
 
 The `Verify deterministic v4 identities` workflow also loads
 `Mirmir/Resources/ASH-P06.bundle` through

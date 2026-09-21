@@ -616,6 +616,7 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
         )
         var captures: [CaptureCase] = []
         var fullMirrorIdentityPass = true
+        var caseOrdinal = 0
         for clipID in clips.keys.sorted() {
             let cases = clips[clipID]!.sorted { $0.frameIndex < $1.frameIndex }
             guard let first = cases.first else { continue }
@@ -696,48 +697,32 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
                 )
                 var outputs: [String: String] = [:]
                 var milliseconds: [String: Double] = [:]
-
-                let candidateOutput = try makeBuffer(
-                    width: record.targetWidth,
-                    height: record.targetHeight,
-                    storage: storage
-                )
+                var candidateBytes: Data?
                 let timing = FrameTiming(
                     frameIndex: record.frameIndex,
                     presentationTime: CMTime(value: Int64(record.frameIndex), timescale: 30),
                     duration: CMTime(value: 1, timescale: 30)
                 )
-                milliseconds[Variant.candidateV4.rawValue] = try await measured {
-                    try await candidate.process(
-                        source: FramePixelBuffer(source),
-                        destination: FramePixelBuffer(candidateOutput),
-                        timing: timing
-                    )
-                }
-                outputs[Variant.candidateV4.rawValue] = try writeOutput(
-                    candidateOutput,
-                    record: record,
-                    variant: .candidateV4,
-                    output: output
-                )
-
-                for variant in [
-                    Variant.uniformPriors,
-                    .randomizedStateMessage,
-                    .temporalHysteresisOff,
-                    .motionHistoryOff
-                ] {
+                for variant in orderedVariants(caseOrdinal: caseOrdinal) {
                     let destination = try makeBuffer(
                         width: record.targetWidth,
                         height: record.targetHeight,
                         storage: storage
                     )
                     milliseconds[variant.rawValue] = try await measured {
-                        try await pipelines[variant]!.process(
-                            source: source,
-                            destination: destination,
-                            frameIndex: record.frameIndex
-                        )
+                        if variant == .candidateV4 {
+                            try await candidate.process(
+                                source: FramePixelBuffer(source),
+                                destination: FramePixelBuffer(destination),
+                                timing: timing
+                            )
+                        } else {
+                            try await pipelines[variant]!.process(
+                                source: source,
+                                destination: destination,
+                                frameIndex: record.frameIndex
+                            )
+                        }
                     }
                     outputs[variant.rawValue] = try writeOutput(
                         destination,
@@ -745,7 +730,11 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
                         variant: variant,
                         output: output
                     )
+                    if variant == .candidateV4 {
+                        candidateBytes = try visibleBytes(destination)
+                    }
                 }
+                caseOrdinal += 1
 
                 let mirror = try makeBuffer(
                     width: record.targetWidth,
@@ -761,9 +750,8 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
                 }
                 _ = mirrorMilliseconds
                 let mirrorBytes = try visibleBytes(mirror)
-                let candidateBytes = try visibleBytes(candidateOutput)
                 fullMirrorIdentityPass = fullMirrorIdentityPass
-                    && mirrorBytes == candidateBytes
+                    && mirrorBytes == XCTUnwrap(candidateBytes)
                 captures.append(CaptureCase(
                     id: record.id,
                     outputs: outputs,
@@ -830,6 +818,23 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
             ),
             runtime: runtime
         )
+        let warmupPipelines = try [
+            AblationMode.full,
+            .uniformPriors,
+            .randomizedStateMessage(seed: stableSeed(first.clipID)),
+            .temporalHysteresisOff,
+            .motionHistoryOff
+        ].map { mode in
+            try AblationPipeline(
+                mode: mode,
+                storage: storage,
+                sourceWidth: first.sourceWidth,
+                sourceHeight: first.sourceHeight,
+                targetWidth: first.targetWidth,
+                targetHeight: first.targetHeight,
+                runtime: runtime
+            )
+        }
         for index in 0..<count {
             let candidateOutput = try makeBuffer(
                 width: first.targetWidth,
@@ -845,8 +850,26 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
                     duration: CMTime(value: 1, timescale: 30)
                 )
             )
+            for pipeline in warmupPipelines {
+                let output = try makeBuffer(
+                    width: first.targetWidth,
+                    height: first.targetHeight,
+                    storage: storage
+                )
+                try await pipeline.process(
+                    source: source,
+                    destination: output,
+                    frameIndex: index
+                )
+            }
         }
         try await candidate.finish()
+    }
+
+    private func orderedVariants(caseOrdinal: Int) -> [Variant] {
+        let variants = Variant.allCases
+        let offset = caseOrdinal % variants.count
+        return Array(variants[offset...]) + Array(variants[..<offset])
     }
 
     private func setting(_ name: String, injected: String) -> String? {

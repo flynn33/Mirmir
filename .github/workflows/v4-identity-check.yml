@@ -50,6 +50,9 @@ jobs:
           python3 script/v4/test_p06_source_identity_v4.py
           python3 script/v4/test_natural_quality_corpus.py
           python3 script/v4/test_repository_identity_v4.py
+          python3 script/v4/test_update_roadmap_tracker.py
+          python3 script/v4/test_derive_m7_quality_contract_v4.py
+          python3 script/v4/test_select_simulated_candidate_v4.py
 
       - name: Test every release-qualification lane
         run: |

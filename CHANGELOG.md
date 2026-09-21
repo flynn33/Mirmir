@@ -9,6 +9,12 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ### Added
 
+- A live README roadmap tracker that is deterministically regenerated and
+  validated on every push and pull request.
+- A simulator-only M7 contract, reproducible runner, and independent selector
+  for comparing the full v4 policy with four deterministic ablations.
+- A pinned Xcode 26.2 M7 workflow that uploads sealed simulator evidence while
+  preserving negative no-winner results for audit.
 - Exact archived-executable qualification tooling for whole-asset media
   preservation, bounded tiled-temporal CPU/Metal parity, and all 15 recovery
   fault scenarios.
@@ -22,6 +28,8 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ### Changed
 
+- Revised M7 to require deterministic simulator candidate selection rather
+  than physical-machine, notarization, or shipping qualification.
 - Made recovery evidence causal and scenario-owned across two independent
   packaged processes instead of relying on a source-hosted capture path.
 - Replaced the clean-aperture tuple loop with explicit field validation to

@@ -1,0 +1,31 @@
+{
+  "baselineVariant": "baseline_p05",
+  "candidateVariants": [
+    "candidate_v4",
+    "uniform_priors",
+    "randomized_state_message",
+    "temporal_hysteresis_off",
+    "motion_history_off"
+  ],
+  "eligibleCorpusKinds": [
+    "synthetic_diagnostic"
+  ],
+  "quality": {
+    "minimumIndex": 105.0,
+    "minimumPairedBootstrap95PercentLowerBound": 105.0
+  },
+  "schemaVersion": "mirmir-ash-v4-m7-simulation-selection-contract-v1",
+  "selectionOrder": [
+    "qualityLowerConfidenceBoundDescending",
+    "qualityIndexDescending",
+    "totalProcessingTimeRatioAscending",
+    "p95ProcessingTimeRatioAscending",
+    "medianProcessingTimeRatioAscending",
+    "candidateIDAscending"
+  ],
+  "timing": {
+    "maximumMedianRatio": 0.8,
+    "maximumP95Ratio": 0.8,
+    "maximumTotalRatio": 0.8
+  }
+}

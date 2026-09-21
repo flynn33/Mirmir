@@ -1,25 +1,23 @@
 # Deterministic Engine v4 roadmap
 
-Status: 1.3.0 (3) implementation and canonical pre-notarization archive complete; final M7 qualification remains open
+Status: 1.3.0 (3) implementation complete; M7 simulator candidate selection pending
 
 Scope: Mirmir deterministic CPU and Metal engines, media pipeline, and durable job workflow
 
-Target release runtime: ASH P06, release-qualified
+Target qualification runtime: ASH P06
 
 Baseline: the checked-in P05 CPU reference and Metal preview behavior before v4 work
 
 Current checkpoint: pull requests 44 and 45 landed the v4 engine, media,
 workflow, qualification tooling, and production P06 identity loading as version
-1.3.0. Follow-on qualification work hardened the exact-candidate observers,
-causal recovery evidence, bounded temporal parity route, media receipts,
-independent HDR pixel oracles, and canonical build controls. A universal
-Developer ID archive for source commit
-`36b749d20b173eb324385cdae552a9698d5d74b9` passed the canonical
-pre-notarization archive audit as version 1.3.0 build 3. The 5% quality and 20%
-processing-time gates remain release-blocking until every lane is recaptured
-from the final sealed candidate. Apple notarization, stapling, distribution,
-and the final M7 rerun are operator-owned or still open. The exact checkpoint
-is recorded in `docs/v4/CURRENT_QUALIFICATION_STATUS.md`.
+1.3.0. Follow-on work closed M0 through M6 in source and tests. M7 is now a
+deterministic, headless simulator comparison of the production v4 policy and
+four locked test-harness policy ablations against frozen P05. The selected
+policy candidate must prove the 5%
+quality and 20% processing-time targets in that same run. External devices,
+physical-machine matrices, signing, notarization, stapling, shipping, and
+distribution are outside M7. The exact checkpoint is recorded in
+`docs/v4/CURRENT_QUALIFICATION_STATUS.md`.
 
 ## Executive decision
 
@@ -31,23 +29,18 @@ Metal executors. The plan must make format, geometry, scaling, temporal,
 metadata, recovery, and verification decisions explicit before pixels are
 processed.
 
-Version 4 is releasable only when the same candidate satisfies all of these
-gates:
+M7 is complete only when one simulated candidate satisfies both gates:
 
-1. At least a **5% quality increase** over the frozen current-engine baseline
-   on the locked, currently supported SDR corpus.
-2. At least a **20% reduction in processing time** on the locked benchmark
-   matrix, measured on the same hardware and software image.
-3. Byte-identical CPU/Metal output pixels for every deterministic integer path,
-   including NV12 and P010. Container bytes are not required to match when the
-   system encoder legitimately writes different non-semantic data.
-4. A verified P06 runtime bundle with no P05 preview identity or production
-   dependency on an in-memory development artifact.
-5. Passing format, geometry, track-preservation, checkpoint, restart, and crash
-   recovery conformance gates described below.
+1. At least a **5% quality increase** over the frozen P05 baseline in the
+   deterministic simulation corpus, including a paired-bootstrap 95% lower
+   bound of at least 5%.
+2. At least a **20% reduction in processing time** for total, median, and p95
+   simulated engine time in the same run.
 
-The 5% and 20% objectives are release gates, not claims about the initial
-foundational changes included with this roadmap.
+CPU/Metal parity, P06 integrity, media preservation, and recovery remain M0–M6
+implementation invariants covered by their existing tests. They are not
+repeated as packaging or hardware gates in M7. Shipping fitness is a separate
+owner decision and is not claimed by this roadmap.
 
 ## What the research establishes
 
@@ -143,53 +136,53 @@ reconstructor. Neither changes the canonical codeword set.
 
 ### Evidence in the current repository
 
-The 1.3.0 landing closed the shipping-target gaps recorded when this roadmap
-was proposed. Remaining work is frozen-candidate proof, not missing engine
+The 1.3.0 landing closed the implementation gaps recorded when this roadmap was
+proposed. Remaining work is simulator candidate selection, not missing engine
 surface:
 
-| Area | 1.3.0 evidence | Remaining release work |
+| Area | 1.3.0 evidence | Remaining M7 simulation work |
 | --- | --- | --- |
-| Runtime identity | Bundled ASH P06 runtime with a hashed manifest and fail-closed loader. Product support no longer labels the deterministic routes as P05 previews. CI derives the manifest identity, source revision, and builder hash from that bundle and passes them into the production load check. | Bind the exact archived executable and sealed candidate identities through the final M7 rerun. |
-| Scale | Shared fixed-point CPU and Metal execution accepts independent rational scale factors and arbitrary integral target dimensions within the documented limit. | Keep the arbitrary-geometry corpus on the frozen candidate, including odd legal dimensions. |
-| Temporal state | Bounded, motion-compensated temporal history with scene/reset policy, tiled schedules, and checkpoint/resume payload identity. | Recapture the packaged seek-reset and repeated-pattern rows on the frozen candidate. |
-| Backend parity | One fixed-point kernel IR, coefficient set, and rounding contract feed both executors. Qualification tooling requires visible-plane equality. | Replay packaged parity on the frozen candidate, including the forced multi-tile temporal case. |
-| Runtime artifacts | A generated P06 bundle is checked in, hashed, and loaded by the shipping target. | Bind both clean builds to the sealed candidate source tree, exact commands/transcripts, and runtime outputs, then replay them on the final commit. |
-| Media formats | Native NV12, P010/HDR, field-aware deinterlacing, rational SAR/aperture geometry, and ProRes 4444 alpha are implemented without an implicit 8-bit bridge. | Lock independent absolute PQ/HLG and deinterlace pixel oracles, then recapture the archived executable. |
-| Tracks | The whole-asset planner assigns every enabled track an explicit process, transcode, pass-through, or consent-bound drop action. | Preserve that plan through packaged media qualification and the notarized smoke lane. |
-| Atomic output | Work artifacts are registered, validated, and published atomically. Launch recovery reconciles registered partials. | Recapture the two-process exact-binary recovery matrix on the frozen candidate. |
-| Job workflow | Durable bookmark-backed queue, pause/resume, segment checkpoints, assembly, and crash containment are wired into the application. | Operator signing, notarization, stapling, and publication remain outside repository automation. |
+| Runtime identity | Bundled ASH P06 runtime with a hashed manifest and fail-closed loader. | Use the committed P06 runtime in the simulator run. |
+| Scale | Shared fixed-point execution accepts independent rational scale factors and arbitrary integral target dimensions. | Covered by M0–M6 tests; no M7 device replay. |
+| Temporal state | Bounded, motion-compensated history with scene/reset policy and checkpoint identity. | Compare the full policy with temporal ablations in simulation. |
+| Backend parity | CPU and Metal consume one fixed-point contract. | Covered by M0–M6 tests; no M7 hardware matrix. |
+| Media and workflow | Pixel formats, geometry, tracks, atomic output, durable jobs, and recovery are implemented and tested. | No packaging or shipping replay in M7. |
 
-## Measurable v4 release contract
+## Measurable M7 simulator contract
 
 ### Freeze the baseline first
 
-Milestone 0 must record a reproducible current-engine baseline before algorithm
-calibration starts:
+The M7 run must bind the comparison to reproducible simulator inputs and
+execution context:
 
-- exact source commit and uncommitted-diff status;
-- macOS, Xcode, Swift, Metal compiler, GPU, CPU, memory, codec, and power mode;
-- input hashes, track manifests, target dimensions, runtime identity, and output
-  hashes;
-- Release builds with logging and diagnostic serialization excluded from timed
-  pixel loops;
-- five untimed warmups followed by at least ten measured runs;
-- engine-only time, decode/encode time, end-to-end wall time, peak resident
-  memory, frame latency, and GPU counters where available;
-- median, p95, dispersion, and thermal-state rejection criteria.
+- exact committed source and tree identities with a clean tracked worktree and
+  index;
+- the canonical selection, quality, corpus, P05 source-manifest, and capture-
+  source hashes;
+- recorded macOS, Xcode/Swift toolchain, architecture, CPU model, and core
+  counts as measurement context, without treating one host as a hardware
+  support matrix;
+- Release XCTest builds with logging and evidence serialization outside the
+  timed engine calls;
+- discovery and scored P05 builds that reproduce the same toolchain-specific
+  application and test-executable hashes while leaving every frozen source
+  identity unchanged;
+- five untimed executions of each policy path, followed by one measured pass
+  over every locked corpus case in a counterbalanced order;
+- raw per-case engine times and independently replayed total, median, and p95
+  aggregates for P05 and all five candidates.
 
-The first clean Debug suite run for this roadmap succeeded. Its short-clip tests
-took approximately 7.20 seconds through the CPU reference and 1.38 seconds
-through Metal. These numbers are diagnostic evidence only; they are not the
-Release baseline used by the v4 gate.
+The original M0 Debug timing figures remain historical calibration data. They
+are not inputs to, and cannot substitute for, the M7 Release simulation.
 
 ### Quality gate: at least 5%
 
-The primary comparison uses only media accepted by both the current engine and
-v4, so adding support for previously rejected inputs cannot inflate the score.
-The paired corpus starts with native high-resolution progressive SDR sources,
-creates locked low-resolution inputs with one declared downsampling procedure,
-and keeps content families separate: natural detail, text/graphics, animation,
-faces, low light/noise, high motion, and scene cuts.
+The primary comparison uses only frames accepted by P05 and every v4 candidate,
+so additional format support cannot inflate the score. The locked simulator
+corpus contains deterministic procedural SDR sequences spanning natural detail,
+text/graphics, animation, faces, low light/noise, high motion, and scene cuts.
+It is intentionally a model-selection corpus, not a claim about camera-native
+media or shipping readiness.
 
 Define a preregistered weighted error `E` from normalized lower-is-better
 components:
@@ -209,19 +202,14 @@ clip/cohort, making the baseline aggregate `E = 1`. Report the quality index as
 Q_{ASH}=100\left(2-E_{candidate}\right).
 \]
 
-The baseline is therefore 100 and the v4 release gate is at least 105. The
+The baseline is therefore 100 and the M7 simulator gate is at least 105. The
 lower bound of a paired 95% bootstrap confidence interval must also be at least
-105. In addition:
+105. The per-cohort diagnostics remain visible:
 
-- no content cohort may regress more than 1% on luma structural quality;
-- temporal error may not regress on any motion/scene-cut cohort;
-- geometry, alpha, range, and required metadata are exact conformance checks,
-  not weighted quality points;
-- HDR/P010, interlaced, alpha, and other newly supported classes receive their
-  own absolute correctness and quality thresholds because v3 has no comparison
-  output;
-- the scored output must come from the declared deterministic backend with no
-  hidden Apple-backend substitution.
+Per-cohort luma and temporal ratios remain visible diagnostics. Geometry,
+alpha, range, HDR/P010, interlacing, and metadata remain exact M0–M6 conformance
+tests rather than weighted simulator points. The scored output must come from
+the declared deterministic backend with no hidden Apple-backend substitution.
 
 Matched ablations are reported beside the score: uniform versus
 state-conditioned priors, real versus randomized ASH state/message assignment,
@@ -230,26 +218,24 @@ quality contribution of ASH policy from improvements made only by a stronger
 operator bank.
 
 Metric implementations, model versions, corpus hashes, crop/border rules, and
-normalization constants are themselves locked release artifacts.
+normalization constants are themselves locked simulation artifacts.
 
 ### Processing-time gate: at least 20%
 
-For every mandatory benchmark class, compute
+For every simulated candidate, compute
 
 \[
 R_T=\frac{T_{v4}}{T_{baseline}}.
 \]
 
-The aggregate corpus wall time and the median engine-only frame time must both
-satisfy `R_T ≤ 0.80`. The p95 frame time must also be no greater than 0.80 of
-baseline. Measurements use identical inputs, target sizes, codec settings,
-hardware, OS/toolchain image, warmup rules, and thermal envelope. A run that
-drops tracks, precision, temporal work, verification, or output quality is not
-comparable.
+Aggregate simulated engine time, median frame time, and p95 frame time must all
+satisfy `R_T ≤ 0.80`. P05 and every candidate run in the same headless XCTest
+simulation with identical inputs, target sizes, warmups, and process scope.
+This is a paired candidate-selection measurement; it does not assert a physical
+device or end-to-end shipping benchmark.
 
-Peak memory must remain within the baseline plus a separately approved bounded
-temporal-history budget. Queue journaling and metadata copying are measured
-end-to-end but are kept outside per-pixel kernel timing.
+The simulator records engine processing only. Decode, encode, queue journaling,
+metadata copying, signing, and publication are outside the revised M7 scope.
 
 ## Target architecture
 
@@ -485,7 +471,7 @@ incomplete runtime assets cannot prepare an engine.
 
 ### M2 — Spatial v4, arbitrary scale, parity, and hot-path efficiency
 
-Status: implementation landed in 1.3.0; frozen-candidate performance proof remains part of M7
+Status: implementation landed in 1.3.0; simulator performance comparison remains part of M7
 
 Deliver:
 
@@ -496,12 +482,14 @@ Deliver:
 - fused analysis/selection/reconstruction kernels, reusable buffers, bounded
   tile pipeline, cached Metal state, and ordered deterministic reduction.
 
-Exit: arbitrary-scale conformance and byte parity pass; engine-only median and
-p95 time are at most 80% of baseline on the spatial benchmark subset.
+Implementation exit: arbitrary-scale conformance, byte parity, and bounded
+hot-path behavior pass their repository tests. M7 separately closes the
+roadmap processing-time objective when the selected candidate's total, median,
+and p95 ratios are all at most 0.80 on the complete locked simulation corpus.
 
 ### M3 — Temporal quality
 
-Status: implementation landed in 1.3.0; the 5% quality gate remains a release blocker
+Status: implementation landed in 1.3.0; simulator quality comparison remains part of M7
 
 Deliver:
 
@@ -512,8 +500,10 @@ Deliver:
 - bounded history serialization for checkpoints;
 - quality calibration tools that never enter the release runtime.
 
-Exit: the lower confidence bound of `Q_ASH` is at least 105, temporal cohorts do
-not regress, resume identity passes, and the performance gate remains green.
+Implementation exit: temporal state, reset, fallback, and resume identity pass
+their repository tests. M7 separately closes the roadmap quality objective when
+the selected candidate's `Q_ASH` point estimate and lower confidence bound are
+both at least 105; per-cohort temporal ratios remain reported diagnostics.
 
 ### M4 — Pixel formats and presentation geometry
 
@@ -547,7 +537,7 @@ any loss requires an explicit plan action and user consent.
 
 ### M6 — Durable queue, pause/resume, and crash recovery
 
-Status: implementation landed in 1.3.0; exact-binary fault injection remains part of M7
+Status: landed in 1.3.0
 
 Deliver:
 
@@ -560,33 +550,31 @@ Deliver:
 Exit: forced termination at every injected point produces either an identical
 resumed output or an explicit contained failure with no unowned artifacts.
 
-### M7 — Release qualification
+### M7 — Simulator candidate selection
 
-Status: qualification tooling and canonical pre-notarization archive complete; the sealed-candidate rerun is still open
+Status: simulator contract, runner, and selector in progress; candidate comparison remains open
 
 Deliver:
 
-- full matrix on reference and supported machine classes;
-- clean-build P06 reproduction and notarized-app smoke tests;
-- quality/performance reports with confidence intervals;
-- CPU/Metal parity certificate, media preservation report, and recovery report;
-- updated product support contract and removal of preview labels.
+- one deterministic procedural frame corpus and frozen P05 baseline;
+- the production v4 policy plus four locked test-harness policy ablations;
+- per-candidate quality reports with paired-bootstrap confidence intervals;
+- paired total, median, and p95 processing-time ratios;
+- a deterministic ranking, selected candidate, and sealed evidence receipt.
 
-Exit: every release gate at the top of this document passes on the exact
-candidate. A waiver cannot convert a failed determinism, preservation, P06,
-quality, or processing-time gate into a release.
+Exit: one candidate clears both numerical targets, the selector names it as the
+best eligible candidate under the locked ordering, and independent replay
+reproduces the decision. This completes M7 but does not assert notarization,
+shipping readiness, or distribution.
 
 Current M7 state:
 
-- external contracts, tools, corpora, causal P06 build receipts, independent
-  PQ/HLG pixel oracles, and exact-candidate observers are locked and tested;
-- canonical build equality and the universal Developer ID archive audit pass
-  for source commit `36b749d20b173eb324385cdae552a9698d5d74b9`;
-- Apple notarization, stapling, and distribution are owner-deferred;
-- after the final candidate is sealed, recapture quality, performance, P06,
-  parity, media, recovery, and support evidence from that one artifact;
-- run notarized smoke last, then assemble and independently verify the complete
-  release decision.
+- the five simulator candidates already exist in the quality harness;
+- the machine-readable eligibility and ordering contract is locked;
+- the reproducible runner and independent selector are being verified;
+- the source-frozen P05 executable is rebound and reproduced under the recorded
+  simulator toolchain without changing its source identities;
+- the committed-source simulation run and final selection remain open.
 
 ## Implementation status
 
@@ -610,9 +598,9 @@ Pull request 45 then bound the identity workflow to the committed P06 bundle:
 the load check now receives the domain-separated manifest identity, source
 revision, and builder hash instead of invoking the helper with no trust roots.
 
-These changes close M0 through M6 in source, and the follow-on qualification
-work prepares a canonical signed archive. They do not by themselves satisfy
-the 5% quality, 20% processing-time, notarized-smoke, or aggregate M7 gates.
+These changes close M0 through M6 in source. They do not by themselves satisfy
+the simulator quality, processing-time, and best-candidate selection required
+for M7.
 
 ## Risks and decisions that must remain explicit
 
