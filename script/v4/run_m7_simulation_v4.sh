@@ -319,6 +319,29 @@ if [ "$(xcodebuild -version)" != "$XCODE_VERSION" ]; then
   exit 69
 fi
 
+python3 - \
+  "$CANDIDATE_LOG" \
+  "$CAPTURE/p05-xcodebuild.log" \
+  "$P05_DISCOVERY_OUTPUT/p05-xcodebuild.log" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+home = str(Path.home())
+path_export = re.compile(r"^(\s*)export PATH\\?=.*$", re.MULTILINE)
+for argument in sys.argv[1:]:
+    log = Path(argument)
+    if not log.is_file() or log.is_symlink():
+        raise SystemExit(f"unsafe Xcode log: {log}")
+    text = log.read_text(encoding="utf-8")
+    text = path_export.sub(r"\1export PATH=<redacted-host-path>", text)
+    if home:
+        text = text.replace(home, "<user-home>")
+    if home and home in text:
+        raise SystemExit(f"home path remains in Xcode log: {log}")
+    log.write_text(text, encoding="utf-8")
+PY
+
 CANDIDATE_CAPTURE="$CAPTURE/candidate-capture-manifest.json"
 [ -f "$CANDIDATE_CAPTURE" ] || {
   echo "candidate simulation completed without a capture manifest" >&2
