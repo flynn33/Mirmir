@@ -551,7 +551,7 @@ def validate_replayed_timings(
             "sampleCount": len(samples[variant]),
             "medianMilliseconds": float(statistics.median(samples[variant])),
             "p95Milliseconds": quality.percentile(samples[variant], 95),
-            "totalMilliseconds": float(sum(samples[variant])),
+            "totalMilliseconds": quality.ordered_float_sum(samples[variant]),
         }
         observed = reported[variant]
         require(isinstance(observed, dict), f"reported timing is not an object: {variant}")

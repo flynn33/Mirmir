@@ -87,6 +87,14 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def ordered_float_sum(values: Iterable[float]) -> float:
+    """Sum in manifest order with version-stable binary64 operations."""
+    total = 0.0
+    for value in values:
+        total += value
+    return total
+
+
 def checked_relative(root: Path, relative: str) -> Path:
     root = root.resolve()
     if not isinstance(relative, str) or "\\" in relative:
@@ -1217,7 +1225,7 @@ def evaluate(
             "sampleCount": len(samples),
             "medianMilliseconds": statistics.median(samples),
             "p95Milliseconds": percentile(samples, 95),
-            "totalMilliseconds": sum(samples),
+            "totalMilliseconds": ordered_float_sum(samples),
         }
     timing_by_variant["candidate_v4"]["medianRatioVersusP05"] = (
         timing_by_variant["candidate_v4"]["medianMilliseconds"]

@@ -27,6 +27,12 @@ class QualityGateV4Tests(unittest.TestCase):
     def setUp(self) -> None:
         self.contract = SCRIPT_DIRECTORY / "quality-gate-contract-v1.json"
 
+    def testOrderedFloatSumUsesStableManifestOrder(self) -> None:
+        self.assertEqual(
+            quality_gate.ordered_float_sum([1.0e16, 1.0, 1.0]),
+            1.0e16,
+        )
+
     def sealEvidence(self, root: Path) -> None:
         seal_path = root / "artifact-manifest.json"
         if seal_path.exists():

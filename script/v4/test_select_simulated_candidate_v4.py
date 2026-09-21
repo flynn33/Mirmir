@@ -338,6 +338,41 @@ class SimulatedCandidateSelectionTests(unittest.TestCase):
                     value,
                 )
 
+    def test_replayed_timing_uses_quality_evaluator_ordered_sum(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            quality_report_path = root / "quality-report.json"
+            quality_report_path.write_text("{}\n", encoding="utf-8")
+            value = report()
+            variants = ("baseline_p05", *selector.LOCKED_CANDIDATES)
+            case_timings = {
+                variant: float(index + 1)
+                for index, variant in enumerate(variants)
+            }
+            (root / "capture-manifest.json").write_text(
+                json.dumps({"cases": [{"milliseconds": case_timings}]}) + "\n",
+                encoding="utf-8",
+            )
+            value["timingDiagnostic"]["variants"] = {
+                variant: {
+                    "sampleCount": 1,
+                    "medianMilliseconds": milliseconds,
+                    "p95Milliseconds": milliseconds,
+                    "totalMilliseconds": 123.0,
+                }
+                for variant, milliseconds in case_timings.items()
+            }
+
+            class Quality:
+                percentile = staticmethod(lambda samples, _percentile: samples[0])
+                ordered_float_sum = staticmethod(lambda _samples: 123.0)
+
+            selector.validate_replayed_timings(
+                Quality,
+                quality_report_path,
+                value,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
