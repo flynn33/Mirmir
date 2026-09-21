@@ -1,9 +1,13 @@
 # Deterministic v4 release-evidence index assembly
 
+> This assembler is retained for an optional future release decision. It is
+> not part of the simulator-only M7 qualification adopted September 21, 2026.
+
 `script/v4/assemble_release_evidence_index_v4.py` is the production boundary
-between the eight independently captured qualification lanes and the final M7
-aggregator. It constructs `mirmir-ash-v4-release-candidate-evidence-v1` from
-the evidence bytes themselves. Operators do not author report descriptors,
+between the eight independently captured qualification lanes and the optional
+release aggregator. It constructs
+`mirmir-ash-v4-release-candidate-evidence-v1` from the evidence bytes
+themselves. Operators do not author report descriptors,
 seal descriptors, identity-binding paths, hashes, byte counts, evidence order,
 or waivers by hand.
 

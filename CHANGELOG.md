@@ -7,6 +7,8 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-09-21
+
 ### Added
 
 - A live README roadmap tracker that is deterministically regenerated and
@@ -31,8 +33,11 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ### Changed
 
-- Revised M7 to require deterministic simulator candidate selection rather
-  than physical-machine, notarization, or shipping qualification.
+- Revised M7 to require deterministic headless XCTest frame-simulator
+  comparison and selection of the best eligible candidate rather than
+  physical hardware, notarization, shipping, or distribution qualification.
+- Made quality and timing replay deterministic across supported Python
+  runtimes while retaining exact sealed-evidence equality.
 - Made recovery evidence causal and scenario-owned across two independent
   packaged processes instead of relying on a source-hosted capture path.
 - Replaced the clean-aperture tuple loop with explicit field validation to
@@ -46,8 +51,9 @@ do not publish, sign, notarize, or distribute the application automatically.
 - Serialized Swift 6.4 release compilation and hardened archive publication so
   canonical builds and failed staging cleanup remain deterministic.
 - Added a canonical `BUILD_NUMBER` authority and drift checks, and aligned all
-  Xcode target configurations at version 1.3.0 build 3, the Developer ID team,
-  and the video application category.
+  Xcode target configurations at version 1.3.1 build 4, the Developer ID team,
+  and the video application category without creating or distributing a
+  release artifact.
 
 ## [1.3.0] - 2026-08-14
 

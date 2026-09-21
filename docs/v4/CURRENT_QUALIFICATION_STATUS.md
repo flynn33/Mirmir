@@ -23,15 +23,15 @@ decisions.
 
 | Field | Verified value |
 | --- | --- |
-| Product | Mirmir 1.3.0 (3) |
-| Version authorities | `VERSION` = `1.3.0`; `BUILD_NUMBER` = `3` |
+| Product | Mirmir 1.3.1 (4) |
+| Version authorities | `VERSION` = `1.3.1`; `BUILD_NUMBER` = `4` |
 | Bundle identifier | `com.mirmir.app` |
 | Minimum macOS | 15.4 |
 | M0–M6 implementation | Complete |
 
-The previous universal Developer ID archive and its notarization-oriented
-qualification tooling remain historical evidence. They are not inputs or gates
-for the revised M7 simulator decision.
+The previous 1.3.0 build 3 universal Developer ID archive and its
+notarization-oriented qualification tooling remain historical evidence. They
+are not inputs or gates for the revised M7 simulator decision.
 
 ## Completed verification
 

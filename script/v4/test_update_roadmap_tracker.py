@@ -113,6 +113,14 @@ Verified September 21, 2026.
         )
         self.assertIn("≥5% · OPEN", document)
         self.assertIn("simulation source pending", document)
+        self.assertIn(
+            "Physical hardware, notarization, shipping, and distribution are outside M7.",
+            document,
+        )
+        self.assertIn(
+            "Simulator only · no hardware/notarization/shipping/distribution",
+            document,
+        )
 
         completed_document = tracker.render_svg(
             replace(

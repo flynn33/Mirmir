@@ -1,5 +1,9 @@
 # Notarized application smoke qualification v1
 
+> This lane is retained for an optional future release decision. Notarization,
+> stapling, Gatekeeper checks, shipping, and distribution are outside the
+> simulator-only M7 scope adopted September 21, 2026.
+
 This lane qualifies the exact stapled Mirmir release archive after Apple has
 accepted it. It does not submit an archive for notarization and it cannot
 manufacture an Apple acceptance result. Two explicit acceptance providers are
@@ -173,7 +177,7 @@ The evaluator does not trust capture booleans. It independently:
 - rejects fabricated, contradictory, stale, incomplete, nonzero, tampered, or
   unsealed evidence.
 
-The ten emitted action IDs and evidence kinds exactly match the M7 release
+The ten emitted action IDs and evidence kinds exactly match the optional release
 contract: Apple notary acceptance, Gatekeeper, stapler, code signature,
 shipping-app launch, production P06 load, real media probe, deterministic
 processing, semantic output verification, and queue relaunch recovery.

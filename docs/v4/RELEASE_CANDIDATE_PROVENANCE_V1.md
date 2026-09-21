@@ -311,7 +311,10 @@ python3 script/v4/prepare_release_candidate_v4.py \
 ```
 
 This provenance verification is separate from Developer ID, notarization,
-stapling, and Gatekeeper qualification. Those release gates remain mandatory.
+stapling, and Gatekeeper qualification. Those gates apply only if the owner
+later chooses to qualify a release; they are not part of the completed
+simulator-only M7 scope.
+
 Fast observer-lane archive inspection and extraction validate the already-bound
 receipt but do not launch another build. Candidate construction creates the
 original receipt; the sealer and candidate preparer are its two independent

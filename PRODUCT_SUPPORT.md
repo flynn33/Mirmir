@@ -1,6 +1,6 @@
 # Mirmir product support
 
-Current product identity: **Mirmir 1.3.0 (3)**.
+Current product identity: **Mirmir 1.3.1 (4)**.
 
 Mirmir is a sandboxed macOS 15.4-or-later application. It reads local media
 through security-scoped bookmarks, builds an explicit whole-asset plan, and

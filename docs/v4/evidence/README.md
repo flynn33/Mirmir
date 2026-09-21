@@ -1,7 +1,7 @@
 # Deterministic engine v4 evidence
 
-For the current 1.3.0 (3) implementation and completed M7 simulator selection,
-see
+For the current 1.3.1 (4) repository identity and completed M7 simulator
+selection, see
 [`../CURRENT_QUALIFICATION_STATUS.md`](../CURRENT_QUALIFICATION_STATUS.md).
 
 The `m7-simulation-selection-2026-09-21` directory is the current, sealed M7

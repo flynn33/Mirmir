@@ -1,6 +1,9 @@
 # Deterministic engine v4 CPU/Metal parity qualification v2
 
-`script/v4/run_cpu_metal_parity_v4.sh` is the fail-closed M7 gate for exact
+> This packaged parity lane is retained as optional release evidence. It is not
+> an M7 gate under the simulator-only scope adopted September 21, 2026.
+
+`script/v4/run_cpu_metal_parity_v4.sh` is a fail-closed release gate for exact
 CPU/Metal equivalence. The final lane launches the exact packaged application
 archive twice with independent requests, binds both captures to the candidate
 identity and P06 runtime, and then recomputes the complete evidence tree. Test

@@ -3,9 +3,10 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-Version 1.3.0 build 3 lands the deterministic ASH P06 CPU and Metal engine
-beside the supported Apple scaling frameworks, while keeping every backend
-choice, preservation decision, and fallback boundary visible to the user.
+Version 1.3.1 build 4 carries the deterministic ASH P06 CPU and Metal engine
+beside the supported Apple scaling frameworks and records the completed
+simulator-only M7 candidate selection, while keeping every backend choice,
+preservation decision, and fallback boundary visible to the user.
 
 The current marketing version and build number are recorded in
 [`VERSION`](VERSION) and [`BUILD_NUMBER`](BUILD_NUMBER), then synchronized with
@@ -40,7 +41,8 @@ deliberate operator actions.
 
 See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.
-See [`CHANGELOG.md`](CHANGELOG.md) for the 1.3.0 landing record and
+See [`CHANGELOG.md`](CHANGELOG.md) for the 1.3.1 qualification update, the
+1.3.0 engine landing record, and
 [`docs/v4/`](docs/v4/) for the qualification evidence contracts.
 The [Mirmir Wiki](https://github.com/flynn33/Mirmir/wiki) provides the complete
 product guide, architecture reference, ASH engine documentation, diagrams,
@@ -60,11 +62,14 @@ tracker fails the check.
 The [`DETERMINISTIC_ENGINE_V4_ROADMAP.md`](DETERMINISTIC_ENGINE_V4_ROADMAP.md)
 records the v4 architecture, delivery sequence, and M7 simulator selection for
 at least 5% higher quality and 20% lower processing time. Engine, media, and
-durable-workflow implementation is in 1.3.0. The sealed 168-case run from
-commit `ce780af87107d90142d860f328dca4a72fea3047` selected `candidate_v4`:
+durable-workflow implementation originally landed in 1.3.0; version 1.3.1
+records the altered simulator-only M7 scope and completed decision. The sealed
+168-case headless XCTest frame-simulator run from
+commit `ce780af87107d90142d860f328dca4a72fea3047` ranked `candidate_v4` first:
 quality improved 22.792052% with a 22.312761% paired-bootstrap lower bound, and
-total measured engine time fell 97.478689% versus frozen P05. External devices,
-notarization, shipping, and distribution are outside this roadmap.
+total measured engine time fell 97.478689% versus frozen P05. Physical hardware,
+external devices, notarization, shipping, and distribution are outside this
+roadmap and are not required to complete M7.
 
 The dated identities, completed checks, and exact simulator result are recorded in
 [`docs/v4/CURRENT_QUALIFICATION_STATUS.md`](docs/v4/CURRENT_QUALIFICATION_STATUS.md).
@@ -151,8 +156,8 @@ manifest identity and reads the manifest provenance source revision and builder
 hash, then passes those four arguments into the production loader. A bundle
 that does not match the declared trust roots cannot pass CI.
 
-See [`CHANGELOG.md`](CHANGELOG.md) for the current unreleased identity-check
-record.
+See [`CHANGELOG.md`](CHANGELOG.md) for the 1.3.1 qualification and
+identity-check record.
 
 ## Versioning
 

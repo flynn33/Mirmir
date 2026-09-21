@@ -2,12 +2,14 @@
 
 > Superseded by `CPU_METAL_PARITY_QUALIFICATION_V2.md`. This file describes
 > the original visible-plane/attachment gate and is retained for history.
+> Neither parity lane is an M7 requirement under the simulator-only scope
+> adopted September 21, 2026; it remains optional release evidence.
 
-`script/v4/run_cpu_metal_parity_v4.sh` is the fail-closed M7 qualification for
-byte-identical CPU and Metal output. It archives one committed candidate,
-injects the locked capture test only into that ephemeral checkout, builds and
-tests it in Release twice in independent processes, and evaluates the resulting
-raw artifacts. The dirty working tree is never the candidate.
+`script/v4/run_cpu_metal_parity_v4.sh` is a fail-closed release-qualification
+lane for byte-identical CPU and Metal output. It archives one committed
+candidate, injects the locked capture test only into that ephemeral checkout,
+builds and tests it in Release twice in independent processes, and evaluates
+the resulting raw artifacts. The dirty working tree is never the candidate.
 
 The locked matrix covers:
 

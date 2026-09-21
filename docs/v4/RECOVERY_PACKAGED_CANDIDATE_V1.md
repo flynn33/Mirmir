@@ -1,5 +1,9 @@
 # Archived-executable recovery qualification
 
+> This archived-executable lane is retained as optional release evidence. It is
+> not an M7 requirement under the simulator-only scope adopted September 21,
+> 2026.
+
 The deterministic-v4 recovery gate accepts only evidence produced inside the
 exact `Mirmir` executable extracted from the verified Release application
 archive. A source-built test host, rebuilt application, helper executable, or
@@ -131,7 +135,8 @@ zsh -n script/v4/run_recovery_qualification_v4.sh
 script/v4/run_recovery_qualification_v4.sh --compile-only
 ```
 
-The central M7 gate must require the v2 recovery report and manifests, exactly
+The optional release-qualification aggregator must require the v2 recovery
+report and manifests, exactly
 two archived-executable captures, all 15 locked scenarios, all recomputed
 identity fields, and `recoveryGatePass == true`. Missing, stale, noncanonical,
 rehashed-substituted, source-hosted, or independently inconsistent recovery

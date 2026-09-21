@@ -7,6 +7,14 @@ matrix. Mirmir is a macOS application, so “simulator” here means the headles
 XCTest frame simulator that feeds reproducible pixel buffers through the real
 Swift engine implementations.
 
+## Adopted scope alteration
+
+On September 21, 2026, the owner made this simulator comparison and selection
+the complete M7 qualification. Earlier proposed requirements for external or
+physical-device testing, a hardware matrix, archive signing, notarization,
+stapling, shipping, and distribution are superseded as M7 gates. They remain
+separate owner decisions and are not implied by a passing selection report.
+
 ## Candidate set
 
 The locked comparison evaluates the production v4 policy and four deterministic

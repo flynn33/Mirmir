@@ -448,7 +448,8 @@ def render_svg(state: TrackerState) -> str:
     )
     description = (
         f"{implementation_label}. {qualification_label}. {step_label}. "
-        f"Quality and processing-time simulation targets are {release_gate_label.lower()}."
+        f"Quality and processing-time simulation targets are {release_gate_label.lower()}. "
+        "Physical hardware, notarization, shipping, and distribution are outside M7."
     )
 
     segments = []
@@ -502,7 +503,7 @@ def render_svg(state: TrackerState) -> str:
   <text class="section-label" x="44" y="466">M7 SIMULATOR DECISION</text>
   {''.join(gate_cards)}
   <text class="footer" x="44" y="591">{html.escape(step_label)} · simulation source {state.simulation_source_commit[:12] if state.simulation_source_commit else 'pending'} · verified {html.escape(state.verified_date)}</text>
-  <text class="footer" x="1156" y="591" text-anchor="end">Source: roadmap + current qualification status</text>
+  <text class="footer" x="1156" y="591" text-anchor="end">Simulator only · no hardware/notarization/shipping/distribution</text>
 </svg>
 '''
 

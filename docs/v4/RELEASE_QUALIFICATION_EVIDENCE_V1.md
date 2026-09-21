@@ -1,6 +1,10 @@
 # Deterministic engine v4 release-qualification evidence
 
-`script/v4/release_qualification_v4.py` is the final fail-closed M7 evidence
+> This eight-lane aggregator is retained for an optional future release
+> decision. It is not part of the simulator-only M7 qualification adopted
+> September 21, 2026, and it does not block the completed roadmap.
+
+`script/v4/release_qualification_v4.py` is the final fail-closed release-evidence
 aggregator. It does not run the underlying qualification suites and it cannot
 turn an incomplete or failed suite into a release pass. It consumes the sealed
 reports produced by those suites and proves that they all describe the same
@@ -15,13 +19,14 @@ the domain-separated `ash-p06-runtime-manifest-v4` SHA-256 of
 manifest, and invokes `script/v4/run_p06_runtime_load_check.sh` with the bundle
 path plus those three identities. The loader must verify the binding, accept
 only the declared runtime ID and release status, and reject a same-length
-artifact mutation. This check does not close the archived-executable or
-frozen-candidate M7 gates.
+artifact mutation. This check does not close the optional archived-executable
+or frozen-candidate release gates.
 
-Before importing a replay evaluator, M7 requires an external trust-root hash
-supplied by the release operator or CI control plane. The trust root binds the
-final evaluator itself, the release contract, the support/parity/P05/quality
-replay modules, and the exhaustive evidence-role-to-handler dispatch table.
+Before importing a replay evaluator, release qualification requires an
+external trust-root hash supplied by the release operator or CI control plane.
+The trust root binds the final evaluator itself, the release contract, the
+support/parity/P05/quality replay modules, and the exhaustive
+evidence-role-to-handler dispatch table.
 The expected trust-root SHA-256 is deliberately not read from the candidate,
 repository, or evidence suite. A mutated evaluator or helper therefore fails
 before its Python code can execute, even if an attacker reseals the evidence.
@@ -62,9 +67,10 @@ Each evidence entry also supplies `identityBindings`. A binding contains a JSON
 pointer into the report and a file identity. The aggregator hashes that file
 and requires the report value, binding value, and computed value to agree. The
 quality role binds its metric tool, capture source, corpus manifest, and quality
-contract; its P06 semantic identity is recomputed directly. M7 invokes the
-quality verifier over the nested recursive seal, validates the frozen P05
-source/capture identities and externally pinned output set, and recomputes
+contract; its P06 semantic identity is recomputed directly. The release
+aggregator invokes the quality verifier over the nested recursive seal,
+validates the frozen P05 source/capture identities and externally pinned output
+set, and recomputes
 every per-clip component from the raw reference, P05, candidate, and ablation
 planes before accepting any aggregate. The P05 capture runner first copies the
 exact locked manifest and artifact inventory into its mode-0700 owned build
@@ -97,8 +103,8 @@ The media role invokes its externally locked evaluator over the full raw
 capture and requires byte-identical recomputed output. That evaluator is the
 single semantic authority for the independent P010 luma/chroma oracle,
 PQ/HLG metadata contracts, deinterlacing cadence, alpha, geometry, and track
-preservation; M7 retains independent candidate, archive, seal, and structure
-admission around that replay.
+preservation; release qualification retains independent candidate, archive,
+seal, and structure admission around that replay.
 
 P06 reproduction uses the v2 source/archive boundary. The locked evaluator
 reconstructs the Git commit and tree from sealed source bytes, recomputes the

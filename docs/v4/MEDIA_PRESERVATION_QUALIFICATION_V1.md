@@ -1,4 +1,7 @@
-# M7 Media-Preservation Qualification v1
+# Release media-preservation qualification v1
+
+> This lane is retained as optional release evidence. It is not an M7 gate
+> under the simulator-only scope adopted September 21, 2026.
 
 This lane qualifies the deterministic v4 engine against the complete media-preservation contract. It is a release gate, not a unit-test claim: evidence is admitted only when it was captured from the exact committed Release candidate, its release-qualified P06 runtime, and the code-owned P06 trust root.
 
