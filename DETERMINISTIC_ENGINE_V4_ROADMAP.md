@@ -1,6 +1,6 @@
 # Deterministic Engine v4 roadmap
 
-Status: 1.3.1 (4) implementation and M7 simulator candidate selection complete
+Status: 1.3.2 (5) implementation and M7 simulator candidate selection complete
 
 Scope: Mirmir deterministic CPU and Metal engines, media pipeline, and durable job workflow
 
@@ -11,8 +11,11 @@ Baseline: the checked-in P05 CPU reference and Metal preview behavior before v4 
 Current checkpoint: pull requests 44 and 45 landed the v4 engine, media,
 workflow, qualification tooling, and production P06 identity loading as version
 1.3.0. Version 1.3.1 build 4 records the completed, simulator-only M7 scope and
-its reproducible selection evidence. Follow-on work closed M0 through M6 in
-source and tests. The sealed M7 headless XCTest frame-simulator run from commit
+its reproducible selection evidence. Version 1.3.2 build 5 hardens exact media
+assembly, decoded video-range handling, and durable source-snapshot migration
+after real-file testing without changing the locked M7 selection result.
+Follow-on work closed M0 through M6 in source and tests. The sealed M7 headless
+XCTest frame-simulator run from commit
 `ce780af87107d90142d860f328dca4a72fea3047` compared the production v4 policy
 and four locked test-harness policy ablations against frozen P05, then selected
 `candidate_v4`. It proved the 5% quality and 20% processing-time targets in the
@@ -612,6 +615,16 @@ revision, and builder hash instead of invoking the helper with no trust roots.
 These changes close M0 through M6 in source. The later committed-source M7 run
 then satisfied the simulator quality, processing-time, and best-candidate
 selection gates, completing this roadmap within its declared scope.
+
+Version 1.3.2 then corrected post-qualification conformance defects exposed by
+real-file testing: exact processed-video media origin and movie timescale
+preservation, AAC MP4-to-MOV semantic comparison, decoded cadence handling,
+video-range footroom/headroom policy, destination-directory identity binding,
+durable source-basename migration, and idle dispatcher-slot contention during
+paused-job resume. The canonical P06 builder also refreshed its stale
+quality-evaluator source lock and reproduced the current 12-artifact bundle in
+two independent builds. These corrections strengthen the M1 and M4–M6 exit
+invariants; they do not broaden M7 or replace its sealed candidate result.
 
 ## Risks and decisions that must remain explicit
 

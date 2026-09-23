@@ -626,8 +626,8 @@ enum ASHP06LockedNaturalQualityEvidenceV4 {
     static func metricImplementation() throws -> ASHP06LockedFileIdentityV4 {
         try identity(
             "script/v4/quality_gate_v4.py",
-            80_068,
-            "7ccd36727d705420b007203cb281acde37058b1f94fef8d8be3e06c8bc0a03eb"
+            81_481,
+            "2c5b0e5a40adc4f016d9346805f2db247ed1cd8a22e3abf26a2c87d3309ac4c8"
         )
     }
 

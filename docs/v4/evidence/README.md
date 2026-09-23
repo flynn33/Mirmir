@@ -1,8 +1,15 @@
 # Deterministic engine v4 evidence
 
-For the current 1.3.1 (4) repository identity and completed M7 simulator
-selection, see
+For the current 1.3.2 (5) repository identity, post-qualification conformance
+receipt, and completed M7 simulator selection, see
 [`../CURRENT_QUALIFICATION_STATUS.md`](../CURRENT_QUALIFICATION_STATUS.md).
+
+The `1.3.2-conformance-remediation-2026-09-23` directory records the full
+Debug scheme, unsigned universal Release build, and focused real-file
+regressions for exact media timing, AAC remux identity, decoded range policy,
+atomic destination identity, durable source-snapshot migration, paused-job
+resume, and refreshed P06 runtime identity. It does not replace or reinterpret
+the sealed M7 candidate-selection evidence.
 
 The `m7-simulation-selection-2026-09-21` directory is the current, sealed M7
 decision from source commit

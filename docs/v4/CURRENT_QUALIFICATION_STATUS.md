@@ -1,6 +1,6 @@
 # Deterministic engine v4 current qualification status
 
-Verified September 21, 2026.
+Verified September 23, 2026.
 
 The GitHub-facing tracker in `roadmap-status.svg` is generated from this
 document, `DETERMINISTIC_ENGINE_V4_ROADMAP.md`, `VERSION`, and `BUILD_NUMBER`.
@@ -23,11 +23,13 @@ decisions.
 
 | Field | Verified value |
 | --- | --- |
-| Product | Mirmir 1.3.1 (4) |
-| Version authorities | `VERSION` = `1.3.1`; `BUILD_NUMBER` = `4` |
+| Product | Mirmir 1.3.2 (5) |
+| Version authorities | `VERSION` = `1.3.2`; `BUILD_NUMBER` = `5` |
 | Bundle identifier | `com.mirmir.app` |
 | Minimum macOS | 15.4 |
 | M0–M6 implementation | Complete |
+| P06 runtime manifest identity | `e4cc2394ff7454447d11a37fccf99f8e6c66ca6e68f5302a734e999cd815b5b4` |
+| P06 production-source revision | `070556595835048d0112e8de2399be7067ec931079802c906aa8400f51e62f00` |
 
 The previous 1.3.0 build 3 universal Developer ID archive and its
 notarization-oriented qualification tooling remain historical evidence. They
@@ -38,9 +40,44 @@ are not inputs or gates for the revised M7 simulator decision.
 The qualification implementation and control surface passed 205 focused tests.
 Repository identity replay, semantic qualification self-tests, deterministic
 trust-root regeneration, attribution scans, Xcode project parsing, and version
-alignment also passed. A clean Debug scheme run completed 475 tests with zero
-failures and three expected opt-in capture tests skipped. These results establish
-the M0–M6 implementation baseline on which the simulator comparison operates.
+alignment also passed. The 1.3.2 conformance tree completed 493 Debug scheme
+tests: 490 passed, zero failed, and three expected opt-in capture tests skipped.
+An unsigned universal Release build also passed. These results establish the
+M0–M6 implementation baseline on which the simulator comparison operates.
+
+## Version 1.3.2 conformance remediation
+
+Real-file validation after M7 exposed defects at implementation boundaries
+that the simulator candidate-selection contract intentionally does not measure.
+Version 1.3.2 corrects and tests:
+
+- processed-video replacement media origins, exact movie edit-map timescales,
+  and writer-session starts;
+- semantic AAC identity across MP4 and MOV wrapper representations;
+- dynamic-HDR-absent decoded cadence without relying on rounded track ends;
+- legal NV12/P010 video-range footroom and headroom while rejecting malformed
+  packed storage;
+- destination-directory identity checks for atomic temporary output;
+- durable original-basename binding plus fail-before-dispatch migration for
+  legacy generic source snapshots; and
+- immediate paused-job resume without idle queue-drain slot contention.
+
+The retained reported MP4 fixture then remuxed with all 241 H.264 samples and
+470 AAC samples accounted for. The repository regression fixtures independently
+recreate the timing, wrapper, range, alias, and migration cases. The recorded
+qualification receipt is in
+`docs/v4/evidence/1.3.2-conformance-remediation-2026-09-23/`.
+
+The P06 builder reproduced the current 12-artifact bundle byte-for-byte across
+two independent builds. Ten artifact files, including the Metal library and
+operator data, remain unchanged; the metric and verification contracts now
+bind the stabilized quality evaluator already used by the repository. The
+canonical manifest binds production-source revision
+`070556595835048d0112e8de2399be7067ec931079802c906aa8400f51e62f00`, and
+the code-owned manifest trust root resolves to
+`e4cc2394ff7454447d11a37fccf99f8e6c66ca6e68f5302a734e999cd815b5b4`.
+The production loader accepted that binding and rejected a same-length
+artifact mutation.
 
 ## M7 simulation contract
 

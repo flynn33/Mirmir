@@ -1,0 +1,95 @@
+{
+  "schema": "mirmir-v4-conformance-remediation-v1",
+  "date": "2026-09-23",
+  "result": "pass",
+  "product": {
+    "version": "1.3.2",
+    "build": 5
+  },
+  "environment": {
+    "architecture": "arm64",
+    "macOSBuild": "26A428",
+    "macOSVersion": "27.0",
+    "xcodeBuild": "27A266a",
+    "xcodeVersion": "27.0"
+  },
+  "implementationCommits": [
+    "1b0fe3f04d0205d37e44fbfe1786b0a2f0b0e59e",
+    "a2dd5634486804ce11e9dfa5b0adaa39d6f71d52"
+  ],
+  "fullSuite": {
+    "expectedFailures": 0,
+    "failed": 0,
+    "passed": 490,
+    "resultBundleName": "Test-Mirmir-2026.09.23_12-08-22--0500.xcresult",
+    "skipped": 3,
+    "total": 493
+  },
+  "releaseBuild": {
+    "architectures": [
+      "x86_64",
+      "arm64"
+    ],
+    "configuration": "Release",
+    "passed": true,
+    "signed": false
+  },
+  "runtimeIdentity": {
+    "artifactCount": 12,
+    "artifactSetSHA256": "fd043fd110affc30405f0391c915f8642aa4d8a92ed127883690508281991bf8",
+    "changedArtifacts": [
+      "artifacts/metric_contract.json",
+      "artifacts/verification_contract.json"
+    ],
+    "builderSourceSHA256": "944014c7c35eb780722658c63f79e6ea59a14c3b0da25a33b8c78773e9451a68",
+    "manifestSHA256": "e4cc2394ff7454447d11a37fccf99f8e6c66ca6e68f5302a734e999cd815b5b4",
+    "productionLoaderAcceptance": true,
+    "reproducedBuildCount": 2,
+    "sameLengthArtifactTamperRejected": true,
+    "sourceRevision": "070556595835048d0112e8de2399be7067ec931079802c906aa8400f51e62f00"
+  },
+  "reportedFileValidation": {
+    "outputSHA256": "709ee41491ff3354c0dc6618215cc982a3cec2d716d872b72cbe3d7f5d7f9ce8",
+    "sourceFileName": "raven-forge-app-splash-2.mp4",
+    "sourceSHA256": "c888b71b97a536d0e38558c77ec332e483e8493d3bf28a853fca418639d2b017",
+    "streams": [
+      {
+        "codec": "h264",
+        "durationSeconds": "10.041667",
+        "packetCount": 241,
+        "timeBase": "1/12288",
+        "type": "video"
+      },
+      {
+        "codec": "aac",
+        "durationSeconds": "10.000000",
+        "packetCount": 470,
+        "timeBase": "1/48000",
+        "type": "audio"
+      },
+      {
+        "codec": "mjpeg",
+        "durationSeconds": "10.041667",
+        "packetCount": 1,
+        "timeBase": "1/90000",
+        "type": "video"
+      }
+    ]
+  },
+  "m7Selection": {
+    "candidate": "candidate_v4",
+    "caseCount": 168,
+    "medianProcessingTimeRatio": 0.026859,
+    "p95ProcessingTimeRatio": 0.030117,
+    "pairedBootstrap95LowerBound": 122.312761,
+    "qualityIndex": 122.792052,
+    "sourceCommit": "ce780af87107d90142d860f328dca4a72fea3047",
+    "totalProcessingTimeRatio": 0.025213
+  },
+  "scope": {
+    "hardwareQualification": false,
+    "notarization": false,
+    "shipping": false,
+    "simulatorOnlyM7": true
+  }
+}

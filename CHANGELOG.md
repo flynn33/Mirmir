@@ -7,6 +7,49 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-09-23
+
+### Fixed
+
+- Preserved exact processed-video media origins and movie edit-map timescales
+  during final whole-asset assembly, preventing frame loss or rounded edit
+  mappings on ordinary MP4 inputs and scaled edit lists.
+- Treated ISO and QuickTime AAC sample-entry wrappers as container
+  representations only when the codec configuration is independently bound,
+  while retaining fail-closed comparison for incomplete or unknown compressed
+  audio formats.
+- Kept dynamic-HDR-absent segment preflight in the decoded presentation-time
+  domain and canonicalized missing decoded frame durations without trusting a
+  coarsely rounded container end time.
+- Accepted legal video-range footroom and headroom through the spatial kernel,
+  clamped only bounded ASH analysis inputs, and continued rejecting malformed
+  P010 packing.
+- Preserved the authenticated original source basename in durable queue
+  snapshots. Verified legacy snapshots that cannot prove that filename now
+  fail before dispatch with explicit re-enqueue guidance and no checkpoint
+  reuse.
+- Bound deterministic temporary outputs to the destination directory's
+  filesystem identity so safe aliases remain usable while directory escapes
+  are rejected.
+- Prevented an idle queue-drain pass from acquiring a global dispatch slot
+  when no queued job exists, removing a race with immediate paused-job resume
+  from a recreated controller.
+
+### Verified
+
+- Completed the full Debug scheme with 490 passing tests, zero failures, and
+  three expected opt-in capture skips, plus an unsigned universal Release
+  build.
+- Reproduced the originally reported MP4 remux path with all 241 H.264 video
+  samples and 470 AAC audio samples retained under the semantic verifier.
+- Refreshed the stale quality-evaluator source lock in the P06 metric and
+  verification contracts, reproduced the 12-artifact bundle twice, resealed
+  its corrected production-source closure, and verified production-loader
+  acceptance plus same-length artifact-tamper rejection.
+- Advanced all repository and Xcode version authorities to 1.3.2 build 5.
+  This patch preserves the completed simulator-only M7 decision; it does not
+  assert signing, notarization, shipping, or distribution.
+
 ## [1.3.1] - 2026-09-21
 
 ### Added

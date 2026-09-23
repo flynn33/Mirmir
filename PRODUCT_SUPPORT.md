@@ -1,6 +1,6 @@
 # Mirmir product support
 
-Current product identity: **Mirmir 1.3.1 (4)**.
+Current product identity: **Mirmir 1.3.2 (5)**.
 
 Mirmir is a sandboxed macOS 15.4-or-later application. It reads local media
 through security-scoped bookmarks, builds an explicit whole-asset plan, and
@@ -37,7 +37,10 @@ backends. It excludes both Deterministic routes and Smooth Motion.
   32,768 samples per axis.
 - Opaque input supports video-range and full-range 8-bit bi-planar NV12 and
   10-bit bi-planar P010. HDR remains 10-bit end to end; there is no implicit
-  SDR conversion or tone map.
+  SDR conversion or tone map. Legal decoded video-range footroom and headroom
+  reach the spatial kernel; bounded ASH measurement inputs clamp to nominal
+  signal limits, output clamps once under the shared kernel contract, and
+  malformed P010 low bits remain rejected.
 - Progressive input and explicitly identified top-field-first or
   bottom-field-first interlaced input are supported. Interlaced frames produce
   two deterministic progressive output samples, with cadence/dominance changes
@@ -73,6 +76,10 @@ backends. It excludes both Deterministic routes and Smooth Motion.
   audio, subtitles, captions, chapters, timecode, timed metadata, and auxiliary
   tracks remain represented in the migration plan; unsupported loss cannot be
   hidden as a successful migration.
+- AAC semantic comparison binds the stream description, codec magic cookie,
+  channel layout, and remaining extensions while normalizing only the
+  independently redundant MP4-versus-MOV sample-entry wrapper. Unknown or
+  incomplete compressed formats retain their wrapper and fail closed.
 - Track ordering, enabled state, language, role/association, edit lists, sample
   timing, format transitions, asset metadata, creation date, and compatible
   selection groups are migrated and checked by the semantic verifier. Scaled
@@ -101,6 +108,13 @@ backends. It excludes both Deterministic routes and Smooth Motion.
   Interrupted writes, disk-full failures, and faults at durable boundaries are
   required to produce either an identical resumed result or an explicit
   contained failure with no unowned artifact.
+- New queue snapshots preserve and authenticate the exact source basename used
+  during planning. A verified legacy snapshot that recorded only the old
+  generic `source[.<ext>]` name is failed before dispatch with re-enqueue
+  guidance; its checkpoints are never reused implicitly.
+- Queue drain checks for eligible work before acquiring a global dispatcher
+  slot. A controller that has just received a durable paused outcome can be
+  recreated and resume immediately without contending with an idle drain pass.
 
 ## Boundaries
 
