@@ -297,13 +297,14 @@ actor WorkflowQueueDispatcherV4 {
       }
       return .claimed(existing.receipt)
     }
+    let opened = try await coordinator.open()
+    let candidates = Self.orderedCandidates(
+      state: opened.state,
+      priorities: priorityMap
+    )
+    guard !candidates.isEmpty else { return .noEligibleJob }
     guard let slot = try acquireSlot() else { return .capacityExhausted }
     do {
-      let opened = try await coordinator.open()
-      let candidates = Self.orderedCandidates(
-        state: opened.state,
-        priorities: priorityMap
-      )
       for candidate in candidates {
         let identity = try Self.identity(
           seed: cycleID.rawValue,
