@@ -148,6 +148,165 @@ final class PixelLayoutV4Tests: XCTestCase {
         )
     }
 
+    func testDecodedStoragePoliciesSeparateExcursionsFromMalformedPacking()
+        throws {
+        let nv12 = PixelLayoutV4(storage: .nv12VideoRange8Bit)
+        XCTAssertEqual(
+            try nv12.signalCode(
+                fromStoredCode: 15,
+                plane: 0,
+                component: 0,
+                policy: .preserveRepresentableRange
+            ),
+            15
+        )
+        XCTAssertEqual(
+            try nv12.signalCode(
+                fromStoredCode: 15,
+                plane: 0,
+                component: 0,
+                policy: .clampToNominalRange
+            ),
+            16
+        )
+        XCTAssertEqual(
+            try nv12.signalCode(
+                fromStoredCode: 236,
+                plane: 0,
+                component: 0,
+                policy: .clampToNominalRange
+            ),
+            235
+        )
+        XCTAssertThrowsError(try nv12.signalCode(
+            fromStoredCode: 15,
+            plane: 0,
+            component: 0,
+            policy: .requireNominalRange
+        ))
+
+        let p010 = PixelLayoutV4(storage: .p010VideoRange10Bit)
+        XCTAssertEqual(
+            try p010.signalCode(
+                fromStoredCode: UInt16(63 << 6),
+                plane: 0,
+                component: 0,
+                policy: .preserveRepresentableRange
+            ),
+            63
+        )
+        XCTAssertEqual(
+            try p010.signalCode(
+                fromStoredCode: UInt16(941 << 6),
+                plane: 0,
+                component: 0,
+                policy: .clampToNominalRange
+            ),
+            940
+        )
+        for policy in [
+            PixelStoredCodePolicyV4.requireNominalRange,
+            .preserveRepresentableRange,
+            .clampToNominalRange
+        ] {
+            XCTAssertThrowsError(try p010.signalCode(
+                fromStoredCode: UInt16((64 << 6) | 1),
+                plane: 0,
+                component: 0,
+                policy: policy
+            )) { error in
+                guard case PixelLayoutV4Error.invalidStoredCodeAlignment = error
+                else {
+                    return XCTFail("Unexpected error: \(error)")
+                }
+            }
+        }
+    }
+
+    func testBoundedSignalReadersClampVideoRangeExcursionsWithoutMutatingSource()
+        throws {
+        let buffer = try makePixelBuffer(
+            width: 4,
+            height: 4,
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        )
+        XCTAssertEqual(CVPixelBufferLockBaseAddress(buffer, []), kCVReturnSuccess)
+        let lumaBase = try XCTUnwrap(
+            CVPixelBufferGetBaseAddressOfPlane(buffer, 0)
+        ).assumingMemoryBound(to: UInt8.self)
+        let chromaBase = try XCTUnwrap(
+            CVPixelBufferGetBaseAddressOfPlane(buffer, 1)
+        ).assumingMemoryBound(to: UInt8.self)
+        let lumaStride = CVPixelBufferGetBytesPerRowOfPlane(buffer, 0)
+        let chromaStride = CVPixelBufferGetBytesPerRowOfPlane(buffer, 1)
+        for y in 0..<4 {
+            memset(lumaBase.advanced(by: y * lumaStride), 100, 4)
+        }
+        for y in 0..<2 {
+            memset(chromaBase.advanced(by: y * chromaStride), 128, 4)
+        }
+        lumaBase[0] = 12
+        lumaBase[1] = 250
+        chromaBase[0] = 15
+        chromaBase[1] = 241
+        CVPixelBufferUnlockBaseAddress(buffer, [])
+
+        let frame = try PixelBufferSignalCodecV4.read(
+            buffer,
+            storage: .nv12VideoRange8Bit
+        )
+        XCTAssertEqual(Array(frame.planes[0].samples.prefix(2)), [16, 235])
+        XCTAssertEqual(Array(frame.planes[1].samples.prefix(2)), [16, 240])
+
+        var luma = PixelBufferLumaWorkspaceV4()
+        try PixelBufferSignalCodecV4.readLuma(
+            buffer,
+            storage: .nv12VideoRange8Bit,
+            into: &luma
+        )
+        XCTAssertEqual(
+            Array(try luma.temporalPlane().samples.prefix(2)),
+            [16, 235]
+        )
+
+        var window = PixelBufferSignalWindowWorkspaceV4()
+        try PixelBufferSignalCodecV4.readSignalWindow(
+            buffer,
+            storage: .nv12VideoRange8Bit,
+            windowWidth: 2,
+            windowHeight: 1,
+            into: &window
+        )
+        XCTAssertEqual(window.luma(at: 0), 16)
+        XCTAssertEqual(window.luma(at: 1), 235)
+        XCTAssertEqual(window.cb(at: 0), 16)
+        XCTAssertEqual(window.cr(at: 0), 240)
+
+        let tiled = try PixelBufferSignalCodecV4.readTiledLuma(
+            buffer,
+            storage: .nv12VideoRange8Bit,
+            frameID: "frame-0",
+            streamID: "video-main",
+            formatIdentity: ASHSHA256V4(rawData: Data("nv12".utf8)),
+            ordinal: 0,
+            presentationTime: .zero,
+            cadenceID: "progressive",
+            policy: .canonical,
+            stateForTile: { _ in
+                try ASHState(payloadBits: Array(repeating: 0, count: 8))
+            }
+        )
+        let tiledLuma = try XCTUnwrap(tiled.frame.tiles.first).activeSamples()
+        XCTAssertEqual(Array(tiledLuma.prefix(2)), [16, 235])
+
+        XCTAssertEqual(CVPixelBufferLockBaseAddress(buffer, .readOnly), kCVReturnSuccess)
+        XCTAssertEqual(lumaBase[0], 12)
+        XCTAssertEqual(lumaBase[1], 250)
+        XCTAssertEqual(chromaBase[0], 15)
+        XCTAssertEqual(chromaBase[1], 241)
+        CVPixelBufferUnlockBaseAddress(buffer, .readOnly)
+    }
+
     func testInvalidIndicesFormatsGeometryAndArithmeticAreRejected() throws {
         let layout = PixelLayoutV4(storage: .p010VideoRange10Bit)
         XCTAssertThrowsError(try PixelLayoutV4(pixelFormat: OSType(0xDEAD_BEEF)))

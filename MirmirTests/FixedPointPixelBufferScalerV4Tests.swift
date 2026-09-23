@@ -5,6 +5,104 @@ import XCTest
 @testable import Mirmir
 
 final class FixedPointPixelBufferScalerV4Tests: XCTestCase {
+    func testVideoRangeExcursionsReachSpatialKernelAndOutputsRemainNominal()
+        async throws {
+        for storage in [
+            PixelStorageV4.nv12VideoRange8Bit,
+            .p010VideoRange10Bit
+        ] {
+            let source = try makeBuffer(storage: storage, width: 7, height: 5)
+            let preclamped = try makeBuffer(
+                storage: storage,
+                width: 7,
+                height: 5
+            )
+            try fillVideoRangeExcursions(
+                source,
+                storage: storage,
+                clampToNominal: false
+            )
+            try fillVideoRangeExcursions(
+                preclamped,
+                storage: storage,
+                clampToNominal: true
+            )
+            let sourceBefore = try allPlaneBytes(source)
+            let rawOutput = try makeBuffer(
+                storage: storage,
+                width: 13,
+                height: 9
+            )
+            let clampedOutput = try makeBuffer(
+                storage: storage,
+                width: 13,
+                height: 9
+            )
+            let rawScaler = try FixedPointPixelBufferScalerV4(
+                backend: .cpu,
+                storage: storage,
+                sourceWidth: 7,
+                sourceHeight: 5,
+                targetWidth: 13,
+                targetHeight: 9,
+                borderRule: .reflect101
+            )
+            let clampedScaler = try FixedPointPixelBufferScalerV4(
+                backend: .cpu,
+                storage: storage,
+                sourceWidth: 7,
+                sourceHeight: 5,
+                targetWidth: 13,
+                targetHeight: 9,
+                borderRule: .reflect101
+            )
+            try await rawScaler.process(
+                source: source,
+                destination: rawOutput
+            )
+            try await clampedScaler.process(
+                source: preclamped,
+                destination: clampedOutput
+            )
+            let rawCodes = try visibleSignalCodes(rawOutput, storage: storage)
+            let preclampedCodes = try visibleSignalCodes(
+                clampedOutput,
+                storage: storage
+            )
+            XCTAssertNotEqual(
+                rawCodes,
+                preclampedCodes,
+                "The spatial kernel must observe representable \(storage.rawValue) excursions before the final clamp."
+            )
+            XCTAssertEqual(try allPlaneBytes(source), sourceBefore)
+
+            guard MTLCreateSystemDefaultDevice() != nil else { continue }
+            let metalOutput = try makeBuffer(
+                storage: storage,
+                width: 13,
+                height: 9
+            )
+            let metalScaler = try FixedPointPixelBufferScalerV4(
+                backend: .metal,
+                storage: storage,
+                sourceWidth: 7,
+                sourceHeight: 5,
+                targetWidth: 13,
+                targetHeight: 9,
+                borderRule: .reflect101
+            )
+            try await metalScaler.process(
+                source: source,
+                destination: metalOutput
+            )
+            XCTAssertEqual(
+                try visibleSignalCodes(metalOutput, storage: storage),
+                rawCodes,
+                "CPU/Metal excursion handling differs for \(storage.rawValue)."
+            )
+        }
+    }
+
     func testEveryExecutionScheduleMatchesProductionForOddNV12AndP010()
         async throws {
         var backends = [FixedPointExecutionBackendV4.cpu]
@@ -565,6 +663,65 @@ final class FixedPointPixelBufferScalerV4Tests: XCTestCase {
                         let signal = bounds.minimum + UInt16(
                             (x * 37 + y * 71 + component * 113) % span
                         )
+                        let stored = signal << UInt16(plane.storedCodeShift)
+                        let index = x * plane.componentsPerElement + component
+                        if plane.bytesPerComponent == 1 {
+                            row[index] = UInt8(stored)
+                        } else {
+                            row[index * 2] = UInt8(truncatingIfNeeded: stored)
+                            row[index * 2 + 1] = UInt8(
+                                truncatingIfNeeded: stored >> 8
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func fillVideoRangeExcursions(
+        _ buffer: CVPixelBuffer,
+        storage: PixelStorageV4,
+        clampToNominal: Bool
+    ) throws {
+        let layout = PixelLayoutV4(storage: storage)
+        XCTAssertEqual(layout.codeRange, .video)
+        XCTAssertEqual(CVPixelBufferLockBaseAddress(buffer, []), kCVReturnSuccess)
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+        let representableMaximum = UInt16((1 << layout.signalBitDepth) - 1)
+        for (planeIndex, plane) in layout.planes.enumerated() {
+            let width = try plane.width(
+                forFrameWidth: CVPixelBufferGetWidth(buffer)
+            )
+            let height = try plane.height(
+                forFrameHeight: CVPixelBufferGetHeight(buffer)
+            )
+            let stride = CVPixelBufferGetBytesPerRowOfPlane(buffer, planeIndex)
+            let base = try XCTUnwrap(
+                CVPixelBufferGetBaseAddressOfPlane(buffer, planeIndex)
+            ).assumingMemoryBound(to: UInt8.self)
+            for y in 0..<height {
+                let row = base.advanced(by: y * stride)
+                for x in 0..<width {
+                    for component in 0..<plane.componentsPerElement {
+                        let bounds = plane.signalCodeBounds[component]
+                        let values = [
+                            UInt16(0),
+                            bounds.minimum - 1,
+                            bounds.minimum,
+                            bounds.maximum,
+                            bounds.maximum + 1,
+                            representableMaximum
+                        ]
+                        var signal = values[
+                            (x * 3 + y * 5 + component) % values.count
+                        ]
+                        if clampToNominal {
+                            signal = min(
+                                bounds.maximum,
+                                max(bounds.minimum, signal)
+                            )
+                        }
                         let stored = signal << UInt16(plane.storedCodeShift)
                         let index = x * plane.componentsPerElement + component
                         if plane.bytesPerComponent == 1 {

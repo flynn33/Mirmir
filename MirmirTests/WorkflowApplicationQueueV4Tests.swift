@@ -81,6 +81,10 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
             activated.request.inputURL.standardizedFileURL,
             original.inputURL.standardizedFileURL
         )
+        XCTAssertEqual(
+            activated.request.inputURL.lastPathComponent,
+            original.inputURL.lastPathComponent
+        )
         XCTAssertTrue(
             activated.request.inputURL.path.hasPrefix(fixture.storeURL.path)
         )
@@ -124,6 +128,99 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         )
     }
 
+    func testBackslashSourceBasenameSurvivesQueueRelaunchBinding()
+        async throws
+    {
+        let sourceName = #"original\selected-source.mov"#
+        let fixture = try makeFixture(inputFileName: sourceName)
+        let resolver = WorkflowApplicationBookmarkResolverStubV4()
+        let first = try makeQueue(fixture: fixture, resolver: resolver)
+        let receipt = try await first.enqueue(
+            request: request(fixture: fixture),
+            preparedPlanBinding: preparedBinding()
+        )
+
+        let relaunched = try makeQueue(
+            fixture: fixture,
+            resolver: resolver,
+            workerID: "application-worker-backslash-relaunch"
+        )
+        let activation = await relaunched.activate(
+            jobID: receipt.specification.jobID
+        )
+        guard case .active(let activated) = activation else {
+            return XCTFail(
+                "A legal macOS backslash basename must survive relaunch"
+            )
+        }
+        defer { activated.close() }
+
+        XCTAssertEqual(activated.request.inputURL.lastPathComponent, sourceName)
+        XCTAssertTrue(
+            activated.sourceSnapshot.relativePath.hasSuffix("/\(sourceName)")
+        )
+        XCTAssertEqual(
+            try Data(contentsOf: activated.request.inputURL),
+            Data("source-media".utf8)
+        )
+        try activated.revalidateAll()
+    }
+
+    func testFoundationResolverRegistersPrivateApplicationSourceSnapshot()
+        async throws
+    {
+        let fixture = try makeFixture()
+        let queue = try WorkflowApplicationQueueV4(
+            trustedRootURL: fixture.storeURL,
+            workerID: try WorkflowWorkerIDV4(
+                "application-worker-foundation-bookmarks"
+            ),
+            resolver: WorkflowFoundationSecurityScopedBookmarkResolverV4(),
+            clock: WorkflowApplicationQueueTestClockV4(8_500_000_000),
+            tokenFactory: {
+                UUID(
+                    uuidString:
+                        "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+                )!
+            }
+        )
+
+        let receipt = try await queue.enqueue(
+            request: request(fixture: fixture),
+            preparedPlanBinding: preparedBinding()
+        )
+        let relaunched = try WorkflowApplicationQueueV4(
+            trustedRootURL: fixture.storeURL,
+            workerID: try WorkflowWorkerIDV4(
+                "application-worker-foundation-bookmarks-relaunch"
+            ),
+            resolver: WorkflowFoundationSecurityScopedBookmarkResolverV4(),
+            clock: WorkflowApplicationQueueTestClockV4(8_500_000_001)
+        )
+        let activation = await relaunched.activate(
+            jobID: receipt.specification.jobID
+        )
+        guard case .active(let activated) = activation else {
+            return XCTFail(
+                "Foundation bookmarks must activate the private source snapshot"
+            )
+        }
+        defer { activated.close() }
+
+        let attributes = try FileManager.default.attributesOfItem(
+            atPath: activated.request.inputURL.path
+        )
+        XCTAssertEqual(
+            (attributes[.posixPermissions] as? NSNumber)?.uint16Value,
+            0o400
+        )
+        XCTAssertEqual(
+            try Data(contentsOf: activated.request.inputURL),
+            Data("source-media".utf8)
+        )
+        try activated.revalidateAll()
+    }
+
     func testTamperedRequestIsContainedWithoutChangingJournalLifecycle() async throws {
         let fixture = try makeFixture()
         let queue = try makeQueue(fixture: fixture)
@@ -163,10 +260,10 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
             jobID: receipt.specification.jobID
         )
         let current = try Data(contentsOf: documentURL)
-        let legacy = try replacingTopLevelSchemaVersion(
-            in: current,
-            from: WorkflowApplicationRequestEnvelopeSchemaV4.current,
-            to: WorkflowApplicationRequestEnvelopeSchemaV4.legacy
+        let legacy = try legacyApplicationRequestDocument(
+            from: current,
+            envelopeSchemaVersion:
+                WorkflowApplicationRequestEnvelopeSchemaV4.legacy
         )
         try legacy.write(to: documentURL, options: .atomic)
 
@@ -189,6 +286,156 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
             WorkflowApplicationRequestEnvelopeSchemaV4.current
         )
         XCTAssertEqual(migrated, current)
+    }
+
+    func testVerifiedLegacySourceSnapshotRequiresReenqueueBeforeDispatch()
+        async throws
+    {
+        let fixture = try makeFixture(inputFileName: "source.mov")
+        let resolver = WorkflowApplicationBookmarkResolverStubV4()
+        let first = try makeQueue(fixture: fixture, resolver: resolver)
+        let requested = request(fixture: fixture)
+        let binding = try preparedBinding()
+        let receipt = try await first.enqueue(
+            request: requested,
+            preparedPlanBinding: binding
+        )
+        let jobID = receipt.specification.jobID
+        let documentURL = await first.requestDocumentURL(jobID: jobID)
+        let current = try Data(contentsOf: documentURL)
+        XCTAssertEqual(
+            try canonicalSourceFileName(in: current),
+            "source.mov"
+        )
+
+        // Reproduce the authenticated deployed v2 shape: the snapshot uses
+        // the fixed legacy basename, while no original basename was recorded.
+        let legacy = try legacyApplicationRequestDocument(
+            from: current,
+            envelopeSchemaVersion:
+                WorkflowApplicationRequestEnvelopeSchemaV4
+                    .legacyWithPreparedPlanBinding
+        )
+        try legacy.write(to: documentURL, options: .atomic)
+
+        let relaunched = try makeQueue(
+            fixture: fixture,
+            resolver: resolver,
+            workerID: "application-worker-legacy-source-migration"
+        )
+        let beforeDispatch = try await relaunched.queueSnapshot()
+        XCTAssertEqual(beforeDispatch.items.count, 1)
+        XCTAssertEqual(beforeDispatch.items[0].jobID, jobID)
+        XCTAssertEqual(beforeDispatch.items[0].lifecycle, .queued)
+        XCTAssertEqual(
+            beforeDispatch.items[0].requestRecordStatus,
+            .legacySourceSnapshotRequiresReenqueue
+        )
+        XCTAssertEqual(
+            beforeDispatch.items[0].request?.targetWidth,
+            requested.targetWidth
+        )
+        XCTAssertEqual(
+            beforeDispatch.items[0].request?.targetHeight,
+            requested.targetHeight
+        )
+        XCTAssertEqual(
+            beforeDispatch.items[0].request?.outputCodec,
+            requested.outputCodec
+        )
+        XCTAssertEqual(
+            beforeDispatch.items[0].request?.preserveAudio,
+            requested.preserveAudio
+        )
+        XCTAssertEqual(
+            beforeDispatch.items[0].request?.overwriteExistingFile,
+            requested.overwriteExistingFile
+        )
+
+        let migrated = try Data(contentsOf: documentURL)
+        XCTAssertEqual(
+            try JSONDecoder().decode(
+                WorkflowSchemaVersionProbeV4.self,
+                from: migrated
+            ).schemaVersion,
+            WorkflowApplicationRequestEnvelopeSchemaV4.current
+        )
+        XCTAssertNil(try canonicalSourceFileName(in: migrated))
+
+        let activation = await relaunched.activate(jobID: jobID)
+        guard case let .blocked(reason) = activation else {
+            return XCTFail(
+                "An ambiguous legacy basename must require a fresh enqueue"
+            )
+        }
+        XCTAssertEqual(
+            reason,
+            .legacySourceSnapshotRequiresReenqueue(
+                snapshotFileName: "source.mov"
+            )
+        )
+
+        do {
+            _ = try await relaunched.claimNextApplicationJob(
+                cycleID: WorkflowDispatchCycleIDV4(
+                    "legacy-source-migration-cycle"
+                )
+            )
+            XCTFail("The legacy job must be failed before dispatcher claim")
+        } catch let error as WorkflowApplicationQueueErrorV4 {
+            XCTAssertEqual(
+                error,
+                .legacySourceSnapshotRequiresReenqueue(
+                    jobID: jobID,
+                    snapshotFileName: "source.mov"
+                )
+            )
+            XCTAssertTrue(
+                error.localizedDescription.contains(
+                    "Re-enqueue the original source"
+                )
+            )
+            XCTAssertTrue(
+                error.localizedDescription.contains(
+                    "none of its checkpoints will be reused"
+                )
+            )
+        }
+
+        let afterDispatch = try await relaunched.queueSnapshot()
+        XCTAssertEqual(afterDispatch.items.count, 1)
+        XCTAssertEqual(afterDispatch.items[0].lifecycle, .failed)
+        XCTAssertNil(afterDispatch.items[0].queueOrdinal)
+        XCTAssertEqual(
+            afterDispatch.items[0].requestRecordStatus,
+            .legacySourceSnapshotRequiresReenqueue
+        )
+        let snapshotURL = fixture.storeURL
+            .appendingPathComponent("jobs", isDirectory: true)
+            .appendingPathComponent(jobID.rawValue, isDirectory: true)
+            .appendingPathComponent("source-snapshot-v4", isDirectory: true)
+            .appendingPathComponent("source.mov", isDirectory: false)
+        XCTAssertEqual(
+            try Data(contentsOf: snapshotURL),
+            Data("source-media".utf8)
+        )
+        let incompatibleCheckpoint = try await relaunched
+            .compatibleApplicationCheckpoint(
+                jobID: jobID,
+                outputContractID: binding.outputContractID,
+                sourceSnapshotIdentityID: nil
+            )
+        XCTAssertNil(
+            incompatibleCheckpoint
+        )
+        let retry = try await relaunched.claimNextApplicationJob(
+            cycleID: WorkflowDispatchCycleIDV4(
+                "legacy-source-migration-retry-cycle"
+            )
+        )
+        guard case .noEligibleJob = retry else {
+            return XCTFail("A failed legacy job must never be dispatchable")
+        }
     }
 
     func testBookmarkDenialAndOriginalPathReplacementUsesAdmissionSnapshot()
@@ -1211,7 +1458,9 @@ private extension WorkflowApplicationQueueV4Tests {
         let outputURL: URL
     }
 
-    func makeFixture() throws -> Fixture {
+    func makeFixture(
+        inputFileName: String = "original-selected-source.mov"
+    ) throws -> Fixture {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(
             "mirmir-workflow-application-tests-\(UUID().uuidString)",
             isDirectory: true
@@ -1231,7 +1480,7 @@ private extension WorkflowApplicationQueueV4Tests {
             at: output,
             withIntermediateDirectories: true
         )
-        let input = selected.appendingPathComponent("source.mov")
+        let input = selected.appendingPathComponent(inputFileName)
         try Data("source-media".utf8).write(to: input)
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
         return Fixture(
@@ -2238,25 +2487,41 @@ private func workflowApplicationVideoInfo(url: URL) -> VideoInfo {
 }
 
 private enum WorkflowApplicationSchemaFixtureErrorV4: Error {
-    case topLevelSchemaNotFound
+    case invalidRequestDocument
 }
 
-private func replacingTopLevelSchemaVersion(
-    in data: Data,
-    from oldVersion: UInt16,
-    to newVersion: UInt16
+private func legacyApplicationRequestDocument(
+    from data: Data,
+    envelopeSchemaVersion: UInt16
 ) throws -> Data {
-    guard var text = String(data: data, encoding: .utf8),
-          let range = text.range(
-              of: "\"schemaVersion\":\(oldVersion)",
-              options: .backwards
-          ),
-          text[range.upperBound...] == "}" else {
-        throw WorkflowApplicationSchemaFixtureErrorV4.topLevelSchemaNotFound
+    guard var document = try JSONSerialization.jsonObject(with: data)
+            as? [String: Any],
+          var body = document["body"] as? [String: Any] else {
+        throw WorkflowApplicationSchemaFixtureErrorV4.invalidRequestDocument
     }
-    text.replaceSubrange(
-        range,
-        with: "\"schemaVersion\":\(newVersion)"
+    body["schemaVersion"] = 2
+    body.removeValue(forKey: "canonicalSourceFileName")
+    let canonicalBody = try JSONSerialization.data(
+        withJSONObject: body,
+        options: [.sortedKeys, .withoutEscapingSlashes]
     )
-    return Data(text.utf8)
+    document["schemaVersion"] = envelopeSchemaVersion
+    document["bodyHash"] = WorkflowV4Validation.domainSeparatedSHA256(
+        domain: "Mirmir.WorkflowApplication.RequestDocument.v1\u{0}",
+        data: canonicalBody
+    )
+    document["body"] = body
+    return try JSONSerialization.data(
+        withJSONObject: document,
+        options: [.sortedKeys, .withoutEscapingSlashes]
+    )
+}
+
+private func canonicalSourceFileName(in data: Data) throws -> String? {
+    guard let document = try JSONSerialization.jsonObject(with: data)
+            as? [String: Any],
+          let body = document["body"] as? [String: Any] else {
+        throw WorkflowApplicationSchemaFixtureErrorV4.invalidRequestDocument
+    }
+    return body["canonicalSourceFileName"] as? String
 }

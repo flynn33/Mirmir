@@ -39,7 +39,8 @@ typealias WorkflowApplicationPublicationReceiptHashV4 =
 
 enum WorkflowApplicationRequestEnvelopeSchemaV4 {
     static let legacy: UInt16 = 1
-    static let current: UInt16 = 2
+    static let legacyWithPreparedPlanBinding: UInt16 = 2
+    static let current: UInt16 = 3
 }
 
 enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
@@ -65,6 +66,10 @@ enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
     case requestDocumentBindingMismatch(WorkflowJobID)
     case requestDocumentConflict(WorkflowJobID)
     case sourceSnapshotInvalid(WorkflowJobID)
+    case legacySourceSnapshotRequiresReenqueue(
+        jobID: WorkflowJobID,
+        snapshotFileName: String
+    )
     case sourceSnapshotFilesystemFailure(
         operation: String,
         path: String,
@@ -123,6 +128,11 @@ enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
             "A different durable request document already exists for \(jobID)."
         case .sourceSnapshotInvalid(let jobID):
             "The private source snapshot for \(jobID) is missing, changed, or unsafe."
+        case let .legacySourceSnapshotRequiresReenqueue(
+            jobID,
+            snapshotFileName
+        ):
+            "The verified durable job \(jobID) uses legacy source snapshot \(snapshotFileName), which does not authenticate the original source filename. Re-enqueue the original source as a new request; this job was failed before dispatch and none of its checkpoints will be reused."
         case let .sourceSnapshotFilesystemFailure(operation, path, code):
             "The private source snapshot operation \(operation) failed for \(path) with errno \(code)."
         case .dispatchJobMismatch(let expected, let actual):
@@ -787,7 +797,6 @@ struct WorkflowApplicationSourceSnapshotBindingV4:
         guard !relativePath.isEmpty,
               relativePath.utf8.count <= 1_024,
               !relativePath.hasPrefix("/"),
-              !relativePath.contains("\\"),
               !relativePath.split(separator: "/").contains(".."),
               byteCount > 0 else {
             throw WorkflowDomainValidationError.invalidIdentifier(relativePath)
@@ -878,12 +887,17 @@ private struct WorkflowApplicationRequestBodyV4:
     Equatable,
     Sendable
 {
-    static let currentSchemaVersion: UInt16 = 2
+    static let currentSchemaVersion: UInt16 = 3
 
     let schemaVersion: UInt16
     let specification: WorkflowJobSpecification
     let cacheBookmark: WorkflowBookmarkReference
     let sourceSnapshot: WorkflowApplicationSourceSnapshotBindingV4
+    /// The exact source basename used while preparing the filename-sensitive
+    /// source/media/plan binding. `nil` is accepted only when atomically
+    /// migrating a deployed legacy `source[.<ext>]` snapshot whose original
+    /// basename was never persisted and therefore cannot be reconstructed.
+    let canonicalSourceFileName: String?
     let preparedPlanBinding: WorkflowVerifiedPreparedPlanBindingV4
     let targetWidth: Int
     let targetHeight: Int
@@ -895,6 +909,7 @@ private struct WorkflowApplicationRequestBodyV4:
         specification: WorkflowJobSpecification,
         cacheBookmark: WorkflowBookmarkReference,
         sourceSnapshot: WorkflowApplicationSourceSnapshotBindingV4,
+        canonicalSourceFileName: String?,
         preparedPlanBinding: WorkflowVerifiedPreparedPlanBindingV4,
         targetWidth: Int,
         targetHeight: Int,
@@ -906,6 +921,7 @@ private struct WorkflowApplicationRequestBodyV4:
         self.specification = specification
         self.cacheBookmark = cacheBookmark
         self.sourceSnapshot = sourceSnapshot
+        self.canonicalSourceFileName = canonicalSourceFileName
         self.preparedPlanBinding = preparedPlanBinding
         self.targetWidth = targetWidth
         self.targetHeight = targetHeight
@@ -919,6 +935,7 @@ private struct WorkflowApplicationRequestBodyV4:
         case specification
         case cacheBookmark
         case sourceSnapshot
+        case canonicalSourceFileName
         case preparedPlanBinding
         case targetWidth
         case targetHeight
@@ -953,6 +970,10 @@ private struct WorkflowApplicationRequestBodyV4:
                 WorkflowApplicationSourceSnapshotBindingV4.self,
                 forKey: .sourceSnapshot
             ),
+            canonicalSourceFileName: try container.decodeIfPresent(
+                String.self,
+                forKey: .canonicalSourceFileName
+            ),
             preparedPlanBinding: try container.decode(
                 WorkflowVerifiedPreparedPlanBindingV4.self,
                 forKey: .preparedPlanBinding
@@ -971,6 +992,84 @@ private struct WorkflowApplicationRequestBodyV4:
                 Bool.self,
                 forKey: .overwriteExistingFile
             )
+        )
+    }
+}
+
+/// Deployed request-body schema used before the source snapshot preserved and
+/// authenticated the filename that participated in deterministic planning.
+/// This type exists only to verify old bytes before an atomic v3 migration.
+private struct WorkflowApplicationRequestBodyV2:
+    Codable,
+    Equatable,
+    Sendable
+{
+    static let schemaVersionValue: UInt16 = 2
+
+    let schemaVersion: UInt16
+    let specification: WorkflowJobSpecification
+    let cacheBookmark: WorkflowBookmarkReference
+    let sourceSnapshot: WorkflowApplicationSourceSnapshotBindingV4
+    let preparedPlanBinding: WorkflowVerifiedPreparedPlanBindingV4
+    let targetWidth: Int
+    let targetHeight: Int
+    let outputCodec: OutputCodec
+    let preserveAudio: Bool
+    let overwriteExistingFile: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case specification
+        case cacheBookmark
+        case sourceSnapshot
+        case preparedPlanBinding
+        case targetWidth
+        case targetHeight
+        case outputCodec
+        case preserveAudio
+        case overwriteExistingFile
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let schemaVersion = try container.decode(
+            UInt16.self,
+            forKey: .schemaVersion
+        )
+        guard schemaVersion == Self.schemaVersionValue else {
+            throw WorkflowDomainValidationError.unsupportedSchemaVersion(
+                type: "WorkflowApplicationRequestBodyV2",
+                actual: schemaVersion,
+                current: Self.schemaVersionValue
+            )
+        }
+        self.schemaVersion = schemaVersion
+        specification = try container.decode(
+            WorkflowJobSpecification.self,
+            forKey: .specification
+        )
+        cacheBookmark = try container.decode(
+            WorkflowBookmarkReference.self,
+            forKey: .cacheBookmark
+        )
+        sourceSnapshot = try container.decode(
+            WorkflowApplicationSourceSnapshotBindingV4.self,
+            forKey: .sourceSnapshot
+        )
+        preparedPlanBinding = try container.decode(
+            WorkflowVerifiedPreparedPlanBindingV4.self,
+            forKey: .preparedPlanBinding
+        )
+        targetWidth = try container.decode(Int.self, forKey: .targetWidth)
+        targetHeight = try container.decode(Int.self, forKey: .targetHeight)
+        outputCodec = try container.decode(
+            OutputCodec.self,
+            forKey: .outputCodec
+        )
+        preserveAudio = try container.decode(Bool.self, forKey: .preserveAudio)
+        overwriteExistingFile = try container.decode(
+            Bool.self,
+            forKey: .overwriteExistingFile
         )
     }
 }
@@ -997,9 +1096,9 @@ private struct WorkflowApplicationRequestDocumentV4:
     }
 }
 
-/// Canonical deployed request envelope accepted only as an atomic migration
-/// input.  Its hashed body is immutable and is revalidated before the v2
-/// envelope replaces it.
+/// Canonical deployed request envelopes accepted only as atomic migration
+/// input. Their hashed bodies are revalidated before the v3 envelope replaces
+/// them.
 private struct WorkflowApplicationRequestDocumentV1:
     Codable,
     Equatable,
@@ -1010,11 +1109,11 @@ private struct WorkflowApplicationRequestDocumentV1:
 
     let schemaVersion: UInt16
     let bodyHash: WorkflowApplicationRequestDocumentHashV4
-    fileprivate let body: WorkflowApplicationRequestBodyV4
+    fileprivate let body: WorkflowApplicationRequestBodyV2
 
     fileprivate init(
         bodyHash: WorkflowApplicationRequestDocumentHashV4,
-        body: WorkflowApplicationRequestBodyV4
+        body: WorkflowApplicationRequestBodyV2
     ) {
         schemaVersion = Self.schemaVersionValue
         self.bodyHash = bodyHash
@@ -1046,7 +1145,61 @@ private struct WorkflowApplicationRequestDocumentV1:
                 forKey: .bodyHash
             ),
             body: try container.decode(
-                WorkflowApplicationRequestBodyV4.self,
+                WorkflowApplicationRequestBodyV2.self,
+                forKey: .body
+            )
+        )
+    }
+}
+
+private struct WorkflowApplicationRequestDocumentV2:
+    Codable,
+    Equatable,
+    Sendable
+{
+    static let schemaVersionValue =
+        WorkflowApplicationRequestEnvelopeSchemaV4
+            .legacyWithPreparedPlanBinding
+
+    let schemaVersion: UInt16
+    let bodyHash: WorkflowApplicationRequestDocumentHashV4
+    fileprivate let body: WorkflowApplicationRequestBodyV2
+
+    fileprivate init(
+        bodyHash: WorkflowApplicationRequestDocumentHashV4,
+        body: WorkflowApplicationRequestBodyV2
+    ) {
+        schemaVersion = Self.schemaVersionValue
+        self.bodyHash = bodyHash
+        self.body = body
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case bodyHash
+        case body
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let schemaVersion = try container.decode(
+            UInt16.self,
+            forKey: .schemaVersion
+        )
+        guard schemaVersion == Self.schemaVersionValue else {
+            throw WorkflowDomainValidationError.unsupportedSchemaVersion(
+                type: "WorkflowApplicationRequestDocumentV2",
+                actual: schemaVersion,
+                current: Self.schemaVersionValue
+            )
+        }
+        self.init(
+            bodyHash: try container.decode(
+                WorkflowApplicationRequestDocumentHashV4.self,
+                forKey: .bodyHash
+            ),
+            body: try container.decode(
+                WorkflowApplicationRequestBodyV2.self,
                 forKey: .body
             )
         )
@@ -1065,6 +1218,8 @@ enum WorkflowApplicationRequestRecordStatusV4:
     case missing
     case corrupt
     case bindingMismatch = "binding_mismatch"
+    case legacySourceSnapshotRequiresReenqueue =
+        "legacy_source_snapshot_requires_reenqueue"
 }
 
 struct WorkflowApplicationRequestSummaryV4:
@@ -1128,6 +1283,7 @@ enum WorkflowApplicationActivationFailureV4: Equatable, Sendable {
     case requestDocumentCorrupt
     case requestDocumentBindingMismatch
     case sourceSnapshotInvalid
+    case legacySourceSnapshotRequiresReenqueue(snapshotFileName: String)
     case bookmarkBlocked([WorkflowBookmarkActivationFailureV4])
 }
 
@@ -1402,6 +1558,7 @@ actor WorkflowApplicationQueueV4 {
                 specification: specification,
                 cacheBookmark: cacheBookmark,
                 sourceSnapshot: snapshot.binding,
+                canonicalSourceFileName: snapshot.url.lastPathComponent,
                 preparedPlanBinding: binding,
                 targetWidth: request.targetWidth,
                 targetHeight: request.targetHeight,
@@ -1620,6 +1777,15 @@ actor WorkflowApplicationQueueV4 {
                     jobID: jobID,
                     binding: body.sourceSnapshot
                 )
+                if Self.requiresLegacySourceSnapshotReenqueue(body) {
+                    let snapshotFileName = input.lastPathComponent
+                    accessSet.close()
+                    return .blocked(
+                        .legacySourceSnapshotRequiresReenqueue(
+                            snapshotFileName: snapshotFileName
+                        )
+                    )
+                }
                 let snapshotBinding = body.sourceSnapshot
                 let snapshotRoot = rootURL
                 return .active(
@@ -1790,6 +1956,13 @@ extension WorkflowApplicationQueueV4 {
     func claimNextApplicationJob(
         cycleID: WorkflowDispatchCycleIDV4
     ) async throws -> WorkflowQueueDispatchResultV4 {
+        if let incompatible = try await failVerifiedLegacySourceSnapshotJobs() {
+            throw WorkflowApplicationQueueErrorV4
+                .legacySourceSnapshotRequiresReenqueue(
+                    jobID: incompatible.jobID,
+                    snapshotFileName: incompatible.snapshotFileName
+                )
+        }
         let state = try await coordinator.open().state
         let persisted = try loadPriorities()
         let priorities = try state.queueOrder.map { jobID in
@@ -1802,6 +1975,77 @@ extension WorkflowApplicationQueueV4 {
             cycleID: cycleID,
             priorities: priorities
         )
+    }
+
+    private struct LegacySourceSnapshotReenqueueV4: Sendable {
+        let jobID: WorkflowJobID
+        let snapshotFileName: String
+    }
+
+    /// A deployed request that records only `source[.<ext>]` cannot prove the
+    /// basename used by filename-sensitive deterministic planning. Verify its
+    /// private bytes before recording the terminal disposition, then keep the
+    /// snapshot for an explicit fresh enqueue. The transition is published
+    /// before the dispatcher sees candidates, so this process never claims or
+    /// resumes an incompatible job and no checkpoint can be reused.
+    private func failVerifiedLegacySourceSnapshotJobs() async throws
+        -> LegacySourceSnapshotReenqueueV4?
+    {
+        let state = try await coordinator.open().state
+        var firstFailure: LegacySourceSnapshotReenqueueV4?
+        for jobID in state.queueOrder {
+            guard let job = state.job(id: jobID),
+                  job.lifecycle == .queued,
+                  let document = try? loadVerifiedRequestDocument(
+                    specification: job.specification
+                  ),
+                  Self.requiresLegacySourceSnapshotReenqueue(document.body)
+            else { continue }
+
+            let activation = await activate(jobID: jobID)
+            guard case let .blocked(
+                .legacySourceSnapshotRequiresReenqueue(snapshotFileName)
+            ) = activation else {
+                // Bookmark or byte verification failures retain their
+                // existing containment path and are never mislabeled as a
+                // successful compatibility verification.
+                continue
+            }
+
+            let current = try await coordinator.open().state
+            guard let currentJob = current.job(id: jobID),
+                  currentJob.lifecycle == .queued,
+                  currentJob.specification == job.specification else {
+                continue
+            }
+            let token = try Self.jobToken(from: jobID)
+            _ = try await coordinator.append(
+                WorkflowEventDraft(
+                    eventID: try WorkflowEventID(
+                        "legacy-source-reenqueue-event-\(token)"
+                    ),
+                    commandID: try WorkflowCommandID(
+                        "legacy-source-reenqueue-command-\(token)"
+                    ),
+                    scope: .job(jobID),
+                    jobBinding: currentJob.specification.binding,
+                    attemptID: nil,
+                    event: .lifecycleTransition(
+                        WorkflowLifecycleTransition(
+                            from: .queued,
+                            to: .failed
+                        )
+                    )
+                )
+            )
+            if firstFailure == nil {
+                firstFailure = LegacySourceSnapshotReenqueueV4(
+                    jobID: jobID,
+                    snapshotFileName: snapshotFileName
+                )
+            }
+        }
+        return firstFailure
     }
 
     func setApplicationJobPriority(
@@ -2718,14 +2962,11 @@ private extension WorkflowApplicationQueueV4 {
         try fileSystem.ensureDirectory(jobsURL)
         try fileSystem.ensureDirectory(jobURL)
 
-        let extensionValue = sourceURL.pathExtension.lowercased()
-        let safeExtension = extensionValue.utf8.count <= 16
-            && extensionValue.utf8.allSatisfy {
-                (0x30...0x39).contains($0) || (0x61...0x7a).contains($0)
-            }
-        let fileName = safeExtension && !extensionValue.isEmpty
-            ? "source.\(extensionValue)"
-            : "source"
+        let fileName = sourceURL.lastPathComponent
+        guard Self.isSafeApplicationSourceSnapshotFileName(fileName) else {
+            throw WorkflowApplicationQueueErrorV4
+                .sourceSnapshotInvalid(jobID)
+        }
         let finalDirectory = jobURL.appendingPathComponent(
             Self.sourceSnapshotDirectoryName,
             isDirectory: true
@@ -3046,13 +3287,59 @@ private extension WorkflowApplicationQueueV4 {
               components[2] == Substring(Self.sourceSnapshotDirectoryName)
         else { return false }
         let name = String(components[3])
-        guard name == "source" || name.hasPrefix("source.") else {
+        return isSafeApplicationSourceSnapshotFileName(name)
+    }
+
+    nonisolated static func sourceSnapshotFileName(
+        _ binding: WorkflowApplicationSourceSnapshotBindingV4
+    ) -> String? {
+        let components = binding.relativePath.split(
+            separator: "/",
+            omittingEmptySubsequences: false
+        )
+        guard components.count == 4 else { return nil }
+        let name = String(components[3])
+        return isSafeApplicationSourceSnapshotFileName(name) ? name : nil
+    }
+
+    /// Exact basename grammar emitted by the deployed pre-fix snapshot
+    /// writer. A missing canonical name is migration-incompatible only for
+    /// this grammar; post-fix request bodies with an authenticated original
+    /// basename are unaffected even when that basename itself is `source.mov`.
+    nonisolated static func isLegacyApplicationSourceSnapshotFileName(
+        _ name: String
+    ) -> Bool {
+        if name == "source" { return true }
+        guard name.hasPrefix("source.") else { return false }
+        let suffix = name.dropFirst(7)
+        return !suffix.isEmpty
+            && suffix.utf8.count <= 16
+            && suffix.utf8.allSatisfy {
+                (0x30...0x39).contains($0) || (0x61...0x7a).contains($0)
+            }
+    }
+
+    nonisolated static func requiresLegacySourceSnapshotReenqueue(
+        _ body: WorkflowApplicationRequestBodyV4
+    ) -> Bool {
+        guard body.canonicalSourceFileName == nil,
+              let snapshotFileName = sourceSnapshotFileName(
+                body.sourceSnapshot
+              ) else {
             return false
         }
-        let suffix = name == "source" ? "" : String(name.dropFirst(7))
-        return suffix.utf8.count <= 16 && suffix.utf8.allSatisfy {
-            (0x30...0x39).contains($0) || (0x61...0x7a).contains($0)
-        }
+        return isLegacyApplicationSourceSnapshotFileName(snapshotFileName)
+    }
+
+    nonisolated static func isSafeApplicationSourceSnapshotFileName(
+        _ name: String
+    ) -> Bool {
+        !name.isEmpty
+            && name != "."
+            && name != ".."
+            && name.utf8.count <= Int(NAME_MAX)
+            && !name.utf8.contains(0)
+            && !name.contains("/")
     }
 
     func removeApplicationSourceSnapshot(
@@ -3449,6 +3736,51 @@ private extension WorkflowApplicationQueueV4 {
         )
     }
 
+    func verifyLegacyRequestBodyHash(
+        _ body: WorkflowApplicationRequestBodyV2,
+        expectedHash: WorkflowApplicationRequestDocumentHashV4,
+        jobID: WorkflowJobID
+    ) throws {
+        let actual = try WorkflowApplicationRequestDocumentHashV4(
+            WorkflowV4Validation.domainSeparatedSHA256(
+                domain: "Mirmir.WorkflowApplication.RequestDocument.v1\u{0}",
+                data: codec.canonicalData(body)
+            )
+        )
+        guard actual == expectedHash else {
+            throw WorkflowApplicationQueueErrorV4
+                .requestDocumentCorrupt(jobID)
+        }
+    }
+
+    func migrateLegacyRequestBody(
+        _ legacy: WorkflowApplicationRequestBodyV2,
+        jobID: WorkflowJobID
+    ) throws -> WorkflowApplicationRequestBodyV4 {
+        guard let snapshotFileName = Self.sourceSnapshotFileName(
+            legacy.sourceSnapshot
+        ) else {
+            throw WorkflowApplicationQueueErrorV4
+                .requestDocumentBindingMismatch(jobID)
+        }
+        let canonicalSourceFileName =
+            Self.isLegacyApplicationSourceSnapshotFileName(snapshotFileName)
+            ? nil
+            : snapshotFileName
+        return WorkflowApplicationRequestBodyV4(
+            specification: legacy.specification,
+            cacheBookmark: legacy.cacheBookmark,
+            sourceSnapshot: legacy.sourceSnapshot,
+            canonicalSourceFileName: canonicalSourceFileName,
+            preparedPlanBinding: legacy.preparedPlanBinding,
+            targetWidth: legacy.targetWidth,
+            targetHeight: legacy.targetHeight,
+            outputCodec: legacy.outputCodec,
+            preserveAudio: legacy.preserveAudio,
+            overwriteExistingFile: legacy.overwriteExistingFile
+        )
+    }
+
     func verifyRequestDocument(
         _ document: WorkflowApplicationRequestDocumentV4,
         specification: WorkflowJobSpecification
@@ -3470,7 +3802,15 @@ private extension WorkflowApplicationQueueV4 {
         guard body.specification == specification,
               body.specification.source.identityID == binding.sourceIdentityID,
               body.specification.output.contractID == binding.outputContractID,
-              body.specification.runtimeBinding == binding.runtimeBinding else {
+              body.specification.runtimeBinding == binding.runtimeBinding,
+              let snapshotFileName = Self.sourceSnapshotFileName(
+                body.sourceSnapshot
+              ),
+              body.canonicalSourceFileName == nil
+                ? Self.isLegacyApplicationSourceSnapshotFileName(
+                    snapshotFileName
+                )
+                : body.canonicalSourceFileName == snapshotFileName else {
             throw WorkflowApplicationQueueErrorV4
                 .requestDocumentBindingMismatch(specification.jobID)
         }
@@ -3619,17 +3959,46 @@ private extension WorkflowApplicationQueueV4 {
                     WorkflowApplicationRequestDocumentV4.self,
                     from: data
                 )
+            case WorkflowApplicationRequestDocumentV2.schemaVersionValue:
+                let legacy = try codec.decodeCanonical(
+                    WorkflowApplicationRequestDocumentV2.self,
+                    from: data
+                )
+                try verifyLegacyRequestBodyHash(
+                    legacy.body,
+                    expectedHash: legacy.bodyHash,
+                    jobID: specification.jobID
+                )
+                document = try makeRequestDocument(
+                    migrateLegacyRequestBody(
+                        legacy.body,
+                        jobID: specification.jobID
+                    )
+                )
+                try verifyRequestDocument(
+                    document,
+                    specification: specification
+                )
+                try transaction.replaceAtomically(
+                    codec.canonicalData(document),
+                    at: url
+                )
             case WorkflowApplicationRequestDocumentV1.schemaVersionValue:
                 let legacy = try codec.decodeCanonical(
                     WorkflowApplicationRequestDocumentV1.self,
                     from: data
                 )
-                let expected = try makeRequestDocument(legacy.body)
-                guard expected.bodyHash == legacy.bodyHash else {
-                    throw WorkflowApplicationQueueErrorV4
-                        .requestDocumentCorrupt(specification.jobID)
-                }
-                document = expected
+                try verifyLegacyRequestBodyHash(
+                    legacy.body,
+                    expectedHash: legacy.bodyHash,
+                    jobID: specification.jobID
+                )
+                document = try makeRequestDocument(
+                    migrateLegacyRequestBody(
+                        legacy.body,
+                        jobID: specification.jobID
+                    )
+                )
                 try verifyRequestDocument(
                     document,
                     specification: specification
@@ -3673,7 +4042,10 @@ private extension WorkflowApplicationQueueV4 {
                 queueOrdinal: queueOrdinal,
                 priority: priority,
                 binding: job.specification.binding,
-                requestRecordStatus: .ready,
+                requestRecordStatus:
+                    Self.requiresLegacySourceSnapshotReenqueue(body)
+                    ? .legacySourceSnapshotRequiresReenqueue
+                    : .ready,
                 request: WorkflowApplicationRequestSummaryV4(
                     requestID: job.specification.requestID,
                     outputFileName: job.specification.output.fileName,

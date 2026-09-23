@@ -270,10 +270,16 @@ struct WorkflowFoundationSecurityScopedBookmarkResolverV4:
 {
   func makeBookmark(
     for url: URL,
-    role _: WorkflowScopedResourceRoleV4
+    role: WorkflowScopedResourceRoleV4
   ) throws -> Data {
-    try url.bookmarkData(
-      options: [.withSecurityScope],
+    // Only the user-selected output directory needs durable sandbox authority.
+    // Input snapshots and the cache live inside Mirmir's private container and
+    // are independently rebound to their authenticated filesystem identities.
+    let options: URL.BookmarkCreationOptions = role == .outputDirectory
+      ? [.withSecurityScope]
+      : [.withoutImplicitSecurityScope]
+    return try url.bookmarkData(
+      options: options,
       includingResourceValuesForKeys: nil,
       relativeTo: nil
     )
@@ -281,20 +287,33 @@ struct WorkflowFoundationSecurityScopedBookmarkResolverV4:
 
   func resolveBookmark(
     _ data: Data,
-    role _: WorkflowScopedResourceRoleV4
+    role: WorkflowScopedResourceRoleV4
   ) throws -> WorkflowResolvedScopedResourceV4 {
     var stale = false
+    let usesSecurityScope = role == .outputDirectory
+    let options: URL.BookmarkResolutionOptions = usesSecurityScope
+      ? [.withSecurityScope, .withoutUI]
+      : [.withoutImplicitStartAccessing, .withoutUI]
     let url = try URL(
       resolvingBookmarkData: data,
-      options: [.withSecurityScope, .withoutUI],
+      options: options,
       relativeTo: nil,
       bookmarkDataIsStale: &stale
     )
+    let startAccessing: @Sendable () -> Bool
+    let stopAccessing: @Sendable () -> Void
+    if usesSecurityScope {
+      startAccessing = { url.startAccessingSecurityScopedResource() }
+      stopAccessing = { url.stopAccessingSecurityScopedResource() }
+    } else {
+      startAccessing = { true }
+      stopAccessing = {}
+    }
     return WorkflowResolvedScopedResourceV4(
       url: url,
       isStale: stale,
-      startAccessing: { url.startAccessingSecurityScopedResource() },
-      stopAccessing: { url.stopAccessingSecurityScopedResource() }
+      startAccessing: startAccessing,
+      stopAccessing: stopAccessing
     )
   }
 }

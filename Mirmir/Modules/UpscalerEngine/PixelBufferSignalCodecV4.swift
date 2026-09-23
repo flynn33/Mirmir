@@ -416,13 +416,12 @@ enum PixelBufferSignalCodecV4 {
                             stored = UInt16(row[offset])
                                 | UInt16(row[offset + 1]) << 8
                         }
-                        samples.append(
-                            try layout.validateStoredCode(
-                                stored,
-                                plane: planeIndex,
-                                component: component
-                            )
-                        )
+                        samples.append(try layout.signalCode(
+                            fromStoredCode: stored,
+                            plane: planeIndex,
+                            component: component,
+                            policy: .clampToNominalRange
+                        ))
                     }
                 }
             }
@@ -526,8 +525,10 @@ enum PixelBufferSignalCodecV4 {
     }
 
     /// Decodes only the visible luma samples into reusable tight storage. The
-    /// complete active luma plane is range/alignment validated before the
-    /// workspace is changed, and the source buffer is never mutated.
+    /// complete active luma plane is storage/alignment validated before the
+    /// workspace is changed, and the source buffer is never mutated. Legal
+    /// video-range footroom/headroom is saturated only at this bounded ASH
+    /// analysis boundary; the spatial scaler still consumes the source codes.
     static func readLuma(
         _ buffer: CVPixelBuffer,
         storage: PixelStorageV4,
@@ -564,10 +565,11 @@ enum PixelBufferSignalCodecV4 {
                     element: x,
                     bytesPerComponent: planeLayout.bytesPerComponent
                 )
-                _ = try layout.validateStoredCode(
-                    stored,
+                _ = try layout.signalCode(
+                    fromStoredCode: stored,
                     plane: 0,
-                    component: 0
+                    component: 0,
+                    policy: .preserveRepresentableRange
                 )
             }
         }
@@ -583,11 +585,16 @@ enum PixelBufferSignalCodecV4 {
             let row = base.advanced(by: y * stride)
                 .assumingMemoryBound(to: UInt8.self)
             for x in 0..<width {
-                workspace.samples[y * width + x] = storedCode(
+                let signalCode = storedCode(
                     row: row,
                     element: x,
                     bytesPerComponent: planeLayout.bytesPerComponent
                 ) >> UInt16(planeLayout.storedCodeShift)
+                let bounds = planeLayout.signalCodeBounds[0]
+                workspace.samples[y * width + x] = min(
+                    bounds.maximum,
+                    max(bounds.minimum, signalCode)
+                )
             }
         }
         workspace.finishWrite()
@@ -635,14 +642,15 @@ enum PixelBufferSignalCodecV4 {
             let row = base.advanced(by: try checkedProduct(y, stride))
                 .assumingMemoryBound(to: UInt8.self)
             for x in 0..<width {
-                _ = try layout.validateStoredCode(
-                    storedCode(
+                _ = try layout.signalCode(
+                    fromStoredCode: storedCode(
                         row: row,
                         element: x,
                         bytesPerComponent: plane.bytesPerComponent
                     ),
                     plane: 0,
-                    component: 0
+                    component: 0,
+                    policy: .preserveRepresentableRange
                 )
             }
         }
@@ -663,11 +671,13 @@ enum PixelBufferSignalCodecV4 {
             sampleAt: { x, y in
                 let row = base.advanced(by: y * stride)
                     .assumingMemoryBound(to: UInt8.self)
-                return storedCode(
+                let signalCode = storedCode(
                     row: row,
                     element: x,
                     bytesPerComponent: plane.bytesPerComponent
                 ) >> UInt16(plane.storedCodeShift)
+                let bounds = plane.signalCodeBounds[0]
+                return min(bounds.maximum, max(bounds.minimum, signalCode))
             }
         )
     }
@@ -836,8 +846,8 @@ enum PixelBufferSignalCodecV4 {
         let lumaStride = CVPixelBufferGetBytesPerRowOfPlane(buffer, 0)
         let chromaStride = CVPixelBufferGetBytesPerRowOfPlane(buffer, 1)
 
-        // Match full-frame decoding's failure contract without retaining its
-        // arrays: scan every visible sample under the same lock.
+        // Match full-frame decoding's storage/alignment contract without
+        // retaining its arrays: scan every visible sample under the same lock.
         for (planeIndex, plane) in layout.planes.enumerated() {
             let planeWidth = try plane.width(forFrameWidth: frameWidth)
             let planeHeight = try plane.height(forFrameHeight: frameHeight)
@@ -853,14 +863,15 @@ enum PixelBufferSignalCodecV4 {
                             try checkedProduct(x, plane.componentsPerElement),
                             component
                         )
-                        _ = try layout.validateStoredCode(
-                            storedCode(
+                        _ = try layout.signalCode(
+                            fromStoredCode: storedCode(
                                 row: row,
                                 element: element,
                                 bytesPerComponent: plane.bytesPerComponent
                             ),
                             plane: planeIndex,
-                            component: component
+                            component: component,
+                            policy: .preserveRepresentableRange
                         )
                     }
                 }
@@ -890,22 +901,34 @@ enum PixelBufferSignalCodecV4 {
                 let sourceX = min(x, frameWidth - 1)
                 let chromaX = min(sourceX / 2, chromaWidth - 1)
                 let index = y * windowWidth + x
-                workspace.samples[index] = storedCode(
+                let lumaSignal = storedCode(
                     row: lumaRow,
                     element: sourceX,
                     bytesPerComponent: luma.bytesPerComponent
                 ) >> UInt16(luma.storedCodeShift)
+                workspace.samples[index] = min(
+                    luma.signalCodeBounds[0].maximum,
+                    max(luma.signalCodeBounds[0].minimum, lumaSignal)
+                )
                 let chromaElement = chromaX * 2
-                workspace.samples[count + index] = storedCode(
+                let cbSignal = storedCode(
                     row: chromaRow,
                     element: chromaElement,
                     bytesPerComponent: chroma.bytesPerComponent
                 ) >> UInt16(chroma.storedCodeShift)
-                workspace.samples[count * 2 + index] = storedCode(
+                workspace.samples[count + index] = min(
+                    chroma.signalCodeBounds[0].maximum,
+                    max(chroma.signalCodeBounds[0].minimum, cbSignal)
+                )
+                let crSignal = storedCode(
                     row: chromaRow,
                     element: chromaElement + 1,
                     bytesPerComponent: chroma.bytesPerComponent
                 ) >> UInt16(chroma.storedCodeShift)
+                workspace.samples[count * 2 + index] = min(
+                    chroma.signalCodeBounds[1].maximum,
+                    max(chroma.signalCodeBounds[1].minimum, crSignal)
+                )
             }
         }
         workspace.finishWrite()

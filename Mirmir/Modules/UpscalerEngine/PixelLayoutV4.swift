@@ -118,6 +118,17 @@ enum PixelElementByteOrderV4: String, Hashable, Sendable {
     case littleEndianUInt16
 }
 
+/// Separates the physical decoded-storage domain from the nominal signal
+/// domain used by bounded ASH state and by encoded output. Video-range pixel
+/// formats can carry representable footroom/headroom codes outside their
+/// nominal endpoints; malformed packed storage (for example, nonzero P010 low
+/// bits) remains invalid under every policy.
+enum PixelStoredCodePolicyV4: Sendable {
+    case requireNominalRange
+    case preserveRepresentableRange
+    case clampToNominalRange
+}
+
 struct PixelCodeBoundsV4: Codable, Equatable, Hashable, Sendable {
     let minimum: UInt16
     let maximum: UInt16
@@ -348,6 +359,24 @@ struct PixelLayoutV4: Equatable, Hashable, Sendable {
         plane planeIndex: Int,
         component componentIndex: Int
     ) throws -> UInt16 {
+        try signalCode(
+            fromStoredCode: value,
+            plane: planeIndex,
+            component: componentIndex,
+            policy: .requireNominalRange
+        )
+    }
+
+    /// Decodes one physically stored component under an explicit range
+    /// policy. `preserveRepresentableRange` is for decoded spatial input;
+    /// `clampToNominalRange` is for bounded analysis/temporal structures; and
+    /// writers continue to use `requireNominalRange`.
+    func signalCode(
+        fromStoredCode value: UInt16,
+        plane planeIndex: Int,
+        component componentIndex: Int,
+        policy: PixelStoredCodePolicyV4
+    ) throws -> UInt16 {
         let plane = try plane(at: planeIndex)
         let bounds = try signalBounds(
             plane: planeIndex,
@@ -365,6 +394,14 @@ struct PixelLayoutV4: Equatable, Hashable, Sendable {
             }
         }
         let signalCode = value >> UInt16(plane.storedCodeShift)
+        switch policy {
+        case .preserveRepresentableRange:
+            return signalCode
+        case .clampToNominalRange:
+            return min(bounds.maximum, max(bounds.minimum, signalCode))
+        case .requireNominalRange:
+            break
+        }
         guard bounds.contains(signalCode) else {
             throw PixelLayoutV4Error.signalCodeOutOfRange(
                 plane: planeIndex,

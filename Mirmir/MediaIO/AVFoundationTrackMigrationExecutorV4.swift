@@ -516,6 +516,15 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                 pipes: pipes,
                 writer: writer
             )
+            writer.movieTimeScale = try Self.exactEditMapMovieTimescale(
+                pipes.map {
+                    (
+                        trackID: $0.trackID,
+                        timeRange: $0.plannedTimeRange,
+                        edits: $0.edits
+                    )
+                }
+            )
             try cancellation.check()
 
             let readers = uniqueReaders(in: pipes)
@@ -530,7 +539,10 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
             }
             writer.startSession(
                 atSourceTime: try sessionStartTime(
-                    plan: request.identifiedPlan.plan
+                    plan: request.identifiedPlan.plan,
+                    processedReplacementMediaStarts: pipes.compactMap(
+                        \.processedReplacementMediaStart
+                    )
                 )
             )
 
@@ -792,8 +804,11 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         let nonVideoHook: AVFoundationNonVideoTrackTranscodeHookV4?
         let nonVideoPresentationEnd: CMTime?
         let passThroughFormatContract: PassThroughFormatContract?
+        let plannedTimeRange: MediaExactTimeRangeV4
         let edits: [MediaTrackEditV4]
         let requiresEditMapRebuild: Bool
+        let replacementPresentationOffset: ExactRationalV4?
+        let processedReplacementMediaStart: ExactRationalV4?
         let sampleStreamTerminalPresentationEnd: CMTime?
         let verifiesEncodedSampleStream: Bool
         let accumulatesSourceStreamDuringDrain: Bool
@@ -1793,7 +1808,9 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             writer.add(writerInput)
             let expectedEdits = planned.expectedOutput?.edits ?? []
             let sampleStreamTerminalPresentationEnd: CMTime?
-            if replacementForTrack != nil {
+            let replacementPresentationOffset: ExactRationalV4?
+            let processedReplacementMediaStart: ExactRationalV4?
+            if let replacementForTrack {
                 let timelineMapping: DeterministicV4PrimaryTimelineMappingV4
                 do {
                     timelineMapping = try .init(plannedPrimary: planned)
@@ -1809,8 +1826,17 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     timelineMapping.mediaEnd,
                     trackID: id
                 )
+                replacementPresentationOffset = try await Self
+                    .replacementPresentationOffset(
+                        track: replacementForTrack.track,
+                        timelineMapping: timelineMapping,
+                        trackID: id
+                    )
+                processedReplacementMediaStart = timelineMapping.mediaRange.start
             } else {
                 sampleStreamTerminalPresentationEnd = nil
+                replacementPresentationOffset = nil
+                processedReplacementMediaStart = nil
             }
             let containsScaledEdit = expectedEdits.contains { edit in
                 guard let source = edit.source else { return false }
@@ -1832,10 +1858,16 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 nonVideoHook: nonVideoHook,
                 nonVideoPresentationEnd: nonVideoPresentationEnd,
                 passThroughFormatContract: passThroughFormatContract,
+                plannedTimeRange: planned.expectedOutput?.timeRange
+                    ?? planned.source.timeRange,
                 edits: expectedEdits,
                 requiresEditMapRebuild: containsScaledEdit
                     || requiresTranscodeEditRebuild
                     || requiresReplacementEditRebuild,
+                replacementPresentationOffset:
+                    replacementPresentationOffset,
+                processedReplacementMediaStart:
+                    processedReplacementMediaStart,
                 sampleStreamTerminalPresentationEnd:
                     sampleStreamTerminalPresentationEnd,
                 verifiesEncodedSampleStream: verifiesEncodedSampleStream,
@@ -1919,6 +1951,22 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             url: url,
             options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
         )
+        let expectedMovieTimescale = try Self.exactEditMapMovieTimescale(
+            pipes.map {
+                (
+                    trackID: $0.trackID,
+                    timeRange: $0.plannedTimeRange,
+                    edits: $0.edits
+                )
+            }
+        )
+        guard movie.timescale == expectedMovieTimescale else {
+            throw AVFoundationTrackMigrationExecutorV4Error
+                .unsupportedTrack(
+                    pipes[0].trackID,
+                    reason: "edit_map_movie_timescale_mismatch"
+                )
+        }
         guard movie.tracks.count == pipes.count else {
             throw AVFoundationTrackMigrationExecutorV4Error
                 .sourceTrackInventoryMismatch
@@ -1943,7 +1991,10 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     track.insertEmptyTimeRange(target)
                 } else if let source = edit.source {
                     guard track.insertMediaTimeRange(
-                        try cmTimeRange(source, trackID: pipe.trackID),
+                        try cmTimeRange(
+                            source,
+                            trackID: pipe.trackID
+                        ),
                         into: target
                     ) else {
                         throw AVFoundationTrackMigrationExecutorV4Error
@@ -1966,6 +2017,100 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 .init(error)
             )
         }
+    }
+
+    static func exactEditMapMovieTimescale(
+        _ requirements: [(
+            trackID: MediaTrackStableIDV4,
+            timeRange: MediaExactTimeRangeV4,
+            edits: [MediaTrackEditV4]
+        )]
+    ) throws -> CMTimeScale {
+        guard !requirements.isEmpty else {
+            throw AVFoundationTrackMigrationExecutorV4Error
+                .sourceTrackInventoryMismatch
+        }
+        var movieTimescale = UInt64(1)
+        for requirement in requirements {
+            // Edit targets use movie time. Edit sources use the track media
+            // timebase and must not constrain the movie-header timescale.
+            var exactRanges = [requirement.timeRange]
+            for edit in requirement.edits {
+                exactRanges.append(edit.target)
+            }
+            for range in exactRanges {
+                guard range.start.denominator <= Int64(Int32.max),
+                      range.duration.denominator <= Int64(Int32.max) else {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .unsupportedTrack(
+                            requirement.trackID,
+                            reason: "edit_map_timescale_not_representable"
+                        )
+                }
+                let resolvedRange = CMTimeRange(
+                    start: CMTime(
+                        value: range.start.numerator,
+                        timescale: CMTimeScale(range.start.denominator)
+                    ),
+                    duration: CMTime(
+                        value: range.duration.numerator,
+                        timescale: CMTimeScale(range.duration.denominator)
+                    )
+                )
+                let end = CMTimeRangeGetEnd(resolvedRange)
+                guard resolvedRange.isValid,
+                      resolvedRange.start.isNumeric,
+                      end.isNumeric,
+                      resolvedRange.start.timescale > 0,
+                      end.timescale > 0,
+                      !resolvedRange.start.flags.contains(.hasBeenRounded),
+                      !end.flags.contains(.hasBeenRounded) else {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .unsupportedTrack(
+                            requirement.trackID,
+                            reason: "edit_map_timescale_not_representable"
+                        )
+                }
+                for boundary in [resolvedRange.start, end] {
+                    let boundaryScale = UInt64(boundary.timescale)
+                    let reducedDenominator = boundaryScale
+                        / greatestCommonDivisor(
+                            boundary.value.magnitude,
+                            boundaryScale
+                        )
+                    let commonDivisor = greatestCommonDivisor(
+                        movieTimescale,
+                        reducedDenominator
+                    )
+                    let multiplier = reducedDenominator / commonDivisor
+                    guard movieTimescale
+                        <= UInt64(CMTimeScale.max) / multiplier else {
+                        throw AVFoundationTrackMigrationExecutorV4Error
+                            .unsupportedTrack(
+                                requirement.trackID,
+                                reason:
+                                    "edit_map_timescale_not_representable"
+                            )
+                    }
+                    movieTimescale *= multiplier
+                }
+            }
+        }
+        return CMTimeScale(movieTimescale)
+    }
+
+    private static func greatestCommonDivisor(
+        _ lhs: UInt64,
+        _ rhs: UInt64
+    ) -> UInt64 {
+        var dividend = lhs
+        var divisor = rhs
+        while divisor != 0 {
+            let remainder = dividend % divisor
+            dividend = divisor
+            divisor = remainder
+        }
+        return dividend
     }
 
     func cmTimeRange(
@@ -2251,10 +2396,23 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         return type
     }
 
-    func sessionStartTime(plan: MediaTrackGraphPlanV4) throws -> CMTime {
-        let starts = plan.tracks.compactMap {
-            $0.expectedOutput?.timeRange.start
-        }
+    func sessionStartTime(
+        plan: MediaTrackGraphPlanV4,
+        processedReplacementMediaStarts: [ExactRationalV4]
+    ) throws -> CMTime {
+        try Self.sessionStartTime(
+            plannedTargetStarts: plan.tracks.compactMap {
+                $0.expectedOutput?.timeRange.start
+            },
+            processedReplacementMediaStarts: processedReplacementMediaStarts
+        )
+    }
+
+    static func sessionStartTime(
+        plannedTargetStarts: [ExactRationalV4],
+        processedReplacementMediaStarts: [ExactRationalV4]
+    ) throws -> CMTime {
+        let starts = plannedTargetStarts + processedReplacementMediaStarts
         guard let earliest = starts.min() else { return .zero }
         guard earliest.denominator <= Int64(Int32.max) else {
             throw AVFoundationTrackMigrationExecutorV4Error
@@ -2442,22 +2600,33 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                             reason: "undeclared_sample_format_transition"
                         )
                 }
-                if pipes[index].verifiesEncodedSampleStream,
-                   pipes[index].accumulatesSourceStreamDuringDrain {
-                    do {
-                        try pipes[index].sampleStream.append(sourceSample)
-                    } catch let error as SampleStreamAccumulatorV4.Error {
-                        throw AVFoundationTrackMigrationExecutorV4Error
-                            .sampleStreamUnrepresentable(
-                                trackID: pipes[index].trackID,
-                                status: error.status
-                        )
-                    }
-                }
                 for outputSample in outputSamples {
+                    let writerSample: CMSampleBuffer
+                    if let offset =
+                        pipes[index].replacementPresentationOffset {
+                        writerSample = try sampleByAddingPresentationOffset(
+                            outputSample,
+                            offset: offset,
+                            trackID: pipes[index].trackID
+                        )
+                    } else {
+                        writerSample = outputSample
+                    }
+                    if pipes[index].verifiesEncodedSampleStream,
+                       pipes[index].accumulatesSourceStreamDuringDrain {
+                        do {
+                            try pipes[index].sampleStream.append(writerSample)
+                        } catch let error as SampleStreamAccumulatorV4.Error {
+                            throw AVFoundationTrackMigrationExecutorV4Error
+                                .sampleStreamUnrepresentable(
+                                    trackID: pipes[index].trackID,
+                                    status: error.status
+                            )
+                        }
+                    }
                     if pipes[index].verifiesDynamicHDRStream,
                        pipes[index].accumulatesDynamicHDRStreamDuringDrain {
-                        try pipes[index].dynamicHDRStream.append(outputSample)
+                        try pipes[index].dynamicHDRStream.append(writerSample)
                     }
                     try await waitUntilReady(
                         pipes[index].writerInput,
@@ -2465,7 +2634,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                         writer: writer,
                         cancellation: cancellation
                     )
-                    guard pipes[index].writerInput.append(outputSample) else {
+                    guard pipes[index].writerInput.append(writerSample) else {
                         throw AVFoundationTrackMigrationExecutorV4Error
                             .appendFailed(
                                 trackID: pipes[index].trackID,
@@ -2476,7 +2645,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     var lastPresentationTime =
                         pipes[index].lastOutputPresentationTime
                     Self.accountAppendedRealSamples(
-                        in: outputSample,
+                        in: writerSample,
                         sampleCount: &migratedSampleCount,
                         lastPresentationTime: &lastPresentationTime
                     )
@@ -2872,6 +3041,188 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         )
     }
 
+    static func replacementPresentationOffset(
+        track: AVAssetTrack,
+        timelineMapping: DeterministicV4PrimaryTimelineMappingV4,
+        trackID: MediaTrackStableIDV4
+    ) async throws -> ExactRationalV4? {
+        let segments: [AVAssetTrackSegment]
+        do {
+            segments = try await track.load(.segments)
+        } catch {
+            throw AVFoundationTrackMigrationExecutorV4Error
+                .invalidProcessedVideoReplacement(
+                    trackID,
+                    reason: "replacement_timeline_is_unreadable"
+                )
+        }
+        let mediaSegments = segments.filter { !$0.isEmpty }
+        guard mediaSegments.count == 1,
+              let segment = mediaSegments.first else {
+            throw AVFoundationTrackMigrationExecutorV4Error
+                .invalidProcessedVideoReplacement(
+                    trackID,
+                    reason: "replacement_timeline_topology_is_unsupported"
+                )
+        }
+        let mapping = segment.timeMapping
+        let source = mapping.source
+        let target = mapping.target
+        guard source.isValid,
+              target.isValid,
+              source.start.isNumeric,
+              source.duration.isNumeric,
+              target.start.isNumeric,
+              target.duration.isNumeric,
+              source.start.timescale > 0,
+              source.duration.timescale > 0,
+              target.start.timescale > 0,
+              target.duration.timescale > 0,
+              source.start.epoch == 0,
+              source.duration.epoch == 0,
+              target.start.epoch == 0,
+              target.duration.epoch == 0,
+              !source.start.flags.contains(.hasBeenRounded),
+              !source.duration.flags.contains(.hasBeenRounded),
+              !target.start.flags.contains(.hasBeenRounded),
+              !target.duration.flags.contains(.hasBeenRounded),
+              CMTimeCompare(source.duration, target.duration) == 0 else {
+            throw AVFoundationTrackMigrationExecutorV4Error
+                .invalidProcessedVideoReplacement(
+                    trackID,
+                    reason: "replacement_timeline_is_not_exact"
+                )
+        }
+        let replacementMediaStart: ExactRationalV4
+        do {
+            replacementMediaStart = try ExactRationalV4(
+                source.start.value,
+                Int64(source.start.timescale)
+            )
+        } catch {
+            throw AVFoundationTrackMigrationExecutorV4Error
+                .invalidProcessedVideoReplacement(
+                    trackID,
+                    reason: "replacement_timeline_is_not_exact"
+                )
+        }
+        let offset: ExactRationalV4
+        do {
+            offset = try timelineMapping.mediaRange.start.subtracting(
+                replacementMediaStart
+            )
+        } catch {
+            throw AVFoundationTrackMigrationExecutorV4Error
+                .invalidProcessedVideoReplacement(
+                    trackID,
+                    reason: "replacement_timeline_is_not_exact"
+                )
+        }
+        return offset.isZero ? nil : offset
+    }
+
+    func sampleByAddingPresentationOffset(
+        _ sample: CMSampleBuffer,
+        offset: ExactRationalV4,
+        trackID: MediaTrackStableIDV4
+    ) throws -> CMSampleBuffer {
+        let count = CMSampleBufferGetNumSamples(sample)
+        guard count > 0 else { return sample }
+        var needed = 0
+        var status = CMSampleBufferGetSampleTimingInfoArray(
+            sample,
+            entryCount: 0,
+            arrayToFill: nil,
+            entriesNeededOut: &needed
+        )
+        guard status == noErr,
+              needed == 1 || needed == count else {
+            throw AVFoundationTrackMigrationExecutorV4Error
+                .invalidProcessedVideoReplacement(
+                    trackID,
+                    reason: "replacement_presentation_retiming_failed"
+                )
+        }
+        var timing = [CMSampleTimingInfo](
+            repeating: .invalid,
+            count: needed
+        )
+        var returned = 0
+        status = CMSampleBufferGetSampleTimingInfoArray(
+            sample,
+            entryCount: timing.count,
+            arrayToFill: &timing,
+            entriesNeededOut: &returned
+        )
+        guard status == noErr, returned == needed else {
+            throw AVFoundationTrackMigrationExecutorV4Error
+                .invalidProcessedVideoReplacement(
+                    trackID,
+                    reason: "replacement_presentation_retiming_failed"
+                )
+        }
+        do {
+            for index in timing.indices {
+                let presentation = timing[index].presentationTimeStamp
+                guard presentation.isNumeric,
+                      presentation.timescale > 0,
+                      presentation.epoch == 0,
+                      !presentation.flags.contains(.hasBeenRounded) else {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .invalidProcessedVideoReplacement(
+                            trackID,
+                            reason:
+                                "replacement_presentation_timing_is_not_exact"
+                        )
+                }
+                let exactPresentation = try ExactRationalV4(
+                    presentation.value,
+                    Int64(presentation.timescale)
+                )
+                timing[index].presentationTimeStamp = try cmTime(
+                    exactPresentation.adding(offset),
+                    trackID: trackID
+                )
+                let decode = timing[index].decodeTimeStamp
+                guard !decode.isNumeric || (
+                    decode.timescale > 0
+                        && decode.epoch == 0
+                        && !decode.flags.contains(.hasBeenRounded)
+                ) else {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .invalidProcessedVideoReplacement(
+                            trackID,
+                            reason: "replacement_decode_timing_is_not_exact"
+                        )
+                }
+            }
+        } catch let error as AVFoundationTrackMigrationExecutorV4Error {
+            throw error
+        } catch {
+            throw AVFoundationTrackMigrationExecutorV4Error
+                .invalidProcessedVideoReplacement(
+                    trackID,
+                    reason: "replacement_presentation_retiming_failed"
+                )
+        }
+        var copy: CMSampleBuffer?
+        status = CMSampleBufferCreateCopyWithNewTiming(
+            allocator: kCFAllocatorDefault,
+            sampleBuffer: sample,
+            sampleTimingEntryCount: timing.count,
+            sampleTimingArray: &timing,
+            sampleBufferOut: &copy
+        )
+        guard status == noErr, let copy else {
+            throw AVFoundationTrackMigrationExecutorV4Error
+                .invalidProcessedVideoReplacement(
+                    trackID,
+                    reason: "replacement_presentation_retiming_failed"
+                )
+        }
+        return copy
+    }
+
     func validateProcessedSamples(
         source: CMSampleBuffer,
         outputs: [CMSampleBuffer],
@@ -3230,6 +3581,26 @@ private final class AssetWriterBoxV4: @unchecked Sendable {
 }
 
 extension AVFoundationTrackMigrationExecutorV4 {
+    static func sessionStartTimeForQualification(
+        plannedTargetStarts: [ExactRationalV4],
+        processedReplacementMediaStarts: [ExactRationalV4]
+    ) throws -> CMTime {
+        try sessionStartTime(
+            plannedTargetStarts: plannedTargetStarts,
+            processedReplacementMediaStarts: processedReplacementMediaStarts
+        )
+    }
+
+    static func exactEditMapMovieTimescaleForQualification(
+        _ requirements: [(
+            trackID: MediaTrackStableIDV4,
+            timeRange: MediaExactTimeRangeV4,
+            edits: [MediaTrackEditV4]
+        )]
+    ) throws -> CMTimeScale {
+        try exactEditMapMovieTimescale(requirements)
+    }
+
     /// Shared by the executable reopen gate and real-sample qualification so
     /// attachment-loss tests exercise the exact release comparison.
     static func verifyDynamicHDRStream(
@@ -3888,6 +4259,11 @@ private struct ModularUInt256V4: Equatable {
 }
 
 private final class AtomicMigrationDestinationV4: @unchecked Sendable {
+    private struct DirectoryIdentity: Equatable {
+        let device: UInt64
+        let fileID: UInt64
+    }
+
     let finalURL: URL
     let temporaryURL: URL
 
@@ -3924,26 +4300,53 @@ private final class AtomicMigrationDestinationV4: @unchecked Sendable {
         self.overwriteExistingFile = overwriteExistingFile
         self.fileManager = fileManager
         if let requested = temporaryURL?.standardizedFileURL {
-            guard requested.isFileURL,
-                  requested.deletingLastPathComponent()
-                    == directory.standardizedFileURL,
-                  requested != finalURL.standardizedFileURL,
+            let requestedDirectory = requested.deletingLastPathComponent()
+            let anchoredTemporaryURL = directory.standardizedFileURL
+                .appendingPathComponent(
+                    requested.lastPathComponent,
+                    isDirectory: false
+                )
+                .standardizedFileURL
+            guard let requestedDirectoryIdentity = Self.directoryIdentity(
+                    at: requestedDirectory
+                  ),
+                  let destinationDirectoryIdentity = Self.directoryIdentity(
+                    at: directory
+                  ),
+                  requested.isFileURL,
+                  requestedDirectoryIdentity == destinationDirectoryIdentity,
+                  anchoredTemporaryURL != finalURL.standardizedFileURL,
                   WorkflowV4Validation.isMirmirPartialFileName(
                       requested.lastPathComponent
                   ) else {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .invalidTemporaryDestination
             }
-            guard !fileManager.fileExists(atPath: requested.path) else {
+            guard !fileManager.fileExists(
+                atPath: anchoredTemporaryURL.path
+            ) else {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .destinationExists
             }
-            self.temporaryURL = requested
+            self.temporaryURL = anchoredTemporaryURL
         } else {
             self.temporaryURL = directory.appendingPathComponent(
                 ".mirmir-track-v4-\(UUID().uuidString).partial.mov"
             )
         }
+    }
+
+    private static func directoryIdentity(at url: URL) -> DirectoryIdentity? {
+        var metadata = stat()
+        guard url.isFileURL,
+              stat(url.path, &metadata) == 0,
+              (metadata.st_mode & S_IFMT) == S_IFDIR else {
+            return nil
+        }
+        return DirectoryIdentity(
+            device: UInt64(metadata.st_dev),
+            fileID: UInt64(metadata.st_ino)
+        )
     }
 
     func publish() throws {

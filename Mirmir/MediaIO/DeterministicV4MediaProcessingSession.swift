@@ -1721,11 +1721,24 @@ struct DeterministicV4MediaProcessingSession: Sendable {
             asset: asset,
             track: sourceTrack,
             decodedOutputSettings: hook.readerOutputSettings,
+            canonicalDynamicHDRIsAbsent:
+                preparedPlan.primaryCanonicalTrack.video?
+                    .color.dynamicHDRMetadata.isEmpty == true,
+            nominalSourceFrameDuration:
+                preparedPlan.nominalSourceFrameDuration,
             startTime: startTime,
             maximumInputFrames: maximumInputFrames,
             timelineMapping: timelineMapping,
             cancellation: cancellation
         )
+        let nominalDecodedDuration: CMTime?
+        if timelineMapping == nil {
+            nominalDecodedDuration = try Self.nominalDecodedDuration(
+                preparedPlan.nominalSourceFrameDuration
+            )
+        } else {
+            nominalDecodedDuration = nil
+        }
         let hdrLedger = try HDR10PlusSegmentLedgerV4(
             sourceRecords: hdrPreflight.sourceRecords,
             maximumInputFrames: maximumInputFrames,
@@ -1869,7 +1882,14 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                         authoritativeDuration: authoritativeDuration
                     )
                 } else {
-                    sourceSample = decodedSample
+                    guard let nominalDecodedDuration else {
+                        throw DeterministicV4MediaSegmentError
+                            .invalidSampleTiming
+                    }
+                    sourceSample = try canonicalizedNominalDecodedSample(
+                        decodedSample,
+                        nominalDuration: nominalDecodedDuration
+                    )
                 }
                 let sourcePTS = CMSampleBufferGetPresentationTimeStamp(
                     sourceSample
@@ -2079,6 +2099,96 @@ struct DeterministicV4MediaProcessingSession: Sendable {
             writer.cancelWriting()
             try? FileManager.default.removeItem(at: segmentURL)
             throw error
+        }
+    }
+}
+
+extension DeterministicV4MediaProcessingSession {
+    static func nominalDecodedDuration(
+        _ nominalSourceFrameDuration: ExactRationalV4
+    ) throws -> CMTime {
+        guard nominalSourceFrameDuration.numerator > 0,
+              nominalSourceFrameDuration.denominator > 0,
+              nominalSourceFrameDuration.denominator
+                <= Int64(Int32.max) else {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming
+        }
+        let nominalDuration = CMTime(
+            value: nominalSourceFrameDuration.numerator,
+            timescale: Int32(nominalSourceFrameDuration.denominator)
+        )
+        guard nominalDuration.isNumeric,
+              nominalDuration.value > 0,
+              !nominalDuration.flags.contains(.hasBeenRounded) else {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming
+        }
+        return nominalDuration
+    }
+
+    static func canonicalNominalDecodedDuration(
+        observedDuration: CMTime,
+        nominalDuration: CMTime
+    ) throws -> CMTime {
+        guard nominalDuration.isNumeric,
+              nominalDuration.value > 0,
+              !nominalDuration.flags.contains(.hasBeenRounded) else {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming
+        }
+        if observedDuration.isNumeric,
+           observedDuration.value > 0,
+           !observedDuration.flags.contains(.hasBeenRounded),
+           CMTimeCompare(observedDuration, nominalDuration) != 0 {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming
+        }
+        return nominalDuration
+    }
+
+    static func validateNominalDecodedCadence(
+        presentationTimes: [CMTime],
+        decodedDurations: [CMTime],
+        nominalSourceFrameDuration: ExactRationalV4
+    ) throws {
+        guard !presentationTimes.isEmpty,
+              presentationTimes.count == decodedDurations.count else {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming
+        }
+        let nominalDuration = try nominalDecodedDuration(
+            nominalSourceFrameDuration
+        )
+
+        var previous: CMTime?
+        for (presentationTime, decodedDuration) in zip(
+            presentationTimes,
+            decodedDurations
+        ) {
+            guard presentationTime.isNumeric,
+                  presentationTime.timescale > 0,
+                  !presentationTime.flags.contains(.hasBeenRounded) else {
+                throw DeterministicV4MediaSegmentError.invalidSampleTiming
+            }
+            _ = try canonicalNominalDecodedDuration(
+                observedDuration: decodedDuration,
+                nominalDuration: nominalDuration
+            )
+            if let previous {
+                guard presentationTime.epoch == previous.epoch else {
+                    throw DeterministicV4MediaSegmentError.invalidSampleTiming
+                }
+                let observedDuration = CMTimeSubtract(
+                    presentationTime,
+                    previous
+                )
+                guard observedDuration.isNumeric,
+                      observedDuration.value > 0,
+                      !observedDuration.flags.contains(.hasBeenRounded),
+                      CMTimeCompare(
+                          observedDuration,
+                          nominalDuration
+                      ) == 0 else {
+                    throw DeterministicV4MediaSegmentError.invalidSampleTiming
+                }
+            }
+            previous = presentationTime
         }
     }
 }
@@ -2769,6 +2879,8 @@ private extension DeterministicV4MediaProcessingSession {
         asset: AVURLAsset,
         track: AVAssetTrack,
         decodedOutputSettings: [String: Any],
+        canonicalDynamicHDRIsAbsent: Bool,
+        nominalSourceFrameDuration: ExactRationalV4,
         startTime: WorkflowMediaTimeV4?,
         maximumInputFrames: Int,
         timelineMapping: DeterministicV4PrimaryTimelineMappingV4?,
@@ -2819,8 +2931,9 @@ private extension DeterministicV4MediaProcessingSession {
         }
         var decodedTimes: [HDR10PlusPresentationTimeV4] = []
         var decodedTimeSet = Set<HDR10PlusPresentationTimeV4>()
+        var decodedCadenceTimes: [CMTime] = []
+        var decodedCadenceDurations: [CMTime] = []
         var firstSelectionPresentationTime: CMTime?
-        var endSelectionPresentationTimeExclusive: CMTime?
         while decodedTimes.count < maximumInputFrames,
               let decodedSample = decodedOutput.copyNextSampleBuffer() {
             try cancellation.check()
@@ -2842,27 +2955,20 @@ private extension DeterministicV4MediaProcessingSession {
                     timelineMapping: timelineMapping
                 )
             } else {
-                let selectionDuration = CMSampleBufferGetDuration(
-                    decodedSample
-                )
-                let selectionEnd = CMTimeAdd(
-                    selectionPresentation,
-                    selectionDuration
-                )
-                guard selectionDuration.isNumeric,
-                      selectionDuration.value > 0,
-                      selectionEnd.isNumeric,
-                      !selectionEnd.flags.contains(.hasBeenRounded) else {
-                    throw DeterministicV4MediaSegmentError.invalidSampleTiming
+                guard canonicalDynamicHDRIsAbsent else {
+                    throw DeterministicV4MediaSegmentError
+                        .dynamicHDRMetadataMismatch
+                }
+                guard try AVFoundationHDRMetadataAdapterV4
+                    .probeDynamicMetadata(from: decodedSample) == nil else {
+                    throw DeterministicV4MediaSegmentError
+                        .dynamicHDRMetadataMismatch
                 }
                 presentation = selectionPresentation
-                if endSelectionPresentationTimeExclusive == nil
-                    || CMTimeCompare(
-                        selectionEnd,
-                        endSelectionPresentationTimeExclusive!
-                    ) > 0 {
-                    endSelectionPresentationTimeExclusive = selectionEnd
-                }
+                decodedCadenceTimes.append(presentation)
+                decodedCadenceDurations.append(
+                    CMSampleBufferGetDuration(decodedSample)
+                )
             }
             if decodedTimes.isEmpty, let startTime {
                 let expected = CMTime(
@@ -2885,6 +2991,33 @@ private extension DeterministicV4MediaProcessingSession {
                 firstSelectionPresentationTime = selectionPresentation
             }
         }
+        if timelineMapping == nil,
+           decodedTimes.count == maximumInputFrames {
+            while let lookaheadSample = decodedOutput.copyNextSampleBuffer() {
+                try cancellation.check()
+                let sampleCount = CMSampleBufferGetNumSamples(lookaheadSample)
+                if sampleCount == 0 { continue }
+                guard sampleCount == 1 else {
+                    throw DeterministicV4MediaSegmentError.invalidSampleTiming
+                }
+                let presentation = CMSampleBufferGetPresentationTimeStamp(
+                    lookaheadSample
+                )
+                guard presentation.isNumeric else {
+                    throw DeterministicV4MediaSegmentError.invalidSampleTiming
+                }
+                guard try AVFoundationHDRMetadataAdapterV4
+                    .probeDynamicMetadata(from: lookaheadSample) == nil else {
+                    throw DeterministicV4MediaSegmentError
+                        .dynamicHDRMetadataMismatch
+                }
+                decodedCadenceTimes.append(presentation)
+                decodedCadenceDurations.append(
+                    CMSampleBufferGetDuration(lookaheadSample)
+                )
+                break
+            }
+        }
         let decodedReaderExhausted = decodedReader.status == .completed
         guard decodedReader.status != .failed,
               decodedReader.status != .cancelled else {
@@ -2894,6 +3027,29 @@ private extension DeterministicV4MediaProcessingSession {
         guard !decodedTimes.isEmpty,
               let firstSelectionPresentationTime else {
             throw DeterministicV4MediaSegmentError.emptySegment
+        }
+        if timelineMapping == nil {
+            // The immutable prepared plan already proved that the canonical
+            // source has no dynamic HDR metadata. Keep the preflight in the
+            // decoded target-time domain; a passthrough reader can expose a
+            // different media-time domain for sources with edit lists. The
+            // decoded PTS cadence and decoded duration fields are authoritative;
+            // a container track time range can be coarsely rounded.
+            try Self.validateNominalDecodedCadence(
+                presentationTimes: decodedCadenceTimes,
+                decodedDurations: decodedCadenceDurations,
+                nominalSourceFrameDuration: nominalSourceFrameDuration
+            )
+            try cancellation.check()
+            return HDR10PlusSegmentPreflight(
+                sourceRecords: decodedTimes.map {
+                    HDR10PlusPresentationRecordV4(
+                        presentationTime: $0,
+                        metadata: nil
+                    )
+                },
+                decodedDurations: []
+            )
         }
 
         let compressedReader = try AVAssetReader(asset: asset)
@@ -2918,22 +3074,6 @@ private extension DeterministicV4MediaProcessingSession {
                 throw DeterministicV4MediaSegmentError.invalidSampleTiming
             }
             compressedReader.timeRange = exactRange
-        } else {
-            guard let endSelectionPresentationTimeExclusive else {
-                throw DeterministicV4MediaSegmentError.invalidSampleTiming
-            }
-            let compressedDuration = CMTimeSubtract(
-                endSelectionPresentationTimeExclusive,
-                firstSelectionPresentationTime
-            )
-            guard compressedDuration.isNumeric,
-                  compressedDuration.value > 0 else {
-                throw DeterministicV4MediaSegmentError.invalidSampleTiming
-            }
-            compressedReader.timeRange = CMTimeRange(
-                start: firstSelectionPresentationTime,
-                duration: compressedDuration
-            )
         }
         guard compressedReader.startReading() else {
             throw DeterministicV4MediaSegmentError.readerStartFailed
@@ -3386,7 +3526,7 @@ private extension DeterministicV4MediaProcessingSession {
 
     func retime(
         _ sample: CMSampleBuffer,
-        subtracting origin: CMTime,
+        subtracting origin: CMTime?,
         authoritativeDuration: CMTime? = nil
     ) throws -> CMSampleBuffer {
         let count = CMSampleBufferGetNumSamples(sample)
@@ -3411,13 +3551,15 @@ private extension DeterministicV4MediaProcessingSession {
             if let authoritativeDuration {
                 timing[index].duration = authoritativeDuration
             }
-            if timing[index].presentationTimeStamp.isNumeric {
+            if let origin,
+               timing[index].presentationTimeStamp.isNumeric {
                 timing[index].presentationTimeStamp = CMTimeSubtract(
                     timing[index].presentationTimeStamp,
                     origin
                 )
             }
-            if timing[index].decodeTimeStamp.isNumeric {
+            if let origin,
+               timing[index].decodeTimeStamp.isNumeric {
                 timing[index].decodeTimeStamp = CMTimeSubtract(
                     timing[index].decodeTimeStamp,
                     origin
@@ -3551,6 +3693,22 @@ private extension DeterministicV4MediaProcessingSession {
         return try retime(
             sample,
             subtracting: offset,
+            authoritativeDuration: authoritativeDuration
+        )
+    }
+
+    func canonicalizedNominalDecodedSample(
+        _ sample: CMSampleBuffer,
+        nominalDuration: CMTime
+    ) throws -> CMSampleBuffer {
+        let authoritativeDuration = try Self
+            .canonicalNominalDecodedDuration(
+                observedDuration: CMSampleBufferGetDuration(sample),
+                nominalDuration: nominalDuration
+            )
+        return try retime(
+            sample,
+            subtracting: nil,
             authoritativeDuration: authoritativeDuration
         )
     }

@@ -338,8 +338,6 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
             let width = prepared.preparedScale.sourceWidth
             let height = prepared.preparedScale.sourceHeight
             let stride = CVPixelBufferGetBytesPerRowOfPlane(source, planeIndex)
-            let shift = prepared.layout.storedCodeShift
-            let alignmentMask = shift == 0 ? UInt16(0) : UInt16((1 << shift) - 1)
             for y in 0..<height {
                 let rowOffset = try checkedProduct(y, stride)
                 let row = base.advanced(by: rowOffset)
@@ -359,27 +357,17 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
                             stored = UInt16(row[byteOffset])
                                 | (UInt16(row[byteOffset + 1]) << 8)
                         }
-                        if stored & alignmentMask != 0 {
-                            throw PixelLayoutV4Error.invalidStoredCodeAlignment(
-                                plane: planeIndex,
-                                component: componentIndex,
-                                value: stored,
-                                requiredZeroLowBits: shift
-                            )
-                        }
-                        let signalCode = stored >> UInt16(shift)
-                        let bounds = prepared.layout.signalCodeBounds[
-                            componentIndex
-                        ]
-                        guard bounds.contains(signalCode) else {
-                            throw PixelLayoutV4Error.signalCodeOutOfRange(
-                                plane: planeIndex,
-                                component: componentIndex,
-                                value: signalCode,
-                                minimum: bounds.minimum,
-                                maximum: bounds.maximum
-                            )
-                        }
+                        // Video-range endpoints are nominal. Preserve legal
+                        // decoder footroom/headroom through the spatial
+                        // convolution, while still rejecting malformed packed
+                        // storage such as nonzero P010 low bits. The shared
+                        // kernel performs the one canonical output clamp.
+                        _ = try layout.signalCode(
+                            fromStoredCode: stored,
+                            plane: planeIndex,
+                            component: componentIndex,
+                            policy: .preserveRepresentableRange
+                        )
                     }
                 }
             }

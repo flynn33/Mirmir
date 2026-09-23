@@ -39,10 +39,17 @@ private struct AVFoundationAudioFormatFingerprintV4: Codable, Hashable,
     let bytesPerFrame: UInt32
     let channelsPerFrame: UInt32
     let bitsPerChannel: UInt32
+    let codecConfiguration: AVFoundationBinaryFingerprintV4?
+    let channelLayout: AVFoundationBinaryFingerprintV4?
+}
+
+private struct AVFoundationBinaryFingerprintV4: Codable, Hashable, Sendable {
+    let byteCount: Int64
+    let sha256: ASHSHA256V4
 }
 
 private struct AVFoundationFormatFingerprintV4: Codable, Hashable, Sendable {
-    static let currentSchemaID = "ash.avfoundation-format-fingerprint.v4.1"
+    static let currentSchemaID = "ash.avfoundation-format-fingerprint.v4.2"
 
     let schemaID: String
     let mediaTypeID: String
@@ -471,10 +478,44 @@ enum AVFoundationTrackGraphAdapterV4 {
             videoHeight = dimensions.height
         }
         var audio: AVFoundationAudioFormatFingerprintV4?
+        var normalizesAACContainerWrapper = false
         if CMFormatDescriptionGetMediaType(description) == kCMMediaType_Audio,
            let stream = CMAudioFormatDescriptionGetStreamBasicDescription(
                description
            )?.pointee {
+            var byteCount = 0
+            let codecConfigurationPointer =
+                CMAudioFormatDescriptionGetMagicCookie(
+                    description,
+                    sizeOut: &byteCount
+                )
+            let codecConfigurationByteCount = byteCount
+            let codecConfiguration = codecConfigurationPointer.map {
+                AVFoundationBinaryFingerprintV4(
+                    byteCount: Int64(codecConfigurationByteCount),
+                    sha256: ASHSHA256V4(rawData: Data(
+                        bytes: $0,
+                        count: codecConfigurationByteCount
+                    ))
+                )
+            }
+            normalizesAACContainerWrapper =
+                stream.mFormatID == kAudioFormatMPEG4AAC
+                && codecConfigurationPointer != nil
+                && codecConfigurationByteCount > 0
+            byteCount = 0
+            let channelLayout = CMAudioFormatDescriptionGetChannelLayout(
+                description,
+                sizeOut: &byteCount
+            ).map {
+                AVFoundationBinaryFingerprintV4(
+                    byteCount: Int64(byteCount),
+                    sha256: ASHSHA256V4(rawData: Data(
+                        bytes: $0,
+                        count: byteCount
+                    ))
+                )
+            }
             audio = AVFoundationAudioFormatFingerprintV4(
                 sampleRateBitPattern: String(
                     stream.mSampleRate.bitPattern,
@@ -486,7 +527,9 @@ enum AVFoundationTrackGraphAdapterV4 {
                 framesPerPacket: stream.mFramesPerPacket,
                 bytesPerFrame: stream.mBytesPerFrame,
                 channelsPerFrame: stream.mChannelsPerFrame,
-                bitsPerChannel: stream.mBitsPerChannel
+                bitsPerChannel: stream.mBitsPerChannel,
+                codecConfiguration: codecConfiguration,
+                channelLayout: channelLayout
             )
         }
         let extensions: NSDictionary
@@ -495,7 +538,23 @@ enum AVFoundationTrackGraphAdapterV4 {
         } else {
             extensions = [:]
         }
-        let canonicalExtensions = canonicalProperty(extensions)
+        let fingerprintExtensions: NSDictionary
+        if normalizesAACContainerWrapper {
+            // Core Media exposes an ISO sample-entry wrapper for MP4 and a
+            // QuickTime sample-description wrapper for MOV even when the
+            // AAC semantics are identical. A nonempty magic cookie is required
+            // before normalizing because it binds the codec configuration that
+            // may otherwise exist only inside the container wrapper. Unknown
+            // or incomplete compressed formats retain their verbatim wrapper
+            // and therefore fail closed.
+            let normalized = NSMutableDictionary(dictionary: extensions)
+            normalized.removeObject(forKey: "VerbatimISOSampleEntry")
+            normalized.removeObject(forKey: "VerbatimSampleDescription")
+            fingerprintExtensions = normalized
+        } else {
+            fingerprintExtensions = extensions
+        }
+        let canonicalExtensions = canonicalProperty(fingerprintExtensions)
         let payload = AVFoundationFormatFingerprintV4(
             mediaTypeID: mediaTypeID,
             mediaSubtypeID: mediaSubtypeID,
