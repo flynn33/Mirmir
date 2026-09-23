@@ -46,6 +46,9 @@ do not publish, sign, notarize, or distribute the application automatically.
   verification contracts, reproduced the 12-artifact bundle twice, resealed
   its corrected production-source closure, and verified production-loader
   acceptance plus same-length artifact-tamper rejection.
+- Reconciled the optional media-preservation fixture lock and aggregate release
+  trust root with the qualified source tree. All 331 release-control tests and
+  the independent trust-root reproduction passed.
 - Advanced all repository and Xcode version authorities to 1.3.2 build 5.
   This patch preserves the completed simulator-only M7 decision; it does not
   assert signing, notarization, shipping, or distribution.

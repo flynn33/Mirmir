@@ -160,11 +160,11 @@
     "archived_hlg_p010_fixture",
     "hlg_transfer_profile"
   ],
-  "mediaPreservationLaneContractSHA256": "2e86b6be6513da84a9e65eb35e30ddb18c0118897c449a920ed723cec24cb25d",
+  "mediaPreservationLaneContractSHA256": "0401aa1aa26ea781736faabf035157e5478e12675a70af70f4712e49b65674f3",
   "mediaPreservationLockedSources": {
     "captureSourceSHA256": "d38285352101b93a9318118d15c0a3a798633f9cbb61e95db08d69c981a7313e",
     "evaluatorSHA256": "2455bf16309d5e1115c4033bcc1e6b973440bda56378df654dfe17f76957315f",
-    "fixtureSourceSHA256": "856fb8e850da6d5f394f85466b1eaf5dd86e676f48c33c4fdefcc1ac344ee6dc",
+    "fixtureSourceSHA256": "5c01bc6b0a59c97ea15be30f5a0277019990bf075a0138c6df7e6ec5c470df41",
     "observerSourceSHA256": "9fcf2009a18385524f65644cf13e744a0cdd58550808bc43089dff4f12f98a84",
     "packagedEvidenceToolSHA256": "5ea4b53d5d696714d1d0f00a1df22cb1a0b8f9769f2e70b133139cb05132f117",
     "releaseCandidateArchiveToolSHA256": "b4638c3bfe698fc4c291e3f8f522e7e0d2025dd741efab8c74bc6217b815986d",
@@ -1527,7 +1527,7 @@
   "qualityLaneContractSHA256": "0b0beceb0a62a5fc1a022adff890b9c546075d03451a4f2cc448521a1cd62a88",
   "qualityLockedSources": {
     "baselineRunnerSHA256": "28f32c0f094a9eb4004ec2a494c6a1a23c861e722cf1f48035545e9fb5762a19",
-    "metricToolSHA256": "7ccd36727d705420b007203cb281acde37058b1f94fef8d8be3e06c8bc0a03eb",
+    "metricToolSHA256": "2c5b0e5a40adc4f016d9346805f2db247ed1cd8a22e3abf26a2c87d3309ac4c8",
     "observerSourceSHA256": "9fcf2009a18385524f65644cf13e744a0cdd58550808bc43089dff4f12f98a84"
   },
   "recoveryCoverage": [

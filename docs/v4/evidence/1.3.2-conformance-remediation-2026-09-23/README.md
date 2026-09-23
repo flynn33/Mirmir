@@ -73,6 +73,25 @@ manifest was then resealed to the corrected production source closure:
 Repository identity replay passed. The production runtime loader accepted all
 three identities and rejected a same-length runtime-artifact mutation.
 
+## Release-control identity reconciliation
+
+The optional release-evidence controls were replayed after the conformance
+test source and quality evaluator changed. The media-preservation contract now
+binds the current fixture source, the aggregate release contract binds both
+that lane contract and the current quality evaluator, and the checked-in
+external trust root reproduces byte-for-byte from those canonical inputs.
+
+| Control | Verified value |
+| --- | --- |
+| Media-preservation contract | `0401aa1aa26ea781736faabf035157e5478e12675a70af70f4712e49b65674f3` |
+| Release-qualification contract | `4e6ffdec84e7e502a333eb991c6e520faf675e7237ec25e7a3079be4132f3532` |
+| Release-qualification trust root | `59c25389f582d5113bb2b880c42536822fb3a20a250fc2b03cf3ad23fc929f3e` |
+| Release-control tests | 331 passed; 0 failed |
+
+These locks keep optional future release evidence fail-closed. They do not
+claim that a release archive was built, signed, notarized, shipped, or
+distributed, and they do not alter the sealed M7 candidate-selection result.
+
 ## Reported-file validation
 
 The originally reported fixture was retained outside the repository and was not

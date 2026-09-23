@@ -25,6 +25,14 @@
     "skipped": 3,
     "total": 493
   },
+  "identityControls": {
+    "mediaPreservationContractSHA256": "0401aa1aa26ea781736faabf035157e5478e12675a70af70f4712e49b65674f3",
+    "releaseControlTestsFailed": 0,
+    "releaseControlTestsPassed": 331,
+    "releaseQualificationContractSHA256": "4e6ffdec84e7e502a333eb991c6e520faf675e7237ec25e7a3079be4132f3532",
+    "releaseQualificationTrustRootSHA256": "59c25389f582d5113bb2b880c42536822fb3a20a250fc2b03cf3ad23fc929f3e",
+    "trustRootReproduced": true
+  },
   "releaseBuild": {
     "architectures": [
       "x86_64",
