@@ -1,6 +1,7 @@
 import CoreMedia
 import CoreVideo
 import Foundation
+import VideoToolbox
 import XCTest
 @testable import Mirmir
 
@@ -161,6 +162,39 @@ final class BackendCatalogTests: XCTestCase {
                 )
             )
         )
+    }
+
+    func testSmoothMotionRejectsSourceBeyondReportedTwoXGeometryLimit()
+        async throws {
+        guard #available(macOS 27.0, *) else { return }
+        let maximumDimension = try XCTUnwrap(
+            VTLowLatencyFrameInterpolationConfiguration
+                .maximumDimension(forSpatialScaleFactor: 2)
+        )
+        let sourceWidth = maximumDimension + 1
+        let source = makeVideoInfo(
+            url: URL(fileURLWithPath: "/tmp/catalog-smooth-motion-limit.mov"),
+            encodedSize: CGSize(width: sourceWidth, height: 2)
+        )
+
+        let availability = await SystemBackendCapabilityProbe().availability(
+            for: .videoToolboxInterpolationWithSpatialScale,
+            source: source,
+            targetSize: CGSize(width: sourceWidth * 2, height: 4)
+        )
+
+        guard case .unavailable(
+            reason: .unsupportedSourceDimensions(
+                let width,
+                let height,
+                let details
+            )
+        ) = availability else {
+            return XCTFail("Expected the reported Smooth Motion geometry limit")
+        }
+        XCTAssertEqual(width, sourceWidth)
+        XCTAssertEqual(height, 2)
+        XCTAssertTrue(details.contains("maximum dimension of \(maximumDimension)"))
     }
 
     func testHDRAvoidsEveryEightBitBackendAndAdmitsDeterministicP010()

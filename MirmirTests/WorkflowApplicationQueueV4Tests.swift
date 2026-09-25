@@ -5,6 +5,60 @@ import XCTest
 @testable import Mirmir
 
 final class WorkflowApplicationQueueV4Tests: XCTestCase {
+    func testEnqueueAcceptsHardLinkedSourceAndOwnsPrivateSnapshot()
+        async throws {
+        let fixture = try makeFixture()
+        let linkedSource = fixture.rootURL.appendingPathComponent(
+            "photos-linked-source.mov"
+        )
+        try FileManager.default.linkItem(
+            at: fixture.inputURL,
+            to: linkedSource
+        )
+        let queue = try makeQueue(fixture: fixture)
+        let original = request(fixture: fixture)
+        let receipt = try await queue.enqueue(
+            request: UpscaleRequest(
+                inputURL: linkedSource,
+                outputURL: original.outputURL,
+                backendID: original.backendID,
+                targetWidth: original.targetWidth,
+                targetHeight: original.targetHeight,
+                outputCodec: original.outputCodec,
+                preserveAudio: original.preserveAudio,
+                overwriteExistingFile: original.overwriteExistingFile
+            ),
+            preparedPlanBinding: preparedBinding()
+        )
+
+        let activation = await queue.activate(
+            jobID: receipt.specification.jobID
+        )
+        guard case .active(let activated) = activation else {
+            return XCTFail("Expected the hard-linked source to activate")
+        }
+        defer { activated.close() }
+        let snapshotURL = activated.request.inputURL
+        let sourceAttributes = try FileManager.default.attributesOfItem(
+            atPath: linkedSource.path
+        )
+        let snapshotAttributes = try FileManager.default.attributesOfItem(
+            atPath: snapshotURL.path
+        )
+        XCTAssertGreaterThan(
+            (sourceAttributes[.referenceCount] as? NSNumber)?.intValue ?? 0,
+            1
+        )
+        XCTAssertEqual(
+            (snapshotAttributes[.referenceCount] as? NSNumber)?.intValue,
+            1
+        )
+        XCTAssertEqual(
+            try Data(contentsOf: snapshotURL),
+            try Data(contentsOf: linkedSource)
+        )
+    }
+
     func testCleanLaunchHasImmutableEmptyQueueAndRecoverySnapshots() async throws {
         let fixture = try makeFixture()
         let clock = WorkflowApplicationQueueTestClockV4(7_000_000_000)
@@ -1109,6 +1163,7 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         let tokens = WorkflowApplicationTokenSequenceV4([
             UUID(uuidString: "aaaaaaaa-1111-2222-3333-444444444444")!,
             UUID(uuidString: "bbbbbbbb-1111-2222-3333-444444444444")!,
+            UUID(uuidString: "cccccccc-1111-2222-3333-444444444444")!,
         ])
         let queue = try makeQueue(
             fixture: fixture,
@@ -1177,6 +1232,29 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: failedURL.path))
         XCTAssertFalse(
             FileManager.default.fileExists(atPath: cancelledURL.path)
+        )
+
+        let reenqueued = try await queue.enqueue(
+            request: request(
+                fixture: fixture,
+                outputName: "reenqueued-after-cancel.mov"
+            ),
+            preparedPlanBinding: preparedBinding()
+        )
+        let reenqueuedActivation = await queue.activate(
+            jobID: reenqueued.specification.jobID
+        )
+        guard case .active(let reenqueuedActive) = reenqueuedActivation else {
+            return XCTFail(
+                "A cancelled snapshot must not block re-enqueueing the source"
+            )
+        }
+        defer { reenqueuedActive.close() }
+        try reenqueuedActive.revalidateAll()
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: reenqueuedActive.request.inputURL.path
+            )
         )
     }
 

@@ -1,6 +1,6 @@
 # Mirmir product support
 
-Current product identity: **Mirmir 1.3.2 (5)**.
+Current product identity: **Mirmir 1.3.3 (6)**.
 
 Mirmir is a sandboxed macOS 15.4-or-later application. It reads local media
 through security-scoped bookmarks, builds an explicit whole-asset plan, and
@@ -15,7 +15,7 @@ backend selection is never replaced by a different scaler after failure.
 | Mirmir Deterministic — Metal Accelerated | Explicit ASH P06 selection. Executes the same canonical plan, coefficient tables, rounding, clamps, and temporal policy as CPU; preparation fails closed if the bundled runtime or Metal library does not verify. It never substitutes CPU execution. |
 | VideoToolbox Super Resolution — Quality | macOS 26 or later, dimensions/factors reported by the current API, and an explicit system-model download when VideoToolbox reports it is required. |
 | VideoToolbox Super Resolution — Low Latency | macOS 26 or later and only dimensions/factors/pixel formats accepted by the current API. |
-| VideoToolbox Smooth Motion + Spatial Upscale | macOS 26 or later, 2× spatial scale and the API-supported midpoint phase, producing 2× cadence without changing normal playback duration. The first reference uses a disclosed VideoToolbox pixel-transfer boundary scale. |
+| VideoToolbox Smooth Motion + Spatial Upscale | macOS 26 or later, 2× spatial scale, the API-supported midpoint phase, and source geometry admitted by `VTLowLatencyFrameInterpolationConfiguration` for that Mac. The reported source-frame limits are independent of display resolution. The route produces 2× cadence without changing normal playback duration; the first reference uses a disclosed VideoToolbox pixel-transfer boundary scale. |
 | MetalFX Spatial | MetalFX-capable GPU, video-range 8-bit NV12, and explicit BT.709 primaries/transfer/matrix. Uses an audited NV12 ↔ linear RGBA16Float bridge. |
 | MPS Lanczos / Bilinear | Metal Performance Shaders with progressive SDR 8-bit NV12 and explicit range. |
 | Core Image Lanczos / Bicubic | Progressive SDR 8-bit NV12 with explicit range. This is a filter conversion/resampling path, not code-value preservation. |
@@ -24,6 +24,8 @@ backend selection is never replaced by a different scaler after failure.
 
 Automatic uses one fixed documented order and considers spatial-only Apple
 backends. It excludes both Deterministic routes and Smooth Motion.
+Consequently, Automatic does not select deterministic v4 for opaque H.264
+input.
 
 ## Deterministic ASH P06 contract
 
@@ -76,6 +78,9 @@ backends. It excludes both Deterministic routes and Smooth Motion.
   audio, subtitles, captions, chapters, timecode, timed metadata, and auxiliary
   tracks remain represented in the migration plan; unsupported loss cannot be
   hidden as a successful migration.
+- Attached-picture preservation is currently provided by the deterministic v4
+  whole-asset migration path. Conventional backends do not preserve attached
+  pictures.
 - AAC semantic comparison binds the stream description, codec magic cookie,
   channel layout, and remaining extensions while normalizing only the
   independently redundant MP4-versus-MOV sample-entry wrapper. Unknown or
@@ -96,6 +101,10 @@ backends. It excludes both Deterministic routes and Smooth Motion.
   durable across application restarts. Records bind the canonical request,
   verified plan/runtime identities, priority, attempts, bookmarks, terminal
   history, and registered artifacts.
+- A user-selected regular source may have multiple hard links. Admission still
+  uses a no-follow descriptor, verifies the descriptor against the selected
+  path before and after copying, and hashes the copied bytes. The resulting
+  queue-owned private snapshot must remain a single-link regular file.
 - Pause closes a deterministic segment boundary and persists media progress,
   ASH measurement/hysteresis state, temporal history, alpha state, and track
   checkpoints. Resume revalidates input identity and plan/runtime compatibility
@@ -127,6 +136,7 @@ backends. It excludes both Deterministic routes and Smooth Motion.
 - Apple-native backends retain the narrower contracts in the table above; they
   do not inherit P010/HDR, alpha, deinterlacing, or fixed-point parity merely
   because the Deterministic engine supports them.
+- The resource-allocation control is deferred and is not part of version 1.3.3.
 
 ## Qualification boundary
 

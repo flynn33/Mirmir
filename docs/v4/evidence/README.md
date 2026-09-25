@@ -1,8 +1,14 @@
 # Deterministic engine v4 evidence
 
-For the current 1.3.2 (5) repository identity, post-qualification conformance
-receipt, and completed M7 simulator selection, see
+For the current 1.3.3 (6) repository identity, rollback qualification, and
+completed M7 simulator selection, see
 [`../CURRENT_QUALIFICATION_STATUS.md`](../CURRENT_QUALIFICATION_STATUS.md).
+
+Version 1.3.3 keeps the resource-allocation control deferred and adds only the
+qualified hard-link source admission and VideoToolbox Smooth Motion
+source-geometry preflight described in the current status. The real-file
+qualification movies and logs are intentionally not checked into the source
+repository.
 
 The `1.3.2-conformance-remediation-2026-09-23` directory records the full
 Debug scheme, unsigned universal Release build, and focused real-file

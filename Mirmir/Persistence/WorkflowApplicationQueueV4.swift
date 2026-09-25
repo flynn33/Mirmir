@@ -2990,7 +2990,7 @@ private extension WorkflowApplicationQueueV4 {
             let sourcePath = sourceURL.standardizedFileURL.path
             var sourcePathBefore = stat()
             guard lstat(sourcePath, &sourcePathBefore) == 0,
-                  Self.isSafeSourceSnapshotFile(sourcePathBefore) else {
+                  Self.isSafeApplicationSourceFile(sourcePathBefore) else {
                 throw WorkflowApplicationQueueErrorV4
                     .sourceSnapshotInvalid(jobID)
             }
@@ -3501,6 +3501,19 @@ private extension WorkflowApplicationQueueV4 {
     nonisolated static func isSafeSourceSnapshotFile(_ metadata: stat) -> Bool {
         (metadata.st_mode & S_IFMT) == S_IFREG
             && metadata.st_nlink == 1
+            && metadata.st_size > 0
+    }
+
+    /// User-selected source media may legitimately have multiple hard links.
+    /// The queue copies from a no-follow descriptor, verifies that descriptor
+    /// against the selected path before and after the copy, and hashes every
+    /// copied byte. Queue-owned snapshots retain the stricter single-link
+    /// invariant so their path continues to prove exclusive ownership.
+    nonisolated static func isSafeApplicationSourceFile(
+        _ metadata: stat
+    ) -> Bool {
+        (metadata.st_mode & S_IFMT) == S_IFREG
+            && metadata.st_nlink >= 1
             && metadata.st_size > 0
     }
 

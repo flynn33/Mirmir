@@ -1,6 +1,6 @@
 # Deterministic engine v4 current qualification status
 
-Verified September 23, 2026.
+Verified September 25, 2026.
 
 The GitHub-facing tracker in `roadmap-status.svg` is generated from this
 document, `DETERMINISTIC_ENGINE_V4_ROADMAP.md`, `VERSION`, and `BUILD_NUMBER`.
@@ -23,8 +23,8 @@ decisions.
 
 | Field | Verified value |
 | --- | --- |
-| Product | Mirmir 1.3.2 (5) |
-| Version authorities | `VERSION` = `1.3.2`; `BUILD_NUMBER` = `5` |
+| Product | Mirmir 1.3.3 (6) |
+| Version authorities | `VERSION` = `1.3.3`; `BUILD_NUMBER` = `6` |
 | Bundle identifier | `com.mirmir.app` |
 | Minimum macOS | 15.4 |
 | M0–M6 implementation | Complete |
@@ -44,6 +44,29 @@ alignment also passed. The 1.3.2 conformance tree completed 493 Debug scheme
 tests: 490 passed, zero failed, and three expected opt-in capture tests skipped.
 An unsigned universal Release build also passed. These results establish the
 M0–M6 implementation baseline on which the simulator comparison operates.
+
+## Version 1.3.3 rollback qualification
+
+Version 1.3.3 is based on source checkpoint
+`5addbee99674c08869ab010dec3d4c6988c40549`, immediately before the deferred
+resource-allocation control. That control is not included in this release.
+Two post-rollback corrections remain:
+
+- user-selected regular sources may have multiple hard links, while the
+  queue-owned private snapshot retains its single-link invariant; and
+- VideoToolbox Smooth Motion + Spatial Upscale is marked unavailable when the
+  Mac's reported 2× source-frame maximum dimension or pixel-count limit rejects
+  the input. These processor limits are independent of display resolution.
+
+The retained 960 × 960 opaque H.264 fixture completed deterministic CPU and
+Metal 1920 × 1920 HEVC jobs with 241 frames, audio, attached picture, and
+identical decoded frames. A fresh Metal job paused after durable boundary zero,
+resumed from its persisted checkpoint, and completed a playable output.
+Cancellation left no destination movie and did not prevent a later enqueue of
+the same source. Automatic retained its existing opaque-input policy and did
+not select deterministic v4. Attached-picture preservation remains specific to
+the deterministic v4 whole-asset path; conventional backends do not preserve
+attached pictures.
 
 ## Version 1.3.2 conformance remediation
 

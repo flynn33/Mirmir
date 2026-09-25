@@ -42,6 +42,43 @@ struct RuntimeEnvironment: Sendable {
     }
 }
 
+enum VTInterpolationSpatialGeometrySupport {
+    static func unavailableReason(
+        width: Int,
+        height: Int
+    ) -> BackendUnavailableReason? {
+        guard #available(macOS 27.0, *) else { return nil }
+        guard
+            let maximumDimension = VTLowLatencyFrameInterpolationConfiguration
+                .maximumDimension(forSpatialScaleFactor: 2),
+            let maximumPixelCount = VTLowLatencyFrameInterpolationConfiguration
+                .maximumPixelCount(forSpatialScaleFactor: 2)
+        else {
+            return .appleAPIUnsupported(
+                details: "VideoToolbox did not report 2× Smooth Motion geometry limits"
+            )
+        }
+        let (pixelCount, overflow) = width.multipliedReportingOverflow(
+            by: height
+        )
+        guard
+            !overflow,
+            width <= maximumDimension,
+            height <= maximumDimension,
+            pixelCount <= maximumPixelCount
+        else {
+            return .unsupportedSourceDimensions(
+                width: width,
+                height: height,
+                details: "this Mac reports a maximum dimension of "
+                    + "\(maximumDimension) and a maximum source pixel count "
+                    + "of \(maximumPixelCount) for 2× Smooth Motion"
+            )
+        }
+        return nil
+    }
+}
+
 struct SystemBackendCapabilityProbe: BackendCapabilityProbing {
     func availability(
         for backendID: UpscaleBackendID,
@@ -307,6 +344,10 @@ struct SystemBackendCapabilityProbe: BackendCapabilityProbing {
                     details: "the installed SDK documents only 2× spatial scaling for this combined effect"
                 )
             )
+        }
+        if let reason = VTInterpolationSpatialGeometrySupport
+            .unavailableReason(width: source.width, height: source.height) {
+            return .unavailable(reason: reason)
         }
         guard let configuration = VTLowLatencyFrameInterpolationConfiguration(
             frameWidth: source.width,

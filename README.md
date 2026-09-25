@@ -3,11 +3,11 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-Version 1.3.2 build 5 carries the deterministic ASH P06 CPU and Metal engine
+Version 1.3.3 build 6 carries the deterministic ASH P06 CPU and Metal engine
 beside the supported Apple scaling frameworks, preserves the completed
-simulator-only M7 candidate selection, and hardens real-file media assembly,
-decoded video-range handling, and durable source recovery while keeping every
-backend choice, preservation decision, and fallback boundary visible.
+simulator-only M7 candidate selection, and adds qualified source admission and
+VideoToolbox capability checks while keeping every backend choice,
+preservation decision, and fallback boundary visible.
 
 The current marketing version and build number are recorded in
 [`VERSION`](VERSION) and [`BUILD_NUMBER`](BUILD_NUMBER), then synchronized with
@@ -40,10 +40,22 @@ deliberate operator actions.
 - Output is semantically validated before atomic publication; cancellation,
   failure, and crash recovery account for temporary artifacts explicitly.
 
+Version 1.3.3 keeps these product boundaries explicit:
+
+- The resource-allocation control is deferred and is not included.
+- A user-selected regular source may have multiple hard links; the queue still
+  creates and validates a private single-link snapshot.
+- Smooth Motion + Spatial Upscale is available only when the Mac's
+  VideoToolbox 2× source-frame geometry limits admit the input. Those limits
+  are independent of display resolution.
+- Attached-picture preservation is provided by the deterministic v4
+  whole-asset path; conventional backends do not preserve attached pictures.
+- Automatic does not select deterministic v4 for opaque H.264 input.
+
 See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.
-See [`CHANGELOG.md`](CHANGELOG.md) for the 1.3.2 conformance corrections, the
-1.3.1 qualification update, the 1.3.0 engine landing record, and
+See [`CHANGELOG.md`](CHANGELOG.md) for the 1.3.3 source-admission and capability
+corrections, the earlier conformance and qualification updates, and
 [`docs/v4/`](docs/v4/) for the qualification evidence contracts.
 The [Mirmir Wiki](https://github.com/flynn33/Mirmir/wiki) provides the complete
 product guide, architecture reference, ASH engine documentation, diagrams,
@@ -64,9 +76,9 @@ The [`DETERMINISTIC_ENGINE_V4_ROADMAP.md`](DETERMINISTIC_ENGINE_V4_ROADMAP.md)
 records the v4 architecture, delivery sequence, and M7 simulator selection for
 at least 5% higher quality and 20% lower processing time. Engine, media, and
 durable-workflow implementation originally landed in 1.3.0; version 1.3.1
-records the altered simulator-only M7 scope and completed decision. Version
-1.3.2 adds post-qualification conformance repairs without changing that locked
-selection result. The sealed
+records the altered simulator-only M7 scope and completed decision. Versions
+1.3.2 and 1.3.3 add post-qualification conformance repairs without changing
+that locked selection result. The sealed
 168-case headless XCTest frame-simulator run from
 commit `ce780af87107d90142d860f328dca4a72fea3047` ranked `candidate_v4` first:
 quality improved 22.792052% with a 22.312761% paired-bootstrap lower bound, and
@@ -159,8 +171,8 @@ manifest identity and reads the manifest provenance source revision and builder
 hash, then passes those four arguments into the production loader. A bundle
 that does not match the declared trust roots cannot pass CI.
 
-See [`CHANGELOG.md`](CHANGELOG.md) for the 1.3.2 conformance record and the
-1.3.1 qualification and identity-check record.
+See [`CHANGELOG.md`](CHANGELOG.md) for the 1.3.3 product record and the earlier
+conformance, qualification, and identity-check records.
 
 ## Versioning
 

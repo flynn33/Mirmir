@@ -7,6 +7,38 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-09-25
+
+### Fixed
+
+- Accepted user-selected regular source files with multiple hard links while
+  retaining the single-link invariant for queue-owned private snapshots.
+- Gated VideoToolbox Smooth Motion + Spatial Upscale with the Mac's reported
+  2× source-frame maximum dimension and pixel-count limits. These processor
+  limits are independent of connected-display resolution, and unsupported
+  inputs are now shown as unavailable before processing begins.
+
+### Product boundaries
+
+- Deferred the resource-allocation control; it is not included in this
+  release.
+- Kept attached-picture preservation on the deterministic v4 whole-asset path.
+  Conventional backends do not preserve attached pictures.
+- Kept Automatic's existing opaque-input policy. It does not select the
+  deterministic v4 routes for opaque H.264 sources.
+
+### Verified
+
+- Completed real-file deterministic CPU and Metal upscales of the retained
+  960 × 960 H.264 fixture to playable 1920 × 1920 HEVC outputs with 241 frames,
+  audio, attached picture, and identical decoded frames.
+- Paused a deterministic Metal job after its first durable boundary, resumed
+  it from the persisted checkpoint, and completed the verified output.
+- Confirmed cancellation left no destination movie and did not prevent a
+  later enqueue of the same source.
+- Advanced repository and Xcode version authorities to 1.3.3 build 6 without
+  asserting archive, notarization, installation, or distribution.
+
 ## [1.3.2] - 2026-09-23
 
 ### Fixed
