@@ -1,0 +1,250 @@
+MIRMIR RESEARCH AND EDUCATION LICENSE
+Version 1.0
+
+Copyright (c) 2026 Raven Forge Software. All rights reserved except as
+expressly granted below.
+
+DRAFT FOR REVIEW: This proposed text grants no permissions until the
+copyright holder expressly adopts it. Remove this paragraph upon adoption.
+Even after adoption, the public-release condition in Section 1 applies.
+
+1. SCOPE AND PUBLIC-RELEASE CONDITION
+
+"Licensor" means the copyright holder or authorized rights holder offering
+Mirmir under these terms. "You" means the person or organization exercising
+the permissions granted here.
+
+"Software" means the original Mirmir source code, build scripts, tests,
+and accompanying documentation and other copyrightable material that the
+Licensor intentionally releases to the public under this license, including
+copies and modifications of that material. It includes only rights the
+Licensor is entitled to grant. Separately licensed material is excluded as
+specified in Section 8.
+
+These permissions apply only to versions intentionally released to the
+public by the Licensor under this license. Placing this license in a private
+repository, granting private repository access, or distributing a TestFlight
+or other application binary does not itself authorize public source release
+or grant the permissions below for otherwise private material. Separate
+permissions and applicable platform terms remain unaffected.
+
+2. RESEARCH AND EDUCATION PERMISSIONS
+
+Subject to every applicable condition below, the Licensor grants You a
+worldwide, nonexclusive, royalty-free copyright license to inspect, copy,
+build, execute, test, modify, and create derivative works of the Software
+solely for the Permitted Purposes in Section 3. Redistribution is permitted
+only as specified in Sections 5 and 6. Each recipient receives these
+permissions directly from the Licensor, not by sublicensing from You.
+
+For those same Permitted Purposes, the Licensor also grants a nonexclusive,
+royalty-free license under patent claims the Licensor can license that are
+necessarily infringed by the Software as released. This grant does not
+extend to claims infringed only because of Your additions or combinations
+with other products, and grants no commercial patent rights. It does not
+represent that any patent exists or that third-party rights are cleared.
+
+3. PERMITTED PURPOSES
+
+Permitted Purposes are:
+
+(a) academic study, classroom instruction, coursework, and scholarly
+    research;
+(b) independent noncommercial study, experimentation, and research; and
+(c) good-faith investigation, comparison, verification, and replication of
+    the Software's methods, correctness, performance, reliability, or
+    security, and preparation of research findings about those subjects.
+
+These permissions include research prototypes, test harnesses, benchmark
+comparisons, and modifications needed to reproduce or challenge claims
+about Mirmir or its use of the ASH Model. They are not limited to research
+that supports the Licensor's claims.
+
+Ordinary tuition, research grants, researcher salaries, and ordinary
+scholarly publication fees do not, by themselves, make an otherwise
+Permitted Purpose commercial. A person's employer or a project's funding
+source alone does not determine eligibility. However, the actual activity
+must fall within the purposes above and may not include the prohibited
+activities in Section 4. An academic affiliation or research label does
+not authorize commercial product development or operational deployment.
+
+4. ACTIVITIES REQUIRING SEPARATE PERMISSION
+
+Except where separately authorized in writing by the Licensor, this
+license does not permit You to:
+
+(a) sell, resell, rent, lease, or commercially sublicense the Software,
+    modifications of it, or products containing protected portions of it;
+(b) incorporate the Software into, or adapt it for, a commercial product
+    or service, whether distributed for a fee or supplied free of charge
+    as part of a commercial offering;
+(c) provide the Software's functionality as a paid, subscription-funded,
+    advertising-funded, or otherwise commercial hosted service, API,
+    processing service, or service bureau;
+(d) use the Software in business operations, client work, production
+    media processing, or other operational environments rather than
+    solely for the Permitted Purposes; or
+(e) distribute general-purpose end-user applications, app-store listings,
+    or consumer download packages based on the Software, whether paid
+    or free, except for clearly identified research artifacts under
+    Section 5.
+
+Renaming the Software, changing its interface, distributing only binaries,
+or describing an offering as a donation, bundle, or free tier does not
+expand these permissions. Ordinary personal entertainment or routine
+personal media processing is not licensed merely because it is unpaid.
+These restrictions concern the covered Software, not independently created
+works or rights preserved by Sections 6 and 8.
+
+5. SHARING RESEARCH COPIES AND MODIFICATIONS
+
+For Permitted Purposes, You may share unmodified or modified source code,
+patches, and research builds without charging for access to the Software.
+Public research forks and academic artifact archives are permitted after
+the public-release condition in Section 1 has been met.
+
+Every redistributed copy must retain this license and applicable copyright,
+attribution, and separate-license notices. Clearly identify modifications
+and their authors, and do not describe a modified version as an official
+Mirmir release. Recipients must be informed of the research-and-education
+limitations. You may not offer broader rights in the Licensor's material
+than this license grants.
+
+Any distributed executable must be clearly labeled a research or teaching
+build, be provided for a Permitted Purpose rather than ordinary end-user
+use, and include or link to its corresponding source, modifications, and
+build instructions. Public availability alone does not disqualify a genuine
+research artifact. Required fees, purchases, subscriptions, or donations
+for access to the Software are not permitted; the ordinary educational and
+publication activities described in Sections 3 and 6 remain permitted.
+
+You retain ownership of Your original contributions. This license does
+not assign them to the Licensor or automatically give the Licensor a right
+to include them in a commercial release. Any such rights require a
+separate applicable license or contributor agreement.
+
+6. PUBLICATION, ATTRIBUTION, AND INDEPENDENT WORK
+
+You may publish research findings, benchmarks, critiques, descriptions of
+methods, and excerpts of the Software reasonably necessary to explain or
+reproduce those findings. Ordinary academic journals, books, conferences,
+and teaching materials may charge their customary fees; this permission
+is not a right to sell the Software as a software product.
+
+For publications relying on the permissions in this license, acknowledge
+Mirmir and identify the version or commit studied when available. Preserve
+applicable notices with reproduced code and satisfy any separate ASH Model
+attribution requirements. No prior approval, favorable conclusion,
+coauthorship, or endorsement is required.
+
+The Licensor claims no ownership of Your original findings or of media
+merely processed by the Software. This does not permit prohibited uses
+of the Software or transfer rights in third-party media. Software or
+protected documentation copied into an output remains governed by its
+applicable license.
+
+This license does not restrict fair use, fair dealing, or other rights
+available without a license. It does not claim copyright over ideas,
+mathematics, algorithms, facts, or methods as such, and does not restrict
+independent implementations that do not require permission under the
+Licensor's rights. Separate valid patent rights, if any, are unaffected
+except to the extent expressly licensed in Section 2.
+
+7. COMMERCIAL RIGHTS AND APPLICATION DISTRIBUTION
+
+The Licensor reserves all rights not expressly granted and may separately
+sell, distribute, and license material it owns or is authorized to license,
+including Mirmir through the Mac App Store. These reservations do not
+supply rights in contributions or third-party material that the Licensor
+does not otherwise hold.
+
+This source license is not the end-user license for the Licensor's official
+Mac App Store, TestFlight, or other separately licensed application builds.
+Use of those builds is governed by their applicable end-user and platform
+terms. This source license neither adds research-only restrictions to
+rights granted under those separate terms nor grants purchasers source
+redistribution or commercial development rights.
+
+No price, launch date, support commitment, or promise of future public
+source releases is established by this license.
+
+8. ASH MODEL AND OTHER SEPARATELY LICENSED MATERIAL
+
+ASH Model material, dependencies, sample media, fonts, datasets, and other
+material carrying a separate license remain governed by that license for
+the relevant material and version. This license neither replaces those
+terms nor removes permissions already granted under them, including any
+MIT permissions applicable to ASH Model material.
+
+Retain all required separate notices, including the notice at
+Mirmir/Resources/Legal/ASH-Model-LICENSE.txt for the material to which it
+applies. Its presence does not establish that every ASH-related file has
+the same provenance or license. A discrepancy between bundled and upstream
+notices must be resolved from the relevant versions and rights history,
+not by assuming this license overrides either one.
+
+9. NAMES, BRANDING, AND PLATFORM RIGHTS
+
+No trademark or endorsement license is granted. You may refer truthfully
+to Mirmir, Raven Forge Software, and the ASH Model to identify the work
+studied and its provenance, but may not imply official sponsorship or
+use branding to pass off a fork as an official product. The limited
+copyright permission to reproduce included assets for research does not
+convey trademark rights.
+
+Nothing here restricts viewing or forking permissions independently
+required by the terms of the repository-hosting platform. Those platform
+permissions do not, by themselves, authorize commercial exploitation.
+
+10. DISCLAIMER AND LIMITATION OF LIABILITY
+
+The Software is supplied "as is" and "as available." To the maximum extent
+allowed by law, the Licensor disclaims express, implied, and statutory
+warranties, including merchantability, suitability for a particular
+purpose, accuracy, security, and noninfringement. Descriptions, tests,
+research results, and performance claims are not guarantees.
+
+To the maximum extent allowed by law, the Licensor is not liable for
+losses or damages arising from this license or the Software, including
+lost profits, lost data, business interruption, and direct, indirect,
+incidental, special, or consequential damages, regardless of the legal
+theory or notice of the possibility. Liability that applicable law does
+not permit to be excluded remains unaffected.
+
+11. DURATION, VIOLATIONS, AND TERMINATION
+
+For a version properly released under this license, the permissions
+continue for the duration of the licensed rights while You comply with
+these terms. Later changes to the Licensor's license offerings do not
+withdraw compliant recipients' permissions for that version.
+
+Your permissions terminate automatically upon violation. For a first
+violation, they are reinstated automatically if You cease the violating
+activity, correct it to the extent reasonably possible, and come into
+full compliance within 30 days after discovery or written notice,
+whichever occurs first. Later reinstatement requires written permission.
+Reinstatement does not waive claims for past violations.
+
+After termination, stop exercising the terminated permissions. Lawful
+recipients' independent rights, separately licensed rights, statutory
+exceptions, and ownership of original research findings are unaffected.
+Sections concerning retained rights, separate licenses, attribution on
+retained copies, disclaimers, liability, and general interpretation
+survive to the extent applicable.
+
+12. GENERAL TERMS AND ADDITIONAL PERMISSION
+
+Exercising a permission that requires this license signifies acceptance
+of its applicable conditions. Activities that require no license do not
+constitute acceptance merely because You view the repository.
+
+A provision unenforceable under applicable law is limited or severed only
+to the extent required; remaining provisions continue to apply. No waiver
+of one breach is a waiver of another. Additional permissions must be
+provided by the Licensor in writing, including electronically.
+
+Commercial licensing and permission requests:
+contact@ravenforgesoftware.com
+
+This is a source-available, purpose-restricted license, not an
+OSI-approved open-source license.
