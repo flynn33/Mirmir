@@ -1,6 +1,195 @@
 @preconcurrency import AVFoundation
+import AppKit
 import AVKit
 import SwiftUI
+import UniformTypeIdentifiers
+
+struct MirmirCompareWorkspace: View {
+    let lastCompletedOriginalURL: URL?
+    let lastCompletedUpscaledURL: URL?
+    let theme: MirmirThemeTokens
+
+    @State private var originalURL: URL?
+    @State private var upscaledURL: URL?
+    @State private var splitPosition = 0.5
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: theme.spacing.space4) {
+                MirmirProductPanel(theme: theme) {
+                    VStack(alignment: .leading, spacing: theme.spacing.space4) {
+                        HStack(alignment: .top, spacing: theme.spacing.space4) {
+                            VStack(alignment: .leading, spacing: theme.spacing.space1) {
+                                Text("Choose two movies")
+                                    .font(theme.typography.headline)
+                                Text(
+                                    "Compare any original and upscaled movies with synchronized playback, scrubbing, and a draggable split."
+                                )
+                                .font(theme.typography.body)
+                                .foregroundStyle(theme.textSecondary)
+                            }
+                            Spacer()
+                            Button("Use Last Completed Job") {
+                                useLastCompletedJob()
+                            }
+                            .buttonStyle(
+                                MirmirProductSecondaryButtonStyle(theme: theme)
+                            )
+                            .disabled(!lastCompletedJobIsAvailable)
+                            .accessibilityIdentifier(
+                                "mirmir.compare.useLastCompleted"
+                            )
+                        }
+
+                        HStack(spacing: theme.spacing.space3) {
+                            fileSelection(
+                                title: "Original",
+                                url: originalURL,
+                                identifier: "mirmir.compare.chooseOriginal"
+                            ) {
+                                if let selection = chooseMovie(
+                                    title: "Choose Original Movie"
+                                ) {
+                                    originalURL = selection
+                                }
+                            }
+                            fileSelection(
+                                title: "Upscaled",
+                                url: upscaledURL,
+                                identifier: "mirmir.compare.chooseUpscaled"
+                            ) {
+                                if let selection = chooseMovie(
+                                    title: "Choose Upscaled Movie"
+                                ) {
+                                    upscaledURL = selection
+                                }
+                            }
+                        }
+                    }
+                }
+
+                MirmirProductPanel(theme: theme) {
+                    comparisonContent
+                }
+            }
+            .padding(theme.spacing.space5)
+        }
+        .background(theme.background)
+        .accessibilityIdentifier("mirmir.compare.workspace")
+    }
+
+    @ViewBuilder
+    private var comparisonContent: some View {
+        if let originalURL, let upscaledURL {
+            MirmirCompletedComparisonPlaybackView(
+                sourceURL: originalURL,
+                completedOutputURL: upscaledURL,
+                sourceResolutionText: originalURL.lastPathComponent,
+                outputResolutionText: upscaledURL.lastPathComponent,
+                theme: theme,
+                splitPosition: $splitPosition
+            )
+        } else {
+            RoundedRectangle(cornerRadius: theme.radius.xlarge)
+                .fill(theme.surfaceInset)
+                .frame(minHeight: 420)
+                .overlay {
+                    VStack(spacing: theme.spacing.space3) {
+                        Image(systemName: "rectangle.split.2x1")
+                            .font(.system(size: 42, weight: .light))
+                            .foregroundStyle(theme.textTertiary)
+                        Text("Select Original and Upscaled movies")
+                            .font(theme.typography.subtitle)
+                        Text(missingSelectionMessage)
+                            .font(theme.typography.body)
+                            .foregroundStyle(theme.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(theme.spacing.space6)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: theme.radius.xlarge)
+                        .stroke(theme.borderSubtle, lineWidth: 1)
+                }
+                .accessibilityLabel(missingSelectionMessage)
+        }
+    }
+
+    private func fileSelection(
+        title: String,
+        url: URL?,
+        identifier: String,
+        choose: @escaping () -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: theme.spacing.space2) {
+            Text(title.uppercased())
+                .font(theme.typography.micro)
+                .foregroundStyle(theme.textTertiary)
+            HStack(spacing: theme.spacing.space2) {
+                Image(systemName: "film")
+                    .foregroundStyle(theme.accentPrimary)
+                Text(url?.lastPathComponent ?? "No movie selected")
+                    .font(theme.typography.body)
+                    .foregroundStyle(
+                        url == nil ? theme.textTertiary : theme.textPrimary
+                    )
+                    .lineLimit(1)
+                Spacer()
+                Button("Choose", action: choose)
+                    .buttonStyle(
+                        MirmirProductSecondaryButtonStyle(theme: theme)
+                    )
+                    .accessibilityIdentifier(identifier)
+            }
+        }
+        .padding(theme.spacing.space3)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: theme.radius.medium)
+                .fill(theme.surfaceInset)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: theme.radius.medium)
+                .stroke(theme.borderSubtle, lineWidth: 1)
+        }
+    }
+
+    private var lastCompletedJobIsAvailable: Bool {
+        lastCompletedOriginalURL != nil && lastCompletedUpscaledURL != nil
+    }
+
+    private var missingSelectionMessage: String {
+        switch (originalURL, upscaledURL) {
+        case (nil, nil):
+            return "Choose both movies to load the comparison player."
+        case (nil, _):
+            return "Choose the original movie to continue."
+        case (_, nil):
+            return "Choose the upscaled movie to continue."
+        case (.some, .some):
+            return "Loading comparison."
+        }
+    }
+
+    private func useLastCompletedJob() {
+        guard let lastCompletedOriginalURL,
+              let lastCompletedUpscaledURL else { return }
+        originalURL = lastCompletedOriginalURL
+        upscaledURL = lastCompletedUpscaledURL
+    }
+
+    private func chooseMovie(title: String) -> URL? {
+        let panel = NSOpenPanel()
+        panel.title = title
+        panel.prompt = "Choose"
+        panel.allowedContentTypes = [.movie]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        guard panel.runModal() == .OK else { return nil }
+        return panel.url?.standardizedFileURL
+    }
+}
 
 struct MirmirCompletedComparisonPlaybackView: View {
     let sourceURL: URL
@@ -9,13 +198,21 @@ struct MirmirCompletedComparisonPlaybackView: View {
     let outputResolutionText: String
     let theme: MirmirThemeTokens
     @Binding var splitPosition: Double
-    let showLibrary: () -> Void
 
     @StateObject private var controller =
         MirmirSynchronizedPlaybackController()
 
     var body: some View {
         VStack(spacing: theme.spacing.space3) {
+            HStack(spacing: theme.spacing.space2) {
+                Label("Synchronized comparison", systemImage: "play.rectangle")
+                    .font(theme.typography.captionEmphasis)
+                    .foregroundStyle(theme.textSecondary)
+                Spacer()
+                Text(playbackStatusText)
+                    .font(theme.typography.micro)
+                    .foregroundStyle(theme.textTertiary)
+            }
             playbackSurface
                 .frame(minHeight: 360)
             playbackControls
@@ -80,7 +277,17 @@ struct MirmirCompletedComparisonPlaybackView: View {
             )
             .accessibilityElement(children: .contain)
             .accessibilityLabel(
-                "Synchronized before and after completed video comparison"
+                "Synchronized original and upscaled video comparison"
+            )
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        splitPosition = min(
+                            0.95,
+                            max(0.05, value.location.x / max(proxy.size.width, 1))
+                        )
+                    }
             )
         }
     }
@@ -93,12 +300,12 @@ struct MirmirCompletedComparisonPlaybackView: View {
                 Image(systemName: playbackButtonSymbol)
                     .frame(width: 18, height: 18)
             }
-            .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
+            .buttonStyle(MirmirProductSecondaryButtonStyle(theme: theme))
             .disabled(!controller.timeline.isReady)
             .accessibilityLabel(playbackButtonLabel)
 
             Text(
-                MirmirPreviewPresentation.timestamp(
+                MirmirComparisonPresentation.timestamp(
                     seconds: controller.timeline.currentTime
                 )
             )
@@ -120,10 +327,10 @@ struct MirmirCompletedComparisonPlaybackView: View {
                 }
             )
             .disabled(!controller.timeline.isReady)
-            .accessibilityLabel("Completed comparison timeline")
+            .accessibilityLabel("Comparison timeline")
 
             Text(
-                MirmirPreviewPresentation.timestamp(
+                MirmirComparisonPresentation.timestamp(
                     seconds: controller.timeline.duration
                 )
             )
@@ -134,10 +341,9 @@ struct MirmirCompletedComparisonPlaybackView: View {
                 Button("Retry Playback") {
                     controller.retry()
                 }
-                .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
-
-                Button("Open Library", action: showLibrary)
-                    .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
+                .buttonStyle(
+                    MirmirProductSecondaryButtonStyle(theme: theme)
+                )
             }
         }
     }
@@ -149,7 +355,7 @@ struct MirmirCompletedComparisonPlaybackView: View {
             VStack(spacing: theme.spacing.space2) {
                 ProgressView()
                     .controlSize(.small)
-                Text("Loading source and verified completed output…")
+                Text("Loading original and upscaled movies…")
                     .font(theme.typography.body)
                     .foregroundStyle(theme.viewerOverlayText)
             }
@@ -162,7 +368,7 @@ struct MirmirCompletedComparisonPlaybackView: View {
             VStack(spacing: theme.spacing.space2) {
                 Image(systemName: "exclamationmark.triangle")
                     .foregroundStyle(theme.warning)
-                Text("Completed comparison unavailable")
+                Text("Comparison unavailable")
                     .font(theme.typography.captionEmphasis)
                 Text(message)
                     .font(theme.typography.caption)
@@ -176,7 +382,22 @@ struct MirmirCompletedComparisonPlaybackView: View {
             )
             .padding(theme.spacing.space4)
         case .ready:
-            EmptyView()
+            if controller.timeline.hasEnded {
+                VStack(spacing: theme.spacing.space2) {
+                    Image(systemName: "arrow.counterclockwise.circle")
+                        .foregroundStyle(theme.accentPrimary)
+                    Text("Playback ended")
+                        .font(theme.typography.captionEmphasis)
+                    Text("Use Replay or scrub to another point.")
+                        .font(theme.typography.caption)
+                }
+                .foregroundStyle(theme.viewerOverlayText)
+                .padding(theme.spacing.space4)
+                .background(
+                    RoundedRectangle(cornerRadius: theme.radius.medium)
+                        .fill(theme.viewerOverlay)
+                )
+            }
         }
     }
 
@@ -207,12 +428,12 @@ struct MirmirCompletedComparisonPlaybackView: View {
     private var playbackLabels: some View {
         HStack(alignment: .top) {
             playbackLabel(
-                "Before",
+                "Original",
                 subtitle: sourceResolutionText
             )
             Spacer()
             playbackLabel(
-                "After",
+                "Upscaled",
                 subtitle: outputResolutionText
             )
         }
@@ -258,6 +479,38 @@ struct MirmirCompletedComparisonPlaybackView: View {
         MirmirPlaybackAssetIdentity(
             sourceURL: sourceURL,
             completedOutputURL: completedOutputURL
+        )
+    }
+
+    private var playbackStatusText: String {
+        switch controller.timeline.loadState {
+        case .idle:
+            return "IDLE"
+        case .loading:
+            return "LOADING"
+        case .failed:
+            return "FAILED"
+        case .ready:
+            return controller.timeline.hasEnded ? "ENDED" : "READY"
+        }
+    }
+}
+
+private enum MirmirComparisonPresentation {
+    static func timestamp(seconds: Double) -> String {
+        guard seconds.isFinite else { return "00:00:00" }
+        let maximumSafeSeconds = Double(Int.max / 2)
+        let totalSeconds = Int(
+            min(max(seconds, 0).rounded(.down), maximumSafeSeconds)
+        )
+        let hours = totalSeconds / 3_600
+        let minutes = (totalSeconds % 3_600) / 60
+        let remainingSeconds = totalSeconds % 60
+        return String(
+            format: "%02d:%02d:%02d",
+            hours,
+            minutes,
+            remainingSeconds
         )
     }
 }

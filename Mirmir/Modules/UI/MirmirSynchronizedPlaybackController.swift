@@ -60,7 +60,7 @@ final class MirmirSynchronizedPlaybackController: ObservableObject {
 
         guard sourceURL.isFileURL, completedOutputURL.isFileURL else {
             fail(
-                "Completed comparison playback accepts local files only."
+                "Comparison playback accepts local files only."
             )
             return
         }
@@ -244,7 +244,7 @@ private extension MirmirSynchronizedPlaybackController {
             outputDuration: pendingDurations.output
         ) else {
             fail(
-                "The source or completed output has an invalid duration."
+                "The original or upscaled movie has an invalid duration."
             )
             return
         }

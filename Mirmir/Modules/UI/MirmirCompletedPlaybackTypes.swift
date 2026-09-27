@@ -25,16 +25,15 @@ enum MirmirPlaybackAssetRole {
     var displayName: String {
         switch self {
         case .source:
-            return "Source video"
+            return "Original video"
         case .completedOutput:
-            return "Verified completed output"
+            return "Upscaled video"
         }
     }
 
     var recoveryGuidance: String {
-        "Restore or replace it with a readable local video at its original "
-            + "location and choose Retry Playback, or open Library to "
-            + "reauthorize or reprocess the saved job."
+        "Choose a readable local movie for this side of Compare, then retry "
+            + "playback."
     }
 }
 
@@ -88,13 +87,13 @@ enum MirmirCompletedPlaybackLogging {
 
     static func recordReady(durationSeconds: Double) {
         logger.info(
-            "Synchronized completed playback ready; duration: \(durationSeconds, privacy: .public) seconds."
+            "Synchronized comparison playback ready; duration: \(durationSeconds, privacy: .public) seconds."
         )
     }
 
     static func recordFailure(_ message: String) {
         logger.error(
-            "Synchronized completed playback failed: \(message, privacy: .private)"
+            "Synchronized comparison playback failed: \(message, privacy: .private)"
         )
     }
 }

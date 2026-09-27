@@ -57,6 +57,82 @@ final class MirmirTests: XCTestCase {
         )
     }
 
+    func testPrimaryNavigationSeparatesCompareFromUpscale() {
+        XCTAssertTrue(MirmirProductDestination.primary.contains(.upscale))
+        XCTAssertTrue(MirmirProductDestination.primary.contains(.compare))
+        XCTAssertEqual(MirmirProductDestination.upscale.title, "Upscale")
+        XCTAssertEqual(MirmirProductDestination.compare.title, "Compare")
+    }
+
+    func testUpscaleCompositionCannotMountCompletedComparisonPlayer()
+        throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let activeUpscale = try String(
+            contentsOf: repositoryRoot.appendingPathComponent(
+                "Mirmir/App/MirmirUpscaleWorkspace.swift"
+            ),
+            encoding: .utf8
+        )
+        let moduleUpscale = try String(
+            contentsOf: repositoryRoot.appendingPathComponent(
+                "Mirmir/Modules/UI/Views/MirmirUpscaleWorkspaceView.swift"
+            ),
+            encoding: .utf8
+        )
+        let comparison = try String(
+            contentsOf: repositoryRoot.appendingPathComponent(
+                "Mirmir/Modules/UI/Views/"
+                    + "MirmirCompletedComparisonPlaybackView.swift"
+            ),
+            encoding: .utf8
+        )
+
+        XCTAssertFalse(
+            activeUpscale.contains("MirmirCompletedComparisonPlaybackView")
+        )
+        XCTAssertFalse(
+            moduleUpscale.contains("MirmirCompletedComparisonPlaybackView")
+        )
+        XCTAssertFalse(activeUpscale.contains("Before / After Viewer"))
+        XCTAssertTrue(
+            comparison.contains("MirmirCompletedComparisonPlaybackView(")
+        )
+        XCTAssertTrue(comparison.contains("Choose Original Movie"))
+        XCTAssertTrue(comparison.contains("Choose Upscaled Movie"))
+    }
+
+    @MainActor
+    func testComparisonDefaultsToUpscaledAudioOnly() {
+        let controller = MirmirSynchronizedPlaybackController()
+
+        XCTAssertTrue(controller.sourcePlayer.isMuted)
+        XCTAssertFalse(controller.outputPlayer.isMuted)
+    }
+
+    func testComparisonTimelineRepresentsLoadingReadyEndedAndFailure() {
+        var timeline = MirmirSynchronizedPlaybackTimeline()
+        XCTAssertEqual(timeline.loadState, .idle)
+
+        timeline.beginLoading()
+        XCTAssertEqual(timeline.loadState, .loading)
+        XCTAssertTrue(
+            timeline.markReady(sourceDuration: 12, outputDuration: 10)
+        )
+        XCTAssertEqual(timeline.loadState, .ready)
+        XCTAssertEqual(timeline.duration, 10)
+
+        timeline.scrub(to: 10)
+        XCTAssertTrue(timeline.hasEnded)
+
+        timeline.markFailed("Unreadable upscaled movie")
+        XCTAssertEqual(
+            timeline.loadState,
+            .failed("Unreadable upscaled movie")
+        )
+    }
+
     @MainActor
     func testWorkflowLaunchPublishesSnapshotsAndContainsRecoveryErrors() async throws {
         let generatedAt = WorkflowWallClockInstantV4(

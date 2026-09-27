@@ -87,6 +87,10 @@
 		32000000000000000000004F /* MirmirWorkspaceSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000004F /* MirmirWorkspaceSupport.swift */; };
 		320000000000000000000050 /* MirmirWorkspaceRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000050 /* MirmirWorkspaceRootView.swift */; };
 		320000000000000000000051 /* MirmirUpscaleWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000051 /* MirmirUpscaleWorkspace.swift */; };
+		E42000000000000000000001 /* MirmirCompletedPlaybackTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = E41000000000000000000001 /* MirmirCompletedPlaybackTypes.swift */; };
+		E42000000000000000000002 /* MirmirSynchronizedPlaybackTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = E41000000000000000000002 /* MirmirSynchronizedPlaybackTimeline.swift */; };
+		E42000000000000000000003 /* MirmirSynchronizedPlaybackController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E41000000000000000000003 /* MirmirSynchronizedPlaybackController.swift */; };
+		E42000000000000000000004 /* MirmirCompletedComparisonPlaybackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E41000000000000000000004 /* MirmirCompletedComparisonPlaybackView.swift */; };
 		320000000000000000000052 /* MirmirTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000052 /* MirmirTheme.swift */; };
 		B42000000000000000000001 /* ASHCoreV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41000000000000000000001 /* ASHCoreV4.swift */; };
 		B42000000000000000000002 /* ASHCoreCertificateV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = B41000000000000000000002 /* ASHCoreCertificateV4.swift */; };
@@ -270,6 +274,10 @@
 		310000000000000000000050 /* MirmirWorkspaceRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirWorkspaceRootView.swift; sourceTree = "<group>"; };
 		310000000000000000000051 /* MirmirUpscaleWorkspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirUpscaleWorkspace.swift; sourceTree = "<group>"; };
 		310000000000000000000052 /* MirmirTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MirmirTheme.swift; path = ../Modules/UI/Theme/MirmirTheme.swift; sourceTree = "<group>"; };
+		E41000000000000000000001 /* MirmirCompletedPlaybackTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MirmirCompletedPlaybackTypes.swift; path = ../Modules/UI/MirmirCompletedPlaybackTypes.swift; sourceTree = "<group>"; };
+		E41000000000000000000002 /* MirmirSynchronizedPlaybackTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MirmirSynchronizedPlaybackTimeline.swift; path = ../Modules/UI/MirmirSynchronizedPlaybackTimeline.swift; sourceTree = "<group>"; };
+		E41000000000000000000003 /* MirmirSynchronizedPlaybackController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MirmirSynchronizedPlaybackController.swift; path = ../Modules/UI/MirmirSynchronizedPlaybackController.swift; sourceTree = "<group>"; };
+		E41000000000000000000004 /* MirmirCompletedComparisonPlaybackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MirmirCompletedComparisonPlaybackView.swift; path = ../Modules/UI/Views/MirmirCompletedComparisonPlaybackView.swift; sourceTree = "<group>"; };
 		B41000000000000000000001 /* ASHCoreV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCoreV4.swift; sourceTree = "<group>"; };
 		B41000000000000000000002 /* ASHCoreCertificateV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCoreCertificateV4.swift; sourceTree = "<group>"; };
 		B41000000000000000000003 /* PixelLayoutV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelLayoutV4.swift; sourceTree = "<group>"; };
@@ -420,6 +428,10 @@
 				310000000000000000000051 /* MirmirUpscaleWorkspace.swift */,
 				31000000000000000000004F /* MirmirWorkspaceSupport.swift */,
 				310000000000000000000052 /* MirmirTheme.swift */,
+				E41000000000000000000001 /* MirmirCompletedPlaybackTypes.swift */,
+				E41000000000000000000002 /* MirmirSynchronizedPlaybackTimeline.swift */,
+				E41000000000000000000003 /* MirmirSynchronizedPlaybackController.swift */,
+				E41000000000000000000004 /* MirmirCompletedComparisonPlaybackView.swift */,
 				D41000000000000000000066 /* WorkflowApplicationCoordinatorV4.swift */,
 			);
 			path = App;
@@ -809,6 +821,10 @@
 				320000000000000000000051 /* MirmirUpscaleWorkspace.swift in Sources */,
 				32000000000000000000004F /* MirmirWorkspaceSupport.swift in Sources */,
 				320000000000000000000052 /* MirmirTheme.swift in Sources */,
+				E42000000000000000000001 /* MirmirCompletedPlaybackTypes.swift in Sources */,
+				E42000000000000000000002 /* MirmirSynchronizedPlaybackTimeline.swift in Sources */,
+				E42000000000000000000003 /* MirmirSynchronizedPlaybackController.swift in Sources */,
+				E42000000000000000000004 /* MirmirCompletedComparisonPlaybackView.swift in Sources */,
 				320000000000000000000004 /* AppState.swift in Sources */,
 				320000000000000000000005 /* VideoInfo.swift in Sources */,
 				32000000000000000000000F /* VideoColorInfo.swift in Sources */,
