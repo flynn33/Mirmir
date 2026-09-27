@@ -2308,45 +2308,10 @@ extension DeterministicV4MediaProcessingSession {
                     multiplier: Int32(index)
                 )
             )
-            let isOnAccumulatedLattice = isValidClockQuantization(
+            guard isValidClockQuantization(
                 presentationTime,
                 of: expectedPresentationTime
-            )
-            var isAdjacentClockQuantization = false
-            if index > 0 {
-                let previousPresentationTime = presentationTimes[index - 1]
-                let observedInterval = CMTimeSubtract(
-                    presentationTime,
-                    previousPresentationTime
-                )
-                let cadenceDifference = CMTimeSubtract(
-                    observedInterval,
-                    nominalDuration
-                )
-                let absoluteCadenceDifference = CMTimeCompare(
-                    cadenceDifference,
-                    .zero
-                ) < 0
-                    ? CMTimeMultiply(cadenceDifference, multiplier: -1)
-                    : cadenceDifference
-                let oneObservedClockTick = CMTime(
-                    value: 1,
-                    timescale: presentationTime.timescale
-                )
-                isAdjacentClockQuantization =
-                    previousPresentationTime.isNumeric
-                    && previousPresentationTime.epoch
-                        == presentationTime.epoch
-                    && observedInterval.isNumeric
-                    && observedInterval.value > 0
-                    && absoluteCadenceDifference.isNumeric
-                    && CMTimeCompare(
-                        absoluteCadenceDifference,
-                        oneObservedClockTick
-                    ) <= 0
-            }
-            guard isOnAccumulatedLattice
-                    || isAdjacentClockQuantization else {
+            ) else {
                 throw DeterministicV4MediaSegmentError.invalidSampleTiming(
                     site: .nominalCadenceOffLattice
                 )

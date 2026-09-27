@@ -1554,7 +1554,7 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             repeating: CMTime.invalid,
             count: presentationTimes.count
         )
-        let nominal = try ExactRationalV4(3_753, 90_000)
+        let nominal = try ExactRationalV4(1_001, 24_000)
 
         XCTAssertNoThrow(
             try DeterministicV4MediaProcessingSession
@@ -1580,6 +1580,21 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
                 .invalidSampleTiming(site: .nominalCadenceOffLattice)
             )
         }
+    }
+
+    func testPlannerUsesExactNTSCNominalInsteadOfMinimumClockTick()
+        throws {
+        let nominal = try DeterministicV4WholeAssetPlanner
+            .nominalFrameDuration(
+                nominalFrameRate: 23.976023,
+                minimumFrameDuration: CMTime(
+                    value: 3_753,
+                    timescale: 90_000
+                ),
+                fallbackTimebase: ExactRationalV4(1, 90_000)
+            )
+
+        XCTAssertEqual(nominal, try ExactRationalV4(1_001, 24_000))
     }
 
     func testCanonicalDynamicAbsentDecodedCadenceDoesNotUseRoundedTrackEnd()
