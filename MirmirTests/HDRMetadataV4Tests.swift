@@ -26,7 +26,7 @@ final class HDRMetadataV4Tests: XCTestCase {
         ) { error in
             XCTAssertEqual(
                 error as? DeterministicV4MediaSegmentError,
-                .invalidSampleTiming
+                .invalidSampleTiming(site: .workflowTimeInexactConversion)
             )
         }
         XCTAssertThrowsError(
@@ -35,7 +35,7 @@ final class HDRMetadataV4Tests: XCTestCase {
         ) { error in
             XCTAssertEqual(
                 error as? DeterministicV4MediaSegmentError,
-                .invalidSampleTiming
+                .invalidSampleTiming(site: .segmentBoundaryInvalidTimebase)
             )
         }
     }
@@ -193,23 +193,27 @@ final class HDRMetadataV4Tests: XCTestCase {
         assertDecodedDurationRejected(
             currentDecodeTime: time(1),
             followingDecodeTime: time(1),
-            currentPresentationTime: time(1)
+            currentPresentationTime: time(1),
+            expectedSite: .authoritativeDurationInvalidFollowingDecodeTime
         )
         assertDecodedDurationRejected(
             currentDecodeTime: time(2),
             followingDecodeTime: time(1),
-            currentPresentationTime: time(1)
+            currentPresentationTime: time(1),
+            expectedSite: .authoritativeDurationInvalidFollowingDecodeTime
         )
         assertDecodedDurationRejected(
             currentDecodeTime: time(1),
             followingDecodeTime: time(2, epoch: 1),
-            currentPresentationTime: time(1)
+            currentPresentationTime: time(1),
+            expectedSite: .authoritativeDurationInvalidFollowingDecodeTime
         )
         assertDecodedDurationRejected(
             currentDecodeTime: time(1),
             followingDecodeTime: nil,
             currentPresentationTime: time(1),
-            terminalReaderReportedDuration: .invalid
+            terminalReaderReportedDuration: .invalid,
+            expectedSite: .authoritativeDurationInvalidDuration
         )
     }
 
@@ -981,6 +985,7 @@ final class HDRMetadataV4Tests: XCTestCase {
         followingDecodeTime: CMTime?,
         currentPresentationTime: CMTime,
         terminalReaderReportedDuration: CMTime? = nil,
+        expectedSite: DeterministicV4InvalidSampleTimingSite,
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
@@ -998,7 +1003,7 @@ final class HDRMetadataV4Tests: XCTestCase {
         ) { error in
             XCTAssertEqual(
                 error as? DeterministicV4MediaSegmentError,
-                .invalidSampleTiming,
+                .invalidSampleTiming(site: expectedSite),
                 file: file,
                 line: line
             )

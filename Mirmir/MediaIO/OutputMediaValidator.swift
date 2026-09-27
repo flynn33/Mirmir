@@ -7,6 +7,66 @@ struct OutputMediaFacts: Equatable, Sendable {
     let encodedWidth: Int
     let encodedHeight: Int
     let hasAudio: Bool
+    let audioTrackCount: Int
+}
+
+struct AudioTopologyV4: Equatable, Sendable {
+    struct Track: Equatable, Sendable {
+        let enabled: Bool
+        let language: MediaTrackLanguageV4
+        let metadataFingerprint: ASHSHA256V4
+    }
+
+    struct Group: Equatable, Sendable {
+        let kind: MediaTrackGroupKindV4
+        let memberAudioOrdinals: [Int]
+        let defaultAudioOrdinal: Int?
+        let allowsEmptySelection: Bool
+    }
+
+    static let empty = AudioTopologyV4(tracks: [], groups: [])
+
+    let tracks: [Track]
+    let groups: [Group]
+
+    private init(tracks: [Track], groups: [Group]) {
+        self.tracks = tracks
+        self.groups = groups
+    }
+
+    init(graph: MediaTrackGraphV4, preservingAudio: Bool) {
+        guard preservingAudio else {
+            self = .empty
+            return
+        }
+        let audioTracks = graph.tracks.filter { $0.kind == .audio }
+        let ordinalByID = Dictionary(
+            uniqueKeysWithValues: audioTracks.enumerated().map {
+                ($0.element.identity.stableID, $0.offset)
+            }
+        )
+        tracks = audioTracks.map {
+            Track(
+                enabled: $0.enabled,
+                language: $0.language,
+                metadataFingerprint: $0.metadataFingerprint
+            )
+        }
+        groups = graph.groups.compactMap { group in
+            let memberOrdinals = group.memberTrackIDs.compactMap {
+                ordinalByID[$0]
+            }
+            guard !memberOrdinals.isEmpty else { return nil }
+            return Group(
+                kind: group.kind,
+                memberAudioOrdinals: memberOrdinals,
+                defaultAudioOrdinal: group.defaultTrackID.flatMap {
+                    ordinalByID[$0]
+                },
+                allowsEmptySelection: group.allowsEmptySelection
+            )
+        }
+    }
 }
 
 struct OutputMediaValidator: Sendable {
@@ -14,7 +74,7 @@ struct OutputMediaValidator: Sendable {
         url: URL,
         expectedWidth: Int,
         expectedHeight: Int,
-        requiresAudio: Bool
+        expectedAudioTopology: AudioTopologyV4
     ) async throws -> OutputMediaFacts {
         let values = try url.resourceValues(forKeys: [.fileSizeKey])
         guard let size = values.fileSize, size > 0 else {
@@ -76,10 +136,28 @@ struct OutputMediaValidator: Sendable {
             )
         }
 
-        let hasAudio = tracks.contains { $0.mediaType == .audio }
-        guard !requiresAudio || hasAudio else {
+        let outputGraph = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: asset
+        )
+        let audioTopology = AudioTopologyV4(
+            graph: outputGraph,
+            preservingAudio: true
+        )
+        let audioTrackCount = audioTopology.tracks.count
+        let hasAudio = audioTrackCount > 0
+        guard audioTrackCount == expectedAudioTopology.tracks.count else {
             throw MirmirError.outputFinalizeFailed(
-                "audio preservation was requested, but the completed movie has no audio track"
+                "the completed movie contains \(audioTrackCount) audio tracks instead of the source contract's \(expectedAudioTopology.tracks.count)"
+            )
+        }
+        guard audioTopology.tracks == expectedAudioTopology.tracks else {
+            throw MirmirError.outputFinalizeFailed(
+                "the completed movie changed audio language, metadata, enabled state, or logical track order"
+            )
+        }
+        guard audioTopology.groups == expectedAudioTopology.groups else {
+            throw MirmirError.outputFinalizeFailed(
+                "the completed movie changed alternate-audio membership or default selection"
             )
         }
         try readBoundarySample(asset: asset, track: videoTrack, duration: duration)
@@ -88,7 +166,8 @@ struct OutputMediaValidator: Sendable {
             duration: duration,
             encodedWidth: encodedWidth,
             encodedHeight: encodedHeight,
-            hasAudio: hasAudio
+            hasAudio: hasAudio,
+            audioTrackCount: audioTrackCount
         )
     }
 

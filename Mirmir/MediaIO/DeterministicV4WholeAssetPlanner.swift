@@ -177,11 +177,17 @@ actor DeterministicV4WholeAssetPlanner {
             url: request.inputURL,
             options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
         )
+        let physicalTrackCount = try await asset.load(.tracks).count
+        try checkCancellation(cancellation)
         let graph = try await AVFoundationTrackGraphAdapterV4.probe(
             asset: asset
         )
         try checkCancellation(cancellation)
-        let pairings = try reconcile(canonicalMedia: canonicalMedia, graph: graph)
+        let pairings = try reconcile(
+            canonicalMedia: canonicalMedia,
+            graph: graph,
+            physicalTrackCount: physicalTrackCount
+        )
         guard let primaryPair = pairings.first(where: {
             $0.canonical.enabled && $0.canonical.kind == .video
         }) else {
@@ -329,16 +335,22 @@ private extension DeterministicV4WholeAssetPlanner {
 
     func reconcile(
         canonicalMedia: CanonicalMediaStateV4,
-        graph: MediaTrackGraphV4
+        graph: MediaTrackGraphV4,
+        physicalTrackCount: Int
     ) throws -> [TrackPair] {
-        let physicalCanonical = canonicalMedia.tracks.filter {
-            Int($0.identity.ordinal) < graph.tracks.count
-        }
-        guard physicalCanonical.count == graph.tracks.count else {
+        guard physicalTrackCount >= 0,
+              graph.tracks.count == physicalTrackCount,
+              canonicalMedia.tracks.count >= physicalTrackCount else {
             throw DeterministicV4WholeAssetPlannerError
                 .canonicalAndTrackGraphInventoriesDiffer
         }
-        return try zip(physicalCanonical, graph.tracks).map { canonical, node in
+        return try graph.tracks.enumerated().map { index, node in
+            let canonical = canonicalMedia.tracks[index]
+            guard Int(canonical.identity.ordinal) == index,
+                  Int(node.identity.ordinal) == index else {
+                throw DeterministicV4WholeAssetPlannerError
+                    .canonicalAndTrackGraphInventoriesDiffer
+            }
             guard canonical.identity.ordinal == node.identity.ordinal else {
                 throw DeterministicV4WholeAssetPlannerError
                     .canonicalAndTrackGraphInventoriesDiffer
