@@ -3,11 +3,12 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-Version 1.3.3 build 6 carries the deterministic ASH P06 CPU and Metal engine
+Version 1.3.3 build 7 carries the deterministic ASH P06 CPU and Metal engine
 beside the supported Apple scaling frameworks, preserves the completed
-simulator-only M7 candidate selection, and adds qualified source admission and
-VideoToolbox capability checks while keeping every backend choice,
-preservation decision, and fallback boundary visible.
+simulator-only M7 candidate selection, and adds qualified source admission,
+VideoToolbox capability checks, multi-audio preservation, and deterministic
+timing diagnostics while keeping every backend choice, preservation decision,
+and fallback boundary visible.
 
 The current marketing version and build number are recorded in
 [`VERSION`](VERSION) and [`BUILD_NUMBER`](BUILD_NUMBER), then synchronized with
@@ -34,6 +35,9 @@ deliberate operator actions.
 - Ordered video, audio, subtitle, caption, chapter, timecode, timed-metadata,
   and auxiliary tracks are planned explicitly and preserved or transcoded
   according to a verified whole-asset plan.
+- When audio preservation is enabled, conventional and Deterministic v4 jobs
+  keep every source audio track and validate language, enabled/default state,
+  and alternate-group topology after writing.
 - Durable bookmark-backed batch jobs survive relaunch. Pause/resume uses
   segment and temporal checkpoints; launch recovery contains corrupt work and
   reconciles registered partial artifacts.
@@ -51,15 +55,26 @@ Version 1.3.3 keeps these product boundaries explicit:
 - Attached-picture preservation is provided by the deterministic v4
   whole-asset path; conventional backends do not preserve attached pictures.
 - Automatic does not select deterministic v4 for opaque H.264 input.
+- Deterministic timing validation accepts legal 90 kHz NTSC quantization, and
+  error 16 timing failures include a stable site identifier. The original
+  1:43 Deterministic v4 beta failure has not been rerun and remains open.
 
 See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.
+See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) for open product gaps, including the
+unverified 1:43 Deterministic v4 failure, the active Before/After viewer's
+missing completed-video playback, and the missing VideoToolbox geometry
+compatibility layer.
 See [`CHANGELOG.md`](CHANGELOG.md) for the 1.3.3 source-admission and capability
 corrections, the earlier conformance and qualification updates, and
 [`docs/v4/`](docs/v4/) for the qualification evidence contracts.
 The [Mirmir Wiki](https://github.com/flynn33/Mirmir/wiki) provides the complete
 product guide, architecture reference, ASH engine documentation, diagrams,
 testing procedures, and troubleshooting material.
+
+A local TestFlight handoff archive for 1.3.3 build 7 is present at
+`/Users/jimdaley/Desktop/Mirmir-Beta-1.3.3-7.xcarchive`. It is not tracked by
+Git, and upload remains an owner action.
 
 ## Deterministic Engine v4
 

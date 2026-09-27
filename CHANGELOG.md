@@ -11,6 +11,15 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ### Fixed
 
+- Preserved every source audio track when audio preservation is enabled in
+  conventional and Deterministic v4 jobs. Conventional reads are serialized,
+  Deterministic planning cannot consent to an audio drop in that mode, and
+  output validation checks language, enabled/default state, and alternate
+  audio-group topology rather than merely checking for an audio track.
+- Accepted legal 90 kHz NTSC timestamp quantization in deterministic cadence
+  validation while retaining rejection of real discontinuities. Every error
+  16 (`invalidSampleTiming`) throw now includes a stable site identifier for
+  the next failing source report.
 - Accepted user-selected regular source files with multiple hard links while
   retaining the single-link invariant for queue-owned private snapshots.
 - Gated VideoToolbox Smooth Motion + Spatial Upscale with the Mac's reported
@@ -20,6 +29,9 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ### Product boundaries
 
+- The original 1:43 Deterministic v4 beta asset has not been rerun against
+  build 7. Its error-16 large-file failure remains open; long-lattice tests do
+  not establish that the reported failure is closed.
 - Deferred the resource-allocation control; it is not included in this
   release.
 - Kept attached-picture preservation on the deterministic v4 whole-asset path.
@@ -29,6 +41,13 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ### Verified
 
+- Completed the macOS Debug scheme with 500 tests: 497 passed, zero failed,
+  and three expected opt-in capture tests skipped. Coverage includes
+  conventional and Deterministic v4 second-audio-track retention and legal
+  90 kHz NTSC cadence through the original source's approximate frame range.
+- Created the local 1.3.3 build 7 TestFlight handoff archive at
+  `/Users/jimdaley/Desktop/Mirmir-Beta-1.3.3-7.xcarchive`. The archive is not
+  tracked by Git, and App Store Connect/TestFlight upload remains owner-run.
 - Completed real-file deterministic CPU and Metal upscales of the retained
   960 × 960 H.264 fixture to playable 1920 × 1920 HEVC outputs with 241 frames,
   audio, attached picture, and identical decoded frames.
@@ -36,7 +55,7 @@ do not publish, sign, notarize, or distribute the application automatically.
   it from the persisted checkpoint, and completed the verified output.
 - Confirmed cancellation left no destination movie and did not prevent a
   later enqueue of the same source.
-- Advanced repository and Xcode version authorities to 1.3.3 build 6 without
+- Advanced repository and Xcode version authorities to 1.3.3 build 7 without
   asserting archive, notarization, installation, or distribution.
 
 ## [1.3.2] - 2026-09-23

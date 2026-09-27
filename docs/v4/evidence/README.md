@@ -1,14 +1,16 @@
 # Deterministic engine v4 evidence
 
-For the current 1.3.3 (6) repository identity, rollback qualification, and
+For the current 1.3.3 (7) repository identity, rollback qualification, and
 completed M7 simulator selection, see
 [`../CURRENT_QUALIFICATION_STATUS.md`](../CURRENT_QUALIFICATION_STATUS.md).
 
-Version 1.3.3 keeps the resource-allocation control deferred and adds only the
-qualified hard-link source admission and VideoToolbox Smooth Motion
-source-geometry preflight described in the current status. The real-file
-qualification movies and logs are intentionally not checked into the source
-repository.
+Version 1.3.3 keeps the resource-allocation control deferred and includes the
+qualified hard-link source admission, VideoToolbox Smooth Motion
+source-geometry preflight, multi-audio preservation, legal 90 kHz NTSC cadence
+acceptance, and stable timing-error site identifiers described in the current
+status. The original 1:43 Deterministic v4 beta failure remains open because
+its source has not been rerun. Real-file qualification movies, logs, and the
+local build 7 archive are intentionally not checked into the source repository.
 
 The `1.3.2-conformance-remediation-2026-09-23` directory records the full
 Debug scheme, unsigned universal Release build, and focused real-file
