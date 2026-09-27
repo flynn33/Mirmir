@@ -4020,9 +4020,19 @@ struct DynamicHDRMetadataStreamAccumulatorV4: Equatable {
         }
         let metadata = try AVFoundationHDRMetadataAdapterV4
             .probeDynamicMetadata(from: sample)
+        try append(
+            presentationTime: CMSampleBufferGetPresentationTimeStamp(sample),
+            metadata: metadata
+        )
+    }
+
+    mutating func append(
+        presentationTime: CMTime,
+        metadata: HDRDynamicMetadataV4?
+    ) throws {
         var bytes = Data()
         try appendTime(
-            CMSampleBufferGetPresentationTimeStamp(sample),
+            presentationTime,
             to: &bytes
         )
         if let metadata {

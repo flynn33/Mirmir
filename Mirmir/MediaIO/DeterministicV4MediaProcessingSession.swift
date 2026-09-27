@@ -2157,6 +2157,7 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                 at: segmentURL,
                 plan: preparedPlan,
                 expectedDynamicHDR: expectedDynamicHDR,
+                expectedHDRLedger: sealedHDRLedger.output,
                 alphaVerifier: alphaVerifier,
                 cancellation: cancellation
             )
@@ -2164,10 +2165,15 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                 segmentOrigin,
                 timescale: preferredTimescale
             )
-            let workflowEnd = try workflowTime(
-                globalEnd,
-                timescale: preferredTimescale
-            )
+            let workflowEnd: WorkflowMediaTimeV4
+            if timelineMapping == nil, let nextStartTime {
+                workflowEnd = nextStartTime
+            } else {
+                workflowEnd = try workflowTime(
+                    globalEnd,
+                    timescale: preferredTimescale
+                )
+            }
             return DeterministicV4MediaSegmentResultV4(
                 segmentURL: segmentURL,
                 startTime: workflowStart,
@@ -2317,6 +2323,52 @@ extension DeterministicV4MediaProcessingSession {
                 )
             }
         }
+    }
+
+    static func removeExpectedHDR10PlusMetadata(
+        for observedPresentationTime: CMTime,
+        from remaining: inout [
+            HDR10PlusPresentationTimeV4: HDR10PlusMetadataV4?
+        ]
+    ) throws -> HDR10PlusMetadataV4? {
+        try removeExpectedHDR10PlusRecord(
+            for: observedPresentationTime,
+            from: &remaining
+        ).metadata
+    }
+
+    static func removeExpectedHDR10PlusRecord(
+        for observedPresentationTime: CMTime,
+        from remaining: inout [
+            HDR10PlusPresentationTimeV4: HDR10PlusMetadataV4?
+        ]
+    ) throws -> HDR10PlusPresentationRecordV4 {
+        let observedKey = try HDR10PlusPresentationTimeV4(
+            observedPresentationTime
+        )
+        if let retained = remaining.removeValue(forKey: observedKey) {
+            return HDR10PlusPresentationRecordV4(
+                presentationTime: observedKey,
+                metadata: retained
+            )
+        }
+        let quantizedMatches = remaining.keys.filter {
+            isValidClockQuantization(
+                observedPresentationTime,
+                of: $0.cmTime
+            )
+        }
+        guard quantizedMatches.count == 1,
+              let matchedKey = quantizedMatches.first,
+              let retained = remaining.removeValue(forKey: matchedKey) else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "encoded segment presentation time is extra or duplicated"
+            )
+        }
+        return HDR10PlusPresentationRecordV4(
+            presentationTime: matchedKey,
+            metadata: retained
+        )
     }
 }
 
@@ -3523,14 +3575,13 @@ private extension DeterministicV4MediaProcessingSession {
                         "encoded segment sample aggregation is unsupported"
                     )
                 }
-                let key = try HDR10PlusPresentationTimeV4(
-                    CMSampleBufferGetPresentationTimeStamp(sample)
+                let presentation = CMSampleBufferGetPresentationTimeStamp(
+                    sample
                 )
-                guard let retained = remaining.removeValue(forKey: key) else {
-                    throw HDRMetadataV4Error.contradictoryMetadata(
-                        "encoded segment presentation time is extra or duplicated"
-                    )
-                }
+                let retained = try Self.removeExpectedHDR10PlusMetadata(
+                    for: presentation,
+                    from: &remaining
+                )
                 let outputSample: CMSampleBuffer
                 if let retained {
                     let inserted = try AVFoundationHDRMetadataAdapterV4
@@ -3623,14 +3674,11 @@ private extension DeterministicV4MediaProcessingSession {
                     "encoded segment sample aggregation is unsupported"
                 )
             }
-            let key = try HDR10PlusPresentationTimeV4(
-                CMSampleBufferGetPresentationTimeStamp(sample)
+            let presentation = CMSampleBufferGetPresentationTimeStamp(sample)
+            let retained = try Self.removeExpectedHDR10PlusMetadata(
+                for: presentation,
+                from: &remaining
             )
-            guard let retained = remaining.removeValue(forKey: key) else {
-                throw HDRMetadataV4Error.contradictoryMetadata(
-                    "encoded segment presentation time is extra or duplicated"
-                )
-            }
             let raw = try AVFoundationHDRMetadataAdapterV4
                 .compressedHDR10PlusMetadata(from: sample)
             if let retained {
@@ -3926,6 +3974,7 @@ private extension DeterministicV4MediaProcessingSession {
         at url: URL,
         plan: DeterministicV4PreparedAssetPlan,
         expectedDynamicHDR: DynamicHDRMetadataStreamAccumulatorV4,
+        expectedHDRLedger: HDR10PlusSegmentLedgerSnapshotV4,
         alphaVerifier: AVFoundationAlphaVideoOutputVerifierV4?,
         cancellation: ProcessingCancellation
     ) async throws {
@@ -3996,14 +4045,38 @@ private extension DeterministicV4MediaProcessingSession {
             throw DeterministicV4MediaSegmentError.readerStartFailed
         }
         var actualDynamicHDR = DynamicHDRMetadataStreamAccumulatorV4()
+        var remainingHDRRecords = Dictionary(
+            uniqueKeysWithValues: expectedHDRLedger.records.map {
+                ($0.presentationTime, $0.metadata)
+            }
+        )
         while let sample = encodedOutput.copyNextSampleBuffer() {
             try cancellation.check()
-            try actualDynamicHDR.append(sample)
+            guard CMSampleBufferGetImageBuffer(sample) != nil
+                    || CMSampleBufferGetTotalSampleSize(sample) > 0 else {
+                continue
+            }
+            let matched = try Self.removeExpectedHDR10PlusRecord(
+                for: CMSampleBufferGetPresentationTimeStamp(sample),
+                from: &remainingHDRRecords
+            )
+            let metadata = try AVFoundationHDRMetadataAdapterV4
+                .probeDynamicMetadata(from: sample)
+            guard metadata?.postDecodeProcessing == nil,
+                  metadata?.hdr10Plus == matched.metadata else {
+                throw DeterministicV4MediaSegmentError
+                    .dynamicHDRMetadataMismatch
+            }
+            try actualDynamicHDR.append(
+                presentationTime: matched.presentationTime.cmTime,
+                metadata: metadata
+            )
         }
         guard encodedReader.status == .completed else {
             throw DeterministicV4MediaSegmentError.readerFailed
         }
-        guard actualDynamicHDR == expectedDynamicHDR else {
+        guard remainingHDRRecords.isEmpty,
+              actualDynamicHDR == expectedDynamicHDR else {
             throw DeterministicV4MediaSegmentError
                 .dynamicHDRMetadataMismatch
         }

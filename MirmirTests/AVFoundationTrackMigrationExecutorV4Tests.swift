@@ -1597,6 +1597,32 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertEqual(nominal, try ExactRationalV4(1_001, 24_000))
     }
 
+    func testEncodedSegmentTimingAcceptsUniqueLegalClockQuantization()
+        throws {
+        let expected = try HDR10PlusPresentationTimeV4(
+            CMTime(value: 1_001, timescale: 6_000)
+        )
+        var legal = Dictionary(uniqueKeysWithValues: [
+            (expected, nil as HDR10PlusMetadataV4?)
+        ])
+        XCTAssertNil(try DeterministicV4MediaProcessingSession
+            .removeExpectedHDR10PlusMetadata(
+                for: CMTime(value: 100, timescale: 600),
+                from: &legal
+            ))
+        XCTAssertTrue(legal.isEmpty)
+
+        var gap = Dictionary(uniqueKeysWithValues: [
+            (expected, nil as HDR10PlusMetadataV4?)
+        ])
+        XCTAssertThrowsError(try DeterministicV4MediaProcessingSession
+            .removeExpectedHDR10PlusMetadata(
+                for: CMTime(value: 102, timescale: 600),
+                from: &gap
+            ))
+        XCTAssertEqual(gap.count, 1)
+    }
+
     func testCanonicalDynamicAbsentDecodedCadenceDoesNotUseRoundedTrackEnd()
         throws {
         let nominal = try ExactRationalV4(1, 24)
@@ -1920,6 +1946,10 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
 
         XCTAssertFalse(firstResult.terminal)
         XCTAssertNotNil(firstResult.nextStartTime)
+        XCTAssertEqual(
+            Optional(firstResult.endTimeExclusive),
+            firstResult.nextStartTime
+        )
         XCTAssertEqual(firstResult.inputSampleCount, 60)
         XCTAssertEqual(firstResult.outputSampleCount, 60)
         XCTAssertTrue(secondResult.terminal)
