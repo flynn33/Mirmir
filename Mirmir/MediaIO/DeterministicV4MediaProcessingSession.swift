@@ -1141,6 +1141,20 @@ struct DeterministicV4MediaProcessingSession: Sendable {
         )
     }
 
+    static func bindSegmentWriterClock(
+        writer: AVAssetWriter,
+        input: AVAssetWriterInput,
+        timescale: CMTimeScale
+    ) throws {
+        guard timescale > 0 else {
+            throw DeterministicV4MediaSegmentError.invalidSampleTiming(
+                site: .segmentBoundaryInvalidTimebase
+            )
+        }
+        writer.movieTimeScale = timescale
+        input.mediaTimeScale = timescale
+    }
+
     static func authoritativeDecodedDuration(
         currentDecodeTime: CMTime,
         followingDecodeTime: CMTime?,
@@ -1903,6 +1917,11 @@ struct DeterministicV4MediaProcessingSession: Sendable {
         let writerInput = AVAssetWriterInput(
             mediaType: .video,
             outputSettings: hook.writerOutputSettings
+        )
+        try Self.bindSegmentWriterClock(
+            writer: writer,
+            input: writerInput,
+            timescale: segmentBoundaryTimescale
         )
         writerInput.expectsMediaDataInRealTime = false
         writerInput.metadata = try await sourceTrack.load(.metadata)

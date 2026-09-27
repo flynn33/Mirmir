@@ -1496,6 +1496,28 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         )
     }
 
+    func testSegmentWriterClockUsesExact90kBoundaryTimescale() throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let writer = try AVAssetWriter(
+            outputURL: directory.url("segment-writer-clock.mov"),
+            fileType: .mov
+        )
+        let input = AVAssetWriterInput(
+            mediaType: .video,
+            outputSettings: nil
+        )
+
+        try DeterministicV4MediaProcessingSession.bindSegmentWriterClock(
+            writer: writer,
+            input: input,
+            timescale: 90_000
+        )
+
+        XCTAssertEqual(writer.movieTimeScale, 90_000)
+        XCTAssertEqual(input.mediaTimeScale, 90_000)
+    }
+
     func testNominalDecodedCadenceAcceptsLong90kNTSCClockLattice()
         throws {
         let nominal = try ExactRationalV4(1_001, 24_000)
@@ -1814,7 +1836,8 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         try await TrackMigrationFixtureFactoryV4.makeRichMovie(
             at: sourceURL,
             includeAudioGroup: false,
-            videoFrameCount: videoFrameCount
+            videoFrameCount: videoFrameCount,
+            videoMediaTimeScale: 90_000
         )
 
         let asset = AVURLAsset(
@@ -1977,6 +2000,22 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(
             atPath: secondSegmentURL.path
         ))
+        let firstSegmentAsset = AVURLAsset(
+            url: firstSegmentURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let firstSegmentVideoTracks = try await firstSegmentAsset.loadTracks(
+            withMediaType: .video
+        )
+        let firstSegmentVideo = try XCTUnwrap(firstSegmentVideoTracks.first)
+        let firstSegmentTimeScale = try await firstSegmentVideo.load(
+            .naturalTimeScale
+        )
+        XCTAssertEqual(
+            firstSegmentTimeScale,
+            90_000,
+            "The production segment writer must retain the source boundary clock."
+        )
     }
 
     func testDeterministicSessionAutomaticallyTranscodesIncompatibleAlternateAudio()
@@ -8227,7 +8266,8 @@ private enum TrackMigrationFixtureFactoryV4 {
         includeAudioGroup: Bool,
         selectDefaultAudio: Bool = true,
         incompatibleAudioTransition: Bool = false,
-        videoFrameCount: Int = frameCount
+        videoFrameCount: Int = frameCount,
+        videoMediaTimeScale: CMTimeScale = 600
     ) async throws {
         guard videoFrameCount > 0 else {
             throw TrackMigrationFixtureErrorV4.invalidFixture(
@@ -8236,8 +8276,16 @@ private enum TrackMigrationFixtureFactoryV4 {
         }
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
         writer.metadata = assetMetadata()
-        let firstVideo = makeVideoLane(seed: 17, title: "primary-video")
-        let secondVideo = makeVideoLane(seed: 113, title: "alternate-video")
+        let firstVideo = makeVideoLane(
+            seed: 17,
+            title: "primary-video",
+            mediaTimeScale: videoMediaTimeScale
+        )
+        let secondVideo = makeVideoLane(
+            seed: 113,
+            title: "alternate-video",
+            mediaTimeScale: videoMediaTimeScale
+        )
         let audioFormat = try makeAudioFormatDescription()
         let englishAudio = makeAudioInput(
             languageCode: "eng",
@@ -8680,13 +8728,14 @@ private enum TrackMigrationFixtureFactoryV4 {
     private static func makeVideoLane(
         seed: UInt8,
         title: String,
-        mediaType: AVMediaType = .video
+        mediaType: AVMediaType = .video,
+        mediaTimeScale: CMTimeScale = 600
     ) -> VideoLane {
         let input = AVAssetWriterInput(
             mediaType: mediaType,
             outputSettings: videoOutputSettings
         )
-        input.mediaTimeScale = 600
+        input.mediaTimeScale = mediaTimeScale
         input.metadata = trackMetadata(title: title)
         let attributes: [String: Any] = [
             kCVPixelBufferPixelFormatTypeKey as String:
