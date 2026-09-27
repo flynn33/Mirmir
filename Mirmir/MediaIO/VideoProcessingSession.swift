@@ -774,10 +774,18 @@ private extension VideoProcessingSession {
             source: source,
             backendID: backendID
         ))
-        for path in plan.paths {
-            while let sample = path.output.copyNextSampleBuffer() {
+        var finished = Array(repeating: false, count: plan.paths.count)
+        var remaining = plan.paths.count
+        while remaining > 0 {
+            for (index, path) in plan.paths.enumerated() where !finished[index] {
                 try Task.checkCancellation()
                 try cancellation.check()
+                guard let sample = path.output.copyNextSampleBuffer() else {
+                    path.input.markAsFinished()
+                    finished[index] = true
+                    remaining -= 1
+                    continue
+                }
                 try await waitUntilReady(
                     path.input,
                     reader: reader,
@@ -791,7 +799,6 @@ private extension VideoProcessingSession {
                     )
                 }
             }
-            path.input.markAsFinished()
         }
     }
 

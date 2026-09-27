@@ -1543,6 +1543,45 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         )
     }
 
+    func testNominalDecodedCadenceAcceptsFerris90kClockQuantization()
+        throws {
+        let presentationTimes = [
+            CMTime(value: 0, timescale: 1_000),
+            CMTime(value: 3_753, timescale: 90_000),
+            CMTime(value: 7_507, timescale: 90_000)
+        ]
+        let unavailableDurations = Array(
+            repeating: CMTime.invalid,
+            count: presentationTimes.count
+        )
+        let nominal = try ExactRationalV4(3_753, 90_000)
+
+        XCTAssertNoThrow(
+            try DeterministicV4MediaProcessingSession
+                .validateNominalDecodedCadence(
+                    presentationTimes: presentationTimes,
+                    decodedDurations: unavailableDurations,
+                    nominalSourceFrameDuration: nominal
+                )
+        )
+
+        var realGap = presentationTimes
+        realGap[2] = CMTime(value: 11_260, timescale: 90_000)
+        XCTAssertThrowsError(
+            try DeterministicV4MediaProcessingSession
+                .validateNominalDecodedCadence(
+                    presentationTimes: realGap,
+                    decodedDurations: unavailableDurations,
+                    nominalSourceFrameDuration: nominal
+                )
+        ) {
+            XCTAssertEqual(
+                $0 as? DeterministicV4MediaSegmentError,
+                .invalidSampleTiming(site: .nominalCadenceOffLattice)
+            )
+        }
+    }
+
     func testCanonicalDynamicAbsentDecodedCadenceDoesNotUseRoundedTrackEnd()
         throws {
         let nominal = try ExactRationalV4(1, 24)
