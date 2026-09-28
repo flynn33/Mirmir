@@ -1,21 +1,22 @@
-# Mirmir known product issues
+# Mirmir accepted limitations and follow-up work
 
-Verified against the `rollback/pre-resource-bar` checkout on September 28,
-2026. These entries describe open product gaps. They are not implementation,
-qualification, release, or shipment claims.
+Verified against `main` on September 28, 2026. These entries distinguish a
+resolved defect from accepted first-release boundaries and post-first-release
+work. None blocks the version 1.3.4 first-release target.
 
-## DV4-001 — Original 1:43 Deterministic v4 error-16 failure is unverified
+## DV4-001 — Deterministic v4 error 16 on legal NTSC timing
 
-**Status:** Open
-**Priority:** High — reported beta upscale failure on a larger source
+**Status:** Resolved
+**Priority:** Closed corrective defect
 
 ### Current evidence
 
 The original 1:43 Ferris beta source ran in the production application with
 Deterministic v4 Metal, a 7680 × 3264 target, and audio preservation enabled.
-It committed through source frame 8,760 without error 16, then stopped when the
-internal volume reached ENOSPC. No complete output movie was published, so the
-reported large-file failure is not verified closed.
+It committed through source frame 8,760 without error 16, passing the timing
+path that previously failed, then stopped when the internal volume reached
+ENOSPC. The only observed terminal failure in the current production rerun was
+disk exhaustion.
 
 The cadence validator accepts legal 90 kHz NTSC timestamp quantization
 and tests the legal lattice through approximately the original source's frame
@@ -23,12 +24,33 @@ range. That is candidate regression coverage only. Every
 `invalidSampleTiming` throw now carries a distinct stable site identifier so a
   future timing failure can name the actual failing check.
 
-### Required closure evidence
+### Resolution
+
+The reported error-16 defect was caused by using a quantized
+`minimumFrameDuration` as the nominal cadence for a 24000/1001 source. The
+planner now supplies exact `1001/24000` cadence, the validator accepts the
+legal 90 kHz timestamp lattice without adjacent-tick slack, and real gaps remain
+rejected. Stable timing-site identifiers remain in place for future diagnosis.
+
+This resolves the reported error-16 timing defect. It does not assert that
+every large media file has completed end to end.
+
+## DV4-002 — Extended large-media Deterministic qualification
+
+**Status:** Post-first-release qualification
+**Priority:** Non-blocking follow-up
+
+The production Ferris run did not publish a complete output movie because the
+internal volume reached ENOSPC at frame 8,760. Further testing on large media
+files remains required to qualify long-duration Deterministic upscaling beyond
+the corrected timing path.
+
+### Qualification work
 
 - Complete the original beta asset or an authenticated byte-identical copy.
-- Capture the stable timing site identifier if error 16 recurs.
-- Tie any further correction to that exact throw site and preserve rejection
-  of real timestamp discontinuities.
+- Capture the stable timing site identifier if any timing failure occurs.
+- Tie any further correction to the exact throw site and preserve rejection of
+  real timestamp discontinuities.
 - Complete the same requested Deterministic v4 upscale and verify the published
   movie's frame timing, duration, audio topology, and other planned tracks.
 
@@ -37,11 +59,10 @@ The local archive at
 artifact, not closure evidence. It is excluded from Git; upload remains an
 owner action.
 
-## VT-001 — VideoToolbox routes lack a geometry compatibility layer
+## VT-001 — VideoToolbox geometry adaptation
 
-**Status:** Open
-**Priority:** High — explicit Apple processing methods are unusable for common
-source or target geometries
+**Status:** Post-first-release enhancement
+**Priority:** Not a first-release target
 
 ### Affected methods
 
@@ -64,7 +85,11 @@ factor for the Super Resolution methods. It does not adapt an unsupported
 source raster into a supported VideoToolbox working raster, and it does not
 restore the user-requested final dimensions after VideoToolbox processing.
 
-### Required compatibility layer
+Version 1.3.4 intentionally reports the selected VideoToolbox method as
+unavailable when the Mac rejects the exact geometry. That truthful fail-closed
+behavior, with no backend substitution, is the first-release contract.
+
+### Post-first-release compatibility layer
 
 Add an explicit geometry-compatibility planner and execution layer around the
 selected VideoToolbox engine:

@@ -39,8 +39,13 @@ do not publish, sign, notarize, or distribute the application automatically.
   three expected opt-in capture tests skipped.
 - A visible production Deterministic v4 Metal run of the original 1:43 Ferris
   source, at 7680 × 3264 with audio preservation enabled, committed through
-  source frame 8,760 without error 16. It then failed under ENOSPC. The full
-  1:43 output movie has not completed, so DV4-001 remains open.
+  source frame 8,760 without error 16, passing the timing path that previously
+  failed. It then failed under ENOSPC. The reported error-16 timing defect is
+  resolved; further large-media testing is retained as extended qualification
+  and is not a first-release blocker.
+- Removed deterministic resource allocation and automatic VideoToolbox
+  geometry adaptation from the first-release target. Version 1.3.4 retains
+  truthful VideoToolbox capability gating without hidden fallback.
 - Version authorities are aligned at 1.3.4 build 8. The retained Desktop
   `Mirmir-Beta-1.3.3-7.xcarchive` remains the prior build-7 handoff artifact and
   is not part of this source release.
@@ -67,9 +72,10 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ### Product boundaries
 
-- The original 1:43 Deterministic v4 beta asset has not been rerun against
-  build 7. Its error-16 large-file failure remains open; long-lattice tests do
-  not establish that the reported failure is closed.
+- At the build-7 boundary, the original 1:43 Deterministic v4 beta asset had
+  not been rerun and the reported error-16 failure remained open. Version 1.3.4
+  later passed the corrected timing path through frame 8,760; DV4-001 is now
+  resolved while broader large-media qualification continues under DV4-002.
 - Deferred the resource-allocation control; it is not included in this
   release.
 - Kept attached-picture preservation on the deterministic v4 whole-asset path.

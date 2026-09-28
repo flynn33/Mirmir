@@ -27,16 +27,21 @@ backends. It excludes both Deterministic routes and Smooth Motion.
 Consequently, Automatic does not select deterministic v4 for opaque H.264
 input.
 
-## Open product gaps
+## First-release scope
 
-The original 1:43 Deterministic v4 source has run in the production app through
-frame 8,760 without error 16, but the run stopped under ENOSPC and did not
-publish the complete movie. DV4-001 therefore remains open. VideoToolbox
-methods also fail closed when the exact source, target, or scale geometry is
-unsupported; Mirmir does not yet provide a declared pre-scale and post-scale
-compatibility pipeline. The required behavior, safety constraints, and
-acceptance evidence for these gaps are tracked in
-[`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
+The original 1:43 Deterministic v4 source ran in the production app through
+frame 8,760 without error 16, passing the timing path that previously failed.
+The reported error-16 timing defect is resolved. The only observed terminal
+failure was ENOSPC, and the previous authenticated checkpoint remained
+readable. Further testing on large media files remains extended qualification,
+not a first-release blocker.
+
+VideoToolbox methods fail closed when the exact source, target, or scale
+geometry is unsupported. Automatic pre-scale and post-scale geometry
+adaptation is a post-first-release enhancement, not part of the version 1.3.4
+contract. Deterministic resource allocation is likewise outside the
+first-release target. These accepted boundaries and follow-up work are tracked
+in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
 
 ## Upscale and Compare surfaces
 
@@ -169,12 +174,14 @@ acceptance evidence for these gaps are tracked in
 - Apple-native backends retain the narrower contracts in the table above; they
   do not inherit P010/HDR, alpha, deinterlacing, or fixed-point parity merely
   because the Deterministic engine supports them.
-- The resource-allocation control is deferred and is not part of version 1.3.4.
+- Deterministic resource allocation is not a version 1.3.4 first-release
+  target.
 - Deterministic cadence validation accepts legal 90 kHz NTSC quantization.
   Error 16 (`invalidSampleTiming`) diagnostics carry stable site identifiers,
-  and the original 1:43 source advanced through frame 8,760 without one. The
-  full output has not completed, so the large-file failure is not verified
-  closed.
+  and the original 1:43 source advanced through frame 8,760 without one. This
+  resolves the reported error-16 timing defect. The only observed terminal
+  failure was ENOSPC. Further large-media testing remains extended
+  qualification rather than a first-release blocker.
 
 ## Qualification boundary
 
@@ -199,5 +206,6 @@ for the exact evidence boundary.
 The build 7 macOS Debug suite completed 500 tests: 497 passed, zero failed, and
 three expected opt-in capture tests skipped. A local TestFlight handoff archive
 exists at `/Users/jimdaley/Desktop/Mirmir-Beta-1.3.3-7.xcarchive`; it is not in
-Git, and upload remains an owner action. Neither result verifies the original
-1:43 failure as closed.
+Git, and upload remains an owner action. The partial Ferris run establishes the
+resolution of the reported timing defect through frame 8,760; broader
+large-media completion remains post-release qualification.

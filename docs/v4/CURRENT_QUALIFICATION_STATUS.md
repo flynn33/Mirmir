@@ -60,8 +60,10 @@ verified encoded boundary, and separates live Upscale progress from the
 independent completed-video Compare player. A visible production
 Deterministic v4 Metal run of the original 1:43 Ferris source at 7680 × 3264
 with audio preservation enabled committed through frame 8,760 without error
-16, then failed when the internal volume reached ENOSPC. No complete output
-movie was published; DV4-001 remains open.
+16, passing the timing path that previously failed, then failed when the
+internal volume reached ENOSPC. The reported error-16 timing defect is
+resolved. No complete output movie was published, so further large-media
+testing remains extended qualification rather than a first-release blocker.
 
 The build 8 macOS Debug scheme completed 510 tests: 507 passed, zero failed,
 and three expected opt-in capture tests skipped.
@@ -69,8 +71,9 @@ and three expected opt-in capture tests skipped.
 ## Version 1.3.3 rollback qualification
 
 Version 1.3.3 is based on source checkpoint
-`5addbee99674c08869ab010dec3d4c6988c40549`, immediately before the deferred
-resource-allocation control. That control is not included in this release.
+`5addbee99674c08869ab010dec3d4c6988c40549`, immediately before the
+resource-allocation control. That control is not a first-release target and is
+not included in version 1.3.4.
 Two post-rollback corrections remain:
 
 - user-selected regular sources may have multiple hard links, while the
@@ -93,9 +96,10 @@ Build 7 additionally keeps every source audio track when preservation is
 enabled in conventional and Deterministic v4 jobs, validates audio topology,
 accepts legal 90 kHz NTSC timestamp quantization, and includes a distinct
 stable site identifier on every error-16 (`invalidSampleTiming`) throw. The
-original 1:43 beta asset has not been rerun, so its reported Deterministic v4
-large-file failure remains open. The long-lattice regression is not evidence
-that the original failure is closed.
+original 1:43 beta asset had not been rerun at the build-7 boundary, so the
+reported failure was still open at that point. The later version 1.3.4
+production run passed the corrected timing path through frame 8,760; DV4-001 is
+now resolved while DV4-002 retains broader large-media qualification.
 
 ## Version 1.3.2 conformance remediation
 

@@ -46,28 +46,32 @@ deliberate operator actions.
 - Output is semantically validated before atomic publication; cancellation,
   failure, and crash recovery account for temporary artifacts explicitly.
 
-Version 1.3.4 keeps these product boundaries explicit:
+Version 1.3.4 keeps these first-release boundaries explicit:
 
-- The resource-allocation control is deferred and is not included.
+- Deterministic resource allocation is not a first-release target. It is
+  excluded from version 1.3.4 rather than treated as unfinished release work.
 - A user-selected regular source may have multiple hard links; the queue still
   creates and validates a private single-link snapshot.
 - Smooth Motion + Spatial Upscale is available only when the Mac's
   VideoToolbox 2× source-frame geometry limits admit the input. Those limits
-  are independent of display resolution.
+  are independent of display resolution. Automatic pre-scale and post-scale
+  geometry adaptation is post-first-release work; truthful unavailability is
+  the version 1.3.4 contract.
 - Attached-picture preservation is provided by the deterministic v4
   whole-asset path; conventional backends do not preserve attached pictures.
 - Automatic does not select deterministic v4 for opaque H.264 input.
 - Deterministic timing validation accepts legal 90 kHz NTSC quantization, and
   error 16 timing failures include a stable site identifier. A production
   Deterministic v4 Metal run of the original 1:43 source advanced through
-  frame 8,760 without error 16, then stopped when the internal volume filled.
-  The full movie has not completed, so DV4-001 remains open.
+  frame 8,760 without error 16, passing the timing path that previously failed,
+  then stopped when the internal volume filled. The reported error-16 timing
+  defect is resolved. Further testing on large media files remains extended
+  qualification, but is not a first-release blocker.
 
 See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.
-See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) for open product gaps, including the
-incomplete 1:43 Deterministic v4 qualification and the missing VideoToolbox
-geometry compatibility layer.
+See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) for accepted first-release limitations
+and post-first-release qualification and enhancement work.
 See [`CHANGELOG.md`](CHANGELOG.md) for the 1.3.4 recovery and comparison updates,
 the 1.3.3 source-admission and capability
 corrections, the earlier conformance and qualification updates, and

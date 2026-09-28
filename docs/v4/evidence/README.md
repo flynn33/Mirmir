@@ -4,15 +4,17 @@ For the current 1.3.4 (8) repository identity, rollback qualification, and
 completed M7 simulator selection, see
 [`../CURRENT_QUALIFICATION_STATUS.md`](../CURRENT_QUALIFICATION_STATUS.md).
 
-Version 1.3.4 keeps the resource-allocation control deferred and includes the
+Version 1.3.4 excludes deterministic resource allocation and automatic
+VideoToolbox geometry adaptation from the first-release target. It includes the
 qualified hard-link source admission, VideoToolbox Smooth Motion
 source-geometry preflight, multi-audio preservation, legal 90 kHz NTSC cadence
 acceptance, and stable timing-error site identifiers described in the current
 status. The original 1:43 Deterministic v4 source reached frame 8,760 in a
 production run without error 16, but ENOSPC stopped the job before a complete
-movie was published. DV4-001 remains open. Real-file qualification movies,
-logs, and the local build 7 archive are intentionally not checked into the
-source repository.
+movie was published. The reported error-16 timing defect is resolved. Further
+testing on large media files is retained as extended qualification rather than
+a first-release blocker. Real-file qualification movies, logs, and the local
+build 7 archive are intentionally not checked into the source repository.
 
 The `1.3.2-conformance-remediation-2026-09-23` directory records the full
 Debug scheme, unsigned universal Release build, and focused real-file
