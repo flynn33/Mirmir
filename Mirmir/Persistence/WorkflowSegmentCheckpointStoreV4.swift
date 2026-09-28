@@ -27,7 +27,7 @@ enum WorkflowSegmentCheckpointStoreV4Error: Error, Equatable,
     case unsafeSource(String)
     case unsafeDestination(String)
     case artifactConflict(String)
-    case atomicPublicationFailed(String)
+    case atomicPublicationFailed(path: String, code: Int32)
     case artifactSizeMismatch(String)
     case artifactHashMismatch(String)
     case artifactReceiptMismatch(String)
@@ -54,8 +54,9 @@ enum WorkflowSegmentCheckpointStoreV4Error: Error, Equatable,
             "The checkpoint destination is outside the trusted artifact root: \(path)"
         case let .artifactConflict(path):
             "A different checkpoint artifact already occupies \(path)."
-        case let .atomicPublicationFailed(path):
-            "Atomic checkpoint publication failed for \(path)."
+        case let .atomicPublicationFailed(path, code):
+            "Atomic checkpoint publication failed for \(path): errno \(code) "
+                + "(\(String(cString: strerror(code))))."
         case let .artifactSizeMismatch(path):
             "Checkpoint artifact size verification failed for \(path)."
         case let .artifactHashMismatch(path):
@@ -153,8 +154,14 @@ actor WorkflowSegmentCheckpointStoreV4 {
 
     let rootURL: URL
     private let durableFileSystem: WorkflowLocalDurableFileSystem
+    private let publicationOperationHook:
+        WorkflowLocalDurableFileSystem.OperationHook
 
-    init(rootURL: URL) throws {
+    init(
+        rootURL: URL,
+        publicationOperationHook:
+            WorkflowLocalDurableFileSystem.OperationHook? = nil
+    ) throws {
         guard rootURL.isFileURL else {
             throw WorkflowSegmentCheckpointStoreV4Error.invalidRoot
         }
@@ -172,6 +179,7 @@ actor WorkflowSegmentCheckpointStoreV4 {
         durableFileSystem = try WorkflowLocalDurableFileSystem(
             trustedRootURL: resolved
         )
+        self.publicationOperationHook = publicationOperationHook ?? { _, _ in }
     }
 
     func publishBoundary(
@@ -692,6 +700,17 @@ private extension WorkflowSegmentCheckpointStoreV4 {
             try durableFileSystem.ensureDirectory(
                 destination.deletingLastPathComponent()
             )
+        } catch let error as WorkflowDurableFileSystemError {
+            if case let .ioFailure(_, _, code) = error {
+                throw WorkflowSegmentCheckpointStoreV4Error
+                    .atomicPublicationFailed(
+                        path: destination.path,
+                        code: code
+                    )
+            }
+            throw WorkflowSegmentCheckpointStoreV4Error.unsafeDestination(
+                relativePath
+            )
         } catch {
             throw WorkflowSegmentCheckpointStoreV4Error.unsafeDestination(
                 relativePath
@@ -703,6 +722,18 @@ private extension WorkflowSegmentCheckpointStoreV4 {
         let temporary = destination.deletingLastPathComponent()
             .appendingPathComponent(".publish-\(UUID().uuidString).tmp")
         defer { try? FileManager.default.removeItem(at: temporary) }
+        do {
+            try publicationOperationHook(.beforeTemporaryCreate, temporary)
+        } catch let error as WorkflowDurableFileSystemError {
+            if case let .ioFailure(_, _, code) = error {
+                throw WorkflowSegmentCheckpointStoreV4Error
+                    .atomicPublicationFailed(
+                        path: temporary.path,
+                        code: code
+                    )
+            }
+            throw error
+        }
         try Self.copyAndSync(sourceURL, to: temporary)
         let temporaryIdentity = try Self.rawFileIdentity(temporary)
         guard temporaryIdentity == expected else {
@@ -874,8 +905,9 @@ private extension WorkflowSegmentCheckpointStoreV4 {
             S_IRUSR | S_IWUSR
         )
         guard destinationFD >= 0 else {
+            let code = errno
             throw WorkflowSegmentCheckpointStoreV4Error
-                .atomicPublicationFailed(destination.path)
+                .atomicPublicationFailed(path: destination.path, code: code)
         }
         var closeDestination = true
         defer { if closeDestination { close(destinationFD) } }
@@ -901,23 +933,27 @@ private extension WorkflowSegmentCheckpointStoreV4 {
                 }
                 guard writeCount > 0 else {
                     if writeCount < 0, errno == EINTR { continue }
+                    let code = errno
                     throw WorkflowSegmentCheckpointStoreV4Error
-                        .atomicPublicationFailed(destination.path)
+                        .atomicPublicationFailed(
+                            path: destination.path,
+                            code: code
+                        )
                 }
                 written += writeCount
             }
         }
         guard fsync(destinationFD) == 0 else {
-            throw WorkflowSegmentCheckpointStoreV4Error.atomicPublicationFailed(
-                destination.path
-            )
+            let code = errno
+            throw WorkflowSegmentCheckpointStoreV4Error
+                .atomicPublicationFailed(path: destination.path, code: code)
         }
         let closeStatus = close(destinationFD)
         closeDestination = false
         guard closeStatus == 0 else {
-            throw WorkflowSegmentCheckpointStoreV4Error.atomicPublicationFailed(
-                destination.path
-            )
+            let code = errno
+            throw WorkflowSegmentCheckpointStoreV4Error
+                .atomicPublicationFailed(path: destination.path, code: code)
         }
     }
 
@@ -930,9 +966,9 @@ private extension WorkflowSegmentCheckpointStoreV4 {
                 destination.path
             )
         }
-        throw WorkflowSegmentCheckpointStoreV4Error.atomicPublicationFailed(
-            destination.path
-        )
+        let code = errno
+        throw WorkflowSegmentCheckpointStoreV4Error
+            .atomicPublicationFailed(path: destination.path, code: code)
     }
 
     static func syncDirectory(_ directory: URL) throws {
@@ -941,13 +977,15 @@ private extension WorkflowSegmentCheckpointStoreV4 {
             O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW
         )
         guard descriptor >= 0 else {
+            let code = errno
             throw WorkflowSegmentCheckpointStoreV4Error
-                .atomicPublicationFailed(directory.path)
+                .atomicPublicationFailed(path: directory.path, code: code)
         }
         defer { close(descriptor) }
         guard fsync(descriptor) == 0 else {
+            let code = errno
             throw WorkflowSegmentCheckpointStoreV4Error
-                .atomicPublicationFailed(directory.path)
+                .atomicPublicationFailed(path: directory.path, code: code)
         }
     }
 
@@ -958,8 +996,9 @@ private extension WorkflowSegmentCheckpointStoreV4 {
             S_IRUSR | S_IWUSR
         )
         guard descriptor >= 0 else {
+            let code = errno
             throw WorkflowSegmentCheckpointStoreV4Error
-                .atomicPublicationFailed(url.path)
+                .atomicPublicationFailed(path: url.path, code: code)
         }
         var shouldClose = true
         defer { if shouldClose { close(descriptor) } }
@@ -974,21 +1013,24 @@ private extension WorkflowSegmentCheckpointStoreV4 {
                 )
                 guard count > 0 else {
                     if count < 0, errno == EINTR { continue }
+                    let code = errno
                     throw WorkflowSegmentCheckpointStoreV4Error
-                        .atomicPublicationFailed(url.path)
+                        .atomicPublicationFailed(path: url.path, code: code)
                 }
                 written += count
             }
         }
         guard fsync(descriptor) == 0 else {
+            let code = errno
             throw WorkflowSegmentCheckpointStoreV4Error
-                .atomicPublicationFailed(url.path)
+                .atomicPublicationFailed(path: url.path, code: code)
         }
         let closeStatus = close(descriptor)
         shouldClose = false
         guard closeStatus == 0 else {
+            let code = errno
             throw WorkflowSegmentCheckpointStoreV4Error
-                .atomicPublicationFailed(url.path)
+                .atomicPublicationFailed(path: url.path, code: code)
         }
     }
 
