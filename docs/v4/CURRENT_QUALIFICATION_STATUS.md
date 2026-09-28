@@ -1,6 +1,6 @@
 # Deterministic engine v4 current qualification status
 
-Verified September 27, 2026.
+Verified September 28, 2026.
 
 The GitHub-facing tracker in `roadmap-status.svg` is generated from this
 document, `DETERMINISTIC_ENGINE_V4_ROADMAP.md`, `VERSION`, and `BUILD_NUMBER`.
@@ -23,8 +23,8 @@ decisions.
 
 | Field | Verified value |
 | --- | --- |
-| Product | Mirmir 1.3.3 (7) |
-| Version authorities | `VERSION` = `1.3.3`; `BUILD_NUMBER` = `7` |
+| Product | Mirmir 1.3.4 (8) |
+| Version authorities | `VERSION` = `1.3.4`; `BUILD_NUMBER` = `8` |
 | Bundle identifier | `com.mirmir.app` |
 | Minimum macOS | 15.4 |
 | M0–M6 implementation | Complete |
@@ -51,7 +51,20 @@ Deterministic v4 second-audio-track retention plus a legal 90 kHz NTSC cadence
 lattice through approximately the original 1:43 source's frame range. A local
 TestFlight handoff archive exists at
 `/Users/jimdaley/Desktop/Mirmir-Beta-1.3.3-7.xcarchive`; it is excluded from
-Git and upload remains an owner action.
+Git and upload remains an owner action. It is historical build-7 evidence, not
+a build-8 archive.
+
+Version 1.3.4 adds authenticated resume from a failed job's last verified
+nonterminal checkpoint, closes deterministic segment writer sessions at the
+verified encoded boundary, and separates live Upscale progress from the
+independent completed-video Compare player. A visible production
+Deterministic v4 Metal run of the original 1:43 Ferris source at 7680 × 3264
+with audio preservation enabled committed through frame 8,760 without error
+16, then failed when the internal volume reached ENOSPC. No complete output
+movie was published; DV4-001 remains open.
+
+The build 8 macOS Debug scheme completed 510 tests: 507 passed, zero failed,
+and three expected opt-in capture tests skipped.
 
 ## Version 1.3.3 rollback qualification
 

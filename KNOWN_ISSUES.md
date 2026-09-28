@@ -1,6 +1,6 @@
 # Mirmir known product issues
 
-Verified against the `rollback/pre-resource-bar` checkout on September 27,
+Verified against the `rollback/pre-resource-bar` checkout on September 28,
 2026. These entries describe open product gaps. They are not implementation,
 qualification, release, or shipment claims.
 
@@ -11,20 +11,21 @@ qualification, release, or shipment claims.
 
 ### Current evidence
 
-The original 1:43 beta asset has not been rerun against version 1.3.3 build 7,
-so its `Mirmir.DeterministicV4MediaSegmentError` error 16 failure is not
-verified closed. Error 16 currently bridges from `invalidSampleTiming`, but
-that mapping does not identify the root-cause throw site for the beta asset.
+The original 1:43 Ferris beta source ran in the production application with
+Deterministic v4 Metal, a 7680 × 3264 target, and audio preservation enabled.
+It committed through source frame 8,760 without error 16, then stopped when the
+internal volume reached ENOSPC. No complete output movie was published, so the
+reported large-file failure is not verified closed.
 
-Build 7 accepts legal 90 kHz NTSC timestamp quantization in cadence validation
+The cadence validator accepts legal 90 kHz NTSC timestamp quantization
 and tests the legal lattice through approximately the original source's frame
 range. That is candidate regression coverage only. Every
 `invalidSampleTiming` throw now carries a distinct stable site identifier so a
-future reproduction can name the actual failing check.
+  future timing failure can name the actual failing check.
 
 ### Required closure evidence
 
-- Rerun the original beta asset or an authenticated byte-identical copy.
+- Complete the original beta asset or an authenticated byte-identical copy.
 - Capture the stable timing site identifier if error 16 recurs.
 - Tie any further correction to that exact throw site and preserve rejection
   of real timestamp discontinuities.
@@ -35,57 +36,6 @@ The local archive at
 `/Users/jimdaley/Desktop/Mirmir-Beta-1.3.3-7.xcarchive` is a TestFlight handoff
 artifact, not closure evidence. It is excluded from Git; upload remains an
 owner action.
-
-## UI-001 — Completed Before/After comparison lacks playback in the active UI
-
-**Status:** Open
-**Priority:** High — advertised user-facing comparison functionality
-
-### Current behavior
-
-The active application composition routes completed jobs through
-`MirmirProductUpscaleWorkspace` and `MirmirBeforeAfterComparison`. That viewer
-loads one still image near the midpoint of the source and one near the midpoint
-of the completed output. It provides a draggable split, but it has no play,
-pause, replay, or timeline controls.
-
-A separate `MirmirCompletedComparisonPlaybackView` already expresses the
-intended interaction, but it is not wired into the active application
-composition. It loads the original and verified completed output into
-synchronized players with shared playback and scrubbing.
-
-### Product impact
-
-A midpoint still cannot expose temporal reconstruction defects, flicker,
-motion instability, cadence problems, compression changes over time, or
-source/output synchronization errors. The active behavior therefore does not
-satisfy the documented completed-job Before/After comparison feature.
-
-### Required behavior
-
-After an output completes and passes semantic verification, the active
-Before/After viewer must:
-
-- load the original source and verified completed output;
-- provide play, pause, replay, current time, duration, and shared scrubbing;
-- keep both videos synchronized after play, pause, seek, end-of-playback, and
-  application focus changes;
-- apply the movable split to the same presentation time on both sides;
-- play no more than one audio stream, with the completed output as the default;
-- distinguish loading, ready, ended, and actionable playback-failure states;
-  and
-- retain progress as a separate processing presentation. Any live sampled
-  frames must be labeled as a preview and must not be presented as the final
-  completed comparison.
-
-### Acceptance evidence
-
-- A UI or integration test proves that a completed job exposes enabled
-  play/pause, replay, timeline, and split controls.
-- A multi-frame fixture proves both players remain within the declared sync
-  tolerance during playback and after repeated seeks.
-- Manual validation exercises motion, scrubbing, divider movement, audio,
-  replay, and playback failure in the active packaged application.
 
 ## VT-001 — VideoToolbox routes lack a geometry compatibility layer
 

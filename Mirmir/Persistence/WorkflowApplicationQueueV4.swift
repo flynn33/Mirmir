@@ -78,6 +78,7 @@ enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
     case dispatchJobMismatch(expected: WorkflowJobID, actual: WorkflowJobID)
     case preparedPlanChanged(WorkflowJobID)
     case terminalCheckpointMissing(WorkflowJobID)
+    case failedCheckpointResumeUnavailable(WorkflowJobID)
     case workingArtifactConflict(String)
     case unsafeWorkingArtifact(String)
     case priorityDocumentCorrupt
@@ -141,6 +142,8 @@ enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
             "The revalidated prepared plan for \(jobID) no longer matches its durable binding."
         case .terminalCheckpointMissing(let jobID):
             "The durable job \(jobID) has no compatible terminal segment checkpoint."
+        case .failedCheckpointResumeUnavailable(let jobID):
+            "The failed durable job \(jobID) has no verified nonterminal checkpoint to resume."
         case .workingArtifactConflict(let path):
             "A durable working artifact already exists at \(path)."
         case .unsafeWorkingArtifact(let path):
@@ -2154,7 +2157,56 @@ extension WorkflowApplicationQueueV4 {
         commandKey: WorkflowRecoveryCommandKeyV4,
         attemptID: WorkflowAttemptID
     ) async throws -> WorkflowQueueDispatchReceiptV4 {
-        try await dispatcher.resume(
+        let state = try await coordinator.open().state
+        if state.job(id: jobID)?.lifecycle == .failed {
+            guard let job = state.job(id: jobID) else {
+                throw WorkflowApplicationQueueErrorV4.jobNotFound(jobID)
+            }
+            let document = try loadVerifiedRequestDocument(
+                specification: job.specification
+            )
+            guard let checkpoint = try await coordinator
+                .loadCompatibleCheckpoint(
+                    jobID: jobID,
+                    expectedCodecSettingsHash:
+                        document.body.preparedPlanBinding.outputContractID,
+                    expectedSourceSnapshotIdentityID:
+                        document.body.sourceSnapshot.identityID
+                ) else {
+                throw WorkflowApplicationQueueErrorV4
+                    .failedCheckpointResumeUnavailable(jobID)
+            }
+            let store = try WorkflowSegmentCheckpointStoreV4(rootURL: rootURL)
+            let verification = try await store.verifyCheckpoint(checkpoint)
+            let videoProgress = checkpoint.body.trackProgress.filter {
+                $0.kind == .video && $0.nextOutputSampleIndex > 0
+            }
+            guard verification.lastCompletedInputOrdinal >= 0,
+                  checkpoint.body.segments.last?.nextStartTime != nil,
+                  videoProgress.count == 1,
+                  !videoProgress[0].isComplete else {
+                throw WorkflowApplicationQueueErrorV4
+                    .failedCheckpointResumeUnavailable(jobID)
+            }
+            let ordinal = UInt64(checkpoint.body.segments.count)
+            let workingURL = applicationWorkingDirectoryURL
+                .appendingPathComponent(
+                    String(
+                        format: ".mirmir-%@-boundary-%020llu.partial.segment.mov",
+                        jobID.rawValue,
+                        ordinal
+                    ),
+                    isDirectory: false
+                )
+            if FileManager.default.fileExists(atPath: workingURL.path) {
+                try removeApplicationWorkingArtifact(workingURL)
+            }
+            try await dispatcher.reopenFailedCheckpointForResume(
+                jobID: jobID,
+                commandKey: commandKey
+            )
+        }
+        return try await dispatcher.resume(
             jobID: jobID,
             commandKey: commandKey,
             attemptID: attemptID

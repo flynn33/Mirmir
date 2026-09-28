@@ -1,6 +1,6 @@
 # Deterministic Engine v4 roadmap
 
-Status: 1.3.3 (7) implementation and M7 simulator candidate selection complete
+Status: 1.3.4 (8) implementation and M7 simulator candidate selection complete
 
 Scope: Mirmir deterministic CPU and Metal engines, media pipeline, and durable job workflow
 
@@ -13,14 +13,15 @@ workflow, qualification tooling, and production P06 identity loading as version
 1.3.0. Version 1.3.1 build 4 records the completed, simulator-only M7 scope and
 its reproducible selection evidence. Version 1.3.2 build 5 hardens exact media
 assembly, decoded video-range handling, and durable source-snapshot migration
-after real-file testing. Version 1.3.3 build 7 admits hard-linked user sources
+after real-file testing. Version 1.3.4 build 8 admits hard-linked user sources
 without relaxing private-snapshot ownership, preflights VideoToolbox Smooth
 Motion against the Mac's reported 2× source-frame geometry limits, preserves
 all source audio when requested, accepts legal 90 kHz NTSC cadence, and gives
 every error-16 timing throw a stable site identifier. These patches do not
 change the locked M7 selection result. The original 1:43 Deterministic v4 beta
-failure remains open because its source has not been rerun. The
-resource-allocation control is deferred and is not part of version 1.3.3.
+source advanced through frame 8,760 in the production app without error 16,
+then stopped under ENOSPC; the full output has not completed. The
+resource-allocation control is deferred and is not part of version 1.3.4.
 Follow-on work closed M0 through M6 in source and tests. The sealed M7 headless
 XCTest frame-simulator run from commit
 `ce780af87107d90142d860f328dca4a72fea3047` compared the production v4 policy

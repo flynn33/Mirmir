@@ -2154,6 +2154,25 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                 throw DeterministicV4MediaSegmentError.readerFailed
             }
             try await hook.finish()
+            let encodedEnd = timelineMapping == nil
+                ? nextPresentationTime ?? globalEnd
+                : globalEnd
+            let localEncodedEnd = CMTimeSubtract(
+                encodedEnd,
+                segmentOrigin
+            )
+            let localProcessedEnd = CMTimeSubtract(
+                globalEnd,
+                segmentOrigin
+            )
+            guard localEncodedEnd.isNumeric,
+                  localProcessedEnd.isNumeric,
+                  localEncodedEnd.value > 0,
+                  CMTimeCompare(localEncodedEnd, localProcessedEnd) >= 0 else {
+                throw DeterministicV4MediaSegmentError
+                    .nonContiguousBoundary
+            }
+            writer.endSession(atSourceTime: localEncodedEnd)
             writerInput.markAsFinished()
             await finishWriting(writer)
             guard writer.status == .completed else {

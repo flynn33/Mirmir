@@ -3,12 +3,14 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-Version 1.3.3 build 7 carries the deterministic ASH P06 CPU and Metal engine
+Version 1.3.4 build 8 carries the deterministic ASH P06 CPU and Metal engine
 beside the supported Apple scaling frameworks, preserves the completed
 simulator-only M7 candidate selection, and adds qualified source admission,
 VideoToolbox capability checks, multi-audio preservation, and deterministic
 timing diagnostics while keeping every backend choice, preservation decision,
-and fallback boundary visible.
+and fallback boundary visible. It also separates live Upscale processing from
+the independent Compare player and permits authenticated failed jobs to resume
+from their last verified nonterminal checkpoint.
 
 The current marketing version and build number are recorded in
 [`VERSION`](VERSION) and [`BUILD_NUMBER`](BUILD_NUMBER), then synchronized with
@@ -44,7 +46,7 @@ deliberate operator actions.
 - Output is semantically validated before atomic publication; cancellation,
   failure, and crash recovery account for temporary artifacts explicitly.
 
-Version 1.3.3 keeps these product boundaries explicit:
+Version 1.3.4 keeps these product boundaries explicit:
 
 - The resource-allocation control is deferred and is not included.
 - A user-selected regular source may have multiple hard links; the queue still
@@ -56,16 +58,18 @@ Version 1.3.3 keeps these product boundaries explicit:
   whole-asset path; conventional backends do not preserve attached pictures.
 - Automatic does not select deterministic v4 for opaque H.264 input.
 - Deterministic timing validation accepts legal 90 kHz NTSC quantization, and
-  error 16 timing failures include a stable site identifier. The original
-  1:43 Deterministic v4 beta failure has not been rerun and remains open.
+  error 16 timing failures include a stable site identifier. A production
+  Deterministic v4 Metal run of the original 1:43 source advanced through
+  frame 8,760 without error 16, then stopped when the internal volume filled.
+  The full movie has not completed, so DV4-001 remains open.
 
 See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.
 See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) for open product gaps, including the
-unverified 1:43 Deterministic v4 failure, the active Before/After viewer's
-missing completed-video playback, and the missing VideoToolbox geometry
-compatibility layer.
-See [`CHANGELOG.md`](CHANGELOG.md) for the 1.3.3 source-admission and capability
+incomplete 1:43 Deterministic v4 qualification and the missing VideoToolbox
+geometry compatibility layer.
+See [`CHANGELOG.md`](CHANGELOG.md) for the 1.3.4 recovery and comparison updates,
+the 1.3.3 source-admission and capability
 corrections, the earlier conformance and qualification updates, and
 [`docs/v4/`](docs/v4/) for the qualification evidence contracts.
 The [Mirmir Wiki](https://github.com/flynn33/Mirmir/wiki) provides the complete
@@ -92,7 +96,7 @@ records the v4 architecture, delivery sequence, and M7 simulator selection for
 at least 5% higher quality and 20% lower processing time. Engine, media, and
 durable-workflow implementation originally landed in 1.3.0; version 1.3.1
 records the altered simulator-only M7 scope and completed decision. Versions
-1.3.2 and 1.3.3 add post-qualification conformance repairs without changing
+Versions 1.3.2 through 1.3.4 add post-qualification conformance repairs without changing
 that locked selection result. The sealed
 168-case headless XCTest frame-simulator run from
 commit `ce780af87107d90142d860f328dca4a72fea3047` ranked `candidate_v4` first:
@@ -186,7 +190,7 @@ manifest identity and reads the manifest provenance source revision and builder
 hash, then passes those four arguments into the production loader. A bundle
 that does not match the declared trust roots cannot pass CI.
 
-See [`CHANGELOG.md`](CHANGELOG.md) for the 1.3.3 product record and the earlier
+See [`CHANGELOG.md`](CHANGELOG.md) for the current product record and the earlier
 conformance, qualification, and identity-check records.
 
 ## Versioning

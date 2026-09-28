@@ -59,6 +59,114 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         )
     }
 
+    func testFailedJobResumesOnlyFromVerifiedNonterminalCheckpoint()
+        async throws {
+        let fixture = try makeFixture()
+        let queue = try makeQueue(fixture: fixture)
+        let binding = try preparedBinding()
+        let enqueued = try await queue.enqueue(
+            request: request(fixture: fixture),
+            preparedPlanBinding: binding
+        )
+        guard case .claimed(let dispatch) = try await queue
+            .claimNextApplicationJob(
+                cycleID: WorkflowDispatchCycleIDV4(
+                    "failed-checkpoint-resume-claim"
+                )
+            ) else {
+            return XCTFail("Expected the test job to be claimed")
+        }
+        _ = try await queue.transitionApplicationJob(
+            dispatch,
+            expected: .probing,
+            target: .planned,
+            commandKey: WorkflowRecoveryCommandKeyV4(
+                "failed-checkpoint-resume-planned"
+            ),
+            stage: "failed-checkpoint-resume-planned",
+            attemptID: nil
+        )
+        let initialAttempt = try WorkflowAttemptID(
+            "failed-checkpoint-resume-initial-attempt"
+        )
+        _ = try await queue.transitionApplicationJob(
+            dispatch,
+            expected: .planned,
+            target: .running,
+            commandKey: WorkflowRecoveryCommandKeyV4(
+                "failed-checkpoint-resume-running"
+            ),
+            stage: "failed-checkpoint-resume-running",
+            attemptID: initialAttempt
+        )
+        let segmentURL = fixture.rootURL.appendingPathComponent(
+            "failed-checkpoint-resume-segment.mov"
+        )
+        try await writePublicationSegment(to: segmentURL)
+        let start = try WorkflowMediaTimeV4(value: 0, timescale: 30)
+        let end = try WorkflowMediaTimeV4(value: 1, timescale: 30)
+        _ = try await queue.commitApplicationCheckpointBoundary(
+            dispatch: dispatch,
+            specification: enqueued.specification,
+            segment: DeterministicV4MediaSegmentResultV4(
+                segmentURL: segmentURL,
+                startTime: start,
+                endTimeExclusive: end,
+                inputSampleCount: 1,
+                outputSampleCount: 1,
+                lastCompletedInputOrdinal: 0,
+                terminal: false,
+                nextStartTime: end,
+                processingDurationSeconds: 0.01
+            ),
+            outputContractID: binding.outputContractID,
+            previousCheckpoint: nil,
+            trackProgress: [
+                try WorkflowTrackProgressV4(
+                    trackID: "video-primary",
+                    kind: .video,
+                    nextInputSampleIndex: 1,
+                    nextOutputSampleIndex: 1,
+                    lastInputTime: end,
+                    lastOutputTime: end,
+                    isComplete: false
+                )
+            ],
+            temporalCheckpoint: Data("resume-temporal-state".utf8)
+        )
+        _ = try await queue.transitionApplicationJob(
+            dispatch,
+            expected: .running,
+            target: .failed,
+            commandKey: WorkflowRecoveryCommandKeyV4(
+                "failed-checkpoint-resume-failed"
+            ),
+            stage: "failed-checkpoint-resume-failed",
+            attemptID: initialAttempt,
+            releaseAfterTransition: true
+        )
+        let staleWorkingURL = try await queue.applicationWorkingSegmentURL(
+            jobID: enqueued.specification.jobID,
+            boundaryOrdinal: 1
+        )
+        try Data("uncommitted-boundary".utf8).write(to: staleWorkingURL)
+
+        let resumed = try await queue.resumeApplicationJob(
+            jobID: enqueued.specification.jobID,
+            commandKey: WorkflowRecoveryCommandKeyV4(
+                "failed-checkpoint-resume"
+            ),
+            attemptID: try WorkflowAttemptID(
+                "failed-checkpoint-resume-new-attempt"
+            )
+        )
+
+        XCTAssertEqual(resumed.claim.lifecycle, .running)
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: staleWorkingURL.path)
+        )
+    }
+
     func testCleanLaunchHasImmutableEmptyQueueAndRecoverySnapshots() async throws {
         let fixture = try makeFixture()
         let clock = WorkflowApplicationQueueTestClockV4(7_000_000_000)

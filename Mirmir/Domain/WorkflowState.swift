@@ -56,7 +56,9 @@ enum WorkflowJobLifecycle: String, CaseIterable, Codable, Hashable, Sendable {
              .cancelled]
         case .contained:
             [.failed, .safeHalt, .cancelled]
-        case .completed, .failed, .safeHalt, .cancelled:
+        case .failed:
+            [.recovering]
+        case .completed, .safeHalt, .cancelled:
             []
         }
     }
@@ -624,7 +626,10 @@ enum WorkflowReducer {
             guard envelope.jobBinding == currentJob.specification.binding else {
                 throw WorkflowReducerError.immutableBindingMismatch(jobID)
             }
-            if currentJob.lifecycle.isTerminal {
+            let isFailedCheckpointRecovery =
+                currentJob.lifecycle == .failed
+                    && transition.to == .recovering
+            if currentJob.lifecycle.isTerminal && !isFailedCheckpointRecovery {
                 throw WorkflowReducerError.terminalStateImmutable(
                     jobID,
                     currentJob.lifecycle

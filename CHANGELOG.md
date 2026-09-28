@@ -7,6 +7,44 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+## [1.3.4] - 2026-09-28
+
+### Changed
+
+- Separated the Upscale job workspace from the primary Compare player. Upscale
+  now presents only the live processing preview, while Compare accepts any two
+  user-selected movies or the last completed job for synchronized playback,
+  scrubbing, replay, audio, and draggable split review.
+- Allowed a failed durable job to resume only from an authenticated,
+  nonterminal checkpoint. Resume removes an uncommitted next-boundary artifact,
+  revalidates the bound request and checkpoint, and does not rebuild already
+  committed segments.
+- Closed each deterministic segment writer session at the verified encoded end
+  before publication, preserving the committed segment boundary.
+
+### Reliability
+
+- Disk-full checkpoint publication reports the underlying ENOSPC condition and
+  leaves the previous authenticated head readable and nonterminal.
+- Conventional processing keeps every requested source audio track with a
+  serialized reader drain; Deterministic v4 planning and output validation
+  preserve the source audio topology unless preservation is explicitly off.
+- Deterministic cadence uses exact `1001/24000` for 23.976 fps sources, accepts
+  legal 90 kHz NTSC timestamps, rejects real gaps, and attaches stable site IDs
+  to error-16 timing failures.
+
+### Qualification boundary
+
+- The macOS Debug scheme completed 510 tests: 507 passed, zero failed, and
+  three expected opt-in capture tests skipped.
+- A visible production Deterministic v4 Metal run of the original 1:43 Ferris
+  source, at 7680 × 3264 with audio preservation enabled, committed through
+  source frame 8,760 without error 16. It then failed under ENOSPC. The full
+  1:43 output movie has not completed, so DV4-001 remains open.
+- Version authorities are aligned at 1.3.4 build 8. The retained Desktop
+  `Mirmir-Beta-1.3.3-7.xcarchive` remains the prior build-7 handoff artifact and
+  is not part of this source release.
+
 ## [1.3.3] - 2026-09-25
 
 ### Fixed
