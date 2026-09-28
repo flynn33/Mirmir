@@ -14,8 +14,7 @@ struct MirmirUpscaleWorkspaceView: View {
                         MirmirSourceStrip(viewModel: viewModel, theme: theme)
                         MirmirViewerPanel(
                             viewModel: viewModel,
-                            theme: theme,
-                            showLibrary: showLibrary
+                            theme: theme
                         )
                     }
                     .frame(maxWidth: .infinity, alignment: .top)
@@ -238,40 +237,22 @@ private struct MirmirPreservationInventoryView: View {
 private struct MirmirViewerPanel: View {
     @ObservedObject var viewModel: MirmirViewModel
     let theme: MirmirThemeTokens
-    let showLibrary: () -> Void
-
-    @State private var splitPosition = 0.5
 
     var body: some View {
         MirmirPanel(theme: theme) {
             VStack(spacing: theme.spacing.space3) {
-                if let sourceURL = viewModel.sourceProfile?.url,
-                   let completedOutputURL =
-                    viewModel.completedOutputURL {
-                    MirmirCompletedComparisonPlaybackView(
-                        sourceURL: sourceURL,
-                        completedOutputURL: completedOutputURL,
-                        sourceResolutionText: sourceResolutionText,
-                        outputResolutionText: targetResolutionText,
-                        theme: theme,
-                        splitPosition: $splitPosition,
-                        showLibrary: showLibrary
-                    )
-                } else {
-                    comparisonSurface
-                        .frame(minHeight: 360)
-                }
+                processingPreviewSurface
+                    .frame(minHeight: 360)
 
                 MirmirSampledPreviewControls(
                     viewModel: viewModel,
-                    theme: theme,
-                    splitPosition: $splitPosition
+                    theme: theme
                 )
             }
         }
     }
 
-    private var comparisonSurface: some View {
+    private var processingPreviewSurface: some View {
         GeometryReader { proxy in
             ZStack {
                 RoundedRectangle(cornerRadius: theme.radius.xlarge)
@@ -281,7 +262,7 @@ private struct MirmirViewerPanel: View {
                     MirmirSourceDropTarget(viewModel: viewModel, theme: theme)
                         .padding(theme.spacing.space8)
                 } else {
-                    beforeAfterSurface(size: proxy.size)
+                    sampledFrameSurface(size: proxy.size)
                 }
             }
             .overlay {
@@ -292,50 +273,20 @@ private struct MirmirViewerPanel: View {
         }
     }
 
-    private func beforeAfterSurface(size: CGSize) -> some View {
-        let splitX = max(0, min(size.width, size.width * splitPosition))
-
-        return ZStack(alignment: .leading) {
+    private func sampledFrameSurface(size: CGSize) -> some View {
+        ZStack {
             if let frame = viewModel.latestPreviewFrame {
                 MirmirPreviewRaster(image: frame.processed)
                     .frame(width: size.width, height: size.height)
-
-                MirmirPreviewRaster(image: frame.source)
-                    .frame(width: size.width, height: size.height)
-                    .mask(alignment: .leading) {
-                        Rectangle()
-                            .frame(width: splitX)
-                    }
             } else {
                 previewPlaceholder
                     .frame(width: size.width, height: size.height)
             }
 
-            Rectangle()
-                .fill(theme.accentSecondary)
-                .frame(width: 1)
-                .offset(x: splitX)
-
-            Circle()
-                .fill(theme.viewerOverlay)
-                .frame(width: 34, height: 34)
-                .overlay {
-                    Image(systemName: "arrow.left.and.right")
-                        .font(theme.typography.captionEmphasis)
-                        .foregroundStyle(theme.viewerOverlayText)
-                }
-                .overlay {
-                    Circle()
-                        .stroke(theme.accentSecondary, lineWidth: 1)
-                }
-                .offset(x: splitX - 17)
-                .accessibilityHidden(true)
-
-            previewLabels
+            previewLabel
                 .frame(width: size.width, height: size.height)
 
-            if viewModel.latestPreviewFrame != nil,
-               case .failed(let reason) = viewModel.state {
+            if case .failed(let reason) = viewModel.state {
                 previewFailure(reason)
                     .frame(width: size.width, height: size.height)
             }
@@ -348,7 +299,7 @@ private struct MirmirViewerPanel: View {
             Rectangle()
                 .fill(theme.surfaceInset)
             VStack(spacing: theme.spacing.space2) {
-                Image(systemName: "rectangle.split.2x1")
+                Image(systemName: "film")
                     .font(.system(size: 36, weight: .light))
                     .foregroundStyle(theme.textTertiary)
                 Text(MirmirPreviewPresentation.message(for: viewModel.state))
@@ -360,32 +311,27 @@ private struct MirmirViewerPanel: View {
         }
     }
 
-    private var previewLabels: some View {
-        HStack(alignment: .top) {
-            previewLabel("Before", subtitle: sourceResolutionText)
+    private var previewLabel: some View {
+        VStack {
+            HStack {
+                VStack(alignment: .leading, spacing: theme.spacing.space1) {
+                    Text("PROCESSING PREVIEW")
+                        .font(theme.typography.captionEmphasis)
+                    Text(targetResolutionText)
+                        .font(theme.typography.micro.monospacedDigit())
+                }
+                .foregroundStyle(theme.viewerOverlayText)
+                .padding(.horizontal, theme.spacing.space2)
+                .padding(.vertical, theme.spacing.space1)
+                .background(
+                    RoundedRectangle(cornerRadius: theme.radius.small)
+                        .fill(theme.viewerOverlay)
+                )
+                Spacer()
+            }
             Spacer()
-            previewLabel("After", subtitle: targetResolutionText)
         }
         .padding(theme.spacing.space3)
-    }
-
-    private func previewLabel(
-        _ title: String,
-        subtitle: String
-    ) -> some View {
-        VStack(alignment: .leading, spacing: theme.spacing.space1) {
-            Text(title)
-                .font(theme.typography.captionEmphasis)
-            Text(subtitle)
-                .font(theme.typography.micro.monospacedDigit())
-        }
-        .foregroundStyle(theme.viewerOverlayText)
-        .padding(.horizontal, theme.spacing.space2)
-        .padding(.vertical, theme.spacing.space1)
-        .background(
-            RoundedRectangle(cornerRadius: theme.radius.small)
-                .fill(theme.viewerOverlay)
-        )
     }
 
     private func previewFailure(_ reason: String) -> some View {
@@ -403,11 +349,6 @@ private struct MirmirViewerPanel: View {
                 )
                 .padding(theme.spacing.space3)
         }
-    }
-
-    private var sourceResolutionText: String {
-        guard let profile = viewModel.sourceProfile else { return "No source" }
-        return MirmirViewModel.fileLabel(for: profile.resolution)
     }
 
     private var targetResolutionText: String {
@@ -428,7 +369,7 @@ struct MirmirPreviewPresentation {
         case .running:
             return "Waiting for the first processed preview sample."
         case .finished:
-            return "The verified completed output is ready for comparison playback."
+            return "Processing finished. Open Compare to review the original and upscaled movies."
         case .failed(let reason):
             return "Upscale failed: \(reason)"
         }
@@ -539,75 +480,23 @@ private struct MirmirSourceDropTarget: View {
 private struct MirmirSampledPreviewControls: View {
     @ObservedObject var viewModel: MirmirViewModel
     let theme: MirmirThemeTokens
-    @Binding var splitPosition: Double
 
     var body: some View {
-        VStack(alignment: .leading, spacing: theme.spacing.space2) {
-            HStack(spacing: theme.spacing.space2) {
-                Label(
-                    comparisonHeading,
-                    systemImage: "rectangle.split.2x1"
-                )
+        HStack(spacing: theme.spacing.space2) {
+            Label("Processing preview", systemImage: "film")
                 .font(theme.typography.captionEmphasis)
                 .foregroundStyle(theme.textSecondary)
-                Text(sampleText)
-                    .font(theme.typography.caption.monospacedDigit())
-                    .foregroundStyle(theme.textSecondary)
-                Spacer()
-                Text(comparisonHelp)
-                    .font(theme.typography.caption)
-                    .foregroundStyle(theme.textTertiary)
-            }
-
-            HStack(spacing: theme.spacing.space2) {
-                Text("Split")
-                    .font(theme.typography.captionEmphasis)
-                    .foregroundStyle(theme.textSecondary)
-                Slider(value: $splitPosition, in: 0.2...0.8)
-                    .disabled(!splitIsAvailable)
-                    .accessibilityLabel("Before after split")
-                Text(splitHelp)
-                    .font(theme.typography.caption)
-                    .foregroundStyle(theme.textTertiary)
-            }
+            Text(sampleText)
+                .font(theme.typography.caption.monospacedDigit())
+                .foregroundStyle(theme.textSecondary)
+            Spacer()
+            Text("Sampled processed frames update while the job runs.")
+                .font(theme.typography.caption)
+                .foregroundStyle(theme.textTertiary)
         }
-    }
-
-    private var comparisonHeading: String {
-        viewModel.completedOutputURL == nil
-            ? "Live sampled preview"
-            : "Completed comparison"
-    }
-
-    private var comparisonHelp: String {
-        switch viewModel.state {
-        case .idle, .probing, .ready:
-            return "Continuous comparison becomes available after a verified output completes."
-        case .running:
-            return "Sampled frames update during processing; continuous playback follows completion."
-        case .finished:
-            return "Play, pause, or scrub the verified output in sync with the source."
-        case .failed:
-            return "The retained sample remains available; continuous playback requires a completed output."
-        }
-    }
-
-    private var splitHelp: String {
-        if viewModel.completedOutputURL != nil {
-            return "Both videos stay synchronized while you adjust the split."
-        }
-        return "Both sides show the same sampled production frame."
-    }
-
-    private var splitIsAvailable: Bool {
-        viewModel.completedOutputURL != nil
-            || viewModel.latestPreviewFrame != nil
     }
 
     private var sampleText: String {
-        if let completedOutputURL = viewModel.completedOutputURL {
-            return completedOutputURL.lastPathComponent
-        }
         guard let frame = viewModel.latestPreviewFrame else {
             return "No processed sample yet"
         }

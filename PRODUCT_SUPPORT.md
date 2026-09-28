@@ -1,6 +1,6 @@
 # Mirmir product support
 
-Current product identity: **Mirmir 1.3.3 (6)**.
+Current product identity: **Mirmir 1.3.4 (8)**.
 
 Mirmir is a sandboxed macOS 15.4-or-later application. It reads local media
 through security-scoped bookmarks, builds an explicit whole-asset plan, and
@@ -26,6 +26,29 @@ Automatic uses one fixed documented order and considers spatial-only Apple
 backends. It excludes both Deterministic routes and Smooth Motion.
 Consequently, Automatic does not select deterministic v4 for opaque H.264
 input.
+
+## Open product gaps
+
+The original 1:43 Deterministic v4 source has run in the production app through
+frame 8,760 without error 16, but the run stopped under ENOSPC and did not
+publish the complete movie. DV4-001 therefore remains open. VideoToolbox
+methods also fail closed when the exact source, target, or scale geometry is
+unsupported; Mirmir does not yet provide a declared pre-scale and post-scale
+compatibility pipeline. The required behavior, safety constraints, and
+acceptance evidence for these gaps are tracked in
+[`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
+
+## Upscale and Compare surfaces
+
+- Upscale is the job workspace. It owns source selection, processing method,
+  output settings, queue controls, and a live sampled processing preview. It
+  does not mount the completed split player or require a completed movie.
+- Compare is an independent primary destination. Original and Upscaled pickers
+  accept any two readable movies, while Use Last Completed Job fills both URLs
+  from the current completed job when available.
+- Compare provides synchronized play, pause, replay, shared scrubbing, and a
+  draggable split. It plays one audio stream, defaulting to the Upscaled file,
+  and distinguishes empty, loading, ready, ended, and failure states.
 
 ## Deterministic ASH P06 contract
 
@@ -73,11 +96,13 @@ input.
 - Every enabled video track receives an ordered, explicit process, transcode,
   pass-through, or consent-bound drop action. There is no implicit
   “first-video-track only” rule.
-- Compatible audio and non-video samples pass through. Incompatible audio is
-  decoded and encoded as AAC under the declared transcode action. Alternate
-  audio, subtitles, captions, chapters, timecode, timed metadata, and auxiliary
-  tracks remain represented in the migration plan; unsupported loss cannot be
-  hidden as a successful migration.
+- When audio preservation is enabled, every source audio track receives a
+  non-drop plan action in both conventional and Deterministic v4 jobs.
+  Compatible audio passes through; incompatible audio is decoded and encoded
+  as AAC under the declared transcode action. Alternate audio, subtitles,
+  captions, chapters, timecode, timed metadata, and auxiliary tracks remain
+  represented in the migration plan; unsupported loss cannot be hidden as a
+  successful migration.
 - Attached-picture preservation is currently provided by the deterministic v4
   whole-asset migration path. Conventional backends do not preserve attached
   pictures.
@@ -89,6 +114,9 @@ input.
   timing, format transitions, asset metadata, creation date, and compatible
   selection groups are migrated and checked by the semantic verifier. Scaled
   edit rates are rebuilt into the output media-time table.
+- Conventional audio tracks are drained serially from their shared asset
+  reader. Output validation compares audio count and identity-bearing topology,
+  including language, enabled/default state, and alternate-group membership.
 - HDR mastering-display, content-light, ambient-viewing, static color, and
   frame-bound dynamic metadata are carried under typed contracts and verified
   after reopening the output.
@@ -109,6 +137,11 @@ input.
   ASH measurement/hysteresis state, temporal history, alpha state, and track
   checkpoints. Resume revalidates input identity and plan/runtime compatibility
   before continuing; cancellation remains a distinct terminal action.
+- A failed job may re-enter recovery only when its last checkpoint is
+  authenticated, nonterminal, compatible with the bound request, and contains
+  one incomplete video progress record. The queue discards only an
+  uncommitted next-boundary artifact and continues after the last committed
+  segment.
 - Launch recovery scans durable records and registered/legacy partial files.
   Compatible jobs become resumable, confirmed orphans are removed, and corrupt
   or foreign artifacts are quarantined or reported rather than adopted.
@@ -136,9 +169,17 @@ input.
 - Apple-native backends retain the narrower contracts in the table above; they
   do not inherit P010/HDR, alpha, deinterlacing, or fixed-point parity merely
   because the Deterministic engine supports them.
-- The resource-allocation control is deferred and is not part of version 1.3.3.
+- The resource-allocation control is deferred and is not part of version 1.3.4.
+- Deterministic cadence validation accepts legal 90 kHz NTSC quantization.
+  Error 16 (`invalidSampleTiming`) diagnostics carry stable site identifiers,
+  and the original 1:43 source advanced through frame 8,760 without one. The
+  full output has not completed, so the large-file failure is not verified
+  closed.
 
 ## Qualification boundary
+
+The build 8 macOS Debug suite completed 510 tests: 507 passed, zero failed, and
+three expected opt-in capture tests skipped.
 
 M0 through M6 are implemented and covered by the repository’s deterministic,
 media, workflow, and recovery tests. M7 is a headless frame-simulator comparison
@@ -154,3 +195,9 @@ shipping, or distribution. Those are separate owner decisions and are not
 implied by simulator qualification. See
 [`docs/v4/CURRENT_QUALIFICATION_STATUS.md`](docs/v4/CURRENT_QUALIFICATION_STATUS.md)
 for the exact evidence boundary.
+
+The build 7 macOS Debug suite completed 500 tests: 497 passed, zero failed, and
+three expected opt-in capture tests skipped. A local TestFlight handoff archive
+exists at `/Users/jimdaley/Desktop/Mirmir-Beta-1.3.3-7.xcarchive`; it is not in
+Git, and upload remains an owner action. Neither result verifies the original
+1:43 failure as closed.

@@ -84,11 +84,10 @@ struct VideoProcessingSession: Sendable {
             throw MirmirError.noVideoTrack
         }
         let audioTracks = tracks.filter { $0.mediaType == .audio }
-        if request.preserveAudio, audioTracks.count > 1 {
-            throw MirmirError.unsupportedVideo(
-                "audio preservation currently supports one audio track; this asset has \(audioTracks.count)"
-            )
-        }
+        let expectedAudioTopology = AudioTopologyV4(
+            graph: try await AVFoundationTrackGraphAdapterV4.probe(asset: asset),
+            preservingAudio: request.preserveAudio
+        )
 
         let reader = try AVAssetReader(asset: asset)
         let videoOutput = AVAssetReaderTrackOutput(
@@ -143,9 +142,10 @@ struct VideoProcessingSession: Sendable {
                 preparedBackend.destinationPixelBufferAttributes.values
         )
 
-        let audioPath = try await makeAudioPath(
+        let audioPlan = try await makeAudioPlan(
             request: request,
             audioTracks: audioTracks,
+            asset: asset,
             reader: reader,
             writer: writer
         )
@@ -172,8 +172,8 @@ struct VideoProcessingSession: Sendable {
         }
 
         let audioTask = Task {
-            try await copyAudio(
-                path: audioPath,
+            try await copyAudioTracks(
+                plan: audioPlan,
                 reader: reader,
                 writer: writer,
                 source: source,
@@ -244,7 +244,7 @@ struct VideoProcessingSession: Sendable {
                 url: atomicOutput.temporaryURL,
                 expectedWidth: request.targetWidth,
                 expectedHeight: request.targetHeight,
-                requiresAudio: request.preserveAudio && source.hasAudio
+                expectedAudioTopology: expectedAudioTopology
             )
             recordTiming(
                 .outputValidation,
@@ -275,7 +275,7 @@ struct VideoProcessingSession: Sendable {
                 encodedHeight: facts.encodedHeight,
                 durationSeconds: CMTimeGetSeconds(facts.duration),
                 outputCodec: request.outputCodec,
-                audioResult: audioPath.result,
+                audioResult: audioPlan.result,
                 processedFrameCount: frameCount,
                 processingDurationSeconds: Date().timeIntervalSince(startedAt)
             )
@@ -341,23 +341,58 @@ private extension VideoProcessingSession {
     }
 
     struct AudioPath: @unchecked Sendable {
-        let output: AVAssetReaderTrackOutput?
-        let input: AVAssetWriterInput?
+        let sourceTrackID: CMPersistentTrackID
+        let output: AVAssetReaderTrackOutput
+        let input: AVAssetWriterInput
         let result: AudioOutputResult
     }
 
-    func makeAudioPath(
+    struct AudioPlan: @unchecked Sendable {
+        let paths: [AudioPath]
+        let result: AudioOutputResult
+    }
+
+    func makeAudioPlan(
         request: UpscaleRequest,
         audioTracks: [AVAssetTrack],
+        asset: AVAsset,
+        reader: AVAssetReader,
+        writer: AVAssetWriter
+    ) async throws -> AudioPlan {
+        guard request.preserveAudio else {
+            return AudioPlan(paths: [], result: .omitted)
+        }
+        guard !audioTracks.isEmpty else {
+            return AudioPlan(paths: [], result: .absent)
+        }
+
+        var paths: [AudioPath] = []
+        paths.reserveCapacity(audioTracks.count)
+        for audioTrack in audioTracks {
+            paths.append(try await makeAudioPath(
+                audioTrack: audioTrack,
+                reader: reader,
+                writer: writer
+            ))
+        }
+        try await addAudioInputGroups(
+            for: paths,
+            sourceTracks: audioTracks,
+            asset: asset,
+            writer: writer
+        )
+        return AudioPlan(
+            paths: paths,
+            result: paths.contains { $0.result == .transcoded }
+                ? .transcoded : .preserved
+        )
+    }
+
+    func makeAudioPath(
+        audioTrack: AVAssetTrack,
         reader: AVAssetReader,
         writer: AVAssetWriter
     ) async throws -> AudioPath {
-        guard request.preserveAudio else {
-            return AudioPath(output: nil, input: nil, result: .omitted)
-        }
-        guard let audioTrack = audioTracks.first else {
-            return AudioPath(output: nil, input: nil, result: .absent)
-        }
         let descriptions = try await audioTrack.load(.formatDescriptions)
         guard let formatHint = descriptions.first else {
             throw MirmirError.unsupportedVideo(
@@ -376,10 +411,15 @@ private extension VideoProcessingSession {
             sourceFormatHint: formatHint
         )
         passthroughInput.expectsMediaDataInRealTime = false
+        try await copyAudioTrackProperties(
+            from: audioTrack,
+            to: passthroughInput
+        )
         if reader.canAdd(passthroughOutput), writer.canAdd(passthroughInput) {
             reader.add(passthroughOutput)
             writer.add(passthroughInput)
             return AudioPath(
+                sourceTrackID: audioTrack.trackID,
                 output: passthroughOutput,
                 input: passthroughInput,
                 result: .preserved
@@ -434,6 +474,7 @@ private extension VideoProcessingSession {
             outputSettings: aacSettings
         )
         aacInput.expectsMediaDataInRealTime = false
+        try await copyAudioTrackProperties(from: audioTrack, to: aacInput)
         guard reader.canAdd(decodedOutput), writer.canAdd(aacInput) else {
             throw MirmirError.unsupportedVideo(
                 "the audio track cannot be decoded to PCM and encoded as AAC in this movie"
@@ -441,7 +482,96 @@ private extension VideoProcessingSession {
         }
         reader.add(decodedOutput)
         writer.add(aacInput)
-        return AudioPath(output: decodedOutput, input: aacInput, result: .transcoded)
+        return AudioPath(
+            sourceTrackID: audioTrack.trackID,
+            output: decodedOutput,
+            input: aacInput,
+            result: .transcoded
+        )
+    }
+
+    func copyAudioTrackProperties(
+        from track: AVAssetTrack,
+        to input: AVAssetWriterInput
+    ) async throws {
+        input.metadata = try await track.load(.metadata)
+        input.languageCode = try await track.load(.languageCode)
+        input.extendedLanguageTag = try await track.load(.extendedLanguageTag)
+    }
+
+    func addAudioInputGroups(
+        for paths: [AudioPath],
+        sourceTracks: [AVAssetTrack],
+        asset: AVAsset,
+        writer: AVAssetWriter
+    ) async throws {
+        let pathByTrackID = Dictionary(
+            uniqueKeysWithValues: paths.map { ($0.sourceTrackID, $0) }
+        )
+        let sourceByTrackID = Dictionary(
+            uniqueKeysWithValues: sourceTracks.map { ($0.trackID, $0) }
+        )
+        var groupedTrackIDs = Set<CMPersistentTrackID>()
+
+        for group in try await asset.load(.trackGroups) {
+            let memberIDs = group.trackIDs.map(\.int32Value)
+            let audioMemberIDs = memberIDs.filter { pathByTrackID[$0] != nil }
+            guard !audioMemberIDs.isEmpty else { continue }
+            guard audioMemberIDs.count == memberIDs.count else {
+                throw MirmirError.unsupportedVideo(
+                    "an alternate-track group mixes audio with unsupported track types"
+                )
+            }
+            guard audioMemberIDs.count > 1 else { continue }
+            guard audioMemberIDs.allSatisfy({ groupedTrackIDs.insert($0).inserted })
+            else {
+                throw MirmirError.unsupportedVideo(
+                    "an audio track belongs to more than one alternate-track group"
+                )
+            }
+            var enabledIDs: [CMPersistentTrackID] = []
+            for trackID in audioMemberIDs {
+                guard let track = sourceByTrackID[trackID] else {
+                    throw MirmirError.unsupportedVideo(
+                        "an alternate-audio group is missing a source track"
+                    )
+                }
+                if try await track.load(.isEnabled) {
+                    enabledIDs.append(trackID)
+                }
+            }
+            guard enabledIDs.count <= 1 else {
+                throw MirmirError.unsupportedVideo(
+                    "an alternate-audio group has more than one enabled track"
+                )
+            }
+            let inputs = audioMemberIDs.compactMap { pathByTrackID[$0]?.input }
+            guard inputs.count == audioMemberIDs.count else {
+                throw MirmirError.unsupportedVideo(
+                    "an alternate-audio group is missing an output track"
+                )
+            }
+            let defaultInput = enabledIDs.first.flatMap { pathByTrackID[$0]?.input }
+            let writerGroup = AVAssetWriterInputGroup(
+                inputs: inputs,
+                defaultInput: defaultInput
+            )
+            guard writer.canAdd(writerGroup) else {
+                throw MirmirError.unsupportedVideo(
+                    "the movie writer rejected an alternate-audio group"
+                )
+            }
+            writer.add(writerGroup)
+        }
+
+        for path in paths where !groupedTrackIDs.contains(path.sourceTrackID) {
+            guard let track = sourceByTrackID[path.sourceTrackID] else {
+                throw MirmirError.unsupportedVideo(
+                    "an audio output lost its source-track identity"
+                )
+            }
+            path.input.marksOutputTrackAsEnabled = try await track.load(.isEnabled)
+        }
     }
 
     func processVideo(
@@ -629,8 +759,8 @@ private extension VideoProcessingSession {
         return destination
     }
 
-    func copyAudio(
-        path: AudioPath,
+    func copyAudioTracks(
+        plan: AudioPlan,
         reader: AVAssetReader,
         writer: AVAssetWriter,
         source: VideoInfo,
@@ -638,30 +768,38 @@ private extension VideoProcessingSession {
         cancellation: ProcessingCancellation,
         progress: @escaping ProgressHandler
     ) async throws {
-        guard let output = path.output, let input = path.input else {
-            return
-        }
+        guard !plan.paths.isEmpty else { return }
         progress(event(
             phase: .processingAudio,
             source: source,
             backendID: backendID
         ))
-        while let sample = output.copyNextSampleBuffer() {
-            try cancellation.check()
-            try await waitUntilReady(
-                input,
-                reader: reader,
-                writer: writer,
-                cancellation: cancellation
-            )
-            guard input.append(sample) else {
-                throw MirmirError.writerFailed(
-                    writer.error?.localizedDescription
-                        ?? "the writer rejected an audio sample"
+        var finished = Array(repeating: false, count: plan.paths.count)
+        var remaining = plan.paths.count
+        while remaining > 0 {
+            for (index, path) in plan.paths.enumerated() where !finished[index] {
+                try Task.checkCancellation()
+                try cancellation.check()
+                guard let sample = path.output.copyNextSampleBuffer() else {
+                    path.input.markAsFinished()
+                    finished[index] = true
+                    remaining -= 1
+                    continue
+                }
+                try await waitUntilReady(
+                    path.input,
+                    reader: reader,
+                    writer: writer,
+                    cancellation: cancellation
                 )
+                guard path.input.append(sample) else {
+                    throw MirmirError.writerFailed(
+                        writer.error?.localizedDescription
+                            ?? "the writer rejected an audio sample"
+                    )
+                }
             }
         }
-        input.markAsFinished()
     }
 
     func waitUntilReady(
@@ -671,6 +809,7 @@ private extension VideoProcessingSession {
         cancellation: ProcessingCancellation
     ) async throws {
         while !input.isReadyForMoreMediaData {
+            try Task.checkCancellation()
             try cancellation.check()
             if reader.status == .failed {
                 throw MirmirError.readerFailed(

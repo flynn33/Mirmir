@@ -309,6 +309,111 @@ final class WorkflowSegmentCheckpointStoreV4Tests: XCTestCase {
         _ = equivalence.containerBytesAreIdentical
     }
 
+    func testENOSPCPublicationNamesFailureAndPreservesPreviousHead()
+        async throws {
+        let fixture = try makeFixture()
+        let firstSource = fixture.root.appendingPathComponent("enospc-0.mov")
+        let secondSource = fixture.root.appendingPathComponent("enospc-1.mov")
+        try await writeSegment(
+            to: firstSource,
+            colors: [(12, 24, 36), (18, 30, 42)]
+        )
+        try await writeSegment(
+            to: secondSource,
+            colors: [(48, 60, 72), (54, 66, 78)]
+        )
+
+        let setup = try await makeRunningCoordinator(fixture: fixture)
+        let store = try WorkflowSegmentCheckpointStoreV4(rootURL: fixture.store)
+        let firstPublication = try await store.publishBoundary(
+            publicationRequest(
+                checkpoint: 0,
+                sourceURL: firstSource,
+                existing: [],
+                start: 0,
+                end: 2,
+                nextStart: 2,
+                nextSample: 2
+            ),
+            using: setup.claim,
+            temporalCheckpoint: Data("enospc-state-0".utf8)
+        )
+        let firstCommit = try await setup.coordinator.commitCheckpoint(
+            firstPublication.draft,
+            using: setup.claim
+        )
+        let headURL = fixture.store
+            .appendingPathComponent("jobs", isDirectory: true)
+            .appendingPathComponent("job-segment-v4", isDirectory: true)
+            .appendingPathComponent("checkpoints-v4", isDirectory: true)
+            .appendingPathComponent("head-v1.json")
+        let headBeforeFailure = try Data(contentsOf: headURL)
+
+        let failingStore = try WorkflowSegmentCheckpointStoreV4(
+            rootURL: fixture.store,
+            publicationOperationHook: { point, url in
+                guard point == .beforeTemporaryCreate,
+                      url.deletingLastPathComponent().lastPathComponent
+                        == "state" else {
+                    return
+                }
+                throw WorkflowDurableFileSystemError.ioFailure(
+                    operation: "write",
+                    path: url.path,
+                    code: ENOSPC
+                )
+            }
+        )
+        do {
+            _ = try await failingStore.publishBoundary(
+                publicationRequest(
+                    checkpoint: 1,
+                    sourceURL: secondSource,
+                    existing: firstCommit.document.body.segments,
+                    start: 2,
+                    end: 4,
+                    nextStart: nil,
+                    nextSample: 4
+                ),
+                using: setup.claim,
+                temporalCheckpoint: Data("enospc-state-1".utf8)
+            )
+            XCTFail("The injected ENOSPC publication unexpectedly succeeded.")
+        } catch let error as WorkflowSegmentCheckpointStoreV4Error {
+            guard case let .atomicPublicationFailed(path, code) = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+            XCTAssertEqual(code, ENOSPC)
+            XCTAssertTrue(path.contains("/state/.publish-"))
+            XCTAssertTrue(
+                error.localizedDescription.contains("No space left on device")
+            )
+        }
+
+        XCTAssertEqual(try Data(contentsOf: headURL), headBeforeFailure)
+        let loadedCheckpoint = try await setup.coordinator.loadCompatibleCheckpoint(
+            jobID: firstCommit.document.body.compatibility.jobBinding.jobID,
+            expectedCodecSettingsHash: WorkflowOutputContractID(digest(9))
+        )
+        let reopened = try XCTUnwrap(loadedCheckpoint)
+        XCTAssertEqual(reopened, firstCommit.document)
+        XCTAssertEqual(reopened.body.segments.count, 1)
+        let videoProgress = try XCTUnwrap(
+            reopened.body.trackProgress.first { $0.kind == .video }
+        )
+        XCTAssertFalse(videoProgress.isComplete)
+
+        let stateURL = fixture.store
+            .appendingPathComponent("jobs", isDirectory: true)
+            .appendingPathComponent("job-segment-v4", isDirectory: true)
+            .appendingPathComponent("checkpoint-artifacts-v4", isDirectory: true)
+            .appendingPathComponent("state", isDirectory: true)
+        XCTAssertFalse(
+            try FileManager.default.contentsOfDirectory(atPath: stateURL.path)
+                .contains { $0.hasPrefix(".publish-") }
+        )
+    }
+
     func testTamperedOpaqueStateIsContainedBeforeBackendRestore() async throws {
         let fixture = try makeFixture()
         let source = fixture.root.appendingPathComponent("source.mov")

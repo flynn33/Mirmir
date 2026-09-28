@@ -101,6 +101,14 @@ struct MirmirWorkspaceRootView: View {
                     requestMethodSelection(backendID)
                 }
             )
+        case .compare:
+            MirmirCompareWorkspace(
+                lastCompletedOriginalURL:
+                    lastCompletedComparison?.original,
+                lastCompletedUpscaledURL:
+                    lastCompletedComparison?.upscaled,
+                theme: theme
+            )
         case .queue:
             MirmirProductQueue(viewModel: viewModel, theme: theme)
         case .methods:
@@ -162,6 +170,16 @@ struct MirmirWorkspaceRootView: View {
         case .arcticIndigo: .light
         }
     }
+
+    private var lastCompletedComparison: (
+        original: URL,
+        upscaled: URL
+    )? {
+        guard case .completed(let source, let result) = viewModel.state else {
+            return nil
+        }
+        return (source.url, result.outputURL)
+    }
 }
 
 private struct PendingMethodSelection: Identifiable {
@@ -174,6 +192,7 @@ enum MirmirProductDestination: String, CaseIterable, Identifiable {
     case dashboard
     case library
     case upscale
+    case compare
     case queue
     case methods
     case settings
@@ -186,6 +205,7 @@ enum MirmirProductDestination: String, CaseIterable, Identifiable {
         .dashboard,
         .library,
         .upscale,
+        .compare,
         .queue,
         .methods,
         .settings
@@ -197,6 +217,7 @@ enum MirmirProductDestination: String, CaseIterable, Identifiable {
         case .dashboard: "Dashboard"
         case .library: "Library"
         case .upscale: "Upscale"
+        case .compare: "Compare"
         case .queue: "Queue"
         case .methods: "Methods"
         case .settings: "Settings"
@@ -210,6 +231,7 @@ enum MirmirProductDestination: String, CaseIterable, Identifiable {
         case .dashboard: "gauge.with.dots.needle.33percent"
         case .library: "folder"
         case .upscale: "arrow.up.left.and.arrow.down.right"
+        case .compare: "rectangle.split.2x1"
         case .queue: "list.bullet.rectangle"
         case .methods: "slider.horizontal.3"
         case .settings: "gearshape"
@@ -332,6 +354,9 @@ private struct MirmirProductHeader: View {
     }
 
     private var subtitle: String {
+        if destination == .compare {
+            return "Choose any original and upscaled movies for synchronized review"
+        }
         if let info = viewModel.currentVideoInfo {
             let output = viewModel.targetWidth > 0
                 ? "\(viewModel.targetWidth) × \(viewModel.targetHeight)"
@@ -346,6 +371,9 @@ private struct MirmirProductHeader: View {
         symbol: String,
         tone: MirmirProductStatusTone
     ) {
+        if destination == .compare {
+            return ("Independent review", "rectangle.split.2x1", .neutral)
+        }
         switch viewModel.state {
         case .empty:
             return ("Waiting for source", "circle", .neutral)

@@ -256,7 +256,7 @@ enum VideoProbeFixtureFactory {
         }
     }
 
-    static func makeAudio(at url: URL) throws {
+    static func makeAudio(at url: URL, amplitude: Float = 0) throws {
         guard let format = AVAudioFormat(
             standardFormatWithSampleRate: 48_000,
             channels: 1
@@ -272,7 +272,10 @@ enum VideoProbeFixtureFactory {
 
         buffer.frameLength = 12_000
         if let channel = buffer.floatChannelData?[0] {
-            channel.initialize(repeating: 0, count: Int(buffer.frameLength))
+            channel.initialize(
+                repeating: amplitude,
+                count: Int(buffer.frameLength)
+            )
         }
         let file = try AVAudioFile(forWriting: url, settings: format.settings)
         try file.write(from: buffer)
@@ -283,26 +286,46 @@ enum VideoProbeFixtureFactory {
         audioURL: URL,
         outputURL: URL
     ) async throws {
+        try await combine(
+            videoURL: videoURL,
+            audioURLs: [audioURL],
+            outputURL: outputURL
+        )
+    }
+
+    static func combine(
+        videoURL: URL,
+        audioURLs: [URL],
+        outputURL: URL
+    ) async throws {
+        guard !audioURLs.isEmpty else {
+            throw VideoProbeFixtureError.failure(
+                "The combined fixture requires at least one audio source."
+            )
+        }
         let videoAsset = AVURLAsset(url: videoURL)
-        let audioAsset = AVURLAsset(url: audioURL)
+        let audioAssets = audioURLs.map(AVURLAsset.init(url:))
         let videoTracks = try await videoAsset.loadTracks(withMediaType: .video)
-        let audioTracks = try await audioAsset.loadTracks(withMediaType: .audio)
-        guard let videoTrack = videoTracks.first,
-              let audioTrack = audioTracks.first else {
+        var audioTracks: [(asset: AVURLAsset, track: AVAssetTrack)] = []
+        for audioAsset in audioAssets {
+            let tracks = try await audioAsset.loadTracks(withMediaType: .audio)
+            guard let track = tracks.first else {
+                throw VideoProbeFixtureError.failure(
+                    "A generated audio source was not readable."
+                )
+            }
+            audioTracks.append((audioAsset, track))
+        }
+        guard let videoTrack = videoTracks.first else {
             throw VideoProbeFixtureError.failure(
                 "The generated source tracks were not readable."
             )
         }
 
         let videoDuration = try await videoAsset.load(.duration)
-        let audioDuration = try await audioAsset.load(.duration)
         let composition = AVMutableComposition()
         guard let compositionVideo = composition.addMutableTrack(
             withMediaType: .video,
-            preferredTrackID: kCMPersistentTrackID_Invalid
-        ),
-        let compositionAudio = composition.addMutableTrack(
-            withMediaType: .audio,
             preferredTrackID: kCMPersistentTrackID_Invalid
         ) else {
             throw VideoProbeFixtureError.failure(
@@ -318,15 +341,26 @@ enum VideoProbeFixtureFactory {
         compositionVideo.preferredTransform = try await videoTrack.load(
             .preferredTransform
         )
-        let audioInsertDuration = CMTimeCompare(
-            videoDuration,
-            audioDuration
-        ) <= 0 ? videoDuration : audioDuration
-        try compositionAudio.insertTimeRange(
-            CMTimeRange(start: .zero, duration: audioInsertDuration),
-            of: audioTrack,
-            at: .zero
-        )
+        for (audioAsset, audioTrack) in audioTracks {
+            guard let compositionAudio = composition.addMutableTrack(
+                withMediaType: .audio,
+                preferredTrackID: kCMPersistentTrackID_Invalid
+            ) else {
+                throw VideoProbeFixtureError.failure(
+                    "AVMutableComposition could not create an audio fixture track."
+                )
+            }
+            let audioDuration = try await audioAsset.load(.duration)
+            let audioInsertDuration = CMTimeCompare(
+                videoDuration,
+                audioDuration
+            ) <= 0 ? videoDuration : audioDuration
+            try compositionAudio.insertTimeRange(
+                CMTimeRange(start: .zero, duration: audioInsertDuration),
+                of: audioTrack,
+                at: .zero
+            )
+        }
 
         guard let exportSession = AVAssetExportSession(
             asset: composition,

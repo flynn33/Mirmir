@@ -155,6 +155,45 @@ actor DeterministicV4WholeAssetPlanner {
         self.audioFormatCalibrator = audioFormatCalibrator
     }
 
+    nonisolated static func nominalFrameDuration(
+        nominalFrameRate: Float?,
+        minimumFrameDuration: CMTime?,
+        fallbackTimebase: ExactRationalV4
+    ) throws -> ExactRationalV4 {
+        if let rate = nominalFrameRate,
+           rate.isFinite,
+           rate > 0 {
+            let ntscRate = Float(24_000.0 / 1_001.0)
+            let tolerance = max(rate.ulp, ntscRate.ulp)
+            if abs(rate - ntscRate) <= tolerance {
+                return try ExactRationalV4(1_001, 24_000)
+            }
+        }
+        if let duration = minimumFrameDuration,
+           duration.isNumeric,
+           duration.value > 0,
+           duration.timescale > 0 {
+            return try ASHExactCMTimeV4.convert(
+                duration,
+                path: "deterministic_v4.nominal_frame_duration"
+            )
+        }
+        if let rate = nominalFrameRate,
+           rate.isFinite,
+           rate > 0 {
+            let scale: Int64 = 1_000_000
+            let numerator = Int64((Double(rate) * Double(scale)).rounded())
+            if numerator > 0 {
+                return try ExactRationalV4(scale, numerator)
+            }
+        }
+        if fallbackTimebase.isPositive {
+            return fallbackTimebase
+        }
+        throw DeterministicV4WholeAssetPlannerError
+            .invalidNominalFrameDuration
+    }
+
     func prepare(
         request: UpscaleRequest,
         source: VideoInfo,
@@ -177,11 +216,17 @@ actor DeterministicV4WholeAssetPlanner {
             url: request.inputURL,
             options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
         )
+        let physicalTrackCount = try await asset.load(.tracks).count
+        try checkCancellation(cancellation)
         let graph = try await AVFoundationTrackGraphAdapterV4.probe(
             asset: asset
         )
         try checkCancellation(cancellation)
-        let pairings = try reconcile(canonicalMedia: canonicalMedia, graph: graph)
+        let pairings = try reconcile(
+            canonicalMedia: canonicalMedia,
+            graph: graph,
+            physicalTrackCount: physicalTrackCount
+        )
         guard let primaryPair = pairings.first(where: {
             $0.canonical.enabled && $0.canonical.kind == .video
         }) else {
@@ -278,9 +323,10 @@ actor DeterministicV4WholeAssetPlanner {
             primaryGraphTrack: primaryPair.graph,
             videoDelivery: videoDelivery,
             encodedFormatDescriptor: encodedDescriptor,
-            nominalSourceFrameDuration: try nominalFrameDuration(
-                source: source,
-                track: primaryPair.graph
+            nominalSourceFrameDuration: try Self.nominalFrameDuration(
+                nominalFrameRate: source.nominalFrameRate,
+                minimumFrameDuration: source.minimumFrameDuration,
+                fallbackTimebase: primaryPair.graph.timebase
             ),
             nonVideoTranscodeHooks: nonVideoPolicy.hooks
         )
@@ -329,16 +375,22 @@ private extension DeterministicV4WholeAssetPlanner {
 
     func reconcile(
         canonicalMedia: CanonicalMediaStateV4,
-        graph: MediaTrackGraphV4
+        graph: MediaTrackGraphV4,
+        physicalTrackCount: Int
     ) throws -> [TrackPair] {
-        let physicalCanonical = canonicalMedia.tracks.filter {
-            Int($0.identity.ordinal) < graph.tracks.count
-        }
-        guard physicalCanonical.count == graph.tracks.count else {
+        guard physicalTrackCount >= 0,
+              graph.tracks.count == physicalTrackCount,
+              canonicalMedia.tracks.count >= physicalTrackCount else {
             throw DeterministicV4WholeAssetPlannerError
                 .canonicalAndTrackGraphInventoriesDiffer
         }
-        return try zip(physicalCanonical, graph.tracks).map { canonical, node in
+        return try graph.tracks.enumerated().map { index, node in
+            let canonical = canonicalMedia.tracks[index]
+            guard Int(canonical.identity.ordinal) == index,
+                  Int(node.identity.ordinal) == index else {
+                throw DeterministicV4WholeAssetPlannerError
+                    .canonicalAndTrackGraphInventoriesDiffer
+            }
             guard canonical.identity.ordinal == node.identity.ordinal else {
                 throw DeterministicV4WholeAssetPlannerError
                     .canonicalAndTrackGraphInventoriesDiffer
@@ -1112,35 +1164,6 @@ private extension DeterministicV4WholeAssetPlanner {
                 Self.audioOmissionReasonID
             ].joined(separator: "|").utf8
         ))
-    }
-
-    func nominalFrameDuration(
-        source: VideoInfo,
-        track: MediaTrackNodeV4
-    ) throws -> ExactRationalV4 {
-        if let duration = source.minimumFrameDuration,
-           duration.isNumeric,
-           duration.value > 0,
-           duration.timescale > 0 {
-            return try ASHExactCMTimeV4.convert(
-                duration,
-                path: "deterministic_v4.nominal_frame_duration"
-            )
-        }
-        if let rate = source.nominalFrameRate,
-           rate.isFinite,
-           rate > 0 {
-            let scale: Int64 = 1_000_000
-            let numerator = Int64((Double(rate) * Double(scale)).rounded())
-            if numerator > 0 {
-                return try ExactRationalV4(scale, numerator)
-            }
-        }
-        if track.timebase.isPositive {
-            return track.timebase
-        }
-        throw DeterministicV4WholeAssetPlannerError
-            .invalidNominalFrameDuration
     }
 
     func verifyPlanAgreement(

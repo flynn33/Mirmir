@@ -86,7 +86,7 @@ struct MirmirProductUpscaleWorkspace: View {
         MirmirProductPanel(theme: theme) {
             VStack(spacing: theme.spacing.space3) {
                 HStack {
-                    Label("Before / After Viewer", systemImage: "rectangle.split.2x1")
+                    Label("Processing Preview", systemImage: "film")
                         .font(theme.typography.captionEmphasis)
                         .foregroundStyle(theme.textSecondary)
                     Spacer()
@@ -845,11 +845,11 @@ private struct MirmirSourceVideoPreview: View {
     let theme: MirmirThemeTokens
 
     var body: some View {
-        MirmirBeforeAfterComparison(
-            source: info,
-            outputURL: nil,
-            outputSizeText: nil,
-            afterState: .waiting,
+        MirmirSingleVideoPreview(
+            url: info.url,
+            preferredTime: info.duration.seconds / 2,
+            title: "Source ready",
+            detail: "Start the job to see processing progress.",
             theme: theme
         )
     }
@@ -893,11 +893,11 @@ private struct MirmirProcessingViewer: View {
 
     var body: some View {
         VStack(spacing: theme.spacing.space3) {
-            MirmirBeforeAfterComparison(
-                source: info,
-                outputURL: nil,
-                outputSizeText: nil,
-                afterState: .processing,
+            MirmirSingleVideoPreview(
+                url: info.url,
+                preferredTime: progress.processedTime?.seconds ?? 0,
+                title: "Processing preview",
+                detail: "Current source position being processed",
                 theme: theme
             )
 
@@ -930,11 +930,11 @@ private struct MirmirCompletionViewer: View {
 
     var body: some View {
         VStack(spacing: theme.spacing.space3) {
-            MirmirBeforeAfterComparison(
-                source: source,
-                outputURL: result.outputURL,
-                outputSizeText: "\(result.encodedWidth) × \(result.encodedHeight)",
-                afterState: .complete,
+            MirmirSingleVideoPreview(
+                url: result.outputURL,
+                preferredTime: result.durationSeconds / 2,
+                title: "Processing complete",
+                detail: "Open Compare to review the original and upscaled movies.",
                 theme: theme
             )
 
@@ -974,105 +974,16 @@ private struct MirmirCompletionViewer: View {
     }
 }
 
-private enum MirmirAfterPreviewState {
-    case waiting
-    case processing
-    case complete
-}
-
-private struct MirmirBeforeAfterComparison: View {
-    let source: VideoInfo
-    let outputURL: URL?
-    let outputSizeText: String?
-    let afterState: MirmirAfterPreviewState
+private struct MirmirSingleVideoPreview: View {
+    let url: URL
+    let preferredTime: Double
+    let title: String
+    let detail: String
     let theme: MirmirThemeTokens
 
-    @State private var sourceFrame: CGImage?
-    @State private var outputFrame: CGImage?
-    @State private var splitFraction = 0.5
+    @State private var frame: CGImage?
 
     var body: some View {
-        GeometryReader { proxy in
-            let width = max(proxy.size.width, 1)
-            let splitX = width * splitFraction
-
-            ZStack(alignment: .leading) {
-                previewLayer(
-                    image: outputFrame,
-                    fallbackImage: sourceFrame,
-                    isAfter: true
-                )
-
-                previewLayer(
-                    image: sourceFrame,
-                    fallbackImage: nil,
-                    isAfter: false
-                )
-                .frame(width: width, height: proxy.size.height)
-                .mask(alignment: .leading) {
-                    Rectangle().frame(width: splitX)
-                }
-
-                Rectangle()
-                    .fill(theme.viewerOverlayText.opacity(0.82))
-                    .frame(width: 1)
-                    .offset(x: splitX)
-                    .allowsHitTesting(false)
-
-                Image(systemName: "arrow.left.and.right.circle.fill")
-                    .font(.system(size: 26, weight: .medium))
-                    .symbolRenderingMode(.palette)
-                    .foregroundStyle(theme.accentPrimary, Color.white)
-                    .shadow(color: .black.opacity(0.35), radius: 5, y: 2)
-                    .offset(x: splitX - 13)
-                    .allowsHitTesting(false)
-
-                comparisonLabels
-            }
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        splitFraction = min(
-                            0.92,
-                            max(0.08, value.location.x / width)
-                        )
-                    }
-            )
-        }
-        .background(Color.black)
-        .clipShape(RoundedRectangle(cornerRadius: theme.radius.xlarge))
-        .overlay {
-            RoundedRectangle(cornerRadius: theme.radius.xlarge)
-                .stroke(theme.borderSubtle, lineWidth: 1)
-        }
-        .task(id: source.url) {
-            sourceFrame = await MirmirFramePreviewLoader.frame(
-                at: source.url,
-                preferredTime: source.duration.seconds / 2
-            )
-        }
-        .task(id: outputURL) {
-            guard let outputURL else {
-                outputFrame = nil
-                return
-            }
-            outputFrame = await MirmirFramePreviewLoader.frame(
-                at: outputURL,
-                preferredTime: source.duration.seconds / 2
-            )
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Before and after comparison viewer")
-        .accessibilityValue("Divider at \(Int(splitFraction * 100)) percent")
-    }
-
-    @ViewBuilder
-    private func previewLayer(
-        image: CGImage?,
-        fallbackImage: CGImage?,
-        isAfter: Bool
-    ) -> some View {
         ZStack {
             LinearGradient(
                 colors: [Color.black, theme.surfaceInset],
@@ -1080,82 +991,76 @@ private struct MirmirBeforeAfterComparison: View {
                 endPoint: .bottomTrailing
             )
 
-            if let image = image ?? fallbackImage {
-                Image(decorative: image, scale: 1)
+            if let frame {
+                Image(decorative: frame, scale: 1)
                     .resizable()
                     .scaledToFit()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                Image(systemName: "film")
-                    .font(.system(size: 44, weight: .ultraLight))
-                    .foregroundStyle(theme.textTertiary)
+                VStack(spacing: theme.spacing.space3) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Waiting for preview frame")
+                        .font(theme.typography.body)
+                        .foregroundStyle(theme.textSecondary)
+                }
             }
 
-            if isAfter, outputFrame == nil {
-                Color.black.opacity(0.52)
-                VStack(spacing: theme.spacing.space2) {
-                    Image(
-                        systemName: afterState == .processing
-                            ? "gearshape.2"
-                            : "sparkles.rectangle.stack"
-                    )
-                    .font(.system(size: 28, weight: .light))
-                    Text(
-                        afterState == .processing
-                            ? "Building after view"
-                            : "After preview pending"
-                    )
-                    .font(theme.typography.captionEmphasis)
-                }
-                .foregroundStyle(theme.viewerOverlayText)
-                .frame(
-                    maxWidth: .infinity,
-                    maxHeight: .infinity,
-                    alignment: .trailing
-                )
-                .padding(.trailing, theme.spacing.space6)
-            }
+            previewLabel
         }
+        .background(Color.black)
+        .clipShape(RoundedRectangle(cornerRadius: theme.radius.xlarge))
+        .overlay {
+            RoundedRectangle(cornerRadius: theme.radius.xlarge)
+                .stroke(theme.borderSubtle, lineWidth: 1)
+        }
+        .task(id: previewIdentity) {
+            frame = await MirmirFramePreviewLoader.frame(
+                at: url,
+                preferredTime: preferredTime
+            )
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Processing preview")
     }
 
-    private var comparisonLabels: some View {
+    private var previewLabel: some View {
         VStack {
             Spacer()
             HStack {
-                previewLabel(
-                    title: "Before",
-                    detail: MirmirPresentation.sizeText(source.displaySize)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title.uppercased())
+                        .font(theme.typography.micro)
+                    Text(detail)
+                        .font(theme.typography.caption)
+                }
+                .foregroundStyle(theme.viewerOverlayText)
+                .padding(.horizontal, theme.spacing.space2)
+                .padding(.vertical, theme.spacing.space1)
+                .background(
+                    RoundedRectangle(cornerRadius: theme.radius.small)
+                        .fill(theme.viewerOverlay)
                 )
                 Spacer()
-                previewLabel(
-                    title: "After",
-                    detail: outputSizeText ?? afterStatusText
-                )
             }
             .padding(theme.spacing.space3)
         }
         .allowsHitTesting(false)
     }
 
-    private func previewLabel(title: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(title.uppercased())
-                .font(theme.typography.micro)
-            Text(detail)
-                .font(theme.typography.caption.monospacedDigit())
-        }
-        .foregroundStyle(theme.viewerOverlayText)
-        .padding(.horizontal, theme.spacing.space2)
-        .padding(.vertical, theme.spacing.space1)
-        .background(
-            RoundedRectangle(cornerRadius: theme.radius.small)
-                .fill(theme.viewerOverlay)
+    private var previewIdentity: MirmirSinglePreviewIdentity {
+        MirmirSinglePreviewIdentity(
+            url: url.standardizedFileURL,
+            timeBucket: Int(
+                min(max(preferredTime, 0), Double(Int.max / 2)).rounded()
+            )
         )
     }
+}
 
-    private var afterStatusText: String {
-        afterState == .processing ? "Processing" : "Awaiting output"
-    }
+private struct MirmirSinglePreviewIdentity: Hashable {
+    let url: URL
+    let timeBucket: Int
 }
 
 private enum MirmirFramePreviewLoader {

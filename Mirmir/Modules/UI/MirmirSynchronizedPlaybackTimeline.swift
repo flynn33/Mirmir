@@ -51,7 +51,7 @@ struct MirmirSynchronizedPlaybackTimeline: Equatable, Sendable {
         guard Self.isValidDuration(sourceDuration),
               Self.isValidDuration(outputDuration) else {
             markFailed(
-                "The source or completed output has an invalid duration."
+                "The original or upscaled movie has an invalid duration."
             )
             return false
         }
@@ -73,7 +73,7 @@ struct MirmirSynchronizedPlaybackTimeline: Equatable, Sendable {
         self = Self(
             loadState: .failed(
                 trimmedMessage.isEmpty
-                    ? "Completed comparison playback failed."
+                    ? "Comparison playback failed."
                     : trimmedMessage
             )
         )

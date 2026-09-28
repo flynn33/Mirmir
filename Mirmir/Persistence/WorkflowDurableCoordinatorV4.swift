@@ -331,8 +331,11 @@ struct WorkflowLeaseAcquisitionRequestV4: Equatable, Hashable, Sendable {
         attemptID: WorkflowAttemptID? = nil,
         duration: WorkflowLeaseIntervalV4
     ) throws {
+        let isAuthenticatedFailedCheckpointRecovery =
+            expectedLifecycle == .failed && targetLifecycle == .recovering
         guard expectedLifecycle.allowsTransition(to: targetLifecycle),
-              !expectedLifecycle.isTerminal else {
+              !expectedLifecycle.isTerminal
+                || isAuthenticatedFailedCheckpointRecovery else {
             throw WorkflowDurableCoordinatorErrorV4.invalidAcquisitionTransition
         }
         if jobID == nil {

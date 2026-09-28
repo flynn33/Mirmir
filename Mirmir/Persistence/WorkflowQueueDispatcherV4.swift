@@ -374,6 +374,29 @@ actor WorkflowQueueDispatcherV4 {
     )
   }
 
+  func reopenFailedCheckpointForResume(
+    jobID: WorkflowJobID,
+    commandKey: WorkflowRecoveryCommandKeyV4
+  ) async throws {
+    let recovery = try await acquireSpecific(
+      jobID: jobID,
+      seed: commandKey.rawValue,
+      stage: "failed-checkpoint-recovery",
+      expected: .failed,
+      target: .recovering,
+      attemptID: nil
+    )
+    _ = try await transition(
+      recovery,
+      expected: .recovering,
+      target: .paused,
+      commandKey: commandKey,
+      stage: "failed-checkpoint-ready",
+      attemptID: nil,
+      releaseAfterTransition: true
+    )
+  }
+
   func beginRecovery(
     jobID: WorkflowJobID,
     commandKey: WorkflowRecoveryCommandKeyV4

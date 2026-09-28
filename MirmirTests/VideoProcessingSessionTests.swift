@@ -509,6 +509,58 @@ final class VideoProcessingSessionTests: XCTestCase {
         XCTAssertEqual(result.durationSeconds, CMTimeGetSeconds(output.duration), accuracy: 0.002)
     }
 
+    func testMultipleAudioTracksArePreservedWithoutCollapsing() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let silentURL = fixtures.url(for: "multi-audio-video.mov")
+        let firstAudioURL = fixtures.url(for: "multi-audio-first.wav")
+        let secondAudioURL = fixtures.url(for: "multi-audio-second.wav")
+        let inputURL = fixtures.url(for: "multi-audio-input.mov")
+        let outputURL = fixtures.url(for: "multi-audio-output.mov")
+        try await VideoProbeFixtureFactory.makeVideo(
+            at: silentURL,
+            transform: .identity
+        )
+        try VideoProbeFixtureFactory.makeAudio(
+            at: firstAudioURL,
+            amplitude: 0.25
+        )
+        try VideoProbeFixtureFactory.makeAudio(
+            at: secondAudioURL,
+            amplitude: -0.25
+        )
+        try await VideoProbeFixtureFactory.combine(
+            videoURL: silentURL,
+            audioURLs: [firstAudioURL, secondAudioURL],
+            outputURL: inputURL
+        )
+        let source = try await VideoProbe().probe(url: inputURL)
+        XCTAssertEqual(source.audioTrackCount, 2)
+
+        let result = try await UpscaleCoordinator().process(
+            UpscaleRequest(
+                inputURL: inputURL,
+                outputURL: outputURL,
+                backendID: .vImageHighQuality,
+                targetWidth: 128,
+                targetHeight: 96,
+                outputCodec: .h264,
+                preserveAudio: true,
+                overwriteExistingFile: false
+            ),
+            progress: { _ in }
+        )
+
+        XCTAssertTrue([.preserved, .transcoded].contains(result.audioResult))
+        let output = try await VideoProbe().probe(url: outputURL)
+        XCTAssertEqual(output.audioTrackCount, source.audioTrackCount)
+        XCTAssertEqual(
+            result.durationSeconds,
+            CMTimeGetSeconds(output.duration),
+            accuracy: 0.002
+        )
+    }
+
     func testPortraitTransformAndDisplayDimensionsArePreserved() async throws {
         let fixtures = try TemporaryFixtureDirectory()
         defer { fixtures.remove() }
