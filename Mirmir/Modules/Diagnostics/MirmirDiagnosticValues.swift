@@ -12,6 +12,7 @@ enum MirmirDiagnosticValidationError: Error, Equatable, Sendable {
     case invalidRecordSchema
     case invalidErrorIdentity
     case privacyViolation
+    case invalidText(field: String)
 }
 
 enum MirmirDiagnosticSeverity: String, Codable, CaseIterable, Sendable {
@@ -205,6 +206,7 @@ struct MirmirDiagnosticFieldValue: Codable, Equatable, Sendable {
         case signedInteger = "signed_integer"
         case unsignedInteger = "unsigned_integer"
         case identifier
+        case text
         case sha256
         case dimensions
         case rational
@@ -219,6 +221,7 @@ struct MirmirDiagnosticFieldValue: Codable, Equatable, Sendable {
     private let signedValue: Int64?
     private let unsignedValue: UInt64?
     private let identifierValue: MirmirDiagnosticToken?
+    private let textValue: String?
     private let sha256Value: MirmirDiagnosticSHA256?
     private let width: Int?
     private let height: Int?
@@ -246,6 +249,18 @@ struct MirmirDiagnosticFieldValue: Codable, Equatable, Sendable {
                 field: "diagnostic_field_identifier"
             )
         )
+    }
+
+    static func text(_ value: String) throws -> Self {
+        guard value.utf8.count <= 16_384,
+              !value.unicodeScalars.contains(where: {
+                  $0.value < 0x20
+              }) else {
+            throw MirmirDiagnosticValidationError.invalidText(
+                field: "diagnostic_field_text"
+            )
+        }
+        return Self(kind: .text, textValue: value)
     }
 
     static func sha256(_ value: String) throws -> Self {
@@ -303,6 +318,7 @@ struct MirmirDiagnosticFieldValue: Codable, Equatable, Sendable {
         signedValue: Int64? = nil,
         unsignedValue: UInt64? = nil,
         identifierValue: MirmirDiagnosticToken? = nil,
+        textValue: String? = nil,
         sha256Value: MirmirDiagnosticSHA256? = nil,
         width: Int? = nil,
         height: Int? = nil,
@@ -315,6 +331,7 @@ struct MirmirDiagnosticFieldValue: Codable, Equatable, Sendable {
         self.signedValue = signedValue
         self.unsignedValue = unsignedValue
         self.identifierValue = identifierValue
+        self.textValue = textValue
         self.sha256Value = sha256Value
         self.width = width
         self.height = height
@@ -333,6 +350,8 @@ struct MirmirDiagnosticFieldValue: Codable, Equatable, Sendable {
             return String(unsignedValue ?? 0)
         case .identifier:
             return identifierValue?.rawValue ?? "untrusted"
+        case .text:
+            return textValue ?? ""
         case .sha256:
             return sha256Value?.rawValue ?? "untrusted"
         case .dimensions:
@@ -359,6 +378,7 @@ struct MirmirDiagnosticFieldValue: Codable, Equatable, Sendable {
         case signedValue = "signed_value"
         case unsignedValue = "unsigned_value"
         case identifierValue = "identifier_value"
+        case textValue = "text_value"
         case sha256Value = "sha256_value"
         case width
         case height
@@ -391,6 +411,18 @@ struct MirmirDiagnosticFieldValue: Codable, Equatable, Sendable {
                     forKey: .identifierValue
                 )
             )
+        case .text:
+            do {
+                self = try .text(
+                    container.decode(String.self, forKey: .textValue)
+                )
+            } catch {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .textValue,
+                    in: container,
+                    debugDescription: "Invalid diagnostic text."
+                )
+            }
         case .sha256:
             self = Self(
                 kind: kind,
@@ -457,6 +489,8 @@ struct MirmirDiagnosticFieldValue: Codable, Equatable, Sendable {
             try container.encode(unsignedValue, forKey: .unsignedValue)
         case .identifier:
             try container.encode(identifierValue, forKey: .identifierValue)
+        case .text:
+            try container.encode(textValue, forKey: .textValue)
         case .sha256:
             try container.encode(sha256Value, forKey: .sha256Value)
         case .dimensions:

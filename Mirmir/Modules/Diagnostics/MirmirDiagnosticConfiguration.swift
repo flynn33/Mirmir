@@ -2,10 +2,10 @@ import Foundation
 
 struct MirmirDiagnosticRetentionPolicy: Equatable, Sendable {
     static let production = MirmirDiagnosticRetentionPolicy(
-        maximumAgeMilliseconds: 30 * 24 * 60 * 60 * 1_000,
-        maximumRecords: 10_000,
-        maximumTotalBytes: 10 * 1_024 * 1_024,
-        maximumRecordBytes: 32 * 1_024,
+        maximumAgeMilliseconds: 90 * 24 * 60 * 60 * 1_000,
+        maximumRecords: 50_000,
+        maximumTotalBytes: 128 * 1_024 * 1_024,
+        maximumRecordBytes: 128 * 1_024,
         validated: true
     )
 
@@ -25,9 +25,9 @@ struct MirmirDiagnosticRetentionPolicy: Equatable, Sendable {
               maximumRecords > 0,
               maximumRecords <= 1_000_000,
               maximumTotalBytes >= 512,
-              maximumTotalBytes <= 64 * 1_024 * 1_024,
+              maximumTotalBytes <= 512 * 1_024 * 1_024,
               maximumRecordBytes >= 128,
-              maximumRecordBytes <= 32 * 1_024,
+              maximumRecordBytes <= 128 * 1_024,
               maximumRecordBytes < maximumTotalBytes else {
             throw MirmirDiagnosticStoreError.invalidRetentionPolicy
         }

@@ -176,6 +176,17 @@
 		D42000000000000000000065 /* WorkflowApplicationQueueV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = D41000000000000000000065 /* WorkflowApplicationQueueV4.swift */; };
 		D42000000000000000000066 /* WorkflowApplicationCoordinatorV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = D41000000000000000000066 /* WorkflowApplicationCoordinatorV4.swift */; };
 		D42000000000000000000067 /* WorkflowApplicationQueueV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D41000000000000000000067 /* WorkflowApplicationQueueV4Tests.swift */; };
+		D52000000000000000000001 /* MirmirDiagnosticConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51000000000000000000001 /* MirmirDiagnosticConfiguration.swift */; };
+		D52000000000000000000002 /* MirmirDiagnosticExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51000000000000000000002 /* MirmirDiagnosticExport.swift */; };
+		D52000000000000000000003 /* MirmirDiagnosticFileSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51000000000000000000003 /* MirmirDiagnosticFileSystem.swift */; };
+		D52000000000000000000004 /* MirmirDiagnosticJournalModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51000000000000000000004 /* MirmirDiagnosticJournalModels.swift */; };
+		D52000000000000000000005 /* MirmirDiagnosticRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51000000000000000000005 /* MirmirDiagnosticRecord.swift */; };
+		D52000000000000000000006 /* MirmirDiagnosticStore+Logging.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51000000000000000000006 /* MirmirDiagnosticStore+Logging.swift */; };
+		D52000000000000000000007 /* MirmirDiagnosticStore+Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51000000000000000000007 /* MirmirDiagnosticStore+Persistence.swift */; };
+		D52000000000000000000008 /* MirmirDiagnosticStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51000000000000000000008 /* MirmirDiagnosticStore.swift */; };
+		D52000000000000000000009 /* MirmirDiagnosticValues.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51000000000000000000009 /* MirmirDiagnosticValues.swift */; };
+		D5200000000000000000000A /* MirmirSettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5100000000000000000000A /* MirmirSettingsViews.swift */; };
+		D5200000000000000000000B /* MirmirDiagnosticStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5100000000000000000000B /* MirmirDiagnosticStoreTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -362,6 +373,17 @@
 		D41000000000000000000065 /* WorkflowApplicationQueueV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowApplicationQueueV4.swift; sourceTree = "<group>"; };
 		D41000000000000000000066 /* WorkflowApplicationCoordinatorV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowApplicationCoordinatorV4.swift; sourceTree = "<group>"; };
 		D41000000000000000000067 /* WorkflowApplicationQueueV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowApplicationQueueV4Tests.swift; sourceTree = "<group>"; };
+		D51000000000000000000001 /* MirmirDiagnosticConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirDiagnosticConfiguration.swift; sourceTree = "<group>"; };
+		D51000000000000000000002 /* MirmirDiagnosticExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirDiagnosticExport.swift; sourceTree = "<group>"; };
+		D51000000000000000000003 /* MirmirDiagnosticFileSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirDiagnosticFileSystem.swift; sourceTree = "<group>"; };
+		D51000000000000000000004 /* MirmirDiagnosticJournalModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirDiagnosticJournalModels.swift; sourceTree = "<group>"; };
+		D51000000000000000000005 /* MirmirDiagnosticRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirDiagnosticRecord.swift; sourceTree = "<group>"; };
+		D51000000000000000000006 /* MirmirDiagnosticStore+Logging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirmirDiagnosticStore+Logging.swift"; sourceTree = "<group>"; };
+		D51000000000000000000007 /* MirmirDiagnosticStore+Persistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirmirDiagnosticStore+Persistence.swift"; sourceTree = "<group>"; };
+		D51000000000000000000008 /* MirmirDiagnosticStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirDiagnosticStore.swift; sourceTree = "<group>"; };
+		D51000000000000000000009 /* MirmirDiagnosticValues.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirDiagnosticValues.swift; sourceTree = "<group>"; };
+		D5100000000000000000000A /* MirmirSettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MirmirSettingsViews.swift; path = ../UI/Views/MirmirSettingsViews.swift; sourceTree = "<group>"; };
+		D5100000000000000000000B /* MirmirDiagnosticStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirDiagnosticStoreTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -404,6 +426,7 @@
 			isa = PBXGroup;
 			children = (
 				100000000000000000000005 /* App */,
+				D53000000000000000000001 /* Diagnostics */,
 				100000000000000000000006 /* Domain */,
 				100000000000000000000009 /* MediaIO */,
 				B43000000000000000000002 /* Persistence */,
@@ -416,6 +439,23 @@
 				31000000000000000000000F /* Mirmir.entitlements */,
 			);
 			path = Mirmir;
+			sourceTree = "<group>";
+		};
+		D53000000000000000000001 /* Diagnostics */ = {
+			isa = PBXGroup;
+			children = (
+				D51000000000000000000001 /* MirmirDiagnosticConfiguration.swift */,
+				D51000000000000000000002 /* MirmirDiagnosticExport.swift */,
+				D51000000000000000000003 /* MirmirDiagnosticFileSystem.swift */,
+				D51000000000000000000004 /* MirmirDiagnosticJournalModels.swift */,
+				D51000000000000000000005 /* MirmirDiagnosticRecord.swift */,
+				D51000000000000000000006 /* MirmirDiagnosticStore+Logging.swift */,
+				D51000000000000000000007 /* MirmirDiagnosticStore+Persistence.swift */,
+				D51000000000000000000008 /* MirmirDiagnosticStore.swift */,
+				D51000000000000000000009 /* MirmirDiagnosticValues.swift */,
+				D5100000000000000000000A /* MirmirSettingsViews.swift */,
+			);
+			path = Modules/Diagnostics;
 			sourceTree = "<group>";
 		};
 		100000000000000000000005 /* App */ = {
@@ -511,6 +551,7 @@
 					B4100000000000000000004C /* WorkflowSegmentCheckpointStoreV4Tests.swift */,
 					B41000000000000000000064 /* WorkflowQueueDispatcherV4Tests.swift */,
 					D41000000000000000000067 /* WorkflowApplicationQueueV4Tests.swift */,
+					D5100000000000000000000B /* MirmirDiagnosticStoreTests.swift */,
 					10000000000000000000000D /* Support */,
 			);
 			path = MirmirTests;
@@ -814,6 +855,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D52000000000000000000001 /* MirmirDiagnosticConfiguration.swift in Sources */,
+				D52000000000000000000002 /* MirmirDiagnosticExport.swift in Sources */,
+				D52000000000000000000003 /* MirmirDiagnosticFileSystem.swift in Sources */,
+				D52000000000000000000004 /* MirmirDiagnosticJournalModels.swift in Sources */,
+				D52000000000000000000005 /* MirmirDiagnosticRecord.swift in Sources */,
+				D52000000000000000000006 /* MirmirDiagnosticStore+Logging.swift in Sources */,
+				D52000000000000000000007 /* MirmirDiagnosticStore+Persistence.swift in Sources */,
+				D52000000000000000000008 /* MirmirDiagnosticStore.swift in Sources */,
+				D52000000000000000000009 /* MirmirDiagnosticValues.swift in Sources */,
+				D5200000000000000000000A /* MirmirSettingsViews.swift in Sources */,
 				320000000000000000000001 /* MirmirApp.swift in Sources */,
 				320000000000000000000002 /* RootView.swift in Sources */,
 				320000000000000000000003 /* MirmirViewModel.swift in Sources */,
@@ -950,6 +1001,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				32000000000000000000000E /* MirmirTests.swift in Sources */,
+				D5200000000000000000000B /* MirmirDiagnosticStoreTests.swift in Sources */,
 				320000000000000000000014 /* VideoProbeTests.swift in Sources */,
 				320000000000000000000015 /* SecurityScopedAccessTests.swift in Sources */,
 				32000000000000000000001B /* BackendCatalogTests.swift in Sources */,

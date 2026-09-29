@@ -4369,6 +4369,12 @@ private extension WorkflowApplicationCoordinatorV4 {
         }
         defer { activated.close() }
 
+        let diagnosticContext = MirmirDiagnosticExecutionContext(
+            jobID: jobID.rawValue,
+            workflowID: dispatch.claim.jobBinding.requestID.rawValue,
+            queueItemID: jobID.rawValue
+        )
+        var diagnosticSource: VideoInfo?
         do {
             try activated.revalidateAll()
             let source = try await engine.revalidateAndPrepare(
@@ -4376,6 +4382,7 @@ private extension WorkflowApplicationCoordinatorV4 {
                 request: activated.request,
                 expectedBinding: activated.preparedPlanBinding
             )
+            diagnosticSource = source
             try await transitionActive(
                 expected: .probing,
                 target: .planned,
@@ -4401,17 +4408,20 @@ private extension WorkflowApplicationCoordinatorV4 {
             }
             try throwIfActiveControlFailed()
 
-            let outcome = try await continueProcessing(
-                dispatch: dispatch,
-                attemptID: attemptID,
-                activated: activated,
-                source: source,
-                checkpoint: nil,
-                startingInputFrameIndex: 0,
-                processingDurationSeconds: 0,
-                progress: jobProgress,
-                snapshot: jobSnapshot
-            )
+            let outcome = try await MirmirDiagnosticScope
+                .$executionContext.withValue(diagnosticContext) {
+                    try await continueProcessing(
+                        dispatch: dispatch,
+                        attemptID: attemptID,
+                        activated: activated,
+                        source: source,
+                        checkpoint: nil,
+                        startingInputFrameIndex: 0,
+                        processingDurationSeconds: 0,
+                        progress: jobProgress,
+                        snapshot: jobSnapshot
+                    )
+                }
             stopHeartbeat()
             active = nil
             await emitSnapshot(to: jobSnapshot)
@@ -4420,6 +4430,42 @@ private extension WorkflowApplicationCoordinatorV4 {
                 outcome: outcome
             )
         } catch {
+            if let source = diagnosticSource {
+                MirmirDiagnosticScope.recorder
+                    .recordProcessingFailure(
+                        subsystem: "workflow_application_coordinator",
+                        operation: "run_next",
+                        request: activated.request,
+                        source: source,
+                        actualBackendID: activated.preparedPlanBinding
+                            .resolvedBackendID,
+                        fallbackOccurred: activated.request.backendID
+                            .isConcreteBackend
+                            && activated.request.backendID
+                                != activated.preparedPlanBinding
+                                    .resolvedBackendID,
+                        timing: .init(
+                            nominalFrameDuration:
+                                source.minimumFrameDuration,
+                            siteID: Self.diagnosticTimingSiteID(error)
+                        ),
+                        error: error
+                    )
+            } else {
+                MirmirDiagnosticScope.recorder.enqueue(
+                    severity: .error,
+                    subsystem: "workflow_application_coordinator",
+                    operation: "run_next",
+                    code: MirmirDiagnosticRecorder.failureCode(error),
+                    fields: (try? [
+                        MirmirDiagnosticRecorder.textField(
+                            "job_id_context",
+                            jobID.rawValue
+                        )
+                    ]) ?? [],
+                    error: error
+                )
+            }
             await engine.abandonPrepared(jobID: jobID)
             await terminateActive(
                 error: error,
@@ -4538,6 +4584,30 @@ private extension WorkflowApplicationCoordinatorV4 {
             nextFrameIndex = Int(
                 segment.segment.lastCompletedInputOrdinal + 1
             )
+            MirmirDiagnosticScope.recorder.recordCheckpoint(
+                subsystem: "workflow_application_coordinator",
+                operation: "continue_processing",
+                executionContext: .init(
+                    jobID: jobID.rawValue,
+                    workflowID: dispatch.claim.jobBinding.requestID.rawValue,
+                    queueItemID: jobID.rawValue
+                ),
+                durable: .init(
+                    nextInputSampleIndex: Int64(nextFrameIndex),
+                    segmentOrdinal: Int(clamping:
+                        committed.checkpoint.body.ordinal
+                    ),
+                    segmentCount: committed.checkpoint.body.segments.count,
+                    isComplete: checkpointIsTerminal(
+                        committed.checkpoint
+                    ),
+                    checkpointSchema: "workflow-checkpoint-v4-v3",
+                    publishAttempted: true,
+                    atomicPublicationFailed: false,
+                    checkpointURL: nil
+                ),
+                destinationURL: activated.request.outputURL
+            )
 
             if active?.lifecycle == .pausing {
                 _ = try await queue.completeApplicationPause(
@@ -4574,7 +4644,91 @@ private extension WorkflowApplicationCoordinatorV4 {
         }) == true
     }
 
+    static func diagnosticTimingSiteID(_ error: Error) -> String? {
+        guard case let DeterministicV4MediaSegmentError
+            .invalidSampleTiming(site) = error else {
+            return nil
+        }
+        return site.rawValue
+    }
+
     func finalize(
+        dispatch: WorkflowQueueDispatchReceiptV4,
+        attemptID: WorkflowAttemptID,
+        activated: WorkflowActivatedUpscaleRequestV4,
+        checkpoint: WorkflowCheckpointDocumentV4,
+        processingDurationSeconds: TimeInterval = 0,
+        progress: @escaping @Sendable (UpscaleProgress) -> Void
+    ) async throws -> WorkflowApplicationCompletionV4 {
+        let context = MirmirDiagnosticExecutionContext(
+            jobID: dispatch.claim.jobID.rawValue,
+            workflowID: dispatch.claim.jobBinding.requestID.rawValue,
+            queueItemID: dispatch.claim.jobID.rawValue
+        )
+        let video = checkpoint.body.trackProgress.first {
+            $0.kind == .video
+        }
+        do {
+            let completion = try await finalizeUninstrumented(
+                dispatch: dispatch,
+                attemptID: attemptID,
+                activated: activated,
+                checkpoint: checkpoint,
+                processingDurationSeconds: processingDurationSeconds,
+                progress: progress
+            )
+            MirmirDiagnosticScope.recorder.recordCheckpoint(
+                subsystem: "durable_publication",
+                operation: "finalize",
+                executionContext: context,
+                durable: .init(
+                    nextInputSampleIndex: video.map {
+                        Int64(clamping: $0.nextInputSampleIndex)
+                    },
+                    segmentOrdinal: Int(clamping:
+                        checkpoint.body.ordinal
+                    ),
+                    segmentCount: checkpoint.body.segments.count,
+                    isComplete: true,
+                    checkpointSchema: "workflow-checkpoint-v4-v3",
+                    publishAttempted: true,
+                    atomicPublicationFailed: false,
+                    checkpointURL: nil
+                ),
+                destinationURL: activated.request.outputURL
+            )
+            return completion
+        } catch {
+            MirmirDiagnosticScope.recorder.recordCheckpoint(
+                subsystem: "durable_publication",
+                operation: "finalize",
+                executionContext: context,
+                durable: .init(
+                    nextInputSampleIndex: video.map {
+                        Int64(clamping: $0.nextInputSampleIndex)
+                    },
+                    segmentOrdinal: Int(clamping:
+                        checkpoint.body.ordinal
+                    ),
+                    segmentCount: checkpoint.body.segments.count,
+                    isComplete: video?.isComplete ?? false,
+                    checkpointSchema: "workflow-checkpoint-v4-v3",
+                    publishAttempted: true,
+                    atomicPublicationFailed:
+                        MirmirDiagnosticRecorder.failureCode(error)
+                            == "atomic_publication_failed"
+                            || MirmirDiagnosticRecorder
+                                .posixErrno(error) == ENOSPC,
+                    checkpointURL: nil
+                ),
+                destinationURL: activated.request.outputURL,
+                error: error
+            )
+            throw error
+        }
+    }
+
+    private func finalizeUninstrumented(
         dispatch: WorkflowQueueDispatchReceiptV4,
         attemptID: WorkflowAttemptID,
         activated: WorkflowActivatedUpscaleRequestV4,

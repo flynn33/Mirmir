@@ -1634,6 +1634,73 @@ actor WorkflowDurableCoordinatorV4 {
         _ draft: WorkflowCheckpointDraftV4,
         using claim: WorkflowDispatchClaimV4
     ) throws -> WorkflowCheckpointCommitResultV4 {
+        let context = MirmirDiagnosticExecutionContext(
+            jobID: claim.jobID.rawValue,
+            workflowID: claim.jobBinding.requestID.rawValue,
+            queueItemID: claim.jobID.rawValue
+        )
+        do {
+            let result = try commitCheckpointUninstrumented(
+                draft,
+                using: claim
+            )
+            let video = result.document.body.trackProgress.first {
+                $0.kind == .video
+            }
+            MirmirDiagnosticScope.recorder.recordCheckpoint(
+                subsystem: "durable_coordinator",
+                operation: "commit_checkpoint",
+                executionContext: context,
+                durable: .init(
+                    nextInputSampleIndex: video.map {
+                        Int64(clamping: $0.nextInputSampleIndex)
+                    },
+                    segmentOrdinal: Int(clamping:
+                        result.document.body.ordinal
+                    ),
+                    segmentCount: result.document.body.segments.count,
+                    isComplete: video?.isComplete,
+                    checkpointSchema: "workflow-checkpoint-v4-v3",
+                    publishAttempted: true,
+                    atomicPublicationFailed: false,
+                    checkpointURL: checkpointHeadURL(jobID: claim.jobID)
+                ),
+                destinationURL: rootURL
+            )
+            return result
+        } catch {
+            let video = draft.trackProgress.first { $0.kind == .video }
+            MirmirDiagnosticScope.recorder.recordCheckpoint(
+                subsystem: "durable_coordinator",
+                operation: "commit_checkpoint",
+                executionContext: context,
+                durable: .init(
+                    nextInputSampleIndex: video.map {
+                        Int64(clamping: $0.nextInputSampleIndex)
+                    },
+                    segmentOrdinal: draft.segments.count,
+                    segmentCount: draft.segments.count,
+                    isComplete: video?.isComplete ?? false,
+                    checkpointSchema: "workflow-checkpoint-v4-v3",
+                    publishAttempted: true,
+                    atomicPublicationFailed:
+                        MirmirDiagnosticRecorder.failureCode(error)
+                            == "atomic_publication_failed"
+                            || MirmirDiagnosticRecorder
+                                .posixErrno(error) == ENOSPC,
+                    checkpointURL: checkpointHeadURL(jobID: claim.jobID)
+                ),
+                destinationURL: rootURL,
+                error: error
+            )
+            throw error
+        }
+    }
+
+    private func commitCheckpointUninstrumented(
+        _ draft: WorkflowCheckpointDraftV4,
+        using claim: WorkflowDispatchClaimV4
+    ) throws -> WorkflowCheckpointCommitResultV4 {
         let held = try requireHeld(claim)
         let now = clock.now()
         guard now < held.document.body.expiresAt else {

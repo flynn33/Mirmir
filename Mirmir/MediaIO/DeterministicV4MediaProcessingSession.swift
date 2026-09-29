@@ -119,7 +119,13 @@ enum DeterministicV4MediaSegmentError: Error, Equatable, LocalizedError,
 
     var errorUserInfo: [String: Any] {
         guard let errorDescription else { return [:] }
-        return [NSLocalizedDescriptionKey: errorDescription]
+        var userInfo: [String: Any] = [
+            NSLocalizedDescriptionKey: errorDescription
+        ]
+        if case .invalidSampleTiming(let site) = self {
+            userInfo["site_id"] = site.rawValue
+        }
+        return userInfo
     }
 
     var errorDescription: String? {
@@ -1833,20 +1839,53 @@ struct DeterministicV4MediaProcessingSession: Sendable {
         let maximumOutputFramesPerInput = (preparedBackend
             as? any PreparedTemporalFrameUpscaler)?
             .maximumOutputFramesPerInput ?? 1
-        let hdrPreflight = try await makeHDR10PlusSegmentPreflight(
-            asset: asset,
-            track: sourceTrack,
-            decodedOutputSettings: hook.readerOutputSettings,
-            canonicalDynamicHDRIsAbsent:
-                preparedPlan.primaryCanonicalTrack.video?
-                    .color.dynamicHDRMetadata.isEmpty == true,
-            nominalSourceFrameDuration:
-                preparedPlan.nominalSourceFrameDuration,
-            startTime: startTime,
-            maximumInputFrames: maximumInputFrames,
-            timelineMapping: timelineMapping,
-            cancellation: cancellation
+        let diagnosticSegmentCount: Int? = source.estimatedFrameCount.flatMap {
+            count in
+            guard count > 0 else { return nil }
+            return count / maximumInputFrames
+                + (count.isMultiple(of: maximumInputFrames) ? 0 : 1)
+        }
+        let diagnosticAudio = await VideoProcessingSession
+            .diagnosticAudioContext(request: request, source: source)
+        let diagnosticProcessingContext = MirmirDiagnosticProcessingContext(
+            request: request,
+            source: source,
+            actualBackendID: preparedBackend.actualBackendID,
+            fallbackOccurred: request.backendID.isConcreteBackend
+                && request.backendID != preparedBackend.actualBackendID,
+            effectiveSourceAttributes:
+                preparedBackend.sourcePixelBufferAttributes,
+            effectiveDestinationAttributes:
+                preparedBackend.destinationPixelBufferAttributes,
+            durable: .init(
+                nextInputSampleIndex: Int64(startingInputFrameIndex),
+                segmentOrdinal: startingInputFrameIndex / maximumInputFrames,
+                segmentCount: diagnosticSegmentCount,
+                isComplete: false,
+                checkpointSchema: "workflow-segment-checkpoint-v4-v1",
+                publishAttempted: false,
+                atomicPublicationFailed: false,
+                checkpointURL: segmentURL.deletingLastPathComponent()
+            ),
+            audio: diagnosticAudio
         )
+        let hdrPreflight = try await MirmirDiagnosticScope
+            .$processingContext.withValue(diagnosticProcessingContext) {
+                try await makeHDR10PlusSegmentPreflight(
+                    asset: asset,
+                    track: sourceTrack,
+                    decodedOutputSettings: hook.readerOutputSettings,
+                    canonicalDynamicHDRIsAbsent:
+                        preparedPlan.primaryCanonicalTrack.video?
+                            .color.dynamicHDRMetadata.isEmpty == true,
+                    nominalSourceFrameDuration:
+                        preparedPlan.nominalSourceFrameDuration,
+                    startTime: startTime,
+                    maximumInputFrames: maximumInputFrames,
+                    timelineMapping: timelineMapping,
+                    cancellation: cancellation
+                )
+            }
         let nominalDecodedDuration: CMTime?
         if timelineMapping == nil {
             nominalDecodedDuration = try Self.nominalDecodedDuration(
@@ -1957,6 +1996,9 @@ struct DeterministicV4MediaProcessingSession: Sendable {
         var outputCount = 0
         var segmentOrigin: CMTime?
         var globalEnd: CMTime?
+        var lastObservedPresentationTime: CMTime?
+        var lastExpectedPresentationTime: CMTime?
+        var lastObservedDuration: CMTime?
         var expectedDynamicHDR = DynamicHDRMetadataStreamAccumulatorV4()
         let alphaVerifier: AVFoundationAlphaVideoOutputVerifierV4?
         if case .alpha(let delivery) = preparedPlan.videoDelivery {
@@ -2013,6 +2055,8 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                 let sourcePTS = CMSampleBufferGetPresentationTimeStamp(
                     sourceSample
                 )
+                lastObservedPresentationTime = sourcePTS
+                lastObservedDuration = CMSampleBufferGetDuration(sourceSample)
                 guard sourcePTS.isNumeric else {
                     throw DeterministicV4MediaSegmentError.invalidSampleTiming(site: .sourcePresentationTimeInvalid)
                 }
@@ -2030,6 +2074,19 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                     } else {
                         segmentOrigin = sourcePTS
                     }
+                }
+                if let origin = segmentOrigin,
+                   let nominalDecodedDuration,
+                   inputCount <= Int(Int32.max) {
+                    lastExpectedPresentationTime = CMTimeAdd(
+                        origin,
+                        CMTimeMultiply(
+                            nominalDecodedDuration,
+                            multiplier: Int32(inputCount)
+                        )
+                    )
+                } else if timelineMapping != nil {
+                    lastExpectedPresentationTime = sourcePTS
                 }
                 let decodedDynamicHDR = try AVFoundationHDRMetadataAdapterV4
                     .probeDynamicMetadata(from: sourceSample)
@@ -2239,6 +2296,59 @@ struct DeterministicV4MediaProcessingSession: Sendable {
             reader.cancelReading()
             writer.cancelWriting()
             try? FileManager.default.removeItem(at: segmentURL)
+            let siteID: String?
+            if case let DeterministicV4MediaSegmentError
+                .invalidSampleTiming(site) = error {
+                siteID = site.rawValue
+            } else {
+                siteID = nil
+            }
+            MirmirDiagnosticScope.recorder.recordProcessingFailure(
+                subsystem: "deterministic_v4",
+                operation: "process_segment",
+                request: request,
+                source: source,
+                actualBackendID: preparedBackend.actualBackendID,
+                fallbackOccurred: request.backendID.isConcreteBackend
+                    && request.backendID != preparedBackend.actualBackendID,
+                effectiveSourceAttributes:
+                    preparedBackend.sourcePixelBufferAttributes,
+                effectiveDestinationAttributes:
+                    preparedBackend.destinationPixelBufferAttributes,
+                timing: .init(
+                    nominalFrameDuration: nominalDecodedDuration
+                        ?? source.minimumFrameDuration,
+                    sampleIndex: Int64(startingInputFrameIndex + inputCount),
+                    observedPresentationTime: lastObservedPresentationTime,
+                    expectedPresentationTime: lastExpectedPresentationTime,
+                    observedDuration: lastObservedDuration,
+                    expectedDuration: nominalDecodedDuration,
+                    siteID: siteID
+                ),
+                durable: .init(
+                    nextInputSampleIndex: Int64(
+                        startingInputFrameIndex + inputCount
+                    ),
+                    segmentOrdinal: startingInputFrameIndex
+                        / maximumInputFrames,
+                    segmentCount: diagnosticSegmentCount,
+                    isComplete: false,
+                    checkpointSchema:
+                        "workflow-segment-checkpoint-v4-v1",
+                    publishAttempted: false,
+                    atomicPublicationFailed: false,
+                    checkpointURL: segmentURL
+                        .deletingLastPathComponent()
+                ),
+                audio: diagnosticAudio,
+                error: error,
+                additionalFields: (try? [
+                    MirmirDiagnosticRecorder.textField(
+                        "segment_path",
+                        segmentURL.path
+                    )
+                ]) ?? []
+            )
             throw error
         }
     }
@@ -2356,9 +2466,55 @@ extension DeterministicV4MediaProcessingSession {
                 presentationTime,
                 of: expectedPresentationTime
             ) else {
-                throw DeterministicV4MediaSegmentError.invalidSampleTiming(
+                let error = DeterministicV4MediaSegmentError.invalidSampleTiming(
                     site: .nominalCadenceOffLattice
                 )
+                if let context = MirmirDiagnosticScope.processingContext {
+                    let nextInputSampleIndex =
+                        (context.durable.nextInputSampleIndex ?? 0)
+                        + Int64(index)
+                    MirmirDiagnosticScope.recorder
+                        .recordProcessingFailure(
+                        subsystem: "deterministic_v4",
+                        operation: "validate_nominal_decoded_cadence",
+                        request: context.request,
+                        source: context.source,
+                        actualBackendID: context.actualBackendID,
+                        fallbackOccurred: context.fallbackOccurred,
+                        effectiveSourceAttributes:
+                            context.effectiveSourceAttributes,
+                        effectiveDestinationAttributes:
+                            context.effectiveDestinationAttributes,
+                        timing: .init(
+                            nominalFrameDuration: nominalDuration,
+                            sampleIndex: nextInputSampleIndex,
+                            observedPresentationTime: presentationTime,
+                            expectedPresentationTime:
+                                expectedPresentationTime,
+                            observedDuration: decodedDuration,
+                            expectedDuration: nominalDuration,
+                            siteID: DeterministicV4InvalidSampleTimingSite
+                                .nominalCadenceOffLattice.rawValue
+                        ),
+                        durable: .init(
+                            nextInputSampleIndex: nextInputSampleIndex,
+                            segmentOrdinal:
+                                context.durable.segmentOrdinal,
+                            segmentCount: context.durable.segmentCount,
+                            isComplete: false,
+                            checkpointSchema:
+                                context.durable.checkpointSchema,
+                            publishAttempted:
+                                context.durable.publishAttempted,
+                            atomicPublicationFailed: false,
+                            checkpointURL:
+                                context.durable.checkpointURL
+                        ),
+                        audio: context.audio,
+                        error: error
+                    )
+                }
+                throw error
             }
         }
     }

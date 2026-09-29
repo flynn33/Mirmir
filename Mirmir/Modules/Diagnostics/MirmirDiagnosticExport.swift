@@ -151,7 +151,7 @@ enum MirmirDiagnosticExportError: Error, Equatable, Sendable {
 }
 
 enum MirmirDiagnosticExport {
-    static let maximumExportBytes = 32 * 1_024 * 1_024
+    static let maximumExportBytes = 256 * 1_024 * 1_024
 
     static func json(_ snapshot: MirmirDiagnosticSnapshot) throws -> Data {
         let encoder = JSONEncoder()
@@ -217,6 +217,11 @@ enum MirmirDiagnosticExport {
                 lines.append(
                     "- Source: \(markdownInline(source.fileID)):\(source.line)"
                 )
+                if let function = source.function {
+                    lines.append(
+                        "- Function: \(markdownInline(function))"
+                    )
+                }
             }
             for field in record.event.fields {
                 lines.append(
@@ -231,6 +236,13 @@ enum MirmirDiagnosticExport {
                             + "\(markdownInline(frame.type)) "
                             + "[\(markdownInline(frame.domain)):\(frame.code)]"
                     )
+                    for entry in frame.userInfo {
+                        lines.append(
+                            "- Error \(index) userInfo."
+                                + "\(markdownInline(entry.key)): "
+                                + markdownInline(entry.value)
+                        )
+                    }
                 }
             }
         }

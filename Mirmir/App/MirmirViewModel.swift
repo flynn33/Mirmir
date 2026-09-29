@@ -157,6 +157,7 @@ final class MirmirViewModel {
         SuperResolutionScaleProvider
     @ObservationIgnored private let workflowController:
         (any WorkflowApplicationControllingV4)?
+    @ObservationIgnored let diagnosticStore: MirmirDiagnosticStore
     @ObservationIgnored private var probeTask: Task<Void, Never>?
     @ObservationIgnored private var backendAvailabilityTask: Task<Void, Never>?
     @ObservationIgnored private var processingTask: Task<Void, Never>?
@@ -176,9 +177,11 @@ final class MirmirViewModel {
         coordinator: UpscaleCoordinator? = nil,
         superResolutionScaleProvider: SuperResolutionScaleProvider? = nil,
         workflowController:
-            (any WorkflowApplicationControllingV4)? = nil
+            (any WorkflowApplicationControllingV4)? = nil,
+        diagnosticStore: MirmirDiagnosticStore = .application
     ) {
         self.videoProbe = videoProbe
+        self.diagnosticStore = diagnosticStore
         self.backendCatalog = backendCatalog
         self.runtimeEnvironment = runtimeEnvironment
         self.superResolutionScaleProvider = superResolutionScaleProvider
@@ -604,14 +607,28 @@ final class MirmirViewModel {
 
         let coordinator = coordinator
         let progressTarget = self
+        let diagnosticOperationID = UUID().uuidString.lowercased()
+        let diagnosticContext = MirmirDiagnosticExecutionContext(
+            jobID: "direct-\(diagnosticOperationID)",
+            workflowID: "direct-\(diagnosticOperationID)",
+            queueItemID: "not-queued"
+        )
         processingTask = Task { [weak self] in
             do {
-                let result = try await coordinator.process(request) { progress in
-                    Task { @MainActor in
-                        guard progressTarget.isProcessing else { return }
-                        progressTarget.state = .processing(source, progress)
+                let result = try await MirmirDiagnosticScope
+                    .$executionContext.withValue(diagnosticContext) {
+                        try await coordinator.process(request) { progress in
+                            Task { @MainActor in
+                                guard progressTarget.isProcessing else {
+                                    return
+                                }
+                                progressTarget.state = .processing(
+                                    source,
+                                    progress
+                                )
+                            }
+                        }
                     }
-                }
                 guard let self else { return }
                 self.state = .completed(source, result)
                 self.processingTask = nil

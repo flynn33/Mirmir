@@ -1,6 +1,7 @@
-import Foundation
 import CoreMedia
 import CoreVideo
+import Darwin
+import Foundation
 
 extension MirmirDiagnosticStore {
     static func persistenceBoundary<T>(
@@ -23,43 +24,118 @@ extension MirmirDiagnosticStore {
         _ error: Error,
         operation: String
     ) {
-        let nsError = error as NSError
-        let errorCode = persistenceErrorCode(error)
+        let identity = error as NSError
         logger.error(
-            "Diagnostic \(operation, privacy: .public) failed: \(errorCode, privacy: .public); domain=\(nsError.domain, privacy: .private) code=\(nsError.code, privacy: .public)"
+            "Diagnostic \(operation, privacy: .public) failed; domain=\(identity.domain, privacy: .public) code=\(identity.code, privacy: .public)"
         )
-    }
-
-    static func persistenceErrorCode(_ error: Error) -> String {
-        switch error {
-        case R12ChunkCheckpointError.unsafeFilesystemEntry:
-            return "unsafe_filesystem_entry"
-        case R12ChunkCheckpointError.atomicWriteFailed:
-            return "atomic_write_failed"
-        case R12ChunkCheckpointError.durabilityRollbackFailed:
-            return "durability_rollback_failed"
-        case R12ChunkCheckpointError.ledgerAlreadyExists:
-            return "destination_already_exists"
-        case R12ChunkCheckpointError.ledgerMissing:
-            return "destination_missing"
-        case R12ChunkCheckpointError.ledgerSizeLimitExceeded:
-            return "size_limit_exceeded"
-        case is R12ChunkCheckpointError:
-            return "checkpoint_filesystem_failure"
-        case MirmirDiagnosticFileSystemError.unsafeEntry:
-            return "unsafe_filesystem_entry"
-        case MirmirDiagnosticFileSystemError.ioFailure:
-            return "io_failure"
-        default:
-            return "unknown_persistence_failure"
-        }
     }
 }
 
-struct MirmirDiagnosticResourceInput: Sendable {
-    let role: String
-    let url: URL
-    let location: MirmirDiagnosticResourceLocation
+struct MirmirDiagnosticExecutionContext: Equatable, Sendable {
+    static let direct = Self(
+        jobID: "direct-session",
+        workflowID: "direct-processing",
+        queueItemID: "not-queued"
+    )
+
+    let jobID: String
+    let workflowID: String
+    let queueItemID: String
+}
+
+struct MirmirDiagnosticProcessingContext: Sendable {
+    let request: UpscaleRequest
+    let source: VideoInfo
+    let actualBackendID: UpscaleBackendID
+    let fallbackOccurred: Bool
+    let effectiveSourceAttributes: PixelBufferAttributes
+    let effectiveDestinationAttributes: PixelBufferAttributes
+    let durable: MirmirDiagnosticDurableContext
+    let audio: MirmirDiagnosticAudioContext
+}
+
+enum MirmirDiagnosticScope {
+    @TaskLocal static var executionContext = MirmirDiagnosticExecutionContext.direct
+    @TaskLocal static var processingContext: MirmirDiagnosticProcessingContext?
+    @TaskLocal static var recorder = MirmirDiagnosticRecorder.application
+}
+
+struct MirmirDiagnosticTimingContext: Sendable {
+    var nominalFrameDuration: CMTime?
+    var sampleIndex: Int64?
+    var observedPresentationTime: CMTime?
+    var expectedPresentationTime: CMTime?
+    var observedDuration: CMTime?
+    var expectedDuration: CMTime?
+    var siteID: String?
+
+    init(
+        nominalFrameDuration: CMTime? = nil,
+        sampleIndex: Int64? = nil,
+        observedPresentationTime: CMTime? = nil,
+        expectedPresentationTime: CMTime? = nil,
+        observedDuration: CMTime? = nil,
+        expectedDuration: CMTime? = nil,
+        siteID: String? = nil
+    ) {
+        self.nominalFrameDuration = nominalFrameDuration
+        self.sampleIndex = sampleIndex
+        self.observedPresentationTime = observedPresentationTime
+        self.expectedPresentationTime = expectedPresentationTime
+        self.observedDuration = observedDuration
+        self.expectedDuration = expectedDuration
+        self.siteID = siteID
+    }
+}
+
+struct MirmirDiagnosticDurableContext: Sendable {
+    var nextInputSampleIndex: Int64?
+    var segmentOrdinal: Int?
+    var segmentCount: Int?
+    var isComplete: Bool?
+    var checkpointSchema: String?
+    var publishAttempted: Bool?
+    var atomicPublicationFailed: Bool?
+    var checkpointURL: URL?
+
+    init(
+        nextInputSampleIndex: Int64? = nil,
+        segmentOrdinal: Int? = nil,
+        segmentCount: Int? = nil,
+        isComplete: Bool? = nil,
+        checkpointSchema: String? = nil,
+        publishAttempted: Bool? = nil,
+        atomicPublicationFailed: Bool? = nil,
+        checkpointURL: URL? = nil
+    ) {
+        self.nextInputSampleIndex = nextInputSampleIndex
+        self.segmentOrdinal = segmentOrdinal
+        self.segmentCount = segmentCount
+        self.isComplete = isComplete
+        self.checkpointSchema = checkpointSchema
+        self.publishAttempted = publishAttempted
+        self.atomicPublicationFailed = atomicPublicationFailed
+        self.checkpointURL = checkpointURL
+    }
+}
+
+struct MirmirDiagnosticAudioContext: Sendable {
+    var openedTrackCount: Int
+    var codecs: [String]
+    var alternateGroupFlags: [Bool]
+    var readerDrainMode: String
+
+    init(
+        openedTrackCount: Int,
+        codecs: [String],
+        alternateGroupFlags: [Bool],
+        readerDrainMode: String
+    ) {
+        self.openedTrackCount = openedTrackCount
+        self.codecs = codecs
+        self.alternateGroupFlags = alternateGroupFlags
+        self.readerDrainMode = readerDrainMode
+    }
 }
 
 final class MirmirDiagnosticSubmissionQueue: @unchecked Sendable {
@@ -99,33 +175,30 @@ final class MirmirDiagnosticSubmissionQueue: @unchecked Sendable {
         _ = await currentTail()?.result
     }
 
-    private func currentTail() -> Task<Void, Never>? {
-        lock.lock()
-        defer { lock.unlock() }
-        return tail
+    func rejectedSubmissionCount() -> UInt64 {
+        lock.withLock { droppedSubmissionCount }
     }
 
-    func rejectedSubmissionCount() -> UInt64 {
-        lock.lock()
-        defer { lock.unlock() }
-        return droppedSubmissionCount
+    private func currentTail() -> Task<Void, Never>? {
+        lock.withLock { tail }
     }
 
     private func submissionCompleted() {
-        lock.lock()
-        pendingSubmissionCount = max(pendingSubmissionCount - 1, 0)
-        lock.unlock()
+        lock.withLock {
+            pendingSubmissionCount = max(pendingSubmissionCount - 1, 0)
+        }
     }
 }
 
 struct MirmirDiagnosticRecorder: Sendable {
+    static let application = Self(store: .application)
+
     let store: MirmirDiagnosticStore?
     private let submissionQueue: MirmirDiagnosticSubmissionQueue
 
     init(store: MirmirDiagnosticStore?) {
         self.store = store
-        self.submissionQueue =
-            store?.diagnosticSubmissionQueue
+        submissionQueue = store?.diagnosticSubmissionQueue
             ?? MirmirDiagnosticSubmissionQueue()
     }
 
@@ -135,35 +208,26 @@ struct MirmirDiagnosticRecorder: Sendable {
         operation: String,
         code: String,
         correlationID: UUID? = nil,
-        job: UpscaleJob? = nil,
-        source: SourceProfile? = nil,
-        progress: UpscaleProgress? = nil,
-        frame: FrameRecord? = nil,
-        expectedFrameResolution: VideoResolution? = nil,
-        resources: [MirmirDiagnosticResourceInput] = [],
-        additionalFields: [MirmirDiagnosticField] = [],
+        fields: [MirmirDiagnosticField] = [],
         error: Error? = nil,
         fileID: String = #fileID,
+        function: String = #function,
         line: UInt = #line
     ) {
         guard store != nil else { return }
-        let recorder = self
+        let context = MirmirDiagnosticScope.executionContext
         submissionQueue.enqueue {
-            await recorder.record(
+            await record(
                 severity: severity,
                 subsystem: subsystem,
                 operation: operation,
                 code: code,
                 correlationID: correlationID,
-                job: job,
-                source: source,
-                progress: progress,
-                frame: frame,
-                expectedFrameResolution: expectedFrameResolution,
-                resources: resources,
-                additionalFields: additionalFields,
+                executionContext: context,
+                fields: fields,
                 error: error,
                 fileID: fileID,
+                function: function,
                 line: line
             )
         }
@@ -174,34 +238,24 @@ struct MirmirDiagnosticRecorder: Sendable {
         subsystem: String,
         operation: String,
         code: String,
-        correlationID explicitCorrelationID: UUID? = nil,
-        job: UpscaleJob? = nil,
-        source: SourceProfile? = nil,
-        progress: UpscaleProgress? = nil,
-        frame: FrameRecord? = nil,
-        expectedFrameResolution: VideoResolution? = nil,
-        resources: [MirmirDiagnosticResourceInput] = [],
-        additionalFields: [MirmirDiagnosticField] = [],
+        correlationID: UUID? = nil,
+        executionContext: MirmirDiagnosticExecutionContext =
+            MirmirDiagnosticScope.executionContext,
+        fields: [MirmirDiagnosticField] = [],
         error: Error? = nil,
         fileID: String = #fileID,
+        function: String = #function,
         line: UInt = #line
     ) async {
         guard let store else { return }
         do {
-            let correlationID = explicitCorrelationID
-                ?? job.flatMap { UUID(uuidString: $0.identifier) }
-            var fields = try Self.contextFields(
-                correlationID: correlationID,
-                job: job,
-                source: source,
-                progress: progress,
-                frame: frame,
-                expectedFrameResolution: expectedFrameResolution,
-                resources: resources,
-                additionalFields: additionalFields
-            )
+            var completeFields = try Self.executionFields(executionContext)
+            Self.appendUnique(fields, to: &completeFields)
             if let error {
-                fields.append(contentsOf: try Self.errorFields(error))
+                Self.appendUnique(
+                    try Self.errorFields(error),
+                    to: &completeFields
+                )
             }
             let event = try MirmirDiagnosticEvent(
                 severity: severity,
@@ -209,10 +263,11 @@ struct MirmirDiagnosticRecorder: Sendable {
                 operation: operation,
                 code: code,
                 correlationID: correlationID,
-                fields: fields,
-                error: error.map(Self.errorIdentity),
+                fields: completeFields,
+                error: error.map(MirmirDiagnosticErrorIdentity.init),
                 source: try MirmirDiagnosticSourceLocation(
                     fileID: fileID,
+                    function: function,
                     line: line
                 )
             )
@@ -222,1396 +277,616 @@ struct MirmirDiagnosticRecorder: Sendable {
         }
     }
 
-    private static func contextFields(
-        correlationID: UUID?,
-        job: UpscaleJob?,
-        source: SourceProfile?,
-        progress: UpscaleProgress?,
-        frame: FrameRecord?,
-        expectedFrameResolution: VideoResolution?,
-        resources: [MirmirDiagnosticResourceInput],
-        additionalFields: [MirmirDiagnosticField]
-    ) throws -> [MirmirDiagnosticField] {
-        var fields = additionalFields
-        if let job {
-            fields.append(contentsOf: [
-                try field(
-                    "target_dimensions",
-                    .dimensions(
-                        width: job.targetResolution.width,
-                        height: job.targetResolution.height
-                    )
-                ),
-                try field("output_codec", .identifier(job.codec.rawValue)),
-                try field("requested_mode", .identifier(job.mode.rawValue)),
-                try field("preserve_audio", .boolean(job.preserveAudio))
-            ])
-            if let correlationID {
-                fields.append(contentsOf: try resourceFields(
-                    [
-                        MirmirDiagnosticResourceInput(
-                            role: "source_video",
-                            url: job.inputURL,
-                            location: .userSelected
-                        ),
-                        MirmirDiagnosticResourceInput(
-                            role: "output_video",
-                            url: job.outputURL,
-                            location: .userSelected
-                        )
-                    ],
-                    correlationID: correlationID
+    func recordProcessingFailure(
+        subsystem: String,
+        operation: String,
+        executionContext: MirmirDiagnosticExecutionContext =
+            MirmirDiagnosticScope.executionContext,
+        request: UpscaleRequest,
+        source: VideoInfo,
+        actualBackendID: UpscaleBackendID,
+        fallbackOccurred: Bool,
+        effectiveSourceAttributes: PixelBufferAttributes? = nil,
+        effectiveDestinationAttributes: PixelBufferAttributes? = nil,
+        timing: MirmirDiagnosticTimingContext = .init(),
+        durable: MirmirDiagnosticDurableContext = .init(),
+        audio: MirmirDiagnosticAudioContext? = nil,
+        error: Error,
+        additionalFields: [MirmirDiagnosticField] = [],
+        fileID: String = #fileID,
+        function: String = #function,
+        line: UInt = #line
+    ) {
+        do {
+            var fields = try Self.processingFields(
+                request: request,
+                source: source,
+                actualBackendID: actualBackendID,
+                fallbackOccurred: fallbackOccurred,
+                effectiveSourceAttributes: effectiveSourceAttributes,
+                effectiveDestinationAttributes:
+                    effectiveDestinationAttributes
+            )
+            fields.append(contentsOf: try Self.timingFields(timing))
+            fields.append(contentsOf: try Self.durableFields(durable))
+            if let audio {
+                fields.append(contentsOf: try Self.audioFields(audio))
+            }
+            fields.append(contentsOf: try Self.diskFields(
+                destinationURL: request.outputURL,
+                checkpointURL: durable.checkpointURL
+            ))
+            fields.append(contentsOf: additionalFields)
+            let submittedFields = fields
+            let recorder = self
+            submissionQueue.enqueue {
+                await recorder.record(
+                    severity: .error,
+                    subsystem: subsystem,
+                    operation: operation,
+                    code: Self.failureCode(error),
+                    executionContext: executionContext,
+                    fields: submittedFields,
+                    error: error,
+                    fileID: fileID,
+                    function: function,
+                    line: line
+                )
+            }
+        } catch {
+            Self.reportRecordingFailure(error, operation: operation)
+        }
+    }
+
+    func recordCheckpoint(
+        subsystem: String,
+        operation: String,
+        executionContext: MirmirDiagnosticExecutionContext,
+        durable: MirmirDiagnosticDurableContext,
+        destinationURL: URL?,
+        processingContext: MirmirDiagnosticProcessingContext? = nil,
+        fields additionalFields: [MirmirDiagnosticField] = [],
+        error: Error? = nil,
+        fileID: String = #fileID,
+        function: String = #function,
+        line: UInt = #line
+    ) {
+        do {
+            var fields = try Self.durableFields(durable)
+            if let destinationURL {
+                fields.append(contentsOf: try Self.diskFields(
+                    destinationURL: destinationURL,
+                    checkpointURL: durable.checkpointURL
                 ))
             }
-        }
-        if let source {
-            fields.append(contentsOf: [
-                try field(
-                    "presentation_dimensions",
-                    .dimensions(
-                        width: source.resolution.width,
-                        height: source.resolution.height
-                    )
-                ),
-                try field(
-                    "coded_dimensions",
-                    .dimensions(
-                        width: source.codedResolution.width,
-                        height: source.codedResolution.height
-                    )
-                ),
-                try field(
-                    "estimated_frame_count",
-                    .unsignedInteger(UInt64(max(source.estimatedFrameCount, 0)))
-                ),
-                try field("has_audio", .boolean(source.hasAudio)),
-                try field(
-                    "audio_track_count",
-                    .unsignedInteger(UInt64(source.audioTrackCount))
-                ),
-                try field(
-                    "frame_rate",
-                    .rational(
-                        numerator: boundedRationalNumerator(
-                            source.frameRate,
-                            denominator: 1_000
-                        ),
-                        denominator: 1_000
-                    )
-                ),
-                try field(
-                    "source_scan_structure",
-                    .identifier(source.scanStructure.rawValue)
-                ),
-                try field(
-                    "duration",
-                    .durationMilliseconds(
-                        boundedMilliseconds(source.durationSeconds)
-                    )
-                )
-            ])
-            if let aspect = source.pixelAspectRatio {
-                fields.append(
-                    try field(
-                        "pixel_aspect_ratio",
-                        .rational(
-                            numerator: Int64(aspect.horizontalSpacing),
-                            denominator: Int64(aspect.verticalSpacing)
-                        )
-                    )
+            if let processingContext {
+                fields.append(contentsOf: try Self.processingFields(
+                    request: processingContext.request,
+                    source: processingContext.source,
+                    actualBackendID: processingContext.actualBackendID,
+                    fallbackOccurred:
+                        processingContext.fallbackOccurred,
+                    effectiveSourceAttributes:
+                        processingContext.effectiveSourceAttributes,
+                    effectiveDestinationAttributes:
+                        processingContext.effectiveDestinationAttributes
+                ))
+                fields.append(contentsOf: try Self.audioFields(
+                    processingContext.audio
+                ))
+                fields.append(contentsOf: try Self.timeFields(
+                    prefix: "nominal_frame_duration",
+                    processingContext.source.minimumFrameDuration
+                ))
+            }
+            fields.append(contentsOf: additionalFields)
+            let submittedFields = fields
+            let recorder = self
+            submissionQueue.enqueue {
+                await recorder.record(
+                    severity: error == nil ? .notice : .error,
+                    subsystem: subsystem,
+                    operation: operation,
+                    code: error.map(Self.failureCode)
+                        ?? "durable_checkpoint_committed",
+                    executionContext: executionContext,
+                    fields: submittedFields,
+                    error: error,
+                    fileID: fileID,
+                    function: function,
+                    line: line
                 )
             }
-            if let codecHint = source.codecHint,
-               MirmirDiagnosticToken.isValid(codecHint.lowercased()) {
-                fields.append(
-                    try field(
-                        "source_codec",
-                        .identifier(codecHint.lowercased())
-                    )
-                )
-            }
-        }
-        if let progress {
-            fields.append(contentsOf: [
-                try field(
-                    "processed_frame_count",
-                    .unsignedInteger(UInt64(max(progress.framesProcessed, 0)))
-                ),
-                try field(
-                    "reported_total_frame_count",
-                    .unsignedInteger(UInt64(max(progress.totalFrames, 0)))
-                )
-            ])
-        }
-        if let frame {
-            let pixelBuffer = frame.pixelBuffer
-            fields.append(contentsOf: [
-                try field(
-                    "frame_index",
-                    .signedInteger(Int64(frame.frameIndex))
-                ),
-                try field(
-                    "actual_decoded_dimensions",
-                    .dimensions(
-                        width: CVPixelBufferGetWidth(pixelBuffer),
-                        height: CVPixelBufferGetHeight(pixelBuffer)
-                    )
-                ),
-                try field(
-                    "decoded_pixel_format",
-                    .unsignedInteger(
-                        UInt64(CVPixelBufferGetPixelFormatType(pixelBuffer))
-                    )
-                ),
-                try field(
-                    "decoded_plane_count",
-                    .unsignedInteger(
-                        UInt64(CVPixelBufferGetPlaneCount(pixelBuffer))
-                    )
-                )
-            ])
-        }
-        if let expectedFrameResolution {
-            fields.append(
-                try field(
-                    "expected_normalized_dimensions",
-                    .dimensions(
-                        width: expectedFrameResolution.width,
-                        height: expectedFrameResolution.height
-                    )
-                )
-            )
-        }
-        if let correlationID {
-            fields.append(
-                contentsOf: try resourceFields(
-                    resources,
-                    correlationID: correlationID
-                )
-            )
-        }
-        return fields
-    }
-
-    private static func resourceFields(
-        _ resources: [MirmirDiagnosticResourceInput],
-        correlationID: UUID
-    ) throws -> [MirmirDiagnosticField] {
-        try resources.map { resource in
-            try field(
-                resource.role,
-                .resource(
-                    MirmirDiagnosticResourceReference(
-                        role: resource.role,
-                        correlationID: correlationID,
-                        fileExtension: safeFileExtension(resource.url),
-                        location: resource.location
-                    )
-                )
-            )
+        } catch {
+            Self.reportRecordingFailure(error, operation: operation)
         }
     }
 
-    private static func errorFields(
-        _ error: Error
-    ) throws -> [MirmirDiagnosticField] {
-        let category = errorCategory(error)
-        var fields = [
-            try field("failure_category", .identifier(category))
-        ]
-        fields.append(contentsOf: try backendFailureFields(error))
-        fields.append(
-            contentsOf: try mpsTextureDimensionLimitFields(error)
-        )
-        fields.append(
-            contentsOf: try releaseEnvironmentFields(error)
-        )
-        if case let R03NV12ScalingError.invalidDimensions(
-            expectedWidth,
-            expectedHeight,
-            actualWidth,
-            actualHeight
-        ) = error {
-            fields.append(contentsOf: [
-                try field(
-                    "error_expected_dimensions",
-                    .dimensions(
-                        width: expectedWidth,
-                        height: expectedHeight
-                    )
-                ),
-                try field(
-                    "error_actual_dimensions",
-                    .dimensions(
-                        width: actualWidth,
-                        height: actualHeight
-                    )
-                )
-            ])
-        }
-        if case let R03NV12ScalingError.invalidPixelFormat(
-            expected,
-            actual
-        ) = error {
-            fields.append(contentsOf: [
-                try field(
-                    "expected_pixel_format",
-                    .unsignedInteger(UInt64(expected))
-                ),
-                try field(
-                    "actual_pixel_format",
-                    .unsignedInteger(UInt64(actual))
-                )
-            ])
-        }
-        if case let R03NV12ScalingError.invalidPlaneCount(
-            expected,
-            actual
-        ) = error {
-            fields.append(contentsOf: [
-                try field(
-                    "expected_plane_count",
-                    .unsignedInteger(UInt64(max(expected, 0)))
-                ),
-                try field(
-                    "actual_plane_count",
-                    .unsignedInteger(UInt64(max(actual, 0)))
-                )
-            ])
-        }
-        if case let MediaPipelineError.unsupportedAudioTrackCount(count) = error {
-            fields.append(
-                try field(
-                    "observed_audio_track_count",
-                    .unsignedInteger(UInt64(max(count, 0)))
-                )
-            )
-        }
-        if case let MediaPipelineError.unsupportedAssetDimensions(
-            resolution
-        ) = error {
-            fields.append(
-                try field(
-                    "unsupported_source_dimensions",
-                    .dimensions(
-                        width: max(resolution.width, 0),
-                        height: max(resolution.height, 0)
-                    )
-                )
-            )
-        }
-        fields.append(contentsOf: try sourceTimelineFields(error))
-        if case let MediaPipelineError.unrepresentableVideoTimeline(
-            naturalTimeScale,
-            start,
-            end
-        ) = error {
-            fields.append(contentsOf: [
-                try field(
-                    "natural_video_timescale",
-                    .signedInteger(Int64(naturalTimeScale))
-                ),
-                try field(
-                    "video_timeline_start_value",
-                    .signedInteger(start.value)
-                ),
-                try field(
-                    "video_timeline_start_timescale",
-                    .signedInteger(Int64(start.timescale))
-                ),
-                try field(
-                    "video_timeline_end_value",
-                    .signedInteger(end.value)
-                ),
-                try field(
-                    "video_timeline_end_timescale",
-                    .signedInteger(Int64(end.timescale))
-                )
-            ])
-        }
-        if case let MediaPipelineError.outputVerificationFailed(
-            _,
-            underlying
-        ) = error {
-            fields.append(contentsOf: try outputVerificationFields(underlying))
-        }
-        if case let MediaPipelineError.finalMuxFailed(_, underlying) = error {
-            fields.append(contentsOf: try finalMuxFields(underlying))
-        }
-        if case let AtomicMediaOutputError.invalidTransition(
-            from,
-            to
-        ) = error {
-            fields.append(contentsOf: [
-                try field(
-                    "output_state_from",
-                    .identifier(from.rawValue)
-                ),
-                try field(
-                    "output_state_to",
-                    .identifier(to.rawValue)
-                )
-            ])
-        }
-        if case let AtomicMediaOutputError.cleanupFailed(
-            _,
-            attempts,
-            _
-        ) = error {
-            fields.append(
-                try field(
-                    "cleanup_attempt_count",
-                    .unsignedInteger(UInt64(max(attempts, 0)))
-                )
-            )
-        }
-        if case let R13ReleaseHardeningError.diskReservationExceeded(
-            requestedBytes,
-            remainingBytes
-        ) = error {
-            fields.append(contentsOf: [
-                try field(
-                    "requested_bytes",
-                    .byteCount(requestedBytes)
-                ),
-                try field(
-                    "remaining_bytes",
-                    .byteCount(remainingBytes)
-                )
-            ])
-        }
-        if case let R13ReleaseHardeningError.outputFrameCountMismatch(
-            expected,
-            actual
-        ) = error {
-            fields.append(contentsOf: [
-                try field(
-                    "expected_frame_count",
-                    .unsignedInteger(UInt64(max(expected, 0)))
-                ),
-                try field(
-                    "actual_frame_count",
-                    .unsignedInteger(UInt64(max(actual, 0)))
-                )
-            ])
-        }
-        if case let R13RestartJobError.insufficientDiskSpace(
-            requiredBytes,
-            availableBytes
-        ) = error {
-            fields.append(contentsOf: [
-                try field(
-                    "required_bytes",
-                    .byteCount(requiredBytes)
-                ),
-                try field(
-                    "available_bytes",
-                    .byteCount(availableBytes)
-                )
-            ])
-        }
-        if case let R13RestartJobError.invalidFrameIndex(
-            expected,
-            actual
-        ) = error {
-            fields.append(contentsOf: [
-                try field(
-                    "expected_frame_index",
-                    .signedInteger(Int64(expected))
-                ),
-                try field(
-                    "actual_frame_index",
-                    .signedInteger(Int64(actual))
-                )
-            ])
-        }
-        if case let R13RestartJobError.invalidOutputGeometry(
-            width,
-            height
-        ) = error {
-            fields.append(contentsOf: [
-                try field(
-                    "invalid_output_width",
-                    .signedInteger(Int64(width))
-                ),
-                try field(
-                    "invalid_output_height",
-                    .signedInteger(Int64(height))
-                )
-            ])
-        }
-        return fields
-    }
-
-    private static func releaseEnvironmentFields(
-        _ error: Error
-    ) throws -> [MirmirDiagnosticField] {
-        let sourceField: String
-        switch error {
-        case let R13ReleaseEnvironmentError
-            .applicationIdentityUnavailable(field):
-            sourceField = field
-        case let R13ReleaseEnvironmentError
-            .frameworkIdentityUnavailable(field):
-            sourceField = field
-        case let R13ReleaseEnvironmentError
-            .runtimeIdentityUnavailable(field):
-            sourceField = field
-        case let R13ReleaseEnvironmentError
-            .arithmeticOverflow(field):
-            sourceField = field
-        default:
-            return []
-        }
-
-        let safeField: String
-        switch sourceField {
-        case "bundle_identifier",
-             "semantic_version",
-             "build_version",
-             "executable_url",
-             "requested_framework",
-             "bundle",
-             "version",
-             "build",
-             "operating_system_build",
-             "source_frame_count",
-             "available_memory_bytes":
-            safeField = sourceField
-        default:
-            safeField = "unclassified"
-        }
-        return [
-            try field(
-                "release_environment_field",
-                .identifier(safeField)
-            )
-        ]
-    }
-
-    private static func mpsTextureDimensionLimitFields(
-        _ error: Error
-    ) throws -> [MirmirDiagnosticField] {
-        guard let limitError =
-            error as? R03MPSTextureDimensionLimitError else {
-            return []
-        }
-        return [
-            try field(
-                "maximum_texture_dimension_2d",
-                .unsignedInteger(
-                    UInt64(
-                        max(
-                            limitError.maximumTextureDimension2D,
-                            0
-                        )
-                    )
-                )
-            ),
-            try field(
-                "requested_source_dimensions",
-                .dimensions(
-                    width: limitError.sourceResolution.width,
-                    height: limitError.sourceResolution.height
-                )
-            ),
-            try field(
-                "requested_target_dimensions",
-                .dimensions(
-                    width: limitError.targetResolution.width,
-                    height: limitError.targetResolution.height
-                )
-            )
-        ]
-    }
-
-    private static func finalMuxFields(
-        _ error: Error
-    ) throws -> [MirmirDiagnosticField] {
-        guard let guardError = error as? FinalMuxGuardError else {
-            return []
-        }
-        let count = guardError.countEvidence
-        var fields = [
-            try field(
-                "final_mux_failure_reason",
-                .identifier(guardError.reason)
-            ),
-            try field(
-                "final_mux_failure_phase",
-                .identifier(guardError.phase.rawValue)
-            ),
-            try field(
-                "final_mux_guard_code",
-                .signedInteger(Int64(guardError.errorCode))
-            ),
-            try field(
-                "final_mux_count_kind",
-                .identifier(count.kind.rawValue)
-            ),
-            try field(
-                "final_mux_expected_count",
-                .unsignedInteger(UInt64(max(count.expected, 0)))
-            ),
-            try field(
-                "final_mux_actual_count",
-                .unsignedInteger(UInt64(max(count.actual, 0)))
-            )
-        ]
-        if let trackKind = guardError.trackKind {
-            fields.append(
-                try field(
-                    "final_mux_track_kind",
-                    .identifier(trackKind.rawValue)
-                )
-            )
-        }
-        return fields
-    }
-
-    private static func sourceTimelineFields(
-        _ error: Error
-    ) throws -> [MirmirDiagnosticField] {
-        guard case let MediaPipelineError.unsupportedNegativeSourceTimeline(
-            mediaType,
-            start,
-            end
-        ) = error else {
-            return []
-        }
-        return [
-            try field(
-                "source_timeline_media_type",
-                .identifier(mediaType)
-            ),
-            try field(
-                "source_timeline_start_value",
-                .signedInteger(start.value)
-            ),
-            try field(
-                "source_timeline_start_timescale",
-                .signedInteger(Int64(start.timescale))
-            ),
-            try field(
-                "source_timeline_end_value",
-                .signedInteger(end.value)
-            ),
-            try field(
-                "source_timeline_end_timescale",
-                .signedInteger(Int64(end.timescale))
-            )
-        ]
-    }
-
-    // Keep the exhaustive typed failure-to-field schema auditable in one mapping.
-    // swiftlint:disable:next function_body_length
-    private static func outputVerificationFields(
-        _ error: Error
-    ) throws -> [MirmirDiagnosticField] {
-        guard let verificationError =
-            error as? OutputMediaVerificationError else {
-            return []
-        }
-
-        var fields = [
-            try field(
-                "verification_failure_kind",
-                .identifier(verificationFailureKind(verificationError))
-            )
-        ]
-        switch verificationError {
-        case .videoTrackCount(let expected, let actual):
-            fields.append(contentsOf: try countFields(
-                expected: expected,
-                actual: actual,
-                prefix: "video_track"
-            ))
-        case .codecMismatch(let expected, let actual):
-            if MirmirDiagnosticToken.isValid(expected) {
-                fields.append(
-                    try field(
-                        "verification_expected_codec",
-                        .identifier(expected)
-                    )
-                )
-            }
-            if MirmirDiagnosticToken.isValid(actual) {
-                fields.append(
-                    try field(
-                        "verification_actual_codec",
-                        .identifier(actual)
-                    )
-                )
-            }
-        case .dimensionsMismatch(let expected, let actual):
-            fields.append(contentsOf: [
-                try field(
-                    "verification_expected_dimensions",
-                    .dimensions(
-                        width: max(expected.width, 0),
-                        height: max(expected.height, 0)
-                    )
-                ),
-                try field(
-                    "verification_actual_dimensions",
-                    .dimensions(
-                        width: max(actual.width, 0),
-                        height: max(actual.height, 0)
-                    )
-                )
-            ])
-        case .scanStructureMismatch(let expected, let actual):
-            fields.append(contentsOf: [
-                try field(
-                    "verification_expected_scan_structure",
-                    .identifier(expected.rawValue)
-                ),
-                try field(
-                    "verification_actual_scan_structure",
-                    .identifier(actual.rawValue)
-                )
-            ])
-        case .frameCountMismatch(let expected, let actual):
-            fields.append(contentsOf: try countFields(
-                expected: expected,
-                actual: actual,
-                prefix: "frame"
-            ))
-        case .missingDecodedImage(let frameIndex):
-            fields.append(try frameIndexField(frameIndex))
-        case .pixelFormatMismatch(
-            let frameIndex,
-            let expected,
-            let actual
-        ):
-            fields.append(contentsOf: [
-                try frameIndexField(frameIndex),
-                try field(
-                    "verification_expected_pixel_format",
-                    .unsignedInteger(UInt64(expected))
-                ),
-                try field(
-                    "verification_actual_pixel_format",
-                    .unsignedInteger(UInt64(actual))
-                )
-            ])
-        case .planeCountMismatch(
-            let frameIndex,
-            let expected,
-            let actual
-        ):
-            fields.append(try frameIndexField(frameIndex))
-            fields.append(contentsOf: try countFields(
-                expected: expected,
-                actual: actual,
-                prefix: "plane"
-            ))
-        case .planeDimensionsMismatch(
-            let frameIndex,
-            let planeIndex,
-            let expected,
-            let actual
-        ):
-            fields.append(contentsOf: [
-                try frameIndexField(frameIndex),
-                try field(
-                    "verification_plane_index",
-                    .signedInteger(Int64(planeIndex))
-                ),
-                try field(
-                    "verification_expected_plane_dimensions",
-                    .dimensions(
-                        width: max(expected.width, 0),
-                        height: max(expected.height, 0)
-                    )
-                ),
-                try field(
-                    "verification_actual_plane_dimensions",
-                    .dimensions(
-                        width: max(actual.width, 0),
-                        height: max(actual.height, 0)
-                    )
-                )
-            ])
-        case .planeLockFailed(let frameIndex, let status):
-            fields.append(contentsOf: [
-                try frameIndexField(frameIndex),
-                try field(
-                    "verification_status_code",
-                    .signedInteger(Int64(status))
-                )
-            ])
-        case .emptyPlanePayload(let frameIndex, let planeIndex):
-            fields.append(contentsOf: [
-                try frameIndexField(frameIndex),
-                try field(
-                    "verification_plane_index",
-                    .signedInteger(Int64(planeIndex))
-                )
-            ])
-        case .presentationTimeMismatch(
-            let frameIndex,
-            let expected,
-            let actual
-        ),
-        .frameDurationMismatch(
-            let frameIndex,
-            let expected,
-            let actual
-        ):
-            fields.append(try frameIndexField(frameIndex))
-            fields.append(contentsOf: try timeMismatchFields(
-                expected: expected,
-                actual: actual
-            ))
-        case .mediaDurationMismatch(let expected, let actual),
-             .trackEndMismatch(let expected, let actual):
-            fields.append(contentsOf: try timeMismatchFields(
-                expected: expected,
-                actual: actual
-            ))
-        case .metadataMismatch(let scope, let reason):
-            fields.append(contentsOf: try metadataMismatchFields(
-                scope: scope,
-                reason: reason
-            ))
-        case .emptyTimingLedger,
-             .reopenFailed,
-             .missingVideoFormatDescription,
-             .preferredTransformMismatch,
-             .readerCreationFailed,
-             .readerStartFailed,
-             .readerFailed,
-             .videoColorMismatch,
-             .compressedAACMismatch,
-             .mediaPreservationMismatch:
-            break
-        }
-        return fields
-    }
-
-    private static func metadataMismatchFields(
-        scope: String,
-        reason: String
-    ) throws -> [MirmirDiagnosticField] {
-        let scopeIdentifier: String
-        switch scope {
-        case "timed ASH identity":
-            scopeIdentifier = "timed_ash_identity"
-        case "timed Mirmir identity":
-            scopeIdentifier = "timed_mirmir_identity"
-        default:
-            scopeIdentifier = "unclassified"
-        }
-
-        let reasonIdentifier: String
-        switch reason {
-        case let value where value.hasPrefix(
-            "expected one track with identifiers"
-        ):
-            reasonIdentifier = "metadata_track_identity_count_mismatch"
-        case let value where value.hasPrefix("reader creation failed"):
-            reasonIdentifier = "metadata_reader_creation_failed"
-        case let value where value.hasPrefix("reader rejected"):
-            reasonIdentifier = "metadata_reader_rejected"
-        case "reader did not start":
-            reasonIdentifier = "metadata_reader_start_failed"
-        case let value where value.hasPrefix("reader status"):
-            reasonIdentifier = "metadata_reader_failed"
-        case let value where value.hasPrefix("expected one group"):
-            reasonIdentifier = "metadata_group_count_mismatch"
-        case "group time range does not span the completed video":
-            reasonIdentifier = "metadata_group_time_range_mismatch"
-        case "metadata item has an invalid or foreign key":
-            reasonIdentifier = "metadata_key_invalid"
-        case let value where value.hasPrefix("duplicate key"):
-            reasonIdentifier = "metadata_key_duplicate"
-        case let value where value.hasPrefix("key ")
-            && value.hasSuffix(" has no UTF-8 string value"):
-            reasonIdentifier = "metadata_value_invalid"
-        case let value where value.hasPrefix("missing="):
-            reasonIdentifier = "metadata_values_mismatch"
-        default:
-            reasonIdentifier = "metadata_mismatch_detail_unclassified"
-        }
-
-        var fields = [
-            try field(
-                "verification_metadata_scope",
-                .identifier(scopeIdentifier)
-            ),
-            try field(
-                "verification_metadata_reason_kind",
-                .identifier(reasonIdentifier)
-            )
-        ]
-        let words = reason.split(separator: " ")
-        if reasonIdentifier == "metadata_track_identity_count_mismatch",
-           let observedIndex = words.firstIndex(of: "observed"),
-           words.indices.contains(observedIndex + 1),
-           let matchingCount = UInt64(words[observedIndex + 1]),
-           let amongIndex = words[observedIndex...]
-            .firstIndex(of: "among"),
-           words.indices.contains(amongIndex + 1),
-           let totalCount = UInt64(words[amongIndex + 1]) {
-            fields.append(contentsOf: [
-                try field(
-                    "verification_matching_metadata_track_count",
-                    .unsignedInteger(matchingCount)
-                ),
-                try field(
-                    "verification_metadata_track_count",
-                    .unsignedInteger(totalCount)
-                )
-            ])
-        } else if reasonIdentifier == "metadata_group_count_mismatch",
-                  let observedIndex = words.firstIndex(of: "observed"),
-                  words.indices.contains(observedIndex + 1),
-                  let groupCount = UInt64(words[observedIndex + 1]) {
-            fields.append(
-                try field(
-                    "verification_metadata_group_count",
-                    .unsignedInteger(groupCount)
-                )
-            )
-        }
-        return fields
-    }
-
-    // Keep every typed verification failure bound to one stable exported reason.
-    // swiftlint:disable:next cyclomatic_complexity
-    private static func verificationFailureKind(
-        _ error: OutputMediaVerificationError
-    ) -> String {
-        switch error {
-        case .emptyTimingLedger:
-            return "empty_timing_ledger"
-        case .reopenFailed:
-            return "reopen_failed"
-        case .videoTrackCount:
-            return "video_track_count_mismatch"
-        case .missingVideoFormatDescription:
-            return "missing_video_format_description"
-        case .codecMismatch:
-            return "codec_mismatch"
-        case .dimensionsMismatch:
-            return "dimensions_mismatch"
-        case .scanStructureMismatch:
-            return "scan_structure_mismatch"
-        case .preferredTransformMismatch:
-            return "preferred_transform_mismatch"
-        case .readerCreationFailed:
-            return "verification_reader_creation_failed"
-        case .readerStartFailed:
-            return "verification_reader_start_failed"
-        case .readerFailed:
-            return "verification_reader_failed"
-        case .frameCountMismatch:
-            return "frame_count_mismatch"
-        case .missingDecodedImage:
-            return "missing_decoded_image"
-        case .pixelFormatMismatch:
-            return "pixel_format_mismatch"
-        case .planeCountMismatch:
-            return "plane_count_mismatch"
-        case .planeDimensionsMismatch:
-            return "plane_dimensions_mismatch"
-        case .planeLockFailed:
-            return "plane_lock_failed"
-        case .emptyPlanePayload:
-            return "empty_plane_payload"
-        case .presentationTimeMismatch:
-            return "presentation_time_mismatch"
-        case .frameDurationMismatch:
-            return "frame_duration_mismatch"
-        case .mediaDurationMismatch:
-            return "media_duration_mismatch"
-        case .trackEndMismatch:
-            return "track_end_mismatch"
-        case .metadataMismatch:
-            return "metadata_mismatch"
-        case .videoColorMismatch:
-            return "video_color_mismatch"
-        case .compressedAACMismatch:
-            return "compressed_aac_mismatch"
-        case .mediaPreservationMismatch:
-            return "media_preservation_mismatch"
-        }
-    }
-
-    private static func countFields(
-        expected: Int,
-        actual: Int,
-        prefix: String
-    ) throws -> [MirmirDiagnosticField] {
-        [
-            try field(
-                "verification_expected_\(prefix)_count",
-                .unsignedInteger(UInt64(max(expected, 0)))
-            ),
-            try field(
-                "verification_actual_\(prefix)_count",
-                .unsignedInteger(UInt64(max(actual, 0)))
-            )
-        ]
-    }
-
-    private static func frameIndexField(
-        _ frameIndex: Int
-    ) throws -> MirmirDiagnosticField {
-        try field(
-            "verification_frame_index",
-            .signedInteger(Int64(frameIndex))
-        )
-    }
-
-    private static func timeMismatchFields(
-        expected: CMTime,
-        actual: CMTime
-    ) throws -> [MirmirDiagnosticField] {
-        var fields = try diagnosticTimeFields(
-            expected,
-            prefix: "verification_expected_time"
-        )
-        fields.append(contentsOf: try diagnosticTimeFields(
-            actual,
-            prefix: "verification_actual_time"
-        ))
-        if isRepresentableDiagnosticRational(expected),
-           isRepresentableDiagnosticRational(actual) {
-            let delta = CMTimeSubtract(actual, expected)
-            guard isRepresentableDiagnosticRational(delta) else {
-                return fields
-            }
-            fields.append(
-                try field(
-                    "verification_time_delta",
-                    .rational(
-                        numerator: delta.value,
-                        denominator: Int64(delta.timescale)
-                    )
-                )
-            )
-        }
-        return fields
-    }
-
-    private static func diagnosticTimeFields(
-        _ time: CMTime,
-        prefix: String
-    ) throws -> [MirmirDiagnosticField] {
-        var fields = [
-            try field(
-                "\(prefix)_validity",
-                .identifier(diagnosticTimeValidity(time))
-            )
-        ]
-        if isRepresentableDiagnosticRational(time) {
-            fields.append(
-                try field(
-                    prefix,
-                    .rational(
-                        numerator: time.value,
-                        denominator: Int64(time.timescale)
-                    )
-                )
-            )
-        } else {
-            fields.append(contentsOf: [
-                try field(
-                    "\(prefix)_value",
-                    .signedInteger(time.value)
-                ),
-                try field(
-                    "\(prefix)_timescale",
-                    .signedInteger(Int64(time.timescale))
-                )
-            ])
-        }
-        return fields
-    }
-
-    private static func isRepresentableDiagnosticRational(
-        _ time: CMTime
-    ) -> Bool {
-        time.isNumeric && time.timescale > 0
-    }
-
-    private static func diagnosticTimeValidity(_ time: CMTime) -> String {
-        guard time.isValid else { return "invalid" }
-        if time.isIndefinite { return "indefinite" }
-        if time.isPositiveInfinity { return "positive_infinity" }
-        if time.isNegativeInfinity { return "negative_infinity" }
-        guard time.timescale > 0 else {
-            return "nonpositive_timescale"
-        }
-        return time.isNumeric ? "numeric" : "nonnumeric"
-    }
-
-    private static func backendFailureFields(
-        _ error: Error
-    ) throws -> [MirmirDiagnosticField] {
-        guard let backendError =
-            error as? R13BackendFrameProcessingError else {
-            return []
-        }
-        var fields: [MirmirDiagnosticField] = []
-        if MirmirDiagnosticToken.isValid(backendError.failure.reason) {
-            fields.append(
-                try field(
-                    "backend_failure_reason",
-                    .identifier(backendError.failure.reason)
-                )
-            )
-        }
-        guard let context = backendError.failure.context else {
-            return fields
-        }
-        fields.append(
-            try field(
-                "backend_failure_stage",
-                .identifier(context.stage.rawValue)
-            )
-        )
-        if let statusCode = context.statusCode {
-            fields.append(
-                try field(
-                    "backend_status_code",
-                    .signedInteger(Int64(statusCode))
-                )
-            )
-        }
-        if let planeIndex = context.planeIndex {
-            fields.append(
-                try field(
-                    "backend_plane_index",
-                    .signedInteger(Int64(planeIndex))
-                )
-            )
-        }
-        return fields
-    }
-
-    private static func errorIdentity(
-        _ error: Error
-    ) -> MirmirDiagnosticErrorIdentity {
-        MirmirDiagnosticErrorIdentity(
-            errors: [error] + underlyingErrors(error)
-        )
-    }
-
-    private static func underlyingErrors(_ error: Error) -> [Error] {
-        switch error {
-        case let MediaPipelineError.readerCreationFailed(_, underlying):
-            return underlying.map { [$0] } ?? []
-        case let MediaPipelineError.writerCreationFailed(_, underlying):
-            return underlying.map { [$0] } ?? []
-        case let MediaPipelineError.outputPreparationFailed(_, underlying):
-            return [underlying]
-        case let MediaPipelineError.finalMuxFailed(_, underlying):
-            return [underlying]
-        case let MediaPipelineError.outputVerificationFailed(_, underlying):
-            return [underlying]
-        case let MediaPipelineError.audioBridgeFailed(underlying):
-            return [underlying]
-        case let MediaPipelineError.readerFailed(underlying):
-            return underlying.map { [$0] } ?? []
-        case let MediaPipelineError.writerFailed(underlying):
-            return underlying.map { [$0] } ?? []
-        case let backendError as R13BackendFrameProcessingError:
-            return [backendError.failure]
-        default:
-            return []
-        }
-    }
-
-    private static func errorCategory(_ error: Error) -> String {
-        switch error {
-        case is R13BackendFrameProcessingError:
-            return "backend_frame_processing_failed"
-        case is R13PreviewEncodingFailure:
-            return "preview_encoding_failed"
-        case is R03MPSTextureDimensionLimitError:
-            return "mps_texture_dimension_limit_exceeded"
-        case R03NV12ScalingError.invalidDimensions:
-            return "invalid_dimensions"
-        case R03NV12ScalingError.invalidPixelFormat:
-            return "invalid_pixel_format"
-        case R03NV12ScalingError.invalidPlaneCount:
-            return "invalid_plane_count"
-        case R03NV12ScalingError.invalidPlaneDimensions:
-            return "invalid_plane_dimensions"
-        case R03NV12ScalingError.colorDescriptionMismatch:
-            return "color_description_mismatch"
-        case R03NV12ScalingError.colorAttachmentMismatch:
-            return "color_attachment_mismatch"
-        case R03NV12ScalingError.pixelBufferLockFailed:
-            return "pixel_buffer_lock_failed"
-        case R03NV12ScalingError.missingPlaneBaseAddress:
-            return "missing_plane_base_address"
-        case R03NV12ScalingError.scalingFailed:
-            return "scaling_failed"
-        case R03NV12ScalingError.runtimeUnavailable:
-            return "scaling_runtime_unavailable"
-        case R03NV12ScalingError.operationCancelled:
-            return "operation_cancelled"
-        case MediaPipelineError.noVideoTrack:
-            return "no_video_track"
-        case MediaPipelineError.readerCreationFailed:
-            return "reader_creation_failed"
-        case MediaPipelineError.writerCreationFailed:
-            return "writer_creation_failed"
-        case MediaPipelineError.inputOutputCollision:
-            return "input_output_collision"
-        case MediaPipelineError.cannotAddReaderOutput:
-            return "reader_output_rejected"
-        case MediaPipelineError.cannotAddWriterInput:
-            return "writer_input_rejected"
-        case MediaPipelineError.unsupportedAudioTrackCount:
-            return "unsupported_audio_track_count"
-        case MediaPipelineError.unsupportedAudioFormat:
-            return "unsupported_audio_format"
-        case MediaPipelineError.unsupportedOutputContainer:
-            return "unsupported_output_container"
-        case MediaPipelineError.unsupportedColorProfile:
-            return "unsupported_color_profile"
-        case MediaPipelineError.mediaPreservationPreflightFailed:
-            return "media_preservation_preflight_failed"
-        case MediaPipelineError.unsupportedNegativeSourceTimeline:
-            return "unsupported_negative_source_timeline"
-        case MediaPipelineError.unrepresentableVideoTimeline:
-            return "unrepresentable_video_timeline"
-        case MediaPipelineError.outputPreparationFailed:
-            return "output_preparation_failed"
-        case MediaPipelineError.finalMuxFailed:
-            return "final_mux_failed"
-        case MediaPipelineError.outputVerificationFailed:
-            return "output_verification_failed"
-        case MediaPipelineError.invalidFrameTiming:
-            return "invalid_frame_timing"
-        case MediaPipelineError.deinterlacingFailed:
-            return "deinterlacing_failed"
-        case MediaPipelineError.partialCleanupFailed:
-            return "partial_cleanup_failed"
-        case MediaPipelineError.readerStartFailed:
-            return "reader_start_failed"
-        case MediaPipelineError.writerStartFailed:
-            return "writer_start_failed"
-        case MediaPipelineError.outputMetadataMismatch:
-            return "output_metadata_mismatch"
-        case MediaPipelineError.invalidAssetDimensions:
-            return "invalid_asset_dimensions"
-        case MediaPipelineError.unsupportedAssetDimensions:
-            return "unsupported_asset_dimensions"
-        case MediaPipelineError.audioBridgeFailed:
-            return "audio_bridge_failed"
-        case MediaPipelineError.readerFailed:
-            return "reader_failed"
-        case MediaPipelineError.writerFailed:
-            return "writer_failed"
-        case UpscalerEngineError.jobAlreadyRunning:
-            return "job_already_running"
-        case UpscalerEngineError.cancelled:
-            return "job_cancelled"
-        case UpscalerEngineError.inputOutputCollision:
-            return "input_output_collision"
-        case UpscalerEngineError.outputAlreadyExists:
-            return "output_destination_exists"
-        case UpscalerEngineError.invalidJobIdentifier:
-            return "invalid_job_identifier"
-        case UpscalerEngineError.backendUnavailable:
-            return "backend_unavailable"
-        case UpscalerEngineError.modeUnavailable:
-            return "mode_unavailable"
-        case UpscalerEngineError.modelAssetsNotReady:
-            return "model_assets_not_ready"
-        case UpscalerEngineError.unsupportedSourceResolution:
-            return "unsupported_source_resolution"
-        case UpscalerEngineError.strategyFailed:
-            return "strategy_failed"
-        case AtomicMediaOutputError.invalidDestination:
-            return "invalid_output_destination"
-        case AtomicMediaOutputError.destinationAlreadyExists:
-            return "output_destination_exists"
-        case AtomicMediaOutputError.invalidTemporaryIdentifier:
-            return "invalid_temporary_identifier"
-        case AtomicMediaOutputError.invalidTransition:
-            return "invalid_output_state_transition"
-        case AtomicMediaOutputError.temporaryFileMissing:
-            return "temporary_output_missing"
-        case AtomicMediaOutputError.verifiedTemporaryFileChanged:
-            return "verified_output_changed"
-        case AtomicMediaOutputError.publishedDestinationCleanupFailed:
-            return "published_output_cleanup_failed"
-        case AtomicMediaOutputError.publishFailed:
-            return "output_publish_failed"
-        case AtomicMediaOutputError.cleanupFailed:
-            return "temporary_output_cleanup_failed"
-        case R13ReleaseHardeningError.resourceRejected:
-            return "resource_rejected"
-        case R13ReleaseHardeningError.resourceProbeFailed:
-            return "resource_probe_failed"
-        case R13ReleaseHardeningError.injectedFault:
-            return "injected_fault"
-        case R13ReleaseHardeningError.resourceLeaseUnavailable:
-            return "resource_lease_unavailable"
-        case R13ReleaseHardeningError.diskReservationExceeded:
-            return "disk_reservation_exceeded"
-        case R13ReleaseHardeningError.outputFrameCountMismatch:
-            return "output_frame_count_mismatch"
-        case R13ReleaseHardeningError.arithmeticOverflow:
-            return "resource_arithmetic_overflow"
-        case R13ReleaseEnvironmentError
-            .applicationSupportDirectoryUnavailable:
-            return "release_application_support_unavailable"
-        case R13ReleaseEnvironmentError
-            .applicationIdentityUnavailable:
-            return "release_application_identity_unavailable"
-        case R13ReleaseEnvironmentError
-            .frameworkIdentityUnavailable:
-            return "release_framework_identity_unavailable"
-        case R13ReleaseEnvironmentError
-            .runtimeIdentityUnavailable:
-            return "release_runtime_identity_unavailable"
-        case R13ReleaseEnvironmentError.frameCountReaderFailed:
-            return "release_frame_count_reader_failed"
-        case R13ReleaseEnvironmentError.frameCountUnavailable:
-            return "release_frame_count_unavailable"
-        case R13ReleaseEnvironmentError.memoryProbeFailed:
-            return "release_memory_probe_failed"
-        case R13ReleaseEnvironmentError.arithmeticOverflow:
-            return "release_environment_arithmetic_overflow"
-        case R13CacheLocationError.invalidDirectory:
-            return "invalid_cache_directory"
-        case R13CacheLocationError.bookmarkCreationFailed:
-            return "cache_bookmark_creation_failed"
-        case R13CacheLocationError.bookmarkResolutionFailed:
-            return "cache_bookmark_resolution_failed"
-        case R13CacheLocationError.securityScopeDenied:
-            return "cache_security_scope_denied"
-        case R13CacheLocationError.locationUnavailable:
-            return "cache_location_unavailable"
-        case R13CacheLocationError.locationNotWritable:
-            return "cache_location_not_writable"
-        case R13CacheLocationError.configurationCorrupt:
-            return "cache_configuration_corrupt"
-        case R13CacheLocationError.changeWhileJobRunning:
-            return "cache_change_while_job_running"
-        case MirmirWorkHistoryBookmarkError.creationFailed:
-            return "work_history_bookmark_creation_failed"
-        case MirmirWorkHistoryBookmarkError.resolutionFailed:
-            return "work_history_bookmark_resolution_failed"
-        case R13RestartJobError.invalidIdentity:
-            return "restart_invalid_identity"
-        case R13RestartJobError.invalidSHA256:
-            return "restart_invalid_sha256"
-        case R13RestartJobError.invalidSourceByteCount:
-            return "restart_invalid_source_byte_count"
-        case R13RestartJobError.invalidFrameCount:
-            return "restart_invalid_frame_count"
-        case R13RestartJobError.invalidFrameIndex:
-            return "restart_invalid_frame_index"
-        case R13RestartJobError.invalidOutputGeometry:
-            return "restart_invalid_output_geometry"
-        case R13RestartJobError.invalidPixelFormat:
-            return "restart_invalid_pixel_format"
-        case R13RestartJobError.invalidRelativePath:
-            return "restart_invalid_relative_path"
-        case R13RestartJobError.invalidByteCount:
-            return "restart_invalid_byte_count"
-        case R13RestartJobError.jobAlreadyExists:
-            return "restart_job_already_exists"
-        case R13RestartJobError.jobMissing:
-            return "restart_job_missing"
-        case R13RestartJobError.initializationCleanupFailed:
-            return "restart_initialization_cleanup_failed"
-        case R13RestartJobError.immutableCoreMismatch:
-            return "restart_immutable_core_mismatch"
-        case R13RestartJobError.sourceDrift:
-            return "restart_source_drift"
-        case R13RestartJobError.staleHead:
-            return "restart_stale_head"
-        case R13RestartJobError.nonCanonicalDocument:
-            return "restart_noncanonical_document"
-        case R13RestartJobError.schemaMismatch:
-            return "restart_schema_mismatch"
-        case R13RestartJobError.recordChainMismatch:
-            return "restart_record_chain_mismatch"
-        case R13RestartJobError.headMismatch:
-            return "restart_head_mismatch"
-        case R13RestartJobError.cachedFrameMissing:
-            return "restart_cached_frame_missing"
-        case R13RestartJobError.cachedFrameCorrupt:
-            return "restart_cached_frame_corrupt"
-        case R13RestartJobError.cachedFrameGeometryMismatch:
-            return "restart_cached_frame_geometry_mismatch"
-        case R13RestartJobError.incompleteJob:
-            return "restart_incomplete_job"
-        case R13RestartJobError.prepublicationReceiptConflict:
-            return "restart_prepublication_receipt_conflict"
-        case R13RestartJobError.reauthorizationRequired:
-            return "restart_reauthorization_required"
-        case R13RestartJobError.bookmarkCreationFailed:
-            return "restart_bookmark_creation_failed"
-        case R13RestartJobError.bookmarkResolutionFailed:
-            return "restart_bookmark_resolution_failed"
-        case R13RestartJobError.securityScopeDenied:
-            return "restart_security_scope_denied"
-        case R13RestartJobError.insufficientDiskSpace:
-            return "restart_insufficient_disk_space"
-        case R13RestartJobError.arithmeticOverflow:
-            return "restart_arithmetic_overflow"
-        case R13RestartJobError.unsafeFilesystemEntry:
-            return "restart_unsafe_filesystem_entry"
-        case R13RestartJobError.fileTooLarge:
-            return "restart_file_too_large"
-        case R13RestartJobError.ioFailure:
-            return "restart_io_failure"
-        default:
-            return "unclassified_error"
-        }
-    }
-
-    private static func boundedRationalNumerator(
-        _ value: Double,
-        denominator: Int64
-    ) -> Int64 {
-        guard value.isFinite, value > 0 else { return 0 }
-        let upperBound = Double(Int64.max) / Double(denominator)
-        guard value < upperBound else { return Int64.max }
-        return Int64((value * Double(denominator)).rounded())
-    }
-
-    private static func boundedMilliseconds(_ seconds: Double) -> UInt64 {
-        guard seconds.isFinite, seconds > 0 else { return 0 }
-        let upperBound = Double(Int64.max) / 1_000
-        guard seconds < upperBound else { return UInt64(Int64.max) }
-        return UInt64((seconds * 1_000).rounded())
-    }
-
-    private static func safeFileExtension(_ url: URL) -> String? {
-        let candidate = url.pathExtension.lowercased()
-        guard MirmirDiagnosticToken.isValid(candidate) else {
-            return nil
-        }
-        return candidate
-    }
-
-    private static func field(
+    static func field(
         _ key: String,
         _ value: MirmirDiagnosticFieldValue
     ) throws -> MirmirDiagnosticField {
         try MirmirDiagnosticField(key: key, value: value)
     }
 
+    static func textField(
+        _ key: String,
+        _ value: String
+    ) throws -> MirmirDiagnosticField {
+        try field(key, .text(value))
+    }
+
+    static func timeFields(
+        prefix: String,
+        _ time: CMTime?
+    ) throws -> [MirmirDiagnosticField] {
+        guard let time else { return [] }
+        return [
+            try field(
+                "\(prefix)_value",
+                .signedInteger(time.value)
+            ),
+            try field(
+                "\(prefix)_timescale",
+                .signedInteger(Int64(time.timescale))
+            ),
+            try field(
+                "\(prefix)_epoch",
+                .signedInteger(time.epoch)
+            ),
+            try field(
+                "\(prefix)_flags",
+                .unsignedInteger(UInt64(time.flags.rawValue))
+            )
+        ]
+    }
+
+    private static func appendUnique(
+        _ additions: [MirmirDiagnosticField],
+        to fields: inout [MirmirDiagnosticField]
+    ) {
+        var keys = Set(fields.map(\.key))
+        for field in additions where keys.insert(field.key).inserted {
+            fields.append(field)
+        }
+    }
+
+    private static func executionFields(
+        _ context: MirmirDiagnosticExecutionContext
+    ) throws -> [MirmirDiagnosticField] {
+        [
+            try textField("job_id", context.jobID),
+            try textField("workflow_id", context.workflowID),
+            try textField("queue_item_id", context.queueItemID)
+        ]
+    }
+
+    private static func processingFields(
+        request: UpscaleRequest,
+        source: VideoInfo,
+        actualBackendID: UpscaleBackendID,
+        fallbackOccurred: Bool,
+        effectiveSourceAttributes: PixelBufferAttributes?,
+        effectiveDestinationAttributes: PixelBufferAttributes?
+    ) throws -> [MirmirDiagnosticField] {
+        let effectiveWidth = pixelBufferInteger(
+            kCVPixelBufferWidthKey,
+            in: effectiveDestinationAttributes
+        ) ?? request.targetWidth
+        let effectiveHeight = pixelBufferInteger(
+            kCVPixelBufferHeightKey,
+            in: effectiveDestinationAttributes
+        ) ?? request.targetHeight
+        var fields = [
+            try textField("source_path", request.inputURL.path),
+            try textField("output_path", request.outputURL.path),
+            try textField("requested_backend", request.backendID.rawValue),
+            try textField("actual_backend", actualBackendID.rawValue),
+            try field("fallback_occurred", .boolean(fallbackOccurred)),
+            try field(
+                "source_geometry",
+                .dimensions(
+                    width: diagnosticDimension(source.displaySize.width),
+                    height: diagnosticDimension(source.displaySize.height)
+                )
+            ),
+            try field(
+                "requested_geometry",
+                .dimensions(
+                    width: request.targetWidth,
+                    height: request.targetHeight
+                )
+            ),
+            try field(
+                "effective_geometry",
+                .dimensions(
+                    width: effectiveWidth,
+                    height: effectiveHeight
+                )
+            ),
+            try textField(
+                "requested_output_codec",
+                request.outputCodec.rawValue
+            ),
+            try textField(
+                "effective_output_codec",
+                request.outputCodec.rawValue
+            ),
+            try textField(
+                "requested_color_policy",
+                "preserve_source"
+            ),
+            try textField(
+                "requested_hdr_policy",
+                "preserve_source"
+            ),
+            try textField(
+                "source_color_primaries",
+                source.color.colorPrimaries ?? "unknown"
+            ),
+            try textField(
+                "effective_color_primaries",
+                source.color.colorPrimaries ?? "unknown"
+            ),
+            try textField(
+                "source_transfer_function",
+                source.color.transferFunction ?? "unknown"
+            ),
+            try textField(
+                "effective_transfer_function",
+                source.color.transferFunction ?? "unknown"
+            ),
+            try textField(
+                "source_ycbcr_matrix",
+                source.color.yCbCrMatrix ?? "unknown"
+            ),
+            try textField(
+                "effective_ycbcr_matrix",
+                source.color.yCbCrMatrix ?? "unknown"
+            ),
+            try textField(
+                "source_dynamic_range",
+                source.color.dynamicRange.rawValue
+            ),
+            try textField(
+                "effective_dynamic_range",
+                source.color.dynamicRange.rawValue
+            ),
+            try field(
+                "source_hdr",
+                .boolean(source.color.isHDR == true)
+            ),
+            try field(
+                "effective_hdr",
+                .boolean(source.color.isHDR == true)
+            ),
+            try field(
+                "mastering_display_metadata",
+                .boolean(source.color.hasMasteringDisplayMetadata)
+            ),
+            try field(
+                "content_light_level_metadata",
+                .boolean(source.color.hasContentLightLevelMetadata)
+            ),
+            try field(
+                "audio_track_count_probed",
+                .signedInteger(Int64(source.audioTrackCount))
+            )
+        ]
+        if let pixelFormat = source.color.pixelFormat {
+            fields.append(try textField(
+                "source_pixel_format",
+                fourCC(pixelFormat)
+            ))
+        }
+        if let pixelFormat = pixelBufferInteger(
+            kCVPixelBufferPixelFormatTypeKey,
+            in: effectiveSourceAttributes
+        ) {
+            fields.append(try textField(
+                "effective_source_pixel_format",
+                fourCC(OSType(pixelFormat))
+            ))
+        }
+        if let pixelFormat = pixelBufferInteger(
+            kCVPixelBufferPixelFormatTypeKey,
+            in: effectiveDestinationAttributes
+        ) {
+            fields.append(try textField(
+                "effective_output_pixel_format",
+                fourCC(OSType(pixelFormat))
+            ))
+        }
+        if let bitDepth = source.color.bitDepth {
+            fields.append(try field(
+                "source_bit_depth",
+                .signedInteger(Int64(bitDepth))
+            ))
+        }
+        fields.append(contentsOf: try timeFields(
+            prefix: "nominal_frame_duration",
+            source.minimumFrameDuration
+        ))
+        return fields
+    }
+
+    private static func pixelBufferInteger(
+        _ key: CFString,
+        in attributes: PixelBufferAttributes?
+    ) -> Int? {
+        (attributes?.values[key as String] as? NSNumber)?.intValue
+    }
+
+    private static func diagnosticDimension(_ value: CGFloat) -> Int {
+        guard value.isFinite, value > 0, value <= CGFloat(Int.max) else {
+            return 0
+        }
+        return Int(value.rounded())
+    }
+
+    private static func timingFields(
+        _ timing: MirmirDiagnosticTimingContext
+    ) throws -> [MirmirDiagnosticField] {
+        var fields: [MirmirDiagnosticField] = []
+        if let siteID = timing.siteID {
+            fields.append(try textField("timing_site_id", siteID))
+        }
+        if let sampleIndex = timing.sampleIndex {
+            fields.append(try field(
+                "sample_index",
+                .signedInteger(sampleIndex)
+            ))
+        }
+        fields.append(contentsOf: try timeFields(
+            prefix: "nominal_frame_duration",
+            timing.nominalFrameDuration
+        ))
+        fields.append(contentsOf: try timeFields(
+            prefix: "observed_presentation_time",
+            timing.observedPresentationTime
+        ))
+        fields.append(contentsOf: try timeFields(
+            prefix: "expected_presentation_time",
+            timing.expectedPresentationTime
+        ))
+        fields.append(contentsOf: try timeFields(
+            prefix: "observed_duration",
+            timing.observedDuration
+        ))
+        fields.append(contentsOf: try timeFields(
+            prefix: "expected_duration",
+            timing.expectedDuration
+        ))
+        return fields
+    }
+
+    private static func durableFields(
+        _ durable: MirmirDiagnosticDurableContext
+    ) throws -> [MirmirDiagnosticField] {
+        var fields: [MirmirDiagnosticField] = []
+        if let value = durable.nextInputSampleIndex {
+            fields.append(try field(
+                "next_input_sample_index",
+                .signedInteger(value)
+            ))
+        }
+        if let value = durable.segmentOrdinal {
+            fields.append(try field(
+                "segment_ordinal",
+                .signedInteger(Int64(value))
+            ))
+        }
+        if let value = durable.segmentCount {
+            fields.append(try field(
+                "segment_count",
+                .signedInteger(Int64(value))
+            ))
+        }
+        if let value = durable.isComplete {
+            fields.append(try field("is_complete", .boolean(value)))
+        }
+        if let value = durable.checkpointSchema {
+            fields.append(try textField("checkpoint_schema", value))
+        }
+        if let value = durable.publishAttempted {
+            fields.append(try field("publish", .boolean(value)))
+        }
+        if let value = durable.atomicPublicationFailed {
+            fields.append(try field(
+                "atomic_publication_failed",
+                .boolean(value)
+            ))
+        }
+        if let value = durable.checkpointURL {
+            fields.append(try textField("checkpoint_path", value.path))
+        }
+        return fields
+    }
+
+    private static func audioFields(
+        _ audio: MirmirDiagnosticAudioContext
+    ) throws -> [MirmirDiagnosticField] {
+        [
+            try field(
+                "audio_tracks_opened",
+                .signedInteger(Int64(audio.openedTrackCount))
+            ),
+            try textField(
+                "audio_codecs",
+                audio.codecs.isEmpty
+                    ? "none" : audio.codecs.joined(separator: ",")
+            ),
+            try textField(
+                "audio_alternate_group_flags",
+                audio.alternateGroupFlags.map { $0 ? "true" : "false" }
+                    .joined(separator: ",")
+            ),
+            try textField("audio_reader_drain_mode", audio.readerDrainMode)
+        ]
+    }
+
+    private static func diskFields(
+        destinationURL: URL,
+        checkpointURL: URL?
+    ) throws -> [MirmirDiagnosticField] {
+        var fields = try volumeFields(
+            role: "destination",
+            url: destinationURL
+        )
+        if let checkpointURL {
+            fields.append(contentsOf: try volumeFields(
+                role: "checkpoint",
+                url: checkpointURL
+            ))
+        }
+        return fields
+    }
+
+    private static func volumeFields(
+        role: String,
+        url: URL
+    ) throws -> [MirmirDiagnosticField] {
+        let existing = existingAncestor(of: url)
+        let values = try? existing.resourceValues(forKeys: [
+            .volumeAvailableCapacityForImportantUsageKey,
+            .volumeUUIDStringKey,
+            .volumeNameKey
+        ])
+        var fields = [
+            try textField("\(role)_volume_path", existing.path)
+        ]
+        if let free = values?.volumeAvailableCapacityForImportantUsage,
+           free >= 0 {
+            fields.append(try field(
+                "\(role)_volume_free_bytes",
+                .byteCount(UInt64(free))
+            ))
+        }
+        if let uuid = values?.volumeUUIDString {
+            fields.append(try textField(
+                "\(role)_volume_uuid",
+                uuid
+            ))
+        } else if let name = values?.volumeName {
+            fields.append(try textField(
+                "\(role)_volume_identity",
+                name
+            ))
+        }
+        return fields
+    }
+
+    private static func existingAncestor(of url: URL) -> URL {
+        var candidate = url.standardizedFileURL
+        var isDirectory: ObjCBool = false
+        while !FileManager.default.fileExists(
+            atPath: candidate.path,
+            isDirectory: &isDirectory
+        ), candidate.path != "/" {
+            candidate.deleteLastPathComponent()
+        }
+        return candidate
+    }
+
+    private static func errorFields(
+        _ error: Error
+    ) throws -> [MirmirDiagnosticField] {
+        let nsError = error as NSError
+        var fields = [
+            try textField("failure_kind", failureCode(error)),
+            try textField("error_domain", nsError.domain),
+            try field(
+                "error_code",
+                .signedInteger(Int64(nsError.code))
+            )
+        ]
+        if let errno = posixErrno(error) {
+            fields.append(try field(
+                "errno",
+                .signedInteger(Int64(errno))
+            ))
+        }
+        if case let DeterministicV4MediaSegmentError
+            .invalidSampleTiming(site) = error {
+            fields.append(try textField(
+                "timing_site_id",
+                site.rawValue
+            ))
+        }
+        return fields
+    }
+
+    static func failureCode(_ error: Error) -> String {
+        if error is CancellationError || error as? MirmirError == .cancelled {
+            return "cancelled"
+        }
+        if posixErrno(error) == ENOSPC {
+            return "enospc"
+        }
+        if case WorkflowSegmentCheckpointStoreV4Error
+            .atomicPublicationFailed = error {
+            return "atomic_publication_failed"
+        }
+        if error is MirmirAtomicPublicationError {
+            return "atomic_publication_failed"
+        }
+        if case DeterministicV4MediaSegmentError
+            .invalidSampleTiming = error {
+            return "invalid_sample_timing"
+        }
+        let description = String(reflecting: type(of: error)).lowercased()
+        if description.contains("geometry")
+            || description.contains("resolution") {
+            return "geometry_rejected"
+        }
+        return "processing_failed"
+    }
+
+    static func posixErrno(_ error: Error) -> Int32? {
+        var current: NSError? = error as NSError
+        var observed = Set<ObjectIdentifier>()
+        while let candidate = current,
+              observed.insert(ObjectIdentifier(candidate)).inserted {
+            if candidate.domain == NSPOSIXErrorDomain {
+                return Int32(candidate.code)
+            }
+            if candidate.domain == NSCocoaErrorDomain,
+               let underlying = candidate.userInfo[
+                   NSUnderlyingErrorKey
+               ] as? NSError,
+               underlying.domain == NSPOSIXErrorDomain {
+                return Int32(underlying.code)
+            }
+            current = candidate.userInfo[NSUnderlyingErrorKey] as? NSError
+        }
+        if case let WorkflowSegmentCheckpointStoreV4Error
+            .atomicPublicationFailed(_, code) = error {
+            return code
+        }
+        return nil
+    }
+
+    private static func fourCC(_ value: OSType) -> String {
+        let bytes: [UInt8] = [
+            UInt8((value >> 24) & 0xff),
+            UInt8((value >> 16) & 0xff),
+            UInt8((value >> 8) & 0xff),
+            UInt8(value & 0xff)
+        ]
+        let printable = bytes.map {
+            (32...126).contains($0) ? Character(UnicodeScalar($0)) : "?"
+        }
+        return String(printable)
+            + String(format: " (0x%08x)", value)
+    }
+
     private static func reportRecordingFailure(
         _ error: Error,
         operation: String
     ) {
-        let identity = MirmirDiagnosticErrorIdentity(error)
-        let frame = identity.frames.first
+        let identity = error as NSError
         MirmirDiagnosticStore.logger.error(
-            "Diagnostic event \(operation, privacy: .public) was not persisted; domain=\(frame?.domain ?? "untrusted", privacy: .private) code=\(frame?.code ?? 0, privacy: .public)"
+            "Unable to record \(operation, privacy: .public); domain=\(identity.domain, privacy: .public) code=\(identity.code, privacy: .public)"
         )
     }
 }

@@ -43,6 +43,74 @@ struct VideoProcessingSession: Sendable {
         cancellation: ProcessingCancellation,
         progress: @escaping ProgressHandler
     ) async throws -> UpscaleResult {
+        let audio = await Self.diagnosticAudioContext(
+            request: request,
+            source: source
+        )
+        let diagnosticProcessingContext = MirmirDiagnosticProcessingContext(
+            request: request,
+            source: source,
+            actualBackendID: preparedBackend.actualBackendID,
+            fallbackOccurred: request.backendID.isConcreteBackend
+                && request.backendID != preparedBackend.actualBackendID,
+            effectiveSourceAttributes:
+                preparedBackend.sourcePixelBufferAttributes,
+            effectiveDestinationAttributes:
+                preparedBackend.destinationPixelBufferAttributes,
+            durable: .init(
+                isComplete: false,
+                checkpointSchema: "direct-processing-v1",
+                publishAttempted: false,
+                atomicPublicationFailed: false
+            ),
+            audio: audio
+        )
+        do {
+            return try await MirmirDiagnosticScope.$processingContext
+                .withValue(diagnosticProcessingContext) {
+                    try await processUninstrumented(
+                        request: request,
+                        source: source,
+                        preparedBackend: preparedBackend,
+                        cancellation: cancellation,
+                        progress: progress
+                    )
+                }
+        } catch {
+            MirmirDiagnosticScope.recorder.recordProcessingFailure(
+                subsystem: preparedBackend
+                    is any PreparedDeterministicV4RuntimePlanningBackend
+                    ? "deterministic_v4" : "conventional_processing",
+                operation: preparedBackend
+                    is any PreparedDeterministicV4RuntimePlanningBackend
+                    ? "process" : "process_conventional",
+                request: request,
+                source: source,
+                actualBackendID: preparedBackend.actualBackendID,
+                fallbackOccurred: request.backendID.isConcreteBackend
+                    && request.backendID != preparedBackend.actualBackendID,
+                effectiveSourceAttributes:
+                    preparedBackend.sourcePixelBufferAttributes,
+                effectiveDestinationAttributes:
+                    preparedBackend.destinationPixelBufferAttributes,
+                timing: .init(
+                    nominalFrameDuration: source.minimumFrameDuration,
+                    siteID: Self.timingSiteID(error)
+                ),
+                audio: audio,
+                error: error
+            )
+            throw error
+        }
+    }
+
+    private func processUninstrumented(
+        request: UpscaleRequest,
+        source: VideoInfo,
+        preparedBackend: any PreparedFrameUpscaler,
+        cancellation: ProcessingCancellation,
+        progress: @escaping ProgressHandler
+    ) async throws -> UpscaleResult {
         if let deterministicBackend = preparedBackend
             as? any PreparedDeterministicV4RuntimePlanningBackend {
             return try await deterministicV4Session.process(
@@ -292,6 +360,74 @@ struct VideoProcessingSession: Sendable {
             try? await preparedBackend.finish()
             throw error
         }
+    }
+
+    static func diagnosticAudioContext(
+        request: UpscaleRequest,
+        source: VideoInfo
+    ) async -> MirmirDiagnosticAudioContext {
+        guard request.preserveAudio else {
+            return .init(
+                openedTrackCount: 0,
+                codecs: [],
+                alternateGroupFlags: [],
+                readerDrainMode: "omitted_by_request"
+            )
+        }
+        let asset = AVURLAsset(
+            url: request.inputURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        guard let tracks = try? await asset.load(.tracks) else {
+            return .init(
+                openedTrackCount: source.audioTrackCount,
+                codecs: ["probe_unavailable"],
+                alternateGroupFlags: [],
+                readerDrainMode: "round_robin_serial_reader"
+            )
+        }
+        let audioTracks = tracks.filter { $0.mediaType == .audio }
+        let groups = (try? await asset.load(.trackGroups)) ?? []
+        let groupedIDs = Set(groups.flatMap { $0.trackIDs.map(\.int32Value) })
+        var codecs: [String] = []
+        for track in audioTracks {
+            guard let description = try? await track.load(
+                .formatDescriptions
+            ).first else {
+                codecs.append("unknown")
+                continue
+            }
+            codecs.append(Self.fourCC(
+                CMFormatDescriptionGetMediaSubType(description)
+            ))
+        }
+        return .init(
+            openedTrackCount: audioTracks.count,
+            codecs: codecs,
+            alternateGroupFlags: audioTracks.map {
+                groupedIDs.contains($0.trackID)
+            },
+            readerDrainMode: "round_robin_serial_reader"
+        )
+    }
+
+    private static func timingSiteID(_ error: Error) -> String? {
+        guard case let DeterministicV4MediaSegmentError
+            .invalidSampleTiming(site) = error else {
+            return nil
+        }
+        return site.rawValue
+    }
+
+    private static func fourCC(_ value: FourCharCode) -> String {
+        let bytes: [UInt8] = [
+            UInt8((value >> 24) & 0xff),
+            UInt8((value >> 16) & 0xff),
+            UInt8((value >> 8) & 0xff),
+            UInt8(value & 0xff)
+        ]
+        return String(bytes: bytes, encoding: .macOSRoman)
+            ?? String(format: "0x%08x", value)
     }
 
     /// Executes the same production deterministic route as `process`, while

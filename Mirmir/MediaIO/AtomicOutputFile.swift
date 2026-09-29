@@ -1,5 +1,30 @@
 import Foundation
 
+struct MirmirAtomicPublicationError: LocalizedError, CustomNSError,
+    @unchecked Sendable {
+    static let errorDomain = "Mirmir.AtomicPublication"
+
+    let temporaryURL: URL
+    let finalURL: URL
+    let underlyingError: NSError
+
+    var errorCode: Int { underlyingError.code }
+
+    var errorUserInfo: [String: Any] {
+        [
+            NSLocalizedDescriptionKey: errorDescription ?? "Atomic publication failed.",
+            NSUnderlyingErrorKey: underlyingError,
+            "temporary_path": temporaryURL.path,
+            "destination_path": finalURL.path
+        ]
+    }
+
+    var errorDescription: String? {
+        "Atomic publication from \(temporaryURL.path) to \(finalURL.path) "
+            + "failed: \(underlyingError.domain) \(underlyingError.code)."
+    }
+}
+
 final class AtomicOutputFile: @unchecked Sendable {
     let finalURL: URL
     let temporaryURL: URL
@@ -69,7 +94,54 @@ final class AtomicOutputFile: @unchecked Sendable {
         } catch let error as MirmirError {
             throw error
         } catch {
-            throw MirmirError.outputFinalizeFailed(error.localizedDescription)
+            let publicationError = MirmirAtomicPublicationError(
+                temporaryURL: temporaryURL,
+                finalURL: finalURL,
+                underlyingError: error as NSError
+            )
+            do {
+                let processing = MirmirDiagnosticScope.processingContext
+                var fields = [
+                    try MirmirDiagnosticRecorder.textField(
+                        "atomic_temporary_path",
+                        temporaryURL.path
+                    )
+                ]
+                if processing == nil {
+                    fields.append(try MirmirDiagnosticRecorder.textField(
+                        "output_path",
+                        finalURL.path
+                    ))
+                }
+                MirmirDiagnosticScope.recorder.recordCheckpoint(
+                    subsystem: "durable_publication",
+                    operation: "publish",
+                    executionContext:
+                        MirmirDiagnosticScope.executionContext,
+                    durable: .init(
+                        nextInputSampleIndex: processing?.durable
+                            .nextInputSampleIndex,
+                        segmentOrdinal: processing?.durable.segmentOrdinal,
+                        segmentCount: processing?.durable.segmentCount,
+                        isComplete: false,
+                        checkpointSchema: processing?.durable
+                            .checkpointSchema ?? "atomic-output-v1",
+                        publishAttempted: true,
+                        atomicPublicationFailed: true,
+                        checkpointURL: processing?.durable.checkpointURL
+                            ?? temporaryURL.deletingLastPathComponent()
+                    ),
+                    destinationURL: finalURL,
+                    processingContext: processing,
+                    fields: fields,
+                    error: publicationError
+                )
+            } catch {
+                MirmirDiagnosticStore.logger.error(
+                    "Unable to construct atomic publication diagnostics"
+                )
+            }
+            throw publicationError
         }
     }
 

@@ -11,14 +11,26 @@ struct MirmirDiagnosticField: Codable, Equatable, Sendable {
 }
 
 struct MirmirDiagnosticErrorFrame: Codable, Equatable, Sendable {
+    struct UserInfoEntry: Codable, Equatable, Sendable {
+        let key: String
+        let value: String
+    }
+
     let type: String
     let domain: String
     let code: Int
+    let userInfo: [UserInfoEntry]
 
-    init(type: String, domain: String, code: Int) {
+    init(
+        type: String,
+        domain: String,
+        code: Int,
+        userInfo: [UserInfoEntry] = []
+    ) {
         self.type = Self.safeIdentifier(type)
         self.domain = Self.safeIdentifier(domain)
         self.code = code
+        self.userInfo = Array(userInfo.sorted { $0.key < $1.key }.prefix(32))
     }
 
     private static func safeIdentifier(_ value: String) -> String {
@@ -43,6 +55,7 @@ struct MirmirDiagnosticErrorFrame: Codable, Equatable, Sendable {
         case type
         case domain
         case code
+        case userInfo = "user_info"
     }
 
     init(from decoder: Decoder) throws {
@@ -50,8 +63,22 @@ struct MirmirDiagnosticErrorFrame: Codable, Equatable, Sendable {
         self.init(
             type: try container.decode(String.self, forKey: .type),
             domain: try container.decode(String.self, forKey: .domain),
-            code: try container.decode(Int.self, forKey: .code)
+            code: try container.decode(Int.self, forKey: .code),
+            userInfo: try container.decodeIfPresent(
+                [UserInfoEntry].self,
+                forKey: .userInfo
+            ) ?? []
         )
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(type, forKey: .type)
+        try container.encode(domain, forKey: .domain)
+        try container.encode(code, forKey: .code)
+        if !userInfo.isEmpty {
+            try container.encode(userInfo, forKey: .userInfo)
+        }
     }
 }
 
@@ -72,7 +99,8 @@ struct MirmirDiagnosticErrorIdentity: Codable, Equatable, Sendable {
             frames.append(MirmirDiagnosticErrorFrame(
                 type: currentType,
                 domain: error.domain,
-                code: error.code
+                code: error.code,
+                userInfo: Self.forensicUserInfo(error.userInfo)
             ))
             current = error.userInfo[NSUnderlyingErrorKey] as? NSError
             if let current {
@@ -86,6 +114,19 @@ struct MirmirDiagnosticErrorIdentity: Codable, Equatable, Sendable {
                 code: 0
             )]
             : frames
+    }
+
+    private static func forensicUserInfo(
+        _ userInfo: [String: Any]
+    ) -> [MirmirDiagnosticErrorFrame.UserInfoEntry] {
+        userInfo.compactMap { key, value in
+            guard MirmirDiagnosticPrivacyValidator.permitsUserInfoKey(key),
+                  let rendered = MirmirDiagnosticPrivacyValidator
+                    .sanitizedForensicString(value) else {
+                return nil
+            }
+            return .init(key: key, value: rendered)
+        }
     }
 
     init(errors: [Error]) {
@@ -133,9 +174,10 @@ struct MirmirDiagnosticErrorIdentity: Codable, Equatable, Sendable {
 
 struct MirmirDiagnosticSourceLocation: Codable, Equatable, Sendable {
     let fileID: String
+    let function: String?
     let line: UInt
 
-    init(fileID: String, line: UInt) throws {
+    init(fileID: String, function: String? = nil, line: UInt) throws {
         let components = fileID.split(separator: "/", omittingEmptySubsequences: false)
         guard !fileID.isEmpty,
               !fileID.hasPrefix("/"),
@@ -155,11 +197,13 @@ struct MirmirDiagnosticSourceLocation: Codable, Equatable, Sendable {
             throw MirmirDiagnosticValidationError.invalidSourceLocation
         }
         self.fileID = fileID
+        self.function = function.map { String($0.prefix(512)) }
         self.line = line
     }
 
     enum CodingKeys: String, CodingKey {
         case fileID = "file_id"
+        case function
         case line
     }
 
@@ -168,6 +212,10 @@ struct MirmirDiagnosticSourceLocation: Codable, Equatable, Sendable {
         do {
             try self.init(
                 fileID: container.decode(String.self, forKey: .fileID),
+                function: container.decodeIfPresent(
+                    String.self,
+                    forKey: .function
+                ),
                 line: container.decode(UInt.self, forKey: .line)
             )
         } catch {
@@ -181,7 +229,7 @@ struct MirmirDiagnosticSourceLocation: Codable, Equatable, Sendable {
 }
 
 struct MirmirDiagnosticEvent: Codable, Equatable, Sendable {
-    static let maximumFields = 32
+    static let maximumFields = 128
 
     let severity: MirmirDiagnosticSeverity
     let subsystem: MirmirDiagnosticToken
@@ -405,34 +453,53 @@ enum MirmirDiagnosticCanonicalJSON {
 
 enum MirmirDiagnosticPrivacyValidator {
     private static let privateKeys: Set<String> = [
-        "account",
-        "account_id",
         "bookmark",
         "bookmark_data",
-        "filename",
-        "home_directory",
-        "hostname",
-        "message",
+        "credential",
+        "credentials",
         "password",
-        "path",
         "secret",
         "token",
-        "url",
-        "user_name",
-        "username"
+        "api_key",
+        "authorization"
     ]
-    private static let emailExpression = Result {
-        try NSRegularExpression(
-            pattern: #"(?i)(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"#
-        )
-    }
-    private static let privatePathExpression = Result {
-        try NSRegularExpression(pattern: #"(?i)(?:file://|/Users/|/home/)"#)
-    }
     private static let credentialExpression = Result {
         try NSRegularExpression(
-            pattern: #"(?i)(?:sk_(?:live|test|proj)|gh[pousr]_|xox[baprs]-|bearer\s+)[A-Za-z0-9_-]+"#
+            pattern: #"(?i)(?:sk_(?:live|test|proj)|gh[pousr]_|xox[baprs]-|bearer\s+|basic\s+)[A-Za-z0-9_./+=:-]+"#
         )
+    }
+
+    static func permitsUserInfoKey(_ key: String) -> Bool {
+        let normalized = key.lowercased()
+        return !privateKeys.contains(normalized)
+            && !normalized.contains("bookmark")
+            && !normalized.contains("credential")
+            && !normalized.contains("password")
+            && !normalized.contains("secret")
+            && !normalized.contains("token")
+            && !normalized.contains("authorization")
+    }
+
+    static func sanitizedForensicString(_ value: Any) -> String? {
+        let rendered: String
+        switch value {
+        case let url as URL:
+            rendered = url.isFileURL ? url.path : url.absoluteString
+        case let string as String:
+            rendered = string
+        case let number as NSNumber:
+            rendered = number.stringValue
+        case let value as CustomStringConvertible:
+            rendered = value.description
+        default:
+            return nil
+        }
+        guard rendered.utf8.count <= 16_384,
+              !rendered.unicodeScalars.contains(where: { $0.value < 0x20 }),
+              (try? containsCredential(rendered)) != true else {
+            return nil
+        }
+        return rendered
     }
 
     static func validateJSON(_ data: Data) throws {
@@ -441,7 +508,7 @@ enum MirmirDiagnosticPrivacyValidator {
     }
 
     static func validateDocumentText(_ value: String) throws {
-        guard try !containsPrivateText(value) else {
+        guard try !containsCredential(value) else {
             throw MirmirDiagnosticValidationError.privacyViolation
         }
     }
@@ -450,7 +517,7 @@ enum MirmirDiagnosticPrivacyValidator {
         switch value {
         case let object as [String: Any]:
             for (key, child) in object {
-                guard !privateKeys.contains(key.lowercased()) else {
+                guard permitsUserInfoKey(key) else {
                     throw MirmirDiagnosticValidationError.privacyViolation
                 }
                 try validateJSONValue(child)
@@ -461,7 +528,7 @@ enum MirmirDiagnosticPrivacyValidator {
             }
         case let string as String:
             guard !string.unicodeScalars.contains(where: { $0.value < 0x20 }),
-                  try !containsPrivateText(string) else {
+                  try !containsCredential(string) else {
                 throw MirmirDiagnosticValidationError.privacyViolation
             }
         default:
@@ -469,10 +536,11 @@ enum MirmirDiagnosticPrivacyValidator {
         }
     }
 
-    private static func containsPrivateText(_ value: String) throws -> Bool {
+    private static func containsCredential(_ value: String) throws -> Bool {
         let range = NSRange(value.startIndex..<value.endIndex, in: value)
-        return try emailExpression.get().firstMatch(in: value, range: range) != nil
-            || privatePathExpression.get().firstMatch(in: value, range: range) != nil
-            || credentialExpression.get().firstMatch(in: value, range: range) != nil
+        return try credentialExpression.get().firstMatch(
+            in: value,
+            range: range
+        ) != nil
     }
 }

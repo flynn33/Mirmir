@@ -206,6 +206,57 @@ actor WorkflowSegmentCheckpointStoreV4 {
         using claim: WorkflowDispatchClaimV4,
         temporalCheckpoint: Data
     ) async throws -> WorkflowSegmentCheckpointPublicationV4 {
+        let context = MirmirDiagnosticExecutionContext(
+            jobID: claim.jobID.rawValue,
+            workflowID: claim.jobBinding.requestID.rawValue,
+            queueItemID: claim.jobID.rawValue
+        )
+        do {
+            let publication = try await publishBoundaryUninstrumented(
+                request,
+                using: claim,
+                temporalCheckpoint: temporalCheckpoint
+            )
+            MirmirDiagnosticScope.recorder.recordCheckpoint(
+                subsystem: "durable_checkpoint",
+                operation: "publish_boundary",
+                executionContext: context,
+                durable: diagnosticDurableContext(
+                    request: request,
+                    atomicPublicationFailed: false,
+                    publishAttempted: true,
+                    isComplete: request.trackProgress.allSatisfy(\.isComplete)
+                ),
+                destinationURL: rootURL,
+                fields: diagnosticCheckpointFields(request)
+            )
+            return publication
+        } catch {
+            MirmirDiagnosticScope.recorder.recordCheckpoint(
+                subsystem: "durable_checkpoint",
+                operation: "publish_boundary",
+                executionContext: context,
+                durable: diagnosticDurableContext(
+                    request: request,
+                    atomicPublicationFailed:
+                        MirmirDiagnosticRecorder.failureCode(error)
+                            == "atomic_publication_failed",
+                    publishAttempted: true,
+                    isComplete: false
+                ),
+                destinationURL: rootURL,
+                fields: diagnosticCheckpointFields(request),
+                error: error
+            )
+            throw error
+        }
+    }
+
+    private func publishBoundaryUninstrumented(
+        _ request: WorkflowSegmentCheckpointPublicationRequestV4,
+        using claim: WorkflowDispatchClaimV4,
+        temporalCheckpoint: Data
+    ) async throws -> WorkflowSegmentCheckpointPublicationV4 {
         guard claim.jobID == claim.jobBinding.jobID,
               claim.lifecycle == .running || claim.lifecycle == .pausing,
               claim.attemptID != nil else {
@@ -351,6 +402,55 @@ actor WorkflowSegmentCheckpointStoreV4 {
             draft: draft,
             segmentIdentity: sourceIdentity
         )
+    }
+
+    private func diagnosticDurableContext(
+        request: WorkflowSegmentCheckpointPublicationRequestV4,
+        atomicPublicationFailed: Bool,
+        publishAttempted: Bool,
+        isComplete: Bool
+    ) -> MirmirDiagnosticDurableContext {
+        .init(
+            nextInputSampleIndex: request.lastCompletedInputOrdinal + 1,
+            segmentOrdinal: request.existingSegments.count,
+            segmentCount: request.existingSegments.count + 1,
+            isComplete: isComplete,
+            checkpointSchema: "workflow-segment-artifact-v4-v1",
+            publishAttempted: publishAttempted,
+            atomicPublicationFailed: atomicPublicationFailed,
+            checkpointURL: rootURL
+        )
+    }
+
+    private func diagnosticCheckpointFields(
+        _ request: WorkflowSegmentCheckpointPublicationRequestV4
+    ) -> [MirmirDiagnosticField] {
+        (try? [
+            MirmirDiagnosticRecorder.textField(
+                "source_path",
+                request.sourceSegmentURL.path
+            ),
+            MirmirDiagnosticRecorder.textField(
+                "checkpoint_id",
+                request.checkpointID.rawValue
+            ),
+            MirmirDiagnosticRecorder.field(
+                "start_time_value",
+                .signedInteger(request.startTime.value)
+            ),
+            MirmirDiagnosticRecorder.field(
+                "start_time_timescale",
+                .signedInteger(Int64(request.startTime.timescale))
+            ),
+            MirmirDiagnosticRecorder.field(
+                "end_time_value",
+                .signedInteger(request.endTimeExclusive.value)
+            ),
+            MirmirDiagnosticRecorder.field(
+                "end_time_timescale",
+                .signedInteger(Int64(request.endTimeExclusive.timescale))
+            )
+        ]) ?? []
     }
 
     func verifyCheckpoint(

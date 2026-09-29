@@ -3,6 +3,7 @@ import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
 
+#if MIRMIR_LEGACY_MODULE_UI
 struct MirmirSettingsView: View {
     @ObservedObject var viewModel: MirmirViewModel
 
@@ -531,6 +532,8 @@ struct MirmirAboutView: View {
     }
 }
 
+#endif
+
 struct MirmirStartupDiagnosticSettingsView: View {
     let store: MirmirDiagnosticStore
     let reason: String
@@ -618,8 +621,9 @@ struct MirmirDiagnosticSettingsView: View {
                 Text("Diagnostic Log")
                     .font(.title2.weight(.semibold))
                 Text(
-                    "Review the privacy-filtered local log or export it "
-                        + "for troubleshooting."
+                    "Review the development forensic journal or export it "
+                        + "for troubleshooting. Local media paths are included; "
+                        + "credentials and security bookmarks are excluded."
                 )
                 .font(.callout)
                 .foregroundStyle(.secondary)

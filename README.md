@@ -45,6 +45,10 @@ deliberate operator actions.
   reconciles registered partial artifacts.
 - Output is semantically validated before atomic publication; cancellation,
   failure, and crash recovery account for temporary artifacts explicitly.
+- A single persistent development journal records backend selection, media
+  geometry and format, exact sample timing, durable checkpoint state, disk and
+  volume facts, opened audio topology, nested errors, and source locations.
+  Operators can export the same journal as JSON or Markdown from Diagnostics.
 
 Version 1.3.4 keeps these first-release boundaries explicit:
 
@@ -196,6 +200,26 @@ that does not match the declared trust roots cannot pass CI.
 
 See [`CHANGELOG.md`](CHANGELOG.md) for the current product record and the earlier
 conformance, qualification, and identity-check records.
+
+## Development diagnostics
+
+The in-place diagnostics module under `Mirmir/Modules/Diagnostics` owns one
+bounded `diagnostics-v1.jsonl` journal and one JSON/Markdown export path. Its
+development failure records include raw local source, output, and checkpoint
+paths so an exported record can identify a failing media and persistence
+boundary without guessing. Credential-shaped values, authorization data,
+tokens, passwords, secrets, and security bookmarks remain excluded.
+
+Processing failures record the requested and actual backend, fallback status,
+source/requested/effective geometry, pixel and color/HDR state, exact timing
+rationals, sample position, audio topology, durable state, disk capacity and
+volume identity, nested `NSError` frames, and file/function/line. The production
+cadence-failure path and the export contract are covered by executable tests.
+This deliberately detailed development policy must be reviewed and reduced as
+appropriate before a shipping privacy policy is finalized.
+
+See [`docs/DEVELOPMENT_DIAGNOSTICS.md`](docs/DEVELOPMENT_DIAGNOSTICS.md) for the
+schema, emission sites, redaction boundary, and verification procedure.
 
 ## Versioning
 

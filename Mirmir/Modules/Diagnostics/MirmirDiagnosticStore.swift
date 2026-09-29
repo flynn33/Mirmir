@@ -75,15 +75,20 @@ actor MirmirDiagnosticStore {
         clock: MirmirDiagnosticClock = .production,
         sessionID: UUID = UUID()
     ) throws {
-        let standardizedDirectory = R13RestartPath.resolvingExistingAncestor(
-            of: persistentDirectoryURL
-        )
+        let standardizedDirectory = persistentDirectoryURL.standardizedFileURL
+            .resolvingSymlinksInPath()
         guard standardizedDirectory.isFileURL else {
             throw MirmirDiagnosticStoreError.persistenceFailure(
                 operation: "validate_directory"
             )
         }
-        let fileSystem = MirmirLocalDiagnosticFileSystem()
+        try FileManager.default.createDirectory(
+            at: standardizedDirectory,
+            withIntermediateDirectories: true
+        )
+        let fileSystem = try MirmirLocalDiagnosticFileSystem(
+            rootURL: standardizedDirectory
+        )
         let journalURL = standardizedDirectory.appendingPathComponent(
             Self.journalFileName,
             isDirectory: false
