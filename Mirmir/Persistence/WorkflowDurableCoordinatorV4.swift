@@ -1355,6 +1355,10 @@ actor WorkflowDurableCoordinatorV4 {
         try journal.open()
     }
 
+    func checkpointHeadURLForDiagnostics(jobID: WorkflowJobID) -> URL {
+        checkpointHeadURL(jobID: jobID)
+    }
+
     func append(_ draft: WorkflowEventDraft) throws -> WorkflowJournalAppendResult {
         try journal.append(draft)
     }

@@ -32,12 +32,6 @@ extension MirmirDiagnosticStore {
 }
 
 struct MirmirDiagnosticExecutionContext: Equatable, Sendable {
-    static let direct = Self(
-        jobID: "direct-session",
-        workflowID: "direct-processing",
-        queueItemID: "not-queued"
-    )
-
     let jobID: String
     let workflowID: String
     let queueItemID: String
@@ -55,7 +49,7 @@ struct MirmirDiagnosticProcessingContext: Sendable {
 }
 
 enum MirmirDiagnosticScope {
-    @TaskLocal static var executionContext = MirmirDiagnosticExecutionContext.direct
+    @TaskLocal static var executionContext: MirmirDiagnosticExecutionContext?
     @TaskLocal static var processingContext: MirmirDiagnosticProcessingContext?
     @TaskLocal static var recorder = MirmirDiagnosticRecorder.application
 }
@@ -208,6 +202,8 @@ struct MirmirDiagnosticRecorder: Sendable {
         operation: String,
         code: String,
         correlationID: UUID? = nil,
+        executionContext: MirmirDiagnosticExecutionContext? =
+            MirmirDiagnosticScope.executionContext,
         fields: [MirmirDiagnosticField] = [],
         error: Error? = nil,
         fileID: String = #fileID,
@@ -215,7 +211,6 @@ struct MirmirDiagnosticRecorder: Sendable {
         line: UInt = #line
     ) {
         guard store != nil else { return }
-        let context = MirmirDiagnosticScope.executionContext
         submissionQueue.enqueue {
             await record(
                 severity: severity,
@@ -223,7 +218,7 @@ struct MirmirDiagnosticRecorder: Sendable {
                 operation: operation,
                 code: code,
                 correlationID: correlationID,
-                executionContext: context,
+                executionContext: executionContext,
                 fields: fields,
                 error: error,
                 fileID: fileID,
@@ -239,7 +234,7 @@ struct MirmirDiagnosticRecorder: Sendable {
         operation: String,
         code: String,
         correlationID: UUID? = nil,
-        executionContext: MirmirDiagnosticExecutionContext =
+        executionContext: MirmirDiagnosticExecutionContext? =
             MirmirDiagnosticScope.executionContext,
         fields: [MirmirDiagnosticField] = [],
         error: Error? = nil,
@@ -249,7 +244,10 @@ struct MirmirDiagnosticRecorder: Sendable {
     ) async {
         guard let store else { return }
         do {
-            var completeFields = try Self.executionFields(executionContext)
+            var completeFields: [MirmirDiagnosticField] = []
+            if let executionContext {
+                completeFields = try Self.executionFields(executionContext)
+            }
             Self.appendUnique(fields, to: &completeFields)
             if let error {
                 Self.appendUnique(
@@ -280,7 +278,7 @@ struct MirmirDiagnosticRecorder: Sendable {
     func recordProcessingFailure(
         subsystem: String,
         operation: String,
-        executionContext: MirmirDiagnosticExecutionContext =
+        executionContext: MirmirDiagnosticExecutionContext? =
             MirmirDiagnosticScope.executionContext,
         request: UpscaleRequest,
         source: VideoInfo,
@@ -338,10 +336,67 @@ struct MirmirDiagnosticRecorder: Sendable {
         }
     }
 
+    func recordTimingFailure(
+        subsystem: String,
+        operation: String,
+        executionContext: MirmirDiagnosticExecutionContext? =
+            MirmirDiagnosticScope.executionContext,
+        processingContext: MirmirDiagnosticProcessingContext?,
+        timing: MirmirDiagnosticTimingContext,
+        durable: MirmirDiagnosticDurableContext = .init(),
+        error: Error,
+        fileID: String = #fileID,
+        function: String = #function,
+        line: UInt = #line
+    ) {
+        if let processingContext {
+            recordProcessingFailure(
+                subsystem: subsystem,
+                operation: operation,
+                executionContext: executionContext,
+                request: processingContext.request,
+                source: processingContext.source,
+                actualBackendID: processingContext.actualBackendID,
+                fallbackOccurred: processingContext.fallbackOccurred,
+                effectiveSourceAttributes:
+                    processingContext.effectiveSourceAttributes,
+                effectiveDestinationAttributes:
+                    processingContext.effectiveDestinationAttributes,
+                timing: timing,
+                durable: durable,
+                audio: processingContext.audio,
+                error: error,
+                fileID: fileID,
+                function: function,
+                line: line
+            )
+            return
+        }
+
+        do {
+            var fields = try Self.timingFields(timing)
+            fields.append(contentsOf: try Self.durableFields(durable))
+            enqueue(
+                severity: .error,
+                subsystem: subsystem,
+                operation: operation,
+                code: Self.failureCode(error),
+                executionContext: executionContext,
+                fields: fields,
+                error: error,
+                fileID: fileID,
+                function: function,
+                line: line
+            )
+        } catch {
+            Self.reportRecordingFailure(error, operation: operation)
+        }
+    }
+
     func recordCheckpoint(
         subsystem: String,
         operation: String,
-        executionContext: MirmirDiagnosticExecutionContext,
+        executionContext: MirmirDiagnosticExecutionContext?,
         durable: MirmirDiagnosticDurableContext,
         destinationURL: URL?,
         processingContext: MirmirDiagnosticProcessingContext? = nil,

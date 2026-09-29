@@ -94,7 +94,15 @@ diagnostic tests cover v1 persistence, both export formats, exact timing
 rationals, ENOSPC nested errors and durable state, source locations,
 development paths, and credential rejection.
 
-The current development tree completed the full macOS Debug scheme with 520
-tests: 517 passed, zero failed, and three expected opt-in capture tests skipped.
+`testProductionCadenceValidatorSubmitsFailureWithoutProcessingContext` calls
+the same production validator without a task-local processing context and
+verifies that its timing site and operation still reach the store while absent
+job/workflow/queue fields remain absent.
+`testFinalizeFailureRecorderExportsDurableCheckpointPath` calls the production
+finalize recorder and verifies that JSON export retains the durable job's
+non-empty checkpoint-head path and the `finalize` operation.
+
+The current development tree completed the full macOS Debug scheme with 522
+tests: 519 passed, zero failed, and three expected opt-in capture tests skipped.
 The result bundle is test evidence for this tree; it is not release or
 large-media qualification.

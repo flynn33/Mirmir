@@ -2236,6 +2236,10 @@ extension WorkflowApplicationQueueV4 {
         )
     }
 
+    func applicationCheckpointURL(jobID: WorkflowJobID) async -> URL {
+        await coordinator.checkpointHeadURLForDiagnostics(jobID: jobID)
+    }
+
     func commitApplicationCheckpointBoundary(
         dispatch: WorkflowQueueDispatchReceiptV4,
         specification: WorkflowJobSpecification,

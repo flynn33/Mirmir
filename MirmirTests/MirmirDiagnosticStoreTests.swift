@@ -247,6 +247,72 @@ struct MirmirDiagnosticStoreTests {
     }
 
     @Test
+    func testProductionCadenceValidatorSubmitsFailureWithoutProcessingContext()
+        async throws {
+        let store = MirmirDiagnosticStore(
+            inMemoryWith: .production,
+            sessionID: fixedUUID(12)
+        )
+        let recorder = MirmirDiagnosticRecorder(store: store)
+        let presentationTimes = [
+            CMTime(value: 0, timescale: 30),
+            CMTime(value: 1, timescale: 30),
+            CMTime(value: 90, timescale: 30)
+        ]
+        let decodedDurations = Array(
+            repeating: CMTime(value: 1, timescale: 30),
+            count: presentationTimes.count
+        )
+
+        do {
+            try MirmirDiagnosticScope.$recorder.withValue(recorder) {
+                try DeterministicV4MediaProcessingSession
+                    .validateNominalDecodedCadence(
+                        presentationTimes: presentationTimes,
+                        decodedDurations: decodedDurations,
+                        nominalSourceFrameDuration: try ExactRationalV4(1, 30)
+                    )
+            }
+            Issue.record("Expected production cadence validation to fail")
+        } catch {
+            #expect(
+                error as? DeterministicV4MediaSegmentError
+                    == .invalidSampleTiming(
+                        site: .nominalCadenceOffLattice
+                    )
+            )
+        }
+
+        let snapshot = try await store.snapshot()
+        #expect(snapshot.records.count == 1)
+        let record = try #require(snapshot.records.first)
+        #expect(
+            record.event.operation.rawValue
+                == "validate_nominal_decoded_cadence"
+        )
+        #expect(record.event.code.rawValue == "invalid_sample_timing")
+        #expect(record.event.error != nil)
+        #expect(record.event.source?.fileID
+            == "Mirmir/DeterministicV4MediaProcessingSession.swift")
+        #expect(record.event.source?.function?.contains(
+            "validateNominalDecodedCadence"
+        ) == true)
+        #expect(record.event.fields.contains {
+            $0.key.rawValue == "timing_site_id"
+                && $0.value.displayValue
+                    == "dv4_timing_038_nominal_cadence_off_lattice"
+        })
+        #expect(record.event.fields.contains {
+            $0.key.rawValue == "sample_index"
+                && $0.value.displayValue == "2"
+        })
+        #expect(!record.event.fields.contains {
+            ["job_id", "workflow_id", "queue_item_id"]
+                .contains($0.key.rawValue)
+        })
+    }
+
+    @Test
     func testAtomicOutputPublishSubmitsMissingTemporaryFailureToInjectedStore()
         async throws {
         let directory = temporaryDirectory("production-publication")
@@ -315,6 +381,77 @@ struct MirmirDiagnosticStoreTests {
         #expect(exported.contains("job-production-publication"))
         #expect(exported.contains(output.temporaryURL.path))
         #expect(exported.contains(outputURL.path))
+    }
+
+    @Test
+    func testFinalizeFailureRecorderExportsDurableCheckpointPath()
+        async throws {
+        let directory = temporaryDirectory("finalize-checkpoint")
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let checkpointURL = directory
+            .appendingPathComponent("jobs", isDirectory: true)
+            .appendingPathComponent("job-finalize", isDirectory: true)
+            .appendingPathComponent("checkpoints-v4", isDirectory: true)
+            .appendingPathComponent("head-v1.json")
+        try FileManager.default.createDirectory(
+            at: checkpointURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data("checkpoint".utf8).write(to: checkpointURL)
+        let destinationURL = directory.appendingPathComponent("output.mov")
+        let underlying = NSError(
+            domain: NSPOSIXErrorDomain,
+            code: Int(ENOSPC),
+            userInfo: [NSLocalizedDescriptionKey: "No space left on device"]
+        )
+        let failure = MirmirAtomicPublicationError(
+            temporaryURL: directory.appendingPathComponent("output.partial"),
+            finalURL: destinationURL,
+            underlyingError: underlying
+        )
+        let store = MirmirDiagnosticStore(
+            inMemoryWith: .production,
+            sessionID: fixedUUID(13)
+        )
+        let recorder = MirmirDiagnosticRecorder(store: store)
+
+        MirmirDiagnosticScope.$recorder.withValue(recorder) {
+            WorkflowApplicationCoordinatorV4.recordFinalizeDiagnostic(
+                executionContext: .init(
+                    jobID: "job-finalize",
+                    workflowID: "workflow-finalize",
+                    queueItemID: "queue-finalize"
+                ),
+                nextInputSampleIndex: 240,
+                segmentOrdinal: 3,
+                segmentCount: 4,
+                isComplete: false,
+                checkpointURL: checkpointURL,
+                destinationURL: destinationURL,
+                error: failure
+            )
+        }
+
+        let snapshot = try await store.snapshot()
+        #expect(snapshot.records.count == 1)
+        let record = try #require(snapshot.records.first)
+        #expect(record.event.operation.rawValue == "finalize")
+        #expect(record.event.fields.contains {
+            $0.key.rawValue == "checkpoint_path"
+                && !$0.value.displayValue.isEmpty
+                && $0.value.displayValue == checkpointURL.path
+        })
+        let exported = String(
+            decoding: try await store.exportJSON(),
+            as: UTF8.self
+        )
+        #expect(exported.contains("\"operation\" : \"finalize\""))
+        #expect(exported.contains(checkpointURL.path))
     }
 
     @Test

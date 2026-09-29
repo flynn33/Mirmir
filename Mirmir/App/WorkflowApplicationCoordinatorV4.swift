@@ -3949,6 +3949,41 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
     }
 }
 
+extension WorkflowApplicationCoordinatorV4 {
+    static func recordFinalizeDiagnostic(
+        executionContext: MirmirDiagnosticExecutionContext,
+        nextInputSampleIndex: Int64?,
+        segmentOrdinal: Int,
+        segmentCount: Int,
+        isComplete: Bool,
+        checkpointURL: URL,
+        destinationURL: URL,
+        error: Error?
+    ) {
+        MirmirDiagnosticScope.recorder.recordCheckpoint(
+            subsystem: "durable_publication",
+            operation: "finalize",
+            executionContext: executionContext,
+            durable: .init(
+                nextInputSampleIndex: nextInputSampleIndex,
+                segmentOrdinal: segmentOrdinal,
+                segmentCount: segmentCount,
+                isComplete: isComplete,
+                checkpointSchema: "workflow-checkpoint-v4-v3",
+                publishAttempted: true,
+                atomicPublicationFailed: error.map {
+                    MirmirDiagnosticRecorder.failureCode($0)
+                        == "atomic_publication_failed"
+                        || MirmirDiagnosticRecorder.posixErrno($0) == ENOSPC
+                } ?? false,
+                checkpointURL: checkpointURL
+            ),
+            destinationURL: destinationURL,
+            error: error
+        )
+    }
+}
+
 private extension WorkflowApplicationCoordinatorV4 {
     struct ClaimedOutcome: Sendable {
         let jobID: WorkflowJobID
@@ -4668,6 +4703,9 @@ private extension WorkflowApplicationCoordinatorV4 {
         let video = checkpoint.body.trackProgress.first {
             $0.kind == .video
         }
+        let checkpointURL = await queue.applicationCheckpointURL(
+            jobID: dispatch.claim.jobID
+        )
         do {
             let completion = try await finalizeUninstrumented(
                 dispatch: dispatch,
@@ -4677,50 +4715,29 @@ private extension WorkflowApplicationCoordinatorV4 {
                 processingDurationSeconds: processingDurationSeconds,
                 progress: progress
             )
-            MirmirDiagnosticScope.recorder.recordCheckpoint(
-                subsystem: "durable_publication",
-                operation: "finalize",
+            Self.recordFinalizeDiagnostic(
                 executionContext: context,
-                durable: .init(
-                    nextInputSampleIndex: video.map {
-                        Int64(clamping: $0.nextInputSampleIndex)
-                    },
-                    segmentOrdinal: Int(clamping:
-                        checkpoint.body.ordinal
-                    ),
-                    segmentCount: checkpoint.body.segments.count,
-                    isComplete: true,
-                    checkpointSchema: "workflow-checkpoint-v4-v3",
-                    publishAttempted: true,
-                    atomicPublicationFailed: false,
-                    checkpointURL: nil
-                ),
-                destinationURL: activated.request.outputURL
+                nextInputSampleIndex: video.map {
+                    Int64(clamping: $0.nextInputSampleIndex)
+                },
+                segmentOrdinal: Int(clamping: checkpoint.body.ordinal),
+                segmentCount: checkpoint.body.segments.count,
+                isComplete: true,
+                checkpointURL: checkpointURL,
+                destinationURL: activated.request.outputURL,
+                error: nil
             )
             return completion
         } catch {
-            MirmirDiagnosticScope.recorder.recordCheckpoint(
-                subsystem: "durable_publication",
-                operation: "finalize",
+            Self.recordFinalizeDiagnostic(
                 executionContext: context,
-                durable: .init(
-                    nextInputSampleIndex: video.map {
-                        Int64(clamping: $0.nextInputSampleIndex)
-                    },
-                    segmentOrdinal: Int(clamping:
-                        checkpoint.body.ordinal
-                    ),
-                    segmentCount: checkpoint.body.segments.count,
-                    isComplete: video?.isComplete ?? false,
-                    checkpointSchema: "workflow-checkpoint-v4-v3",
-                    publishAttempted: true,
-                    atomicPublicationFailed:
-                        MirmirDiagnosticRecorder.failureCode(error)
-                            == "atomic_publication_failed"
-                            || MirmirDiagnosticRecorder
-                                .posixErrno(error) == ENOSPC,
-                    checkpointURL: nil
-                ),
+                nextInputSampleIndex: video.map {
+                    Int64(clamping: $0.nextInputSampleIndex)
+                },
+                segmentOrdinal: Int(clamping: checkpoint.body.ordinal),
+                segmentCount: checkpoint.body.segments.count,
+                isComplete: video?.isComplete ?? false,
+                checkpointURL: checkpointURL,
                 destinationURL: activated.request.outputURL,
                 error: error
             )

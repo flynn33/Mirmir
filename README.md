@@ -214,8 +214,10 @@ Processing failures record the requested and actual backend, fallback status,
 source/requested/effective geometry, pixel and color/HDR state, exact timing
 rationals, sample position, audio topology, durable state, disk capacity and
 volume identity, nested `NSError` frames, and file/function/line. The production
-cadence-failure and atomic-publication paths plus the export contract are
-covered by executable tests.
+cadence-failure path records its timing evidence even without task-local job
+context, and coordinator finalize records carry the durable checkpoint-head
+path. These paths, atomic publication, and the export contract are covered by
+executable tests.
 This deliberately detailed development policy must be reviewed and reduced as
 appropriate before a shipping privacy policy is finalized.
 

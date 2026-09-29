@@ -2469,51 +2469,35 @@ extension DeterministicV4MediaProcessingSession {
                 let error = DeterministicV4MediaSegmentError.invalidSampleTiming(
                     site: .nominalCadenceOffLattice
                 )
-                if let context = MirmirDiagnosticScope.processingContext {
-                    let nextInputSampleIndex =
-                        (context.durable.nextInputSampleIndex ?? 0)
-                        + Int64(index)
-                    MirmirDiagnosticScope.recorder
-                        .recordProcessingFailure(
-                        subsystem: "deterministic_v4",
-                        operation: "validate_nominal_decoded_cadence",
-                        request: context.request,
-                        source: context.source,
-                        actualBackendID: context.actualBackendID,
-                        fallbackOccurred: context.fallbackOccurred,
-                        effectiveSourceAttributes:
-                            context.effectiveSourceAttributes,
-                        effectiveDestinationAttributes:
-                            context.effectiveDestinationAttributes,
-                        timing: .init(
-                            nominalFrameDuration: nominalDuration,
-                            sampleIndex: nextInputSampleIndex,
-                            observedPresentationTime: presentationTime,
-                            expectedPresentationTime:
-                                expectedPresentationTime,
-                            observedDuration: decodedDuration,
-                            expectedDuration: nominalDuration,
-                            siteID: DeterministicV4InvalidSampleTimingSite
-                                .nominalCadenceOffLattice.rawValue
-                        ),
-                        durable: .init(
-                            nextInputSampleIndex: nextInputSampleIndex,
-                            segmentOrdinal:
-                                context.durable.segmentOrdinal,
-                            segmentCount: context.durable.segmentCount,
-                            isComplete: false,
-                            checkpointSchema:
-                                context.durable.checkpointSchema,
-                            publishAttempted:
-                                context.durable.publishAttempted,
-                            atomicPublicationFailed: false,
-                            checkpointURL:
-                                context.durable.checkpointURL
-                        ),
-                        audio: context.audio,
-                        error: error
-                    )
-                }
+                let context = MirmirDiagnosticScope.processingContext
+                let sampleIndex = (context?.durable.nextInputSampleIndex ?? 0)
+                    + Int64(index)
+                MirmirDiagnosticScope.recorder.recordTimingFailure(
+                    subsystem: "deterministic_v4",
+                    operation: "validate_nominal_decoded_cadence",
+                    processingContext: context,
+                    timing: .init(
+                        nominalFrameDuration: nominalDuration,
+                        sampleIndex: sampleIndex,
+                        observedPresentationTime: presentationTime,
+                        expectedPresentationTime: expectedPresentationTime,
+                        observedDuration: decodedDuration,
+                        expectedDuration: nominalDuration,
+                        siteID: DeterministicV4InvalidSampleTimingSite
+                            .nominalCadenceOffLattice.rawValue
+                    ),
+                    durable: .init(
+                        nextInputSampleIndex: context.map { _ in sampleIndex },
+                        segmentOrdinal: context?.durable.segmentOrdinal,
+                        segmentCount: context?.durable.segmentCount,
+                        isComplete: context.map { _ in false },
+                        checkpointSchema: context?.durable.checkpointSchema,
+                        publishAttempted: context?.durable.publishAttempted,
+                        atomicPublicationFailed: context.map { _ in false },
+                        checkpointURL: context?.durable.checkpointURL
+                    ),
+                    error: error
+                )
                 throw error
             }
         }

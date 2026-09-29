@@ -27,8 +27,15 @@ do not publish, sign, notarize, or distribute the application automatically.
 - Added integration tests that invoke the production cadence validator and
   atomic publisher with an injected existing-store recorder, verifying the
   production failure paths submit the timing site and publication state.
-- Completed the full macOS Debug scheme on this development tree: 520 tests,
-  517 passed, zero failed, and three expected opt-in capture tests skipped.
+- Made error-16 cadence recording independent of task-local processing context:
+  the timing site, exact rationals, sample index, source location, and nested
+  error persist even when optional job/workflow/backend context is unavailable.
+- Bound coordinator finalize records to the durable job's real checkpoint-head
+  URL on both success and failure instead of omitting the checkpoint path.
+- Added production-path tests for context-free cadence failure recording and
+  finalize failure export with its durable checkpoint path.
+- Completed the full macOS Debug scheme on this development tree: 522 tests,
+  519 passed, zero failed, and three expected opt-in capture tests skipped.
 
 ## [1.3.4] - 2026-09-28
 
