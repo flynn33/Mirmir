@@ -24,11 +24,11 @@ do not publish, sign, notarize, or distribute the application automatically.
   credential-shaped values, authorization data, passwords, secrets, tokens,
   and security bookmarks. Shipping redaction remains a separate pre-release
   review; this change does not declare a shippable build.
-- Added an integration test that invokes the production cadence validator with
-  an injected existing-store recorder and verifies the production failure path
-  submits `dv4_timing_038_nominal_cadence_off_lattice` to export.
-- Completed the full macOS Debug scheme on this development tree: 519 tests,
-  516 passed, zero failed, and three expected opt-in capture tests skipped.
+- Added integration tests that invoke the production cadence validator and
+  atomic publisher with an injected existing-store recorder, verifying the
+  production failure paths submit the timing site and publication state.
+- Completed the full macOS Debug scheme on this development tree: 520 tests,
+  517 passed, zero failed, and three expected opt-in capture tests skipped.
 
 ## [1.3.4] - 2026-09-28
 

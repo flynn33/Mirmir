@@ -70,13 +70,12 @@ final class AtomicOutputFile: @unchecked Sendable {
         guard !isPublished else {
             return
         }
-        guard fileManager.fileExists(atPath: temporaryURL.path) else {
-            throw MirmirError.outputFinalizeFailed(
-                "the completed temporary movie is missing"
-            )
-        }
-
         do {
+            guard fileManager.fileExists(atPath: temporaryURL.path) else {
+                throw MirmirError.outputFinalizeFailed(
+                    "the completed temporary movie is missing"
+                )
+            }
             if fileManager.fileExists(atPath: finalURL.path) {
                 guard overwriteExistingFile else {
                     throw MirmirError.outputAlreadyExists
@@ -91,8 +90,6 @@ final class AtomicOutputFile: @unchecked Sendable {
                 try fileManager.moveItem(at: temporaryURL, to: finalURL)
             }
             isPublished = true
-        } catch let error as MirmirError {
-            throw error
         } catch {
             let publicationError = MirmirAtomicPublicationError(
                 temporaryURL: temporaryURL,
@@ -140,6 +137,9 @@ final class AtomicOutputFile: @unchecked Sendable {
                 MirmirDiagnosticStore.logger.error(
                     "Unable to construct atomic publication diagnostics"
                 )
+            }
+            if let mirmirError = error as? MirmirError {
+                throw mirmirError
             }
             throw publicationError
         }

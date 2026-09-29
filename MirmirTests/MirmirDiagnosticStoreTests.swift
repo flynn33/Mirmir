@@ -247,6 +247,77 @@ struct MirmirDiagnosticStoreTests {
     }
 
     @Test
+    func testAtomicOutputPublishSubmitsMissingTemporaryFailureToInjectedStore()
+        async throws {
+        let directory = temporaryDirectory("production-publication")
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let store = MirmirDiagnosticStore(
+            inMemoryWith: .production,
+            sessionID: fixedUUID(11)
+        )
+        let recorder = MirmirDiagnosticRecorder(store: store)
+        let outputURL = directory.appendingPathComponent("output.mov")
+        let output = try AtomicOutputFile(
+            finalURL: outputURL,
+            overwriteExistingFile: false
+        )
+
+        do {
+            try MirmirDiagnosticScope.$recorder.withValue(recorder) {
+                try MirmirDiagnosticScope.$executionContext.withValue(.init(
+                    jobID: "job-production-publication",
+                    workflowID: "workflow-production-publication",
+                    queueItemID: "queue-production-publication"
+                )) {
+                    try output.publish()
+                }
+            }
+            Issue.record("Expected atomic publication to fail")
+        } catch {
+            #expect(
+                error as? MirmirError
+                    == .outputFinalizeFailed(
+                        "the completed temporary movie is missing"
+                    )
+            )
+        }
+
+        let snapshot = try await store.snapshot()
+        #expect(snapshot.records.count == 1)
+        let record = try #require(snapshot.records.first)
+        #expect(record.event.operation.rawValue == "publish")
+        #expect(record.event.code.rawValue == "atomic_publication_failed")
+        #expect(record.event.source?.fileID == "Mirmir/AtomicOutputFile.swift")
+        #expect(record.event.source?.function?.contains("publish") == true)
+        #expect(record.event.fields.contains {
+            $0.key.rawValue == "atomic_publication_failed"
+                && $0.value.displayValue == "true"
+        })
+        #expect(record.event.fields.contains {
+            $0.key.rawValue == "publish"
+                && $0.value.displayValue == "true"
+        })
+        #expect(record.event.fields.contains {
+            $0.key.rawValue == "job_id"
+                && $0.value.displayValue == "job-production-publication"
+        })
+
+        let exported = String(
+            decoding: try await store.exportJSON(),
+            as: UTF8.self
+        )
+        #expect(exported.contains("atomic_publication_failed"))
+        #expect(exported.contains("job-production-publication"))
+        #expect(exported.contains(output.temporaryURL.path))
+        #expect(exported.contains(outputURL.path))
+    }
+
+    @Test
     func testENOSPCPublicationFailureSurvivesJSONExportWithDiskAndDurableState()
         async throws {
         let store = MirmirDiagnosticStore(

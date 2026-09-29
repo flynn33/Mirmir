@@ -87,11 +87,14 @@ xcodebuild \
 `testProductionCadenceValidatorSubmitsFailureToInjectedStore` calls the
 production cadence validator, forces the production off-lattice branch, waits
 for the normal submission queue through `snapshot()`, and verifies the record
-and export. The remaining diagnostic tests cover v1 persistence, both export
-formats, exact timing rationals, ENOSPC nested errors and durable state, source
-locations, development paths, and credential rejection.
+and export. `testAtomicOutputPublishSubmitsMissingTemporaryFailureToInjectedStore`
+calls `AtomicOutputFile.publish()` with its production temporary file absent
+and verifies the publication failure reached the same store. The remaining
+diagnostic tests cover v1 persistence, both export formats, exact timing
+rationals, ENOSPC nested errors and durable state, source locations,
+development paths, and credential rejection.
 
-The current development tree completed the full macOS Debug scheme with 519
-tests: 516 passed, zero failed, and three expected opt-in capture tests skipped.
+The current development tree completed the full macOS Debug scheme with 520
+tests: 517 passed, zero failed, and three expected opt-in capture tests skipped.
 The result bundle is test evidence for this tree; it is not release or
 large-media qualification.
