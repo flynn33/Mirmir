@@ -83,6 +83,12 @@ enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
     case unsafeWorkingArtifact(String)
     case priorityDocumentCorrupt
     case jobNotQueued(WorkflowJobID)
+    case jobDeletionNotAllowed(
+        jobID: WorkflowJobID,
+        lifecycle: WorkflowJobLifecycle
+    )
+    case cacheClearBlocked([WorkflowJobID])
+    case cacheCleanupFailed(String)
     case publicationDocumentCorrupt(WorkflowJobID)
     case publicationDocumentConflict(WorkflowJobID)
     case publicationBindingMismatch(WorkflowJobID)
@@ -152,6 +158,14 @@ enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
             "The durable application queue priority document is noncanonical or hash-invalid."
         case .jobNotQueued(let jobID):
             "The durable workflow job \(jobID) is not currently queued."
+        case let .jobDeletionNotAllowed(jobID, lifecycle):
+            "The durable workflow job \(jobID) cannot be deleted while it is \(lifecycle.rawValue). Pause or cancel it first."
+        case .cacheClearBlocked(let jobIDs):
+            "The cache cannot be cleared while these jobs are active: "
+                + jobIDs.map(\.rawValue).joined(separator: ", ")
+                + ". Pause or cancel them first."
+        case .cacheCleanupFailed(let path):
+            "Mirmir recorded the job deletion but could not remove cached data at \(path). Retry Clear Cache after checking that the storage location is available."
         case .publicationDocumentCorrupt(let jobID):
             "The durable publication record for \(jobID) is noncanonical or hash-invalid."
         case .publicationDocumentConflict(let jobID):
@@ -1267,6 +1281,17 @@ struct WorkflowApplicationQueueSnapshotV4: Codable, Equatable, Sendable {
     }
 }
 
+enum WorkflowCachedJobSelectionV4: String, Codable, Equatable, Sendable {
+    case finished
+    case unfinished
+    case all
+}
+
+struct WorkflowCacheClearResultV4: Equatable, Sendable {
+    let deletedJobCount: Int
+    let deletedArtifactCount: Int
+}
+
 struct WorkflowApplicationLaunchSnapshotV4: Equatable, Sendable {
     let queue: WorkflowApplicationQueueSnapshotV4
     let recovery: WorkflowLaunchRecoverySnapshotV4
@@ -1688,6 +1713,80 @@ actor WorkflowApplicationQueueV4 {
         return WorkflowApplicationQueueSnapshotV4(
             generatedAt: clock.now(),
             items: items
+        )
+    }
+
+    func deleteCachedJob(jobID: WorkflowJobID) async throws {
+        let state = try await coordinator.open().state
+        guard let job = state.job(id: jobID) else {
+            throw WorkflowApplicationQueueErrorV4.jobNotFound(jobID)
+        }
+        guard Self.isCacheDeletionAllowed(job.lifecycle) else {
+            throw WorkflowApplicationQueueErrorV4.jobDeletionNotAllowed(
+                jobID: jobID,
+                lifecycle: job.lifecycle
+            )
+        }
+
+        let token = UUID().uuidString.lowercased()
+        _ = try await coordinator.append(
+            WorkflowEventDraft(
+                eventID: try WorkflowEventID(
+                    "cache-delete-event-\(token)"
+                ),
+                commandID: try WorkflowCommandID(
+                    "cache-delete-command-\(token)"
+                ),
+                scope: .job(jobID),
+                jobBinding: job.specification.binding,
+                attemptID: nil,
+                event: .jobDeleted
+            )
+        )
+
+        do {
+            try removeCachedJobDirectory(jobID: jobID)
+        } catch {
+            throw WorkflowApplicationQueueErrorV4.cacheCleanupFailed(
+                cachedJobDirectoryURL(jobID: jobID).path
+            )
+        }
+        let retained = Set(try await coordinator.open().state.jobs.keys)
+        try pruneOrphanPriorities(retaining: retained)
+    }
+
+    func deleteCachedJobs(
+        selection: WorkflowCachedJobSelectionV4
+    ) async throws -> Int {
+        let snapshot = try await queueSnapshot()
+        let matching = snapshot.items.filter {
+            Self.matchesCacheDeletionSelection(
+                $0.lifecycle,
+                selection: selection
+            )
+        }
+        let blocked = matching.filter {
+            !Self.isCacheDeletionAllowed($0.lifecycle)
+        }.map(\.jobID)
+        guard blocked.isEmpty else {
+            throw WorkflowApplicationQueueErrorV4.cacheClearBlocked(blocked)
+        }
+
+        var deleted = 0
+        for item in matching {
+            try await deleteCachedJob(jobID: item.jobID)
+            deleted += 1
+        }
+        return deleted
+    }
+
+    func clearApplicationCache() async throws -> WorkflowCacheClearResultV4 {
+        let deletedJobs = try await deleteCachedJobs(selection: .all)
+        let deletedArtifacts = try await clearOrphanCachedJobDirectories()
+            + clearApplicationWorkingArtifacts()
+        return WorkflowCacheClearResultV4(
+            deletedJobCount: deletedJobs,
+            deletedArtifactCount: deletedArtifacts
         )
     }
 
@@ -2460,6 +2559,114 @@ private extension WorkflowApplicationQueueV4 {
             "application-working-media-v4",
             isDirectory: true
         )
+    }
+
+    nonisolated static func isCacheDeletionAllowed(
+        _ lifecycle: WorkflowJobLifecycle
+    ) -> Bool {
+        lifecycle.canDeleteCachedData
+    }
+
+    nonisolated static func matchesCacheDeletionSelection(
+        _ lifecycle: WorkflowJobLifecycle,
+        selection: WorkflowCachedJobSelectionV4
+    ) -> Bool {
+        switch selection {
+        case .finished:
+            lifecycle.isTerminal
+        case .unfinished:
+            !lifecycle.isTerminal
+        case .all:
+            true
+        }
+    }
+
+    func cachedJobDirectoryURL(jobID: WorkflowJobID) -> URL {
+        rootURL
+            .appendingPathComponent("jobs", isDirectory: true)
+            .appendingPathComponent(jobID.rawValue, isDirectory: true)
+    }
+
+    func removeCachedJobDirectory(jobID: WorkflowJobID) throws {
+        let jobsURL = rootURL.appendingPathComponent(
+            "jobs",
+            isDirectory: true
+        )
+        let directory = cachedJobDirectoryURL(jobID: jobID)
+        guard directory.deletingLastPathComponent() == jobsURL,
+              directory.lastPathComponent == jobID.rawValue else {
+            throw WorkflowApplicationQueueErrorV4.cacheCleanupFailed(
+                directory.path
+            )
+        }
+        var metadata = stat()
+        if lstat(directory.path, &metadata) != 0 {
+            guard errno == ENOENT else {
+                throw WorkflowApplicationQueueErrorV4.cacheCleanupFailed(
+                    directory.path
+                )
+            }
+            return
+        }
+        guard (metadata.st_mode & S_IFMT) == S_IFDIR,
+              (metadata.st_mode & S_IFMT) != S_IFLNK else {
+            throw WorkflowApplicationQueueErrorV4.cacheCleanupFailed(
+                directory.path
+            )
+        }
+        do {
+            try FileManager.default.removeItem(at: directory)
+        } catch {
+            throw WorkflowApplicationQueueErrorV4.cacheCleanupFailed(
+                directory.path
+            )
+        }
+        let parent = open(
+            jobsURL.path,
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        if parent >= 0 {
+            _ = fsync(parent)
+            close(parent)
+        }
+    }
+
+    func clearApplicationWorkingArtifacts() throws -> Int {
+        let directory = applicationWorkingDirectoryURL
+        try fileSystem.ensureDirectory(directory)
+        let names = try FileManager.default.contentsOfDirectory(
+            atPath: directory.path
+        )
+        var deleted = 0
+        for name in names where Self.isApplicationWorkingArtifactName(name) {
+            try removeApplicationWorkingArtifact(
+                directory.appendingPathComponent(name, isDirectory: false)
+            )
+            deleted += 1
+        }
+        return deleted
+    }
+
+    func clearOrphanCachedJobDirectories() async throws -> Int {
+        let jobsURL = rootURL.appendingPathComponent(
+            "jobs",
+            isDirectory: true
+        )
+        try fileSystem.ensureDirectory(jobsURL)
+        let retained = Set(try await coordinator.open().state.jobs.keys)
+        let names = try FileManager.default.contentsOfDirectory(
+            atPath: jobsURL.path
+        )
+        var deleted = 0
+        for name in names {
+            guard let jobID = try? WorkflowJobID(name),
+                  !retained.contains(jobID) else {
+                continue
+            }
+            try removeCachedJobDirectory(jobID: jobID)
+            deleted += 1
+        }
+        return deleted
     }
 
     func scavengeAbandonedApplicationWorkingArtifacts() throws {

@@ -1,6 +1,6 @@
 # Deterministic engine v4 current qualification status
 
-Verified September 28, 2026.
+Verified September 30, 2026.
 
 The GitHub-facing tracker in `roadmap-status.svg` is generated from this
 document, `DETERMINISTIC_ENGINE_V4_ROADMAP.md`, `VERSION`, and `BUILD_NUMBER`.
@@ -23,8 +23,8 @@ decisions.
 
 | Field | Verified value |
 | --- | --- |
-| Product | Mirmir 1.3.4 (8) |
-| Version authorities | `VERSION` = `1.3.4`; `BUILD_NUMBER` = `8` |
+| Product | Mirmir 1.4.0 (9) |
+| Version authorities | `VERSION` = `1.4.0`; `BUILD_NUMBER` = `9` |
 | Bundle identifier | `com.mirmir.app` |
 | Minimum macOS | 15.4 |
 | M0–M6 implementation | Complete |
@@ -65,15 +65,31 @@ internal volume reached ENOSPC. The reported error-16 timing defect is
 resolved. No complete output movie was published, so further large-media
 testing remains extended qualification rather than a first-release blocker.
 
-The build 8 macOS Debug scheme completed 510 tests: 507 passed, zero failed,
-and three expected opt-in capture tests skipped.
+Version 1.4.0 adds user-selectable bookmark-backed workflow-cache storage,
+return to internal Application Support, individual and bulk inactive-job
+deletion, and owned temporary-cache cleanup. Location changes are blocked until
+the current queue is empty, unavailable custom roots can recover to internal
+storage, active jobs fail closed, and completed destination movies are outside
+the deletion namespaces.
+
+The build 9 serial macOS Debug scheme completed 532 tests: 529 passed, zero
+failed, and three expected opt-in capture tests skipped. The prior accepted
+tree contained 522 tests; all ten additional tests passed.
+
+A local universal TestFlight-capable archive was built at
+`/Users/jimdaley/Desktop/Mirmir-1.4.0-9-TestFlight.xcarchive`. Its packaged
+application is `com.mirmir.app` version 1.4.0 build 9, contains `arm64` and
+`x86_64` slices, is signed by Apple Distribution for team `9AQ2C2838M`, and
+passes strict code-signature verification with the sandbox, app-scoped
+bookmark, and user-selected read/write entitlements. The archive has not been
+uploaded, notarized, installed over `/Applications`, or asserted as shipped.
 
 ## Version 1.3.3 rollback qualification
 
 Version 1.3.3 is based on source checkpoint
 `5addbee99674c08869ab010dec3d4c6988c40549`, immediately before the
 resource-allocation control. That control is not a first-release target and is
-not included in version 1.3.4.
+not included in version 1.4.0.
 Two post-rollback corrections remain:
 
 - user-selected regular sources may have multiple hard links, while the

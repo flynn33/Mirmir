@@ -148,6 +148,11 @@ final class MirmirViewModel {
     private(set) var isInitializingWorkflow = false
     private(set) var isWorkflowProcessing = false
     private(set) var isEnqueueingWorkflow = false
+    private(set) var cacheLocationPath = "Loading cache location…"
+    private(set) var cacheLocationIsCustom = false
+    private(set) var cacheLocationErrorMessage: String?
+    private(set) var cacheOperationStatusMessage: String?
+    private(set) var isManagingCache = false
 
     @ObservationIgnored private let videoProbe: any VideoProbing
     @ObservationIgnored private let backendCatalog: UpscaleBackendCatalog
@@ -155,8 +160,11 @@ final class MirmirViewModel {
     @ObservationIgnored private let coordinator: UpscaleCoordinator
     @ObservationIgnored private let superResolutionScaleProvider:
         SuperResolutionScaleProvider
-    @ObservationIgnored private let workflowController:
+    @ObservationIgnored private var workflowController:
         (any WorkflowApplicationControllingV4)?
+    @ObservationIgnored private let cacheLocationStore:
+        WorkflowCacheLocationStoreV4?
+    @ObservationIgnored private let usesInjectedWorkflowController: Bool
     @ObservationIgnored let diagnosticStore: MirmirDiagnosticStore
     @ObservationIgnored private var probeTask: Task<Void, Never>?
     @ObservationIgnored private var backendAvailabilityTask: Task<Void, Never>?
@@ -178,6 +186,7 @@ final class MirmirViewModel {
         superResolutionScaleProvider: SuperResolutionScaleProvider? = nil,
         workflowController:
             (any WorkflowApplicationControllingV4)? = nil,
+        cacheLocationStore: WorkflowCacheLocationStoreV4? = nil,
         diagnosticStore: MirmirDiagnosticStore = .application
     ) {
         self.videoProbe = videoProbe
@@ -191,13 +200,33 @@ final class MirmirViewModel {
             backendCatalog: backendCatalog,
             runtimeEnvironment: runtimeEnvironment
         )
+        usesInjectedWorkflowController = workflowController != nil
+        let resolvedCacheStore: WorkflowCacheLocationStoreV4?
+        if let cacheLocationStore {
+            resolvedCacheStore = cacheLocationStore
+        } else if workflowController == nil {
+            resolvedCacheStore = try? WorkflowCacheLocationStoreV4(
+                applicationIdentifier: "com.mirmir.app"
+            )
+        } else {
+            resolvedCacheStore = nil
+        }
+        self.cacheLocationStore = resolvedCacheStore
+
+        if let status = resolvedCacheStore?.status() {
+            cacheLocationPath = status.path
+            cacheLocationIsCustom = status.isCustom
+            cacheLocationErrorMessage = status.availabilityError
+        }
+
         if let workflowController {
             self.workflowController = workflowController
-        } else {
+        } else if let resolvedCacheStore {
             do {
+                let configuration = try resolvedCacheStore.configuration()
                 self.workflowController = try WorkflowApplicationCoordinatorV4
                     .live(
-                        applicationIdentifier: "com.mirmir.app",
+                        configuration: configuration,
                         videoProbe: videoProbe,
                         backendCatalog: backendCatalog,
                         runtimeEnvironment: runtimeEnvironment
@@ -205,7 +234,12 @@ final class MirmirViewModel {
             } catch {
                 self.workflowController = nil
                 workflowErrorMessage = error.localizedDescription
+                cacheLocationErrorMessage = error.localizedDescription
             }
+        } else {
+            self.workflowController = nil
+            workflowErrorMessage =
+                "The durable workflow cache could not be initialized."
         }
     }
 
@@ -239,6 +273,49 @@ final class MirmirViewModel {
 
     var pausedWorkflowItems: [WorkflowApplicationQueueItemV4] {
         workflowQueueSnapshot?.items.filter { $0.lifecycle == .paused } ?? []
+    }
+
+    var canChangeCacheLocation: Bool {
+        !usesInjectedWorkflowController
+            && cacheLocationStore != nil
+            && !isManagingCache
+            && !isWorkflowProcessing
+            && !isEnqueueingWorkflow
+            && (workflowController == nil
+                || workflowQueueSnapshot?.items.isEmpty == true)
+    }
+
+    var cacheLocationChangeGuidance: String {
+        if workflowController == nil, cacheLocationErrorMessage != nil {
+            return "The current cache could not be opened. Choose another "
+                + "location or use internal storage; existing data at the "
+                + "unavailable location will not be changed."
+        }
+        if canChangeCacheLocation {
+            return "New durable jobs will use this location."
+        }
+        return "Delete the jobs in this cache before changing its location."
+    }
+
+    var finishedCachedJobCount: Int {
+        workflowQueueSnapshot?.items.filter(\.lifecycle.isTerminal).count ?? 0
+    }
+
+    var unfinishedCachedJobCount: Int {
+        workflowQueueSnapshot?.items.filter { !$0.lifecycle.isTerminal }.count
+            ?? 0
+    }
+
+    var deletableCachedJobCount: Int {
+        workflowQueueSnapshot?.items.filter {
+            $0.lifecycle.canDeleteCachedData
+        }.count ?? 0
+    }
+
+    var canClearCache: Bool {
+        !isManagingCache
+            && !isWorkflowProcessing
+            && !isEnqueueingWorkflow
     }
 
     var startValidationMessage: String? {
@@ -533,21 +610,7 @@ final class MirmirViewModel {
         isInitializingWorkflow = true
         defer { isInitializingWorkflow = false }
         do {
-            await workflowController.installObserver(
-                WorkflowApplicationObserverV4(
-                    progress: { _, _ in },
-                    snapshot: { [weak self] snapshot in
-                        Task { @MainActor in
-                            self?.applyWorkflowSnapshot(snapshot)
-                        }
-                    },
-                    execution: { [weak self] event in
-                        Task { @MainActor in
-                            self?.applyWorkflowExecutionEvent(event)
-                        }
-                    }
-                )
-            )
+            await workflowController.installObserver(workflowObserver)
             let launch = try await workflowController.launch()
             applyWorkflowSnapshot(launch.queue)
             workflowRecoverySnapshot = launch.recovery
@@ -567,6 +630,134 @@ final class MirmirViewModel {
             )
         } catch {
             workflowErrorMessage = error.localizedDescription
+        }
+    }
+
+    func chooseCacheLocation() {
+        guard canChangeCacheLocation else {
+            cacheLocationErrorMessage =
+                WorkflowCacheLocationErrorV4.jobsMustBeClearedFirst
+                    .localizedDescription
+            return
+        }
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.title = "Select Mirmir Cache Location"
+        panel.prompt = "Use for Cache"
+        panel.message =
+            "Mirmir will create a Mirmir/WorkflowV4 folder here."
+        if cacheLocationIsCustom {
+            let root = URL(
+                fileURLWithPath: cacheLocationPath,
+                isDirectory: true
+            )
+            panel.directoryURL = root
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+        }
+        guard panel.runModal() == .OK, let selected = panel.url else {
+            return
+        }
+        changeCacheLocation(to: selected)
+    }
+
+    func useDefaultCacheLocation() {
+        guard canChangeCacheLocation,
+              let cacheLocationStore else {
+            cacheLocationErrorMessage =
+                WorkflowCacheLocationErrorV4.jobsMustBeClearedFirst
+                    .localizedDescription
+            return
+        }
+        isManagingCache = true
+        cacheLocationErrorMessage = nil
+        cacheOperationStatusMessage = nil
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let preference = cacheLocationStore.preferenceSnapshot()
+                let configuration = try cacheLocationStore.useDefault()
+                do {
+                    try await self.installWorkflowController(
+                        configuration: configuration
+                    )
+                } catch {
+                    cacheLocationStore.restorePreference(preference)
+                    throw error
+                }
+                self.applyCacheLocationStatus(cacheLocationStore.status())
+                self.cacheOperationStatusMessage =
+                    "Using Mirmir’s internal cache."
+            } catch {
+                self.cacheLocationErrorMessage = error.localizedDescription
+            }
+            self.isManagingCache = false
+        }
+    }
+
+    func deleteCachedJob(_ jobID: WorkflowJobID) {
+        guard !isManagingCache, let workflowController else { return }
+        isManagingCache = true
+        cacheLocationErrorMessage = nil
+        cacheOperationStatusMessage = nil
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await workflowController.deleteCachedJob(jobID: jobID)
+                self.cacheOperationStatusMessage = "Deleted the cached job."
+            } catch {
+                self.cacheLocationErrorMessage = error.localizedDescription
+                await self.refreshWorkflowSnapshot()
+            }
+            self.isManagingCache = false
+        }
+    }
+
+    func deleteCachedJobs(_ selection: WorkflowCachedJobSelectionV4) {
+        guard !isManagingCache, let workflowController else { return }
+        isManagingCache = true
+        cacheLocationErrorMessage = nil
+        cacheOperationStatusMessage = nil
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let count = try await workflowController.deleteCachedJobs(
+                    selection: selection
+                )
+                self.cacheOperationStatusMessage = count == 1
+                    ? "Deleted 1 cached job."
+                    : "Deleted \(count) cached jobs."
+            } catch {
+                self.cacheLocationErrorMessage = error.localizedDescription
+                await self.refreshWorkflowSnapshot()
+            }
+            self.isManagingCache = false
+        }
+    }
+
+    func clearCache() {
+        guard canClearCache, let workflowController else { return }
+        isManagingCache = true
+        cacheLocationErrorMessage = nil
+        cacheOperationStatusMessage = nil
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let result = try await workflowController.clearCache()
+                self.cacheOperationStatusMessage =
+                    "Cleared \(result.deletedJobCount) cached job"
+                    + (result.deletedJobCount == 1 ? "" : "s")
+                    + " and \(result.deletedArtifactCount) residual cache "
+                    + "artifact"
+                    + (result.deletedArtifactCount == 1 ? "." : "s.")
+            } catch {
+                self.cacheLocationErrorMessage = error.localizedDescription
+                await self.refreshWorkflowSnapshot()
+            }
+            self.isManagingCache = false
         }
     }
 
@@ -991,6 +1182,87 @@ final class MirmirViewModel {
             currentVideoInfo = source
             state = .ready(source)
         }
+    }
+
+    private var workflowObserver: WorkflowApplicationObserverV4 {
+        WorkflowApplicationObserverV4(
+            progress: { _, _ in },
+            snapshot: { [weak self] snapshot in
+                Task { @MainActor in
+                    self?.applyWorkflowSnapshot(snapshot)
+                }
+            },
+            execution: { [weak self] event in
+                Task { @MainActor in
+                    self?.applyWorkflowExecutionEvent(event)
+                }
+            }
+        )
+    }
+
+    private func changeCacheLocation(to selectedDirectory: URL) {
+        guard canChangeCacheLocation,
+              let cacheLocationStore else {
+            cacheLocationErrorMessage =
+                WorkflowCacheLocationErrorV4.jobsMustBeClearedFirst
+                    .localizedDescription
+            return
+        }
+        isManagingCache = true
+        cacheLocationErrorMessage = nil
+        cacheOperationStatusMessage = nil
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let preference = cacheLocationStore.preferenceSnapshot()
+                let configuration = try cacheLocationStore.select(
+                    selectedDirectory
+                )
+                do {
+                    try await self.installWorkflowController(
+                        configuration: configuration
+                    )
+                } catch {
+                    cacheLocationStore.restorePreference(preference)
+                    throw error
+                }
+                self.applyCacheLocationStatus(cacheLocationStore.status())
+                self.cacheOperationStatusMessage =
+                    "The cache location is ready."
+            } catch {
+                self.cacheLocationErrorMessage = error.localizedDescription
+            }
+            self.isManagingCache = false
+        }
+    }
+
+    private func installWorkflowController(
+        configuration: WorkflowCacheLocationConfigurationV4
+    ) async throws {
+        let replacement = try WorkflowApplicationCoordinatorV4.live(
+            configuration: configuration,
+            videoProbe: videoProbe,
+            backendCatalog: backendCatalog,
+            runtimeEnvironment: runtimeEnvironment
+        )
+        await replacement.installObserver(workflowObserver)
+        let launch = try await replacement.launch()
+        if let previous = workflowController {
+            await previous.installObserver(.none)
+        }
+        workflowController = replacement
+        applyWorkflowSnapshot(launch.queue)
+        workflowRecoverySnapshot = launch.recovery
+        workflowErrorMessage = Self.recoveryErrorMessage(launch.recovery)
+        cacheLocationErrorMessage = nil
+    }
+
+    private func applyCacheLocationStatus(
+        _ status: WorkflowCacheLocationStatusV4
+    ) {
+        cacheLocationPath = status.path
+        cacheLocationIsCustom = status.isCustom
+        cacheLocationErrorMessage = status.availabilityError
     }
 
     private func applyWorkflowSnapshot(

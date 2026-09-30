@@ -1,15 +1,16 @@
 # Deterministic engine v4 evidence
 
-For the current 1.3.4 (8) repository identity, rollback qualification, and
+For the current 1.4.0 (9) repository identity, rollback qualification, and
 completed M7 simulator selection, see
 [`../CURRENT_QUALIFICATION_STATUS.md`](../CURRENT_QUALIFICATION_STATUS.md).
 
-Version 1.3.4 excludes deterministic resource allocation and automatic
+Version 1.4.0 excludes deterministic resource allocation and automatic
 VideoToolbox geometry adaptation from the first-release target. It includes the
 qualified hard-link source admission, VideoToolbox Smooth Motion
 source-geometry preflight, multi-audio preservation, legal 90 kHz NTSC cadence
-acceptance, and stable timing-error site identifiers described in the current
-status. The original 1:43 Deterministic v4 source reached frame 8,760 in a
+acceptance, stable timing-error site identifiers, and cache-management controls
+described in the current status. The original 1:43 Deterministic v4 source
+reached frame 8,760 in a
 production run without error 16, but ENOSPC stopped the job before a complete
 movie was published. The reported error-16 timing defect is resolved. Further
 testing on large media files is retained as extended qualification rather than

@@ -1,8 +1,8 @@
 # Mirmir accepted limitations and follow-up work
 
-Verified against `main` on September 28, 2026. These entries distinguish a
+Verified against `main` on September 30, 2026. These entries distinguish a
 resolved defect from accepted first-release boundaries and post-first-release
-work. None blocks the version 1.3.4 first-release target.
+work. None blocks the version 1.4.0 first-release target.
 
 ## DV4-001 — Deterministic v4 error 16 on legal NTSC timing
 
@@ -85,7 +85,7 @@ factor for the Super Resolution methods. It does not adapt an unsupported
 source raster into a supported VideoToolbox working raster, and it does not
 restore the user-requested final dimensions after VideoToolbox processing.
 
-Version 1.3.4 intentionally reports the selected VideoToolbox method as
+Version 1.4.0 intentionally reports the selected VideoToolbox method as
 unavailable when the Mac rejects the exact geometry. That truthful fail-closed
 behavior, with no backend substitution, is the first-release contract.
 

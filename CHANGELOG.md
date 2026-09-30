@@ -7,6 +7,19 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-09-30
+
+### Cache management
+
+- Added a security-scoped cache-location selector in Settings for the durable
+  workflow root, with an explicit return to internal Application Support.
+- Added confirmed deletion for individual cached jobs, finished jobs,
+  unfinished jobs, and all inactive cache contents. Completed output movies
+  remain outside cache deletion.
+- Journaled job deletion before removing queue-owned source snapshots,
+  checkpoints, and resumable state so deletion survives relaunch. Active jobs
+  fail closed until paused or cancelled.
+
 ### Development diagnostics
 
 - Upgraded the existing `Mirmir/Modules/Diagnostics` store in place while
@@ -34,8 +47,9 @@ do not publish, sign, notarize, or distribute the application automatically.
   URL on both success and failure instead of omitting the checkpoint path.
 - Added production-path tests for context-free cadence failure recording and
   finalize failure export with its durable checkpoint path.
-- Completed the full macOS Debug scheme on this development tree: 522 tests,
-  519 passed, zero failed, and three expected opt-in capture tests skipped.
+- Completed the full serial macOS Debug scheme on this development tree: 532
+  tests, 529 passed, zero failed, and three expected opt-in capture tests
+  skipped.
 
 ## [1.3.4] - 2026-09-28
 

@@ -3,14 +3,16 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-Version 1.3.4 build 8 carries the deterministic ASH P06 CPU and Metal engine
+Version 1.4.0 build 9 carries the deterministic ASH P06 CPU and Metal engine
 beside the supported Apple scaling frameworks, preserves the completed
 simulator-only M7 candidate selection, and adds qualified source admission,
 VideoToolbox capability checks, multi-audio preservation, and deterministic
 timing diagnostics while keeping every backend choice, preservation decision,
 and fallback boundary visible. It also separates live Upscale processing from
 the independent Compare player and permits authenticated failed jobs to resume
-from their last verified nonterminal checkpoint.
+from their last verified nonterminal checkpoint. Settings can place the durable
+job cache on user-selected storage and remove inactive job data without touching
+completed destination movies.
 
 The current marketing version and build number are recorded in
 [`VERSION`](VERSION) and [`BUILD_NUMBER`](BUILD_NUMBER), then synchronized with
@@ -43,6 +45,10 @@ deliberate operator actions.
 - Durable bookmark-backed batch jobs survive relaunch. Pause/resume uses
   segment and temporal checkpoints; launch recovery contains corrupt work and
   reconciles registered partial artifacts.
+- Settings can place the durable job cache on a user-selected local folder,
+  mounted drive, or mounted share. Users can delete individual jobs, delete
+  finished or unfinished jobs in bulk, or clear all inactive job and temporary
+  cache data without deleting completed output movies.
 - Output is semantically validated before atomic publication; cancellation,
   failure, and crash recovery account for temporary artifacts explicitly.
 - A single persistent development journal records backend selection, media
@@ -50,17 +56,17 @@ deliberate operator actions.
   volume facts, opened audio topology, nested errors, and source locations.
   Operators can export the same journal as JSON or Markdown from Diagnostics.
 
-Version 1.3.4 keeps these first-release boundaries explicit:
+Version 1.4.0 keeps these first-release boundaries explicit:
 
 - Deterministic resource allocation is not a first-release target. It is
-  excluded from version 1.3.4 rather than treated as unfinished release work.
+  excluded from version 1.4.0 rather than treated as unfinished release work.
 - A user-selected regular source may have multiple hard links; the queue still
   creates and validates a private single-link snapshot.
 - Smooth Motion + Spatial Upscale is available only when the Mac's
   VideoToolbox 2× source-frame geometry limits admit the input. Those limits
   are independent of display resolution. Automatic pre-scale and post-scale
   geometry adaptation is post-first-release work; truthful unavailability is
-  the version 1.3.4 contract.
+  the version 1.4.0 contract.
 - Attached-picture preservation is provided by the deterministic v4
   whole-asset path; conventional backends do not preserve attached pictures.
 - Automatic does not select deterministic v4 for opaque H.264 input.
@@ -76,10 +82,12 @@ See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.
 See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) for accepted first-release limitations
 and post-first-release qualification and enhancement work.
-See [`CHANGELOG.md`](CHANGELOG.md) for the 1.3.4 recovery and comparison updates,
-the 1.3.3 source-admission and capability
+See [`CHANGELOG.md`](CHANGELOG.md) for the 1.4.0 cache-management release, the
+1.3.4 recovery and comparison updates, the 1.3.3 source-admission and capability
 corrections, the earlier conformance and qualification updates, and
 [`docs/v4/`](docs/v4/) for the qualification evidence contracts.
+See [`docs/CACHE_MANAGEMENT.md`](docs/CACHE_MANAGEMENT.md) for cache ownership,
+location changes, unavailable-root recovery, and deletion safety.
 The [Mirmir Wiki](https://github.com/flynn33/Mirmir/wiki) provides the complete
 product guide, architecture reference, ASH engine documentation, diagrams,
 testing procedures, and troubleshooting material.
@@ -104,8 +112,9 @@ records the v4 architecture, delivery sequence, and M7 simulator selection for
 at least 5% higher quality and 20% lower processing time. Engine, media, and
 durable-workflow implementation originally landed in 1.3.0; version 1.3.1
 records the altered simulator-only M7 scope and completed decision. Versions
-Versions 1.3.2 through 1.3.4 add post-qualification conformance repairs without changing
-that locked selection result. The sealed
+Versions 1.3.2 through 1.3.4 add post-qualification conformance repairs, and
+version 1.4.0 adds cache management without changing that locked selection
+result. The sealed
 168-case headless XCTest frame-simulator run from
 commit `ce780af87107d90142d860f328dca4a72fea3047` ranked `candidate_v4` first:
 quality improved 22.792052% with a 22.312761% paired-bootstrap lower bound, and

@@ -26,6 +26,17 @@ enum WorkflowJobLifecycle: String, CaseIterable, Codable, Hashable, Sendable {
         }
     }
 
+    var canDeleteCachedData: Bool {
+        switch self {
+        case .queued, .paused, .contained, .completed, .failed, .safeHalt,
+             .cancelled:
+            true
+        case .probing, .planned, .running, .pausing, .verifying, .committing,
+             .recovering:
+            false
+        }
+    }
+
     var allowedTransitions: [WorkflowJobLifecycle] {
         switch self {
         case .queued:
@@ -479,6 +490,7 @@ enum WorkflowReducerError: Error, Equatable, LocalizedError {
     case jobAlreadyExists(WorkflowJobID)
     case jobNotFound(WorkflowJobID)
     case immutableBindingMismatch(WorkflowJobID)
+    case jobDeletionNotAllowed(WorkflowJobID, WorkflowJobLifecycle)
     case queueContainsDuplicate(WorkflowJobID)
     case queueMembershipMismatch
     case staleLifecycle(
@@ -519,6 +531,8 @@ enum WorkflowReducerError: Error, Equatable, LocalizedError {
             "Job \(jobID) does not exist."
         case let .immutableBindingMismatch(jobID):
             "Event binding does not match immutable job \(jobID)."
+        case let .jobDeletionNotAllowed(jobID, lifecycle):
+            "Job \(jobID) cannot be deleted while it is \(lifecycle.rawValue)."
         case let .queueContainsDuplicate(jobID):
             "Queue order contains job \(jobID) more than once."
         case .queueMembershipMismatch:
@@ -603,6 +617,25 @@ enum WorkflowReducer {
                 lastEventHash: envelope.eventHash
             )
             queueOrder.append(jobID)
+
+        case .jobDeleted:
+            guard case let .job(jobID) = envelope.scope else {
+                preconditionFailure("Envelope validation guarantees job scope.")
+            }
+            guard let currentJob = jobs[jobID] else {
+                throw WorkflowReducerError.jobNotFound(jobID)
+            }
+            guard envelope.jobBinding == currentJob.specification.binding else {
+                throw WorkflowReducerError.immutableBindingMismatch(jobID)
+            }
+            guard currentJob.lifecycle.canDeleteCachedData else {
+                throw WorkflowReducerError.jobDeletionNotAllowed(
+                    jobID,
+                    currentJob.lifecycle
+                )
+            }
+            jobs.removeValue(forKey: jobID)
+            queueOrder.removeAll { $0 == jobID }
 
         case let .queueReordered(orderedJobIDs):
             var seen: Set<WorkflowJobID> = []

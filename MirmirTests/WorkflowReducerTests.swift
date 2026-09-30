@@ -98,6 +98,55 @@ final class WorkflowReducerTests: XCTestCase {
         XCTAssertEqual(state.appliedEvents.count, 1)
     }
 
+    func testJobDeletionRemovesQueuedProjectionAndSurvivesReplay() throws {
+        let specification = try makeSpecification(index: 1)
+        var state = WorkflowState()
+        state = try apply(
+            .jobEnqueued(specification),
+            specification: specification,
+            to: state
+        )
+
+        state = try apply(
+            .jobDeleted,
+            specification: specification,
+            to: state
+        )
+
+        XCTAssertNil(state.job(id: specification.jobID))
+        XCTAssertTrue(state.queueOrder.isEmpty)
+        XCTAssertEqual(state.appliedEvents.count, 2)
+    }
+
+    func testJobDeletionRejectsActiveLifecycle() throws {
+        let specification = try makeSpecification(index: 1)
+        var state = WorkflowState()
+        state = try apply(
+            .jobEnqueued(specification),
+            specification: specification,
+            to: state
+        )
+        state = try transition(
+            specification,
+            from: .queued,
+            to: .probing,
+            state: state
+        )
+
+        XCTAssertThrowsError(
+            try apply(
+                .jobDeleted,
+                specification: specification,
+                to: state
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? WorkflowReducerError,
+                .jobDeletionNotAllowed(specification.jobID, .probing)
+            )
+        }
+    }
+
     func testQueueReorderRequiresEveryQueuedJobExactlyOnce() throws {
         let specifications = try (1 ... 3).map(makeSpecification(index:))
         var state = WorkflowState()
@@ -737,6 +786,9 @@ private extension WorkflowReducerTests {
         switch event {
         case let .jobEnqueued(enqueued):
             context = (.job(enqueued.jobID), enqueued.binding)
+        case .jobDeleted:
+            let specification = try XCTUnwrap(specification)
+            context = (.job(specification.jobID), specification.binding)
         case .queueReordered:
             context = (.queue, nil)
         case .lifecycleTransition:

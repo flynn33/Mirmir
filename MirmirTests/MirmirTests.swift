@@ -457,4 +457,18 @@ private actor StubWorkflowApplicationControllerV4:
     ) async throws {
         throw LaunchFailure(message: "Unexpected workflow reorder.")
     }
+
+    func deleteCachedJob(jobID _: WorkflowJobID) async throws {
+        throw LaunchFailure(message: "Unexpected cached-job deletion.")
+    }
+
+    func deleteCachedJobs(
+        selection _: WorkflowCachedJobSelectionV4
+    ) async throws -> Int {
+        throw LaunchFailure(message: "Unexpected cached-job deletion.")
+    }
+
+    func clearCache() async throws -> WorkflowCacheClearResultV4 {
+        throw LaunchFailure(message: "Unexpected cache clearing.")
+    }
 }

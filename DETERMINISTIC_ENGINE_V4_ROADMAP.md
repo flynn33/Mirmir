@@ -1,6 +1,6 @@
 # Deterministic Engine v4 roadmap
 
-Status: 1.3.4 (8) implementation and M7 simulator candidate selection complete
+Status: 1.4.0 (9) implementation and M7 simulator candidate selection complete
 
 Scope: Mirmir deterministic CPU and Metal engines, media pipeline, and durable job workflow
 
@@ -23,8 +23,11 @@ source advanced through frame 8,760 in the production app without error 16,
 passing the timing path that previously failed, then stopped under ENOSPC. The
 reported error-16 timing defect is resolved. Further large-media testing
 remains extended qualification rather than a first-release blocker.
-Deterministic resource allocation and automatic VideoToolbox geometry
-adaptation are post-first-release targets and are not part of version 1.3.4.
+Version 1.4.0 build 9 adds bookmark-backed cache-location selection and
+fail-closed inactive job/cache deletion without changing the deterministic
+engine contract. Deterministic resource allocation and automatic VideoToolbox
+geometry adaptation are post-first-release targets and are not part of version
+1.4.0.
 Follow-on work closed M0 through M6 in source and tests. The sealed M7 headless
 XCTest frame-simulator run from commit
 `ce780af87107d90142d860f328dca4a72fea3047` compared the production v4 policy

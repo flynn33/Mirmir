@@ -877,6 +877,7 @@ private struct MirmirProductLibrary: View {
 private struct MirmirProductQueue: View {
     let viewModel: MirmirViewModel
     let theme: MirmirThemeTokens
+    @State private var pendingDeletion: MirmirCachedJobDeletionRequest?
 
     var body: some View {
         ScrollView {
@@ -979,6 +980,20 @@ private struct MirmirProductQueue: View {
             .padding(theme.spacing.space6)
         }
         .background(theme.background)
+        .alert(item: $pendingDeletion) { request in
+            Alert(
+                title: Text("Delete Cached Job?"),
+                message: Text(
+                    "This permanently removes the job’s source snapshot, "
+                        + "checkpoints, and resumable state. Completed output "
+                        + "files are not deleted."
+                ),
+                primaryButton: .destructive(Text("Delete Job")) {
+                    viewModel.deleteCachedJob(request.jobID)
+                },
+                secondaryButton: .cancel()
+            )
+        }
     }
 
     private func queueRow(
@@ -1056,6 +1071,20 @@ private struct MirmirProductQueue: View {
                             || viewModel.isWorkflowProcessing
                     )
                 }
+                if item.lifecycle.canDeleteCachedData {
+                    Button(role: .destructive) {
+                        pendingDeletion = MirmirCachedJobDeletionRequest(
+                            jobID: item.jobID
+                        )
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .help("Delete this cached job and its resumable data")
+                    .buttonStyle(
+                        MirmirProductSecondaryButtonStyle(theme: theme)
+                    )
+                    .disabled(viewModel.isManagingCache)
+                }
             }
         }
     }
@@ -1123,6 +1152,7 @@ private struct MirmirProductSettings: View {
     let viewModel: MirmirViewModel
     let theme: MirmirThemeTokens
     @Binding var appearance: MirmirAppearanceMode
+    @State private var pendingCacheAction: MirmirCacheAction?
 
     var body: some View {
         ScrollView {
@@ -1136,6 +1166,107 @@ private struct MirmirProductSettings: View {
                             }
                         }
                         .pickerStyle(.segmented)
+                    }
+                }
+
+                MirmirProductPanel(theme: theme) {
+                    VStack(
+                        alignment: .leading,
+                        spacing: theme.spacing.space4
+                    ) {
+                        Text("Cache & Durable Jobs")
+                            .font(theme.typography.subtitle)
+
+                        VStack(
+                            alignment: .leading,
+                            spacing: theme.spacing.space2
+                        ) {
+                            Text("Current cache location")
+                                .font(theme.typography.bodyEmphasis)
+                            Text(viewModel.cacheLocationPath)
+                                .font(theme.typography.caption.monospaced())
+                                .foregroundStyle(theme.textSecondary)
+                                .textSelection(.enabled)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        HStack(spacing: theme.spacing.space2) {
+                            Button("Choose Location…") {
+                                viewModel.chooseCacheLocation()
+                            }
+                            .buttonStyle(
+                                MirmirProductSecondaryButtonStyle(theme: theme)
+                            )
+                            .disabled(!viewModel.canChangeCacheLocation)
+
+                            if viewModel.cacheLocationIsCustom {
+                                Button("Use Internal Storage") {
+                                    viewModel.useDefaultCacheLocation()
+                                }
+                                .buttonStyle(
+                                    MirmirProductSecondaryButtonStyle(
+                                        theme: theme
+                                    )
+                                )
+                                .disabled(!viewModel.canChangeCacheLocation)
+                            }
+
+                            if viewModel.isManagingCache {
+                                ProgressView().controlSize(.small)
+                            }
+                        }
+
+                        Text(viewModel.cacheLocationChangeGuidance)
+                        .font(theme.typography.caption)
+                        .foregroundStyle(theme.textTertiary)
+
+                        Divider().overlay(theme.borderSubtle)
+
+                        HStack(spacing: theme.spacing.space2) {
+                            Button("Delete Finished Jobs…", role: .destructive) {
+                                pendingCacheAction = .deleteFinished
+                            }
+                            .disabled(
+                                viewModel.finishedCachedJobCount == 0
+                                    || viewModel.isManagingCache
+                            )
+
+                            Button("Delete Unfinished Jobs…", role: .destructive) {
+                                pendingCacheAction = .deleteUnfinished
+                            }
+                            .disabled(
+                                viewModel.unfinishedCachedJobCount == 0
+                                    || !viewModel.canClearCache
+                            )
+
+                            Button("Clear Cache…", role: .destructive) {
+                                pendingCacheAction = .clearAll
+                            }
+                            .disabled(!viewModel.canClearCache)
+                        }
+                        .buttonStyle(
+                            MirmirProductSecondaryButtonStyle(theme: theme)
+                        )
+
+                        Text(
+                            "Finished jobs: \(viewModel.finishedCachedJobCount) · "
+                                + "Unfinished jobs: "
+                                + "\(viewModel.unfinishedCachedJobCount)"
+                        )
+                        .font(theme.typography.caption)
+                        .foregroundStyle(theme.textSecondary)
+
+                        if let error = viewModel.cacheLocationErrorMessage {
+                            Label(error, systemImage: "exclamationmark.triangle")
+                                .font(theme.typography.caption)
+                                .foregroundStyle(theme.danger)
+                                .fixedSize(horizontal: false, vertical: true)
+                        } else if let status =
+                            viewModel.cacheOperationStatusMessage {
+                            Label(status, systemImage: "checkmark.circle")
+                                .font(theme.typography.caption)
+                                .foregroundStyle(theme.success)
+                        }
                     }
                 }
 
@@ -1166,8 +1297,8 @@ private struct MirmirProductSettings: View {
                 }
 
                 Text(
-                    "Durable jobs retain security-scoped bookmarks in Application "
-                        + "Support. Backend selection remains explicit and never "
+                    "Durable jobs retain security-scoped bookmarks in the selected "
+                        + "cache. Backend selection remains explicit and never "
                         + "silently falls back."
                 )
                 .font(theme.typography.caption)
@@ -1176,6 +1307,67 @@ private struct MirmirProductSettings: View {
             .padding(theme.spacing.space6)
         }
         .background(theme.background)
+        .alert(item: $pendingCacheAction) { action in
+            Alert(
+                title: Text(action.title),
+                message: Text(action.message),
+                primaryButton: .destructive(Text(action.confirmationTitle)) {
+                    switch action {
+                    case .deleteFinished:
+                        viewModel.deleteCachedJobs(.finished)
+                    case .deleteUnfinished:
+                        viewModel.deleteCachedJobs(.unfinished)
+                    case .clearAll:
+                        viewModel.clearCache()
+                    }
+                },
+                secondaryButton: .cancel()
+            )
+        }
+    }
+}
+
+private struct MirmirCachedJobDeletionRequest: Identifiable {
+    let jobID: WorkflowJobID
+    var id: String { jobID.rawValue }
+}
+
+private enum MirmirCacheAction: String, Identifiable {
+    case deleteFinished
+    case deleteUnfinished
+    case clearAll
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .deleteFinished: "Delete Finished Jobs?"
+        case .deleteUnfinished: "Delete Unfinished Jobs?"
+        case .clearAll: "Clear Mirmir Cache?"
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .deleteFinished:
+            "This permanently removes cached source snapshots, checkpoints, "
+                + "and job records for all finished jobs. Completed output "
+                + "files are not deleted."
+        case .deleteUnfinished:
+            "This permanently removes queued, paused, and otherwise unfinished "
+                + "jobs. They cannot be resumed afterward."
+        case .clearAll:
+            "This permanently removes every inactive cached job and Mirmir’s "
+                + "temporary working media. Completed output files are not deleted."
+        }
+    }
+
+    var confirmationTitle: String {
+        switch self {
+        case .deleteFinished: "Delete Finished"
+        case .deleteUnfinished: "Delete Unfinished"
+        case .clearAll: "Clear Cache"
+        }
     }
 }
 

@@ -4,7 +4,442 @@ import Foundation
 import XCTest
 @testable import Mirmir
 
+private struct WorkflowCacheBookmarkResolverStubV4:
+    WorkflowCacheBookmarkResolvingV4 {
+    func makeBookmark(for url: URL) throws -> Data {
+        Data(url.standardizedFileURL.path.utf8)
+    }
+
+    func resolveBookmark(
+        _ data: Data
+    ) throws -> WorkflowResolvedCacheBookmarkV4 {
+        guard let path = String(data: data, encoding: .utf8),
+              path.hasPrefix("/") else {
+            throw WorkflowCacheLocationErrorV4.bookmarkResolutionFailed
+        }
+        let url = URL(fileURLWithPath: path, isDirectory: true)
+        return WorkflowResolvedCacheBookmarkV4(
+            url: url,
+            isStale: false,
+            startAccessing: { true },
+            stopAccessing: {}
+        )
+    }
+}
+
+private struct WorkflowUnavailableCacheBookmarkResolverStubV4:
+    WorkflowCacheBookmarkResolvingV4 {
+    func makeBookmark(for _: URL) throws -> Data {
+        throw WorkflowCacheLocationErrorV4.bookmarkCreationFailed
+    }
+
+    func resolveBookmark(
+        _: Data
+    ) throws -> WorkflowResolvedCacheBookmarkV4 {
+        throw WorkflowCacheLocationErrorV4.bookmarkResolutionFailed
+    }
+}
+
 final class WorkflowApplicationQueueV4Tests: XCTestCase {
+    func testDeleteCachedQueuedJobRemovesStateAndOwnedDirectory()
+        async throws {
+        let fixture = try makeFixture()
+        let queue = try makeQueue(fixture: fixture)
+        let receipt = try await queue.enqueue(
+            request: request(fixture: fixture),
+            preparedPlanBinding: preparedBinding()
+        )
+        let jobDirectory = fixture.storeURL
+            .appendingPathComponent("jobs", isDirectory: true)
+            .appendingPathComponent(
+                receipt.specification.jobID.rawValue,
+                isDirectory: true
+            )
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: jobDirectory.path)
+        )
+
+        try await queue.deleteCachedJob(
+            jobID: receipt.specification.jobID
+        )
+
+        let deletedSnapshot = try await queue.queueSnapshot()
+        XCTAssertTrue(deletedSnapshot.items.isEmpty)
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: jobDirectory.path)
+        )
+        let relaunched = try makeQueue(
+            fixture: fixture,
+            workerID: "application-worker-delete-relaunch"
+        )
+        let relaunchedSnapshot = try await relaunched.queueSnapshot()
+        XCTAssertTrue(relaunchedSnapshot.items.isEmpty)
+    }
+
+    func testDeleteCachedJobRejectsActiveLifecycleWithoutRemovingData()
+        async throws {
+        let fixture = try makeFixture()
+        let queue = try makeQueue(fixture: fixture)
+        let receipt = try await queue.enqueue(
+            request: request(fixture: fixture),
+            preparedPlanBinding: preparedBinding()
+        )
+        guard case .claimed = try await queue.claimNextApplicationJob(
+            cycleID: WorkflowDispatchCycleIDV4("delete-active-claim")
+        ) else {
+            return XCTFail("Expected the queued job to be claimed")
+        }
+
+        do {
+            try await queue.deleteCachedJob(
+                jobID: receipt.specification.jobID
+            )
+            XCTFail("An active cached job must not be deleted")
+        } catch let error as WorkflowApplicationQueueErrorV4 {
+            XCTAssertEqual(
+                error,
+                .jobDeletionNotAllowed(
+                    jobID: receipt.specification.jobID,
+                    lifecycle: .probing
+                )
+            )
+        }
+        let retainedSnapshot = try await queue.queueSnapshot()
+        XCTAssertEqual(retainedSnapshot.items.count, 1)
+    }
+
+    func testBulkFinishedDeletionRemovesTerminalJobsAndPreservesDestinations()
+        async throws {
+        let fixture = try makeFixture()
+        let tokens = WorkflowApplicationTokenSequenceV4([
+            UUID(uuidString: "10000000-0000-0000-0000-000000000001")!,
+            UUID(uuidString: "10000000-0000-0000-0000-000000000002")!,
+            UUID(uuidString: "10000000-0000-0000-0000-000000000003")!,
+        ])
+        let queue = try makeQueue(
+            fixture: fixture,
+            tokenFactory: { tokens.next() }
+        )
+        let failedOutput = fixture.outputDirectoryURL.appendingPathComponent(
+            "finished-failed.mov"
+        )
+        let cancelledOutput = fixture.outputDirectoryURL.appendingPathComponent(
+            "finished-cancelled.mov"
+        )
+        let failedBytes = Data("retained-failed-destination".utf8)
+        let cancelledBytes = Data("retained-cancelled-destination".utf8)
+        try failedBytes.write(to: failedOutput)
+        try cancelledBytes.write(to: cancelledOutput)
+        let failed = try await queue.enqueue(
+            request: request(fixture: fixture, outputName: failedOutput.lastPathComponent),
+            preparedPlanBinding: preparedBinding()
+        )
+        let cancelled = try await queue.enqueue(
+            request: request(
+                fixture: fixture,
+                outputName: cancelledOutput.lastPathComponent
+            ),
+            preparedPlanBinding: preparedBinding()
+        )
+        let unfinished = try await queue.enqueue(
+            request: request(fixture: fixture, outputName: "unfinished-retained.mov"),
+            preparedPlanBinding: preparedBinding()
+        )
+
+        guard case .claimed(let failedDispatch) = try await queue
+            .claimNextApplicationJob(
+                cycleID: WorkflowDispatchCycleIDV4("bulk-finished-failed")
+            ) else {
+            return XCTFail("Expected the failed job to be claimed")
+        }
+        _ = try await queue.transitionApplicationJob(
+            failedDispatch,
+            expected: .probing,
+            target: .failed,
+            commandKey: WorkflowRecoveryCommandKeyV4("bulk-finished-failed"),
+            stage: "bulk-finished-failed",
+            attemptID: nil,
+            releaseAfterTransition: true
+        )
+        guard case .claimed(let cancelledDispatch) = try await queue
+            .claimNextApplicationJob(
+                cycleID: WorkflowDispatchCycleIDV4("bulk-finished-cancelled")
+            ) else {
+            return XCTFail("Expected the cancelled job to be claimed")
+        }
+        _ = try await queue.transitionApplicationJob(
+            cancelledDispatch,
+            expected: .probing,
+            target: .cancelled,
+            commandKey: WorkflowRecoveryCommandKeyV4(
+                "bulk-finished-cancelled"
+            ),
+            stage: "bulk-finished-cancelled",
+            attemptID: nil,
+            releaseAfterTransition: true
+        )
+
+        let deletedFinished = try await queue.deleteCachedJobs(
+            selection: .finished
+        )
+        XCTAssertEqual(deletedFinished, 2)
+        let snapshot = try await queue.queueSnapshot()
+        XCTAssertEqual(snapshot.items.map(\.jobID), [unfinished.specification.jobID])
+        XCTAssertFalse(snapshot.items.contains { $0.jobID == failed.specification.jobID })
+        XCTAssertFalse(snapshot.items.contains { $0.jobID == cancelled.specification.jobID })
+        XCTAssertEqual(try Data(contentsOf: failedOutput), failedBytes)
+        XCTAssertEqual(try Data(contentsOf: cancelledOutput), cancelledBytes)
+    }
+
+    func testBulkUnfinishedDeletionRemovesInactiveJobsAndRetainsFinishedJobs()
+        async throws {
+        let fixture = try makeFixture()
+        let tokens = WorkflowApplicationTokenSequenceV4([
+            UUID(uuidString: "20000000-0000-0000-0000-000000000001")!,
+            UUID(uuidString: "20000000-0000-0000-0000-000000000002")!,
+            UUID(uuidString: "20000000-0000-0000-0000-000000000003")!,
+        ])
+        let queue = try makeQueue(
+            fixture: fixture,
+            tokenFactory: { tokens.next() }
+        )
+        let finished = try await queue.enqueue(
+            request: request(fixture: fixture, outputName: "finished-retained.mov"),
+            preparedPlanBinding: preparedBinding()
+        )
+        guard case .claimed(let dispatch) = try await queue
+            .claimNextApplicationJob(
+                cycleID: WorkflowDispatchCycleIDV4("bulk-unfinished-finished")
+            ) else {
+            return XCTFail("Expected the terminal job to be claimed")
+        }
+        _ = try await queue.transitionApplicationJob(
+            dispatch,
+            expected: .probing,
+            target: .failed,
+            commandKey: WorkflowRecoveryCommandKeyV4(
+                "bulk-unfinished-finished"
+            ),
+            stage: "bulk-unfinished-finished",
+            attemptID: nil,
+            releaseAfterTransition: true
+        )
+        let queuedFirst = try await queue.enqueue(
+            request: request(fixture: fixture, outputName: "queued-first.mov"),
+            preparedPlanBinding: preparedBinding()
+        )
+        let queuedSecond = try await queue.enqueue(
+            request: request(fixture: fixture, outputName: "queued-second.mov"),
+            preparedPlanBinding: preparedBinding()
+        )
+
+        let deletedUnfinished = try await queue.deleteCachedJobs(
+            selection: .unfinished
+        )
+        XCTAssertEqual(deletedUnfinished, 2)
+        let snapshot = try await queue.queueSnapshot()
+        XCTAssertEqual(snapshot.items.map(\.jobID), [finished.specification.jobID])
+        XCTAssertFalse(snapshot.items.contains { $0.jobID == queuedFirst.specification.jobID })
+        XCTAssertFalse(snapshot.items.contains { $0.jobID == queuedSecond.specification.jobID })
+    }
+
+    func testClearCacheRemovesResidualOwnedJobDirectory() async throws {
+        let fixture = try makeFixture()
+        let queue = try makeQueue(fixture: fixture)
+        let orphanJobID = try WorkflowJobID("job-residual-cache-test")
+        let orphanDirectory = fixture.storeURL
+            .appendingPathComponent("jobs", isDirectory: true)
+            .appendingPathComponent(orphanJobID.rawValue, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: orphanDirectory,
+            withIntermediateDirectories: true
+        )
+        try Data("residual".utf8).write(
+            to: orphanDirectory.appendingPathComponent("checkpoint")
+        )
+
+        let result = try await queue.clearApplicationCache()
+
+        XCTAssertEqual(result.deletedJobCount, 0)
+        XCTAssertEqual(result.deletedArtifactCount, 1)
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: orphanDirectory.path)
+        )
+    }
+
+    func testClearCacheRemovesInactiveJobsAndOwnedWorkingArtifactsOnly()
+        async throws {
+        let fixture = try makeFixture()
+        let queue = try makeQueue(fixture: fixture)
+        let destination = fixture.outputDirectoryURL.appendingPathComponent(
+            "completed-destination.mov"
+        )
+        let destinationBytes = Data("completed-output-must-survive".utf8)
+        try destinationBytes.write(to: destination)
+        _ = try await queue.enqueue(
+            request: request(
+                fixture: fixture,
+                outputName: destination.lastPathComponent
+            ),
+            preparedPlanBinding: preparedBinding()
+        )
+        let workingDirectory = fixture.storeURL
+            .appendingPathComponent("cache-v4", isDirectory: true)
+            .appendingPathComponent(
+                "application-working-media-v4",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: workingDirectory,
+            withIntermediateDirectories: true
+        )
+        let ownedArtifact = workingDirectory.appendingPathComponent(
+            ".mirmir-job-clear-test.partial.segment.mov"
+        )
+        let unknownArtifact = workingDirectory.appendingPathComponent(
+            "user-file.mov"
+        )
+        try Data("owned".utf8).write(to: ownedArtifact)
+        try Data("unknown".utf8).write(to: unknownArtifact)
+
+        let result = try await queue.clearApplicationCache()
+        let snapshot = try await queue.queueSnapshot()
+
+        XCTAssertEqual(result.deletedJobCount, 1)
+        XCTAssertEqual(result.deletedArtifactCount, 1)
+        XCTAssertTrue(snapshot.items.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: ownedArtifact.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: unknownArtifact.path))
+        XCTAssertEqual(try Data(contentsOf: destination), destinationBytes)
+    }
+
+    func testCacheLocationSelectionPersistsAndRestoresDefault() throws {
+        let fixture = try makeFixture()
+        let selected = fixture.rootURL.appendingPathComponent(
+            "ExternalCache",
+            isDirectory: true
+        )
+        let defaultSupport = fixture.rootURL.appendingPathComponent(
+            "DefaultSupport",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: selected,
+            withIntermediateDirectories: true
+        )
+        let suiteName = "MirmirCacheLocationTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.removePersistentDomain(forName: suiteName)
+        addTeardownBlock {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+        let resolver = WorkflowCacheBookmarkResolverStubV4()
+        let store = try WorkflowCacheLocationStoreV4(
+            applicationIdentifier: "com.mirmir.cache-tests",
+            defaults: defaults,
+            bookmarkResolver: resolver,
+            defaultApplicationSupportProvider: { defaultSupport }
+        )
+
+        let defaultConfiguration = try store.configuration()
+        XCTAssertEqual(
+            defaultConfiguration.workflowRootURL,
+            defaultSupport
+                .appendingPathComponent(
+                    "com.mirmir.cache-tests",
+                    isDirectory: true
+                )
+                .appendingPathComponent("WorkflowV4", isDirectory: true)
+        )
+        XCTAssertFalse(defaultConfiguration.isCustom)
+
+        let custom = try store.select(selected)
+        XCTAssertEqual(
+            custom.workflowRootURL,
+            selected
+                .appendingPathComponent("Mirmir", isDirectory: true)
+                .appendingPathComponent("WorkflowV4", isDirectory: true)
+        )
+        XCTAssertTrue(custom.isCustom)
+        XCTAssertTrue(store.status().isAvailable)
+
+        let relaunched = try WorkflowCacheLocationStoreV4(
+            applicationIdentifier: "com.mirmir.cache-tests",
+            defaults: defaults,
+            bookmarkResolver: resolver,
+            defaultApplicationSupportProvider: { defaultSupport }
+        )
+        XCTAssertEqual(
+            try relaunched.configuration().workflowRootURL,
+            custom.workflowRootURL
+        )
+        let customPreference = relaunched.preferenceSnapshot()
+        XCTAssertFalse(try relaunched.useDefault().isCustom)
+        relaunched.restorePreference(customPreference)
+        XCTAssertEqual(
+            try relaunched.configuration().workflowRootURL,
+            custom.workflowRootURL
+        )
+    }
+
+    func testUnavailableCustomCacheCanRecoverToInternalStorage() throws {
+        let fixture = try makeFixture()
+        let selected = fixture.rootURL.appendingPathComponent(
+            "UnavailableExternalCache",
+            isDirectory: true
+        )
+        let defaultSupport = fixture.rootURL.appendingPathComponent(
+            "RecoveryDefaultSupport",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: selected,
+            withIntermediateDirectories: true
+        )
+        let suiteName = "MirmirUnavailableCacheTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.removePersistentDomain(forName: suiteName)
+        addTeardownBlock {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+        let availableStore = try WorkflowCacheLocationStoreV4(
+            applicationIdentifier: "com.mirmir.unavailable-cache-tests",
+            defaults: defaults,
+            bookmarkResolver: WorkflowCacheBookmarkResolverStubV4(),
+            defaultApplicationSupportProvider: { defaultSupport }
+        )
+        _ = try availableStore.select(selected)
+
+        let unavailableStore = try WorkflowCacheLocationStoreV4(
+            applicationIdentifier: "com.mirmir.unavailable-cache-tests",
+            defaults: defaults,
+            bookmarkResolver: WorkflowUnavailableCacheBookmarkResolverStubV4(),
+            defaultApplicationSupportProvider: { defaultSupport }
+        )
+        let unavailableStatus = unavailableStore.status()
+        XCTAssertTrue(unavailableStatus.isCustom)
+        XCTAssertFalse(unavailableStatus.isAvailable)
+        XCTAssertEqual(unavailableStatus.path, selected.path)
+        XCTAssertEqual(
+            unavailableStatus.availabilityError,
+            WorkflowCacheLocationErrorV4.bookmarkResolutionFailed
+                .localizedDescription
+        )
+
+        let recovered = try unavailableStore.useDefault()
+        XCTAssertFalse(recovered.isCustom)
+        XCTAssertEqual(
+            recovered.workflowRootURL,
+            defaultSupport
+                .appendingPathComponent(
+                    "com.mirmir.unavailable-cache-tests",
+                    isDirectory: true
+                )
+                .appendingPathComponent("WorkflowV4", isDirectory: true)
+        )
+        XCTAssertTrue(unavailableStore.status().isAvailable)
+        XCTAssertFalse(unavailableStore.status().isCustom)
+    }
     func testEnqueueAcceptsHardLinkedSourceAndOwnsPrivateSnapshot()
         async throws {
         let fixture = try makeFixture()

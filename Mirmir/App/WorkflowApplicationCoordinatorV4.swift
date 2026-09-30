@@ -2936,6 +2936,12 @@ protocol WorkflowApplicationControllingV4: Sendable {
         jobID: WorkflowJobID,
         direction: WorkflowApplicationQueueMoveV4
     ) async throws
+
+    func deleteCachedJob(jobID: WorkflowJobID) async throws
+    func deleteCachedJobs(
+        selection: WorkflowCachedJobSelectionV4
+    ) async throws -> Int
+    func clearCache() async throws -> WorkflowCacheClearResultV4
 }
 
 struct WorkflowSourceTrackProgressObservationV4: Equatable, Sendable {
@@ -3677,6 +3683,7 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
 
     private let queue: WorkflowApplicationQueueV4
     private let engine: any WorkflowApplicationDeterministicExecutingV4
+    private let cacheLocationAccess: WorkflowCacheLocationAccessV4?
     private let maximumInputFramesPerBoundary: Int
     private var active: ActiveExecution?
     private var heartbeatTask: Task<Void, Never>?
@@ -3703,12 +3710,14 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
     init(
         queue: WorkflowApplicationQueueV4,
         engine: any WorkflowApplicationDeterministicExecutingV4,
-        maximumInputFramesPerBoundary: Int = 60
+        maximumInputFramesPerBoundary: Int = 60,
+        cacheLocationAccess: WorkflowCacheLocationAccessV4? = nil
     ) {
         precondition(maximumInputFramesPerBoundary > 0)
         self.queue = queue
         self.engine = engine
         self.maximumInputFramesPerBoundary = maximumInputFramesPerBoundary
+        self.cacheLocationAccess = cacheLocationAccess
     }
 
     static func live(
@@ -3717,8 +3726,28 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
         backendCatalog: UpscaleBackendCatalog,
         runtimeEnvironment: RuntimeEnvironment
     ) throws -> WorkflowApplicationCoordinatorV4 {
-        let queue = try WorkflowApplicationQueueV4.live(
+        let store = try WorkflowCacheLocationStoreV4(
             applicationIdentifier: applicationIdentifier
+        )
+        return try live(
+            configuration: store.configuration(),
+            videoProbe: videoProbe,
+            backendCatalog: backendCatalog,
+            runtimeEnvironment: runtimeEnvironment
+        )
+    }
+
+    static func live(
+        configuration: WorkflowCacheLocationConfigurationV4,
+        videoProbe: any VideoProbing,
+        backendCatalog: UpscaleBackendCatalog,
+        runtimeEnvironment: RuntimeEnvironment
+    ) throws -> WorkflowApplicationCoordinatorV4 {
+        let queue = try WorkflowApplicationQueueV4(
+            trustedRootURL: configuration.workflowRootURL,
+            workerID: try WorkflowWorkerIDV4(
+                "application-worker-\(UUID().uuidString.lowercased())"
+            )
         )
         return WorkflowApplicationCoordinatorV4(
             queue: queue,
@@ -3726,7 +3755,8 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
                 videoProbe: videoProbe,
                 backendCatalog: backendCatalog,
                 runtimeEnvironment: runtimeEnvironment
-            )
+            ),
+            cacheLocationAccess: configuration.access
         )
     }
 
@@ -3780,6 +3810,41 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
             direction: direction
         )
         await emitSnapshot(to: observer.snapshot)
+    }
+
+    func deleteCachedJob(jobID: WorkflowJobID) async throws {
+        if active?.dispatch.claim.jobID == jobID {
+            throw WorkflowApplicationQueueErrorV4.jobDeletionNotAllowed(
+                jobID: jobID,
+                lifecycle: active?.lifecycle ?? .running
+            )
+        }
+        try await queue.deleteCachedJob(jobID: jobID)
+        await emitSnapshot(to: observer.snapshot)
+    }
+
+    func deleteCachedJobs(
+        selection: WorkflowCachedJobSelectionV4
+    ) async throws -> Int {
+        if selection != .finished, let active {
+            throw WorkflowApplicationQueueErrorV4.cacheClearBlocked([
+                active.dispatch.claim.jobID
+            ])
+        }
+        let deleted = try await queue.deleteCachedJobs(selection: selection)
+        await emitSnapshot(to: observer.snapshot)
+        return deleted
+    }
+
+    func clearCache() async throws -> WorkflowCacheClearResultV4 {
+        if let active {
+            throw WorkflowApplicationQueueErrorV4.cacheClearBlocked([
+                active.dispatch.claim.jobID
+            ])
+        }
+        let result = try await queue.clearApplicationCache()
+        await emitSnapshot(to: observer.snapshot)
+        return result
     }
 
     func submit(

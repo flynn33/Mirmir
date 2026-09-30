@@ -54,6 +54,7 @@ struct WorkflowLifecycleTransition: Codable, Equatable, Hashable, Sendable {
 
 enum WorkflowEvent: Equatable, Hashable, Sendable {
     case jobEnqueued(WorkflowJobSpecification)
+    case jobDeleted
     case queueReordered([WorkflowJobID])
     case lifecycleTransition(WorkflowLifecycleTransition)
 }
@@ -68,6 +69,7 @@ extension WorkflowEvent: Codable {
 
     private enum Kind: String, Codable {
         case jobEnqueued
+        case jobDeleted
         case queueReordered
         case lifecycleTransition
     }
@@ -82,6 +84,8 @@ extension WorkflowEvent: Codable {
                     forKey: .specification
                 )
             )
+        case .jobDeleted:
+            self = .jobDeleted
         case .queueReordered:
             self = .queueReordered(
                 try container.decode(
@@ -105,6 +109,8 @@ extension WorkflowEvent: Codable {
         case let .jobEnqueued(specification):
             try container.encode(Kind.jobEnqueued, forKey: .kind)
             try container.encode(specification, forKey: .specification)
+        case .jobDeleted:
+            try container.encode(Kind.jobDeleted, forKey: .kind)
         case let .queueReordered(orderedJobIDs):
             try container.encode(Kind.queueReordered, forKey: .kind)
             try container.encode(orderedJobIDs, forKey: .orderedJobIDs)
@@ -270,6 +276,23 @@ struct WorkflowEventEnvelope: Codable, Equatable, Hashable, Sendable {
             guard attemptID == nil else {
                 throw WorkflowDomainValidationError.invalidEventEnvelope(
                     "An enqueue event cannot carry an attempt ID."
+                )
+            }
+
+        case .jobDeleted:
+            guard case let .job(jobID) = scope else {
+                throw WorkflowDomainValidationError.invalidEventEnvelope(
+                    "A job deletion must use job scope."
+                )
+            }
+            guard let jobBinding, jobBinding.jobID == jobID else {
+                throw WorkflowDomainValidationError.invalidEventEnvelope(
+                    "A job deletion must carry a matching job binding."
+                )
+            }
+            guard attemptID == nil else {
+                throw WorkflowDomainValidationError.invalidEventEnvelope(
+                    "A job deletion cannot carry an attempt ID."
                 )
             }
 

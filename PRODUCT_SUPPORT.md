@@ -1,6 +1,6 @@
 # Mirmir product support
 
-Current product identity: **Mirmir 1.3.4 (8)**.
+Current product identity: **Mirmir 1.4.0 (9)**.
 
 Mirmir is a sandboxed macOS 15.4-or-later application. It reads local media
 through security-scoped bookmarks, builds an explicit whole-asset plan, and
@@ -38,7 +38,7 @@ not a first-release blocker.
 
 VideoToolbox methods fail closed when the exact source, target, or scale
 geometry is unsupported. Automatic pre-scale and post-scale geometry
-adaptation is a post-first-release enhancement, not part of the version 1.3.4
+adaptation is a post-first-release enhancement, not part of the version 1.4.0
 contract. Deterministic resource allocation is likewise outside the
 first-release target. These accepted boundaries and follow-up work are tracked
 in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
@@ -163,6 +163,30 @@ in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
   slot. A controller that has just received a durable paused outcome can be
   recreated and resume immediately without contending with an idle drain pass.
 
+## Cache location and deletion
+
+- Settings shows the current durable workflow-cache path and the number of
+  finished and unfinished jobs stored there.
+- **Choose Location…** stores a security-scoped bookmark for a selected local
+  folder, mounted drive, or mounted network share. Mirmir uses exactly one
+  active workflow root at a time under the selected folder's
+  `Mirmir/WorkflowV4` directory.
+- Cache locations cannot be changed while the current cache contains jobs.
+  Settings states that the jobs must be deleted first; Mirmir never silently
+  migrates or abandons them.
+- If a custom root is unavailable or its bookmark cannot be reopened, Settings
+  continues to expose **Choose Location…** and **Use Internal Storage**. Returning
+  to internal Application Support does not delete or migrate the unavailable
+  root.
+- Queue-row deletion and the bulk **Delete Finished Jobs…**, **Delete Unfinished
+  Jobs…**, and **Clear Cache…** actions require confirmation. Queued, paused,
+  contained, completed, failed, safe-halt, and cancelled jobs may be removed.
+  Probing, planned, running, pausing, verifying, committing, and recovering jobs
+  are rejected until they become paused or cancelled.
+- Deletion is confined to the validated queue-owned `jobs/<job-id>` directory
+  and recognized `.mirmir-job-*` working artifacts. Output destinations are
+  external to those namespaces and are never deletion targets.
+
 ## Boundaries
 
 - Deterministic v4 is an upscaler; downscaling either axis is outside its
@@ -174,7 +198,7 @@ in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
 - Apple-native backends retain the narrower contracts in the table above; they
   do not inherit P010/HDR, alpha, deinterlacing, or fixed-point parity merely
   because the Deterministic engine supports them.
-- Deterministic resource allocation is not a version 1.3.4 first-release
+- Deterministic resource allocation is not a version 1.4.0 first-release
   target.
 - Deterministic cadence validation accepts legal 90 kHz NTSC quantization.
   Error 16 (`invalidSampleTiming`) diagnostics carry stable site identifiers,
@@ -185,8 +209,11 @@ in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
 
 ## Qualification boundary
 
-The build 8 macOS Debug suite completed 510 tests: 507 passed, zero failed, and
-three expected opt-in capture tests skipped.
+The build 9 serial macOS Debug suite completed 532 tests: 529 passed, zero
+failed, and three expected opt-in capture tests skipped. Ten tests beyond the
+accepted 522-test baseline cover durable deletion, location persistence and
+recovery, bulk actions, ownership filtering, output preservation, and active-job
+rejection.
 
 M0 through M6 are implemented and covered by the repository’s deterministic,
 media, workflow, and recovery tests. M7 is a headless frame-simulator comparison

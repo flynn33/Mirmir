@@ -856,6 +856,20 @@ private actor CatalogQueueStateControllerV4:
         throw CatalogQueueStateControllerErrorV4.unsupported
     }
 
+    func deleteCachedJob(jobID _: WorkflowJobID) async throws {
+        throw CatalogQueueStateControllerErrorV4.unsupported
+    }
+
+    func deleteCachedJobs(
+        selection _: WorkflowCachedJobSelectionV4
+    ) async throws -> Int {
+        throw CatalogQueueStateControllerErrorV4.unsupported
+    }
+
+    func clearCache() async throws -> WorkflowCacheClearResultV4 {
+        throw CatalogQueueStateControllerErrorV4.unsupported
+    }
+
     func publish(_ queue: WorkflowApplicationQueueSnapshotV4) {
         self.queue = queue
         observer.snapshot(queue)

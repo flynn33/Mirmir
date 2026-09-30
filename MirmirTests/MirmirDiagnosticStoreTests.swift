@@ -595,13 +595,25 @@ struct MirmirDiagnosticStoreTests {
 
         let json = try await store.exportJSON()
         let markdown = try await store.exportMarkdown()
-        let jsonURL = URL(
-            fileURLWithPath:
-                "/tmp/mirmir-diagnostic-upgrade-forced-failure.json"
+        let exportDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "mirmir-diagnostic-upgrade-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: exportDirectory,
+            withIntermediateDirectories: true
         )
-        let markdownURL = URL(
-            fileURLWithPath:
-                "/tmp/mirmir-diagnostic-upgrade-forced-failure.md"
+        defer {
+            try? FileManager.default.removeItem(at: exportDirectory)
+        }
+        let jsonURL = exportDirectory.appendingPathComponent(
+            "forced-failure.json",
+            isDirectory: false
+        )
+        let markdownURL = exportDirectory.appendingPathComponent(
+            "forced-failure.md",
+            isDirectory: false
         )
         try json.write(to: jsonURL, options: .atomic)
         try markdown.write(to: markdownURL, options: .atomic)
