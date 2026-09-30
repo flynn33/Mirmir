@@ -211,7 +211,9 @@ in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
   carry stable site identifiers 053–057 for numeric, exact-representation,
   rational-denominator, admitted-boundary, and non-adjacent-gap failures.
 - The installed application remains version 1.3.4 build 8 and does not contain
-  the 1.4.1 source correction. The preserved Ferris job has not been resumed.
+  the 1.4.1 source correction. The preserved Ferris job has not been resumed;
+  its checkpoint and 2,469 committed segment files have not advanced. Its
+  zero-byte `recovery-v4/decision.lock` is intentionally left in place.
 
 ## Qualification boundary
 
@@ -240,7 +242,8 @@ failed, and three expected opt-in capture tests skipped. The fresh version
 1.4.1 build 10 full serial macOS Debug scheme completed 540 tests: 537 passed,
 zero failed, and three expected opt-in capture tests skipped. The current local
 TestFlight-capable handoff archive is 1.4.1 build 10 at
-`/Users/jimdaley/Desktop/Mirmir-1.4.1-10-TestFlight.xcarchive`; it is not in Git
-and has not been uploaded, notarized, or installed. The installed 1.3.4 build 8 app
-and preserved failed job are not upgraded by creating that archive. Broader
+`/Users/jimdaley/Library/Developer/Xcode/Archives/2026-09-30/Mirmir-1.4.1-10-TestFlight.xcarchive`;
+it is not in Git and has not been uploaded, notarized, or installed. The
+previously documented Desktop path is not present. The installed 1.3.4 build 8
+app and preserved failed job are not upgraded by creating that archive. Broader
 large-media completion remains required.

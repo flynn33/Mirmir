@@ -76,9 +76,13 @@ Version 1.4.1 keeps these product boundaries explicit:
   under distinct forensic sites. This policy covers terminal and nonterminal
   segment boundaries; it is not a terminal-only snap. The preserved Ferris job
   has 148,140 committed video frames (2,469 60-frame segments) and failed while
-  processing the remaining 36-frame terminal segment. Its approximately 91 GB
-  directory remains untouched. Source and fixture qualification do not claim
-  that job or any full large-media run has completed.
+  processing the remaining 36-frame terminal segment. The authenticated
+  checkpoint remains at ordinal 2,468 and the 2,469 committed segment files have
+  not advanced. A zero-byte `recovery-v4/decision.lock` first observed at
+  15:32:46 while the installed app was already running is intentionally
+  retained; it is not completion evidence and must not be guessed away. Source
+  and fixture qualification do not claim that job or any full large-media run
+  has completed.
 
 See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.
@@ -96,8 +100,10 @@ product guide, architecture reference, ASH engine documentation, diagrams,
 testing procedures, and troubleshooting material.
 
 A local TestFlight-capable handoff archive for 1.4.1 build 10 is present at
-`/Users/jimdaley/Desktop/Mirmir-1.4.1-10-TestFlight.xcarchive`. It is not tracked
-by Git and has not been uploaded to App Store Connect.
+`/Users/jimdaley/Library/Developer/Xcode/Archives/2026-09-30/Mirmir-1.4.1-10-TestFlight.xcarchive`.
+It is not tracked by Git and has not been uploaded, notarized, installed over
+the DockCase app, or asserted as shipped. The previously documented Desktop
+path is not present.
 
 ## Deterministic Engine v4
 

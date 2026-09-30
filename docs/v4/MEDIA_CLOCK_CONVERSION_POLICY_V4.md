@@ -71,4 +71,7 @@ admitted ceiling tick `556215660/90000`.
 
 Unit and fixture tests establish the conversion policy and the production
 segment path. They do not establish completion of the preserved Ferris job.
-That job remains intact for a separately authorized resume/qualification run.
+That job remains parked at checkpoint ordinal 2,468 with 2,469 committed segment
+files and 36 source frames remaining. Its zero-byte
+`recovery-v4/decision.lock` is intentionally retained. Resume and installed-app
+qualification remain separately authorized owner actions.

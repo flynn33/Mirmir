@@ -1,6 +1,7 @@
 # Cache management
 
-Mirmir 1.4.0 build 9 exposes the durable workflow cache in Settings. The cache
+Mirmir 1.4.1 build 10 includes the durable workflow-cache controls introduced in
+1.4.0 build 9. The cache
 contains queue state, private source snapshots, checkpoints, recovery records,
 and recognized in-progress working artifacts. Completed output movies remain at
 the destinations selected by the user and are not cache contents.
@@ -56,5 +57,7 @@ The cache-management regression cases cover location selection, bookmark
 persistence across store recreation, unavailable-root recovery to internal
 storage, individual deletion, finished and unfinished bulk deletion, owned
 working-artifact cleanup, destination preservation, durable replay, and active
-job rejection. The build-9 serial macOS Debug scheme completed 532 tests: 529
-passed, zero failed, and three expected opt-in capture tests skipped.
+job rejection. The historical build-9 serial macOS Debug scheme completed 532
+tests: 529 passed, zero failed, and three expected opt-in capture tests skipped.
+The current 1.4.1 build-10 serial scheme completed 540 tests: 537 passed, zero
+failed, and the same three expected opt-in capture tests skipped.

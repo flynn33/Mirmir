@@ -44,13 +44,17 @@ do not publish, sign, notarize, or distribute the application automatically.
   zero failed, and three expected opt-in capture tests skipped. The focused
   timing and conventional-media run completed 23 of 23 tests.
 - Created and strictly verified the local universal Apple Distribution archive
-  at `/Users/jimdaley/Desktop/Mirmir-1.4.1-10-TestFlight.xcarchive`. It has not
-  been uploaded, notarized, installed, or asserted as shipped.
-- The preserved approximately 91 GB Ferris job was not resumed or modified.
-  Its authenticated checkpoint ordinal 2,468 records 2,469 committed segments
-  and `nextInputSampleIndex` 148,140. The 148,176-frame source therefore leaves
-  a 36-frame terminal remainder. This source repair does not claim a completed
-  large-media job, installed-app replacement, notarization, or shipment.
+  at `/Users/jimdaley/Library/Developer/Xcode/Archives/2026-09-30/Mirmir-1.4.1-10-TestFlight.xcarchive`.
+  It has not been uploaded, notarized, installed, or asserted as shipped. The
+  previously documented Desktop path is not present.
+- The preserved approximately 91 GB Ferris job was not resumed. Its
+  authenticated checkpoint remains at ordinal 2,468 with 2,469 committed
+  segments and `nextInputSampleIndex` 148,140. The 148,176-frame source therefore
+  leaves a 36-frame terminal remainder. A zero-byte
+  `recovery-v4/decision.lock` first observed during source-test verification is
+  retained without interpretation or deletion. This source repair does not
+  claim a completed large-media job, installed-app replacement, notarization, or
+  shipment.
 
 ## [1.4.0] - 2026-09-30
 

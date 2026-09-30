@@ -23,8 +23,10 @@ decisions.
 
 | Field | Verified value |
 | --- | --- |
-| Product | Mirmir 1.4.0 (9) |
-| Version authorities | `VERSION` = `1.4.0`; `BUILD_NUMBER` = `9` |
+| Product | Mirmir 1.4.1 (10) |
+| Version authorities | `VERSION` = `1.4.1`; `BUILD_NUMBER` = `10` |
+| Source repair checkpoint | `888085816b22bb2624e8b45a45d9a4f15adeba85` |
+| Installed application | DockCase Mirmir 1.3.4 (8); not replaced |
 | Bundle identifier | `com.mirmir.app` |
 | Minimum macOS | 15.4 |
 | M0–M6 implementation | Complete |
@@ -72,17 +74,34 @@ the current queue is empty, unavailable custom roots can recover to internal
 storage, active jobs fail closed, and completed destination movies are outside
 the deletion namespaces.
 
-The build 9 serial macOS Debug scheme completed 532 tests: 529 passed, zero
-failed, and three expected opt-in capture tests skipped. The prior accepted
-tree contained 522 tests; all ten additional tests passed.
+The historical build 9 serial macOS Debug scheme completed 532 tests: 529
+passed, zero failed, and three expected opt-in capture tests skipped. The prior
+accepted tree contained 522 tests; all ten additional tests passed.
 
-A local universal TestFlight-capable archive was built at
-`/Users/jimdaley/Desktop/Mirmir-1.4.0-9-TestFlight.xcarchive`. Its packaged
-application is `com.mirmir.app` version 1.4.0 build 9, contains `arm64` and
-`x86_64` slices, is signed by Apple Distribution for team `9AQ2C2838M`, and
-passes strict code-signature verification with the sandbox, app-scoped
-bookmark, and user-selected read/write entitlements. The archive has not been
-uploaded, notarized, installed over `/Applications`, or asserted as shipped.
+The current 1.4.1 build 10 full serial macOS Debug scheme completed 540 tests:
+537 passed, zero failed, and three expected opt-in capture tests skipped. The
+focused timing and conventional-media run passed 23 of 23 tests. A fresh
+published-tree run of the seven named production-path timing declarations plus
+the three initially failing full-suite cases passed 10 of 10 tests. These are
+source-level regression results, not installed-product or completed-media proof.
+
+A local universal TestFlight-capable candidate archive exists at
+`/Users/jimdaley/Library/Developer/Xcode/Archives/2026-09-30/Mirmir-1.4.1-10-TestFlight.xcarchive`.
+Its packaged application is `com.mirmir.app` version 1.4.1 build 10, contains
+`arm64` and `x86_64` slices, is signed by Apple Distribution for team
+`9AQ2C2838M`, and passes strict code-signature verification with the sandbox,
+app-scoped bookmark, and user-selected read/write entitlements. The archive has
+not been uploaded, notarized, installed over
+`/Volumes/DockCase/Apps/Mirmir.app`, or asserted as shipped. The previously
+documented Desktop path is not present. The installed DockCase application
+remains 1.3.4 build 8.
+
+The preserved Ferris job remains parked at authenticated checkpoint ordinal
+2,468, video `nextInputSampleIndex` 148,140, and 2,469 committed segment files,
+leaving 36 source frames. It has not been resumed or finalized. A zero-byte
+`recovery-v4/decision.lock` first observed at 15:32:46 while the installed
+application was already running is intentionally retained and is not treated as
+progress.
 
 ## Version 1.3.3 rollback qualification
 

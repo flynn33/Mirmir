@@ -17,7 +17,11 @@ ordinal 2,468, 2,469 committed 60-frame segments, and video
 failed terminal segment is the remaining 36 frames. The installed 1.3.4 build
 8 application failed that terminal segment at
 `dv4_timing_054_cm_time_not_exactly_representable`; it did not publish a final
-movie. The job directory has not been resumed or modified by the 1.4.1 patch.
+movie. The job has not been resumed by the 1.4.1 patch.
+Its checkpoint and 2,469 committed segment files have not advanced. A zero-byte
+`recovery-v4/decision.lock` first observed at 15:32:46 during source-test
+verification is retained because the installed app was already running; it is
+not removed or interpreted as job progress.
 
 The observed last PTS `556211906/90000` is the floor tick below the exact
 frame-148175 start `5932927/960` (`556211906.25/90000`). Adding exact
@@ -59,9 +63,10 @@ remains required after an explicitly authorized candidate run.
   movie's frame timing, duration, audio topology, and other planned tracks.
 
 The current local archive at
-`/Users/jimdaley/Desktop/Mirmir-1.4.1-10-TestFlight.xcarchive` is a
-TestFlight-capable handoff artifact, not closure evidence. It is excluded from
-Git and has not been uploaded to App Store Connect.
+`/Users/jimdaley/Library/Developer/Xcode/Archives/2026-09-30/Mirmir-1.4.1-10-TestFlight.xcarchive`
+is a TestFlight-capable handoff artifact, not closure evidence. It is excluded
+from Git and has not been uploaded to App Store Connect. The previously
+documented Desktop path is not present.
 
 ## VT-001 — VideoToolbox geometry adaptation
 
