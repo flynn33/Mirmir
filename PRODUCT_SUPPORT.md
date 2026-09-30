@@ -230,9 +230,10 @@ implied by simulator qualification. See
 [`docs/v4/CURRENT_QUALIFICATION_STATUS.md`](docs/v4/CURRENT_QUALIFICATION_STATUS.md)
 for the exact evidence boundary.
 
-The build 7 macOS Debug suite completed 500 tests: 497 passed, zero failed, and
-three expected opt-in capture tests skipped. A local TestFlight handoff archive
-exists at `/Users/jimdaley/Desktop/Mirmir-Beta-1.3.3-7.xcarchive`; it is not in
-Git, and upload remains an owner action. The partial Ferris run establishes the
-resolution of the reported timing defect through frame 8,760; broader
-large-media completion remains post-release qualification.
+The historical build 7 macOS Debug suite completed 500 tests: 497 passed, zero
+failed, and three expected opt-in capture tests skipped. The current local
+TestFlight-capable handoff archive is 1.4.0 build 9 at
+`/Users/jimdaley/Desktop/Mirmir-1.4.0-9-TestFlight.xcarchive`; it is not in Git
+and has not been uploaded to App Store Connect. The partial Ferris run
+establishes the resolution of the reported timing defect through frame 8,760;
+broader large-media completion remains post-release qualification.

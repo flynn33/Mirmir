@@ -92,9 +92,9 @@ The [Mirmir Wiki](https://github.com/flynn33/Mirmir/wiki) provides the complete
 product guide, architecture reference, ASH engine documentation, diagrams,
 testing procedures, and troubleshooting material.
 
-A local TestFlight handoff archive for 1.3.3 build 7 is present at
-`/Users/jimdaley/Desktop/Mirmir-Beta-1.3.3-7.xcarchive`. It is not tracked by
-Git, and upload remains an owner action.
+A local TestFlight-capable handoff archive for 1.4.0 build 9 is present at
+`/Users/jimdaley/Desktop/Mirmir-1.4.0-9-TestFlight.xcarchive`. It is not tracked
+by Git and has not been uploaded to App Store Connect.
 
 ## Deterministic Engine v4
 

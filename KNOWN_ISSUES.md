@@ -54,10 +54,10 @@ the corrected timing path.
 - Complete the same requested Deterministic v4 upscale and verify the published
   movie's frame timing, duration, audio topology, and other planned tracks.
 
-The local archive at
-`/Users/jimdaley/Desktop/Mirmir-Beta-1.3.3-7.xcarchive` is a TestFlight handoff
-artifact, not closure evidence. It is excluded from Git; upload remains an
-owner action.
+The current local archive at
+`/Users/jimdaley/Desktop/Mirmir-1.4.0-9-TestFlight.xcarchive` is a
+TestFlight-capable handoff artifact, not closure evidence. It is excluded from
+Git and has not been uploaded to App Store Connect.
 
 ## VT-001 — VideoToolbox geometry adaptation
 
