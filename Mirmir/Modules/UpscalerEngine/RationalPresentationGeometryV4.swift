@@ -1,3 +1,4 @@
+import CoreMedia
 import Foundation
 
 enum RationalPresentationGeometryV4Error: Error, Equatable, Sendable {
@@ -267,6 +268,220 @@ struct ExactRationalV4: Hashable, Comparable, Codable, Sendable,
             throw RationalPresentationGeometryV4Error.arithmeticOverflow
         }
         return Int64(magnitude)
+    }
+}
+
+enum MediaClockConversionV4Error: Error, Equatable, Sendable {
+    case nonNumericTime
+    case roundedTime
+    case nonzeroEpoch
+    case invalidTimescale(Int32)
+    case arithmeticOverflow
+    case exactValueNotRepresentable
+    case admittedBoundaryNotExactlyRepresentable
+    case admittedBoundaryNotAdjacent
+}
+
+enum MediaClockQuantizationV4: Equatable, Sendable {
+    case exact
+    case admittedFloor
+    case admittedCeiling
+}
+
+struct MediaClockConversionV4: Equatable, Sendable {
+    let time: CMTime
+    let quantization: MediaClockQuantizationV4
+}
+
+/// One fail-closed policy for projecting exact media rationals onto a declared
+/// source, writer, or encoder clock. Exact values stay exact. An
+/// incommensurate value may use only an explicitly admitted boundary that is
+/// the immediately adjacent floor or ceiling tick on that clock.
+enum MediaClockConversionPolicyV4 {
+    static func exactRational(_ time: CMTime) throws -> ExactRationalV4 {
+        guard time.isNumeric else {
+            throw MediaClockConversionV4Error.nonNumericTime
+        }
+        guard !time.flags.contains(.hasBeenRounded) else {
+            throw MediaClockConversionV4Error.roundedTime
+        }
+        guard time.epoch == 0 else {
+            throw MediaClockConversionV4Error.nonzeroEpoch
+        }
+        guard time.timescale > 0 else {
+            throw MediaClockConversionV4Error.invalidTimescale(
+                time.timescale
+            )
+        }
+        return try ExactRationalV4(
+            time.value,
+            Int64(time.timescale)
+        )
+    }
+
+    static func exact(
+        _ value: ExactRationalV4,
+        timescale: CMTimeScale
+    ) throws -> MediaClockConversionV4 {
+        guard timescale > 0 else {
+            throw MediaClockConversionV4Error.invalidTimescale(timescale)
+        }
+        let scale = Int64(timescale)
+        guard scale.isMultiple(of: value.denominator) else {
+            throw MediaClockConversionV4Error.exactValueNotRepresentable
+        }
+        let multiplier = scale / value.denominator
+        let scaled = value.numerator.multipliedReportingOverflow(
+            by: multiplier
+        )
+        guard !scaled.overflow else {
+            throw MediaClockConversionV4Error.arithmeticOverflow
+        }
+        return MediaClockConversionV4(
+            time: CMTime(
+                value: scaled.partialValue,
+                timescale: timescale
+            ),
+            quantization: .exact
+        )
+    }
+
+    static func exact(
+        _ time: CMTime,
+        timescale: CMTimeScale
+    ) throws -> MediaClockConversionV4 {
+        try exact(exactRational(time), timescale: timescale)
+    }
+
+    static func exactOrAdmittedAdjacent(
+        _ value: ExactRationalV4,
+        admittedBoundary: CMTime,
+        timescale: CMTimeScale
+    ) throws -> MediaClockConversionV4 {
+        let admittedRational: ExactRationalV4
+        do {
+            admittedRational = try exactRational(admittedBoundary)
+        } catch {
+            throw MediaClockConversionV4Error
+                .admittedBoundaryNotExactlyRepresentable
+        }
+        let admitted: MediaClockConversionV4
+        do {
+            admitted = try exact(
+                admittedRational,
+                timescale: timescale
+            )
+        } catch {
+            throw MediaClockConversionV4Error
+                .admittedBoundaryNotExactlyRepresentable
+        }
+
+        if let exactConversion = try? exact(
+            value,
+            timescale: timescale
+        ) {
+            guard admitted.time.value == exactConversion.time.value else {
+                throw MediaClockConversionV4Error
+                    .admittedBoundaryNotAdjacent
+            }
+            return exactConversion
+        }
+
+        let adjacent = try adjacentTicks(for: value, timescale: timescale)
+        if admitted.time.value == adjacent.floor {
+            return MediaClockConversionV4(
+                time: admitted.time,
+                quantization: .admittedFloor
+            )
+        }
+        if admitted.time.value == adjacent.ceiling {
+            return MediaClockConversionV4(
+                time: admitted.time,
+                quantization: .admittedCeiling
+            )
+        }
+        throw MediaClockConversionV4Error.admittedBoundaryNotAdjacent
+    }
+
+    static func exactOrAdmittedAdjacent(
+        _ time: CMTime,
+        admittedBoundary: CMTime,
+        timescale: CMTimeScale
+    ) throws -> MediaClockConversionV4 {
+        try exactOrAdmittedAdjacent(
+            exactRational(time),
+            admittedBoundary: admittedBoundary,
+            timescale: timescale
+        )
+    }
+
+    static func isExactOrAdjacentClockQuantization(
+        _ observed: CMTime,
+        of exact: CMTime
+    ) -> Bool {
+        guard observed.isNumeric,
+              exact.isNumeric,
+              observed.timescale > 0,
+              observed.epoch == exact.epoch,
+              !exact.flags.contains(.hasBeenRounded),
+              let exactRational = try? self.exactRational(exact),
+              let observedRational = try? ExactRationalV4(
+                  observed.value,
+                  Int64(observed.timescale)
+              ),
+              let observedOnClock = try? self.exact(
+                  observedRational,
+                  timescale: observed.timescale
+              ) else {
+            return false
+        }
+        if let exactOnClock = try? self.exact(
+            exactRational,
+            timescale: observed.timescale
+        ) {
+            return observedOnClock.time.value == exactOnClock.time.value
+        }
+        guard let adjacent = try? adjacentTicks(
+            for: exactRational,
+            timescale: observed.timescale
+        ) else {
+            return false
+        }
+        return observedOnClock.time.value == adjacent.floor
+            || observedOnClock.time.value == adjacent.ceiling
+    }
+
+    private static func adjacentTicks(
+        for value: ExactRationalV4,
+        timescale: CMTimeScale
+    ) throws -> (floor: Int64, ceiling: Int64) {
+        guard timescale > 0 else {
+            throw MediaClockConversionV4Error.invalidTimescale(timescale)
+        }
+        let scaled = value.numerator.multipliedReportingOverflow(
+            by: Int64(timescale)
+        )
+        guard !scaled.overflow else {
+            throw MediaClockConversionV4Error.arithmeticOverflow
+        }
+        let division = scaled.partialValue.quotientAndRemainder(
+            dividingBy: value.denominator
+        )
+        guard division.remainder != 0 else {
+            return (division.quotient, division.quotient)
+        }
+        if division.remainder > 0 {
+            let ceiling = division.quotient.addingReportingOverflow(1)
+            guard !ceiling.overflow else {
+                throw MediaClockConversionV4Error.arithmeticOverflow
+            }
+            return (division.quotient, ceiling.partialValue)
+        }
+        let floor = division.quotient.subtractingReportingOverflow(1)
+        guard !floor.overflow else {
+            throw MediaClockConversionV4Error.arithmeticOverflow
+        }
+        return (floor.partialValue, division.quotient)
     }
 }
 

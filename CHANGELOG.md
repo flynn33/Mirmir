@@ -7,6 +7,51 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-09-30
+
+### Fixed
+
+- Reconstructed nominal Deterministic v4 presentation timestamps from the
+  planned track start, exact frame ordinal, and exact cadence before submitting
+  them to the segment writer. The Ferris frame-148175 start remains
+  `5932927/960` rather than being truncated to `556211906/90000`.
+- Added one shared exact-or-admitted-adjacent media-clock policy. Exact values
+  remain exact; an incommensurable rational may use only an independently
+  admitted immediate floor or ceiling tick on the same clock. Missing frames,
+  real gaps, and boundaries at least two ticks away still fail closed.
+- Applied the policy to both nonterminal lookahead and terminal segment
+  boundaries, and removed lossy fallback normalization from segment identity
+  and packaged smoke/parity timing identities.
+- Added forensic sites 056 for an admitted boundary that is not exact on its
+  declared clock and 057 for an exact rational that is not equal or adjacent
+  to the admitted boundary. Site 054 remains the distinct no-admission exact
+  conversion failure.
+- Documented every deterministic, conventional video, audio, output validator,
+  assembly, finalization, and cadence path that can convert or compare media
+  clocks in `docs/v4/MEDIA_CLOCK_CONVERSION_POLICY_V4.md`.
+
+### Qualification boundary
+
+- Added named unit and production-path fixture coverage for the Ferris
+  quarter-tick rational, exact frame-148175 reconstruction, exact terminal
+  values, nonterminal 90 kHz lookahead, a two-tick mismatch, and a genuine
+  missing-frame mismatch.
+- Conventional video and audio paths were verified to forward native sample
+  timestamps rather than projecting them onto the 90 kHz video clock; their
+  existing timing/audio preservation suites remain the applicable regression
+  coverage.
+- The fresh full serial macOS Debug scheme completed 540 tests: 537 passed,
+  zero failed, and three expected opt-in capture tests skipped. The focused
+  timing and conventional-media run completed 23 of 23 tests.
+- Created and strictly verified the local universal Apple Distribution archive
+  at `/Users/jimdaley/Desktop/Mirmir-1.4.1-10-TestFlight.xcarchive`. It has not
+  been uploaded, notarized, installed, or asserted as shipped.
+- The preserved approximately 91 GB Ferris job was not resumed or modified.
+  Its authenticated checkpoint ordinal 2,468 records 2,469 committed segments
+  and `nextInputSampleIndex` 148,140. The 148,176-frame source therefore leaves
+  a 36-frame terminal remainder. This source repair does not claim a completed
+  large-media job, installed-app replacement, notarization, or shipment.
+
 ## [1.4.0] - 2026-09-30
 
 ### Cache management

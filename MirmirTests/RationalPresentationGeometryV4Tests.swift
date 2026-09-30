@@ -1,7 +1,97 @@
+import CoreMedia
 import XCTest
 @testable import Mirmir
 
 final class RationalPresentationGeometryV4Tests: XCTestCase {
+    func testMediaClockPolicyAcceptsFerrisUpperAdjacent90kTick()
+        throws {
+        let observedLastStart = try ExactRationalV4(
+            556_211_906,
+            90_000
+        )
+        let nominalDuration = try ExactRationalV4(1_001, 24_000)
+        let exactObservedEnd = try observedLastStart.adding(nominalDuration)
+        let conversion = try MediaClockConversionPolicyV4
+            .exactOrAdmittedAdjacent(
+                exactObservedEnd,
+                admittedBoundary: CMTime(
+                    value: 556_215_660,
+                    timescale: 90_000
+                ),
+                timescale: 90_000
+            )
+
+        XCTAssertEqual(conversion.time.value, 556_215_660)
+        XCTAssertEqual(conversion.time.timescale, 90_000)
+        XCTAssertEqual(conversion.quantization, .admittedCeiling)
+    }
+
+    func testMediaClockPolicyPreservesExactFerrisLastFrameStartAndEnd()
+        throws {
+        let nominalDuration = try ExactRationalV4(1_001, 24_000)
+        let exactLastStart = try nominalDuration.multiplied(
+            by: ExactRationalV4(148_175)
+        )
+        XCTAssertEqual(
+            exactLastStart,
+            try ExactRationalV4(5_932_927, 960)
+        )
+        let exactEnd = try exactLastStart.adding(nominalDuration)
+        let conversion = try MediaClockConversionPolicyV4
+            .exactOrAdmittedAdjacent(
+                exactEnd,
+                admittedBoundary: CMTime(
+                    value: 556_215_660,
+                    timescale: 90_000
+                ),
+                timescale: 90_000
+            )
+
+        XCTAssertEqual(conversion.time.value, 556_215_660)
+        XCTAssertEqual(conversion.quantization, .exact)
+    }
+
+    func testMediaClockPolicyRejectsNonAdjacentAndMissingFrameBoundaries()
+        throws {
+        let inexact = try ExactRationalV4(
+            2_224_862_639,
+            360_000
+        )
+        XCTAssertThrowsError(
+            try MediaClockConversionPolicyV4.exactOrAdmittedAdjacent(
+                inexact,
+                admittedBoundary: CMTime(
+                    value: 556_215_662,
+                    timescale: 90_000
+                ),
+                timescale: 90_000
+            )
+        ) {
+            XCTAssertEqual(
+                $0 as? MediaClockConversionV4Error,
+                .admittedBoundaryNotAdjacent
+            )
+        }
+
+        let missingFrameEnd = try ExactRationalV4(1_001, 24_000)
+            .multiplied(by: ExactRationalV4(148_175))
+        XCTAssertThrowsError(
+            try MediaClockConversionPolicyV4.exactOrAdmittedAdjacent(
+                missingFrameEnd,
+                admittedBoundary: CMTime(
+                    value: 556_215_660,
+                    timescale: 90_000
+                ),
+                timescale: 90_000
+            )
+        ) {
+            XCTAssertEqual(
+                $0 as? MediaClockConversionV4Error,
+                .admittedBoundaryNotAdjacent
+            )
+        }
+    }
+
     func testRationalNormalizationAndCheckedArithmeticAreExact() throws {
         XCTAssertEqual(try ExactRationalV4(16, 18), try ExactRationalV4(8, 9))
         XCTAssertEqual(try ExactRationalV4(1, -2), try ExactRationalV4(-1, 2))

@@ -4206,13 +4206,15 @@ private extension MirmirNotarizedSmokeObserverV4 {
     }
 
     static func normalizedTime(_ value: CMTime) -> CMTime {
-        guard value.isValid && value.isNumeric else {
+        guard value.isValid,
+              let exact = try? MediaClockConversionPolicyV4
+                .exactRational(value),
+              let timescale = Int32(exactly: exact.denominator) else {
             return CMTime(value: 0, timescale: 600_000)
         }
-        return CMTimeConvertScale(
-            value,
-            timescale: 600_000,
-            method: .default
+        return CMTime(
+            value: exact.numerator,
+            timescale: timescale
         )
     }
 
@@ -8505,9 +8507,12 @@ private enum MirmirPackagedPerformanceCaptureV4 {
     }
 
     private static func timeIdentity(_ time: CMTime) -> String {
-        guard time.isValid && time.isNumeric else { return "invalid" }
-        let normalized = time.convertScale(600_000, method: .default)
-        return "\(normalized.value)/\(normalized.timescale)"
+        guard time.isValid,
+              let exact = try? MediaClockConversionPolicyV4
+                .exactRational(time) else {
+            return "invalid"
+        }
+        return exact.description
     }
 
     private static func fourCC(_ value: FourCharCode) -> String {

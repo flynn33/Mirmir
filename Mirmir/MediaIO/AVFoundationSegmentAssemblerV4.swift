@@ -488,25 +488,19 @@ struct AVFoundationSegmentProbeV4: Sendable {
     private static func workflowTime(
         _ time: CMTime
     ) throws -> WorkflowMediaTimeV4 {
-        // AVFoundation's valid numeric timescales are positive Int32 values.
-        // The coordinator contract permits up to one billion; common media
-        // timescales fit directly. An out-of-contract value is normalized to
-        // nanoseconds with round-toward-zero solely for identity reporting.
-        if time.timescale > 0, time.timescale <= 1_000_000_000,
-           let result = try? WorkflowMediaTimeV4(
-               value: time.value,
-               timescale: time.timescale
-           ) {
-            return result
+        let exact: ExactRationalV4
+        do {
+            exact = try MediaClockConversionPolicyV4.exactRational(time)
+        } catch {
+            throw AVFoundationSegmentV4Error.invalidSegmentSequence
         }
-        let converted = CMTimeConvertScale(
-            time,
-            timescale: 1_000_000_000,
-            method: .default
-        )
+        guard exact.denominator <= 1_000_000_000,
+              let timescale = Int32(exactly: exact.denominator) else {
+            throw AVFoundationSegmentV4Error.invalidSegmentSequence
+        }
         return try WorkflowMediaTimeV4(
-            value: converted.value,
-            timescale: converted.timescale
+            value: exact.numerator,
+            timescale: timescale
         )
     }
 
@@ -1294,28 +1288,14 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
         _ value: ExactRationalV4,
         timescale: Int32
     ) throws -> CMTime {
-        guard timescale > 0,
-              value.denominator > 0,
-              value.denominator <= Int64(Int32.max),
-              let sourceTimescale = Int32(exactly: value.denominator) else {
+        do {
+            return try MediaClockConversionPolicyV4.exact(
+                value,
+                timescale: timescale
+            ).time
+        } catch {
             throw AVFoundationSegmentV4Error.invalidSegmentSequence
         }
-        let source = CMTime(
-            value: value.numerator,
-            timescale: sourceTimescale
-        )
-        let converted = CMTimeConvertScale(
-            source,
-            timescale: timescale,
-            method: .default
-        )
-        guard converted.isNumeric,
-              converted.epoch == 0,
-              !converted.flags.contains(.hasBeenRounded),
-              CMTimeCompare(source, converted) == 0 else {
-            throw AVFoundationSegmentV4Error.invalidSegmentSequence
-        }
-        return converted
     }
 
     private static func rangeEquals(

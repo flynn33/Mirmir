@@ -1,6 +1,6 @@
 # Mirmir product support
 
-Current product identity: **Mirmir 1.4.0 (9)**.
+Current product identity: **Mirmir 1.4.1 (10)**.
 
 Mirmir is a sandboxed macOS 15.4-or-later application. It reads local media
 through security-scoped bookmarks, builds an explicit whole-asset plan, and
@@ -27,14 +27,20 @@ backends. It excludes both Deterministic routes and Smooth Motion.
 Consequently, Automatic does not select deterministic v4 for opaque H.264
 input.
 
-## First-release scope
+## Timing correction and large-media boundary
 
-The original 1:43 Deterministic v4 source ran in the production app through
-frame 8,760 without error 16, passing the timing path that previously failed.
-The reported error-16 timing defect is resolved. The only observed terminal
-failure was ENOSPC, and the previous authenticated checkpoint remained
-readable. Further testing on large media files remains extended qualification,
-not a first-release blocker.
+Version 1.4.1 reconstructs nominal presentation timestamps from exact frame
+ordinal and cadence. One shared conversion policy covers nonterminal lookahead
+and terminal boundaries: exact values remain exact, while an incommensurable
+value can use only an independently admitted adjacent source-clock tick. A
+missing frame or any non-adjacent gap fails under forensic site 057.
+
+The preserved original 1:43 Ferris job is not completion evidence. Checkpoint
+ordinal 2,468 contains 2,469 committed 60-frame segments and records the video
+`nextInputSampleIndex` as 148,140. The source contains 148,176 frames, leaving a
+36-frame terminal remainder where the installed build failed at site 054. The
+approximately 91 GB job directory remains unchanged. A full candidate run and
+published output verification remain separate qualification work.
 
 VideoToolbox methods fail closed when the exact source, target, or scale
 geometry is unsupported. Automatic pre-scale and post-scale geometry
@@ -200,20 +206,19 @@ in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
   because the Deterministic engine supports them.
 - Deterministic resource allocation is not a version 1.4.0 first-release
   target.
-- Deterministic cadence validation accepts legal 90 kHz NTSC quantization.
-  Error 16 (`invalidSampleTiming`) diagnostics carry stable site identifiers,
-  and the original 1:43 source advanced through frame 8,760 without one. This
-  resolves the reported error-16 timing defect. The only observed terminal
-  failure was ENOSPC. Further large-media testing remains extended
-  qualification rather than a first-release blocker.
+- Deterministic cadence validation accepts only exact or immediately adjacent
+  legal 90 kHz NTSC quantization. Error 16 (`invalidSampleTiming`) diagnostics
+  carry stable site identifiers 053–057 for numeric, exact-representation,
+  rational-denominator, admitted-boundary, and non-adjacent-gap failures.
+- The installed application remains version 1.3.4 build 8 and does not contain
+  the 1.4.1 source correction. The preserved Ferris job has not been resumed.
 
 ## Qualification boundary
 
-The build 9 serial macOS Debug suite completed 532 tests: 529 passed, zero
-failed, and three expected opt-in capture tests skipped. Ten tests beyond the
-accepted 522-test baseline cover durable deletion, location persistence and
-recovery, bulk actions, ownership filtering, output preservation, and active-job
-rejection.
+Version 1.4.1 qualification includes the named timing-policy, deterministic
+segment, conventional video/audio, assembly, canonical-media, and durable
+workflow test classes recorded in the release evidence. A successful test run
+does not establish a completed Ferris output.
 
 M0 through M6 are implemented and covered by the repository’s deterministic,
 media, workflow, and recovery tests. M7 is a headless frame-simulator comparison
@@ -231,9 +236,11 @@ implied by simulator qualification. See
 for the exact evidence boundary.
 
 The historical build 7 macOS Debug suite completed 500 tests: 497 passed, zero
-failed, and three expected opt-in capture tests skipped. The current local
-TestFlight-capable handoff archive is 1.4.0 build 9 at
-`/Users/jimdaley/Desktop/Mirmir-1.4.0-9-TestFlight.xcarchive`; it is not in Git
-and has not been uploaded to App Store Connect. The partial Ferris run
-establishes the resolution of the reported timing defect through frame 8,760;
-broader large-media completion remains post-release qualification.
+failed, and three expected opt-in capture tests skipped. The fresh version
+1.4.1 build 10 full serial macOS Debug scheme completed 540 tests: 537 passed,
+zero failed, and three expected opt-in capture tests skipped. The current local
+TestFlight-capable handoff archive is 1.4.1 build 10 at
+`/Users/jimdaley/Desktop/Mirmir-1.4.1-10-TestFlight.xcarchive`; it is not in Git
+and has not been uploaded, notarized, or installed. The installed 1.3.4 build 8 app
+and preserved failed job are not upgraded by creating that archive. Broader
+large-media completion remains required.

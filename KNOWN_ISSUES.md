@@ -1,49 +1,53 @@
 # Mirmir accepted limitations and follow-up work
 
 Verified against `main` on September 30, 2026. These entries distinguish a
-resolved defect from accepted first-release boundaries and post-first-release
-work. None blocks the version 1.4.0 first-release target.
+source repair from installed-product and full-media qualification. Product
+identity is version 1.4.1 build 10.
 
 ## DV4-001 — Deterministic v4 error 16 on legal NTSC timing
 
-**Status:** Resolved
-**Priority:** Closed corrective defect
+**Status:** Source repaired in 1.4.1; installed-product/full-job qualification open
+**Priority:** Corrective defect
 
 ### Current evidence
 
-The original 1:43 Ferris beta source ran in the production application with
-Deterministic v4 Metal, a 7680 × 3264 target, and audio preservation enabled.
-It committed through source frame 8,760 without error 16, passing the timing
-path that previously failed, then stopped when the internal volume reached
-ENOSPC. The only observed terminal failure in the current production rerun was
-disk exhaustion.
+The preserved approximately 91 GB Ferris job has authenticated checkpoint
+ordinal 2,468, 2,469 committed 60-frame segments, and video
+`nextInputSampleIndex` 148,140. The source contains 148,176 frames, so the
+failed terminal segment is the remaining 36 frames. The installed 1.3.4 build
+8 application failed that terminal segment at
+`dv4_timing_054_cm_time_not_exactly_representable`; it did not publish a final
+movie. The job directory has not been resumed or modified by the 1.4.1 patch.
 
-The cadence validator accepts legal 90 kHz NTSC timestamp quantization
-and tests the legal lattice through approximately the original source's frame
-range. That is candidate regression coverage only. Every
-`invalidSampleTiming` throw now carries a distinct stable site identifier so a
-  future timing failure can name the actual failing check.
+The observed last PTS `556211906/90000` is the floor tick below the exact
+frame-148175 start `5932927/960` (`556211906.25/90000`). Adding exact
+`1001/24000` to the observed floor produces `556215659.75/90000`, while the
+independently admitted asset end is `556215660/90000`.
 
 ### Resolution
 
-The reported error-16 defect was caused by using a quantized
-`minimumFrameDuration` as the nominal cadence for a 24000/1001 source. The
-planner now supplies exact `1001/24000` cadence, the validator accepts the
-legal 90 kHz timestamp lattice without adjacent-tick slack, and real gaps remain
-rejected. Stable timing-site identifiers remain in place for future diagnosis.
+The planner supplies exact `1001/24000` cadence. Version 1.4.1 additionally
+reconstructs each nominal PTS as `trackStart + frameIndex × cadence`, so the
+last frame keeps its exact start before writer projection. One shared policy is
+used by terminal and nonterminal boundaries: exact values must equal the
+admitted boundary; an incommensurable value may use only the admitted immediate
+floor or ceiling tick. Forensic site 056 identifies an invalid admitted clock
+boundary, while site 057 identifies a non-adjacent boundary or genuine gap.
 
-This resolves the reported error-16 timing defect. It does not assert that
-every large media file has completed end to end.
+Named unit and production-path fixture tests cover the Ferris rational,
+frame-148175 reconstruction, a 90 kHz nonterminal boundary, exact terminal
+values, a mismatch two ticks away, and a missing final frame. This is source
+and fixture evidence, not proof that the preserved job completes end to end.
 
 ## DV4-002 — Extended large-media Deterministic qualification
 
 **Status:** Post-first-release qualification
 **Priority:** Non-blocking follow-up
 
-The production Ferris run did not publish a complete output movie because the
-internal volume reached ENOSPC at frame 8,760. Further testing on large media
-files remains required to qualify long-duration Deterministic upscaling beyond
-the corrected timing path.
+The preserved Ferris run did not publish a complete output movie. Its recorded
+failure is the 36-frame terminal timing defect described in DV4-001; the 1.4.1
+source repair has not been exercised by resuming that job. Further testing
+remains required after an explicitly authorized candidate run.
 
 ### Qualification work
 
@@ -55,7 +59,7 @@ the corrected timing path.
   movie's frame timing, duration, audio topology, and other planned tracks.
 
 The current local archive at
-`/Users/jimdaley/Desktop/Mirmir-1.4.0-9-TestFlight.xcarchive` is a
+`/Users/jimdaley/Desktop/Mirmir-1.4.1-10-TestFlight.xcarchive` is a
 TestFlight-capable handoff artifact, not closure evidence. It is excluded from
 Git and has not been uploaded to App Store Connect.
 
