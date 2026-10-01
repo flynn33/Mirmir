@@ -76,15 +76,12 @@ Version 1.4.2 keeps these product boundaries explicit:
   `1001/24000` lattice. A shared source-clock conversion policy accepts only an
   independently admitted immediate floor/ceiling tick and rejects real gaps
   under distinct forensic sites. This policy covers terminal and nonterminal
-  segment boundaries; it is not a terminal-only snap. The preserved Ferris job
-  has 148,140 committed video frames (2,469 60-frame segments) and failed while
-  processing the remaining 36-frame terminal segment. The authenticated
-  checkpoint remains at ordinal 2,468 and the 2,469 committed segment files have
-  not advanced. A zero-byte `recovery-v4/decision.lock` first observed at
-  15:32:46 while the installed app was already running is intentionally
-  retained; it is not completion evidence and must not be guessed away. Source
-  and fixture qualification do not claim that job or any full large-media run
-  has completed.
+  segment boundaries; it is not a terminal-only snap. Historical recovery
+  evidence recorded 148,140 committed Ferris video frames and a 36-frame
+  terminal remainder. On October 1, the owner authorized clearing that job's
+  live cache with the other inactive jobs. Its checkpoint and cached segments
+  are no longer present. Source and fixture qualification do not claim that job
+  or any full large-media run completed.
 
 See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.
@@ -102,11 +99,13 @@ The [Mirmir Wiki](https://github.com/flynn33/Mirmir/wiki) provides the complete
 product guide, architecture reference, ASH engine documentation, diagrams,
 testing procedures, and troubleshooting material.
 
-A historical local TestFlight-capable handoff archive for 1.4.1 build 10 is present at
+A local Apple Distribution TestFlight handoff archive for 1.4.2 build 11 is at
+`/Users/jimdaley/Library/Developer/Xcode/Archives/2026-10-01/Mirmir-1.4.2-11-TestFlight.xcarchive`.
+It is universal, strictly signature-verified, and has not been uploaded or
+installed over `/Applications/Mirmir.app`. The earlier 1.4.1 build-10 archive
+remains historical at
 `/Users/jimdaley/Library/Developer/Xcode/Archives/2026-09-30/Mirmir-1.4.1-10-TestFlight.xcarchive`.
-It is not tracked by Git and has not been uploaded, notarized, installed over
-the DockCase app, or asserted as shipped. The previously documented Desktop
-path is not present.
+Neither archive is tracked by Git or asserted as shipped.
 
 ## Deterministic Engine v4
 

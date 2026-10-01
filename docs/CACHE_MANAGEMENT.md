@@ -66,14 +66,19 @@ job rejection. The historical build-9 serial macOS Debug scheme completed 532
 tests: 529 passed, zero failed, and three expected opt-in capture tests skipped.
 The 1.4.1 build-10 serial scheme completed 540 tests: 537 passed, zero failed,
 and the same three expected opt-in capture tests skipped. Three additional
-1.4.2 isolated-store tests passed for completed, paused, and contained jobs,
+1.4.2 isolated-store tests passed for completed, failed, cancelled, paused,
+and contained jobs,
 including the zero-job location gate and completed-output preservation. The
 full 1.4.2 macOS Debug result bundle reports 543 total tests: 540 passed,
-zero failed, and three expected opt-in capture tests skipped. The installed
-1.4.1 app's cache was not deleted during this verification.
+zero failed, and three expected opt-in capture tests skipped. After the fixture
+proof, owner-authorized live cleanup removed 18 finished and four unfinished
+jobs through the same view-model methods, then cleared residual cache data.
+The installed 1.4.1 app reopened the same root with zero jobs and **Choose
+Location…** enabled. It was not replaced.
 
 The named cache-control cases are
-`testCacheControlsDeleteFinishedThenPausedAndContainedAndUnlockLocation`,
+`testCacheControlsDeleteCompletedFailedCancelledThenPausedContainedAndUnlockLocation`,
 `testCacheControlsDeleteContainedRowAndUnlockLocation`, and
-`testCacheControlsClearCompletedPausedContainedAndOrphanFiles`. Each passed in
-the isolated fixture run and in the full scheme.
+`testCacheControlsClearCompletedFailedCancelledPausedContainedAndOrphans`.
+Each passed in the isolated fixture run. The preceding full scheme ran their
+earlier three-state versions.

@@ -19,15 +19,22 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ### Verification boundary
 
-- Isolated-store regressions created completed, paused, and contained jobs,
+- Isolated-store regressions created completed, failed, cancelled, paused, and
+  contained jobs,
   then exercised finished deletion, unfinished deletion, row deletion, and
   Clear Cache. The tests verified removal of job records and owned files,
   preserved completed output, zero counts, and an enabled location gate.
 - The full macOS Debug result bundle reports 543 tests: 540 passed, zero
   failed, and three expected opt-in capture tests skipped.
-- The existing `/Applications/Mirmir.app` and its live cache were not replaced
-  or cleared by this source patch. The 1.4.1 build-10 archive remains a
-  historical handoff, not a 1.4.2 artifact.
+- The owner-authorized live-cache cleanup removed 18 finished and four
+  unfinished records through the view-model deletion path, then cleared
+  residual cache data. The installed 1.4.1 app reopened the same root with zero
+  jobs and **Choose Location…** enabled; it was not replaced.
+- Built a universal 1.4.2 build-11 TestFlight handoff archive at
+  `/Users/jimdaley/Library/Developer/Xcode/Archives/2026-10-01/Mirmir-1.4.2-11-TestFlight.xcarchive`.
+  It embeds the valid Mac Team Store profile, carries a secure timestamp, and
+  passed strict Apple Distribution signature verification. It has not been
+  uploaded or installed.
 
 ## [1.4.1] - 2026-09-30
 

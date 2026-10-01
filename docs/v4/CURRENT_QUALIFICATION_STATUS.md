@@ -80,10 +80,14 @@ the deletion namespaces.
 Version 1.4.2 fixes the cache confirmation path in Settings and Queue. One
 workspace alert presents all cache confirmations, and the confirmed operation
 awaits deletion and reads back the durable queue. Three isolated-store tests
-seeded completed, paused, and contained jobs; finished, unfinished, row, and
+seeded completed, failed, cancelled, paused, and contained jobs; finished,
+unfinished, row, and
 Clear Cache operations removed journal records and owned files, left a
-completed output intact, and enabled the location gate at zero jobs. The live
-approximately 96 GiB cache and installed 1.4.1 app were not modified.
+completed output intact, and enabled the location gate at zero jobs. After this
+fixture proof, the owner authorized removal of 18 finished and four unfinished
+jobs through the view-model deletion path. Clear Cache removed remaining owned
+artifacts; the installed 1.4.1 app reopened the same root with zero jobs and an
+enabled location chooser. Its binary was not replaced.
 The full 1.4.2 build-11 macOS Debug result bundle reports 543 total tests:
 540 passed, zero failed, and three expected opt-in capture tests skipped.
 
@@ -109,12 +113,18 @@ not been uploaded, notarized, installed over
 documented Desktop path is not present. The installed DockCase application
 remains 1.3.4 build 8.
 
-The preserved Ferris job remains parked at authenticated checkpoint ordinal
+A current universal 1.4.2 build-11 Apple Distribution archive exists at
+`/Users/jimdaley/Library/Developer/Xcode/Archives/2026-10-01/Mirmir-1.4.2-11-TestFlight.xcarchive`.
+Its 1.4.2/11 identity, arm64 and x86_64 executable/dSYM UUID pairs, embedded
+Mac Team Store provisioning profile, sandbox entitlements, secure timestamp,
+and strict signature were verified. It has not been uploaded or installed.
+
+Before the October 1 owner-authorized cache clear, the Ferris job was parked at
+authenticated checkpoint ordinal
 2,468, video `nextInputSampleIndex` 148,140, and 2,469 committed segment files,
-leaving 36 source frames. It has not been resumed or finalized. A zero-byte
-`recovery-v4/decision.lock` first observed at 15:32:46 while the installed
-application was already running is intentionally retained and is not treated as
-progress.
+leaving 36 source frames. It was not resumed or finalized. Its cached
+checkpoint, segments, and recovery lock were removed with the live store
+cleanup; the historical observation is not treated as completion.
 
 ## Version 1.3.3 rollback qualification
 

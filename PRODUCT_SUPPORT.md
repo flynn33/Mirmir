@@ -36,12 +36,13 @@ and terminal boundaries: exact values remain exact, while an incommensurable
 value can use only an independently admitted adjacent source-clock tick. A
 missing frame or any non-adjacent gap fails under forensic site 057.
 
-The preserved original 1:43 Ferris job is not completion evidence. Checkpoint
+The historical original 1:43 Ferris job is not completion evidence. Checkpoint
 ordinal 2,468 contains 2,469 committed 60-frame segments and records the video
 `nextInputSampleIndex` as 148,140. The source contains 148,176 frames, leaving a
 36-frame terminal remainder where the installed build failed at site 054. The
-approximately 91 GB job directory remains unchanged. A full candidate run and
-published output verification remain separate qualification work.
+approximately 91 GB job directory was removed in the owner-authorized October 1
+cache cleanup. A new full candidate run and published output verification
+remain separate qualification work.
 
 VideoToolbox methods fail closed when the exact source, target, or scale
 geometry is unsupported. Automatic pre-scale and post-scale geometry
@@ -217,9 +218,8 @@ in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
   rational-denominator, admitted-boundary, and non-adjacent-gap failures.
 - The installed `/Applications` app is 1.4.1 build 10 and does not contain the
   1.4.2 cache-control correction. The DockCase app remains 1.3.4 build 8. The
-  preserved Ferris job has not been resumed;
-  its checkpoint and 2,469 committed segment files have not advanced. Its
-  zero-byte `recovery-v4/decision.lock` is intentionally left in place.
+  historical Ferris job was not resumed; its cached checkpoint, segments, and
+  recovery lock were removed during the owner-authorized October 1 cache clear.
 
 ## Qualification boundary
 
@@ -248,12 +248,14 @@ failed, and three expected opt-in capture tests skipped. The fresh version
 1.4.1 build 10 full serial macOS Debug scheme completed 540 tests: 537 passed,
 zero failed, and three expected opt-in capture tests skipped. The 1.4.2
 fixture tests passed for finished, unfinished, row, and Clear Cache actions
-with completed, paused, and contained jobs. The full 1.4.2 build-11 Debug
+with completed, failed, cancelled, paused, and contained jobs. The full 1.4.2 build-11 Debug
 result bundle reports 543 total tests: 540 passed, zero failed, and three
-expected opt-in capture tests skipped. The historical local
-TestFlight-capable handoff archive is 1.4.1 build 10 at
+expected opt-in capture tests skipped. The current local Apple Distribution
+TestFlight handoff archive is 1.4.2 build 11 at
+`/Users/jimdaley/Library/Developer/Xcode/Archives/2026-10-01/Mirmir-1.4.2-11-TestFlight.xcarchive`;
+the historical 1.4.1 build-10 archive remains at
 `/Users/jimdaley/Library/Developer/Xcode/Archives/2026-09-30/Mirmir-1.4.1-10-TestFlight.xcarchive`;
-it is not in Git and has not been uploaded, notarized, or installed. The
-previously documented Desktop path is not present. Neither installed app nor
-the preserved failed job was changed by this source patch. Broader
-large-media completion remains required.
+neither archive is in Git, uploaded, or installed. The owner-authorized live
+cache clear removed all 22 records and owned job directories; the unchanged
+installed app reopened that root with zero jobs and an enabled location
+chooser. Broader large-media completion remains required.

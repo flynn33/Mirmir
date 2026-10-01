@@ -14,8 +14,11 @@ and queue-row cache confirmations did not appear, preventing the deletion path
 from running and leaving **Choose Location…** disabled. The 1.4.2 source uses
 one workspace confirmation presenter and awaits the requested cleanup with an
 explicit queue readback. Isolated tests deleted completed, paused, and
-contained jobs, verified owned files were removed, and observed the empty-queue
-location gate become available. The live cache was not cleared for this test.
+contained, failed, and cancelled jobs, verified owned files were removed, and
+observed the empty-queue location gate become available. The owner then
+authorized clearing the live root through those same methods. The installed
+1.4.1 app reopened it with zero jobs and **Choose Location…** enabled. The
+installed binary still lacks the repaired confirmation presenter.
 
 ## DV4-001 — Deterministic v4 error 16 on legal NTSC timing
 
@@ -24,17 +27,17 @@ location gate become available. The live cache was not cleared for this test.
 
 ### Current evidence
 
-The preserved approximately 91 GB Ferris job has authenticated checkpoint
+Before the owner-authorized October 1 cache cleanup, the approximately 91 GB
+Ferris job had authenticated checkpoint
 ordinal 2,468, 2,469 committed 60-frame segments, and video
 `nextInputSampleIndex` 148,140. The source contains 148,176 frames, so the
 failed terminal segment is the remaining 36 frames. The installed 1.3.4 build
 8 application failed that terminal segment at
 `dv4_timing_054_cm_time_not_exactly_representable`; it did not publish a final
-movie. The job has not been resumed by the 1.4.1 patch.
-Its checkpoint and 2,469 committed segment files have not advanced. A zero-byte
-`recovery-v4/decision.lock` first observed at 15:32:46 during source-test
-verification is retained because the installed app was already running; it is
-not removed or interpreted as job progress.
+movie. The job was not resumed by the 1.4.1 patch. Its cached checkpoint,
+segments, and zero-byte `recovery-v4/decision.lock` were removed with the
+authorized cache clear. This historical evidence does not imply a completed
+movie.
 
 The observed last PTS `556211906/90000` is the floor tick below the exact
 frame-148175 start `5932927/960` (`556211906.25/90000`). Adding exact
@@ -54,17 +57,17 @@ boundary, while site 057 identifies a non-adjacent boundary or genuine gap.
 Named unit and production-path fixture tests cover the Ferris rational,
 frame-148175 reconstruction, a 90 kHz nonterminal boundary, exact terminal
 values, a mismatch two ticks away, and a missing final frame. This is source
-and fixture evidence, not proof that the preserved job completes end to end.
+and fixture evidence, not proof of an end-to-end large-media completion.
 
 ## DV4-002 — Extended large-media Deterministic qualification
 
 **Status:** Post-first-release qualification
 **Priority:** Non-blocking follow-up
 
-The preserved Ferris run did not publish a complete output movie. Its recorded
-failure is the 36-frame terminal timing defect described in DV4-001; the 1.4.1
-source repair has not been exercised by resuming that job. Further testing
-remains required after an explicitly authorized candidate run.
+The historical Ferris run did not publish a complete output movie. Its recorded
+failure is the 36-frame terminal timing defect described in DV4-001; its cache
+was cleared on October 1 with owner authorization. Further testing requires a
+new candidate run.
 
 ### Qualification work
 
@@ -76,10 +79,9 @@ remains required after an explicitly authorized candidate run.
   movie's frame timing, duration, audio topology, and other planned tracks.
 
 The current local archive at
-`/Users/jimdaley/Library/Developer/Xcode/Archives/2026-09-30/Mirmir-1.4.1-10-TestFlight.xcarchive`
-is a TestFlight-capable handoff artifact, not closure evidence. It is excluded
-from Git and has not been uploaded to App Store Connect. The previously
-documented Desktop path is not present.
+`/Users/jimdaley/Library/Developer/Xcode/Archives/2026-10-01/Mirmir-1.4.2-11-TestFlight.xcarchive`
+is an Apple Distribution signed TestFlight handoff artifact, not full-media
+closure evidence. It is excluded from Git and has not been uploaded.
 
 ## VT-001 — VideoToolbox geometry adaptation
 

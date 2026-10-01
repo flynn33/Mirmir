@@ -70,8 +70,8 @@ admitted ceiling tick `556215660/90000`.
 ## Evidence boundary
 
 Unit and fixture tests establish the conversion policy and the production
-segment path. They do not establish completion of the preserved Ferris job.
-That job remains parked at checkpoint ordinal 2,468 with 2,469 committed segment
-files and 36 source frames remaining. Its zero-byte
-`recovery-v4/decision.lock` is intentionally retained. Resume and installed-app
-qualification remain separately authorized owner actions.
+segment path. They do not establish completion of the historical Ferris job.
+Before the owner-authorized October 1 cache clear, that job had checkpoint
+ordinal 2,468, 2,469 committed segment files, and 36 source frames remaining.
+Its cached checkpoint, segments, and recovery lock have since been removed.
+A new full-media run and installed-app qualification remain separate work.
