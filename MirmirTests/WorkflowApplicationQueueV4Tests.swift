@@ -48,7 +48,7 @@ private struct WorkflowUnavailableCacheBookmarkResolverStubV4:
 
 final class WorkflowApplicationQueueV4Tests: XCTestCase {
     @MainActor
-    func testCacheControlsDeleteFinishedThenPausedAndContainedAndUnlockLocation()
+    func testCacheControlsDeleteCompletedFailedCancelledThenPausedContainedAndUnlockLocation()
         async throws {
         let context = try makeCacheControlFixture()
         let queue = try makeQueue(
@@ -60,6 +60,18 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
             fixture: context.fixture,
             name: "completed.mov",
             lifecycle: .completed
+        )
+        let failed = try await seedCacheJob(
+            queue: queue,
+            fixture: context.fixture,
+            name: "failed.mov",
+            lifecycle: .failed
+        )
+        let cancelled = try await seedCacheJob(
+            queue: queue,
+            fixture: context.fixture,
+            name: "cancelled.mov",
+            lifecycle: .cancelled
         )
         let paused = try await seedCacheJob(
             queue: queue,
@@ -80,7 +92,7 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         let viewModel = MirmirViewModel(cacheLocationStore: context.store)
         await viewModel.initializeWorkflow()
 
-        XCTAssertEqual(viewModel.finishedCachedJobCount, 1)
+        XCTAssertEqual(viewModel.finishedCachedJobCount, 3)
         XCTAssertEqual(viewModel.unfinishedCachedJobCount, 2)
         XCTAssertFalse(viewModel.canChangeCacheLocation)
 
@@ -91,6 +103,8 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         XCTAssertEqual(viewModel.unfinishedCachedJobCount, 2)
         XCTAssertFalse(viewModel.canChangeCacheLocation)
         XCTAssertFalse(cacheJobDirectory(context.fixture, completed).fileExists)
+        XCTAssertFalse(cacheJobDirectory(context.fixture, failed).fileExists)
+        XCTAssertFalse(cacheJobDirectory(context.fixture, cancelled).fileExists)
         XCTAssertTrue(cacheJobDirectory(context.fixture, paused).fileExists)
         XCTAssertTrue(cacheJobDirectory(context.fixture, contained).fileExists)
 
@@ -107,7 +121,7 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
     }
 
     @MainActor
-    func testCacheControlsClearCompletedPausedContainedAndOrphanFiles()
+    func testCacheControlsClearCompletedFailedCancelledPausedContainedAndOrphans()
         async throws {
         let context = try makeCacheControlFixture()
         let queue = try makeQueue(
@@ -119,6 +133,18 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
             fixture: context.fixture,
             name: "completed.mov",
             lifecycle: .completed
+        )
+        let failed = try await seedCacheJob(
+            queue: queue,
+            fixture: context.fixture,
+            name: "failed.mov",
+            lifecycle: .failed
+        )
+        let cancelled = try await seedCacheJob(
+            queue: queue,
+            fixture: context.fixture,
+            name: "cancelled.mov",
+            lifecycle: .cancelled
         )
         let paused = try await seedCacheJob(
             queue: queue,
@@ -132,7 +158,7 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
             name: "contained.mov",
             lifecycle: .contained
         )
-        let jobIDs = [completed, paused, contained]
+        let jobIDs = [completed, failed, cancelled, paused, contained]
         let orphan = context.fixture.storeURL
             .appendingPathComponent("jobs", isDirectory: true)
             .appendingPathComponent(
@@ -148,7 +174,7 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         )
         let viewModel = MirmirViewModel(cacheLocationStore: context.store)
         await viewModel.initializeWorkflow()
-        XCTAssertEqual(viewModel.finishedCachedJobCount, 1)
+        XCTAssertEqual(viewModel.finishedCachedJobCount, 3)
         XCTAssertEqual(viewModel.unfinishedCachedJobCount, 2)
 
         await viewModel.clearCache()
@@ -2323,6 +2349,10 @@ private extension WorkflowApplicationQueueV4Tests {
             try await advance(.pausing, .paused, attempt: attemptID)
         case .contained:
             try await advance(.probing, .contained)
+        case .failed:
+            try await advance(.probing, .failed)
+        case .cancelled:
+            try await advance(.probing, .cancelled)
         default:
             throw WorkflowApplicationQueueErrorV4.jobDeletionNotAllowed(
                 jobID: jobID,
