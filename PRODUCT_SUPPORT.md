@@ -1,6 +1,7 @@
 # Mirmir product support
 
-Current product identity: **Mirmir 1.4.1 (10)**.
+Current source identity: **Mirmir 1.4.2 (11)**. The installed
+`/Applications/Mirmir.app` is still 1.4.1 (10).
 
 Mirmir is a sandboxed macOS 15.4-or-later application. It reads local media
 through security-scoped bookmarks, builds an explicit whole-asset plan, and
@@ -189,6 +190,10 @@ in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
   contained, completed, failed, safe-halt, and cancelled jobs may be removed.
   Probing, planned, running, pausing, verifying, committing, and recovering jobs
   are rejected until they become paused or cancelled.
+- Version 1.4.2 presents these confirmations from one workspace owner. The
+  confirmed action awaits durable cleanup, reads back the queue, and enables
+  **Choose Location…** after the last job is gone. A reinstall retains the
+  sandbox cache until it is explicitly cleared.
 - Deletion is confined to the validated queue-owned `jobs/<job-id>` directory
   and recognized `.mirmir-job-*` working artifacts. Output destinations are
   external to those namespaces and are never deletion targets.
@@ -210,8 +215,9 @@ in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
   legal 90 kHz NTSC quantization. Error 16 (`invalidSampleTiming`) diagnostics
   carry stable site identifiers 053–057 for numeric, exact-representation,
   rational-denominator, admitted-boundary, and non-adjacent-gap failures.
-- The installed application remains version 1.3.4 build 8 and does not contain
-  the 1.4.1 source correction. The preserved Ferris job has not been resumed;
+- The installed `/Applications` app is 1.4.1 build 10 and does not contain the
+  1.4.2 cache-control correction. The DockCase app remains 1.3.4 build 8. The
+  preserved Ferris job has not been resumed;
   its checkpoint and 2,469 committed segment files have not advanced. Its
   zero-byte `recovery-v4/decision.lock` is intentionally left in place.
 
@@ -240,10 +246,14 @@ for the exact evidence boundary.
 The historical build 7 macOS Debug suite completed 500 tests: 497 passed, zero
 failed, and three expected opt-in capture tests skipped. The fresh version
 1.4.1 build 10 full serial macOS Debug scheme completed 540 tests: 537 passed,
-zero failed, and three expected opt-in capture tests skipped. The current local
+zero failed, and three expected opt-in capture tests skipped. The 1.4.2
+fixture tests passed for finished, unfinished, row, and Clear Cache actions
+with completed, paused, and contained jobs. The full 1.4.2 build-11 Debug
+result bundle reports 543 total tests: 540 passed, zero failed, and three
+expected opt-in capture tests skipped. The historical local
 TestFlight-capable handoff archive is 1.4.1 build 10 at
 `/Users/jimdaley/Library/Developer/Xcode/Archives/2026-09-30/Mirmir-1.4.1-10-TestFlight.xcarchive`;
 it is not in Git and has not been uploaded, notarized, or installed. The
-previously documented Desktop path is not present. The installed 1.3.4 build 8
-app and preserved failed job are not upgraded by creating that archive. Broader
+previously documented Desktop path is not present. Neither installed app nor
+the preserved failed job was changed by this source patch. Broader
 large-media completion remains required.

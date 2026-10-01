@@ -8,7 +8,7 @@ struct MirmirWorkspaceRootView: View {
     @AppStorage("mirmir.appearance") private var appearanceRawValue =
         MirmirAppearanceMode.system.rawValue
     @State private var destination: MirmirProductDestination = .dashboard
-    @State private var pendingMethodSelection: PendingMethodSelection?
+    @State private var pendingConfirmation: PendingWorkspaceConfirmation?
     @State private var dashboardTelemetry = MirmirDashboardTelemetry()
 
     var body: some View {
@@ -53,22 +53,8 @@ struct MirmirWorkspaceRootView: View {
         .background(theme.background)
         .foregroundStyle(theme.textPrimary)
         .tint(theme.accentPrimary)
-        .alert(item: $pendingMethodSelection) { pending in
-            Alert(
-                title: Text(pending.adjustment.alertTitle),
-                message: Text(pending.adjustment.message),
-                primaryButton: .default(
-                    Text(pending.adjustment.confirmationTitle)
-                ) {
-                    viewModel.applyBackendSelectionAdjustment(
-                        pending.adjustment
-                    )
-                    if pending.returnToUpscale {
-                        destination = .upscale
-                    }
-                },
-                secondaryButton: .cancel()
-            )
+        .alert(item: $pendingConfirmation) { pending in
+            confirmationAlert(for: pending.kind)
         }
     }
 
@@ -110,7 +96,15 @@ struct MirmirWorkspaceRootView: View {
                 theme: theme
             )
         case .queue:
-            MirmirProductQueue(viewModel: viewModel, theme: theme)
+            MirmirProductQueue(
+                viewModel: viewModel,
+                theme: theme,
+                requestDeletion: { jobID in
+                    pendingConfirmation = PendingWorkspaceConfirmation(
+                        kind: .deleteJob(jobID)
+                    )
+                }
+            )
         case .methods:
             MirmirBackendCatalogView(
                 viewModel: viewModel,
@@ -126,7 +120,12 @@ struct MirmirWorkspaceRootView: View {
             MirmirProductSettings(
                 viewModel: viewModel,
                 theme: theme,
-                appearance: appearanceBinding
+                appearance: appearanceBinding,
+                requestCacheAction: { action in
+                    pendingConfirmation = PendingWorkspaceConfirmation(
+                        kind: .cache(action)
+                    )
+                }
             )
         case .about:
             MirmirProductAbout(theme: theme)
@@ -140,15 +139,65 @@ struct MirmirWorkspaceRootView: View {
         returnToUpscale: Bool = false
     ) {
         if let adjustment = viewModel.targetAdjustmentForSelecting(backendID) {
-            pendingMethodSelection = PendingMethodSelection(
-                adjustment: adjustment,
-                returnToUpscale: returnToUpscale
+            pendingConfirmation = PendingWorkspaceConfirmation(
+                kind: .methodSelection(
+                    adjustment,
+                    returnToUpscale: returnToUpscale
+                )
             )
             return
         }
         viewModel.selectBackend(backendID)
         if returnToUpscale {
             destination = .upscale
+        }
+    }
+
+    private func confirmationAlert(
+        for kind: PendingWorkspaceConfirmation.Kind
+    ) -> Alert {
+        switch kind {
+        case let .methodSelection(adjustment, returnToUpscale):
+            Alert(
+                title: Text(adjustment.alertTitle),
+                message: Text(adjustment.message),
+                primaryButton: .default(Text(adjustment.confirmationTitle)) {
+                    viewModel.applyBackendSelectionAdjustment(adjustment)
+                    if returnToUpscale {
+                        destination = .upscale
+                    }
+                },
+                secondaryButton: .cancel()
+            )
+        case let .deleteJob(jobID):
+            Alert(
+                title: Text("Delete Cached Job?"),
+                message: Text(
+                    "This permanently removes the job’s source snapshot, "
+                        + "checkpoints, and resumable state. Completed output "
+                        + "files are not deleted."
+                ),
+                primaryButton: .destructive(Text("Delete Job")) {
+                    Task { await viewModel.deleteCachedJob(jobID) }
+                },
+                secondaryButton: .cancel()
+            )
+        case let .cache(action):
+            Alert(
+                title: Text(action.title),
+                message: Text(action.message),
+                primaryButton: .destructive(Text(action.confirmationTitle)) {
+                    switch action {
+                    case .deleteFinished:
+                        Task { await viewModel.deleteCachedJobs(.finished) }
+                    case .deleteUnfinished:
+                        Task { await viewModel.deleteCachedJobs(.unfinished) }
+                    case .clearAll:
+                        Task { await viewModel.clearCache() }
+                    }
+                },
+                secondaryButton: .cancel()
+            )
         }
     }
 
@@ -182,10 +231,18 @@ struct MirmirWorkspaceRootView: View {
     }
 }
 
-private struct PendingMethodSelection: Identifiable {
+private struct PendingWorkspaceConfirmation: Identifiable {
     let id = UUID()
-    let adjustment: BackendSelectionTargetAdjustment
-    let returnToUpscale: Bool
+    let kind: Kind
+
+    enum Kind {
+        case methodSelection(
+            BackendSelectionTargetAdjustment,
+            returnToUpscale: Bool
+        )
+        case deleteJob(WorkflowJobID)
+        case cache(MirmirCacheAction)
+    }
 }
 
 enum MirmirProductDestination: String, CaseIterable, Identifiable {
@@ -877,7 +934,7 @@ private struct MirmirProductLibrary: View {
 private struct MirmirProductQueue: View {
     let viewModel: MirmirViewModel
     let theme: MirmirThemeTokens
-    @State private var pendingDeletion: MirmirCachedJobDeletionRequest?
+    let requestDeletion: (WorkflowJobID) -> Void
 
     var body: some View {
         ScrollView {
@@ -980,20 +1037,6 @@ private struct MirmirProductQueue: View {
             .padding(theme.spacing.space6)
         }
         .background(theme.background)
-        .alert(item: $pendingDeletion) { request in
-            Alert(
-                title: Text("Delete Cached Job?"),
-                message: Text(
-                    "This permanently removes the job’s source snapshot, "
-                        + "checkpoints, and resumable state. Completed output "
-                        + "files are not deleted."
-                ),
-                primaryButton: .destructive(Text("Delete Job")) {
-                    viewModel.deleteCachedJob(request.jobID)
-                },
-                secondaryButton: .cancel()
-            )
-        }
     }
 
     private func queueRow(
@@ -1073,9 +1116,7 @@ private struct MirmirProductQueue: View {
                 }
                 if item.lifecycle.canDeleteCachedData {
                     Button(role: .destructive) {
-                        pendingDeletion = MirmirCachedJobDeletionRequest(
-                            jobID: item.jobID
-                        )
+                        requestDeletion(item.jobID)
                     } label: {
                         Image(systemName: "trash")
                     }
@@ -1092,11 +1133,17 @@ private struct MirmirProductQueue: View {
     private var queueTitle: String {
         let items = viewModel.workflowQueueSnapshot?.items ?? []
         let active = items.filter {
-            !$0.lifecycle.isTerminal && $0.lifecycle != .paused
+            !$0.lifecycle.canDeleteCachedData
         }.count
+        let queued = items.filter { $0.lifecycle == .queued }.count
         let paused = items.filter { $0.lifecycle == .paused }.count
+        let contained = items.filter { $0.lifecycle == .contained }.count
+        var summary = ["\(active) active"]
+        if queued > 0 { summary.append("\(queued) queued") }
+        if paused > 0 { summary.append("\(paused) paused") }
+        if contained > 0 { summary.append("\(contained) contained") }
         return "\(items.count) durable job\(items.count == 1 ? "" : "s") · "
-            + "\(active) active · \(paused) paused"
+            + summary.joined(separator: " · ")
     }
 
     private var queueDetail: String {
@@ -1152,7 +1199,7 @@ private struct MirmirProductSettings: View {
     let viewModel: MirmirViewModel
     let theme: MirmirThemeTokens
     @Binding var appearance: MirmirAppearanceMode
-    @State private var pendingCacheAction: MirmirCacheAction?
+    let requestCacheAction: (MirmirCacheAction) -> Void
 
     var body: some View {
         ScrollView {
@@ -1224,7 +1271,7 @@ private struct MirmirProductSettings: View {
 
                         HStack(spacing: theme.spacing.space2) {
                             Button("Delete Finished Jobs…", role: .destructive) {
-                                pendingCacheAction = .deleteFinished
+                                requestCacheAction(.deleteFinished)
                             }
                             .disabled(
                                 viewModel.finishedCachedJobCount == 0
@@ -1232,7 +1279,7 @@ private struct MirmirProductSettings: View {
                             )
 
                             Button("Delete Unfinished Jobs…", role: .destructive) {
-                                pendingCacheAction = .deleteUnfinished
+                                requestCacheAction(.deleteUnfinished)
                             }
                             .disabled(
                                 viewModel.unfinishedCachedJobCount == 0
@@ -1240,7 +1287,7 @@ private struct MirmirProductSettings: View {
                             )
 
                             Button("Clear Cache…", role: .destructive) {
-                                pendingCacheAction = .clearAll
+                                requestCacheAction(.clearAll)
                             }
                             .disabled(!viewModel.canClearCache)
                         }
@@ -1255,6 +1302,13 @@ private struct MirmirProductSettings: View {
                         )
                         .font(theme.typography.caption)
                         .foregroundStyle(theme.textSecondary)
+
+                        Text(
+                            "Cached jobs on this Mac remain available after "
+                                + "reinstalling Mirmir."
+                        )
+                        .font(theme.typography.caption)
+                        .foregroundStyle(theme.textTertiary)
 
                         if let error = viewModel.cacheLocationErrorMessage {
                             Label(error, systemImage: "exclamationmark.triangle")
@@ -1307,29 +1361,7 @@ private struct MirmirProductSettings: View {
             .padding(theme.spacing.space6)
         }
         .background(theme.background)
-        .alert(item: $pendingCacheAction) { action in
-            Alert(
-                title: Text(action.title),
-                message: Text(action.message),
-                primaryButton: .destructive(Text(action.confirmationTitle)) {
-                    switch action {
-                    case .deleteFinished:
-                        viewModel.deleteCachedJobs(.finished)
-                    case .deleteUnfinished:
-                        viewModel.deleteCachedJobs(.unfinished)
-                    case .clearAll:
-                        viewModel.clearCache()
-                    }
-                },
-                secondaryButton: .cancel()
-            )
-        }
     }
-}
-
-private struct MirmirCachedJobDeletionRequest: Identifiable {
-    let jobID: WorkflowJobID
-    var id: String { jobID.rawValue }
 }
 
 private enum MirmirCacheAction: String, Identifiable {

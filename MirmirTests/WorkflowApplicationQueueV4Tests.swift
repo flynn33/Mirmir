@@ -4,6 +4,12 @@ import Foundation
 import XCTest
 @testable import Mirmir
 
+private extension URL {
+    var fileExists: Bool {
+        FileManager.default.fileExists(atPath: path)
+    }
+}
+
 private struct WorkflowCacheBookmarkResolverStubV4:
     WorkflowCacheBookmarkResolvingV4 {
     func makeBookmark(for url: URL) throws -> Data {
@@ -41,6 +47,147 @@ private struct WorkflowUnavailableCacheBookmarkResolverStubV4:
 }
 
 final class WorkflowApplicationQueueV4Tests: XCTestCase {
+    @MainActor
+    func testCacheControlsDeleteFinishedThenPausedAndContainedAndUnlockLocation()
+        async throws {
+        let context = try makeCacheControlFixture()
+        let queue = try makeQueue(
+            fixture: context.fixture,
+            tokenFactory: { UUID() }
+        )
+        let completed = try await seedCacheJob(
+            queue: queue,
+            fixture: context.fixture,
+            name: "completed.mov",
+            lifecycle: .completed
+        )
+        let paused = try await seedCacheJob(
+            queue: queue,
+            fixture: context.fixture,
+            name: "paused.mov",
+            lifecycle: .paused
+        )
+        let contained = try await seedCacheJob(
+            queue: queue,
+            fixture: context.fixture,
+            name: "contained.mov",
+            lifecycle: .contained
+        )
+        let destination = context.fixture.outputDirectoryURL
+            .appendingPathComponent("completed.mov")
+        let destinationBytes = Data("finished-output".utf8)
+        try destinationBytes.write(to: destination)
+        let viewModel = MirmirViewModel(cacheLocationStore: context.store)
+        await viewModel.initializeWorkflow()
+
+        XCTAssertEqual(viewModel.finishedCachedJobCount, 1)
+        XCTAssertEqual(viewModel.unfinishedCachedJobCount, 2)
+        XCTAssertFalse(viewModel.canChangeCacheLocation)
+
+        await viewModel.deleteCachedJobs(.finished)
+
+        XCTAssertNil(viewModel.cacheLocationErrorMessage)
+        XCTAssertEqual(viewModel.finishedCachedJobCount, 0)
+        XCTAssertEqual(viewModel.unfinishedCachedJobCount, 2)
+        XCTAssertFalse(viewModel.canChangeCacheLocation)
+        XCTAssertFalse(cacheJobDirectory(context.fixture, completed).fileExists)
+        XCTAssertTrue(cacheJobDirectory(context.fixture, paused).fileExists)
+        XCTAssertTrue(cacheJobDirectory(context.fixture, contained).fileExists)
+
+        await viewModel.deleteCachedJobs(.unfinished)
+
+        XCTAssertNil(viewModel.cacheLocationErrorMessage)
+        XCTAssertEqual(viewModel.finishedCachedJobCount, 0)
+        XCTAssertEqual(viewModel.unfinishedCachedJobCount, 0)
+        XCTAssertTrue(viewModel.workflowQueueSnapshot?.items.isEmpty == true)
+        XCTAssertTrue(viewModel.canChangeCacheLocation)
+        XCTAssertFalse(cacheJobDirectory(context.fixture, paused).fileExists)
+        XCTAssertFalse(cacheJobDirectory(context.fixture, contained).fileExists)
+        XCTAssertEqual(try Data(contentsOf: destination), destinationBytes)
+    }
+
+    @MainActor
+    func testCacheControlsClearCompletedPausedContainedAndOrphanFiles()
+        async throws {
+        let context = try makeCacheControlFixture()
+        let queue = try makeQueue(
+            fixture: context.fixture,
+            tokenFactory: { UUID() }
+        )
+        let completed = try await seedCacheJob(
+            queue: queue,
+            fixture: context.fixture,
+            name: "completed.mov",
+            lifecycle: .completed
+        )
+        let paused = try await seedCacheJob(
+            queue: queue,
+            fixture: context.fixture,
+            name: "paused.mov",
+            lifecycle: .paused
+        )
+        let contained = try await seedCacheJob(
+            queue: queue,
+            fixture: context.fixture,
+            name: "contained.mov",
+            lifecycle: .contained
+        )
+        let jobIDs = [completed, paused, contained]
+        let orphan = context.fixture.storeURL
+            .appendingPathComponent("jobs", isDirectory: true)
+            .appendingPathComponent(
+                "job-cache-control-orphan",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: orphan,
+            withIntermediateDirectories: true
+        )
+        try Data("orphan".utf8).write(
+            to: orphan.appendingPathComponent("checkpoint")
+        )
+        let viewModel = MirmirViewModel(cacheLocationStore: context.store)
+        await viewModel.initializeWorkflow()
+        XCTAssertEqual(viewModel.finishedCachedJobCount, 1)
+        XCTAssertEqual(viewModel.unfinishedCachedJobCount, 2)
+
+        await viewModel.clearCache()
+
+        XCTAssertNil(viewModel.cacheLocationErrorMessage)
+        XCTAssertEqual(viewModel.finishedCachedJobCount, 0)
+        XCTAssertEqual(viewModel.unfinishedCachedJobCount, 0)
+        XCTAssertTrue(viewModel.workflowQueueSnapshot?.items.isEmpty == true)
+        XCTAssertTrue(viewModel.canChangeCacheLocation)
+        for jobID in jobIDs {
+            XCTAssertFalse(cacheJobDirectory(context.fixture, jobID).fileExists)
+        }
+        XCTAssertFalse(orphan.fileExists)
+    }
+
+    @MainActor
+    func testCacheControlsDeleteContainedRowAndUnlockLocation() async throws {
+        let context = try makeCacheControlFixture()
+        let queue = try makeQueue(fixture: context.fixture)
+        let contained = try await seedCacheJob(
+            queue: queue,
+            fixture: context.fixture,
+            name: "contained.mov",
+            lifecycle: .contained
+        )
+        let viewModel = MirmirViewModel(cacheLocationStore: context.store)
+        await viewModel.initializeWorkflow()
+        XCTAssertEqual(viewModel.unfinishedCachedJobCount, 1)
+        XCTAssertFalse(viewModel.canChangeCacheLocation)
+
+        await viewModel.deleteCachedJob(contained)
+
+        XCTAssertNil(viewModel.cacheLocationErrorMessage)
+        XCTAssertEqual(viewModel.unfinishedCachedJobCount, 0)
+        XCTAssertTrue(viewModel.workflowQueueSnapshot?.items.isEmpty == true)
+        XCTAssertTrue(viewModel.canChangeCacheLocation)
+        XCTAssertFalse(cacheJobDirectory(context.fixture, contained).fileExists)
+    }
+
     func testDeleteCachedQueuedJobRemovesStateAndOwnedDirectory()
         async throws {
         let fixture = try makeFixture()
@@ -2063,6 +2210,11 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
 }
 
 private extension WorkflowApplicationQueueV4Tests {
+    struct CacheControlFixture {
+        let fixture: Fixture
+        let store: WorkflowCacheLocationStoreV4
+    }
+
     struct Fixture {
         let rootURL: URL
         let storeURL: URL
@@ -2077,6 +2229,110 @@ private extension WorkflowApplicationQueueV4Tests {
         let activated: WorkflowActivatedUpscaleRequestV4
         let checkpoint: WorkflowCheckpointDocumentV4
         let outputURL: URL
+    }
+
+    func makeCacheControlFixture() throws -> CacheControlFixture {
+        let base = try makeFixture()
+        let applicationIdentifier = "com.mirmir.cache-control-tests"
+        let workflowRoot = base.storeURL
+            .appendingPathComponent(applicationIdentifier, isDirectory: true)
+            .appendingPathComponent("WorkflowV4", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: workflowRoot,
+            withIntermediateDirectories: true
+        )
+        let suiteName = "MirmirCacheControlTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults.removePersistentDomain(forName: suiteName)
+        addTeardownBlock {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+        let store = try WorkflowCacheLocationStoreV4(
+            applicationIdentifier: applicationIdentifier,
+            defaults: defaults,
+            bookmarkResolver: WorkflowCacheBookmarkResolverStubV4(),
+            defaultApplicationSupportProvider: { base.storeURL }
+        )
+        return CacheControlFixture(
+            fixture: Fixture(
+                rootURL: base.rootURL,
+                storeURL: workflowRoot,
+                inputURL: base.inputURL,
+                outputDirectoryURL: base.outputDirectoryURL
+            ),
+            store: store
+        )
+    }
+
+    func cacheJobDirectory(
+        _ fixture: Fixture,
+        _ jobID: WorkflowJobID
+    ) -> URL {
+        fixture.storeURL
+            .appendingPathComponent("jobs", isDirectory: true)
+            .appendingPathComponent(jobID.rawValue, isDirectory: true)
+    }
+
+    func seedCacheJob(
+        queue: WorkflowApplicationQueueV4,
+        fixture: Fixture,
+        name: String,
+        lifecycle: WorkflowJobLifecycle
+    ) async throws -> WorkflowJobID {
+        let receipt = try await queue.enqueue(
+            request: request(fixture: fixture, outputName: name),
+            preparedPlanBinding: preparedBinding()
+        )
+        let jobID = receipt.specification.jobID
+        guard case let .claimed(dispatch) = try await queue
+            .claimNextApplicationJob(
+                cycleID: WorkflowDispatchCycleIDV4("cache-control-\(name)")
+            ) else {
+            throw WorkflowApplicationQueueErrorV4.jobNotFound(jobID)
+        }
+        let commandKey = try WorkflowRecoveryCommandKeyV4(
+            "cache-control-\(name)"
+        )
+        let attemptID = try WorkflowAttemptID("attempt-cache-control-\(name)")
+        func advance(
+            _ from: WorkflowJobLifecycle,
+            _ to: WorkflowJobLifecycle,
+            attempt: WorkflowAttemptID? = nil
+        ) async throws {
+            _ = try await queue.transitionApplicationJob(
+                dispatch,
+                expected: from,
+                target: to,
+                commandKey: commandKey,
+                stage: "fixture-\(from.rawValue)-\(to.rawValue)",
+                attemptID: attempt,
+                releaseAfterTransition: to.canDeleteCachedData
+            )
+        }
+        switch lifecycle {
+        case .completed:
+            try await advance(.probing, .planned)
+            try await advance(.planned, .running, attempt: attemptID)
+            try await advance(.running, .verifying, attempt: attemptID)
+            try await advance(.verifying, .committing)
+            try await advance(.committing, .completed)
+        case .paused:
+            try await advance(.probing, .planned)
+            try await advance(.planned, .running, attempt: attemptID)
+            try await advance(.running, .pausing, attempt: attemptID)
+            try await advance(.pausing, .paused, attempt: attemptID)
+        case .contained:
+            try await advance(.probing, .contained)
+        default:
+            throw WorkflowApplicationQueueErrorV4.jobDeletionNotAllowed(
+                jobID: jobID,
+                lifecycle: lifecycle
+            )
+        }
+        let cachedFile = cacheJobDirectory(fixture, jobID)
+            .appendingPathComponent("fixture-cache-file")
+        try Data("cached".utf8).write(to: cachedFile)
+        return jobID
     }
 
     func makeFixture(

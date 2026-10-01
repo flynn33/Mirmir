@@ -1,8 +1,21 @@
 # Mirmir accepted limitations and follow-up work
 
-Verified against `main` on September 30, 2026. These entries distinguish a
+Updated for the 1.4.2 source patch on October 1, 2026. These entries distinguish a
 source repair from installed-product and full-media qualification. Product
-identity is version 1.4.1 build 10.
+source identity is version 1.4.2 build 11.
+
+## CACHE-001 — Cache confirmations in installed 1.4.1
+
+**Status:** Source and isolated-store fixture repaired in 1.4.2; installed
+product verification open
+
+The installed `/Applications/Mirmir.app` remains 1.4.1 build 10. Its Settings
+and queue-row cache confirmations did not appear, preventing the deletion path
+from running and leaving **Choose Location…** disabled. The 1.4.2 source uses
+one workspace confirmation presenter and awaits the requested cleanup with an
+explicit queue readback. Isolated tests deleted completed, paused, and
+contained jobs, verified owned files were removed, and observed the empty-queue
+location gate become available. The live cache was not cleared for this test.
 
 ## DV4-001 — Deterministic v4 error 16 on legal NTSC timing
 

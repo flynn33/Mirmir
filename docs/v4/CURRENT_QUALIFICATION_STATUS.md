@@ -1,6 +1,9 @@
 # Deterministic engine v4 current qualification status
 
-Verified September 30, 2026.
+Verified October 1, 2026.
+
+Historical qualification receipts retain their original dates and source
+identities.
 
 The GitHub-facing tracker in `roadmap-status.svg` is generated from this
 document, `DETERMINISTIC_ENGINE_V4_ROADMAP.md`, `VERSION`, and `BUILD_NUMBER`.
@@ -23,10 +26,10 @@ decisions.
 
 | Field | Verified value |
 | --- | --- |
-| Product | Mirmir 1.4.1 (10) |
-| Version authorities | `VERSION` = `1.4.1`; `BUILD_NUMBER` = `10` |
+| Product | Mirmir 1.4.2 (11) |
+| Version authorities | `VERSION` = `1.4.2`; `BUILD_NUMBER` = `11` |
 | Source repair checkpoint | `888085816b22bb2624e8b45a45d9a4f15adeba85` |
-| Installed application | DockCase Mirmir 1.3.4 (8); not replaced |
+| Installed applications | `/Applications/Mirmir.app` 1.4.1 (10); DockCase Mirmir 1.3.4 (8); neither replaced by 1.4.2 |
 | Bundle identifier | `com.mirmir.app` |
 | Minimum macOS | 15.4 |
 | M0–M6 implementation | Complete |
@@ -74,18 +77,28 @@ the current queue is empty, unavailable custom roots can recover to internal
 storage, active jobs fail closed, and completed destination movies are outside
 the deletion namespaces.
 
+Version 1.4.2 fixes the cache confirmation path in Settings and Queue. One
+workspace alert presents all cache confirmations, and the confirmed operation
+awaits deletion and reads back the durable queue. Three isolated-store tests
+seeded completed, paused, and contained jobs; finished, unfinished, row, and
+Clear Cache operations removed journal records and owned files, left a
+completed output intact, and enabled the location gate at zero jobs. The live
+approximately 96 GiB cache and installed 1.4.1 app were not modified.
+The full 1.4.2 build-11 macOS Debug result bundle reports 543 total tests:
+540 passed, zero failed, and three expected opt-in capture tests skipped.
+
 The historical build 9 serial macOS Debug scheme completed 532 tests: 529
 passed, zero failed, and three expected opt-in capture tests skipped. The prior
 accepted tree contained 522 tests; all ten additional tests passed.
 
-The current 1.4.1 build 10 full serial macOS Debug scheme completed 540 tests:
+The historical 1.4.1 build 10 full serial macOS Debug scheme completed 540 tests:
 537 passed, zero failed, and three expected opt-in capture tests skipped. The
 focused timing and conventional-media run passed 23 of 23 tests. A fresh
 published-tree run of the seven named production-path timing declarations plus
 the three initially failing full-suite cases passed 10 of 10 tests. These are
 source-level regression results, not installed-product or completed-media proof.
 
-A local universal TestFlight-capable candidate archive exists at
+A historical local universal TestFlight-capable candidate archive exists at
 `/Users/jimdaley/Library/Developer/Xcode/Archives/2026-09-30/Mirmir-1.4.1-10-TestFlight.xcarchive`.
 Its packaged application is `com.mirmir.app` version 1.4.1 build 10, contains
 `arm64` and `x86_64` slices, is signed by Apple Distribution for team

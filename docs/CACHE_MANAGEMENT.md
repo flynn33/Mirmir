@@ -1,7 +1,7 @@
 # Cache management
 
-Mirmir 1.4.1 build 10 includes the durable workflow-cache controls introduced in
-1.4.0 build 9. The cache
+Mirmir 1.4.2 build 11 includes the durable workflow-cache controls introduced in
+1.4.0 build 9 and repairs their confirmation and post-action readback. The cache
 contains queue state, private source snapshots, checkpoints, recovery records,
 and recognized in-progress working artifacts. Completed output movies remain at
 the destinations selected by the user and are not cache contents.
@@ -17,6 +17,7 @@ storage uses the application-support workflow root.
 Mirmir has exactly one active cache root. A location change is rejected while
 the current root contains any job. Settings displays **Delete the jobs in this
 cache before changing its location.** Jobs are not migrated implicitly.
+The app's sandbox cache persists when its application bundle is reinstalled.
 
 If a saved custom location cannot be reopened, Settings reports the
 unavailable path and retains both recovery choices. Selecting internal storage
@@ -28,6 +29,10 @@ unavailable custom root.
 Each queue row exposes Delete only for an inactive lifecycle. Settings also
 provides confirmed **Delete Finished Jobs…**, **Delete Unfinished Jobs…**, and
 **Clear Cache…** actions with live finished and unfinished counts.
+One workspace confirmation presenter handles these actions and queue-row
+deletion. After confirmation, Mirmir awaits the requested operation and reads
+back the journal-backed queue; once the last job is removed, **Choose Location…**
+becomes available.
 
 Deletion is permitted for queued, paused, contained, completed, failed,
 safe-halt, and cancelled jobs. It is rejected for probing, planned, running,
@@ -59,5 +64,16 @@ storage, individual deletion, finished and unfinished bulk deletion, owned
 working-artifact cleanup, destination preservation, durable replay, and active
 job rejection. The historical build-9 serial macOS Debug scheme completed 532
 tests: 529 passed, zero failed, and three expected opt-in capture tests skipped.
-The current 1.4.1 build-10 serial scheme completed 540 tests: 537 passed, zero
-failed, and the same three expected opt-in capture tests skipped.
+The 1.4.1 build-10 serial scheme completed 540 tests: 537 passed, zero failed,
+and the same three expected opt-in capture tests skipped. Three additional
+1.4.2 isolated-store tests passed for completed, paused, and contained jobs,
+including the zero-job location gate and completed-output preservation. The
+full 1.4.2 macOS Debug result bundle reports 543 total tests: 540 passed,
+zero failed, and three expected opt-in capture tests skipped. The installed
+1.4.1 app's cache was not deleted during this verification.
+
+The named cache-control cases are
+`testCacheControlsDeleteFinishedThenPausedAndContainedAndUnlockLocation`,
+`testCacheControlsDeleteContainedRowAndUnlockLocation`, and
+`testCacheControlsClearCompletedPausedContainedAndOrphanFiles`. Each passed in
+the isolated fixture run and in the full scheme.

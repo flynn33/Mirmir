@@ -7,6 +7,28 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-10-01
+
+### Fixed
+
+- Routed queue-row deletion and the three Settings cache actions through one
+  workspace confirmation presenter. Confirming now awaits the deletion or
+  clear operation and reads back the durable queue before reporting success.
+- Corrected the queue summary so contained jobs are not labeled active, and
+  explained that the sandbox cache remains after reinstalling the app.
+
+### Verification boundary
+
+- Isolated-store regressions created completed, paused, and contained jobs,
+  then exercised finished deletion, unfinished deletion, row deletion, and
+  Clear Cache. The tests verified removal of job records and owned files,
+  preserved completed output, zero counts, and an enabled location gate.
+- The full macOS Debug result bundle reports 543 tests: 540 passed, zero
+  failed, and three expected opt-in capture tests skipped.
+- The existing `/Applications/Mirmir.app` and its live cache were not replaced
+  or cleared by this source patch. The 1.4.1 build-10 archive remains a
+  historical handoff, not a 1.4.2 artifact.
+
 ## [1.4.1] - 2026-09-30
 
 ### Fixed

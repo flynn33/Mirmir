@@ -3,7 +3,7 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-Version 1.4.1 build 10 carries the deterministic ASH P06 CPU and Metal engine
+Version 1.4.2 build 11 carries the deterministic ASH P06 CPU and Metal engine
 beside the supported Apple scaling frameworks, preserves the completed
 simulator-only M7 candidate selection, and adds qualified source admission,
 VideoToolbox capability checks, multi-audio preservation, and deterministic
@@ -12,7 +12,9 @@ and fallback boundary visible. It also separates live Upscale processing from
 the independent Compare player and permits authenticated failed jobs to resume
 from their last verified nonterminal checkpoint. Settings can place the durable
 job cache on user-selected storage and remove inactive job data without touching
-completed destination movies.
+completed destination movies. This patch repairs the cache-confirmation actions
+and reads back the durable queue after cleanup so location selection unlocks
+when the last job is removed.
 
 The current marketing version and build number are recorded in
 [`VERSION`](VERSION) and [`BUILD_NUMBER`](BUILD_NUMBER), then synchronized with
@@ -56,7 +58,7 @@ deliberate operator actions.
   volume facts, opened audio topology, nested errors, and source locations.
   Operators can export the same journal as JSON or Markdown from Diagnostics.
 
-Version 1.4.1 keeps these product boundaries explicit:
+Version 1.4.2 keeps these product boundaries explicit:
 
 - Deterministic resource allocation is not a first-release target. It is
   excluded from version 1.4.0 rather than treated as unfinished release work.
@@ -88,7 +90,8 @@ See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.
 See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) for accepted first-release limitations
 and post-first-release qualification and enhancement work.
-See [`CHANGELOG.md`](CHANGELOG.md) for the 1.4.1 timing correction, the 1.4.0
+See [`CHANGELOG.md`](CHANGELOG.md) for the 1.4.2 cache-control correction,
+the 1.4.1 timing correction, the 1.4.0
 cache-management release, the
 1.3.4 recovery and comparison updates, the 1.3.3 source-admission and capability
 corrections, the earlier conformance and qualification updates, and
@@ -99,7 +102,7 @@ The [Mirmir Wiki](https://github.com/flynn33/Mirmir/wiki) provides the complete
 product guide, architecture reference, ASH engine documentation, diagrams,
 testing procedures, and troubleshooting material.
 
-A local TestFlight-capable handoff archive for 1.4.1 build 10 is present at
+A historical local TestFlight-capable handoff archive for 1.4.1 build 10 is present at
 `/Users/jimdaley/Library/Developer/Xcode/Archives/2026-09-30/Mirmir-1.4.1-10-TestFlight.xcarchive`.
 It is not tracked by Git and has not been uploaded, notarized, installed over
 the DockCase app, or asserted as shipped. The previously documented Desktop
@@ -122,8 +125,9 @@ at least 5% higher quality and 20% lower processing time. Engine, media, and
 durable-workflow implementation originally landed in 1.3.0; version 1.3.1
 records the altered simulator-only M7 scope and completed decision. Versions
 Versions 1.3.2 through 1.3.4 add post-qualification conformance repairs,
-version 1.4.0 adds cache management, and version 1.4.1 adds the shared exact
-media-clock boundary policy without changing that locked selection result. The sealed
+version 1.4.0 adds cache management, version 1.4.1 adds the shared exact
+media-clock boundary policy, and version 1.4.2 repairs the cache-control actions
+without changing that locked selection result. The sealed
 168-case headless XCTest frame-simulator run from
 commit `ce780af87107d90142d860f328dca4a72fea3047` ranked `candidate_v4` first:
 quality improved 22.792052% with a 22.312761% paired-bootstrap lower bound, and

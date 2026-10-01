@@ -313,7 +313,8 @@ final class MirmirViewModel {
     }
 
     var canClearCache: Bool {
-        !isManagingCache
+        workflowController != nil
+            && !isManagingCache
             && !isWorkflowProcessing
             && !isEnqueueingWorkflow
     }
@@ -698,66 +699,74 @@ final class MirmirViewModel {
         }
     }
 
-    func deleteCachedJob(_ jobID: WorkflowJobID) {
-        guard !isManagingCache, let workflowController else { return }
+    func deleteCachedJob(_ jobID: WorkflowJobID) async {
+        guard !isManagingCache else { return }
+        guard let workflowController else {
+            cacheLocationErrorMessage =
+                "The durable workflow cache is unavailable."
+            return
+        }
         isManagingCache = true
+        defer { isManagingCache = false }
         cacheLocationErrorMessage = nil
         cacheOperationStatusMessage = nil
-        Task { [weak self] in
-            guard let self else { return }
-            do {
-                try await workflowController.deleteCachedJob(jobID: jobID)
-                self.cacheOperationStatusMessage = "Deleted the cached job."
-            } catch {
-                self.cacheLocationErrorMessage = error.localizedDescription
-                await self.refreshWorkflowSnapshot()
-            }
-            self.isManagingCache = false
+        do {
+            try await workflowController.deleteCachedJob(jobID: jobID)
+            applyWorkflowSnapshot(try await workflowController.queueSnapshot())
+            cacheOperationStatusMessage = "Deleted the cached job."
+        } catch {
+            cacheLocationErrorMessage = error.localizedDescription
+            await refreshWorkflowSnapshot()
         }
     }
 
-    func deleteCachedJobs(_ selection: WorkflowCachedJobSelectionV4) {
-        guard !isManagingCache, let workflowController else { return }
+    func deleteCachedJobs(_ selection: WorkflowCachedJobSelectionV4) async {
+        guard !isManagingCache else { return }
+        guard let workflowController else {
+            cacheLocationErrorMessage =
+                "The durable workflow cache is unavailable."
+            return
+        }
         isManagingCache = true
+        defer { isManagingCache = false }
         cacheLocationErrorMessage = nil
         cacheOperationStatusMessage = nil
-        Task { [weak self] in
-            guard let self else { return }
-            do {
-                let count = try await workflowController.deleteCachedJobs(
-                    selection: selection
-                )
-                self.cacheOperationStatusMessage = count == 1
-                    ? "Deleted 1 cached job."
-                    : "Deleted \(count) cached jobs."
-            } catch {
-                self.cacheLocationErrorMessage = error.localizedDescription
-                await self.refreshWorkflowSnapshot()
-            }
-            self.isManagingCache = false
+        do {
+            let count = try await workflowController.deleteCachedJobs(
+                selection: selection
+            )
+            applyWorkflowSnapshot(try await workflowController.queueSnapshot())
+            cacheOperationStatusMessage = count == 1
+                ? "Deleted 1 cached job."
+                : "Deleted \(count) cached jobs."
+        } catch {
+            cacheLocationErrorMessage = error.localizedDescription
+            await refreshWorkflowSnapshot()
         }
     }
 
-    func clearCache() {
-        guard canClearCache, let workflowController else { return }
+    func clearCache() async {
+        guard canClearCache, let workflowController else {
+            cacheLocationErrorMessage =
+                "The durable workflow cache is unavailable or busy."
+            return
+        }
         isManagingCache = true
+        defer { isManagingCache = false }
         cacheLocationErrorMessage = nil
         cacheOperationStatusMessage = nil
-        Task { [weak self] in
-            guard let self else { return }
-            do {
-                let result = try await workflowController.clearCache()
-                self.cacheOperationStatusMessage =
-                    "Cleared \(result.deletedJobCount) cached job"
-                    + (result.deletedJobCount == 1 ? "" : "s")
-                    + " and \(result.deletedArtifactCount) residual cache "
-                    + "artifact"
-                    + (result.deletedArtifactCount == 1 ? "." : "s.")
-            } catch {
-                self.cacheLocationErrorMessage = error.localizedDescription
-                await self.refreshWorkflowSnapshot()
-            }
-            self.isManagingCache = false
+        do {
+            let result = try await workflowController.clearCache()
+            applyWorkflowSnapshot(try await workflowController.queueSnapshot())
+            cacheOperationStatusMessage =
+                "Cleared \(result.deletedJobCount) cached job"
+                + (result.deletedJobCount == 1 ? "" : "s")
+                + " and \(result.deletedArtifactCount) residual cache "
+                + "artifact"
+                + (result.deletedArtifactCount == 1 ? "." : "s.")
+        } catch {
+            cacheLocationErrorMessage = error.localizedDescription
+            await refreshWorkflowSnapshot()
         }
     }
 
