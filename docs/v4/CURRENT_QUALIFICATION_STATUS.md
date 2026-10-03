@@ -1,6 +1,16 @@
 # Deterministic engine v4 current qualification status
 
-Verified October 3, 2026.
+Current source identity: 1.4.4 build 13. This scope-correction pass restores the
+specified pure drive-by files to `1298fef` and retains mixed code files.
+The unsigned Debug app build succeeded. The unsigned test build fails at four
+`MirmirComparisonPresentation` references in the retained mixed
+`MirmirTests.swift`, so no Swift tests ran. Version tests passed 9 of 9;
+restored benchmark tests passed 12 of 13, with the historical repeatability
+replay rejecting an engine-source manifest mismatch. The requested baseline
+matches were verified for all 36 restored or removed paths.
+
+The remaining verification narrative below belongs to 1.4.3 and earlier
+commits; it does not establish qualification of the restored source.
 
 Historical qualification receipts retain their original dates and source
 identities.
@@ -26,16 +36,16 @@ decisions.
 
 | Field | Verified value |
 | --- | --- |
-| Product | Mirmir 1.4.3 (12) |
-| Version authorities | `VERSION` = `1.4.3`; `BUILD_NUMBER` = `12` |
-| Installed application | `/Applications/Mirmir.app` 1.4.2 (11); not replaced by 1.4.3 |
+| Product | Mirmir 1.4.4 (13) |
+| Version authorities | `VERSION` = `1.4.4`; `BUILD_NUMBER` = `13` |
+| Installed application | `/Applications/Mirmir.app` 1.4.2 (11); not replaced by 1.4.4 |
 | Bundle identifier | `com.mirmir.app` |
 | Minimum macOS | 15.4 |
 | M0–M6 implementation | Complete |
-| P06 semantic runtime-manifest identity | `b58b8e53d083b0f15d9a3027c2f043f07f1657a029cbd6303484a25e4d1789c5` |
-| P06 runtime-manifest file SHA-256 | `1709ea8606471cbf1d5efed537be1753abd6d7ea63b185e2f3eece44b0d3108b` |
-| P06 production-source revision | `3f0ef7491ee543409a32d3f5d38c5d67180bebb871e1affd32943b4412faf720` |
-| P06 builder-source SHA-256 | `a7ff1bba43dd090b04a39d9098a69a11843a19cc58dc5e7ac7b48a1941d975de` |
+| P06 semantic runtime-manifest identity | `e4cc2394ff7454447d11a37fccf99f8e6c66ca6e68f5302a734e999cd815b5b4` |
+| P06 runtime-manifest file SHA-256 | `13c47e84e31309a0c7008c05b19fdb0ae43c92773c5ce5fc3331598c96f912f5` |
+| P06 production-source revision | `070556595835048d0112e8de2399be7067ec931079802c906aa8400f51e62f00` |
+| P06 builder-source SHA-256 | `944014c7c35eb780722658c63f79e6ea59a14c3b0da25a33b8c78773e9451a68` |
 
 The previous 1.3.0 build 3 universal Developer ID archive and its
 notarization-oriented qualification tooling remain historical evidence. They
@@ -101,7 +111,7 @@ terminal decoded ordinal that accounts for only 240 of 241 samples before
 finalization or publication recovery. The named current-source asset regression
 passed 1 of 1 on October 3.
 
-The current 1.4.3 build-12 full Debug scheme completed 590 tests: 586 passed,
+The historical 1.4.3 build-12 full Debug scheme completed 590 tests: 586 passed,
 zero failed, and four explicit opt-in tests skipped. Repository Python contracts
 passed 388 of 388 tests across 27 of 27 commands. Release analysis with
 `ARCHS=arm64 x86_64`, `ONLY_ACTIVE_ARCH=NO`, and signing disabled succeeded and

@@ -565,27 +565,12 @@ actor WorkflowSegmentCheckpointStoreV4 {
         )
         try validateArtifactPath(url, artifactRootURL: artifactRootURL)
         let before = try WorkflowV4Validation.regularFileIdentity(at: url)
-        let probe = AVFoundationSegmentProbeV4()
-        let identity = try await probe.probe(url: url)
-        do {
-            _ = try await verifyArtifact(
-                artifact,
-                artifactRootURL: artifactRootURL,
-                mediaIdentity: identity
-            )
-        } catch let error as WorkflowSegmentCheckpointStoreV4Error {
-            guard case .artifactReceiptMismatch(_) = error else {
-                throw error
-            }
-            let legacyIdentity = try await probe
-                .legacyV1IdentityIncludingZeroSampleMarkers(url: url)
-            guard legacyIdentity != identity else { throw error }
-            _ = try await verifyArtifact(
-                artifact,
-                artifactRootURL: artifactRootURL,
-                mediaIdentity: legacyIdentity
-            )
-        }
+        let identity = try await AVFoundationSegmentProbeV4().probe(url: url)
+        _ = try await verifyArtifact(
+            artifact,
+            artifactRootURL: artifactRootURL,
+            mediaIdentity: identity
+        )
         let after = try WorkflowV4Validation.regularFileIdentity(at: url)
         guard before == after else {
             throw WorkflowSegmentCheckpointStoreV4Error

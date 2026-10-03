@@ -3,7 +3,13 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-Version 1.4.3 build 12 carries the deterministic ASH P06 CPU and Metal engine
+Version 1.4.4 build 13 restores the specified unrelated product changes and
+matching tests/benchmarks to the 1.4.2 baseline while retaining the clock,
+diagnostics, and singleton AAC repairs. Mixed code files remain unchanged.
+The unsigned app build succeeds; the retained mixed test file blocks the test
+build. See `docs/v4/CURRENT_QUALIFICATION_STATUS.md` for the current checks.
+
+Version 1.4.4 build 13 carries the deterministic ASH P06 CPU and Metal engine
 beside the supported Apple scaling frameworks, preserves the completed
 simulator-only M7 candidate selection, and adds qualified source admission,
 VideoToolbox capability checks, multi-audio preservation, and deterministic
@@ -61,7 +67,7 @@ deliberate operator actions.
   bounded process telemetry. Diagnostics exports the journal as JSON or
   Markdown and the current process's available unified logs as JSON.
 
-Version 1.4.3 keeps these product boundaries explicit:
+Version 1.4.4 keeps these product boundaries explicit:
 
 - Deterministic resource allocation is not a first-release target. It is
   excluded from version 1.4.0 rather than treated as unfinished release work.
@@ -105,7 +111,7 @@ The [Mirmir Wiki](https://github.com/flynn33/Mirmir/wiki) provides the complete
 product guide, architecture reference, ASH engine documentation, diagrams,
 testing procedures, and troubleshooting material.
 
-Current 1.4.3 build-12 source and build qualification on October 3, 2026:
+Historical 1.4.3 build-12 source and build qualification on October 3, 2026:
 
 - The named site-057 regression passed 1 of 1; the full Debug scheme completed
   590 tests with 586 passed, zero failed, and four explicit opt-in skips.
@@ -116,7 +122,7 @@ Current 1.4.3 build-12 source and build qualification on October 3, 2026:
   audio packets. The built app also exported journal JSON, journal Markdown,
   and unified-log JSON through the visible Diagnostics controls.
 
-These results establish the current build-ready source boundary. They do not
+These historical results apply to 1.4.3. They do not
 complete DV4-002 or verify the unchanged installed 1.4.2 application.
 Application archiving and distribution are outside this qualification.
 

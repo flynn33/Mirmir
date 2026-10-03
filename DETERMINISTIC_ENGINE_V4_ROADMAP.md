@@ -1,6 +1,6 @@
 # Deterministic Engine v4 roadmap
 
-Status: current source target 1.4.3 (12); the 1.4.0 (9) implementation
+Status: current source target 1.4.4 (13); the 1.4.0 (9) implementation
 milestone and M7 simulator candidate selection are historical checkpoints
 
 Scope: Mirmir deterministic CPU and Metal engines, media pipeline, and durable job workflow
@@ -28,7 +28,7 @@ Version 1.4.0 build 9 adds bookmark-backed cache-location selection and
 fail-closed inactive job/cache deletion without changing the deterministic
 engine contract. Deterministic resource allocation and automatic VideoToolbox
 geometry adaptation are post-first-release targets and are not part of version
-1.4.0. The current source target is version 1.4.3 build 12. Its current
+1.4.0. The current source target is version 1.4.4 build 13. Its current
 qualification gates are recorded separately in
 `docs/v4/CURRENT_QUALIFICATION_STATUS.md`; none of the historical checkpoints
 substitutes for those gates.

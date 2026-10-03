@@ -1,6 +1,6 @@
 # Mirmir product support
 
-Current source identity: **Mirmir 1.4.3 (12)**. The installed
+Current source identity: **Mirmir 1.4.4 (13)**. The installed
 `/Applications/Mirmir.app` reports 1.4.2 (11) and does not contain the 1.4.3
 timing, diagnostics, or singleton-audio repairs.
 
@@ -244,7 +244,7 @@ in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
 
 ## Qualification boundary
 
-The current 1.4.3 build-12 named site-057 regression passed 1 of 1. Its full
+The historical 1.4.3 build-12 named site-057 regression passed 1 of 1. Its full
 Debug scheme completed 590 tests: 586 passed, zero failed, and four explicit
 opt-in tests skipped. Repository Python contracts passed 388 of 388 tests
 across 27 of 27 commands. Release analysis with `ARCHS=arm64 x86_64` and

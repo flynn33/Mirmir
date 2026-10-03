@@ -1,6 +1,6 @@
 # Mirmir accepted limitations and follow-up work
 
-Updated for Mirmir 1.4.3 build 12 on October 3, 2026. These entries distinguish
+Updated for Mirmir 1.4.4 build 13 on October 3, 2026. These entries distinguish
 source repair from installed-product and full-media qualification. The
 installed `/Applications/Mirmir.app` remains 1.4.2 build 11.
 

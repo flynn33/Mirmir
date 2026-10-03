@@ -7,6 +7,26 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+## [1.4.4] - 2026-10-03
+
+### Source scope correction
+
+- Restored the 12 specified product files, five matching test files, and five
+  pixel-buffer benchmark files to their `1298fef` content. Removed the October 2
+  pixel-buffer benchmark evidence files, which were absent from that baseline.
+- Retained the shared exact-first clock policy, named asset regression and
+  fixture, development diagnostics, and singleton AAC repair.
+- Mixed implementation and test files are unchanged in this pass. The restored
+  Compare implementation removes a helper still referenced by a test in the
+  retained mixed `MirmirTests.swift`; the unsigned test build fails at its four
+  `MirmirComparisonPresentation` references. No Swift tests ran.
+- The unsigned Debug app build succeeded. Version tests passed 9 of 9. The
+  restored benchmark tests passed 12 of 13; the historical repeatability replay
+  rejects a candidate engine-source manifest mismatch. These retained mixed
+  dependencies are not repaired in this pass.
+- Updated source version authorities to 1.4.4 build 13. The 1.4.3 verification
+  results below remain historical evidence for that commit.
+
 ## [1.4.3] - 2026-10-03
 
 ### Fixed

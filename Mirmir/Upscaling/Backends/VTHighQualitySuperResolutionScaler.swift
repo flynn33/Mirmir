@@ -72,38 +72,12 @@ struct VTHighQualitySuperResolutionBackend: ModelDownloadableBackend {
             }
         }
         defer { polling.cancel() }
-        try await Self.downloadConfigurationModel(
-            backendID: descriptor.id,
-            cancellationHandler: { polling.cancel() }
-        ) {
-            try await configuration.downloadConfigurationModel()
-        }
+        do { try await configuration.downloadConfigurationModel() }
+        catch { throw BackendPreparationError.unavailable(descriptor.id, .modelUnavailable(details: error.localizedDescription)) }
         guard configuration.configurationModelStatus == .ready else {
             throw BackendPreparationError.unavailable(descriptor.id, .modelUnavailable(details: "the system download completed without reporting Ready"))
         }
         progress(1)
-    }
-
-    static func downloadConfigurationModel(
-        backendID: UpscaleBackendID,
-        cancellationHandler: @escaping @Sendable () -> Void = {},
-        operation: () async throws -> Void
-    ) async throws {
-        try await withTaskCancellationHandler {
-            do {
-                try await operation()
-                try Task.checkCancellation()
-            } catch is CancellationError {
-                throw CancellationError()
-            } catch {
-                throw BackendPreparationError.unavailable(
-                    backendID,
-                    .modelUnavailable(details: error.localizedDescription)
-                )
-            }
-        } onCancel: {
-            cancellationHandler()
-        }
     }
 
     @available(macOS 26.0, *)

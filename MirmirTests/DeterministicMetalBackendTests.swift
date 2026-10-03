@@ -1035,6 +1035,7 @@ final class DeterministicMetalBackendTests: XCTestCase {
         var performanceRecords: [BaselinePerformanceRecord] = []
         var cpuImplementationVersion: String?
         var metalImplementationVersion: String?
+        var frameIndex = 0
 
         for pixelFormat in [
             kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
@@ -1068,7 +1069,6 @@ final class DeterministicMetalBackendTests: XCTestCase {
                     metalImplementationVersion = concrete.deterministicConfiguration
                         .implementationVersion
                 }
-                var frameIndex = 0
 
                 for pattern in BaselinePattern.allCases {
                     let source = try SyntheticNV12PixelBuffer.make(
