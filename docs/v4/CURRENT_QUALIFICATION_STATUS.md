@@ -1,13 +1,20 @@
 # Deterministic engine v4 current qualification status
 
-Current source identity: 1.4.4 build 13. This scope-correction pass restores the
-specified pure drive-by files to `1298fef` and retains mixed code files.
-The unsigned Debug app build succeeded. The unsigned test build fails at four
-`MirmirComparisonPresentation` references in the retained mixed
-`MirmirTests.swift`, so no Swift tests ran. Version tests passed 9 of 9;
-restored benchmark tests passed 12 of 13, with the historical repeatability
-replay rejecting an engine-source manifest mismatch. The requested baseline
-matches were verified for all 36 restored or removed paths.
+Current source identity: 1.4.5 build 14. The obsolete split-position test was
+removed from `MirmirTests.swift`; its diagnostic tests and other mixed code
+files are unchanged. The 1.4.4 restoration of the 36 specified baseline paths
+remains intact.
+
+The unsigned Debug test build succeeded. The named
+`testRavenForgeSite057ExactRepresentableEndIgnoresDistinctContainerBoundary`
+passed: one test, zero failures. Version tests passed 9 of 9. Logs and result
+bundles are retained in
+`/Users/jimdaley/Desktop/Mirmir-1.4.5-Build14-Evidence/`.
+
+Benchmark tests passed 12 of 13. The historical replay still reports:
+`repeatability pair 1 failed evaluation: candidate engine source manifest differs from authoritative source: docs/v4/evidence/m2-pixel-buffer-hot-path-2026-08-03/prepared-direct-after.json`.
+No ASH reseal or benchmark/evidence changes were made. The full Swift suite
+was not run in this pass.
 
 The remaining verification narrative below belongs to 1.4.3 and earlier
 commits; it does not establish qualification of the restored source.
@@ -36,9 +43,9 @@ decisions.
 
 | Field | Verified value |
 | --- | --- |
-| Product | Mirmir 1.4.4 (13) |
-| Version authorities | `VERSION` = `1.4.4`; `BUILD_NUMBER` = `13` |
-| Installed application | `/Applications/Mirmir.app` 1.4.2 (11); not replaced by 1.4.4 |
+| Product | Mirmir 1.4.5 (14) |
+| Version authorities | `VERSION` = `1.4.5`; `BUILD_NUMBER` = `14` |
+| Installed application | `/Applications/Mirmir.app` 1.4.2 (11); not replaced by 1.4.5 |
 | Bundle identifier | `com.mirmir.app` |
 | Minimum macOS | 15.4 |
 | M0–M6 implementation | Complete |

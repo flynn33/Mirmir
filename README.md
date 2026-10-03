@@ -3,13 +3,15 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-Version 1.4.4 build 13 restores the specified unrelated product changes and
+Version 1.4.4 build 13 restored the specified unrelated product changes and
 matching tests/benchmarks to the 1.4.2 baseline while retaining the clock,
-diagnostics, and singleton AAC repairs. Mixed code files remain unchanged.
-The unsigned app build succeeds; the retained mixed test file blocks the test
-build. See `docs/v4/CURRENT_QUALIFICATION_STATUS.md` for the current checks.
+diagnostics, and singleton AAC repairs. That pass left mixed code files unchanged.
+Version 1.4.5 build 14 removes the obsolete split-position test that referenced
+the restored view’s private helper. Diagnostic tests remain unchanged. The
+unsigned test build and named site-057 regression pass. See
+`docs/v4/CURRENT_QUALIFICATION_STATUS.md` for the current checks.
 
-Version 1.4.4 build 13 carries the deterministic ASH P06 CPU and Metal engine
+Version 1.4.5 build 14 carries the deterministic ASH P06 CPU and Metal engine
 beside the supported Apple scaling frameworks, preserves the completed
 simulator-only M7 candidate selection, and adds qualified source admission,
 VideoToolbox capability checks, multi-audio preservation, and deterministic
@@ -67,7 +69,7 @@ deliberate operator actions.
   bounded process telemetry. Diagnostics exports the journal as JSON or
   Markdown and the current process's available unified logs as JSON.
 
-Version 1.4.4 keeps these product boundaries explicit:
+Version 1.4.5 keeps these product boundaries explicit:
 
 - Deterministic resource allocation is not a first-release target. It is
   excluded from version 1.4.0 rather than treated as unfinished release work.

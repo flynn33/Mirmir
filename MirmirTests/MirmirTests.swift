@@ -217,37 +217,6 @@ final class MirmirTests: XCTestCase {
         XCTAssertTrue(timeline.isPlaying)
     }
 
-    func testComparisonSplitPositionClampsDragToVisibleBounds() {
-        XCTAssertEqual(
-            MirmirComparisonPresentation.splitPosition(
-                locationX: -20,
-                width: 200
-            ),
-            0.05
-        )
-        XCTAssertEqual(
-            MirmirComparisonPresentation.splitPosition(
-                locationX: 100,
-                width: 200
-            ),
-            0.5
-        )
-        XCTAssertEqual(
-            MirmirComparisonPresentation.splitPosition(
-                locationX: 240,
-                width: 200
-            ),
-            0.95
-        )
-        XCTAssertEqual(
-            MirmirComparisonPresentation.splitPosition(
-                locationX: 0,
-                width: 0
-            ),
-            0.05
-        )
-    }
-
     @MainActor
     func testWorkflowLaunchPublishesSnapshotsAndContainsRecoveryErrors() async throws {
         let generatedAt = WorkflowWallClockInstantV4(

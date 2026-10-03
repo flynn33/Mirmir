@@ -7,6 +7,22 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+## [1.4.5] - 2026-10-03
+
+### Fixed
+
+- Removed the obsolete split-position test and its four references to the
+  helper removed by the 1.4.4 view restoration. Diagnostic tests in the same
+  file are unchanged, as are all other mixed implementation and test files.
+- Updated source version authorities to 1.4.5 build 14. The unsigned test build
+  succeeded, and
+  `testRavenForgeSite057ExactRepresentableEndIgnoresDistinctContainerBoundary`
+  passed: one test, zero failures. Version tests passed 9 of 9.
+- Benchmark tests passed 12 of 13; the historical repeatability replay still
+  reports an engine-source manifest mismatch for
+  `docs/v4/evidence/m2-pixel-buffer-hot-path-2026-08-03/prepared-direct-after.json`.
+  No ASH reseal or benchmark/evidence changes were made.
+
 ## [1.4.4] - 2026-10-03
 
 ### Source scope correction

@@ -1,6 +1,6 @@
 # Mirmir product support
 
-Current source identity: **Mirmir 1.4.4 (13)**. The installed
+Current source identity: **Mirmir 1.4.5 (14)**. The installed
 `/Applications/Mirmir.app` reports 1.4.2 (11) and does not contain the 1.4.3
 timing, diagnostics, or singleton-audio repairs.
 
