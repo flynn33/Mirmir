@@ -1,8 +1,8 @@
 {
   "attachmentSchemaVersion": "mirmir-ash-v4-canonical-semantics-v2",
+  "boundedTemporalCaseID": "nv12-video-forced-tiled-temporal-16x12-to-32x24",
   "buildConfiguration": "Release",
   "captureSchemaVersion": "mirmir-ash-v4-cpu-metal-parity-capture-v2",
-  "boundedTemporalCaseID": "nv12-video-forced-tiled-temporal-16x12-to-32x24",
   "cases": [
     {
       "association": "none",
@@ -544,28 +544,336 @@
         "cadence_transition"
       ],
       "frames": [
-        {"bottomToken":2,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":0},"topToken":1},
-        {"bottomToken":4,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":1},"topToken":3},
-        {"bottomToken":4,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":2},"topToken":5},
-        {"bottomToken":8,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":3},"topToken":7},
-        {"bottomToken":10,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":4},"topToken":7},
-        {"bottomToken":12,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":5},"topToken":11},
-        {"bottomToken":14,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":6},"topToken":13},
-        {"bottomToken":14,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":7},"topToken":15},
-        {"bottomToken":18,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":8},"topToken":17},
-        {"bottomToken":20,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":9},"topToken":17},
-        {"bottomToken":22,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":10},"topToken":21},
-        {"bottomToken":24,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":11},"topToken":21},
-        {"bottomToken":26,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":12},"topToken":25},
-        {"bottomToken":28,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":13},"topToken":27},
-        {"bottomToken":30,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":14},"topToken":29},
-        {"bottomToken":32,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":15},"topToken":31},
-        {"bottomToken":34,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":16},"topToken":33},
-        {"bottomToken":36,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":17},"topToken":35},
-        {"bottomToken":38,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":18},"topToken":37},
-        {"bottomToken":40,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":19},"topToken":39},
-        {"bottomToken":42,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":20},"topToken":41},
-        {"bottomToken":44,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":21},"topToken":43}
+        {
+          "bottomToken": 2,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 0
+          },
+          "topToken": 1
+        },
+        {
+          "bottomToken": 4,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 1
+          },
+          "topToken": 3
+        },
+        {
+          "bottomToken": 4,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 2
+          },
+          "topToken": 5
+        },
+        {
+          "bottomToken": 8,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 3
+          },
+          "topToken": 7
+        },
+        {
+          "bottomToken": 10,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 4
+          },
+          "topToken": 7
+        },
+        {
+          "bottomToken": 12,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 5
+          },
+          "topToken": 11
+        },
+        {
+          "bottomToken": 14,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 6
+          },
+          "topToken": 13
+        },
+        {
+          "bottomToken": 14,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 7
+          },
+          "topToken": 15
+        },
+        {
+          "bottomToken": 18,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 8
+          },
+          "topToken": 17
+        },
+        {
+          "bottomToken": 20,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 9
+          },
+          "topToken": 17
+        },
+        {
+          "bottomToken": 22,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 10
+          },
+          "topToken": 21
+        },
+        {
+          "bottomToken": 24,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 11
+          },
+          "topToken": 21
+        },
+        {
+          "bottomToken": 26,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 12
+          },
+          "topToken": 25
+        },
+        {
+          "bottomToken": 28,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 13
+          },
+          "topToken": 27
+        },
+        {
+          "bottomToken": 30,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 14
+          },
+          "topToken": 29
+        },
+        {
+          "bottomToken": 32,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 15
+          },
+          "topToken": 31
+        },
+        {
+          "bottomToken": 34,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 16
+          },
+          "topToken": 33
+        },
+        {
+          "bottomToken": 36,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 17
+          },
+          "topToken": 35
+        },
+        {
+          "bottomToken": 38,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 18
+          },
+          "topToken": 37
+        },
+        {
+          "bottomToken": 40,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 19
+          },
+          "topToken": 39
+        },
+        {
+          "bottomToken": 42,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 20
+          },
+          "topToken": 41
+        },
+        {
+          "bottomToken": 44,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 21
+          },
+          "topToken": 43
+        }
       ],
       "id": "p010-full-interlaced-bff-telecine-resume-16x12-to-29x21",
       "kind": "pixel_interlaced_temporal",
@@ -573,9 +881,27 @@
       "sourceHeight": 12,
       "sourceWidth": 16,
       "stateExpectations": [
-        {"cadenceID":"telecine_3_2_bff_double_rate","classification":"telecine_3_2","dominance":"bottom_field_first","historyGeneration":4,"inputOrdinal":10},
-        {"cadenceID":"mixed_bff_double_rate","classification":"mixed","dominance":"bottom_field_first","historyGeneration":5,"inputOrdinal":11},
-        {"cadenceID":"interlaced_bff_double_rate","classification":"interlaced","dominance":"bottom_field_first","historyGeneration":7,"inputOrdinal":21}
+        {
+          "cadenceID": "telecine_3_2_bff_double_rate",
+          "classification": "telecine_3_2",
+          "dominance": "bottom_field_first",
+          "historyGeneration": 4,
+          "inputOrdinal": 10
+        },
+        {
+          "cadenceID": "mixed_bff_double_rate",
+          "classification": "mixed",
+          "dominance": "bottom_field_first",
+          "historyGeneration": 5,
+          "inputOrdinal": 11
+        },
+        {
+          "cadenceID": "interlaced_bff_double_rate",
+          "classification": "interlaced",
+          "dominance": "bottom_field_first",
+          "historyGeneration": 7,
+          "inputOrdinal": 21
+        }
       ],
       "storage": "p010_full_range_10",
       "targetHeight": 21,
@@ -588,10 +914,66 @@
         "dominance_transition"
       ],
       "frames": [
-        {"bottomToken":2,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_top_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":0},"topToken":1},
-        {"bottomToken":4,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_top_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":1},"topToken":3},
-        {"bottomToken":6,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":2},"topToken":5},
-        {"bottomToken":8,"duration":{"timescale":30,"value":1},"fieldDetail":"temporal_bottom_first","hdrProfile":"none","pattern":"field_pair","presentationTime":{"timescale":30,"value":3},"topToken":7}
+        {
+          "bottomToken": 2,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_top_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 0
+          },
+          "topToken": 1
+        },
+        {
+          "bottomToken": 4,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_top_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 1
+          },
+          "topToken": 3
+        },
+        {
+          "bottomToken": 6,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 2
+          },
+          "topToken": 5
+        },
+        {
+          "bottomToken": 8,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 3
+          },
+          "topToken": 7
+        }
       ],
       "id": "nv12-video-dominance-transition-tff-to-bff-8x6-to-13x9",
       "kind": "pixel_interlaced_temporal",
@@ -599,8 +981,20 @@
       "sourceHeight": 6,
       "sourceWidth": 8,
       "stateExpectations": [
-        {"cadenceID":"interlaced_tff_double_rate","classification":"interlaced","dominance":"top_field_first","historyGeneration":2,"inputOrdinal":1},
-        {"cadenceID":"interlaced_bff_double_rate","classification":"interlaced","dominance":"bottom_field_first","historyGeneration":3,"inputOrdinal":2}
+        {
+          "cadenceID": "interlaced_tff_double_rate",
+          "classification": "interlaced",
+          "dominance": "top_field_first",
+          "historyGeneration": 2,
+          "inputOrdinal": 1
+        },
+        {
+          "cadenceID": "interlaced_bff_double_rate",
+          "classification": "interlaced",
+          "dominance": "bottom_field_first",
+          "historyGeneration": 3,
+          "inputOrdinal": 2
+        }
       ],
       "storage": "nv12_video_range_8",
       "targetHeight": 9,
@@ -613,7 +1007,21 @@
         "alpha_straight"
       ],
       "frames": [
-        {"bottomToken":null,"duration":{"timescale":24,"value":1},"fieldDetail":"none","hdrProfile":"none","pattern":"transparent_edge","presentationTime":{"timescale":24,"value":0},"topToken":null}
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 24,
+            "value": 1
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "transparent_edge",
+          "presentationTime": {
+            "timescale": 24,
+            "value": 0
+          },
+          "topToken": null
+        }
       ],
       "id": "alpha-straight-bgra8-5x3-to-11x7",
       "kind": "alpha_spatial",
@@ -632,7 +1040,21 @@
         "alpha_premultiplied"
       ],
       "frames": [
-        {"bottomToken":null,"duration":{"timescale":24,"value":1},"fieldDetail":"none","hdrProfile":"none","pattern":"transparent_edge","presentationTime":{"timescale":24,"value":0},"topToken":null}
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 24,
+            "value": 1
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "transparent_edge",
+          "presentationTime": {
+            "timescale": 24,
+            "value": 0
+          },
+          "topToken": null
+        }
       ],
       "id": "alpha-premultiplied-argb16-5x3-to-9x7",
       "kind": "alpha_spatial",
@@ -693,7 +1115,6 @@
   "repeatExecutionCount": 2,
   "reportSchemaVersion": "mirmir-ash-v4-cpu-metal-parity-report-v2",
   "runArtifactSchemaVersion": "mirmir-ash-v4-cpu-metal-parity-run-v2",
-  "schemaVersion": "mirmir-ash-v4-cpu-metal-parity-contract-v2",
   "schedulePairs": [
     {
       "spatialSchedule": "row_major",
@@ -708,6 +1129,7 @@
       "temporalSchedule": "even_then_odd"
     }
   ],
+  "schemaVersion": "mirmir-ash-v4-cpu-metal-parity-contract-v2",
   "temporalTilePolicy": {
     "maximumFrameHeight": 64,
     "maximumFrameWidth": 64,
@@ -722,7 +1144,7 @@
     "even_then_odd"
   ],
   "tools": {
-    "captureSourceSHA256": "9fcf2009a18385524f65644cf13e744a0cdd58550808bc43089dff4f12f98a84",
+    "captureSourceSHA256": "361c0ce4df777de3ba00162a2efa7a254a7af831f1bf337d3a151527af74a582",
     "evaluatorSHA256": "ed0f88fd607268a817159554afbe39a60fca9d4ef8a7c74e44966dd0e2a10a3b",
     "runnerSHA256": "e503c1de7379b73874bf8195b31d90378a720ce1b75172895fdc6df6b884c268"
   }

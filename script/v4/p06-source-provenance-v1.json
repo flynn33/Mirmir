@@ -379,6 +379,7 @@
     "Mirmir/Modules/UpscalerEngine/UpscalerEngineServiceModule.swift",
     "Mirmir/Modules/UpscalerEngine/VTSuperResolutionDriver.swift",
     "Mirmir/Persistence/WorkflowApplicationQueueV4.swift",
+    "Mirmir/Persistence/WorkflowCacheLocationV4.swift",
     "Mirmir/Persistence/WorkflowCanonicalCodec.swift",
     "Mirmir/Persistence/WorkflowDurableCoordinatorV4.swift",
     "Mirmir/Persistence/WorkflowEventJournal.swift",

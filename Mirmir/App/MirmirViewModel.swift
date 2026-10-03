@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Observation
+import OSLog
 import UniformTypeIdentifiers
 import VideoToolbox
 
@@ -166,11 +167,14 @@ final class MirmirViewModel {
         WorkflowCacheLocationStoreV4?
     @ObservationIgnored private let usesInjectedWorkflowController: Bool
     @ObservationIgnored let diagnosticStore: MirmirDiagnosticStore
+    @ObservationIgnored private let diagnosticRecorder:
+        MirmirDiagnosticRecorder
     @ObservationIgnored private var probeTask: Task<Void, Never>?
     @ObservationIgnored private var backendAvailabilityTask: Task<Void, Never>?
     @ObservationIgnored private var processingTask: Task<Void, Never>?
     @ObservationIgnored private var isForegroundWorkflowProcessing = false
     @ObservationIgnored private var modelDownloadTask: Task<Void, Never>?
+    @ObservationIgnored private var activeModelDownloadID: UUID?
     @ObservationIgnored private var activeProbeID: UUID?
     @ObservationIgnored private var activeBackendAvailabilityID: UUID?
     @ObservationIgnored private var scopedInputAccess: SecurityScopedAccess?
@@ -187,10 +191,19 @@ final class MirmirViewModel {
         workflowController:
             (any WorkflowApplicationControllingV4)? = nil,
         cacheLocationStore: WorkflowCacheLocationStoreV4? = nil,
+        cacheLocationStoreFactory: (String) throws
+            -> WorkflowCacheLocationStoreV4 = {
+                try WorkflowCacheLocationStoreV4(
+                    applicationIdentifier: $0
+                )
+            },
         diagnosticStore: MirmirDiagnosticStore = .application
     ) {
         self.videoProbe = videoProbe
         self.diagnosticStore = diagnosticStore
+        self.diagnosticRecorder = MirmirDiagnosticRecorder(
+            store: diagnosticStore
+        )
         self.backendCatalog = backendCatalog
         self.runtimeEnvironment = runtimeEnvironment
         self.superResolutionScaleProvider = superResolutionScaleProvider
@@ -202,14 +215,23 @@ final class MirmirViewModel {
         )
         usesInjectedWorkflowController = workflowController != nil
         let resolvedCacheStore: WorkflowCacheLocationStoreV4?
+        let cacheStoreInitializationError: Error?
         if let cacheLocationStore {
             resolvedCacheStore = cacheLocationStore
+            cacheStoreInitializationError = nil
         } else if workflowController == nil {
-            resolvedCacheStore = try? WorkflowCacheLocationStoreV4(
-                applicationIdentifier: "com.mirmir.app"
-            )
+            do {
+                resolvedCacheStore = try cacheLocationStoreFactory(
+                    "com.mirmir.app"
+                )
+                cacheStoreInitializationError = nil
+            } catch {
+                resolvedCacheStore = nil
+                cacheStoreInitializationError = error
+            }
         } else {
             resolvedCacheStore = nil
+            cacheStoreInitializationError = nil
         }
         self.cacheLocationStore = resolvedCacheStore
 
@@ -221,6 +243,17 @@ final class MirmirViewModel {
 
         if let workflowController {
             self.workflowController = workflowController
+        } else if let cacheStoreInitializationError {
+            self.workflowController = nil
+            workflowErrorMessage =
+                cacheStoreInitializationError.localizedDescription
+            cacheLocationErrorMessage =
+                cacheStoreInitializationError.localizedDescription
+            recordBoundaryFailure(
+                cacheStoreInitializationError,
+                operation: "initialize_cache_store",
+                code: "cache_store_initialization_failed"
+            )
         } else if let resolvedCacheStore {
             do {
                 let configuration = try resolvedCacheStore.configuration()
@@ -235,6 +268,11 @@ final class MirmirViewModel {
                 self.workflowController = nil
                 workflowErrorMessage = error.localizedDescription
                 cacheLocationErrorMessage = error.localizedDescription
+                recordBoundaryFailure(
+                    error,
+                    operation: "initialize_workflow_controller",
+                    code: "workflow_controller_initialization_failed"
+                )
             }
         } else {
             self.workflowController = nil
@@ -398,11 +436,18 @@ final class MirmirViewModel {
                 self.refreshBackendAvailability(for: info)
             } catch is CancellationError {
                 return
+            } catch let error as MirmirError where error == .cancelled {
+                return
             } catch let error as MirmirError {
                 guard let self, self.activeProbeID == probeID else { return }
                 self.state = .failed(error)
                 self.probeTask = nil
                 self.scopedInputAccess = nil
+                self.recordBoundaryFailure(
+                    error,
+                    operation: "probe_source",
+                    code: "source_probe_failed"
+                )
             } catch {
                 guard let self, self.activeProbeID == probeID else { return }
                 self.state = .failed(.probeFailed(
@@ -410,6 +455,11 @@ final class MirmirViewModel {
                 ))
                 self.probeTask = nil
                 self.scopedInputAccess = nil
+                self.recordBoundaryFailure(
+                    error,
+                    operation: "probe_source",
+                    code: "source_probe_failed"
+                )
             }
         }
     }
@@ -611,8 +661,10 @@ final class MirmirViewModel {
         isInitializingWorkflow = true
         defer { isInitializingWorkflow = false }
         do {
-            await workflowController.installObserver(workflowObserver)
-            let launch = try await workflowController.launch()
+            let launch = try await withDiagnosticRecorder {
+                await workflowController.installObserver(workflowObserver)
+                return try await workflowController.launch()
+            }
             applyWorkflowSnapshot(launch.queue)
             workflowRecoverySnapshot = launch.recovery
             workflowErrorMessage = Self.recoveryErrorMessage(
@@ -620,6 +672,11 @@ final class MirmirViewModel {
             )
         } catch {
             workflowErrorMessage = error.localizedDescription
+            recordBoundaryFailure(
+                error,
+                operation: "initialize_workflow",
+                code: "workflow_launch_failed"
+            )
         }
     }
 
@@ -627,10 +684,17 @@ final class MirmirViewModel {
         guard let workflowController else { return }
         do {
             applyWorkflowSnapshot(
-                try await workflowController.queueSnapshot()
+                try await withDiagnosticRecorder {
+                    try await workflowController.queueSnapshot()
+                }
             )
         } catch {
             workflowErrorMessage = error.localizedDescription
+            recordBoundaryFailure(
+                error,
+                operation: "refresh_workflow_snapshot",
+                code: "workflow_snapshot_failed"
+            )
         }
     }
 
@@ -666,8 +730,20 @@ final class MirmirViewModel {
     }
 
     func useDefaultCacheLocation() {
-        guard canChangeCacheLocation,
-              let cacheLocationStore else {
+        guard let cacheLocationStore else {
+            let error = Self.unavailableServiceError(
+                service: "workflow_cache_location_store",
+                code: 1
+            )
+            cacheLocationErrorMessage = error.localizedDescription
+            recordBoundaryFailure(
+                error,
+                operation: "use_default_cache_location",
+                code: "cache_location_store_unavailable"
+            )
+            return
+        }
+        guard canChangeCacheLocation else {
             cacheLocationErrorMessage =
                 WorkflowCacheLocationErrorV4.jobsMustBeClearedFirst
                     .localizedDescription
@@ -694,6 +770,11 @@ final class MirmirViewModel {
                     "Using Mirmir’s internal cache."
             } catch {
                 self.cacheLocationErrorMessage = error.localizedDescription
+                self.recordBoundaryFailure(
+                    error,
+                    operation: "use_default_cache_location",
+                    code: "cache_location_reset_failed"
+                )
             }
             self.isManagingCache = false
         }
@@ -702,8 +783,20 @@ final class MirmirViewModel {
     func deleteCachedJob(_ jobID: WorkflowJobID) async {
         guard !isManagingCache else { return }
         guard let workflowController else {
-            cacheLocationErrorMessage =
-                "The durable workflow cache is unavailable."
+            let error = Self.unavailableServiceError(
+                service: "workflow_controller",
+                code: 2
+            )
+            cacheLocationErrorMessage = error.localizedDescription
+            recordBoundaryFailure(
+                error,
+                operation: "delete_cached_job",
+                code: "workflow_controller_unavailable",
+                fields: (try? [MirmirDiagnosticRecorder.textField(
+                    "job_id_context",
+                    jobID.rawValue
+                )]) ?? []
+            )
             return
         }
         isManagingCache = true
@@ -711,11 +804,23 @@ final class MirmirViewModel {
         cacheLocationErrorMessage = nil
         cacheOperationStatusMessage = nil
         do {
-            try await workflowController.deleteCachedJob(jobID: jobID)
-            applyWorkflowSnapshot(try await workflowController.queueSnapshot())
+            let snapshot = try await withDiagnosticRecorder {
+                try await workflowController.deleteCachedJob(jobID: jobID)
+                return try await workflowController.queueSnapshot()
+            }
+            applyWorkflowSnapshot(snapshot)
             cacheOperationStatusMessage = "Deleted the cached job."
         } catch {
             cacheLocationErrorMessage = error.localizedDescription
+            recordBoundaryFailure(
+                error,
+                operation: "delete_cached_job",
+                code: "cache_job_delete_failed",
+                fields: (try? [MirmirDiagnosticRecorder.textField(
+                    "job_id_context",
+                    jobID.rawValue
+                )]) ?? []
+            )
             await refreshWorkflowSnapshot()
         }
     }
@@ -723,8 +828,20 @@ final class MirmirViewModel {
     func deleteCachedJobs(_ selection: WorkflowCachedJobSelectionV4) async {
         guard !isManagingCache else { return }
         guard let workflowController else {
-            cacheLocationErrorMessage =
-                "The durable workflow cache is unavailable."
+            let error = Self.unavailableServiceError(
+                service: "workflow_controller",
+                code: 2
+            )
+            cacheLocationErrorMessage = error.localizedDescription
+            recordBoundaryFailure(
+                error,
+                operation: "delete_cached_jobs",
+                code: "workflow_controller_unavailable",
+                fields: (try? [MirmirDiagnosticRecorder.textField(
+                    "cache_job_selection",
+                    selection.rawValue
+                )]) ?? []
+            )
             return
         }
         isManagingCache = true
@@ -732,21 +849,48 @@ final class MirmirViewModel {
         cacheLocationErrorMessage = nil
         cacheOperationStatusMessage = nil
         do {
-            let count = try await workflowController.deleteCachedJobs(
-                selection: selection
-            )
-            applyWorkflowSnapshot(try await workflowController.queueSnapshot())
+            let result = try await withDiagnosticRecorder {
+                let count = try await workflowController.deleteCachedJobs(
+                    selection: selection
+                )
+                let snapshot = try await workflowController.queueSnapshot()
+                return (count, snapshot)
+            }
+            let count = result.0
+            applyWorkflowSnapshot(result.1)
             cacheOperationStatusMessage = count == 1
                 ? "Deleted 1 cached job."
                 : "Deleted \(count) cached jobs."
         } catch {
             cacheLocationErrorMessage = error.localizedDescription
+            recordBoundaryFailure(
+                error,
+                operation: "delete_cached_jobs",
+                code: "cache_jobs_delete_failed",
+                fields: (try? [MirmirDiagnosticRecorder.textField(
+                    "cache_job_selection",
+                    selection.rawValue
+                )]) ?? []
+            )
             await refreshWorkflowSnapshot()
         }
     }
 
     func clearCache() async {
-        guard canClearCache, let workflowController else {
+        guard let workflowController else {
+            let error = Self.unavailableServiceError(
+                service: "workflow_controller",
+                code: 2
+            )
+            cacheLocationErrorMessage = error.localizedDescription
+            recordBoundaryFailure(
+                error,
+                operation: "clear_cache",
+                code: "workflow_controller_unavailable"
+            )
+            return
+        }
+        guard canClearCache else {
             cacheLocationErrorMessage =
                 "The durable workflow cache is unavailable or busy."
             return
@@ -756,8 +900,13 @@ final class MirmirViewModel {
         cacheLocationErrorMessage = nil
         cacheOperationStatusMessage = nil
         do {
-            let result = try await workflowController.clearCache()
-            applyWorkflowSnapshot(try await workflowController.queueSnapshot())
+            let response = try await withDiagnosticRecorder {
+                let result = try await workflowController.clearCache()
+                let snapshot = try await workflowController.queueSnapshot()
+                return (result, snapshot)
+            }
+            let result = response.0
+            applyWorkflowSnapshot(response.1)
             cacheOperationStatusMessage =
                 "Cleared \(result.deletedJobCount) cached job"
                 + (result.deletedJobCount == 1 ? "" : "s")
@@ -766,6 +915,11 @@ final class MirmirViewModel {
                 + (result.deletedArtifactCount == 1 ? "." : "s.")
         } catch {
             cacheLocationErrorMessage = error.localizedDescription
+            recordBoundaryFailure(
+                error,
+                operation: "clear_cache",
+                code: "cache_clear_failed"
+            )
             await refreshWorkflowSnapshot()
         }
     }
@@ -813,21 +967,25 @@ final class MirmirViewModel {
             workflowID: "direct-\(diagnosticOperationID)",
             queueItemID: "not-queued"
         )
+        let diagnosticRecorder = diagnosticRecorder
         processingTask = Task { [weak self] in
             do {
                 let result = try await MirmirDiagnosticScope
-                    .$executionContext.withValue(diagnosticContext) {
-                        try await coordinator.process(request) { progress in
-                            Task { @MainActor in
-                                guard progressTarget.isProcessing else {
-                                    return
+                    .$recorder.withValue(diagnosticRecorder) {
+                        try await MirmirDiagnosticScope
+                            .$executionContext.withValue(diagnosticContext) {
+                                try await coordinator.process(request) { progress in
+                                    Task { @MainActor in
+                                        guard progressTarget.isProcessing else {
+                                            return
+                                        }
+                                        progressTarget.state = .processing(
+                                            source,
+                                            progress
+                                        )
+                                    }
                                 }
-                                progressTarget.state = .processing(
-                                    source,
-                                    progress
-                                )
                             }
-                        }
                     }
                 guard let self else { return }
                 self.state = .completed(source, result)
@@ -839,6 +997,11 @@ final class MirmirViewModel {
                     self.state = .ready(source)
                 } else {
                     self.state = .failed(error)
+                    self.recordBoundaryFailure(
+                        error,
+                        operation: "process_upscale",
+                        code: "upscale_processing_failed"
+                    )
                 }
             } catch is CancellationError {
                 guard let self else { return }
@@ -848,6 +1011,11 @@ final class MirmirViewModel {
                 guard let self else { return }
                 self.processingTask = nil
                 self.state = .failed(.outputFinalizeFailed(error.localizedDescription))
+                self.recordBoundaryFailure(
+                    error,
+                    operation: "process_upscale",
+                    code: "upscale_processing_failed"
+                )
             }
         }
     }
@@ -871,20 +1039,31 @@ final class MirmirViewModel {
         workflowErrorMessage = nil
         isEnqueueingWorkflow = true
         Task { [weak self] in
+            guard let self else { return }
             do {
-                _ = try await workflowController.enqueue(
-                    request: request,
-                    priority: priority
-                )
-                guard let self else { return }
+                _ = try await self.withDiagnosticRecorder {
+                    try await workflowController.enqueue(
+                        request: request,
+                        priority: priority
+                    )
+                }
                 self.isEnqueueingWorkflow = false
                 await self.refreshWorkflowSnapshot()
                 if self.draftMatches(request) {
                     self.resetDraftAfterEnqueue()
                 }
             } catch {
-                self?.isEnqueueingWorkflow = false
-                self?.workflowErrorMessage = error.localizedDescription
+                self.isEnqueueingWorkflow = false
+                self.workflowErrorMessage = error.localizedDescription
+                self.recordBoundaryFailure(
+                    error,
+                    operation: "enqueue_workflow",
+                    code: "workflow_enqueue_failed",
+                    fields: (try? [MirmirDiagnosticRecorder.field(
+                        "queue_priority",
+                        .signedInteger(Int64(priority))
+                    )]) ?? []
+                )
             }
         }
     }
@@ -895,14 +1074,32 @@ final class MirmirViewModel {
     ) {
         guard let workflowController else { return }
         Task { [weak self] in
+            guard let self else { return }
             do {
-                try await workflowController.setPriority(
-                    jobID: jobID,
-                    value: value
-                )
-                await self?.refreshWorkflowSnapshot()
+                try await self.withDiagnosticRecorder {
+                    try await workflowController.setPriority(
+                        jobID: jobID,
+                        value: value
+                    )
+                }
+                await self.refreshWorkflowSnapshot()
             } catch {
-                self?.workflowErrorMessage = error.localizedDescription
+                self.workflowErrorMessage = error.localizedDescription
+                self.recordBoundaryFailure(
+                    error,
+                    operation: "set_workflow_priority",
+                    code: "workflow_priority_update_failed",
+                    fields: (try? [
+                        MirmirDiagnosticRecorder.textField(
+                            "job_id_context",
+                            jobID.rawValue
+                        ),
+                        MirmirDiagnosticRecorder.field(
+                            "queue_priority",
+                            .signedInteger(Int64(value))
+                        )
+                    ]) ?? []
+                )
             }
         }
     }
@@ -928,14 +1125,36 @@ final class MirmirViewModel {
     ) {
         guard let workflowController else { return }
         Task { [weak self] in
+            guard let self else { return }
             do {
-                try await workflowController.move(
-                    jobID: jobID,
-                    direction: direction
-                )
-                await self?.refreshWorkflowSnapshot()
+                try await self.withDiagnosticRecorder {
+                    try await workflowController.move(
+                        jobID: jobID,
+                        direction: direction
+                    )
+                }
+                await self.refreshWorkflowSnapshot()
             } catch {
-                self?.workflowErrorMessage = error.localizedDescription
+                self.workflowErrorMessage = error.localizedDescription
+                let directionValue = switch direction {
+                case .earlier: "earlier"
+                case .later: "later"
+                }
+                self.recordBoundaryFailure(
+                    error,
+                    operation: "move_workflow_job",
+                    code: "workflow_move_failed",
+                    fields: (try? [
+                        MirmirDiagnosticRecorder.textField(
+                            "job_id_context",
+                            jobID.rawValue
+                        ),
+                        MirmirDiagnosticRecorder.textField(
+                            "queue_move_direction",
+                            directionValue
+                        )
+                    ]) ?? []
+                )
             }
         }
     }
@@ -944,11 +1163,19 @@ final class MirmirViewModel {
         guard isWorkflowProcessing,
               let workflowController else { return }
         Task { [weak self] in
+            guard let self else { return }
             do {
-                try await workflowController.requestPause()
-                await self?.refreshWorkflowSnapshot()
+                try await self.withDiagnosticRecorder {
+                    try await workflowController.requestPause()
+                }
+                await self.refreshWorkflowSnapshot()
             } catch {
-                self?.workflowErrorMessage = error.localizedDescription
+                self.workflowErrorMessage = error.localizedDescription
+                self.recordBoundaryFailure(
+                    error,
+                    operation: "pause_workflow",
+                    code: "workflow_pause_failed"
+                )
             }
         }
     }
@@ -961,34 +1188,46 @@ final class MirmirViewModel {
         isForegroundWorkflowProcessing = true
         workflowErrorMessage = nil
         let progressTarget = self
+        let diagnosticRecorder = diagnosticRecorder
         processingTask = Task { [weak self] in
             do {
-                let outcome = try await workflowController.resume(
-                    jobID: jobID,
-                    progress: { progress in
-                        Task { @MainActor in
-                            guard let current = progressTarget.currentVideoInfo,
-                                  progressTarget.isWorkflowProcessing else {
-                                return
+                let outcome = try await MirmirDiagnosticScope
+                    .$recorder.withValue(diagnosticRecorder) {
+                    try await workflowController.resume(
+                        jobID: jobID,
+                        progress: { progress in
+                            Task { @MainActor in
+                                guard let current = progressTarget.currentVideoInfo,
+                                      progressTarget.isWorkflowProcessing else {
+                                    return
+                                }
+                                progressTarget.state = .processing(
+                                    current,
+                                    progress
+                                )
                             }
-                            progressTarget.state = .processing(
-                                current,
-                                progress
-                            )
+                        },
+                        snapshot: { snapshot in
+                            Task { @MainActor in
+                                progressTarget.applyWorkflowSnapshot(snapshot)
+                            }
                         }
-                    },
-                    snapshot: { snapshot in
-                        Task { @MainActor in
-                            progressTarget.applyWorkflowSnapshot(snapshot)
-                        }
-                    }
-                )
+                    )
+                }
                 guard let self else { return }
                 self.applyWorkflowOutcome(outcome)
                 self.processingTask = nil
                 self.isForegroundWorkflowProcessing = false
                 await self.refreshWorkflowSnapshot()
             } catch is CancellationError {
+                guard let self else { return }
+                self.processingTask = nil
+                self.isForegroundWorkflowProcessing = false
+                if let source = self.currentVideoInfo {
+                    self.state = .ready(source)
+                }
+                await self.refreshWorkflowSnapshot()
+            } catch let error as MirmirError where error == .cancelled {
                 guard let self else { return }
                 self.processingTask = nil
                 self.isForegroundWorkflowProcessing = false
@@ -1004,6 +1243,15 @@ final class MirmirViewModel {
                 self.state = .failed(.outputFinalizeFailed(
                     error.localizedDescription
                 ))
+                self.recordBoundaryFailure(
+                    error,
+                    operation: "resume_workflow",
+                    code: "workflow_resume_failed",
+                    fields: (try? [MirmirDiagnosticRecorder.textField(
+                        "job_id_context",
+                        jobID.rawValue
+                    )]) ?? []
+                )
                 await self.refreshWorkflowSnapshot()
             }
         }
@@ -1015,6 +1263,8 @@ final class MirmirViewModel {
               selectedBackendID == .videoToolboxSuperResolutionQuality,
               targetWidth > 0,
               targetHeight > 0 else { return }
+        let downloadID = UUID()
+        activeModelDownloadID = downloadID
         isDownloadingModel = true
         modelDownloadProgress = nil
         modelDownloadMessage = "Requesting the Apple model download…"
@@ -1026,29 +1276,63 @@ final class MirmirViewModel {
         let runtimeEnvironment = runtimeEnvironment
         let backendID = selectedBackendID
         let progressTarget = self
+        let diagnosticRecorder = diagnosticRecorder
         modelDownloadTask = Task { [weak self] in
             do {
-                try await backendCatalog.downloadModel(
-                    backendID: backendID,
-                    request: request,
-                    environment: runtimeEnvironment
-                ) { progress in
-                    Task { @MainActor in
-                        progressTarget.modelDownloadProgress = min(max(progress, 0), 1)
-                        progressTarget.modelDownloadMessage = "Downloading Apple model…"
+                try await MirmirDiagnosticScope.$recorder.withValue(
+                    diagnosticRecorder
+                ) {
+                    try await backendCatalog.downloadModel(
+                        backendID: backendID,
+                        request: request,
+                        environment: runtimeEnvironment
+                    ) { progress in
+                        Task { @MainActor in
+                            guard progressTarget.activeModelDownloadID
+                                    == downloadID else {
+                                return
+                            }
+                            progressTarget.modelDownloadProgress = min(
+                                max(progress, 0),
+                                1
+                            )
+                            progressTarget.modelDownloadMessage =
+                                "Downloading Apple model…"
+                        }
                     }
                 }
-                guard let self else { return }
+                guard let self,
+                      self.activeModelDownloadID == downloadID else { return }
+                self.activeModelDownloadID = nil
                 self.isDownloadingModel = false
                 self.modelDownloadProgress = 1
                 self.modelDownloadMessage = "Apple model is ready."
                 self.modelDownloadTask = nil
                 self.refreshBackendAvailability(for: source)
+            } catch is CancellationError {
+                guard let self,
+                      self.activeModelDownloadID == downloadID else { return }
+                self.activeModelDownloadID = nil
+                self.isDownloadingModel = false
+                self.modelDownloadProgress = nil
+                self.modelDownloadMessage = nil
+                self.modelDownloadTask = nil
             } catch {
-                guard let self else { return }
+                guard let self,
+                      self.activeModelDownloadID == downloadID else { return }
+                self.activeModelDownloadID = nil
                 self.isDownloadingModel = false
                 self.modelDownloadMessage = error.localizedDescription
                 self.modelDownloadTask = nil
+                self.recordBoundaryFailure(
+                    error,
+                    operation: "download_model",
+                    code: "model_download_failed",
+                    fields: (try? [MirmirDiagnosticRecorder.textField(
+                        "backend_id",
+                        backendID.rawValue
+                    )]) ?? []
+                )
                 self.refreshBackendAvailability(for: source)
             }
         }
@@ -1057,10 +1341,22 @@ final class MirmirViewModel {
     func cancelProcessing() {
         if isWorkflowProcessing, let workflowController {
             Task { [weak self] in
+                guard let self else { return }
                 do {
-                    try await workflowController.cancelActive()
+                    try await self.withDiagnosticRecorder {
+                        try await workflowController.cancelActive()
+                    }
+                } catch is CancellationError {
+                    return
+                } catch let error as MirmirError where error == .cancelled {
+                    return
                 } catch {
-                    self?.workflowErrorMessage = error.localizedDescription
+                    self.workflowErrorMessage = error.localizedDescription
+                    self.recordBoundaryFailure(
+                        error,
+                        operation: "cancel_workflow",
+                        code: "workflow_cancel_failed"
+                    )
                 }
             }
             return
@@ -1102,12 +1398,30 @@ final class MirmirViewModel {
         probeTask?.cancel()
         probeTask = nil
         if isForegroundWorkflowProcessing, let workflowController {
-            Task { try? await workflowController.cancelActive() }
+            Task { [weak self] in
+                guard let self else { return }
+                do {
+                    try await self.withDiagnosticRecorder {
+                        try await workflowController.cancelActive()
+                    }
+                } catch is CancellationError {
+                    return
+                } catch let error as MirmirError where error == .cancelled {
+                    return
+                } catch {
+                    self.recordBoundaryFailure(
+                        error,
+                        operation: "cancel_workflow",
+                        code: "workflow_cancel_failed"
+                    )
+                }
+            }
         } else {
             processingTask?.cancel()
         }
         processingTask = nil
         isForegroundWorkflowProcessing = false
+        activeModelDownloadID = nil
         modelDownloadTask?.cancel()
         modelDownloadTask = nil
         isDownloadingModel = false
@@ -1127,24 +1441,34 @@ final class MirmirViewModel {
         isForegroundWorkflowProcessing = true
         workflowErrorMessage = nil
         let progressTarget = self
+        let diagnosticRecorder = diagnosticRecorder
         processingTask = Task { [weak self] in
             do {
-                let outcome = try await workflowController.submit(
-                    request: request,
-                    progress: { progress in
-                        Task { @MainActor in
-                            guard progressTarget.isWorkflowProcessing else {
-                                return
+                let outcome = try await MirmirDiagnosticScope
+                    .$recorder.withValue(diagnosticRecorder) {
+                        try await workflowController.submit(
+                            request: request,
+                            progress: { progress in
+                                Task { @MainActor in
+                                    guard progressTarget
+                                        .isWorkflowProcessing else {
+                                        return
+                                    }
+                                    progressTarget.state = .processing(
+                                        source,
+                                        progress
+                                    )
+                                }
+                            },
+                            snapshot: { snapshot in
+                                Task { @MainActor in
+                                    progressTarget.applyWorkflowSnapshot(
+                                        snapshot
+                                    )
+                                }
                             }
-                            progressTarget.state = .processing(source, progress)
-                        }
-                    },
-                    snapshot: { snapshot in
-                        Task { @MainActor in
-                            progressTarget.applyWorkflowSnapshot(snapshot)
-                        }
+                        )
                     }
-                )
                 guard let self else { return }
                 self.applyWorkflowOutcome(outcome)
                 self.processingTask = nil
@@ -1159,6 +1483,11 @@ final class MirmirViewModel {
                 } else {
                     self.state = .failed(error)
                     self.workflowErrorMessage = error.localizedDescription
+                    self.recordBoundaryFailure(
+                        error,
+                        operation: "submit_workflow",
+                        code: "workflow_submit_failed"
+                    )
                 }
                 await self.refreshWorkflowSnapshot()
             } catch is CancellationError {
@@ -1175,6 +1504,11 @@ final class MirmirViewModel {
                 self.state = .failed(.outputFinalizeFailed(
                     error.localizedDescription
                 ))
+                self.recordBoundaryFailure(
+                    error,
+                    operation: "submit_workflow",
+                    code: "workflow_submit_failed"
+                )
                 await self.refreshWorkflowSnapshot()
             }
         }
@@ -1210,8 +1544,20 @@ final class MirmirViewModel {
     }
 
     private func changeCacheLocation(to selectedDirectory: URL) {
-        guard canChangeCacheLocation,
-              let cacheLocationStore else {
+        guard let cacheLocationStore else {
+            let error = Self.unavailableServiceError(
+                service: "workflow_cache_location_store",
+                code: 1
+            )
+            cacheLocationErrorMessage = error.localizedDescription
+            recordBoundaryFailure(
+                error,
+                operation: "change_cache_location",
+                code: "cache_location_store_unavailable"
+            )
+            return
+        }
+        guard canChangeCacheLocation else {
             cacheLocationErrorMessage =
                 WorkflowCacheLocationErrorV4.jobsMustBeClearedFirst
                     .localizedDescription
@@ -1240,6 +1586,11 @@ final class MirmirViewModel {
                     "The cache location is ready."
             } catch {
                 self.cacheLocationErrorMessage = error.localizedDescription
+                self.recordBoundaryFailure(
+                    error,
+                    operation: "change_cache_location",
+                    code: "cache_location_change_failed"
+                )
             }
             self.isManagingCache = false
         }
@@ -1254,8 +1605,10 @@ final class MirmirViewModel {
             backendCatalog: backendCatalog,
             runtimeEnvironment: runtimeEnvironment
         )
-        await replacement.installObserver(workflowObserver)
-        let launch = try await replacement.launch()
+        let launch = try await withDiagnosticRecorder {
+            await replacement.installObserver(workflowObserver)
+            return try await replacement.launch()
+        }
         if let previous = workflowController {
             await previous.installObserver(.none)
         }
@@ -1502,6 +1855,56 @@ final class MirmirViewModel {
         }
         let sanitized = String(scalars).trimmingCharacters(in: .whitespacesAndNewlines)
         return sanitized.isEmpty ? "Mirmir-output" : sanitized
+    }
+
+    private static func unavailableServiceError(
+        service: String,
+        code: Int
+    ) -> NSError {
+        let description = service == "workflow_controller"
+            ? "The durable workflow cache is unavailable."
+            : "The cache location service is unavailable."
+        return NSError(
+            domain: "com.mirmir.application-view-model",
+            code: code,
+            userInfo: [
+                NSLocalizedDescriptionKey: description,
+                "service": service
+            ]
+        )
+    }
+
+    private func withDiagnosticRecorder<Result>(
+        _ operation: () async throws -> Result
+    ) async rethrows -> Result {
+        try await MirmirDiagnosticScope.$recorder.withValue(diagnosticRecorder) {
+            try await operation()
+        }
+    }
+
+    private func recordBoundaryFailure(
+        _ error: Error,
+        operation: String,
+        code: String,
+        fields: [MirmirDiagnosticField] = [],
+        fileID: String = #fileID,
+        function: String = #function,
+        line: UInt = #line
+    ) {
+        MirmirDiagnosticStore.logger.error(
+            "View model failure; operation=\(operation, privacy: .public) code=\(code, privacy: .public)"
+        )
+        diagnosticRecorder.enqueue(
+            severity: .error,
+            subsystem: "application_view_model",
+            operation: operation,
+            code: code,
+            fields: fields,
+            error: error,
+            fileID: fileID,
+            function: function,
+            line: line
+        )
     }
 
     deinit {

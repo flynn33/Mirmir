@@ -4,13 +4,71 @@ extension MirmirDiagnosticStore {
     struct PreparedRecord {
         let record: MirmirDiagnosticRecord?
         let persistence: MirmirDiagnosticPersistenceMutation
-        let rejection: MirmirDiagnosticStoreError?
+        let rejection: (any Error)?
     }
 
     struct ParsedJournal {
         var state: MirmirDiagnosticStoreState
         let corruptTailBytes: Int
         let requiresRewrite: Bool
+    }
+
+    static func prepareSessionStartRecord(
+        _ identity: MirmirDiagnosticRuntimeIdentity,
+        state: inout MirmirDiagnosticStoreState,
+        policy: MirmirDiagnosticRetentionPolicy,
+        nowMilliseconds: Int64,
+        uptimeNanoseconds: UInt64,
+        sessionID: MirmirDiagnosticID
+    ) throws -> PreparedRecord {
+        var fields: [MirmirDiagnosticField] = []
+        for (key, value) in [
+            ("application_name", identity.applicationName),
+            ("application_version", identity.applicationVersion),
+            ("application_build", identity.applicationBuild),
+            ("bundle_identifier", identity.bundleIdentifier),
+            ("operating_system_version", identity.operatingSystemVersion),
+            ("architecture", identity.architecture),
+            ("process_name", identity.processName),
+            ("diagnostic_session_id", sessionID.rawValue)
+        ] {
+            if let field = try? MirmirDiagnosticRecorder.textField(key, value) {
+                fields.append(field)
+            }
+        }
+        if let operatingSystemBuild = identity.operatingSystemBuild,
+           let field = try? MirmirDiagnosticRecorder.textField(
+               "operating_system_build",
+               operatingSystemBuild
+           ) {
+            fields.append(field)
+        }
+        if let metalDeviceName = identity.metalDeviceName,
+           let field = try? MirmirDiagnosticRecorder.textField(
+               "metal_device_name",
+               metalDeviceName
+           ) {
+            fields.append(field)
+        }
+        fields.append(try MirmirDiagnosticRecorder.field(
+            "process_identifier",
+            .signedInteger(Int64(identity.processIdentifier))
+        ))
+        let event = try MirmirDiagnosticEvent(
+            severity: .notice,
+            subsystem: "diagnostics",
+            operation: "start_session",
+            code: "diagnostic_session_started",
+            fields: fields
+        )
+        return try prepareRecord(
+            event,
+            state: &state,
+            policy: policy,
+            nowMilliseconds: nowMilliseconds,
+            uptimeNanoseconds: uptimeNanoseconds,
+            sessionID: sessionID
+        )
     }
 
     static func prepareRecord(
@@ -27,7 +85,8 @@ extension MirmirDiagnosticStore {
         let expiredRecordsPruned = pruneExpired(
             state: &state,
             policy: policy,
-            nowMilliseconds: nowMilliseconds
+            nowMilliseconds: nowMilliseconds,
+            preservingSessionID: sessionID
         )
         let baselineState = state
         let record = try MirmirDiagnosticRecord(
@@ -37,7 +96,25 @@ extension MirmirDiagnosticStore {
             sessionID: sessionID,
             event: event
         )
-        let line = try recordLine(record)
+        let line: Data
+        do {
+            line = try recordLine(record)
+        } catch let error as MirmirDiagnosticValidationError
+        where error == .privacyViolation {
+            state.rejectedRecordCount = saturatingIncrement(
+                state.rejectedRecordCount
+            )
+            let replacement = try journalData(state)
+            guard replacement.count <= policy.maximumTotalBytes else {
+                throw MirmirDiagnosticStoreError.journalCapacityInsufficient
+            }
+            state.journalByteCount = replacement.count
+            return PreparedRecord(
+                record: nil,
+                persistence: .replace(replacement),
+                rejection: error
+            )
+        }
         guard line.count <= policy.maximumRecordBytes else {
             state.rejectedRecordCount = saturatingIncrement(
                 state.rejectedRecordCount
@@ -50,7 +127,7 @@ extension MirmirDiagnosticStore {
             return PreparedRecord(
                 record: nil,
                 persistence: .replace(replacement),
-                rejection: .recordExceedsByteLimit(
+                rejection: MirmirDiagnosticStoreError.recordExceedsByteLimit(
                     observed: line.count,
                     maximum: policy.maximumRecordBytes
                 )
@@ -97,7 +174,8 @@ extension MirmirDiagnosticStore {
             return PreparedRecord(
                 record: nil,
                 persistence: .replace(rejectedReplacement),
-                rejection: .journalCapacityInsufficient
+                rejection: MirmirDiagnosticStoreError
+                    .journalCapacityInsufficient
             )
         }
         state.journalByteCount = replacement.count
@@ -175,7 +253,8 @@ extension MirmirDiagnosticStore {
         if pruneExpired(
             state: &parsed.state,
             policy: policy,
-            nowMilliseconds: nowMilliseconds
+            nowMilliseconds: nowMilliseconds,
+            preservingSessionID: sessionID
         ) {
             requiresRewrite = true
         }
@@ -402,14 +481,32 @@ extension MirmirDiagnosticStore {
     static func pruneExpired(
         state: inout MirmirDiagnosticStoreState,
         policy: MirmirDiagnosticRetentionPolicy,
-        nowMilliseconds: Int64
+        nowMilliseconds: Int64,
+        preservingSessionID: MirmirDiagnosticID? = nil
     ) -> Bool {
         let cutoff = nowMilliseconds > policy.maximumAgeMilliseconds
             ? nowMilliseconds - policy.maximumAgeMilliseconds
             : 0
         let originalCount = state.records.count
+        var sessionsWithRetainedRecords = Set(
+            state.records.lazy
+                .filter {
+                    $0.record.timestampUnixMilliseconds >= cutoff
+                        && !isSessionStart($0.record)
+                }
+                .map { $0.record.sessionID }
+        )
+        if let preservingSessionID {
+            sessionsWithRetainedRecords.insert(preservingSessionID)
+        }
         state.records.removeAll {
-            $0.record.timestampUnixMilliseconds < cutoff
+            guard $0.record.timestampUnixMilliseconds < cutoff else {
+                return false
+            }
+            return !isSessionStart($0.record)
+                || !sessionsWithRetainedRecords.contains(
+                    $0.record.sessionID
+                )
         }
         let removedCount = originalCount - state.records.count
         guard removedCount > 0 else { return false }
@@ -422,10 +519,24 @@ extension MirmirDiagnosticStore {
 
     static func pruneFirst(state: inout MirmirDiagnosticStoreState) {
         guard !state.records.isEmpty else { return }
-        state.records.removeFirst()
+        let index = state.records.firstIndex { candidate in
+            guard isSessionStart(candidate.record) else { return true }
+            return !state.records.contains { other in
+                other.record.sequence != candidate.record.sequence
+                    && other.record.sessionID == candidate.record.sessionID
+            }
+        } ?? state.records.startIndex
+        state.records.remove(at: index)
         state.prunedRecordCount = saturatingIncrement(
             state.prunedRecordCount
         )
+    }
+
+    private static func isSessionStart(
+        _ record: MirmirDiagnosticRecord
+    ) -> Bool {
+        record.event.operation.rawValue == "start_session"
+            && record.event.code.rawValue == "diagnostic_session_started"
     }
 
     static func saturatingIncrement(_ value: UInt64) -> UInt64 {

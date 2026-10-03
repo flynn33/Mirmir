@@ -1,6 +1,7 @@
 # Deterministic Engine v4 roadmap
 
-Status: 1.4.0 (9) implementation and M7 simulator candidate selection complete
+Status: current source target 1.4.3 (12); the 1.4.0 (9) implementation
+milestone and M7 simulator candidate selection are historical checkpoints
 
 Scope: Mirmir deterministic CPU and Metal engines, media pipeline, and durable job workflow
 
@@ -8,7 +9,7 @@ Target qualification runtime: ASH P06
 
 Baseline: the checked-in P05 CPU reference and Metal preview behavior before v4 work
 
-Current checkpoint: pull requests 44 and 45 landed the v4 engine, media,
+Historical checkpoints: pull requests 44 and 45 landed the v4 engine, media,
 workflow, qualification tooling, and production P06 identity loading as version
 1.3.0. Version 1.3.1 build 4 records the completed, simulator-only M7 scope and
 its reproducible selection evidence. Version 1.3.2 build 5 hardens exact media
@@ -27,14 +28,18 @@ Version 1.4.0 build 9 adds bookmark-backed cache-location selection and
 fail-closed inactive job/cache deletion without changing the deterministic
 engine contract. Deterministic resource allocation and automatic VideoToolbox
 geometry adaptation are post-first-release targets and are not part of version
-1.4.0.
+1.4.0. The current source target is version 1.4.3 build 12. Its current
+qualification gates are recorded separately in
+`docs/v4/CURRENT_QUALIFICATION_STATUS.md`; none of the historical checkpoints
+substitutes for those gates.
 Follow-on work closed M0 through M6 in source and tests. The sealed M7 headless
 XCTest frame-simulator run from commit
 `ce780af87107d90142d860f328dca4a72fea3047` compared the production v4 policy
 and four locked test-harness policy ablations against frozen P05, then selected
 `candidate_v4`. It proved the 5% quality and 20% processing-time targets in the
 same run. External devices, physical-machine matrices, signing, notarization,
-stapling, shipping, and distribution are outside M7. The exact checkpoint is
+stapling, shipping, and distribution are outside M7. The historical selection
+checkpoint and the current candidate's separate qualification state are
 recorded in `docs/v4/CURRENT_QUALIFICATION_STATUS.md`.
 
 M7 scope alteration adopted September 21, 2026: candidate execution,

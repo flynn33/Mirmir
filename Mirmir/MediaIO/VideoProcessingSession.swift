@@ -658,7 +658,6 @@ private extension VideoProcessingSession {
                     "an alternate-track group mixes audio with unsupported track types"
                 )
             }
-            guard audioMemberIDs.count > 1 else { continue }
             guard audioMemberIDs.allSatisfy({ groupedTrackIDs.insert($0).inserted })
             else {
                 throw MirmirError.unsupportedVideo(

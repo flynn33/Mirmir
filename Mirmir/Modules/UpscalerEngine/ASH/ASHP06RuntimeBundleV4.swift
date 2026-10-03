@@ -634,8 +634,8 @@ enum ASHP06LockedNaturalQualityEvidenceV4 {
     static func captureImplementation() throws -> ASHP06LockedFileIdentityV4 {
         try identity(
             "Mirmir/App/MirmirApp.swift",
-            342_264,
-            "9fcf2009a18385524f65644cf13e744a0cdd58550808bc43089dff4f12f98a84"
+            342_388,
+            "361c0ce4df777de3ba00162a2efa7a254a7af831f1bf337d3a151527af74a582"
         )
     }
 

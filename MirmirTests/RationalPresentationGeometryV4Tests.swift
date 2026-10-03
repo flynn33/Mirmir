@@ -1,4 +1,6 @@
+import AVFoundation
 import CoreMedia
+import CoreVideo
 import XCTest
 @testable import Mirmir
 
@@ -49,6 +51,84 @@ final class RationalPresentationGeometryV4Tests: XCTestCase {
 
         XCTAssertEqual(conversion.time.value, 556_215_660)
         XCTAssertEqual(conversion.quantization, .exact)
+    }
+
+    func testRavenForgeSite057ExactRepresentableEndIgnoresDistinctContainerBoundary()
+        async throws {
+        let sourceURL = try XCTUnwrap(Bundle(for: Self.self).url(
+            forResource: "raven-forge-site057-video-timing",
+            withExtension: "mp4"
+        ))
+        let asset = AVURLAsset(
+            url: sourceURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let videoTracks = try await asset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(videoTracks.first)
+        let trackRange = try await track.load(.timeRange)
+        let admittedContainerEnd = CMTimeRangeGetEnd(trackRange)
+        let nominalFrameDuration = try await track.load(.minFrameDuration)
+
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(
+            track: track,
+            outputSettings: [
+                kCVPixelBufferPixelFormatTypeKey as String:
+                    Int(kCVPixelFormatType_32BGRA)
+            ]
+        )
+        reader.add(output)
+        XCTAssertTrue(reader.startReading())
+        var decodedSampleCount = 0
+        var firstPresentationTime = CMTime.invalid
+        var lastPresentationTime = CMTime.invalid
+        while let sample = output.copyNextSampleBuffer() {
+            let count = CMSampleBufferGetNumSamples(sample)
+            guard count > 0 else { continue }
+            decodedSampleCount += count
+            let presentation = CMSampleBufferGetPresentationTimeStamp(sample)
+            if !firstPresentationTime.isNumeric {
+                firstPresentationTime = presentation
+            }
+            if !lastPresentationTime.isNumeric ||
+                CMTimeCompare(presentation, lastPresentationTime) > 0 {
+                lastPresentationTime = presentation
+            }
+        }
+        XCTAssertEqual(reader.status, .completed)
+        XCTAssertNil(reader.error)
+        XCTAssertEqual(decodedSampleCount, 241)
+        XCTAssertEqual(firstPresentationTime.value, 0)
+        XCTAssertEqual(firstPresentationTime.timescale, 12_288)
+        XCTAssertEqual(lastPresentationTime.value, 122_880)
+        XCTAssertEqual(lastPresentationTime.timescale, 12_288)
+        XCTAssertEqual(nominalFrameDuration.value, 512)
+        XCTAssertEqual(nominalFrameDuration.timescale, 12_288)
+
+        let exactNominalEnd = CMTimeAdd(
+            firstPresentationTime,
+            CMTimeMultiply(
+                nominalFrameDuration,
+                multiplier: Int32(decodedSampleCount)
+            )
+        )
+        XCTAssertEqual(exactNominalEnd.value, 123_392)
+        XCTAssertEqual(exactNominalEnd.timescale, 12_288)
+        XCTAssertEqual(admittedContainerEnd.value, 123_396)
+        XCTAssertEqual(admittedContainerEnd.timescale, 12_288)
+        XCTAssertEqual(
+            CMTimeSubtract(admittedContainerEnd, exactNominalEnd).value,
+            4
+        )
+
+        let workflowEnd = try DeterministicV4MediaProcessingSession.workflowTime(
+                exact: exactNominalEnd,
+                admittedBoundary: admittedContainerEnd,
+                timescale: 12_288
+            )
+
+        XCTAssertEqual(workflowEnd.value, 123_392)
+        XCTAssertEqual(workflowEnd.timescale, 12_288)
     }
 
     func testMediaClockPolicyRejectsNonAdjacentAndMissingFrameBoundaries()

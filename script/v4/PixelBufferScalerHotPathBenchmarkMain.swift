@@ -106,9 +106,9 @@ private enum PixelBufferScalerHotPathBenchmarkMain {
         )
         var results: [BenchmarkResult] = []
         for route in routes {
-            results.append(
+            results.append(try await Task.detached(priority: .high) {
                 try await run(route: route, device: device, library: library)
-            )
+            }.value)
         }
         let endingPowerEnvelope = try powerEnvelope(requiringACPower: true)
         let document = makeDocument(
@@ -208,7 +208,15 @@ private enum PixelBufferScalerHotPathBenchmarkMain {
             )
             let cpuEnd = DispatchTime.now().uptimeNanoseconds
             try requireNominalThermalAndLowPowerState()
-
+            try validate(
+                route: route,
+                cpu: cpuDigest,
+                metal: expectedDigest!,
+                expected: expectedDigest
+            )
+            cpuSamples.append(milliseconds(from: cpuStart, to: cpuEnd))
+        }
+        for _ in 0..<sampleCount {
             try requireNominalThermalAndLowPowerState()
             let metalStart = DispatchTime.now().uptimeNanoseconds
             try await metal.process(source: source, destination: metalDestination)
@@ -220,11 +228,10 @@ private enum PixelBufferScalerHotPathBenchmarkMain {
             try requireNominalThermalAndLowPowerState()
             try validate(
                 route: route,
-                cpu: cpuDigest,
+                cpu: expectedDigest!,
                 metal: metalDigest,
                 expected: expectedDigest
             )
-            cpuSamples.append(milliseconds(from: cpuStart, to: cpuEnd))
             metalSamples.append(milliseconds(from: metalStart, to: metalEnd))
         }
         return BenchmarkResult(
@@ -375,7 +382,7 @@ private enum PixelBufferScalerHotPathBenchmarkMain {
         let cpu = results.flatMap(\.cpuMilliseconds)
         let metal = results.flatMap(\.metalMilliseconds)
         return [
-            "schemaVersion": "mirmir-v4-pixel-buffer-hot-path-benchmark-v3",
+            "schemaVersion": "mirmir-v4-pixel-buffer-hot-path-benchmark-v4",
             "scope": scope,
             "configuration": [
                 "warmupCount": warmupCount,

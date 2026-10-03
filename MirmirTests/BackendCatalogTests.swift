@@ -6,6 +6,171 @@ import XCTest
 @testable import Mirmir
 
 final class BackendCatalogTests: XCTestCase {
+    func testQualityModelDownloadPreservesCancellationError() async {
+        do {
+            try await VTHighQualitySuperResolutionBackend
+                .downloadConfigurationModel(
+                    backendID: .videoToolboxSuperResolutionQuality
+                ) {
+                    throw CancellationError()
+                }
+            XCTFail("Cancellation unexpectedly completed")
+        } catch is CancellationError {
+        } catch {
+            XCTFail("Expected CancellationError, received \(error)")
+        }
+    }
+
+    func testQualityModelDownloadChecksCancellationAfterAwait() async {
+        let task = Task {
+            try await VTHighQualitySuperResolutionBackend
+                .downloadConfigurationModel(
+                    backendID: .videoToolboxSuperResolutionQuality
+                ) {
+                    withUnsafeCurrentTask { $0?.cancel() }
+                }
+        }
+
+        do {
+            try await task.value
+            XCTFail("Cancelled task unexpectedly completed")
+        } catch is CancellationError {
+        } catch {
+            XCTFail("Expected CancellationError, received \(error)")
+        }
+    }
+
+    func testQualityModelDownloadRunsCancellationHandlerWhileOperationIsSuspended()
+        async {
+        let gate = SuspendedModelDownloadOperation()
+        let cancellation = ModelDownloadCancellationRecorder()
+        let task = Task {
+            try await VTHighQualitySuperResolutionBackend
+                .downloadConfigurationModel(
+                    backendID: .videoToolboxSuperResolutionQuality,
+                    cancellationHandler: {
+                        Task { await cancellation.record() }
+                    }
+                ) {
+                    await gate.suspend()
+                }
+        }
+
+        for _ in 0..<1_000 {
+            if await gate.hasStarted() { break }
+            await Task.yield()
+        }
+        let operationStarted = await gate.hasStarted()
+        XCTAssertTrue(operationStarted)
+
+        task.cancel()
+        for _ in 0..<1_000 {
+            if await cancellation.wasRecorded() { break }
+            await Task.yield()
+        }
+        let cancellationWasRecorded = await cancellation.wasRecorded()
+        XCTAssertTrue(cancellationWasRecorded)
+
+        await gate.resume()
+        do {
+            try await task.value
+            XCTFail("Cancelled task unexpectedly completed")
+        } catch is CancellationError {
+        } catch {
+            XCTFail("Expected CancellationError, received \(error)")
+        }
+    }
+
+    @MainActor
+    func testViewModelIgnoresStaleModelDownloadProgressCompletionAndFailure()
+        async {
+        let controller = ControlledModelDownloadController()
+        let backend = ControlledModelDownloadBackend(controller: controller)
+        let diagnosticStore = MirmirDiagnosticStore(
+            inMemoryWith: .production
+        )
+        let viewModel = MirmirViewModel(
+            videoProbe: URLCatalogVideoProbe(),
+            backendCatalog: UpscaleBackendCatalog(backends: [backend]),
+            runtimeEnvironment: testEnvironment,
+            diagnosticStore: diagnosticStore
+        )
+        viewModel.selectBackend(.videoToolboxSuperResolutionQuality)
+
+        viewModel.selectVideo(URL(fileURLWithPath: "/tmp/model-attempt-1.mov"))
+        await viewModel.waitForCurrentProbe()
+        viewModel.downloadSelectedModel()
+        for _ in 0..<1_000 {
+            if await controller.attemptCount() == 1 { break }
+            await Task.yield()
+        }
+        var attemptCount = await controller.attemptCount()
+        XCTAssertEqual(attemptCount, 1)
+
+        viewModel.selectVideo(URL(fileURLWithPath: "/tmp/model-attempt-2.mov"))
+        await viewModel.waitForCurrentProbe()
+        viewModel.downloadSelectedModel()
+        for _ in 0..<1_000 {
+            if await controller.attemptCount() == 2 { break }
+            await Task.yield()
+        }
+        attemptCount = await controller.attemptCount()
+        XCTAssertEqual(attemptCount, 2)
+        await controller.reportProgress(0.42, forAttempt: 1)
+        for _ in 0..<1_000 {
+            if viewModel.modelDownloadProgress == 0.42 { break }
+            await Task.yield()
+        }
+        XCTAssertEqual(viewModel.modelDownloadProgress, 0.42)
+
+        await controller.reportProgress(0.95, forAttempt: 0)
+        await controller.complete(attempt: 0)
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertTrue(viewModel.isDownloadingModel)
+        XCTAssertEqual(viewModel.modelDownloadProgress, 0.42)
+        XCTAssertEqual(
+            viewModel.modelDownloadMessage,
+            "Downloading Apple model…"
+        )
+
+        viewModel.selectVideo(URL(fileURLWithPath: "/tmp/model-attempt-3.mov"))
+        await viewModel.waitForCurrentProbe()
+        viewModel.downloadSelectedModel()
+        for _ in 0..<1_000 {
+            if await controller.attemptCount() == 3 { break }
+            await Task.yield()
+        }
+        attemptCount = await controller.attemptCount()
+        XCTAssertEqual(attemptCount, 3)
+        await controller.reportProgress(0.33, forAttempt: 2)
+        for _ in 0..<1_000 {
+            if viewModel.modelDownloadProgress == 0.33 { break }
+            await Task.yield()
+        }
+
+        await controller.fail(attempt: 1)
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertTrue(viewModel.isDownloadingModel)
+        XCTAssertEqual(viewModel.modelDownloadProgress, 0.33)
+        XCTAssertEqual(
+            viewModel.modelDownloadMessage,
+            "Downloading Apple model…"
+        )
+        let intermediateDiagnostics = try? await diagnosticStore.snapshot()
+        XCTAssertFalse(intermediateDiagnostics?.records.contains {
+            $0.event.code.rawValue == "model_download_failed"
+        } ?? true)
+
+        await controller.complete(attempt: 2)
+        for _ in 0..<1_000 {
+            if !viewModel.isDownloadingModel { break }
+            await Task.yield()
+        }
+        XCTAssertFalse(viewModel.isDownloadingModel)
+        XCTAssertEqual(viewModel.modelDownloadProgress, 1)
+        XCTAssertEqual(viewModel.modelDownloadMessage, "Apple model is ready.")
+    }
+
     func testDeterministicReleaseDescriptorsContainNoPreviewIdentity() {
         for id in [
             UpscaleBackendID.mirmirDeterministicCPU,
@@ -759,6 +924,124 @@ private struct WaitingCatalogVideoProbe: VideoProbing {
     func probe(url: URL) async throws -> VideoInfo {
         try await Task.sleep(nanoseconds: 60_000_000_000)
         throw CancellationError()
+    }
+}
+
+private struct URLCatalogVideoProbe: VideoProbing {
+    func probe(url: URL) async throws -> VideoInfo {
+        makeVideoInfo(url: url)
+    }
+}
+
+private actor SuspendedModelDownloadOperation {
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var started = false
+
+    func suspend() async {
+        started = true
+        await withCheckedContinuation { continuation in
+            self.continuation = continuation
+        }
+    }
+
+    func hasStarted() -> Bool {
+        started
+    }
+
+    func resume() {
+        continuation?.resume()
+        continuation = nil
+    }
+}
+
+private actor ModelDownloadCancellationRecorder {
+    private var recorded = false
+
+    func record() {
+        recorded = true
+    }
+
+    func wasRecorded() -> Bool {
+        recorded
+    }
+}
+
+private actor ControlledModelDownloadController {
+    private struct Attempt {
+        let progress: @Sendable (Double) -> Void
+        var continuation: CheckedContinuation<Void, Error>?
+    }
+
+    private var attempts: [Attempt] = []
+
+    func run(progress: @escaping @Sendable (Double) -> Void) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            attempts.append(Attempt(
+                progress: progress,
+                continuation: continuation
+            ))
+        }
+    }
+
+    func attemptCount() -> Int {
+        attempts.count
+    }
+
+    func reportProgress(_ value: Double, forAttempt index: Int) {
+        attempts[index].progress(value)
+    }
+
+    func complete(attempt index: Int) {
+        guard let continuation = attempts[index].continuation else { return }
+        attempts[index].continuation = nil
+        continuation.resume()
+    }
+
+    func fail(attempt index: Int) {
+        guard let continuation = attempts[index].continuation else { return }
+        attempts[index].continuation = nil
+        continuation.resume(throwing: ControlledModelDownloadError.rejected)
+    }
+}
+
+private enum ControlledModelDownloadError: LocalizedError, Sendable {
+    case rejected
+
+    var errorDescription: String? {
+        "stale model download failed"
+    }
+}
+
+private struct ControlledModelDownloadBackend: ModelDownloadableBackend {
+    let controller: ControlledModelDownloadController
+    let descriptor = BackendDescriptor.descriptor(
+        for: .videoToolboxSuperResolutionQuality
+    )!
+
+    func availability(
+        for source: VideoInfo,
+        targetSize: CGSize,
+        environment: RuntimeEnvironment
+    ) async -> BackendAvailability {
+        .modelDownloadRequired(progress: nil)
+    }
+
+    func prepare(
+        request: BackendPreparationRequest,
+        environment: RuntimeEnvironment
+    ) async throws -> any PreparedFrameUpscaler {
+        throw BackendPreparationError.unavailable(
+            descriptor.id,
+            .modelUnavailable(details: "test backend requires download")
+        )
+    }
+
+    func downloadModel(
+        request: BackendPreparationRequest,
+        environment: RuntimeEnvironment,
+        progress: @escaping @Sendable (Double) -> Void
+    ) async throws {
+        try await controller.run(progress: progress)
     }
 }
 

@@ -1,4 +1,67 @@
+import Darwin
 import Foundation
+import Metal
+
+struct MirmirDiagnosticRuntimeIdentity: Equatable, Sendable {
+    let applicationName: String
+    let applicationVersion: String
+    let applicationBuild: String
+    let bundleIdentifier: String
+    let operatingSystemVersion: String
+    let operatingSystemBuild: String?
+    let architecture: String
+    let processName: String
+    let processIdentifier: Int32
+    let metalDeviceName: String?
+
+    static func current() -> Self {
+        let bundle = Bundle.main
+        let process = ProcessInfo.processInfo
+        return Self(
+            applicationName: bundle.object(
+                forInfoDictionaryKey: "CFBundleDisplayName"
+            ) as? String
+                ?? bundle.object(
+                    forInfoDictionaryKey: "CFBundleName"
+                ) as? String
+                ?? process.processName,
+            applicationVersion: bundle.object(
+                forInfoDictionaryKey: "CFBundleShortVersionString"
+            ) as? String ?? "unknown",
+            applicationBuild: bundle.object(
+                forInfoDictionaryKey: "CFBundleVersion"
+            ) as? String ?? "unknown",
+            bundleIdentifier: bundle.bundleIdentifier ?? "unknown",
+            operatingSystemVersion: process.operatingSystemVersionString,
+            operatingSystemBuild: systemString("kern.osversion"),
+            architecture: currentArchitecture,
+            processName: process.processName,
+            processIdentifier: process.processIdentifier,
+            metalDeviceName: MTLCreateSystemDefaultDevice()?.name
+        )
+    }
+
+    private static var currentArchitecture: String {
+#if arch(arm64)
+        "arm64"
+#elseif arch(x86_64)
+        "x86_64"
+#else
+        "unknown"
+#endif
+    }
+
+    private static func systemString(_ name: String) -> String? {
+        var size = 0
+        guard sysctlbyname(name, nil, &size, nil, 0) == 0,
+              size > 1 else { return nil }
+        var buffer = [CChar](repeating: 0, count: size)
+        guard sysctlbyname(name, &buffer, &size, nil, 0) == 0 else {
+            return nil
+        }
+        return String(cString: buffer)
+    }
+}
 
 struct MirmirDiagnosticRetentionPolicy: Equatable, Sendable {
     static let production = MirmirDiagnosticRetentionPolicy(

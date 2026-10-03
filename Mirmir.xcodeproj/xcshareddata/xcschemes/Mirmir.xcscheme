@@ -26,6 +26,16 @@
          </BuildableReference>
       </BuildableProductRunnable>
       <EnvironmentVariables>
+         <EnvironmentVariable key = "MIRMIR_REAL_SOURCE_EVIDENCE_DIR" value = "$(MIRMIR_REAL_SOURCE_EVIDENCE_DIR)" isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable key = "MIRMIR_REAL_SOURCE_PATH" value = "$(MIRMIR_REAL_SOURCE_PATH)" isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable key = "MIRMIR_REAL_SOURCE_SCALE" value = "$(MIRMIR_REAL_SOURCE_SCALE)" isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable key = "MIRMIR_REAL_SOURCE_TARGET_HEIGHT" value = "$(MIRMIR_REAL_SOURCE_TARGET_HEIGHT)" isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable key = "MIRMIR_REAL_SOURCE_TARGET_WIDTH" value = "$(MIRMIR_REAL_SOURCE_TARGET_WIDTH)" isEnabled = "YES">
+         </EnvironmentVariable>
          <EnvironmentVariable key = "MIRMIR_V4_BASELINE_DIR" value = "$(MIRMIR_V4_BASELINE_DIR)" isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable key = "MIRMIR_V4_WARMUP_COUNT" value = "$(MIRMIR_V4_WARMUP_COUNT)" isEnabled = "YES">

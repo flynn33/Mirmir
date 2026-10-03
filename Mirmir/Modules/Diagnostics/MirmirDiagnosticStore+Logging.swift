@@ -62,6 +62,9 @@ struct MirmirDiagnosticTimingContext: Sendable {
     var observedDuration: CMTime?
     var expectedDuration: CMTime?
     var siteID: String?
+    var exactBoundary: CMTime?
+    var admittedBoundary: CMTime?
+    var clockTimescale: CMTimeScale?
 
     init(
         nominalFrameDuration: CMTime? = nil,
@@ -70,7 +73,10 @@ struct MirmirDiagnosticTimingContext: Sendable {
         expectedPresentationTime: CMTime? = nil,
         observedDuration: CMTime? = nil,
         expectedDuration: CMTime? = nil,
-        siteID: String? = nil
+        siteID: String? = nil,
+        exactBoundary: CMTime? = nil,
+        admittedBoundary: CMTime? = nil,
+        clockTimescale: CMTimeScale? = nil
     ) {
         self.nominalFrameDuration = nominalFrameDuration
         self.sampleIndex = sampleIndex
@@ -79,6 +85,9 @@ struct MirmirDiagnosticTimingContext: Sendable {
         self.observedDuration = observedDuration
         self.expectedDuration = expectedDuration
         self.siteID = siteID
+        self.exactBoundary = exactBoundary
+        self.admittedBoundary = admittedBoundary
+        self.clockTimescale = clockTimescale
     }
 }
 
@@ -712,6 +721,20 @@ struct MirmirDiagnosticRecorder: Sendable {
             prefix: "expected_duration",
             timing.expectedDuration
         ))
+        fields.append(contentsOf: try timeFields(
+            prefix: "exact_boundary",
+            timing.exactBoundary
+        ))
+        fields.append(contentsOf: try timeFields(
+            prefix: "admitted_boundary",
+            timing.admittedBoundary
+        ))
+        if let clockTimescale = timing.clockTimescale {
+            fields.append(try field(
+                "boundary_clock_timescale",
+                .signedInteger(Int64(clockTimescale))
+            ))
+        }
         return fields
     }
 
@@ -903,14 +926,14 @@ struct MirmirDiagnosticRecorder: Sendable {
         while let candidate = current,
               observed.insert(ObjectIdentifier(candidate)).inserted {
             if candidate.domain == NSPOSIXErrorDomain {
-                return Int32(candidate.code)
+                return Int32(exactly: candidate.code)
             }
             if candidate.domain == NSCocoaErrorDomain,
                let underlying = candidate.userInfo[
                    NSUnderlyingErrorKey
                ] as? NSError,
                underlying.domain == NSPOSIXErrorDomain {
-                return Int32(underlying.code)
+                return Int32(exactly: underlying.code)
             }
             current = candidate.userInfo[NSUnderlyingErrorKey] as? NSError
         }

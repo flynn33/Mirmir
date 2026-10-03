@@ -60,8 +60,47 @@ final class MirmirTests: XCTestCase {
     func testPrimaryNavigationSeparatesCompareFromUpscale() {
         XCTAssertTrue(MirmirProductDestination.primary.contains(.upscale))
         XCTAssertTrue(MirmirProductDestination.primary.contains(.compare))
+        XCTAssertTrue(
+            MirmirProductDestination.utilities.contains(.diagnostics)
+        )
         XCTAssertEqual(MirmirProductDestination.upscale.title, "Upscale")
         XCTAssertEqual(MirmirProductDestination.compare.title, "Compare")
+        XCTAssertEqual(
+            MirmirProductDestination.diagnostics.title,
+            "Diagnostics"
+        )
+    }
+
+    @MainActor
+    func testWorkspaceTelemetryUsesTheViewModelDiagnosticStore()
+        async throws {
+        let store = MirmirDiagnosticStore(inMemoryWith: .production)
+        let viewModel = MirmirViewModel(
+            videoProbe: WaitingVideoProbe(),
+            diagnosticStore: store
+        )
+        let telemetry = MirmirWorkspaceRootView.makeDashboardTelemetry(
+            for: viewModel,
+            sampleProvider: {
+                MirmirProcessTelemetryCounters(
+                    timestampTicks: 1_000,
+                    userNanoseconds: 10,
+                    systemNanoseconds: 5,
+                    residentBytes: 4_096,
+                    physicalFootprintBytes: 8_192,
+                    diskReadBytes: 100,
+                    diskWrittenBytes: 200
+                )
+            }
+        )
+
+        telemetry.refresh()
+        let snapshot = try await store.snapshot()
+
+        XCTAssertTrue(snapshot.records.contains {
+            $0.event.operation.rawValue == "sample_process"
+                && $0.event.code.rawValue == "process_telemetry_sample"
+        })
     }
 
     func testUpscaleCompositionCannotMountCompletedComparisonPlayer()
@@ -133,6 +172,82 @@ final class MirmirTests: XCTestCase {
         )
     }
 
+    func testComparisonTimelinePlayPauseScrubEndAndReplay() throws {
+        var timeline = MirmirSynchronizedPlaybackTimeline()
+        XCTAssertTrue(
+            timeline.markReady(sourceDuration: 12, outputDuration: 10)
+        )
+
+        timeline.scrub(to: 2)
+        XCTAssertEqual(timeline.requestPlay(), 2)
+        XCTAssertTrue(timeline.isPlaying)
+        timeline.recordPlaybackTime(3)
+        timeline.pause()
+        XCTAssertFalse(timeline.isPlaying)
+        XCTAssertEqual(timeline.currentTime, 3)
+
+        XCTAssertEqual(timeline.requestPlay(), 3)
+        timeline.beginScrubbing()
+        XCTAssertTrue(timeline.isScrubbing)
+        XCTAssertFalse(timeline.isPlaying)
+        timeline.scrub(to: 6)
+        let resumed = try XCTUnwrap(timeline.finishScrubbing())
+        XCTAssertEqual(resumed.time, 6)
+        XCTAssertTrue(resumed.resumePlayback)
+        XCTAssertTrue(timeline.isPlaying)
+
+        timeline.beginScrubbing()
+        timeline.scrub(to: 10)
+        let endedScrub = try XCTUnwrap(timeline.finishScrubbing())
+        XCTAssertEqual(endedScrub.time, 10)
+        XCTAssertFalse(endedScrub.resumePlayback)
+        XCTAssertTrue(timeline.hasEnded)
+        XCTAssertFalse(timeline.isPlaying)
+
+        XCTAssertEqual(timeline.requestPlay(), 0)
+        XCTAssertFalse(timeline.hasEnded)
+        XCTAssertTrue(timeline.isPlaying)
+        timeline.recordPlaybackTime(9.9995)
+        XCTAssertEqual(timeline.currentTime, 10)
+        XCTAssertTrue(timeline.hasEnded)
+        XCTAssertFalse(timeline.isPlaying)
+
+        XCTAssertEqual(timeline.requestPlay(), 0)
+        XCTAssertFalse(timeline.hasEnded)
+        XCTAssertTrue(timeline.isPlaying)
+    }
+
+    func testComparisonSplitPositionClampsDragToVisibleBounds() {
+        XCTAssertEqual(
+            MirmirComparisonPresentation.splitPosition(
+                locationX: -20,
+                width: 200
+            ),
+            0.05
+        )
+        XCTAssertEqual(
+            MirmirComparisonPresentation.splitPosition(
+                locationX: 100,
+                width: 200
+            ),
+            0.5
+        )
+        XCTAssertEqual(
+            MirmirComparisonPresentation.splitPosition(
+                locationX: 240,
+                width: 200
+            ),
+            0.95
+        )
+        XCTAssertEqual(
+            MirmirComparisonPresentation.splitPosition(
+                locationX: 0,
+                width: 0
+            ),
+            0.05
+        )
+    }
+
     @MainActor
     func testWorkflowLaunchPublishesSnapshotsAndContainsRecoveryErrors() async throws {
         let generatedAt = WorkflowWallClockInstantV4(
@@ -197,14 +312,18 @@ final class MirmirTests: XCTestCase {
     }
 
     @MainActor
-    func testWorkflowLaunchFailureIsContainedInViewModel() async {
+    func testWorkflowLaunchFailureIsContainedInViewModel() async throws {
+        let diagnosticStore = MirmirDiagnosticStore(
+            inMemoryWith: .production
+        )
         let controller = StubWorkflowApplicationControllerV4(
             launches: [],
             failureMessage: "durable store unavailable"
         )
         let viewModel = MirmirViewModel(
             videoProbe: WaitingVideoProbe(),
-            workflowController: controller
+            workflowController: controller,
+            diagnosticStore: diagnosticStore
         )
 
         await viewModel.initializeWorkflow()
@@ -216,6 +335,159 @@ final class MirmirTests: XCTestCase {
         XCTAssertNil(viewModel.workflowQueueSnapshot)
         XCTAssertNil(viewModel.workflowRecoverySnapshot)
         XCTAssertFalse(viewModel.isInitializingWorkflow)
+        let snapshot = try await diagnosticStore.snapshot()
+        let failure = try XCTUnwrap(snapshot.records.first {
+            $0.event.operation.rawValue == "initialize_workflow"
+        })
+        XCTAssertEqual(failure.event.code.rawValue, "workflow_launch_failed")
+        XCTAssertNotNil(failure.event.error)
+    }
+
+    @MainActor
+    func testSourceProbeFailureReachesInjectedDiagnosticStore()
+        async throws {
+        let diagnosticStore = MirmirDiagnosticStore(
+            inMemoryWith: .production
+        )
+        let viewModel = MirmirViewModel(
+            videoProbe: FailingVideoProbe(),
+            workflowController: StubWorkflowApplicationControllerV4(
+                launches: []
+            ),
+            diagnosticStore: diagnosticStore
+        )
+
+        viewModel.selectVideo(URL(fileURLWithPath: "/tmp/failing.mov"))
+        await viewModel.waitForCurrentProbe()
+
+        let snapshot = try await diagnosticStore.snapshot()
+        let failure = try XCTUnwrap(snapshot.records.first {
+            $0.event.operation.rawValue == "probe_source"
+        })
+        XCTAssertEqual(failure.event.code.rawValue, "source_probe_failed")
+        XCTAssertEqual(
+            failure.event.error?.frames.first?.domain,
+            "com.mirmir.tests.video-probe"
+        )
+        XCTAssertEqual(failure.event.error?.frames.first?.code, 73)
+    }
+
+    @MainActor
+    func testCacheStoreConstructionFailureReachesInjectedDiagnosticStore()
+        async throws {
+        let diagnosticStore = MirmirDiagnosticStore(
+            inMemoryWith: .production
+        )
+        let viewModel = MirmirViewModel(
+            videoProbe: WaitingVideoProbe(),
+            cacheLocationStoreFactory: { _ in
+                throw NSError(
+                    domain: "com.mirmir.tests.cache-construction",
+                    code: 81
+                )
+            },
+            diagnosticStore: diagnosticStore
+        )
+        await viewModel.deleteCachedJob(
+            try WorkflowJobID("unavailable-cache-job")
+        )
+
+        let snapshot = try await diagnosticStore.snapshot()
+        let failure = try XCTUnwrap(snapshot.records.first {
+            $0.event.operation.rawValue == "initialize_cache_store"
+        })
+        XCTAssertEqual(
+            failure.event.code.rawValue,
+            "cache_store_initialization_failed"
+        )
+        XCTAssertEqual(
+            failure.event.error?.frames.first?.domain,
+            "com.mirmir.tests.cache-construction"
+        )
+        XCTAssertNotNil(viewModel.cacheLocationErrorMessage)
+        XCTAssertNotNil(viewModel.workflowErrorMessage)
+        XCTAssertTrue(snapshot.records.contains {
+            $0.event.operation.rawValue == "delete_cached_job"
+                && $0.event.code.rawValue
+                    == "workflow_controller_unavailable"
+        })
+    }
+
+    @MainActor
+    func testCacheAndResumeFailuresReachInjectedDiagnosticStore()
+        async throws {
+        let diagnosticStore = MirmirDiagnosticStore(
+            inMemoryWith: .production
+        )
+        let controller = StubWorkflowApplicationControllerV4(launches: [])
+        let viewModel = MirmirViewModel(
+            videoProbe: WaitingVideoProbe(),
+            workflowController: controller,
+            diagnosticStore: diagnosticStore
+        )
+        let jobID = try WorkflowJobID("diagnostic-job")
+
+        await viewModel.deleteCachedJob(jobID)
+        viewModel.resumeWorkflowJob(jobID)
+        await viewModel.waitForProcessing()
+
+        let snapshot = try await diagnosticStore.snapshot()
+        let cacheFailure = try XCTUnwrap(snapshot.records.first {
+            $0.event.operation.rawValue == "delete_cached_job"
+        })
+        let resumeFailure = try XCTUnwrap(snapshot.records.first {
+            $0.event.operation.rawValue == "resume_workflow"
+        })
+        XCTAssertEqual(
+            cacheFailure.event.code.rawValue,
+            "cache_job_delete_failed"
+        )
+        XCTAssertEqual(
+            resumeFailure.event.code.rawValue,
+            "workflow_resume_failed"
+        )
+        XCTAssertNotNil(cacheFailure.event.error)
+        XCTAssertNotNil(resumeFailure.event.error)
+    }
+
+    @MainActor
+    func testCancelledWorkflowResumeDoesNotReportFailure() async throws {
+        let diagnosticStore = MirmirDiagnosticStore(
+            inMemoryWith: .production
+        )
+        let generatedAt = WorkflowWallClockInstantV4(
+            nanosecondsSinceUnixEpoch: 1_000
+        )
+        let controller = StubWorkflowApplicationControllerV4(
+            launches: [
+                WorkflowApplicationLaunchSnapshotV4(
+                    queue: WorkflowApplicationQueueSnapshotV4(
+                        generatedAt: generatedAt,
+                        items: []
+                    ),
+                    recovery: WorkflowLaunchRecoverySnapshotV4(
+                        generatedAt: generatedAt,
+                        items: []
+                    )
+                )
+            ],
+            resumeMirmirError: .cancelled
+        )
+        let viewModel = MirmirViewModel(
+            videoProbe: WaitingVideoProbe(),
+            workflowController: controller,
+            diagnosticStore: diagnosticStore
+        )
+
+        viewModel.resumeWorkflowJob(try WorkflowJobID("cancelled-job"))
+        await viewModel.waitForProcessing()
+
+        let snapshot = try await diagnosticStore.snapshot()
+        XCTAssertNil(viewModel.workflowErrorMessage)
+        XCTAssertFalse(viewModel.isWorkflowProcessing)
+        XCTAssertFalse(snapshot.records.contains {
+            $0.event.code.rawValue == "workflow_resume_failed"
+        })
     }
 }
 
@@ -373,6 +645,15 @@ private struct WaitingVideoProbe: VideoProbing {
     }
 }
 
+private struct FailingVideoProbe: VideoProbing {
+    func probe(url _: URL) async throws -> VideoInfo {
+        throw NSError(
+            domain: "com.mirmir.tests.video-probe",
+            code: 73
+        )
+    }
+}
+
 private actor StubWorkflowApplicationControllerV4:
     WorkflowApplicationControllingV4
 {
@@ -384,13 +665,16 @@ private actor StubWorkflowApplicationControllerV4:
 
     private var launches: [WorkflowApplicationLaunchSnapshotV4]
     private let failureMessage: String?
+    private let resumeMirmirError: MirmirError?
 
     init(
         launches: [WorkflowApplicationLaunchSnapshotV4],
-        failureMessage: String? = nil
+        failureMessage: String? = nil,
+        resumeMirmirError: MirmirError? = nil
     ) {
         self.launches = launches
         self.failureMessage = failureMessage
+        self.resumeMirmirError = resumeMirmirError
     }
 
     func installObserver(_ observer: WorkflowApplicationObserverV4) async {}
@@ -437,6 +721,9 @@ private actor StubWorkflowApplicationControllerV4:
             WorkflowApplicationQueueSnapshotV4
         ) -> Void
     ) async throws -> WorkflowApplicationRunOutcomeV4 {
+        if let resumeMirmirError {
+            throw resumeMirmirError
+        }
         throw LaunchFailure(message: "Unexpected workflow resume.")
     }
 

@@ -7,6 +7,62 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+## [1.4.3] - 2026-10-03
+
+### Fixed
+
+- Corrected the shared exact/admitted clock policy so every exactly
+  representable rational remains exact even when an independently observed
+  container boundary differs. Admitted floor/ceiling ticks remain available
+  only for incommensurate rationals, and nonadjacent boundaries still fail.
+- Preserved one-member audible selection groups and their default selection in
+  conventional outputs. A source whose only AAC track is represented as a
+  singleton group no longer finishes encoding and then fails semantic
+  validation as an apparent alternate-audio topology change.
+- Connected the development journal's JSON and Markdown export controls to the
+  Diagnostics page used by the production workspace.
+
+### Development diagnostics
+
+- Added bounded process CPU, memory, disk I/O, and Metal-device samples to the
+  existing journal, with explicit events when sampling fails or recovers.
+- Added an export of available current-process unified logs in the same
+  Diagnostics page. The scan is bounded and reports truncation, and plain or
+  structured credential forms are rejected. Site-057 timing failures retain
+  the incommensurate exact rational, admitted boundary, and declared clock.
+- Added each privacy-permitted localized error description to its bounded
+  nested error frame, so Swift errors with otherwise empty `NSError.userInfo`
+  retain the actual failure reason in JSON and Markdown. Credential-bearing
+  descriptions remain omitted and counted.
+
+### Verification boundary
+
+- The observed short source has 241 decoded video samples on a 12,288 Hz clock.
+  Its last decoded PTS is `122880/12288`, while AVFoundation reports track end
+  `123396/12288`; the exact 24 fps frame end is `123392/12288`.
+- A named asset regression derives the 241-frame exact end and distinct
+  container boundary from the source, then verifies the shared policy returns
+  the exact value. Existing tests retain incommensurate nonadjacent-boundary
+  rejection coverage.
+- Added a separate terminal completeness check to the durable coordinator. It
+  inventories the encoded primary-video samples and requires the terminal
+  decoded ordinal to account for every source sample before checkpointing or
+  publication recovery can finalize the output.
+- Named regressions reject a 240-of-241 terminal decode before finalization and
+  accept the 241st source sample independently of the exact clock conversion.
+- The named current-source site-057 regression passed 1 of 1. The full Debug
+  scheme completed 590 tests: 586 passed, zero failed, and four explicit
+  opt-in tests skipped. Repository Python contracts passed 388 of 388 tests
+  across 27 of 27 commands, and universal `arm64 x86_64` Release analysis
+  succeeded.
+- The production durable-workflow test and independent postvalidation passed
+  66 of 66 checks on the reported source, preserving 241 video frames and 470
+  audio packets in
+  `/Users/jimdaley/Desktop/Mirmir-1.4.3-Build12-Evidence/83-final-real-source-production-1024-green/durable-workflow-run/durable-workflow-output.mov`.
+- The built 1.4.3 (12) application exported journal JSON, journal Markdown, and
+  unified-log JSON through the visible Diagnostics controls. Application
+  archiving and distribution are outside this source qualification.
+
 ## [1.4.2] - 2026-10-01
 
 ### Fixed
@@ -30,11 +86,12 @@ do not publish, sign, notarize, or distribute the application automatically.
   unfinished records through the view-model deletion path, then cleared
   residual cache data. The installed 1.4.1 app reopened the same root with zero
   jobs and **Choose Location…** enabled; it was not replaced.
-- Built a universal 1.4.2 build-11 TestFlight handoff archive at
+- Built a universal 1.4.2 build-11 Apple Distribution archive for owner
+  handoff only at
   `/Users/jimdaley/Library/Developer/Xcode/Archives/2026-10-01/Mirmir-1.4.2-11-TestFlight.xcarchive`.
   It embeds the valid Mac Team Store profile, carries a secure timestamp, and
-  passed strict Apple Distribution signature verification. It has not been
-  uploaded or installed.
+  passed strict Apple Distribution signature verification. It was not
+  uploaded, submitted, distributed, released, or installed.
 
 ## [1.4.1] - 2026-09-30
 
@@ -73,8 +130,10 @@ do not publish, sign, notarize, or distribute the application automatically.
   zero failed, and three expected opt-in capture tests skipped. The focused
   timing and conventional-media run completed 23 of 23 tests.
 - Created and strictly verified the local universal Apple Distribution archive
-  at `/Users/jimdaley/Library/Developer/Xcode/Archives/2026-09-30/Mirmir-1.4.1-10-TestFlight.xcarchive`.
-  It has not been uploaded, notarized, installed, or asserted as shipped. The
+  for owner handoff only at
+  `/Users/jimdaley/Library/Developer/Xcode/Archives/2026-09-30/Mirmir-1.4.1-10-TestFlight.xcarchive`.
+  It was not uploaded, submitted, distributed, released, notarized, or
+  installed. The
   previously documented Desktop path is not present.
 - The preserved approximately 91 GB Ferris job was not resumed. Its
   authenticated checkpoint remains at ordinal 2,468 with 2,469 committed
@@ -211,9 +270,10 @@ do not publish, sign, notarize, or distribute the application automatically.
   and three expected opt-in capture tests skipped. Coverage includes
   conventional and Deterministic v4 second-audio-track retention and legal
   90 kHz NTSC cadence through the original source's approximate frame range.
-- Created the local 1.3.3 build 7 TestFlight handoff archive at
+- Created the local 1.3.3 build 7 archive for owner handoff only at
   `/Users/jimdaley/Desktop/Mirmir-Beta-1.3.3-7.xcarchive`. The archive is not
-  tracked by Git, and App Store Connect/TestFlight upload remains owner-run.
+  tracked by Git and was not uploaded, submitted, distributed, released, or
+  installed.
 - Completed real-file deterministic CPU and Metal upscales of the retained
   960 × 960 H.264 fixture to playable 1920 × 1920 HEVC outputs with 241 frames,
   audio, attached picture, and identical decoded frames.

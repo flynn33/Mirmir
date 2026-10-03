@@ -1,4 +1,28 @@
 {
+  "acceptanceProviders": {
+    "notarytool": {
+      "requiredArtifacts": [],
+      "requiredCommandRecords": [
+        "notary_info",
+        "notary_log"
+      ],
+      "requiredTools": [
+        "notarytool"
+      ]
+    },
+    "xcode_archive": {
+      "requiredArtifacts": [
+        "xcodeArchiveInfo"
+      ],
+      "requiredCommandRecords": [
+        "xcode_export_notarized_app",
+        "xcode_export_archive"
+      ],
+      "requiredTools": [
+        "xcodebuild"
+      ]
+    }
+  },
   "actions": [
     {
       "evidenceKind": "apple_notary_service_acceptance",
@@ -51,30 +75,6 @@
       "producer": "shipping_app"
     }
   ],
-  "acceptanceProviders": {
-    "notarytool": {
-      "requiredArtifacts": [],
-      "requiredCommandRecords": [
-        "notary_info",
-        "notary_log"
-      ],
-      "requiredTools": [
-        "notarytool"
-      ]
-    },
-    "xcode_archive": {
-      "requiredArtifacts": [
-        "xcodeArchiveInfo"
-      ],
-      "requiredCommandRecords": [
-        "xcode_export_notarized_app",
-        "xcode_export_archive"
-      ],
-      "requiredTools": [
-        "xcodebuild"
-      ]
-    }
-  },
   "candidate": {
     "requiredBundleIdentifier": "com.mirmir.app",
     "requiredRuntimeID": "ash-p06-deterministic-v4",
@@ -88,17 +88,17 @@
     "maximumNotarySubmissionAgeSeconds": 604800,
     "maximumSandboxEvidenceBytes": 536870912,
     "observerSourcePath": "Mirmir/App/MirmirApp.swift",
-    "observerSourceSHA256": "9fcf2009a18385524f65644cf13e744a0cdd58550808bc43089dff4f12f98a84",
+    "observerSourceSHA256": "361c0ce4df777de3ba00162a2efa7a254a7af831f1bf337d3a151527af74a582",
     "qualificationNamespace": "MirmirQualificationV4/notarized-smoke",
     "runnerSHA256": "ffad88657112d7a39bb259589a66d1cc267c87c3db7e041aa938b20e3880bbce"
   },
   "codeSigning": {
     "forbiddenEntitlement": "com.apple.security.get-task-allow",
-    "requiredCertificateClass": "Developer ID Application",
     "requiredArchitectures": [
       "arm64",
       "x86_64"
     ],
+    "requiredCertificateClass": "Developer ID Application",
     "requiredEntitlements": [
       "com.apple.security.app-sandbox",
       "com.apple.security.files.bookmarks.app-scope"

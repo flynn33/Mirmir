@@ -3,7 +3,7 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-Version 1.4.2 build 11 carries the deterministic ASH P06 CPU and Metal engine
+Version 1.4.3 build 12 carries the deterministic ASH P06 CPU and Metal engine
 beside the supported Apple scaling frameworks, preserves the completed
 simulator-only M7 candidate selection, and adds qualified source admission,
 VideoToolbox capability checks, multi-audio preservation, and deterministic
@@ -12,9 +12,10 @@ and fallback boundary visible. It also separates live Upscale processing from
 the independent Compare player and permits authenticated failed jobs to resume
 from their last verified nonterminal checkpoint. Settings can place the durable
 job cache on user-selected storage and remove inactive job data without touching
-completed destination movies. This patch repairs the cache-confirmation actions
-and reads back the durable queue after cleanup so location selection unlocks
-when the last job is removed.
+completed destination movies. Version 1.4.3 connects the
+development diagnostic exports to the workspace, keeps exactly representable
+media times exact when a distinct container boundary is also present, and
+preserves one-member audible selection groups in conventional output.
 
 The current marketing version and build number are recorded in
 [`VERSION`](VERSION) and [`BUILD_NUMBER`](BUILD_NUMBER), then synchronized with
@@ -43,7 +44,8 @@ deliberate operator actions.
   according to a verified whole-asset plan.
 - When audio preservation is enabled, conventional and Deterministic v4 jobs
   keep every source audio track and validate language, enabled/default state,
-  and alternate-group topology after writing.
+  and alternate-group topology, including one-member audible selection groups,
+  after writing.
 - Durable bookmark-backed batch jobs survive relaunch. Pause/resume uses
   segment and temporal checkpoints; launch recovery contains corrupt work and
   reconciles registered partial artifacts.
@@ -55,10 +57,11 @@ deliberate operator actions.
   failure, and crash recovery account for temporary artifacts explicitly.
 - A single persistent development journal records backend selection, media
   geometry and format, exact sample timing, durable checkpoint state, disk and
-  volume facts, opened audio topology, nested errors, and source locations.
-  Operators can export the same journal as JSON or Markdown from Diagnostics.
+  volume facts, opened audio topology, nested errors, source locations, and
+  bounded process telemetry. Diagnostics exports the journal as JSON or
+  Markdown and the current process's available unified logs as JSON.
 
-Version 1.4.2 keeps these product boundaries explicit:
+Version 1.4.3 keeps these product boundaries explicit:
 
 - Deterministic resource allocation is not a first-release target. It is
   excluded from version 1.4.0 rather than treated as unfinished release work.
@@ -73,10 +76,12 @@ Version 1.4.2 keeps these product boundaries explicit:
   whole-asset path; conventional backends do not preserve attached pictures.
 - Automatic does not select deterministic v4 for opaque H.264 input.
 - Deterministic timing reconstructs nominal frame starts on the exact
-  `1001/24000` lattice. A shared source-clock conversion policy accepts only an
-  independently admitted immediate floor/ceiling tick and rejects real gaps
-  under distinct forensic sites. This policy covers terminal and nonterminal
-  segment boundaries; it is not a terminal-only snap. Historical recovery
+  `1001/24000` lattice. The shared source-clock conversion policy returns every
+  exactly representable value directly. Only an incommensurate value can use
+  an independently admitted immediate floor or ceiling tick; a nonadjacent
+  boundary fails under forensic site 057. The durable coordinator separately
+  inventories encoded primary-video samples and requires the terminal decoded
+  ordinal to account for all of them before finalization. Historical recovery
   evidence recorded 148,140 committed Ferris video frames and a 36-frame
   terminal remainder. On October 1, the owner authorized clearing that job's
   live cache with the other inactive jobs. Its checkpoint and cached segments
@@ -87,7 +92,8 @@ See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.
 See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) for accepted first-release limitations
 and post-first-release qualification and enhancement work.
-See [`CHANGELOG.md`](CHANGELOG.md) for the 1.4.2 cache-control correction,
+See [`CHANGELOG.md`](CHANGELOG.md) for the 1.4.3 timing, diagnostics, and
+singleton-audio corrections, the 1.4.2 cache-control correction,
 the 1.4.1 timing correction, the 1.4.0
 cache-management release, the
 1.3.4 recovery and comparison updates, the 1.3.3 source-admission and capability
@@ -99,13 +105,29 @@ The [Mirmir Wiki](https://github.com/flynn33/Mirmir/wiki) provides the complete
 product guide, architecture reference, ASH engine documentation, diagrams,
 testing procedures, and troubleshooting material.
 
-A local Apple Distribution TestFlight handoff archive for 1.4.2 build 11 is at
+Current 1.4.3 build-12 source and build qualification on October 3, 2026:
+
+- The named site-057 regression passed 1 of 1; the full Debug scheme completed
+  590 tests with 586 passed, zero failed, and four explicit opt-in skips.
+- Repository Python contracts passed 388 of 388 tests across 27 of 27 commands,
+  and universal `arm64 x86_64` Release analysis succeeded.
+- The reported short source completed the production durable workflow and 66
+  of 66 independent postvalidation checks, preserving 241 video frames and 470
+  audio packets. The built app also exported journal JSON, journal Markdown,
+  and unified-log JSON through the visible Diagnostics controls.
+
+These results establish the current build-ready source boundary. They do not
+complete DV4-002 or verify the unchanged installed 1.4.2 application.
+Application archiving and distribution are outside this qualification.
+
+The historical local Apple Distribution archive for 1.4.2 build 11 was prepared
+for owner handoff only at
 `/Users/jimdaley/Library/Developer/Xcode/Archives/2026-10-01/Mirmir-1.4.2-11-TestFlight.xcarchive`.
-It is universal, strictly signature-verified, and has not been uploaded or
-installed over `/Applications/Mirmir.app`. The earlier 1.4.1 build-10 archive
-remains historical at
+It is universal and strictly signature-verified. It was not uploaded,
+submitted, distributed, released, or installed over `/Applications/Mirmir.app`.
+The earlier 1.4.1 build-10 archive remains a historical owner-handoff artifact at
 `/Users/jimdaley/Library/Developer/Xcode/Archives/2026-09-30/Mirmir-1.4.1-10-TestFlight.xcarchive`.
-Neither archive is tracked by Git or asserted as shipped.
+Neither historical archive is tracked by Git.
 
 ## Deterministic Engine v4
 
@@ -123,10 +145,12 @@ records the v4 architecture, delivery sequence, and M7 simulator selection for
 at least 5% higher quality and 20% lower processing time. Engine, media, and
 durable-workflow implementation originally landed in 1.3.0; version 1.3.1
 records the altered simulator-only M7 scope and completed decision. Versions
-Versions 1.3.2 through 1.3.4 add post-qualification conformance repairs,
+1.3.2 through 1.3.4 add post-qualification conformance repairs,
 version 1.4.0 adds cache management, version 1.4.1 adds the shared exact
-media-clock boundary policy, and version 1.4.2 repairs the cache-control actions
-without changing that locked selection result. The sealed
+media-clock boundary policy, version 1.4.2 repairs the cache-control actions,
+and version 1.4.3 corrects exact-first clock admission, terminal sample
+completeness, development exports, and singleton audio groups without changing
+that locked selection result. The sealed
 168-case headless XCTest frame-simulator run from
 commit `ce780af87107d90142d860f328dca4a72fea3047` ranked `candidate_v4` first:
 quality improved 22.792052% with a 22.312761% paired-bootstrap lower bound, and
@@ -225,11 +249,12 @@ conformance, qualification, and identity-check records.
 ## Development diagnostics
 
 The in-place diagnostics module under `Mirmir/Modules/Diagnostics` owns one
-bounded `diagnostics-v1.jsonl` journal and one JSON/Markdown export path. Its
-development failure records include raw local source, output, and checkpoint
-paths so an exported record can identify a failing media and persistence
-boundary without guessing. Credential-shaped values, authorization data,
-tokens, passwords, secrets, and security bookmarks remain excluded.
+bounded `diagnostics-v1.jsonl` journal, journal JSON and Markdown exports, and a
+bounded current-process unified-log JSON export. Its development failure
+records include raw local source, output, and checkpoint paths so an exported
+record can identify a failing media and persistence boundary without guessing.
+Credential-shaped values, authorization data, tokens, passwords, secrets, and
+security bookmarks remain excluded.
 
 Processing failures record the requested and actual backend, fallback status,
 source/requested/effective geometry, pixel and color/HDR state, exact timing
@@ -237,8 +262,9 @@ rationals, sample position, audio topology, durable state, disk capacity and
 volume identity, nested `NSError` frames, and file/function/line. The production
 cadence-failure path records its timing evidence even without task-local job
 context, and coordinator finalize records carry the durable checkpoint-head
-path. These paths, atomic publication, and the export contract are covered by
-executable tests.
+path. Nested error frames retain privacy-permitted localized descriptions and
+account for descriptions omitted by privacy or size bounds. These paths,
+atomic publication, and the export contract are covered by executable tests.
 This deliberately detailed development policy must be reviewed and reduced as
 appropriate before a shipping privacy policy is finalized.
 

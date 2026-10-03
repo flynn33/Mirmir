@@ -358,6 +358,13 @@ enum MediaClockConversionPolicyV4 {
         admittedBoundary: CMTime,
         timescale: CMTimeScale
     ) throws -> MediaClockConversionV4 {
+        do {
+            return try exact(value, timescale: timescale)
+        } catch MediaClockConversionV4Error.exactValueNotRepresentable {
+            // Only an incommensurate exact rational needs an admitted clock
+            // boundary. Every exactly representable value remains exact.
+        }
+
         let admittedRational: ExactRationalV4
         do {
             admittedRational = try exactRational(admittedBoundary)
@@ -374,17 +381,6 @@ enum MediaClockConversionPolicyV4 {
         } catch {
             throw MediaClockConversionV4Error
                 .admittedBoundaryNotExactlyRepresentable
-        }
-
-        if let exactConversion = try? exact(
-            value,
-            timescale: timescale
-        ) {
-            guard admitted.time.value == exactConversion.time.value else {
-                throw MediaClockConversionV4Error
-                    .admittedBoundaryNotAdjacent
-            }
-            return exactConversion
         }
 
         let adjacent = try adjacentTicks(for: value, timescale: timescale)

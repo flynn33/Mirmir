@@ -327,6 +327,9 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
     ) throws {
         for planeIndex in planes.indices {
             let prepared = planes[planeIndex]
+            let shift = prepared.layout.storedCodeShift
+            guard shift > 0 else { continue }
+            let alignmentMask = UInt16((1 << shift) - 1)
             guard let base = CVPixelBufferGetBaseAddressOfPlane(
                 source,
                 planeIndex
@@ -338,35 +341,57 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
             let width = prepared.preparedScale.sourceWidth
             let height = prepared.preparedScale.sourceHeight
             let stride = CVPixelBufferGetBytesPerRowOfPlane(source, planeIndex)
+            let componentCount = try checkedProduct(
+                width,
+                prepared.layout.componentsPerElement
+            )
+            var combinedStoredCode: UInt16 = 0
+            for y in 0..<height {
+                let rowOffset = try checkedProduct(y, stride)
+                if prepared.layout.bytesPerComponent == 1 {
+                    let row = base.advanced(by: rowOffset)
+                        .assumingMemoryBound(to: UInt8.self)
+                    for sampleIndex in 0..<componentCount {
+                        combinedStoredCode |= UInt16(row[sampleIndex])
+                    }
+                } else {
+                    let row = UnsafeRawPointer(base.advanced(by: rowOffset))
+                    for sampleIndex in 0..<componentCount {
+                        combinedStoredCode |= UInt16(
+                            littleEndian: row.loadUnaligned(
+                                fromByteOffset: sampleIndex * 2,
+                                as: UInt16.self
+                            )
+                        )
+                    }
+                }
+            }
+            // Video-range endpoints are nominal. Preserve legal decoder
+            // footroom/headroom while rejecting malformed packed storage such
+            // as nonzero P010 low bits. The common valid path uses one OR
+            // reduction; a second scan is needed only to identify a bad
+            // component for the diagnostic error.
+            guard combinedStoredCode & alignmentMask != 0 else { continue }
             for y in 0..<height {
                 let rowOffset = try checkedProduct(y, stride)
                 let row = base.advanced(by: rowOffset)
                     .assumingMemoryBound(to: UInt8.self)
-                for x in 0..<width {
-                    let element = try checkedProduct(
-                        x,
-                        prepared.layout.componentsPerElement
-                    )
-                    for componentIndex in 0..<prepared.layout.componentsPerElement {
-                        let sampleIndex = try checkedSum(element, componentIndex)
-                        let stored: UInt16
-                        if prepared.layout.bytesPerComponent == 1 {
-                            stored = UInt16(row[sampleIndex])
-                        } else {
-                            let byteOffset = try checkedProduct(sampleIndex, 2)
-                            stored = UInt16(row[byteOffset])
-                                | (UInt16(row[byteOffset + 1]) << 8)
-                        }
-                        // Video-range endpoints are nominal. Preserve legal
-                        // decoder footroom/headroom through the spatial
-                        // convolution, while still rejecting malformed packed
-                        // storage such as nonzero P010 low bits. The shared
-                        // kernel performs the one canonical output clamp.
-                        _ = try layout.signalCode(
-                            fromStoredCode: stored,
+                for sampleIndex in 0..<componentCount {
+                    let stored: UInt16
+                    if prepared.layout.bytesPerComponent == 1 {
+                        stored = UInt16(row[sampleIndex])
+                    } else {
+                        let byteOffset = try checkedProduct(sampleIndex, 2)
+                        stored = UInt16(row[byteOffset])
+                            | (UInt16(row[byteOffset + 1]) << 8)
+                    }
+                    guard stored & alignmentMask == 0 else {
+                        throw PixelLayoutV4Error.invalidStoredCodeAlignment(
                             plane: planeIndex,
-                            component: componentIndex,
-                            policy: .preserveRepresentableRange
+                            component: sampleIndex
+                                % prepared.layout.componentsPerElement,
+                            value: stored,
+                            requiredZeroLowBits: shift
                         )
                     }
                 }

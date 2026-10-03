@@ -10,12 +10,12 @@ import subprocess
 import sys
 
 
-SCHEMA = "mirmir-v4-pixel-buffer-hot-path-repeatability-v3"
+SCHEMA = "mirmir-v4-pixel-buffer-hot-path-repeatability-v4"
 SCRIPT_DIRECTORY = pathlib.Path(__file__).resolve().parent
 REPOSITORY_ROOT = SCRIPT_DIRECTORY.parent.parent
 EVALUATOR = SCRIPT_DIRECTORY / "evaluate_pixel_buffer_scaler_hot_path.py"
 EVIDENCE_DIRECTORY = pathlib.Path(
-    "docs/v4/evidence/m2-pixel-buffer-hot-path-2026-08-03"
+    "docs/v4/evidence/m2-pixel-buffer-hot-path-2026-10-02"
 )
 REPEATABILITY_REPORT = EVIDENCE_DIRECTORY / "repeatability.json"
 PAIR_PATHS = (

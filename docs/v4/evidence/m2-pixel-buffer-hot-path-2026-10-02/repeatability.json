@@ -1,0 +1,146 @@
+{
+  "allPairsPassed": true,
+  "baselineEngineSourceSHA256": "18a1ee1ccfbf78bc1b56f85b4cbdaf384b4aafafa01950ef454e06fc83db0af7",
+  "candidateEngineSourceSHA256": "c2b7b72cf433a09eef3798362517c312a770180bdac93c313bf9acb08a0e0715",
+  "evaluatorSourceSHA256": "8b1e2e5cafd524aa566506acf84a1099aca56f5f251987b593df65f65a1abae5",
+  "pairCount": 4,
+  "pairs": [
+    {
+      "aggregateRatios": {
+        "cpuMedianMilliseconds": 0.6128832112711567,
+        "cpuP95Milliseconds": 0.6361086814725758,
+        "metalMedianMilliseconds": 0.4276756092580575,
+        "metalP95Milliseconds": 0.39586379307664366
+      },
+      "baseline": "docs/v4/evidence/m2-pixel-buffer-hot-path-2026-10-02/baseline-54d97e3.json",
+      "baselineCaptureSHA256": "08774dc2646c20dc07d378b0b1e58d0655fa76272b021f016ba5f902ae461ce4",
+      "candidate": "docs/v4/evidence/m2-pixel-buffer-hot-path-2026-10-02/prepared-direct-after.json",
+      "candidateCaptureSHA256": "e17fefe8da00a32e3fd06fd13d7120c884f8c96ad384c41d9f52128900ba7314",
+      "caseRatios": {
+        "nv12-full-arbitrary-853x481": {
+          "cpuMedianMilliseconds": 0.6364514825795454,
+          "cpuP95Milliseconds": 0.6257106995013051,
+          "metalMedianMilliseconds": 0.38237405315355183,
+          "metalP95Milliseconds": 0.37724520091602914
+        },
+        "p010-video-exact-3-over-2": {
+          "cpuMedianMilliseconds": 0.5711465544122233,
+          "cpuP95Milliseconds": 0.5605128174155009,
+          "metalMedianMilliseconds": 0.41621876786530176,
+          "metalP95Milliseconds": 0.5240588289247011
+        }
+      },
+      "evaluation": "docs/v4/evidence/m2-pixel-buffer-hot-path-2026-10-02/evaluation.json",
+      "evaluationSHA256": "4ab1e4e7242143b450b31219ab8e4ea54badd8aacab1005e050bcca702c2953c",
+      "pair": 1,
+      "passed": true
+    },
+    {
+      "aggregateRatios": {
+        "cpuMedianMilliseconds": 0.6618628799176488,
+        "cpuP95Milliseconds": 0.6235045903442574,
+        "metalMedianMilliseconds": 0.4026050655691758,
+        "metalP95Milliseconds": 0.4061728011892957
+      },
+      "baseline": "docs/v4/evidence/m2-pixel-buffer-hot-path-2026-10-02/baseline-54d97e3-pair-02.json",
+      "baselineCaptureSHA256": "56501e477cdb104ec9ff3ec986d4a96835ed8aadaef2afe8f8733a02fc5c96de",
+      "candidate": "docs/v4/evidence/m2-pixel-buffer-hot-path-2026-10-02/prepared-direct-after-pair-02.json",
+      "candidateCaptureSHA256": "587357a660cfe83c90b4429a2cd2bdca16d3883f78df0885396594cd845b0ba9",
+      "caseRatios": {
+        "nv12-full-arbitrary-853x481": {
+          "cpuMedianMilliseconds": 0.6385711254399787,
+          "cpuP95Milliseconds": 0.6086166909100551,
+          "metalMedianMilliseconds": 0.35465149040424665,
+          "metalP95Milliseconds": 0.3859032509348793
+        },
+        "p010-video-exact-3-over-2": {
+          "cpuMedianMilliseconds": 0.6757475999637893,
+          "cpuP95Milliseconds": 0.691874572478851,
+          "metalMedianMilliseconds": 0.4860310953089092,
+          "metalP95Milliseconds": 0.508154913121976
+        }
+      },
+      "evaluation": "docs/v4/evidence/m2-pixel-buffer-hot-path-2026-10-02/evaluation-pair-02.json",
+      "evaluationSHA256": "4c9f93380a4b43eea61a750680793cfd93b6b3fc106bb20573f644017d7fc91c",
+      "pair": 2,
+      "passed": true
+    },
+    {
+      "aggregateRatios": {
+        "cpuMedianMilliseconds": 0.634457591946048,
+        "cpuP95Milliseconds": 0.7222179836777153,
+        "metalMedianMilliseconds": 0.4697334656120023,
+        "metalP95Milliseconds": 0.3989150881916733
+      },
+      "baseline": "docs/v4/evidence/m2-pixel-buffer-hot-path-2026-10-02/baseline-54d97e3-pair-03.json",
+      "baselineCaptureSHA256": "568328604cc791f61b26101f3fb474d75fff5bd6bace7c302da1d627c868b19e",
+      "candidate": "docs/v4/evidence/m2-pixel-buffer-hot-path-2026-10-02/prepared-direct-after-pair-03.json",
+      "candidateCaptureSHA256": "03c2ec28284ee6aefd057715316632379558b5402f46128115d12bf40ed5bc16",
+      "caseRatios": {
+        "nv12-full-arbitrary-853x481": {
+          "cpuMedianMilliseconds": 0.6662661835970362,
+          "cpuP95Milliseconds": 0.7221889829728226,
+          "metalMedianMilliseconds": 0.3948845405872608,
+          "metalP95Milliseconds": 0.3897496328362199
+        },
+        "p010-video-exact-3-over-2": {
+          "cpuMedianMilliseconds": 0.5858301807431036,
+          "cpuP95Milliseconds": 0.6158865166364202,
+          "metalMedianMilliseconds": 0.5915600779429023,
+          "metalP95Milliseconds": 0.596666050555543
+        }
+      },
+      "evaluation": "docs/v4/evidence/m2-pixel-buffer-hot-path-2026-10-02/evaluation-pair-03.json",
+      "evaluationSHA256": "41460cabeaa860d8e088ef6486fa36aef90f08b4af765d5595365610aea2b590",
+      "pair": 3,
+      "passed": true
+    },
+    {
+      "aggregateRatios": {
+        "cpuMedianMilliseconds": 0.6632861865824001,
+        "cpuP95Milliseconds": 0.6485942925360297,
+        "metalMedianMilliseconds": 0.4270252463723496,
+        "metalP95Milliseconds": 0.41837024259624817
+      },
+      "baseline": "docs/v4/evidence/m2-pixel-buffer-hot-path-2026-10-02/baseline-54d97e3-pair-04.json",
+      "baselineCaptureSHA256": "4fbfc29bb8a19468400ec273c18ff9e7c18104e1f419be5c785e2a2873a247fe",
+      "candidate": "docs/v4/evidence/m2-pixel-buffer-hot-path-2026-10-02/prepared-direct-after-pair-04.json",
+      "candidateCaptureSHA256": "9753b8dba880a461c34f5cf24b65f8dd4db58cbeb25555b68b4235ae7dfb72c0",
+      "caseRatios": {
+        "nv12-full-arbitrary-853x481": {
+          "cpuMedianMilliseconds": 0.6545842156288435,
+          "cpuP95Milliseconds": 0.650524998004198,
+          "metalMedianMilliseconds": 0.38767120278935613,
+          "metalP95Milliseconds": 0.3830940863379615
+        },
+        "p010-video-exact-3-over-2": {
+          "cpuMedianMilliseconds": 0.6802270694667971,
+          "cpuP95Milliseconds": 0.6818809920962132,
+          "metalMedianMilliseconds": 0.5414716639792347,
+          "metalP95Milliseconds": 0.5908542684773288
+        }
+      },
+      "evaluation": "docs/v4/evidence/m2-pixel-buffer-hot-path-2026-10-02/evaluation-pair-04.json",
+      "evaluationSHA256": "cb55428779233d675d894e617db251ff80ea54473325e1abbe26fa0f6d0ad679",
+      "pair": 4,
+      "passed": true
+    }
+  ],
+  "schemaVersion": "mirmir-v4-pixel-buffer-hot-path-repeatability-v4",
+  "threshold": {
+    "maximumAfterToBeforeRatio": 0.8
+  },
+  "verifierSourceSHA256": "d67f151dfc1d8368f5e878c0398ecc6ecce482db1451efa066e9e45865cc0fa5",
+  "worstAggregateRatios": {
+    "cpuMedianMilliseconds": 0.6632861865824001,
+    "cpuP95Milliseconds": 0.7222179836777153,
+    "metalMedianMilliseconds": 0.4697334656120023,
+    "metalP95Milliseconds": 0.41837024259624817
+  },
+  "worstCaseRatios": {
+    "cpuMedianMilliseconds": 0.6802270694667971,
+    "cpuP95Milliseconds": 0.7221889829728226,
+    "metalMedianMilliseconds": 0.5915600779429023,
+    "metalP95Milliseconds": 0.596666050555543
+  }
+}

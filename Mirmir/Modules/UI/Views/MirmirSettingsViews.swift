@@ -622,8 +622,10 @@ struct MirmirDiagnosticSettingsView: View {
                     .font(.title2.weight(.semibold))
                 Text(
                     "Review the development forensic journal or export it "
-                        + "for troubleshooting. Local media paths are included; "
-                        + "credentials and security bookmarks are excluded."
+                        + "for troubleshooting. App Logs exports the unified "
+                        + "entries still available for this running process. "
+                        + "Local media paths are included; credentials and "
+                        + "security bookmarks are excluded."
                 )
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -747,11 +749,19 @@ struct MirmirDiagnosticSettingsView: View {
             Button("JSON…") {
                 prepareExport(.json)
             }
+            .keyboardShortcut("j", modifiers: [.command, .shift])
             .disabled(isRefreshing || isExporting)
 
             Button("Markdown…") {
                 prepareExport(.markdown)
             }
+            .keyboardShortcut("m", modifiers: [.command, .shift])
+            .disabled(isRefreshing || isExporting)
+
+            Button("App Logs…") {
+                prepareExport(.applicationLogs)
+            }
+            .keyboardShortcut("l", modifiers: [.command, .shift])
             .disabled(isRefreshing || isExporting)
         }
     }
@@ -856,6 +866,8 @@ struct MirmirDiagnosticSettingsView: View {
                     data = try await store.exportJSON()
                 case .markdown:
                     data = try await store.exportMarkdown()
+                case .applicationLogs:
+                    data = try await store.exportApplicationLogs()
                 }
                 persistenceHealth = await store.persistenceHealth()
                 guard !Task.isCancelled else {
@@ -983,6 +995,7 @@ struct MirmirDiagnosticLogTextView: NSViewRepresentable {
 private enum MirmirDiagnosticExportFormat {
     case json
     case markdown
+    case applicationLogs
 
     static let markdownContentType =
         UTType(filenameExtension: "md") ?? .plainText
@@ -993,6 +1006,8 @@ private enum MirmirDiagnosticExportFormat {
             return "JSON"
         case .markdown:
             return "Markdown"
+        case .applicationLogs:
+            return "App Logs"
         }
     }
 
@@ -1002,6 +1017,8 @@ private enum MirmirDiagnosticExportFormat {
             return .json
         case .markdown:
             return Self.markdownContentType
+        case .applicationLogs:
+            return .json
         }
     }
 
@@ -1011,6 +1028,8 @@ private enum MirmirDiagnosticExportFormat {
             return "Mirmir-Diagnostics.json"
         case .markdown:
             return "Mirmir-Diagnostics.md"
+        case .applicationLogs:
+            return "Mirmir-App-Logs.json"
         }
     }
 }

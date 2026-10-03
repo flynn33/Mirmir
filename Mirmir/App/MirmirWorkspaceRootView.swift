@@ -1,6 +1,7 @@
 import CoreMedia
 import SwiftUI
 
+@MainActor
 struct MirmirWorkspaceRootView: View {
     let viewModel: MirmirViewModel
 
@@ -9,7 +10,14 @@ struct MirmirWorkspaceRootView: View {
         MirmirAppearanceMode.system.rawValue
     @State private var destination: MirmirProductDestination = .dashboard
     @State private var pendingConfirmation: PendingWorkspaceConfirmation?
-    @State private var dashboardTelemetry = MirmirDashboardTelemetry()
+    @State private var dashboardTelemetry: MirmirDashboardTelemetry
+
+    init(viewModel: MirmirViewModel) {
+        self.viewModel = viewModel
+        _dashboardTelemetry = State(initialValue: Self.makeDashboardTelemetry(
+            for: viewModel
+        ))
+    }
 
     var body: some View {
         GeometryReader { proxy in
@@ -19,8 +27,24 @@ struct MirmirWorkspaceRootView: View {
         .preferredColorScheme(preferredColorScheme)
         .task {
             await viewModel.initializeWorkflow()
+        }
+        .task {
             await dashboardTelemetry.monitor()
         }
+    }
+
+    static func makeDashboardTelemetry(
+        for viewModel: MirmirViewModel,
+        sampleProvider: @escaping MirmirTelemetrySampleProvider = {
+            try MirmirSystemProcessTelemetrySampler().sample()
+        }
+    ) -> MirmirDashboardTelemetry {
+        MirmirDashboardTelemetry(
+            sampleProvider: sampleProvider,
+            diagnosticRecorder: MirmirDiagnosticRecorder(
+                store: viewModel.diagnosticStore
+            )
+        )
     }
 
     private func workspace(width: CGFloat) -> some View {
@@ -1586,37 +1610,48 @@ private struct MirmirProductDiagnostics: View {
 
     var body: some View {
         ScrollView {
-            MirmirProductPanel(theme: theme) {
-                VStack(alignment: .leading, spacing: theme.spacing.space3) {
-                    Text("Current product state").font(theme.typography.subtitle)
-                    diagnostic("Source", viewModel.currentVideoInfo?.filename ?? "None")
-                    diagnostic(
-                        "Target",
-                        viewModel.targetWidth > 0
-                            ? "\(viewModel.targetWidth) × \(viewModel.targetHeight)"
-                            : "None"
+            VStack(alignment: .leading, spacing: theme.spacing.space4) {
+                MirmirProductPanel(theme: theme) {
+                    VStack(alignment: .leading, spacing: theme.spacing.space3) {
+                        Text("Current product state")
+                            .font(theme.typography.subtitle)
+                        diagnostic(
+                            "Source",
+                            viewModel.currentVideoInfo?.filename ?? "None"
+                        )
+                        diagnostic(
+                            "Target",
+                            viewModel.targetWidth > 0
+                                ? "\(viewModel.targetWidth) × \(viewModel.targetHeight)"
+                                : "None"
+                        )
+                        diagnostic(
+                            "Selected method",
+                            BackendDescriptor.descriptor(
+                                for: viewModel.selectedBackendID
+                            )?.title ?? viewModel.selectedBackendID.rawValue
+                        )
+                        diagnostic(
+                            "Availability",
+                            viewModel.selectedBackendAvailability?.statusText
+                                ?? "Waiting for source"
+                        )
+                        Divider().overlay(theme.borderSubtle)
+                        Text(
+                            "Both deterministic routes load the verified bundled ASH P06 "
+                                + "runtime and consume one canonical fixed-point execution "
+                                + "plan. Trust, format, or preservation mismatches fail "
+                                + "closed, and the selected CPU or Metal identity is never "
+                                + "silently substituted."
+                        )
+                        .font(theme.typography.body)
+                        .foregroundStyle(theme.textSecondary)
+                    }
+                }
+                MirmirProductPanel(theme: theme) {
+                    MirmirDiagnosticSettingsView(
+                        store: viewModel.diagnosticStore
                     )
-                    diagnostic(
-                        "Selected method",
-                        BackendDescriptor.descriptor(
-                            for: viewModel.selectedBackendID
-                        )?.title ?? viewModel.selectedBackendID.rawValue
-                    )
-                    diagnostic(
-                        "Availability",
-                        viewModel.selectedBackendAvailability?.statusText
-                            ?? "Waiting for source"
-                    )
-                    Divider().overlay(theme.borderSubtle)
-                    Text(
-                        "Both deterministic routes load the verified bundled ASH P06 "
-                            + "runtime and consume one canonical fixed-point execution "
-                            + "plan. Trust, format, or preservation mismatches fail "
-                            + "closed, and the selected CPU or Metal identity is never "
-                            + "silently substituted."
-                    )
-                    .font(theme.typography.body)
-                    .foregroundStyle(theme.textSecondary)
                 }
             }
             .padding(theme.spacing.space6)

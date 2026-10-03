@@ -160,6 +160,30 @@ private struct AVFoundationSegmentTrackLayoutV4: Codable, Hashable, Sendable {
 
 struct AVFoundationSegmentProbeV4: Sendable {
     func probe(url: URL) async throws -> AVFoundationSegmentIdentityV4 {
+        try await probe(
+            url: url,
+            includesZeroSampleMarkers: false
+        )
+    }
+
+    /// Reconstructs the deployed v1 receipt identity, whose stream hashes and
+    /// sample counts included AVAssetReader's zero-sample edit/drain markers.
+    /// New artifacts always use `probe(url:)`; this path exists only so the
+    /// immutable v1 checkpoint receipt can still reopen artifacts published by
+    /// an older build.
+    func legacyV1IdentityIncludingZeroSampleMarkers(
+        url: URL
+    ) async throws -> AVFoundationSegmentIdentityV4 {
+        try await probe(
+            url: url,
+            includesZeroSampleMarkers: true
+        )
+    }
+
+    private func probe(
+        url: URL,
+        includesZeroSampleMarkers: Bool
+    ) async throws -> AVFoundationSegmentIdentityV4 {
         try Self.validateRegularFile(url)
         let asset = AVURLAsset(
             url: url,
@@ -181,7 +205,8 @@ struct AVFoundationSegmentProbeV4: Sendable {
             identities.append(try await scanTrack(
                 descriptor.track,
                 key: descriptor.key,
-                asset: asset
+                asset: asset,
+                includesZeroSampleMarkers: includesZeroSampleMarkers
             ))
         }
         let metadata = try await asset.load(.commonMetadata)
@@ -267,7 +292,8 @@ struct AVFoundationSegmentProbeV4: Sendable {
     private func scanTrack(
         _ track: AVAssetTrack,
         key: AVFoundationSegmentTrackKeyV4,
-        asset: AVAsset
+        asset: AVAsset,
+        includesZeroSampleMarkers: Bool
     ) async throws -> AVFoundationSegmentTrackIdentityV4 {
         let reader: AVAssetReader
         do {
@@ -298,6 +324,10 @@ struct AVFoundationSegmentProbeV4: Sendable {
         var endPresentation = CMTime.zero
         var firstIsSync = false
         while let sample = output.copyNextSampleBuffer() {
+            if !includesZeroSampleMarkers,
+               CMSampleBufferGetNumSamples(sample) == 0 {
+                continue
+            }
             let presentation = CMSampleBufferGetPresentationTimeStamp(sample)
             let duration = CMSampleBufferGetDuration(sample)
             let decode = CMSampleBufferGetDecodeTimeStamp(sample)

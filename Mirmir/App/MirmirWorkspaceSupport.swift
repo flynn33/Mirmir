@@ -399,20 +399,24 @@ final class MirmirDashboardTelemetry {
 
     @ObservationIgnored private let sampleProvider: MirmirTelemetrySampleProvider
     @ObservationIgnored private let timebase: MirmirMachTimebase
+    @ObservationIgnored private let diagnosticRecorder: MirmirDiagnosticRecorder
     @ObservationIgnored private var previousCounters:
         MirmirProcessTelemetryCounters?
     @ObservationIgnored private var hasLoggedFailure = false
+    @ObservationIgnored private var successfulSampleCount = 0
 
     init(
         sampleProvider: @escaping MirmirTelemetrySampleProvider = {
             try MirmirSystemProcessTelemetrySampler().sample()
         },
         timebase: MirmirMachTimebase = .current,
-        metalDeviceName: String? = MTLCreateSystemDefaultDevice()?.name
+        metalDeviceName: String? = MTLCreateSystemDefaultDevice()?.name,
+        diagnosticRecorder: MirmirDiagnosticRecorder = .application
     ) {
         self.sampleProvider = sampleProvider
         self.timebase = timebase
         self.metalDeviceName = metalDeviceName
+        self.diagnosticRecorder = diagnosticRecorder
     }
 
     func monitor() async {
@@ -440,8 +444,19 @@ final class MirmirDashboardTelemetry {
             )
             previousCounters = counters
             errorDescription = nil
+            successfulSampleCount += 1
+            if successfulSampleCount <= 2
+                || successfulSampleCount.isMultiple(of: 30) {
+                recordDiagnosticTelemetry(counters: counters)
+            }
             if hasLoggedFailure {
                 MirmirLog.telemetry.notice("Dashboard telemetry sampling recovered")
+                diagnosticRecorder.enqueue(
+                    severity: .notice,
+                    subsystem: "telemetry",
+                    operation: "sample_process",
+                    code: "process_telemetry_recovered"
+                )
                 hasLoggedFailure = false
             }
         } catch {
@@ -452,8 +467,67 @@ final class MirmirDashboardTelemetry {
                 MirmirLog.telemetry.error(
                     "Dashboard telemetry sampling failed: \(error.localizedDescription, privacy: .public)"
                 )
+                diagnosticRecorder.enqueue(
+                    severity: .error,
+                    subsystem: "telemetry",
+                    operation: "sample_process",
+                    code: "process_telemetry_unavailable",
+                    error: error
+                )
                 hasLoggedFailure = true
             }
+        }
+    }
+
+    private func recordDiagnosticTelemetry(
+        counters: MirmirProcessTelemetryCounters
+    ) {
+        do {
+            var fields: [MirmirDiagnosticField] = [
+                try MirmirDiagnosticRecorder.field(
+                    "resident_bytes", .byteCount(counters.residentBytes)
+                ),
+                try MirmirDiagnosticRecorder.field(
+                    "physical_footprint_bytes",
+                    .byteCount(counters.physicalFootprintBytes)
+                ),
+                try MirmirDiagnosticRecorder.field(
+                    "cumulative_disk_read_bytes",
+                    .byteCount(counters.diskReadBytes)
+                ),
+                try MirmirDiagnosticRecorder.field(
+                    "cumulative_disk_written_bytes",
+                    .byteCount(counters.diskWrittenBytes)
+                )
+            ]
+            if let cpu = snapshot?.processCPUPercent,
+               cpu.isFinite, cpu >= 0,
+               cpu <= Double(Int64.max) / 100 {
+                fields.append(try MirmirDiagnosticRecorder.field(
+                    "process_cpu_percent_hundredths",
+                    .signedInteger(Int64((cpu * 100).rounded()))
+                ))
+            }
+            if let metalDeviceName {
+                fields.append(try MirmirDiagnosticRecorder.textField(
+                    "metal_device_name", metalDeviceName
+                ))
+            }
+            diagnosticRecorder.enqueue(
+                severity: .info,
+                subsystem: "telemetry",
+                operation: "sample_process",
+                code: "process_telemetry_sample",
+                fields: fields
+            )
+        } catch {
+            diagnosticRecorder.enqueue(
+                severity: .error,
+                subsystem: "telemetry",
+                operation: "prepare_sample",
+                code: "process_telemetry_recording_failed",
+                error: error
+            )
         }
     }
 }

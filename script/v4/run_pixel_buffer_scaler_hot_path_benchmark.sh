@@ -13,6 +13,7 @@ engine_source_paths=(
     Mirmir/Modules/UpscalerEngine/FixedPointMetalKernelsV4.metal
     Mirmir/Modules/UpscalerEngine/PixelLayoutV4.swift
     Mirmir/Modules/UpscalerEngine/HDRMetadataV4.swift
+    Mirmir/Modules/UpscalerEngine/ASH/ASHCanonicalJSONV4.swift
     Mirmir/Modules/UpscalerEngine/AVFoundationHDRMetadataAdapterV4.swift
     Mirmir/Modules/UpscalerEngine/FixedPointPixelBufferScalerV4.swift
 )
@@ -74,6 +75,7 @@ xcrun swiftc \
     "${engine_source_root}/Mirmir/Modules/UpscalerEngine/FixedPointMetalExecutorV4.swift" \
     "${engine_source_root}/Mirmir/Modules/UpscalerEngine/PixelLayoutV4.swift" \
     "${engine_source_root}/Mirmir/Modules/UpscalerEngine/HDRMetadataV4.swift" \
+    "${engine_source_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHCanonicalJSONV4.swift" \
     "${engine_source_root}/Mirmir/Modules/UpscalerEngine/AVFoundationHDRMetadataAdapterV4.swift" \
     "${engine_source_root}/Mirmir/Modules/UpscalerEngine/FixedPointPixelBufferScalerV4.swift" \
     "${script_directory}/PixelBufferScalerHotPathBenchmarkMain.swift" \
@@ -103,5 +105,5 @@ MIRMIR_V4_BENCHMARK_ENGINE_SOURCE_SHA256="${engine_source_sha256}" \
 MIRMIR_V4_BENCHMARK_ENGINE_SOURCE_MANIFEST="${engine_source_manifest}" \
 MIRMIR_V4_BENCHMARK_EXECUTABLE_SHA256="${executable_sha256}" \
 MIRMIR_V4_BENCHMARK_METALLIB_SHA256="${metal_library_sha256}" \
-"${benchmark_executable}" \
+/usr/sbin/taskpolicy -a "${benchmark_executable}" \
     "${benchmark_temporary_directory}/FixedPointMetalKernelsV4.metallib"

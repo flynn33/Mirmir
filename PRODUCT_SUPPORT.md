@@ -1,7 +1,8 @@
 # Mirmir product support
 
-Current source identity: **Mirmir 1.4.2 (11)**. The installed
-`/Applications/Mirmir.app` is still 1.4.1 (10).
+Current source identity: **Mirmir 1.4.3 (12)**. The installed
+`/Applications/Mirmir.app` reports 1.4.2 (11) and does not contain the 1.4.3
+timing, diagnostics, or singleton-audio repairs.
 
 Mirmir is a sandboxed macOS 15.4-or-later application. It reads local media
 through security-scoped bookmarks, builds an explicit whole-asset plan, and
@@ -30,19 +31,35 @@ input.
 
 ## Timing correction and large-media boundary
 
-Version 1.4.1 reconstructs nominal presentation timestamps from exact frame
-ordinal and cadence. One shared conversion policy covers nonterminal lookahead
-and terminal boundaries: exact values remain exact, while an incommensurable
-value can use only an independently admitted adjacent source-clock tick. A
-missing frame or any non-adjacent gap fails under forensic site 057.
+Mirmir reconstructs nominal presentation timestamps from exact frame ordinal
+and cadence. The shared conversion policy returns an exactly representable
+value before considering an independently observed boundary. When the exact
+rational is incommensurate with the required clock, only its independently
+admitted immediate floor or ceiling tick is allowed; every nonadjacent boundary
+still fails under forensic site 057.
+
+Source completeness is a separate durable-workflow invariant. The coordinator
+inventories encoded samples from the primary video track and requires the
+terminal decoded ordinal to account for the full inventory before a terminal
+checkpoint or interrupted-publication recovery can finalize output. A missing
+source sample therefore fails independently of clock-boundary admission.
 
 The historical original 1:43 Ferris job is not completion evidence. Checkpoint
 ordinal 2,468 contains 2,469 committed 60-frame segments and records the video
 `nextInputSampleIndex` as 148,140. The source contains 148,176 frames, leaving a
 36-frame terminal remainder where the installed build failed at site 054. The
 approximately 91 GB job directory was removed in the owner-authorized October 1
-cache cleanup. A new full candidate run and published output verification
-remain separate qualification work.
+cache cleanup. A new full-length Ferris candidate run and published-output
+verification remain separate DV4-002 qualification work.
+
+On October 3, the reported short source at
+`/Users/jimdaley/Mirmir/Mirmir-In/raven-forge-app-splash-2.mp4` completed the
+production durable workflow. Independent postvalidation passed 66 of 66 checks
+and found 241 video frames and 470 audio packets in both the source and output.
+The output is
+`/Users/jimdaley/Desktop/Mirmir-1.4.3-Build12-Evidence/83-final-real-source-production-1024-green/durable-workflow-run/durable-workflow-output.mov`.
+This current-candidate short-source result does not complete DV4-002 or verify
+the unchanged installed 1.4.2 application.
 
 VideoToolbox methods fail closed when the exact source, target, or scale
 geometry is unsupported. Automatic pre-scale and post-scale geometry
@@ -212,16 +229,32 @@ in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
   because the Deterministic engine supports them.
 - Deterministic resource allocation is not a version 1.4.0 first-release
   target.
-- Deterministic cadence validation accepts only exact or immediately adjacent
-  legal 90 kHz NTSC quantization. Error 16 (`invalidSampleTiming`) diagnostics
-  carry stable site identifiers 053–057 for numeric, exact-representation,
-  rational-denominator, admitted-boundary, and non-adjacent-gap failures.
-- The installed `/Applications` app is 1.4.1 build 10 and does not contain the
-  1.4.2 cache-control correction. The DockCase app remains 1.3.4 build 8. The
-  historical Ferris job was not resumed; its cached checkpoint, segments, and
-  recovery lock were removed during the owner-authorized October 1 cache clear.
+- Deterministic clock conversion returns exact values directly. An
+  incommensurate value can use only an independently admitted adjacent clock
+  tick. Error 16 (`invalidSampleTiming`) diagnostics carry stable site
+  identifiers 053–057 for numeric, exact-representation,
+  rational-denominator, admitted-boundary, and nonadjacent failures. Terminal
+  source-sample completeness is checked separately before finalization.
+- The installed `/Applications/Mirmir.app` reports 1.4.2 build 11. Its cache
+  confirmation behavior has not been rechecked in this investigation, and it
+  does not contain the 1.4.3 timing, diagnostics, or singleton-audio repairs. The
+  DockCase app remains 1.3.4 build 8. The historical Ferris job was not resumed;
+  its cached checkpoint, segments, and recovery lock were removed during the
+  owner-authorized October 1 cache clear.
 
 ## Qualification boundary
+
+The current 1.4.3 build-12 named site-057 regression passed 1 of 1. Its full
+Debug scheme completed 590 tests: 586 passed, zero failed, and four explicit
+opt-in tests skipped. Repository Python contracts passed 388 of 388 tests
+across 27 of 27 commands. Release analysis with `ARCHS=arm64 x86_64` and
+`ONLY_ACTIVE_ARCH=NO` succeeded and emitted both architectures.
+
+The built 1.4.3 (12) application used the visible Diagnostics controls and
+native save panels to create validated journal JSON, journal Markdown, and
+unified-log JSON files under
+`/Users/jimdaley/Desktop/Mirmir-1.4.3-Build12-Evidence/`. Application archiving
+and distribution are outside this source qualification.
 
 Version 1.4.1 qualification includes the named timing-policy, deterministic
 segment, conventional video/audio, assembly, canonical-media, and durable
@@ -248,14 +281,15 @@ failed, and three expected opt-in capture tests skipped. The fresh version
 1.4.1 build 10 full serial macOS Debug scheme completed 540 tests: 537 passed,
 zero failed, and three expected opt-in capture tests skipped. The 1.4.2
 fixture tests passed for finished, unfinished, row, and Clear Cache actions
-with completed, failed, cancelled, paused, and contained jobs. The full 1.4.2 build-11 Debug
-result bundle reports 543 total tests: 540 passed, zero failed, and three
-expected opt-in capture tests skipped. The current local Apple Distribution
-TestFlight handoff archive is 1.4.2 build 11 at
+with completed, failed, cancelled, paused, and contained jobs. The full 1.4.2
+build-11 Debug result bundle reports 543 total tests: 540 passed, zero failed,
+and three expected opt-in capture tests skipped. The historical local Apple
+Distribution archive for 1.4.2 build 11 was prepared for owner handoff only at
 `/Users/jimdaley/Library/Developer/Xcode/Archives/2026-10-01/Mirmir-1.4.2-11-TestFlight.xcarchive`;
-the historical 1.4.1 build-10 archive remains at
+the historical 1.4.1 build-10 owner-handoff archive remains at
 `/Users/jimdaley/Library/Developer/Xcode/Archives/2026-09-30/Mirmir-1.4.1-10-TestFlight.xcarchive`;
-neither archive is in Git, uploaded, or installed. The owner-authorized live
+neither historical archive is in Git, and neither was uploaded, submitted,
+distributed, released, or installed. The owner-authorized live
 cache clear removed all 22 records and owned job directories; the unchanged
 installed app reopened that root with zero jobs and an enabled location
 chooser. Broader large-media completion remains required.

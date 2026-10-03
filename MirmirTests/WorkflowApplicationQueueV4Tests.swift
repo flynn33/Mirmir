@@ -1832,10 +1832,246 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         XCTAssertEqual(publication?.isPublished, true)
         let counts = await engine.operationCounts()
         XCTAssertEqual(counts.revalidations, 1)
+        XCTAssertEqual(counts.terminalSourceValidations, 1)
         XCTAssertEqual(counts.inspections, 1)
         XCTAssertEqual(counts.finalizations, 0)
         XCTAssertFalse(
             FileManager.default.fileExists(atPath: sourceSnapshotURL.path)
+        )
+    }
+
+    func testCoordinatorLaunchRecordsPublicationRecoveryFailureInInjectedDiagnostics()
+        async throws {
+        let context = try await makeTerminalPublicationContext()
+        let jobID = context.activated.specification.jobID
+        let intent = try await context.queue.prepareApplicationPublication(
+            activated: context.activated,
+            checkpoint: context.checkpoint
+        )
+        let stagingURL = try await context.queue
+            .applicationPublicationStagingURL(
+                intent,
+                activated: context.activated
+            )
+        try Data("diagnostic-recovery-output".utf8).write(to: stagingURL)
+        _ = try await context.queue.recordApplicationStagedPublication(
+            intent,
+            finalized: WorkflowApplicationFinalizedOutputV4(
+                destinationURL: stagingURL,
+                verification: try publicationVerification()
+            ),
+            activated: context.activated
+        )
+        await context.queue
+            .injectProcessTerminationAfterApplicationPublicationRename()
+        do {
+            _ = try await context.queue.publishApplicationStagedOutput(
+                intent,
+                activated: context.activated
+            )
+            XCTFail("Expected publication termination before its receipt.")
+        } catch WorkflowApplicationQueueErrorV4
+            .injectedPublicationTermination {
+        }
+        context.activated.close()
+        await context.queue
+            .injectProcessTerminationAfterApplicationLeasePersistence()
+
+        let relaunchedQueue = try makeQueue(
+            fixture: context.fixture,
+            resolver: context.resolver,
+            clock: WorkflowApplicationQueueTestClockV4(50_000_000_000),
+            workerID: "application-worker-publication-diagnostic"
+        )
+        let dispatchRecorder = WorkflowApplicationDispatchRecorderV4()
+        let coordinator = WorkflowApplicationCoordinatorV4(
+            queue: relaunchedQueue,
+            engine: WorkflowApplicationFailingEngineV4(
+                recorder: dispatchRecorder
+            )
+        )
+        let diagnosticStore = MirmirDiagnosticStore(
+            inMemoryWith: .production
+        )
+        let diagnosticRecorder = MirmirDiagnosticRecorder(
+            store: diagnosticStore
+        )
+
+        _ = try await MirmirDiagnosticScope.$recorder.withValue(
+            diagnosticRecorder
+        ) {
+            try await coordinator.launch()
+        }
+        let snapshot = try await diagnosticStore.snapshot()
+        let failures = snapshot.records.filter {
+            $0.event.operation.rawValue
+                == "recover_interrupted_publication"
+        }
+        let failure = try XCTUnwrap(failures.first)
+        let fields = Dictionary(uniqueKeysWithValues:
+            failure.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+        let queueSnapshot = try await coordinator.queueSnapshot()
+
+        XCTAssertEqual(failures.count, 1)
+        XCTAssertEqual(
+            failure.event.code.rawValue,
+            "publication_recovery_failed"
+        )
+        XCTAssertEqual(fields["job_id_context"], jobID.rawValue)
+        XCTAssertNotNil(failure.event.error)
+        XCTAssertEqual(
+            queueSnapshot.items.first { $0.jobID == jobID }?.lifecycle,
+            .contained
+        )
+    }
+
+    func testCoordinatorLaunchTreatsPublicationRecoveryCancellationAsCancellation()
+        async throws {
+        for (index, mode) in WorkflowApplicationRecoveryCancellationModeV4
+            .allCases.enumerated() {
+            let context = try await makeTerminalPublicationContext()
+            let jobID = context.activated.specification.jobID
+            let intent = try await context.queue.prepareApplicationPublication(
+                activated: context.activated,
+                checkpoint: context.checkpoint
+            )
+            let stagingURL = try await context.queue
+                .applicationPublicationStagingURL(
+                    intent,
+                    activated: context.activated
+                )
+            try Data("cancelled-recovery-output".utf8).write(to: stagingURL)
+            _ = try await context.queue.recordApplicationStagedPublication(
+                intent,
+                finalized: WorkflowApplicationFinalizedOutputV4(
+                    destinationURL: stagingURL,
+                    verification: try publicationVerification()
+                ),
+                activated: context.activated
+            )
+            await context.queue
+                .injectProcessTerminationAfterApplicationPublicationRename()
+            do {
+                _ = try await context.queue.publishApplicationStagedOutput(
+                    intent,
+                    activated: context.activated
+                )
+                XCTFail("Expected publication termination before its receipt.")
+            } catch WorkflowApplicationQueueErrorV4
+                .injectedPublicationTermination {
+            }
+            context.activated.close()
+            await context.queue
+                .injectProcessTerminationAfterApplicationLeasePersistence()
+
+            let relaunchedQueue = try makeQueue(
+                fixture: context.fixture,
+                resolver: context.resolver,
+                clock: WorkflowApplicationQueueTestClockV4(50_000_000_000),
+                workerID: "application-worker-publication-cancel-\(index)"
+            )
+            let coordinator = WorkflowApplicationCoordinatorV4(
+                queue: relaunchedQueue,
+                engine: WorkflowApplicationRecoveryCancellationEngineV4(
+                    mode: mode
+                )
+            )
+            let executionRecorder = WorkflowApplicationExecutionRecorderV4()
+            await coordinator.installObserver(WorkflowApplicationObserverV4(
+                progress: { _, _ in },
+                snapshot: { _ in },
+                execution: { event in
+                    executionRecorder.append(event)
+                }
+            ))
+            let diagnosticStore = MirmirDiagnosticStore(
+                inMemoryWith: .production
+            )
+            let diagnosticRecorder = MirmirDiagnosticRecorder(
+                store: diagnosticStore
+            )
+
+            _ = try await MirmirDiagnosticScope.$recorder.withValue(
+                diagnosticRecorder
+            ) {
+                try await coordinator.launch()
+            }
+            let diagnostics = try await diagnosticStore.snapshot()
+            let queueSnapshot = try await coordinator.queueSnapshot()
+
+            XCTAssertFalse(diagnostics.records.contains {
+                $0.event.code.rawValue == "publication_recovery_failed"
+            })
+            XCTAssertEqual(executionRecorder.failedCount, 0)
+            XCTAssertEqual(
+                queueSnapshot.items.first { $0.jobID == jobID }?.lifecycle,
+                .cancelled
+            )
+        }
+    }
+
+    func testPublicationRecoveryRetryDiagnosticsAreOncePerOutage()
+        async throws {
+        let fixture = try makeFixture()
+        let dispatchRecorder = WorkflowApplicationDispatchRecorderV4()
+        let coordinator = WorkflowApplicationCoordinatorV4(
+            queue: try makeQueue(fixture: fixture),
+            engine: WorkflowApplicationFailingEngineV4(
+                recorder: dispatchRecorder
+            )
+        )
+        let diagnosticStore = MirmirDiagnosticStore(
+            inMemoryWith: .production
+        )
+        let recorder = MirmirDiagnosticRecorder(store: diagnosticStore)
+        let error = NSError(
+            domain: "com.mirmir.tests.publication-retry",
+            code: 91
+        )
+
+        await coordinator.recordPublicationRecoveryRetryFailureIfNeeded(
+            error,
+            recorder: recorder
+        )
+        await coordinator.recordPublicationRecoveryRetryFailureIfNeeded(
+            error,
+            recorder: recorder
+        )
+        await coordinator.recordPublicationRecoveryRetryRecoveredIfNeeded(
+            recorder: recorder
+        )
+        await coordinator.recordPublicationRecoveryRetryRecoveredIfNeeded(
+            recorder: recorder
+        )
+        await coordinator.recordPublicationRecoveryRetryFailureIfNeeded(
+            error,
+            recorder: recorder
+        )
+
+        let snapshot = try await diagnosticStore.snapshot()
+        let retryRecords = snapshot.records.filter {
+            $0.event.operation.rawValue == "retry_publication_recovery"
+        }
+
+        XCTAssertEqual(
+            retryRecords.map(\.event.code.rawValue),
+            [
+                "publication_recovery_retry_failed",
+                "publication_recovery_retry_recovered",
+                "publication_recovery_retry_failed",
+            ]
+        )
+        XCTAssertEqual(
+            retryRecords.first?.event.error?.frames.first?.code,
+            91
+        )
+        XCTAssertNil(retryRecords.dropFirst().first?.event.error)
+        XCTAssertEqual(
+            retryRecords.last?.event.error?.frames.first?.code,
+            91
         )
     }
 
@@ -2233,9 +2469,435 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
             XCTAssertEqual(error, .publicationDocumentCorrupt(intent.jobID))
         }
     }
+
+    func testRavenForgeExactClockTerminalCompletenessRejectsMissingFinalSourceSample()
+        async throws {
+        let sourceURL = try XCTUnwrap(Bundle(for: Self.self).url(
+            forResource: "raven-forge-site057-video-timing",
+            withExtension: "mp4"
+        ))
+        let asset = AVURLAsset(
+            url: sourceURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let tracks = try await asset.load(.tracks)
+        let primaryTrackOrdinal = try XCTUnwrap(
+            tracks.firstIndex { $0.mediaType == .video }
+        )
+        let sourceSampleCount = try await
+            WorkflowDeterministicApplicationEngineV4
+                .primarySourceSampleCount(
+                    sourceURL: sourceURL,
+                    primaryTrackOrdinal: primaryTrackOrdinal,
+                    cancellation: ProcessingCancellation()
+                )
+
+        XCTAssertEqual(sourceSampleCount, 241)
+        let exactOneFrameShortEnd = CMTime(
+            value: 122_880,
+            timescale: 12_288
+        )
+        let admittedContainerEnd = CMTime(
+            value: 123_396,
+            timescale: 12_288
+        )
+        let convertedShortEnd = try
+            DeterministicV4MediaProcessingSession.workflowTime(
+                exact: exactOneFrameShortEnd,
+                admittedBoundary: admittedContainerEnd,
+                timescale: 12_288
+            )
+        XCTAssertEqual(convertedShortEnd.value, 122_880)
+        XCTAssertEqual(convertedShortEnd.timescale, 12_288)
+        XCTAssertNoThrow(
+            try WorkflowDeterministicApplicationEngineV4
+                .validateTerminalSourceCompleteness(
+                    sourceSampleCount: sourceSampleCount,
+                    lastCompletedInputOrdinal: 240
+                )
+        )
+        XCTAssertThrowsError(
+            try WorkflowDeterministicApplicationEngineV4
+                .validateTerminalSourceCompleteness(
+                    sourceSampleCount: sourceSampleCount,
+                    lastCompletedInputOrdinal: 239
+                )
+        ) { error in
+            XCTAssertTrue(
+                error.localizedDescription.contains("decoded 240 of 241")
+            )
+        }
+    }
+
+    func testPrimarySourceSampleInventoryCancelsDuringReaderScan()
+        async throws {
+        let sourceURL = try XCTUnwrap(Bundle(for: Self.self).url(
+            forResource: "raven-forge-site057-video-timing",
+            withExtension: "mp4"
+        ))
+        let asset = AVURLAsset(
+            url: sourceURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let tracks = try await asset.load(.tracks)
+        let primaryTrackOrdinal = try XCTUnwrap(
+            tracks.firstIndex { $0.mediaType == .video }
+        )
+        let cancellation = ProcessingCancellation()
+
+        do {
+            _ = try await WorkflowDeterministicApplicationEngineV4
+                .primarySourceSampleCount(
+                    sourceURL: sourceURL,
+                    primaryTrackOrdinal: primaryTrackOrdinal,
+                    cancellation: cancellation,
+                    afterReadingSample: {
+                        cancellation.cancel()
+                    }
+                )
+            XCTFail("A cancelled source inventory must stop during its scan.")
+        } catch is CancellationError {
+            // Expected.
+        }
+    }
+
+    func testFreshTerminalSourceCompletenessFailureStopsBeforeFinalization()
+        async throws {
+        let fixture = try makeFixture()
+        let segmentTemplateURL = fixture.rootURL.appendingPathComponent(
+            "terminal-completeness-segment-template.mov"
+        )
+        try await writePublicationSegment(
+            to: segmentTemplateURL,
+            frameCount: 240
+        )
+        let engine = WorkflowApplicationTerminalCompletenessRejectingEngineV4(
+            binding: try preparedBinding(),
+            segmentTemplateURL: segmentTemplateURL
+        )
+        let coordinator = WorkflowApplicationCoordinatorV4(
+            queue: try makeQueue(fixture: fixture),
+            engine: engine
+        )
+
+        do {
+            _ = try await coordinator.submit(
+                request: request(fixture: fixture),
+                progress: { _ in },
+                snapshot: { _ in }
+            )
+            XCTFail("An incomplete terminal source must fail before finalization")
+        } catch WorkflowApplicationControllerErrorV4
+            .invalidAssembledOutput(let reason) {
+            XCTAssertEqual(
+                reason,
+                "the terminal primary video decoded 240 of 241 source samples"
+            )
+        }
+
+        let counts = await engine.operationCounts()
+        XCTAssertEqual(counts.validations, 1)
+        XCTAssertEqual(counts.finalizations, 0)
+        let snapshot = try await coordinator.queueSnapshot()
+        XCTAssertEqual(snapshot.items.count, 1)
+        XCTAssertEqual(snapshot.items.first?.lifecycle, .failed)
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: request(fixture: fixture).outputURL.path
+            )
+        )
+    }
+
+    func testExternalSourceCompletesProductionDurableWorkflowWhenRequested()
+        async throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let sourcePath = environment["MIRMIR_REAL_SOURCE_PATH"],
+              !sourcePath.isEmpty,
+              let evidencePath = environment[
+                "MIRMIR_REAL_SOURCE_EVIDENCE_DIR"
+              ],
+              !evidencePath.isEmpty else {
+            throw XCTSkip(
+                "Set MIRMIR_REAL_SOURCE_PATH and "
+                    + "MIRMIR_REAL_SOURCE_EVIDENCE_DIR to run the "
+                    + "production durable-workflow regression."
+            )
+        }
+
+        let sourceURL = URL(fileURLWithPath: sourcePath)
+            .standardizedFileURL
+        guard FileManager.default.fileExists(atPath: sourceURL.path) else {
+            return XCTFail("The requested external source does not exist.")
+        }
+        let evidenceURL = URL(
+            fileURLWithPath: evidencePath,
+            isDirectory: true
+        ).standardizedFileURL
+        try FileManager.default.createDirectory(
+            at: evidenceURL,
+            withIntermediateDirectories: true
+        )
+        let runURL = evidenceURL.appendingPathComponent(
+            "durable-workflow-run",
+            isDirectory: true
+        )
+        guard !FileManager.default.fileExists(atPath: runURL.path) else {
+            return XCTFail(
+                "Use an evidence directory without an existing "
+                    + "durable-workflow-run subdirectory."
+            )
+        }
+        try FileManager.default.createDirectory(
+            at: runURL,
+            withIntermediateDirectories: false
+        )
+        let outputURL = runURL.appendingPathComponent(
+            "durable-workflow-output.mov",
+            isDirectory: false
+        )
+
+        let source = try await VideoProbe().probe(url: sourceURL)
+        XCTAssertGreaterThan(source.audioTrackCount, 0)
+        XCTAssertGreaterThan(source.videoTrackCount, 0)
+        let sourceIdentity = try await AVFoundationSegmentProbeV4()
+            .probe(url: sourceURL)
+        let sourcePrimary = try XCTUnwrap(
+            sourceIdentity.tracks
+                .filter { $0.key.mediaType == AVMediaType.video.rawValue }
+                .max { $0.sampleCount < $1.sampleCount }
+        )
+        let sourceDecoded = try await decodedVideoInventory(url: sourceURL)
+        XCTAssertEqual(sourceDecoded.sampleCount, sourcePrimary.sampleCount)
+        XCTAssertGreaterThanOrEqual(
+            CMTimeCompare(
+                sourceDecoded.admittedEnd,
+                sourceDecoded.exactEnd
+            ),
+            0
+        )
+        XCTAssertGreaterThan(sourcePrimary.sampleCount, 60)
+        let encodedSize = try XCTUnwrap(source.geometry.encodedSize)
+        let sourceWidth = try XCTUnwrap(Int(exactly: encodedSize.width))
+        let sourceHeight = try XCTUnwrap(Int(exactly: encodedSize.height))
+        let explicitWidth = environment[
+            "MIRMIR_REAL_SOURCE_TARGET_WIDTH"
+        ]
+        let explicitHeight = environment[
+            "MIRMIR_REAL_SOURCE_TARGET_HEIGHT"
+        ]
+        let targetWidth: Int
+        let targetHeight: Int
+        if explicitWidth != nil || explicitHeight != nil {
+            guard let explicitWidth,
+                  let explicitHeight,
+                  let parsedWidth = Int(explicitWidth),
+                  let parsedHeight = Int(explicitHeight),
+                  parsedWidth > 0,
+                  parsedHeight > 0 else {
+                return XCTFail(
+                    "Explicit real-source target width and height must both "
+                        + "be positive integers."
+                )
+            }
+            targetWidth = parsedWidth
+            targetHeight = parsedHeight
+        } else {
+            let scale = max(
+                2,
+                Int(environment["MIRMIR_REAL_SOURCE_SCALE"] ?? "2") ?? 2
+            )
+            let widthProduct = sourceWidth.multipliedReportingOverflow(
+                by: scale
+            )
+            let heightProduct = sourceHeight.multipliedReportingOverflow(
+                by: scale
+            )
+            guard !widthProduct.overflow, !heightProduct.overflow else {
+                return XCTFail(
+                    "The requested target dimensions overflow Int."
+                )
+            }
+            targetWidth = widthProduct.partialValue
+            targetHeight = heightProduct.partialValue
+        }
+        guard targetWidth >= sourceWidth,
+              targetHeight >= sourceHeight,
+              targetWidth > sourceWidth || targetHeight > sourceHeight else {
+            return XCTFail(
+                "The real-source regression requires a genuine upscale."
+            )
+        }
+
+        let storeURL = runURL.appendingPathComponent(
+            "workflow-store",
+            isDirectory: true
+        )
+        let maximumInputFramesPerBoundary = 60
+        let queue = try WorkflowApplicationQueueV4(
+            trustedRootURL: storeURL,
+            workerID: try WorkflowWorkerIDV4(
+                "external-source-regression-worker"
+            ),
+            resolver: WorkflowApplicationBookmarkResolverStubV4()
+        )
+        let coordinator = WorkflowApplicationCoordinatorV4(
+            queue: queue,
+            engine: WorkflowDeterministicApplicationEngineV4(
+                videoProbe: VideoProbe(),
+                backendCatalog: .live(),
+                runtimeEnvironment: .current()
+            ),
+            maximumInputFramesPerBoundary: maximumInputFramesPerBoundary
+        )
+        let diagnosticStore = MirmirDiagnosticStore(
+            inMemoryWith: .production
+        )
+        let recorder = MirmirDiagnosticRecorder(store: diagnosticStore)
+        let outcome = try await MirmirDiagnosticScope.$recorder.withValue(
+            recorder
+        ) {
+            _ = try await coordinator.launch()
+            return try await coordinator.submit(
+                request: UpscaleRequest(
+                    inputURL: sourceURL,
+                    outputURL: outputURL,
+                    backendID: .mirmirDeterministicMetal,
+                    targetWidth: targetWidth,
+                    targetHeight: targetHeight,
+                    outputCodec: .h264,
+                    preserveAudio: true,
+                    overwriteExistingFile: false
+                ),
+                progress: { _ in },
+                snapshot: { _ in }
+            )
+        }
+        guard case .completed(let completion) = outcome else {
+            return XCTFail("The external source run paused unexpectedly.")
+        }
+
+        let queueSnapshot = try await coordinator.queueSnapshot()
+        let queueItem = try XCTUnwrap(queueSnapshot.items.first)
+        XCTAssertEqual(queueSnapshot.items.count, 1)
+        XCTAssertEqual(queueItem.lifecycle, .completed)
+        let checkpointURL = await queue.applicationCheckpointURL(
+            jobID: queueItem.jobID
+        )
+        let decodedCheckpoint = try WorkflowCanonicalCodec()
+            .decodeCanonical(
+                WorkflowCheckpointDocumentV4.self,
+                from: Data(contentsOf: checkpointURL)
+            )
+        let compatibleCheckpoint = try await queue
+            .compatibleApplicationCheckpoint(
+                jobID: queueItem.jobID,
+                outputContractID: try XCTUnwrap(
+                    decodedCheckpoint.body.segments.last
+                ).codecSettingsHash,
+                sourceSnapshotIdentityID: decodedCheckpoint.body
+                    .compatibility.sourceSnapshotIdentityID
+            )
+        let checkpoint = try XCTUnwrap(
+            compatibleCheckpoint
+        )
+        XCTAssertEqual(checkpoint, decodedCheckpoint)
+        let segments = checkpoint.body.segments
+        XCTAssertEqual(
+            segments.count,
+            Int(
+                (sourcePrimary.sampleCount
+                    + UInt64(maximumInputFramesPerBoundary) - 1)
+                    / UInt64(maximumInputFramesPerBoundary)
+            )
+        )
+        XCTAssertGreaterThan(segments.count, 1)
+        XCTAssertEqual(
+            segments.map(\.ordinal),
+            segments.indices.map(UInt64.init)
+        )
+        for index in segments.indices.dropFirst() {
+            XCTAssertEqual(
+                segments[index - 1].nextStartTime,
+                segments[index].startTime
+            )
+        }
+        XCTAssertNil(segments.last?.nextStartTime)
+        let terminalSegment = try XCTUnwrap(segments.last)
+        XCTAssertEqual(
+            terminalSegment.endTimeExclusive,
+            try WorkflowMediaTimeV4(
+                value: sourceDecoded.exactEnd.value,
+                timescale: sourceDecoded.exactEnd.timescale
+            )
+        )
+        let videoProgress = try XCTUnwrap(
+            checkpoint.body.trackProgress.first {
+                $0.kind == .video && $0.nextOutputSampleIndex > 0
+            }
+        )
+        XCTAssertTrue(videoProgress.isComplete)
+        XCTAssertEqual(
+            videoProgress.nextInputSampleIndex,
+            sourceDecoded.sampleCount
+        )
+        XCTAssertEqual(
+            videoProgress.lastOutputTime,
+            terminalSegment.endTimeExclusive
+        )
+
+        XCTAssertEqual(
+            completion.result.actualBackendID,
+            .mirmirDeterministicMetal
+        )
+        XCTAssertEqual(completion.result.encodedWidth, targetWidth)
+        XCTAssertEqual(completion.result.encodedHeight, targetHeight)
+        XCTAssertEqual(
+            completion.result.processedFrameCount,
+            Int(videoProgress.nextOutputSampleIndex)
+        )
+        XCTAssertEqual(completion.result.audioResult, .preserved)
+        let output = try await VideoProbe().probe(url: outputURL)
+        XCTAssertEqual(output.audioTrackCount, source.audioTrackCount)
+        XCTAssertEqual(output.videoTrackCount, source.videoTrackCount)
+        XCTAssertEqual(
+            CMTimeCompare(output.duration, source.duration),
+            0
+        )
+        let outputIdentity = try await AVFoundationSegmentProbeV4()
+            .probe(url: outputURL)
+        let outputPrimary = try XCTUnwrap(
+            outputIdentity.tracks
+                .filter { $0.key.mediaType == AVMediaType.video.rawValue }
+                .max { $0.sampleCount < $1.sampleCount }
+        )
+        XCTAssertEqual(outputPrimary.sampleCount, sourcePrimary.sampleCount)
+        let outputDecoded = try await decodedVideoInventory(url: outputURL)
+        XCTAssertEqual(outputDecoded.sampleCount, sourceDecoded.sampleCount)
+        XCTAssertEqual(
+            CMTimeCompare(outputDecoded.exactEnd, sourceDecoded.exactEnd),
+            0
+        )
+        XCTAssertEqual(
+            CMTimeCompare(
+                outputDecoded.admittedEnd,
+                sourceDecoded.admittedEnd
+            ),
+            0
+        )
+        XCTAssertEqual(
+            output.geometry.encodedSize,
+            CGSize(width: targetWidth, height: targetHeight)
+        )
+    }
 }
 
 private extension WorkflowApplicationQueueV4Tests {
+    struct DecodedVideoInventory {
+        let sampleCount: UInt64
+        let exactEnd: CMTime
+        let admittedEnd: CMTime
+    }
+
     struct CacheControlFixture {
         let fixture: Fixture
         let store: WorkflowCacheLocationStoreV4
@@ -2255,6 +2917,73 @@ private extension WorkflowApplicationQueueV4Tests {
         let activated: WorkflowActivatedUpscaleRequestV4
         let checkpoint: WorkflowCheckpointDocumentV4
         let outputURL: URL
+    }
+
+    func decodedVideoInventory(
+        url: URL
+    ) async throws -> DecodedVideoInventory {
+        let asset = AVURLAsset(
+            url: url,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let videoTracks = try await asset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(videoTracks.first)
+        let nominalDuration = try await track.load(.minFrameDuration)
+        let admittedRange = try await track.load(.timeRange)
+        XCTAssertTrue(nominalDuration.isNumeric)
+        XCTAssertGreaterThan(nominalDuration.value, 0)
+
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(
+            track: track,
+            outputSettings: [
+                kCVPixelBufferPixelFormatTypeKey as String:
+                    Int(kCVPixelFormatType_32BGRA)
+            ]
+        )
+        guard reader.canAdd(output) else {
+            XCTFail("The decoded-video inventory reader rejected its track.")
+            throw NSError(
+                domain: "MirmirTests.DecodedVideoInventory",
+                code: 1
+            )
+        }
+        reader.add(output)
+        guard reader.startReading() else {
+            throw reader.error ?? NSError(
+                domain: "MirmirTests.DecodedVideoInventory",
+                code: 2
+            )
+        }
+
+        var sampleCount: UInt64 = 0
+        var lastPresentationTime = CMTime.invalid
+        while let sample = output.copyNextSampleBuffer() {
+            let count = CMSampleBufferGetNumSamples(sample)
+            if count == 0 { continue }
+            XCTAssertEqual(count, 1)
+            sampleCount += UInt64(count)
+            let presentation = CMSampleBufferGetPresentationTimeStamp(sample)
+            XCTAssertTrue(presentation.isNumeric)
+            if !lastPresentationTime.isNumeric
+                || CMTimeCompare(presentation, lastPresentationTime) > 0 {
+                lastPresentationTime = presentation
+            }
+        }
+        XCTAssertEqual(reader.status, .completed)
+        XCTAssertNil(reader.error)
+        XCTAssertGreaterThan(sampleCount, 0)
+        XCTAssertTrue(lastPresentationTime.isNumeric)
+        let exactEnd = CMTimeAdd(
+            lastPresentationTime,
+            nominalDuration
+        )
+        XCTAssertTrue(exactEnd.isNumeric)
+        return DecodedVideoInventory(
+            sampleCount: sampleCount,
+            exactEnd: exactEnd,
+            admittedEnd: CMTimeRangeGetEnd(admittedRange)
+        )
     }
 
     func makeCacheControlFixture() throws -> CacheControlFixture {
@@ -2701,9 +3430,170 @@ private enum WorkflowApplicationFailingEngineErrorV4: Error {
     case injectedAfterDispatch
 }
 
+private enum WorkflowApplicationRecoveryCancellationModeV4:
+    CaseIterable,
+    Sendable
+{
+    case cancellationError
+    case mirmirCancelled
+}
+
 private enum WorkflowApplicationTrueGapEngineErrorV4: Error {
     case unexpectedInvocation
     case stoppedAfterResumedDispatch
+}
+
+private actor WorkflowApplicationTerminalCompletenessRejectingEngineV4:
+    WorkflowApplicationDeterministicExecutingV4
+{
+    struct OperationCounts: Sendable {
+        let validations: Int
+        let finalizations: Int
+    }
+
+    let binding: WorkflowVerifiedPreparedPlanBindingV4
+    let segmentTemplateURL: URL
+    private var validationCount = 0
+    private var finalizationCount = 0
+
+    init(
+        binding: WorkflowVerifiedPreparedPlanBindingV4,
+        segmentTemplateURL: URL
+    ) {
+        self.binding = binding
+        self.segmentTemplateURL = segmentTemplateURL
+    }
+
+    func prepareSubmission(
+        request: UpscaleRequest
+    ) async throws -> WorkflowApplicationPreparedSubmissionV4 {
+        WorkflowApplicationPreparedSubmissionV4(
+            request: request,
+            binding: binding
+        )
+    }
+
+    func revalidateAndPrepare(
+        jobID _: WorkflowJobID,
+        request: UpscaleRequest,
+        expectedBinding: WorkflowVerifiedPreparedPlanBindingV4,
+        cancellation _: ProcessingCancellation
+    ) async throws -> VideoInfo {
+        guard expectedBinding == binding else {
+            throw WorkflowApplicationTrueGapEngineErrorV4
+                .unexpectedInvocation
+        }
+        return workflowApplicationVideoInfo(url: request.inputURL)
+    }
+
+    func processPrepared(
+        jobID _: WorkflowJobID,
+        request: UpscaleRequest,
+        startingInputFrameIndex: Int,
+        startTime: WorkflowMediaTimeV4?,
+        maximumInputFrames _: Int,
+        previousCheckpoint: WorkflowCheckpointDocumentV4?,
+        cancellation _: ProcessingCancellation,
+        progress _: @escaping @Sendable (UpscaleProgress) -> Void
+    ) async throws -> WorkflowApplicationProcessedSegmentV4 {
+        guard startingInputFrameIndex == 0,
+              startTime == nil,
+              previousCheckpoint == nil else {
+            throw WorkflowApplicationTrueGapEngineErrorV4
+                .unexpectedInvocation
+        }
+        try FileManager.default.copyItem(
+            at: segmentTemplateURL,
+            to: request.outputURL
+        )
+        let start = try WorkflowMediaTimeV4(value: 0, timescale: 30)
+        let last = try WorkflowMediaTimeV4(value: 239, timescale: 30)
+        let end = try WorkflowMediaTimeV4(value: 240, timescale: 30)
+        return WorkflowApplicationProcessedSegmentV4(
+            source: workflowApplicationVideoInfo(url: request.inputURL),
+            segment: DeterministicV4MediaSegmentResultV4(
+                segmentURL: request.outputURL,
+                startTime: start,
+                endTimeExclusive: end,
+                inputSampleCount: 240,
+                outputSampleCount: 240,
+                lastCompletedInputOrdinal: 239,
+                terminal: true,
+                processingDurationSeconds: 0.01
+            ),
+            temporalCheckpoint: Data("incomplete-terminal-state".utf8),
+            trackProgress: [
+                try WorkflowTrackProgressV4(
+                    trackID: "video-primary",
+                    kind: .video,
+                    nextInputSampleIndex: 240,
+                    nextOutputSampleIndex: 240,
+                    lastInputTime: last,
+                    lastOutputTime: last,
+                    isComplete: true
+                )
+            ]
+        )
+    }
+
+    func restorePrepared(
+        jobID _: WorkflowJobID,
+        temporalCheckpoint _: Data,
+        lastCompletedInputOrdinal _: Int64
+    ) async throws {
+        throw WorkflowApplicationTrueGapEngineErrorV4.unexpectedInvocation
+    }
+
+    func validateTerminalSourceCompleteness(
+        jobID _: WorkflowJobID,
+        lastCompletedInputOrdinal: Int64
+    ) async throws {
+        validationCount += 1
+        guard lastCompletedInputOrdinal == 239 else {
+            throw WorkflowApplicationTrueGapEngineErrorV4
+                .unexpectedInvocation
+        }
+        throw WorkflowApplicationControllerErrorV4.invalidAssembledOutput(
+            "the terminal primary video decoded 240 of 241 source samples"
+        )
+    }
+
+    func preparedAssemblyTimeline(
+        jobID _: WorkflowJobID
+    ) async throws -> WorkflowApplicationAssemblyTimelineDescriptorV4 {
+        throw WorkflowApplicationTrueGapEngineErrorV4.unexpectedInvocation
+    }
+
+    func finalizePreparedOutput(
+        jobID _: WorkflowJobID,
+        request _: UpscaleRequest,
+        assembledVideoURL _: URL,
+        publicationURL _: URL,
+        migrationTemporaryURL _: URL,
+        cancellation _: ProcessingCancellation,
+        progress _: @escaping @Sendable (UpscaleProgress) -> Void
+    ) async throws -> WorkflowApplicationFinalizedOutputV4 {
+        finalizationCount += 1
+        throw WorkflowApplicationTrueGapEngineErrorV4.unexpectedInvocation
+    }
+
+    func inspectCompletion(
+        request _: UpscaleRequest,
+        checkpoint _: WorkflowCheckpointDocumentV4,
+        segmentResult _: UpscaleResult?,
+        processingDurationSeconds _: TimeInterval
+    ) async throws -> WorkflowApplicationCompletionV4 {
+        throw WorkflowApplicationTrueGapEngineErrorV4.unexpectedInvocation
+    }
+
+    func abandonPrepared(jobID _: WorkflowJobID) async {}
+
+    func operationCounts() -> OperationCounts {
+        OperationCounts(
+            validations: validationCount,
+            finalizations: finalizationCount
+        )
+    }
 }
 
 private actor WorkflowApplicationStartTimeRecorderV4 {
@@ -2786,7 +3676,8 @@ private actor WorkflowApplicationTrueGapEngineV4:
     func revalidateAndPrepare(
         jobID _: WorkflowJobID,
         request: UpscaleRequest,
-        expectedBinding: WorkflowVerifiedPreparedPlanBindingV4
+        expectedBinding: WorkflowVerifiedPreparedPlanBindingV4,
+        cancellation _: ProcessingCancellation
     ) async throws -> VideoInfo {
         guard expectedBinding == binding else {
             throw WorkflowApplicationTrueGapEngineErrorV4
@@ -2873,6 +3764,13 @@ private actor WorkflowApplicationTrueGapEngineV4:
         }
     }
 
+    func validateTerminalSourceCompleteness(
+        jobID _: WorkflowJobID,
+        lastCompletedInputOrdinal _: Int64
+    ) async throws {
+        throw WorkflowApplicationTrueGapEngineErrorV4.unexpectedInvocation
+    }
+
     func preparedAssemblyTimeline(
         jobID _: WorkflowJobID
     ) async throws -> WorkflowApplicationAssemblyTimelineDescriptorV4 {
@@ -2951,7 +3849,8 @@ private actor WorkflowApplicationSnapshotIsolationEngineV4:
     func revalidateAndPrepare(
         jobID _: WorkflowJobID,
         request: UpscaleRequest,
-        expectedBinding: WorkflowVerifiedPreparedPlanBindingV4
+        expectedBinding: WorkflowVerifiedPreparedPlanBindingV4,
+        cancellation _: ProcessingCancellation
     ) async throws -> VideoInfo {
         guard expectedBinding == binding else {
             throw WorkflowApplicationFailingEngineErrorV4
@@ -3024,6 +3923,13 @@ private actor WorkflowApplicationSnapshotIsolationEngineV4:
     func restorePrepared(
         jobID _: WorkflowJobID,
         temporalCheckpoint _: Data,
+        lastCompletedInputOrdinal _: Int64
+    ) async throws {
+        throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
+    func validateTerminalSourceCompleteness(
+        jobID _: WorkflowJobID,
         lastCompletedInputOrdinal _: Int64
     ) async throws {
         throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
@@ -3120,7 +4026,8 @@ private actor WorkflowApplicationFailingEngineV4:
     func revalidateAndPrepare(
         jobID: WorkflowJobID,
         request _: UpscaleRequest,
-        expectedBinding _: WorkflowVerifiedPreparedPlanBindingV4
+        expectedBinding _: WorkflowVerifiedPreparedPlanBindingV4,
+        cancellation _: ProcessingCancellation
     ) async throws -> VideoInfo {
         await recorder.append(jobID)
         throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
@@ -3142,6 +4049,13 @@ private actor WorkflowApplicationFailingEngineV4:
     func restorePrepared(
         jobID _: WorkflowJobID,
         temporalCheckpoint _: Data,
+        lastCompletedInputOrdinal _: Int64
+    ) async throws {
+        throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
+    func validateTerminalSourceCompleteness(
+        jobID _: WorkflowJobID,
         lastCompletedInputOrdinal _: Int64
     ) async throws {
         throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
@@ -3177,17 +4091,124 @@ private actor WorkflowApplicationFailingEngineV4:
     func abandonPrepared(jobID _: WorkflowJobID) async {}
 }
 
+private actor WorkflowApplicationRecoveryCancellationEngineV4:
+    WorkflowApplicationDeterministicExecutingV4
+{
+    let mode: WorkflowApplicationRecoveryCancellationModeV4
+
+    init(mode: WorkflowApplicationRecoveryCancellationModeV4) {
+        self.mode = mode
+    }
+
+    func prepareSubmission(
+        request _: UpscaleRequest
+    ) async throws -> WorkflowApplicationPreparedSubmissionV4 {
+        throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
+    func revalidateAndPrepare(
+        jobID _: WorkflowJobID,
+        request _: UpscaleRequest,
+        expectedBinding _: WorkflowVerifiedPreparedPlanBindingV4,
+        cancellation _: ProcessingCancellation
+    ) async throws -> VideoInfo {
+        switch mode {
+        case .cancellationError:
+            throw CancellationError()
+        case .mirmirCancelled:
+            throw MirmirError.cancelled
+        }
+    }
+
+    func processPrepared(
+        jobID _: WorkflowJobID,
+        request _: UpscaleRequest,
+        startingInputFrameIndex _: Int,
+        startTime _: WorkflowMediaTimeV4?,
+        maximumInputFrames _: Int,
+        previousCheckpoint _: WorkflowCheckpointDocumentV4?,
+        cancellation _: ProcessingCancellation,
+        progress _: @escaping @Sendable (UpscaleProgress) -> Void
+    ) async throws -> WorkflowApplicationProcessedSegmentV4 {
+        throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
+    func restorePrepared(
+        jobID _: WorkflowJobID,
+        temporalCheckpoint _: Data,
+        lastCompletedInputOrdinal _: Int64
+    ) async throws {
+        throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
+    func validateTerminalSourceCompleteness(
+        jobID _: WorkflowJobID,
+        lastCompletedInputOrdinal _: Int64
+    ) async throws {
+        throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
+    func preparedAssemblyTimeline(
+        jobID _: WorkflowJobID
+    ) async throws -> WorkflowApplicationAssemblyTimelineDescriptorV4 {
+        throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
+    func finalizePreparedOutput(
+        jobID _: WorkflowJobID,
+        request _: UpscaleRequest,
+        assembledVideoURL _: URL,
+        publicationURL _: URL,
+        migrationTemporaryURL _: URL,
+        cancellation _: ProcessingCancellation,
+        progress _: @escaping @Sendable (UpscaleProgress) -> Void
+    ) async throws -> WorkflowApplicationFinalizedOutputV4 {
+        throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
+    func inspectCompletion(
+        request _: UpscaleRequest,
+        checkpoint _: WorkflowCheckpointDocumentV4,
+        segmentResult _: UpscaleResult?,
+        processingDurationSeconds _: TimeInterval
+    ) async throws -> WorkflowApplicationCompletionV4 {
+        throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
+    func abandonPrepared(jobID _: WorkflowJobID) async {}
+}
+
+private final class WorkflowApplicationExecutionRecorderV4:
+    @unchecked Sendable
+{
+    private let lock = NSLock()
+    private var recordedFailedCount = 0
+
+    var failedCount: Int {
+        lock.withLock { recordedFailedCount }
+    }
+
+    func append(_ event: WorkflowApplicationExecutionEventV4) {
+        guard case .failed = event else { return }
+        lock.withLock {
+            recordedFailedCount += 1
+        }
+    }
+}
+
 private actor WorkflowApplicationPublicationRecoveryEngineV4:
     WorkflowApplicationDeterministicExecutingV4
 {
     struct OperationCounts: Sendable {
         let revalidations: Int
+        let terminalSourceValidations: Int
         let inspections: Int
         let finalizations: Int
     }
 
     let source: VideoInfo
     private var revalidationCount = 0
+    private var terminalSourceValidationCount = 0
     private var inspectionCount = 0
     private var finalizationCount = 0
 
@@ -3204,7 +4225,8 @@ private actor WorkflowApplicationPublicationRecoveryEngineV4:
     func revalidateAndPrepare(
         jobID _: WorkflowJobID,
         request _: UpscaleRequest,
-        expectedBinding _: WorkflowVerifiedPreparedPlanBindingV4
+        expectedBinding _: WorkflowVerifiedPreparedPlanBindingV4,
+        cancellation _: ProcessingCancellation
     ) async throws -> VideoInfo {
         revalidationCount += 1
         return source
@@ -3229,6 +4251,13 @@ private actor WorkflowApplicationPublicationRecoveryEngineV4:
         lastCompletedInputOrdinal _: Int64
     ) async throws {
         throw WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch
+    }
+
+    func validateTerminalSourceCompleteness(
+        jobID _: WorkflowJobID,
+        lastCompletedInputOrdinal _: Int64
+    ) async throws {
+        terminalSourceValidationCount += 1
     }
 
     func preparedAssemblyTimeline(
@@ -3279,6 +4308,7 @@ private actor WorkflowApplicationPublicationRecoveryEngineV4:
     func operationCounts() -> OperationCounts {
         OperationCounts(
             revalidations: revalidationCount,
+            terminalSourceValidations: terminalSourceValidationCount,
             inspections: inspectionCount,
             finalizations: finalizationCount
         )

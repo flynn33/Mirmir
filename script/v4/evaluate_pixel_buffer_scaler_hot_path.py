@@ -12,8 +12,8 @@ import subprocess
 import sys
 
 
-SCHEMA = "mirmir-v4-pixel-buffer-hot-path-benchmark-v3"
-REPORT_SCHEMA = "mirmir-v4-pixel-buffer-hot-path-evaluation-v3"
+SCHEMA = "mirmir-v4-pixel-buffer-hot-path-benchmark-v4"
+REPORT_SCHEMA = "mirmir-v4-pixel-buffer-hot-path-evaluation-v4"
 MAXIMUM_RATIO = 0.80
 SCOPE = (
     "production FixedPointPixelBufferScalerV4 process plus ordered "
@@ -74,6 +74,7 @@ ENGINE_SOURCE_PATHS = (
     "Mirmir/Modules/UpscalerEngine/FixedPointMetalKernelsV4.metal",
     "Mirmir/Modules/UpscalerEngine/PixelLayoutV4.swift",
     "Mirmir/Modules/UpscalerEngine/HDRMetadataV4.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHCanonicalJSONV4.swift",
     "Mirmir/Modules/UpscalerEngine/AVFoundationHDRMetadataAdapterV4.swift",
     "Mirmir/Modules/UpscalerEngine/FixedPointPixelBufferScalerV4.swift",
 )

@@ -19,7 +19,7 @@ RUNNER_SOURCE = SCRIPT_DIRECTORY / "run_pixel_buffer_scaler_hot_path_benchmark.s
 REPEATABILITY_VERIFIER = (
     SCRIPT_DIRECTORY / "verify_pixel_buffer_scaler_hot_path_repeatability.py"
 )
-SCHEMA = "mirmir-v4-pixel-buffer-hot-path-benchmark-v3"
+SCHEMA = "mirmir-v4-pixel-buffer-hot-path-benchmark-v4"
 SCOPE = (
     "production FixedPointPixelBufferScalerV4 process plus ordered "
     "visible-byte SHA-256"
@@ -75,6 +75,7 @@ ENGINE_SOURCE_PATHS = (
     "Mirmir/Modules/UpscalerEngine/FixedPointMetalKernelsV4.metal",
     "Mirmir/Modules/UpscalerEngine/PixelLayoutV4.swift",
     "Mirmir/Modules/UpscalerEngine/HDRMetadataV4.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHCanonicalJSONV4.swift",
     "Mirmir/Modules/UpscalerEngine/AVFoundationHDRMetadataAdapterV4.swift",
     "Mirmir/Modules/UpscalerEngine/FixedPointPixelBufferScalerV4.swift",
 )

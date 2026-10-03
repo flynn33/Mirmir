@@ -2857,7 +2857,8 @@ protocol WorkflowApplicationDeterministicExecutingV4: Sendable {
     func revalidateAndPrepare(
         jobID: WorkflowJobID,
         request: UpscaleRequest,
-        expectedBinding: WorkflowVerifiedPreparedPlanBindingV4
+        expectedBinding: WorkflowVerifiedPreparedPlanBindingV4,
+        cancellation: ProcessingCancellation
     ) async throws -> VideoInfo
 
     func processPrepared(
@@ -2874,6 +2875,11 @@ protocol WorkflowApplicationDeterministicExecutingV4: Sendable {
     func restorePrepared(
         jobID: WorkflowJobID,
         temporalCheckpoint: Data,
+        lastCompletedInputOrdinal: Int64
+    ) async throws
+
+    func validateTerminalSourceCompleteness(
+        jobID: WorkflowJobID,
         lastCompletedInputOrdinal: Int64
     ) async throws
 
@@ -3087,6 +3093,7 @@ actor WorkflowDeterministicApplicationEngineV4:
         let backend: any PreparedDeterministicV4RuntimePlanningBackend
         let plan: DeterministicV4PreparedAssetPlan
         let timeline: PreparedTimeline
+        let primarySourceSampleCount: UInt64
         let sourceProgressCursors: [
             MediaTrackStableIDV4: WorkflowSourceTrackProgressCursorV4
         ]
@@ -3151,9 +3158,12 @@ actor WorkflowDeterministicApplicationEngineV4:
     func revalidateAndPrepare(
         jobID: WorkflowJobID,
         request: UpscaleRequest,
-        expectedBinding: WorkflowVerifiedPreparedPlanBindingV4
+        expectedBinding: WorkflowVerifiedPreparedPlanBindingV4,
+        cancellation: ProcessingCancellation
     ) async throws -> VideoInfo {
+        try cancellation.check()
         let source = try await videoProbe.probe(url: request.inputURL)
+        try cancellation.check()
         let backend = try await preparedBackend(
             request: request,
             source: source
@@ -3162,7 +3172,8 @@ actor WorkflowDeterministicApplicationEngineV4:
             let plan = try await planner.prepare(
                 request: request,
                 source: source,
-                backend: backend
+                backend: backend,
+                cancellation: cancellation
             )
             let actualBinding = try WorkflowApplicationQueueV4.preparedBinding(
                 preparedPlan: plan,
@@ -3178,10 +3189,20 @@ actor WorkflowDeterministicApplicationEngineV4:
                 binding: actualBinding,
                 jobID: jobID
             )
+            let primarySourceSampleCount = try await Self
+                .primarySourceSampleCount(
+                    sourceURL: request.inputURL,
+                    primaryTrackOrdinal: Int(
+                        plan.primaryGraphTrack.identity.ordinal
+                    ),
+                    cancellation: cancellation
+                )
+            try cancellation.check()
             let sourceProgressCursors = try await makeSourceProgressCursors(
                 sourceURL: request.inputURL,
                 plan: plan
             )
+            try cancellation.check()
             if let previous = preparedByJobID.removeValue(forKey: jobID) {
                 previous.cancelSourceProgress()
                 await previous.plan.finishProcessingBackend(
@@ -3193,6 +3214,7 @@ actor WorkflowDeterministicApplicationEngineV4:
                 backend: backend,
                 plan: plan,
                 timeline: timeline,
+                primarySourceSampleCount: primarySourceSampleCount,
                 sourceProgressCursors: sourceProgressCursors
             )
             return source
@@ -3230,6 +3252,13 @@ actor WorkflowDeterministicApplicationEngineV4:
             progressPresentationOffset:
                 prepared.timeline.primaryMapping?.offset ?? .zero
         )
+        if segment.terminal {
+            try Self.validateTerminalSourceCompleteness(
+                sourceSampleCount: prepared.primarySourceSampleCount,
+                lastCompletedInputOrdinal:
+                    segment.lastCompletedInputOrdinal
+            )
+        }
         let checkpointable = try prepared.plan
             .checkpointableProcessingBackend(
                 planningBackend: prepared.backend
@@ -3269,6 +3298,19 @@ actor WorkflowDeterministicApplicationEngineV4:
         try await checkpointable.restoreTemporalCheckpoint(
             temporalCheckpoint,
             planSHA256: prepared.plan.ashPlan.planSHA256
+        )
+    }
+
+    func validateTerminalSourceCompleteness(
+        jobID: WorkflowJobID,
+        lastCompletedInputOrdinal: Int64
+    ) throws {
+        guard let prepared = preparedByJobID[jobID] else {
+            throw WorkflowApplicationControllerErrorV4.noActiveJob
+        }
+        try Self.validateTerminalSourceCompleteness(
+            sourceSampleCount: prepared.primarySourceSampleCount,
+            lastCompletedInputOrdinal: lastCompletedInputOrdinal
         )
     }
 
@@ -3412,6 +3454,123 @@ actor WorkflowDeterministicApplicationEngineV4:
         await prepared.plan.finishProcessingBackend(
             planningBackend: prepared.backend
         )
+    }
+}
+
+extension WorkflowDeterministicApplicationEngineV4 {
+    nonisolated static func primarySourceSampleCount(
+        sourceURL: URL,
+        primaryTrackOrdinal: Int,
+        cancellation: ProcessingCancellation,
+        afterReadingSample: (@Sendable () -> Void)? = nil
+    ) async throws -> UInt64 {
+        try cancellation.check()
+        let asset = AVURLAsset(
+            url: sourceURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let tracks = try await asset.load(.tracks)
+        try cancellation.check()
+        guard tracks.indices.contains(primaryTrackOrdinal),
+              tracks[primaryTrackOrdinal].mediaType == .video else {
+            throw WorkflowApplicationControllerErrorV4
+                .invalidAssembledOutput(
+                    "the primary source video track is unavailable"
+                )
+        }
+        let reader: AVAssetReader
+        do {
+            reader = try AVAssetReader(asset: asset)
+        } catch {
+            throw WorkflowApplicationControllerErrorV4
+                .invalidAssembledOutput(
+                    "the primary source sample inventory could not be opened"
+                )
+        }
+        let output = AVAssetReaderTrackOutput(
+            track: tracks[primaryTrackOrdinal],
+            outputSettings: nil
+        )
+        output.alwaysCopiesSampleData = false
+        guard reader.canAdd(output) else {
+            throw WorkflowApplicationControllerErrorV4
+                .invalidAssembledOutput(
+                    "the primary source sample inventory was rejected"
+                )
+        }
+        reader.add(output)
+        guard reader.startReading() else {
+            throw WorkflowApplicationControllerErrorV4
+                .invalidAssembledOutput(
+                    "the primary source sample inventory could not start"
+                )
+        }
+        defer {
+            if reader.status == .reading {
+                reader.cancelReading()
+            }
+        }
+
+        var sampleCount: UInt64 = 0
+        while true {
+            try cancellation.check()
+            guard let sample = output.copyNextSampleBuffer() else { break }
+            afterReadingSample?()
+            try cancellation.check()
+            let containedSampleCount = CMSampleBufferGetNumSamples(sample)
+            guard containedSampleCount >= 0,
+                  let containedSampleCount = UInt64(
+                    exactly: containedSampleCount
+                  ) else {
+                reader.cancelReading()
+                throw WorkflowApplicationControllerErrorV4
+                    .invalidAssembledOutput(
+                        "the primary source sample count is invalid"
+                    )
+            }
+            if containedSampleCount == 0 { continue }
+            let addition = sampleCount.addingReportingOverflow(
+                containedSampleCount
+            )
+            guard !addition.overflow else {
+                reader.cancelReading()
+                throw WorkflowApplicationControllerErrorV4
+                    .invalidAssembledOutput(
+                        "the primary source sample count overflowed"
+                    )
+            }
+            sampleCount = addition.partialValue
+        }
+        try cancellation.check()
+        guard reader.status == .completed, sampleCount > 0 else {
+            throw WorkflowApplicationControllerErrorV4
+                .invalidAssembledOutput(
+                    "the primary source sample inventory is incomplete"
+                )
+        }
+        return sampleCount
+    }
+
+    nonisolated static func validateTerminalSourceCompleteness(
+        sourceSampleCount: UInt64,
+        lastCompletedInputOrdinal: Int64
+    ) throws {
+        guard sourceSampleCount > 0,
+              lastCompletedInputOrdinal >= 0 else {
+            throw WorkflowApplicationControllerErrorV4
+                .invalidAssembledOutput(
+                    "the terminal primary source sample inventory is invalid"
+                )
+        }
+        let processedSampleCount = UInt64(lastCompletedInputOrdinal) + 1
+        guard processedSampleCount == sourceSampleCount else {
+            throw WorkflowApplicationControllerErrorV4
+                .invalidAssembledOutput(
+                    "the terminal primary video decoded "
+                        + "\(processedSampleCount) of \(sourceSampleCount) "
+                        + "source samples"
+                )
+        }
     }
 }
 
@@ -3689,6 +3848,7 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
     private var heartbeatTask: Task<Void, Never>?
     private var drainTask: Task<Void, Never>?
     private var publicationRecoveryTask: Task<Void, Never>?
+    private var publicationRecoveryRetryFailureReported = false
     private var observer = WorkflowApplicationObserverV4.none
     private var currentDrainJobID: WorkflowJobID?
     private var completionWaiters: [
@@ -3975,7 +4135,8 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
             let source = try await engine.revalidateAndPrepare(
                 jobID: jobID,
                 request: activated.request,
-                expectedBinding: activated.preparedPlanBinding
+                expectedBinding: activated.preparedPlanBinding,
+                cancellation: cancellation
             )
             let payload = try await queue
                 .applicationCheckpointResumePayload(checkpoint)
@@ -4045,6 +4206,34 @@ extension WorkflowApplicationCoordinatorV4 {
             ),
             destinationURL: destinationURL,
             error: error
+        )
+    }
+
+    func recordPublicationRecoveryRetryFailureIfNeeded(
+        _ error: Error,
+        recorder: MirmirDiagnosticRecorder
+    ) {
+        guard !publicationRecoveryRetryFailureReported else { return }
+        publicationRecoveryRetryFailureReported = true
+        recorder.enqueue(
+            severity: .error,
+            subsystem: "workflow_application_coordinator",
+            operation: "retry_publication_recovery",
+            code: "publication_recovery_retry_failed",
+            error: error
+        )
+    }
+
+    func recordPublicationRecoveryRetryRecoveredIfNeeded(
+        recorder: MirmirDiagnosticRecorder
+    ) {
+        guard publicationRecoveryRetryFailureReported else { return }
+        publicationRecoveryRetryFailureReported = false
+        recorder.enqueue(
+            severity: .notice,
+            subsystem: "workflow_application_coordinator",
+            operation: "retry_publication_recovery",
+            code: "publication_recovery_retry_recovered"
         )
     }
 }
@@ -4118,7 +4307,30 @@ private extension WorkflowApplicationCoordinatorV4 {
                     )
                 )
                 await emitSnapshot(to: observer.snapshot)
+            } catch is CancellationError {
+                await terminateActive(
+                    error: CancellationError(),
+                    containmentRequired: false
+                )
+            } catch let error as MirmirError where error == .cancelled {
+                await terminateActive(
+                    error: error,
+                    containmentRequired: false
+                )
             } catch {
+                MirmirDiagnosticScope.recorder.enqueue(
+                    severity: .error,
+                    subsystem: "workflow_application_coordinator",
+                    operation: "recover_interrupted_publication",
+                    code: "publication_recovery_failed",
+                    fields: (try? [
+                        MirmirDiagnosticRecorder.textField(
+                            "job_id_context",
+                            candidate.jobID.rawValue
+                        )
+                    ]) ?? [],
+                    error: error
+                )
                 await terminateActive(
                     error: error,
                     containmentRequired: true
@@ -4163,11 +4375,19 @@ private extension WorkflowApplicationCoordinatorV4 {
             throw WorkflowApplicationControllerErrorV4
                 .checkpointMissing(jobID)
         }
-        _ = try await queue.verifyApplicationCheckpoint(checkpoint)
+        let verification = try await queue.verifyApplicationCheckpoint(
+            checkpoint
+        )
         _ = try await engine.revalidateAndPrepare(
             jobID: jobID,
             request: activated.request,
-            expectedBinding: activated.preparedPlanBinding
+            expectedBinding: activated.preparedPlanBinding,
+            cancellation: cancellation
+        )
+        try await engine.validateTerminalSourceCompleteness(
+            jobID: jobID,
+            lastCompletedInputOrdinal:
+                verification.lastCompletedInputOrdinal
         )
         try throwIfActiveControlFailed()
 
@@ -4256,7 +4476,8 @@ private extension WorkflowApplicationCoordinatorV4 {
 
     func schedulePublicationRecoveryRetry() {
         guard publicationRecoveryTask == nil else { return }
-        publicationRecoveryTask = Task { [weak self] in
+        let diagnosticRecorder = MirmirDiagnosticScope.recorder
+        publicationRecoveryTask = Task { [weak self, diagnosticRecorder] in
             do {
                 try await Task.sleep(nanoseconds: 1_000_000_000)
                 guard let self else { return }
@@ -4265,14 +4486,27 @@ private extension WorkflowApplicationCoordinatorV4 {
                 try await self.queue.cleanupTerminalApplicationSourceSnapshots()
                 let snapshot = try await self.queue.queueSnapshot()
                 await self.forwardSnapshotForLaunch(snapshot)
+                await self.recordPublicationRecoveryRetryRecoveredIfNeeded(
+                    recorder: diagnosticRecorder
+                )
                 await self.clearPublicationRecoveryTask()
                 if deferred {
                     await self.schedulePublicationRecoveryRetry()
                 } else {
                     await self.scheduleDrain()
                 }
+            } catch is CancellationError {
+                guard let self else { return }
+                await self.clearPublicationRecoveryTask()
+            } catch let error as MirmirError where error == .cancelled {
+                guard let self else { return }
+                await self.clearPublicationRecoveryTask()
             } catch {
                 guard let self else { return }
+                await self.recordPublicationRecoveryRetryFailureIfNeeded(
+                    error,
+                    recorder: diagnosticRecorder
+                )
                 await self.clearPublicationRecoveryTask()
                 await self.schedulePublicationRecoveryRetry()
             }
@@ -4480,7 +4714,8 @@ private extension WorkflowApplicationCoordinatorV4 {
             let source = try await engine.revalidateAndPrepare(
                 jobID: jobID,
                 request: activated.request,
-                expectedBinding: activated.preparedPlanBinding
+                expectedBinding: activated.preparedPlanBinding,
+                cancellation: cancellation
             )
             diagnosticSource = source
             try await transitionActive(
@@ -4593,11 +4828,25 @@ private extension WorkflowApplicationCoordinatorV4 {
         var nextFrameIndex = initialFrameIndex
         var processingDuration = initialDuration
         if checkpointIsTerminal(checkpoint) {
+            guard let checkpoint else {
+                throw WorkflowApplicationControllerErrorV4
+                    .invalidAssembledOutput(
+                        "the terminal checkpoint is unavailable"
+                    )
+            }
+            let verification = try await queue.verifyApplicationCheckpoint(
+                checkpoint
+            )
+            try await engine.validateTerminalSourceCompleteness(
+                jobID: jobID,
+                lastCompletedInputOrdinal:
+                    verification.lastCompletedInputOrdinal
+            )
             let completion = try await finalize(
                 dispatch: dispatch,
                 attemptID: attemptID,
                 activated: activated,
-                checkpoint: checkpoint!,
+                checkpoint: checkpoint,
                 processingDurationSeconds: processingDuration,
                 progress: progress
             )
@@ -4721,6 +4970,11 @@ private extension WorkflowApplicationCoordinatorV4 {
                 return .paused(jobID: jobID, source: source)
             }
             if segment.segment.terminal {
+                try await engine.validateTerminalSourceCompleteness(
+                    jobID: jobID,
+                    lastCompletedInputOrdinal:
+                        segment.segment.lastCompletedInputOrdinal
+                )
                 let completion = try await finalize(
                     dispatch: dispatch,
                     attemptID: attemptID,

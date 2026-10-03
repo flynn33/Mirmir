@@ -283,10 +283,11 @@ struct MirmirCompletedComparisonPlaybackView: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
-                        splitPosition = min(
-                            0.95,
-                            max(0.05, value.location.x / max(proxy.size.width, 1))
-                        )
+                        splitPosition = MirmirComparisonPresentation
+                            .splitPosition(
+                                locationX: value.location.x,
+                                width: proxy.size.width
+                            )
                     }
             )
         }
@@ -496,7 +497,15 @@ struct MirmirCompletedComparisonPlaybackView: View {
     }
 }
 
-private enum MirmirComparisonPresentation {
+enum MirmirComparisonPresentation {
+    static func splitPosition(
+        locationX: CGFloat,
+        width: CGFloat
+    ) -> Double {
+        let normalized = Double(locationX / max(width, 1))
+        return min(0.95, max(0.05, normalized))
+    }
+
     static func timestamp(seconds: Double) -> String {
         guard seconds.isFinite else { return "00:00:00" }
         let maximumSafeSeconds = Double(Int.max / 2)

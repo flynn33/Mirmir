@@ -1803,6 +1803,188 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         )
     }
 
+    func testProcessSegmentSite057ExportsExactAndAdmittedClockContext()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("site057-diagnostic-source.mov")
+        let destinationURL = directory.url("site057-diagnostic-output.mov")
+        let segmentURL = directory.url("site057-diagnostic-segment.mov")
+        let runtimeURL = directory.url("site057-diagnostic-p06.bundle")
+        let admittedFrameDuration = CMTime(
+            value: 3_750,
+            timescale: 90_000
+        )
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: false,
+            videoFrameCount: 1,
+            videoMediaTimeScale: 90_000,
+            videoFrameDuration: admittedFrameDuration,
+            videoExpectedFrameRate: 24
+        )
+
+        let sourceAsset = AVURLAsset(
+            url: sourceURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let sourceVideos = try await sourceAsset.loadTracks(
+            withMediaType: .video
+        )
+        let sourceVideo = try XCTUnwrap(sourceVideos.first)
+        let admittedEnd = CMTimeRangeGetEnd(
+            try await sourceVideo.load(.timeRange)
+        )
+        XCTAssertEqual(CMTimeCompare(admittedEnd, admittedFrameDuration), 0)
+
+        let source = try await VideoProbe().probe(url: sourceURL)
+        let runtime = try ASHV4SemanticArtifactTestSupport.buildAndLoad(
+            at: runtimeURL
+        )
+        let descriptor = try XCTUnwrap(
+            BackendDescriptor.descriptor(for: .mirmirDeterministicCPU)
+        )
+        let backend = try XCTUnwrap(DeterministicCPUBackend(
+            descriptor: descriptor,
+            runtimeProvider: .fixed(runtime)
+        ))
+        let prepared = try await backend.prepare(
+            request: BackendPreparationRequest(
+                source: source,
+                targetSize: CGSize(width: 96, height: 72)
+            ),
+            environment: .current()
+        )
+        let recording = TrackMigrationRecordingDeterministicBackendV4(
+            planning: try XCTUnwrap(
+                prepared as? any PreparedDeterministicV4PlanningBackend
+            ),
+            temporal: try XCTUnwrap(
+                prepared as? any PreparedCheckpointableTemporalFrameUpscaler
+            )
+        )
+        let request = UpscaleRequest(
+            inputURL: sourceURL,
+            outputURL: destinationURL,
+            backendID: .mirmirDeterministicCPU,
+            targetWidth: 96,
+            targetHeight: 72,
+            outputCodec: .h264,
+            preserveAudio: true,
+            overwriteExistingFile: false
+        )
+        let plan = try await DeterministicV4WholeAssetPlanner().prepare(
+            request: request,
+            source: source,
+            backend: recording,
+            cancellation: ProcessingCancellation()
+        )
+        let exactNominalPlan = DeterministicV4PreparedAssetPlan(
+            canonicalMedia: plan.canonicalMedia,
+            ashPlan: plan.ashPlan,
+            sourceGraph: plan.sourceGraph,
+            trackPlan: plan.trackPlan,
+            migrationBlueprint: plan.migrationBlueprint,
+            primaryCanonicalTrack: plan.primaryCanonicalTrack,
+            primaryGraphTrack: plan.primaryGraphTrack,
+            videoDelivery: plan.videoDelivery,
+            encodedFormatDescriptor: plan.encodedFormatDescriptor,
+            nominalSourceFrameDuration:
+                try ExactRationalV4(1_001, 24_000),
+            nonVideoTranscodeHooks: plan.nonVideoTranscodeHooks
+        )
+        let diagnosticStore = MirmirDiagnosticStore(
+            inMemoryWith: .production
+        )
+        let diagnosticRecorder = MirmirDiagnosticRecorder(
+            store: diagnosticStore
+        )
+
+        do {
+            _ = try await MirmirDiagnosticScope.$recorder.withValue(
+                diagnosticRecorder
+            ) {
+                try await DeterministicV4MediaProcessingSession()
+                    .processSegment(
+                        request: request,
+                        source: source,
+                        preparedPlan: exactNominalPlan,
+                        preparedBackend: recording,
+                        startingInputFrameIndex: 0,
+                        startTime: try WorkflowMediaTimeV4(
+                            value: 0,
+                            timescale: 1
+                        ),
+                        maximumInputFrames: 2,
+                        segmentURL: segmentURL,
+                        cancellation: ProcessingCancellation(),
+                        progress: { _ in }
+                    )
+            }
+            XCTFail("The nonadjacent admitted boundary must fail at site 057.")
+        } catch {
+            XCTAssertEqual(
+                error as? DeterministicV4MediaSegmentError,
+                .invalidSampleTiming(
+                    site: .exactRationalNotAdjacentToAdmittedClockBoundary
+                )
+            )
+        }
+        await plan.finishProcessingBackend(planningBackend: recording)
+
+        let snapshot = try await diagnosticStore.snapshot()
+        let failures = snapshot.records.filter {
+            $0.event.operation.rawValue == "process_segment"
+        }
+        let failure = try XCTUnwrap(failures.first)
+        XCTAssertEqual(failures.count, 1)
+        let fields = Dictionary(uniqueKeysWithValues:
+            failure.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+        XCTAssertEqual(
+            fields["timing_site_id"],
+            DeterministicV4InvalidSampleTimingSite
+                .exactRationalNotAdjacentToAdmittedClockBoundary.rawValue
+        )
+        XCTAssertEqual(fields["exact_boundary_value"], "1001")
+        XCTAssertEqual(fields["exact_boundary_timescale"], "24000")
+        XCTAssertEqual(
+            fields["admitted_boundary_value"],
+            String(admittedEnd.value)
+        )
+        XCTAssertEqual(
+            fields["admitted_boundary_timescale"],
+            String(admittedEnd.timescale)
+        )
+        XCTAssertEqual(fields["boundary_clock_timescale"], "90000")
+
+        let json = String(
+            decoding: try await diagnosticStore.exportJSON(),
+            as: UTF8.self
+        )
+        let markdown = String(
+            decoding: try await diagnosticStore.exportMarkdown(),
+            as: UTF8.self
+        )
+        for expected in [
+            "dv4_timing_057_exact_rational_not_adjacent_to_admitted_clock_boundary",
+            "exact_boundary_value",
+            "exact_boundary_timescale",
+            "admitted_boundary_value",
+            "admitted_boundary_timescale",
+            "boundary_clock_timescale"
+        ] {
+            XCTAssertTrue(json.contains(expected))
+            XCTAssertTrue(
+                markdown.contains(
+                    expected.replacingOccurrences(of: "_", with: "\\_")
+                )
+            )
+        }
+    }
+
     func testNTSC90kSegmentEmitsExactLastFrameStartBeforeBoundary()
         async throws {
         let directory = try TrackMigrationFixtureDirectoryV4()
@@ -2758,6 +2940,99 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             enabledCount += 1
         }
         XCTAssertEqual(enabledCount, 1)
+    }
+
+    func testConventionalSessionPreservesSingletonAudioGroupAndDefaultSelection()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("conventional-singleton-source.mov")
+        let destinationURL = directory.url(
+            "conventional-singleton-output.mov"
+        )
+        try await TrackMigrationFixtureFactoryV4
+            .makeSingletonAudioGroupMovie(at: sourceURL)
+
+        let sourceAsset = AVURLAsset(url: sourceURL)
+        let sourceAudioTracks = try await sourceAsset.loadTracks(
+            withMediaType: .audio
+        )
+        XCTAssertEqual(sourceAudioTracks.count, 1)
+        let sourceAudio = try XCTUnwrap(sourceAudioTracks.first)
+        let sourceGroups = try await sourceAsset.load(.trackGroups).filter {
+            $0.trackIDs.map(\.int32Value).contains(sourceAudio.trackID)
+        }
+        XCTAssertEqual(sourceGroups.count, 1)
+        XCTAssertEqual(
+            sourceGroups.first?.trackIDs.map(\.int32Value),
+            [sourceAudio.trackID]
+        )
+        let sourceAudioEnabled = try await sourceAudio.load(.isEnabled)
+        XCTAssertTrue(sourceAudioEnabled)
+        let loadedSourceSelection = try await sourceAsset
+            .loadMediaSelectionGroup(for: .audible)
+        let sourceSelection = try XCTUnwrap(loadedSourceSelection)
+        XCTAssertEqual(sourceSelection.options.count, 1)
+        XCTAssertNotNil(sourceSelection.defaultOption)
+
+        let result = try await UpscaleCoordinator().process(
+            UpscaleRequest(
+                inputURL: sourceURL,
+                outputURL: destinationURL,
+                backendID: .vImageStandard,
+                targetWidth: 96,
+                targetHeight: 72,
+                outputCodec: .h264,
+                preserveAudio: true,
+                overwriteExistingFile: false
+            ),
+            progress: { _ in }
+        )
+        XCTAssertTrue([.preserved, .transcoded].contains(result.audioResult))
+
+        let outputAsset = AVURLAsset(url: destinationURL)
+        let outputAudioTracks = try await outputAsset.loadTracks(
+            withMediaType: .audio
+        )
+        XCTAssertEqual(outputAudioTracks.count, 1)
+        let outputAudio = try XCTUnwrap(outputAudioTracks.first)
+        let outputGroups = try await outputAsset.load(.trackGroups).filter {
+            $0.trackIDs.map(\.int32Value).contains(outputAudio.trackID)
+        }
+        XCTAssertEqual(outputGroups.count, 1)
+        XCTAssertEqual(
+            outputGroups.first?.trackIDs.map(\.int32Value),
+            [outputAudio.trackID]
+        )
+        let outputAudioEnabled = try await outputAudio.load(.isEnabled)
+        XCTAssertTrue(outputAudioEnabled)
+        let loadedOutputSelection = try await outputAsset
+            .loadMediaSelectionGroup(for: .audible)
+        let outputSelection = try XCTUnwrap(loadedOutputSelection)
+        XCTAssertEqual(
+            outputSelection.options.count,
+            sourceSelection.options.count
+        )
+        XCTAssertEqual(
+            outputSelection.defaultOption != nil,
+            sourceSelection.defaultOption != nil
+        )
+        XCTAssertEqual(
+            outputSelection.allowsEmptySelection,
+            sourceSelection.allowsEmptySelection
+        )
+
+        let sourceGraph = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: sourceAsset
+        )
+        let outputGraph = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: outputAsset
+        )
+        XCTAssertEqual(
+            AudioTopologyV4(graph: outputGraph, preservingAudio: true),
+            AudioTopologyV4(graph: sourceGraph, preservingAudio: true)
+        )
+        XCTAssertFalse(try directory.containsPartialMovie())
     }
 
     func testAlternateAudioGroupRoundTripsEmptySelection() async throws {
@@ -8664,6 +8939,78 @@ private enum TrackMigrationFixtureFactoryV4 {
                 videoFrameDuration,
                 multiplier: Int32(videoFrameCount)
             ))
+        await withCheckedContinuation { continuation in
+            writer.finishWriting { continuation.resume() }
+        }
+        guard writer.status == .completed else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                writer.error?.localizedDescription ?? "finishWriting failed"
+            )
+        }
+    }
+
+    static func makeSingletonAudioGroupMovie(at url: URL) async throws {
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+        let video = makeVideoLane(seed: 17, title: "primary-video")
+        let audioFormat = try makeAudioFormatDescription()
+        let audio = AVAssetWriterInput(
+            mediaType: .audio,
+            outputSettings: [
+                AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+                AVSampleRateKey: 48_000,
+                AVNumberOfChannelsKey: 1,
+                AVEncoderBitRateKey: 64_000
+            ],
+            sourceFormatHint: audioFormat
+        )
+        audio.languageCode = "eng"
+        audio.extendedLanguageTag = "en-US"
+        audio.metadata = trackMetadata(title: "English")
+
+        for input in [video.input, audio] {
+            guard writer.canAdd(input) else {
+                throw TrackMigrationFixtureErrorV4.writer(
+                    "Writer rejected singleton-group fixture input."
+                )
+            }
+            writer.add(input)
+        }
+        let group = AVAssetWriterInputGroup(
+            inputs: [audio],
+            defaultInput: audio
+        )
+        guard writer.canAdd(group) else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                "Writer rejected singleton audio group."
+            )
+        }
+        writer.add(group)
+        guard writer.startWriting() else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                writer.error?.localizedDescription ?? "startWriting failed"
+            )
+        }
+        writer.startSession(atSourceTime: .zero)
+
+        try await append(
+            try makeAudioSampleBuffer(format: audioFormat, amplitude: 700),
+            to: audio,
+            writer: writer
+        )
+        audio.markAsFinished()
+        for frameIndex in 0..<3 {
+            try await appendFrame(
+                lane: video,
+                frameIndex: frameIndex,
+                time: CMTime(
+                    value: CMTimeValue(frameIndex),
+                    timescale: frameRate
+                ),
+                writer: writer
+            )
+        }
+        video.input.markAsFinished()
+        writer.endSession(atSourceTime: CMTime(value: 3, timescale: frameRate))
         await withCheckedContinuation { continuation in
             writer.finishWriting { continuation.resume() }
         }

@@ -1,9 +1,9 @@
 {
   "artifactSchemas": {
     "archivedExecution": "mirmir-v4-recovery-archived-execution-v1",
-    "causalBinding": "mirmir-v4-recovery-causal-binding-v1",
     "capture": "mirmir-v4-recovery-capture-v2",
     "captureManifest": "mirmir-v4-recovery-capture-artifacts-v2",
+    "causalBinding": "mirmir-v4-recovery-causal-binding-v1",
     "packageIdentity": "mirmir-v4-packaged-candidate-identity-v1",
     "packagedEvidenceRequest": "mirmir-v4-packaged-evidence-request-v1",
     "packagedEvidenceResult": "mirmir-v4-packaged-evidence-result-v1",
@@ -20,16 +20,16 @@
   "capture": {
     "archiveProvenanceSourceSHA256": "b4638c3bfe698fc4c291e3f8f522e7e0d2025dd741efab8c74bc6217b815986d",
     "evaluatorSourceSHA256": "5d7b19b4b072170f9549534936136a1a43a06e433468b4c31720a1b5b15362ee",
-    "observerSourceSHA256": "9fcf2009a18385524f65644cf13e744a0cdd58550808bc43089dff4f12f98a84",
+    "observerSourceSHA256": "361c0ce4df777de3ba00162a2efa7a254a7af831f1bf337d3a151527af74a582",
     "packagedEvidenceSourceSHA256": "5ea4b53d5d696714d1d0f00a1df22cb1a0b8f9769f2e70b133139cb05132f117",
-    "producerSourceSHA256": "7b4e429e0dc7ddac50d5eda303c5371d86902fb0682b5a4153d844c0a273a9ac",
+    "producerSourceSHA256": "7068c7202934af961df30e8f80da87b374e2e951382fcf203f6d3ce58bf4919c",
     "runnerSourceSHA256": "4552b7e7d631ea12a2f712fe32122083dd7c9dba576b4655beca319d41076b27"
   },
   "crossProcessCaptureCount": 2,
   "hashAlgorithm": "sha256",
   "packagedCandidate": {
-    "requireExactApplicationArchive": true,
     "requireArchivedExecutableProducer": true,
+    "requireExactApplicationArchive": true,
     "requireIndependentProcessCaptures": 2,
     "requireReleaseAttestation": true,
     "requireTestabilityDisabled": true,

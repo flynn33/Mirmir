@@ -39,28 +39,56 @@ actor MirmirDiagnosticStore {
         inMemoryWith policy: MirmirDiagnosticRetentionPolicy = .production,
         clock: MirmirDiagnosticClock = .production,
         sessionID: UUID = UUID(),
+        runtimeIdentity: MirmirDiagnosticRuntimeIdentity? = nil,
         initialPersistenceFailureCount: UInt64 = 0,
         initialPersistenceFailureOperation: String? = nil
     ) {
         var initialState = MirmirDiagnosticStoreState.empty
         initialState.journalByteCount =
             (try? Self.journalData(initialState).count) ?? 0
+        let diagnosticSessionID = MirmirDiagnosticID(sessionID)
+        var startupFailureCount = initialPersistenceFailureCount
+        var startupFailureOperation = initialPersistenceFailureOperation
+        if let runtimeIdentity {
+            do {
+                let prepared = try Self.prepareSessionStartRecord(
+                    runtimeIdentity,
+                    state: &initialState,
+                    policy: policy,
+                    nowMilliseconds: clock.wallMilliseconds(),
+                    uptimeNanoseconds: clock.uptimeNanoseconds(),
+                    sessionID: diagnosticSessionID
+                )
+                if let rejection = prepared.rejection {
+                    throw rejection
+                }
+            } catch {
+                startupFailureCount = Self.saturatingIncrement(
+                    startupFailureCount
+                )
+                startupFailureOperation = "record_session_start"
+                Self.reportPersistenceFailure(
+                    error,
+                    operation: "record_session_start"
+                )
+            }
+        }
         self.policy = policy
         self.clock = clock
-        self.sessionID = MirmirDiagnosticID(sessionID)
+        self.sessionID = diagnosticSessionID
         self.directoryURL = nil
         self.journalURL = nil
         self.lockURL = nil
         self.fileSystem = nil
         self.state = initialState
-        self.persistenceFailureCount = initialPersistenceFailureCount
-        if let initialPersistenceFailureOperation,
+        self.persistenceFailureCount = startupFailureCount
+        if let startupFailureOperation,
            MirmirDiagnosticToken.isValid(
-               initialPersistenceFailureOperation
+               startupFailureOperation
            ) {
             self.lastPersistenceFailureOperation =
-                initialPersistenceFailureOperation
-        } else if initialPersistenceFailureCount > 0 {
+                startupFailureOperation
+        } else if startupFailureCount > 0 {
             self.lastPersistenceFailureOperation = "unknown"
         } else {
             self.lastPersistenceFailureOperation = nil
@@ -73,7 +101,8 @@ actor MirmirDiagnosticStore {
         persistentDirectoryURL: URL,
         policy: MirmirDiagnosticRetentionPolicy = .production,
         clock: MirmirDiagnosticClock = .production,
-        sessionID: UUID = UUID()
+        sessionID: UUID = UUID(),
+        runtimeIdentity: MirmirDiagnosticRuntimeIdentity? = .current()
     ) throws {
         let standardizedDirectory = persistentDirectoryURL.standardizedFileURL
             .resolvingSymlinksInPath()
@@ -103,7 +132,8 @@ actor MirmirDiagnosticStore {
 
         self.policy = policy
         self.clock = clock
-        self.sessionID = MirmirDiagnosticID(sessionID)
+        let diagnosticSessionID = MirmirDiagnosticID(sessionID)
+        self.sessionID = diagnosticSessionID
         self.directoryURL = standardizedDirectory
         self.journalURL = journalURL
         self.lockURL = lockURL
@@ -114,14 +144,34 @@ actor MirmirDiagnosticStore {
         self.lastPersistenceFailureOperation = nil
         self.state = try Self.persistenceBoundary(operation: "load") {
             try fileSystem.withExclusiveLock(at: lockURL) { transaction in
-                try Self.loadAndRepair(
+                var loaded = try Self.loadAndRepair(
                     fileSystem: transaction,
                     journalURL: journalURL,
                     policy: policy,
                     nowMilliseconds: clock.wallMilliseconds(),
                     uptimeNanoseconds: clock.uptimeNanoseconds(),
-                    sessionID: MirmirDiagnosticID(sessionID)
+                    sessionID: diagnosticSessionID
                 )
+                if let runtimeIdentity {
+                    let prepared = try Self.prepareSessionStartRecord(
+                        runtimeIdentity,
+                        state: &loaded,
+                        policy: policy,
+                        nowMilliseconds: clock.wallMilliseconds(),
+                        uptimeNanoseconds: clock.uptimeNanoseconds(),
+                        sessionID: diagnosticSessionID
+                    )
+                    try Self.persist(
+                        prepared,
+                        fileSystem: transaction,
+                        journalURL: journalURL,
+                        maximumFileBytes: policy.maximumTotalBytes
+                    )
+                    if let rejection = prepared.rejection {
+                        throw rejection
+                    }
+                }
+                return loaded
             }
         }
     }
@@ -148,6 +198,7 @@ actor MirmirDiagnosticStore {
             reportPersistenceFailure(error, operation: "production_fallback")
             return MirmirDiagnosticStore(
                 inMemoryWith: .production,
+                runtimeIdentity: .current(),
                 initialPersistenceFailureCount: 1,
                 initialPersistenceFailureOperation: "production_fallback"
             )
@@ -228,6 +279,9 @@ actor MirmirDiagnosticStore {
                 operation: "record"
             )
             throw error
+        } catch let error as MirmirDiagnosticValidationError
+        where error == .privacyViolation {
+            throw error
         } catch {
             registerPersistenceFailure(operation: "record")
             Self.reportPersistenceFailure(error, operation: "record")
@@ -256,7 +310,8 @@ actor MirmirDiagnosticStore {
             } else if Self.pruneExpired(
                 state: &state,
                 policy: policy,
-                nowMilliseconds: now
+                nowMilliseconds: now,
+                preservingSessionID: sessionID
             ) {
                 state.journalByteCount = try Self.journalData(state).count
             }
@@ -288,6 +343,22 @@ actor MirmirDiagnosticStore {
 
     func exportMarkdown() async throws -> Data {
         try MirmirDiagnosticExport.markdown(await snapshot())
+    }
+
+    nonisolated func exportApplicationLogs() async throws -> Data {
+        try await exportApplicationLogs {
+            try MirmirDiagnosticApplicationLogExport.json(
+                diagnosticSessionID: self.sessionID.rawValue
+            )
+        }
+    }
+
+    nonisolated func exportApplicationLogs(
+        using exporter: @escaping @Sendable () throws -> Data
+    ) async throws -> Data {
+        try await Task.detached(priority: .userInitiated) {
+            try exporter()
+        }.value
     }
 
     private static func snapshot(

@@ -1,24 +1,83 @@
 # Mirmir accepted limitations and follow-up work
 
-Updated for the 1.4.2 source patch on October 1, 2026. These entries distinguish a
-source repair from installed-product and full-media qualification. Product
-source identity is version 1.4.2 build 11.
+Updated for Mirmir 1.4.3 build 12 on October 3, 2026. These entries distinguish
+source repair from installed-product and full-media qualification. The
+installed `/Applications/Mirmir.app` remains 1.4.2 build 11.
 
 ## CACHE-001 — Cache confirmations in installed 1.4.1
 
 **Status:** Source and isolated-store fixture repaired in 1.4.2; installed
 product verification open
 
-The installed `/Applications/Mirmir.app` remains 1.4.1 build 10. Its Settings
-and queue-row cache confirmations did not appear, preventing the deletion path
-from running and leaving **Choose Location…** disabled. The 1.4.2 source uses
+The earlier installed 1.4.1 build 10 lacked visible Settings and queue-row
+cache confirmations, preventing the deletion path from running and leaving
+**Choose Location…** disabled. The 1.4.2 source uses
 one workspace confirmation presenter and awaits the requested cleanup with an
 explicit queue readback. Isolated tests deleted completed, paused, and
 contained, failed, and cancelled jobs, verified owned files were removed, and
 observed the empty-queue location gate become available. The owner then
 authorized clearing the live root through those same methods. The installed
 1.4.1 app reopened it with zero jobs and **Choose Location…** enabled. The
-installed binary still lacks the repaired confirmation presenter.
+current installed `/Applications/Mirmir.app` reports 1.4.2 build 11, but its
+cache confirmation behavior has not been rechecked in this investigation.
+
+## DV4-057 — Short nominal-cadence video terminal boundary
+
+**Status:** Source repair, named regression, and current-candidate short-source
+workflow complete; installed-product and extended large-media verification open
+
+**Priority:** Corrective defect
+
+The loaded `raven-forge-app-splash-2.mp4` has 241 decoded 24 fps video frames.
+AVFoundation reports last decoded PTS `122880/12288` and track end
+`123396/12288`. The exact end after frame 241 is `123392/12288`, four source
+ticks before the container boundary. The earlier one-tick policy raised
+`dv4_timing_057_exact_rational_not_adjacent_to_admitted_clock_boundary` at
+terminal finalization.
+
+The shared clock policy now returns the exact `123392/12288` boundary before it
+considers the distinct container duration. An admitted boundary is consulted
+only when the exact rational is incommensurate with the required clock, and it
+must still be the immediate floor or ceiling tick. The named asset regression
+derives the frame count and both boundaries from the source. The installed
+1.4.2 build 11 does not contain the new fix.
+
+The durable coordinator separately inventories 241 encoded primary-video
+samples and requires the terminal decoded ordinal to account for all 241 before
+finalization. The named terminal-completeness regressions reject a 240-of-241
+terminal decode and verify that finalization is not called. This completeness
+check does not change the shared clock-admission rule.
+
+The named current-source asset regression passed 1 of 1. The production
+durable-workflow run on the reported source and its independent postvalidation
+passed 66 of 66 checks, with 241 video frames in the source and output. This
+short-source result does not complete DV4-002 or verify the installed 1.4.2
+application.
+
+## AUD-001 — Singleton audio selection group
+
+**Status:** Source repair, focused regression, and current-candidate
+short-source workflow complete; installed-product verification open
+
+**Priority:** Corrective defect
+
+The loaded MP4 presents its sole AAC track as a one-member audible selection
+group. The conventional writer previously skipped groups with fewer than two
+audio members, while `OutputMediaValidator` compared that source group with the
+output, so a completed encode was rejected as changed alternate-audio
+membership or default selection.
+
+The writer now emits the singleton group and preserves its enabled/default
+selection. `testConventionalSessionPreservesSingletonAudioGroupAndDefaultSelection`
+creates a real one-member `AVAssetWriterInputGroup`, processes it through
+`UpscaleCoordinator`, and compares the source and output topology. The source
+track-group probe identifies one AAC track in one audible selection group with
+that track as its default selection.
+
+The same production workflow and independent postvalidation preserved all 470
+source audio packets in the output and matched the one-member audible selection
+group and default track. The installed 1.4.2 application does not contain this
+repair.
 
 ## DV4-001 — Deterministic v4 error 16 on legal NTSC timing
 
@@ -49,15 +108,18 @@ independently admitted asset end is `556215660/90000`.
 The planner supplies exact `1001/24000` cadence. Version 1.4.1 additionally
 reconstructs each nominal PTS as `trackStart + frameIndex × cadence`, so the
 last frame keeps its exact start before writer projection. One shared policy is
-used by terminal and nonterminal boundaries: exact values must equal the
-admitted boundary; an incommensurable value may use only the admitted immediate
-floor or ceiling tick. Forensic site 056 identifies an invalid admitted clock
-boundary, while site 057 identifies a non-adjacent boundary or genuine gap.
+used by terminal and nonterminal boundaries: exact values return exact without
+comparison to an independently observed boundary; an incommensurable value may
+use only the admitted immediate floor or ceiling tick. Forensic site 056
+identifies an invalid admitted clock boundary, while site 057 identifies a
+nonadjacent admitted boundary. The durable coordinator's independent terminal
+sample-count invariant identifies missing decoded source samples.
 
 Named unit and production-path fixture tests cover the Ferris rational,
 frame-148175 reconstruction, a 90 kHz nonterminal boundary, exact terminal
-values, a mismatch two ticks away, and a missing final frame. This is source
-and fixture evidence, not proof of an end-to-end large-media completion.
+values, and a mismatch two ticks away. Separate terminal-completeness tests
+cover a missing final source sample. This is source and fixture evidence, not
+proof of an end-to-end large-media completion.
 
 ## DV4-002 — Extended large-media Deterministic qualification
 
@@ -78,10 +140,11 @@ new candidate run.
 - Complete the same requested Deterministic v4 upscale and verify the published
   movie's frame timing, duration, audio topology, and other planned tracks.
 
-The current local archive at
+The historical local archive at
 `/Users/jimdaley/Library/Developer/Xcode/Archives/2026-10-01/Mirmir-1.4.2-11-TestFlight.xcarchive`
-is an Apple Distribution signed TestFlight handoff artifact, not full-media
-closure evidence. It is excluded from Git and has not been uploaded.
+is an Apple Distribution signed artifact prepared for owner handoff only, not
+full-media closure evidence. It is excluded from Git and was not uploaded,
+submitted, distributed, released, or installed.
 
 ## VT-001 — VideoToolbox geometry adaptation
 

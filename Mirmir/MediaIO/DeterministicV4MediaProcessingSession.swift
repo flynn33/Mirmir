@@ -2068,6 +2068,8 @@ struct DeterministicV4MediaProcessingSession: Sendable {
         var segmentOrigin: CMTime?
         var segmentAdmittedOrigin: CMTime?
         var globalEnd: CMTime?
+        var activeClockExactBoundary: CMTime?
+        var activeClockAdmittedBoundary: CMTime?
         var lastObservedPresentationTime: CMTime?
         var lastExpectedPresentationTime: CMTime?
         var lastObservedDuration: CMTime?
@@ -2340,11 +2342,16 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                         throw DeterministicV4MediaSegmentError
                             .nonContiguousBoundary
                     }
+                    activeClockExactBoundary = nextPresentation
+                    activeClockAdmittedBoundary =
+                        nextAdmittedPresentationTime
                     nextStartTime = try Self.workflowTime(
                         exact: nextPresentation,
                         admittedBoundary: nextAdmittedPresentationTime,
                         timescale: preferredTimescale
                     )
+                    activeClockExactBoundary = nil
+                    activeClockAdmittedBoundary = nil
                 } else {
                     nextStartTime = try Self.workflowTime(
                         nextPresentation,
@@ -2403,16 +2410,23 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                 alphaVerifier: alphaVerifier,
                 cancellation: cancellation
             )
-            let workflowStart = timelineMapping == nil
-                ? try Self.workflowTime(
+            let workflowStart: WorkflowMediaTimeV4
+            if timelineMapping == nil {
+                activeClockExactBoundary = segmentOrigin
+                activeClockAdmittedBoundary = segmentAdmittedOrigin
+                workflowStart = try Self.workflowTime(
                     exact: segmentOrigin,
                     admittedBoundary: segmentAdmittedOrigin,
                     timescale: preferredTimescale
                 )
-                : try Self.workflowTime(
+                activeClockExactBoundary = nil
+                activeClockAdmittedBoundary = nil
+            } else {
+                workflowStart = try Self.workflowTime(
                     segmentOrigin,
                     timescale: preferredTimescale
                 )
+            }
             let workflowEnd: WorkflowMediaTimeV4
             if timelineMapping == nil, let nextStartTime {
                 workflowEnd = nextStartTime
@@ -2420,11 +2434,15 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                 let admittedEnd = CMTimeRangeGetEnd(
                     sourceTrackAdmittedTimeRange
                 )
+                activeClockExactBoundary = globalEnd
+                activeClockAdmittedBoundary = admittedEnd
                 workflowEnd = try Self.workflowTime(
                     exact: globalEnd,
                     admittedBoundary: admittedEnd,
                     timescale: preferredTimescale
                 )
+                activeClockExactBoundary = nil
+                activeClockAdmittedBoundary = nil
             } else {
                 workflowEnd = try Self.workflowTime(
                     globalEnd,
@@ -2485,7 +2503,10 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                     expectedPresentationTime: lastExpectedPresentationTime,
                     observedDuration: lastObservedDuration,
                     expectedDuration: nominalDecodedDuration,
-                    siteID: siteID
+                    siteID: siteID,
+                    exactBoundary: activeClockExactBoundary,
+                    admittedBoundary: activeClockAdmittedBoundary,
+                    clockTimescale: segmentBoundaryTimescale
                 ),
                 durable: .init(
                     nextInputSampleIndex: Int64(

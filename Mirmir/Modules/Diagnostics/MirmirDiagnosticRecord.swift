@@ -5,15 +5,88 @@ struct MirmirDiagnosticField: Codable, Equatable, Sendable {
     let value: MirmirDiagnosticFieldValue
 
     init(key: String, value: MirmirDiagnosticFieldValue) throws {
+        guard MirmirDiagnosticPrivacyValidator.permitsUserInfoKey(key) else {
+            throw MirmirDiagnosticValidationError.privacyViolation
+        }
         self.key = try MirmirDiagnosticToken(key, field: "diagnostic_field_key")
         self.value = value
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case key, value
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let key = try container.decode(MirmirDiagnosticToken.self, forKey: .key)
+        guard MirmirDiagnosticPrivacyValidator.permitsUserInfoKey(
+            key.rawValue
+        ) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .key,
+                in: container,
+                debugDescription: "Private diagnostic field key."
+            )
+        }
+        self.key = key
+        value = try container.decode(
+            MirmirDiagnosticFieldValue.self,
+            forKey: .value
+        )
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(key, forKey: .key)
+        try container.encode(value, forKey: .value)
     }
 }
 
 struct MirmirDiagnosticErrorFrame: Codable, Equatable, Sendable {
+    static let maximumUserInfoEntries = 32
+
     struct UserInfoEntry: Codable, Equatable, Sendable {
         let key: String
         let value: String
+
+        init(key: String, value: String) throws {
+            guard MirmirDiagnosticPrivacyValidator.permitsUserInfoKey(key),
+                  let sanitized = MirmirDiagnosticPrivacyValidator
+                    .sanitizedForensicString(value),
+                  sanitized == value else {
+                throw MirmirDiagnosticValidationError.privacyViolation
+            }
+            self.key = key
+            self.value = value
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case key, value
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            do {
+                try self.init(
+                    key: container.decode(String.self, forKey: .key),
+                    value: container.decode(String.self, forKey: .value)
+                )
+            } catch let error as DecodingError {
+                throw error
+            } catch {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .value,
+                    in: container,
+                    debugDescription: "Private diagnostic error metadata."
+                )
+            }
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(key, forKey: .key)
+            try container.encode(value, forKey: .value)
+        }
     }
 
     let type: String
@@ -30,7 +103,10 @@ struct MirmirDiagnosticErrorFrame: Codable, Equatable, Sendable {
         self.type = Self.safeIdentifier(type)
         self.domain = Self.safeIdentifier(domain)
         self.code = code
-        self.userInfo = Array(userInfo.sorted { $0.key < $1.key }.prefix(32))
+        self.userInfo = Array(
+            userInfo.sorted { $0.key < $1.key }
+                .prefix(Self.maximumUserInfoEntries)
+        )
     }
 
     private static func safeIdentifier(_ value: String) -> String {
@@ -60,14 +136,22 @@ struct MirmirDiagnosticErrorFrame: Codable, Equatable, Sendable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        let userInfo = try container.decodeIfPresent(
+            [UserInfoEntry].self,
+            forKey: .userInfo
+        ) ?? []
+        guard userInfo.count <= Self.maximumUserInfoEntries else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .userInfo,
+                in: container,
+                debugDescription: "Too many diagnostic error metadata entries."
+            )
+        }
         self.init(
             type: try container.decode(String.self, forKey: .type),
             domain: try container.decode(String.self, forKey: .domain),
             code: try container.decode(Int.self, forKey: .code),
-            userInfo: try container.decodeIfPresent(
-                [UserInfoEntry].self,
-                forKey: .userInfo
-            ) ?? []
+            userInfo: userInfo
         )
     }
 
@@ -84,36 +168,75 @@ struct MirmirDiagnosticErrorFrame: Codable, Equatable, Sendable {
 
 struct MirmirDiagnosticErrorIdentity: Codable, Equatable, Sendable {
     static let maximumFrames = 8
+    static let maximumEncodedBytes =
+        MirmirDiagnosticRetentionPolicy.production.maximumRecordBytes / 4
 
     let frames: [MirmirDiagnosticErrorFrame]
+    let omittedUserInfoEntryCount: Int
+
+    private struct EncodingEnvelope: Encodable {
+        let frames: [MirmirDiagnosticErrorFrame]
+        let omittedUserInfoEntryCount: Int
+
+        enum CodingKeys: String, CodingKey {
+            case frames
+            case omittedUserInfoEntryCount = "omitted_user_info_entry_count"
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(frames, forKey: .frames)
+            if omittedUserInfoEntryCount > 0 {
+                try container.encode(
+                    omittedUserInfoEntryCount,
+                    forKey: .omittedUserInfoEntryCount
+                )
+            }
+        }
+    }
 
     init(_ error: Error) {
         var frames: [MirmirDiagnosticErrorFrame] = []
+        var omittedUserInfoEntryCount = 0
         var observed: Set<ObjectIdentifier> = []
         var current: NSError? = error as NSError
         var currentType = String(reflecting: Swift.type(of: error))
 
-        while let error = current, frames.count < Self.maximumFrames {
+        while let error = current {
             let identity = ObjectIdentifier(error)
             guard observed.insert(identity).inserted else { break }
-            frames.append(MirmirDiagnosticErrorFrame(
+            var forensicInfo = error.userInfo
+            if forensicInfo[NSLocalizedDescriptionKey] == nil {
+                forensicInfo[NSLocalizedDescriptionKey] =
+                    error.localizedDescription
+            }
+            let frame = MirmirDiagnosticErrorFrame(
                 type: currentType,
                 domain: error.domain,
                 code: error.code,
-                userInfo: Self.forensicUserInfo(error.userInfo)
-            ))
+                userInfo: Self.forensicUserInfo(forensicInfo)
+            )
+            if frames.count < Self.maximumFrames {
+                frames.append(frame)
+                omittedUserInfoEntryCount = Self.saturatingAdd(
+                    omittedUserInfoEntryCount,
+                    max(0, forensicInfo.count - frame.userInfo.count)
+                )
+            } else {
+                omittedUserInfoEntryCount = Self.saturatingAdd(
+                    omittedUserInfoEntryCount,
+                    forensicInfo.count
+                )
+            }
             current = error.userInfo[NSUnderlyingErrorKey] as? NSError
             if let current {
                 currentType = String(reflecting: Swift.type(of: current))
             }
         }
-        self.frames = frames.isEmpty
-            ? [MirmirDiagnosticErrorFrame(
-                type: "untrusted",
-                domain: "untrusted",
-                code: 0
-            )]
-            : frames
+        self.init(
+            boundingUserInfoIn: frames,
+            previouslyOmittedEntryCount: omittedUserInfoEntryCount
+        )
     }
 
     private static func forensicUserInfo(
@@ -125,34 +248,104 @@ struct MirmirDiagnosticErrorIdentity: Codable, Equatable, Sendable {
                     .sanitizedForensicString(value) else {
                 return nil
             }
-            return .init(key: key, value: rendered)
+            return try? .init(key: key, value: rendered)
         }
     }
 
     init(errors: [Error]) {
         var combined: [MirmirDiagnosticErrorFrame] = []
-        for error in errors where combined.count < Self.maximumFrames {
-            for frame in Self.init(error).frames
-            where combined.count < Self.maximumFrames {
+        var previouslyOmittedEntryCount = 0
+        for error in errors {
+            let identity = Self.init(error)
+            previouslyOmittedEntryCount = Self.saturatingAdd(
+                previouslyOmittedEntryCount,
+                identity.omittedUserInfoEntryCount
+            )
+            for frame in identity.frames {
                 guard !combined.contains(frame) else { continue }
-                combined.append(frame)
+                if combined.count < Self.maximumFrames {
+                    combined.append(frame)
+                } else {
+                    previouslyOmittedEntryCount = Self.saturatingAdd(
+                        previouslyOmittedEntryCount,
+                        frame.userInfo.count
+                    )
+                }
             }
         }
-        frames = combined.isEmpty
+        self.init(
+            boundingUserInfoIn: combined,
+            previouslyOmittedEntryCount: previouslyOmittedEntryCount
+        )
+    }
+
+    private init(
+        boundingUserInfoIn sourceFrames: [MirmirDiagnosticErrorFrame],
+        previouslyOmittedEntryCount: Int = 0
+    ) {
+        let nonemptyFrames = sourceFrames.isEmpty
             ? [MirmirDiagnosticErrorFrame(
                 type: "untrusted",
                 domain: "untrusted",
                 code: 0
             )]
-            : combined
+            : Array(sourceFrames.prefix(Self.maximumFrames))
+        var boundedFrames = nonemptyFrames.map {
+            MirmirDiagnosticErrorFrame(
+                type: $0.type,
+                domain: $0.domain,
+                code: $0.code
+            )
+        }
+        let sourceEntryCount = nonemptyFrames.reduce(0) {
+            Self.saturatingAdd($0, $1.userInfo.count)
+        }
+        var retainedEntryCount = 0
+
+        for frameIndex in nonemptyFrames.indices {
+            for entry in nonemptyFrames[frameIndex].userInfo {
+                var candidateFrames = boundedFrames
+                candidateFrames[frameIndex] = MirmirDiagnosticErrorFrame(
+                    type: nonemptyFrames[frameIndex].type,
+                    domain: nonemptyFrames[frameIndex].domain,
+                    code: nonemptyFrames[frameIndex].code,
+                    userInfo: boundedFrames[frameIndex].userInfo + [entry]
+                )
+                let candidateRetainedEntryCount = Self.saturatingAdd(
+                    retainedEntryCount,
+                    1
+                )
+                let candidateOmittedEntryCount = Self.saturatingAdd(
+                    previouslyOmittedEntryCount,
+                    max(0, sourceEntryCount - candidateRetainedEntryCount)
+                )
+                guard let encoded = try? MirmirDiagnosticCanonicalJSON.data(
+                    EncodingEnvelope(
+                        frames: candidateFrames,
+                        omittedUserInfoEntryCount: candidateOmittedEntryCount
+                    )
+                ), encoded.count <= Self.maximumEncodedBytes else {
+                    continue
+                }
+                boundedFrames = candidateFrames
+                retainedEntryCount = candidateRetainedEntryCount
+            }
+        }
+        frames = boundedFrames
+        omittedUserInfoEntryCount = Self.saturatingAdd(
+            previouslyOmittedEntryCount,
+            max(0, sourceEntryCount - retainedEntryCount)
+        )
     }
 
-    private init(validatedFrames: [MirmirDiagnosticErrorFrame]) {
-        frames = validatedFrames
+    private static func saturatingAdd(_ left: Int, _ right: Int) -> Int {
+        let (result, overflow) = left.addingReportingOverflow(right)
+        return overflow ? Int.max : result
     }
 
     enum CodingKeys: String, CodingKey {
         case frames
+        case omittedUserInfoEntryCount = "omitted_user_info_entry_count"
     }
 
     init(from decoder: Decoder) throws {
@@ -168,7 +361,30 @@ struct MirmirDiagnosticErrorIdentity: Codable, Equatable, Sendable {
                 debugDescription: "Invalid diagnostic error identity."
             )
         }
-        self.init(validatedFrames: frames)
+        let omittedUserInfoEntryCount = try container.decodeIfPresent(
+            Int.self,
+            forKey: .omittedUserInfoEntryCount
+        ) ?? 0
+        guard omittedUserInfoEntryCount >= 0 else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .omittedUserInfoEntryCount,
+                in: container,
+                debugDescription: "Invalid omitted error metadata count."
+            )
+        }
+        self.frames = frames
+        self.omittedUserInfoEntryCount = omittedUserInfoEntryCount
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(frames, forKey: .frames)
+        if omittedUserInfoEntryCount > 0 {
+            try container.encode(
+                omittedUserInfoEntryCount,
+                forKey: .omittedUserInfoEntryCount
+            )
+        }
     }
 }
 
@@ -453,31 +669,138 @@ enum MirmirDiagnosticCanonicalJSON {
 
 enum MirmirDiagnosticPrivacyValidator {
     private static let privateKeys: Set<String> = [
+        "auth",
         "bookmark",
         "bookmark_data",
+        "cookie",
         "credential",
         "credentials",
+        "passcode",
+        "passwd",
         "password",
+        "pwd",
         "secret",
         "token",
         "api_key",
         "authorization"
     ]
+    private static let privateKeyWords: Set<String> = [
+        "auth", "bookmark", "cookie", "credential", "credentials",
+        "passcode", "passwd", "password", "passphrase", "pwd",
+        "secret", "secrets", "token", "tokens",
+        "authorization"
+    ]
+    private static let privateCollapsedKeys: Set<String> = [
+        "accesskey", "apikey", "privatekey", "secretkey", "accesstoken",
+        "refreshtoken", "authtoken", "oauthtoken", "sessiontoken",
+        "idtoken", "clienttoken", "apitoken", "clientsecret"
+    ]
+    private static let privateKeyWordPairs: Set<String> = [
+        "access:key", "api:key", "private:key"
+    ]
+    private static let privateCollapsedKeySuffixes = privateKeyWords.union(
+        privateCollapsedKeys
+    )
+    private static let privateCollapsedKeyPrefixes = privateKeyWords.union(
+        privateCollapsedKeys
+    )
+    private static let safeCollapsedLeadingWords = [
+        "tokenization", "secretariat", "authentication"
+    ]
     private static let credentialExpression = Result {
         try NSRegularExpression(
-            pattern: #"(?i)(?:sk_(?:live|test|proj)|gh[pousr]_|xox[baprs]-|bearer\s+|basic\s+)[A-Za-z0-9_./+=:-]+"#
+            pattern: #"""
+            (?ix)
+            (?:
+                (?<![A-Za-z0-9])
+                (?:
+                    sk[-_](?:live|test|proj)[-_][A-Za-z0-9_./+=:-]+
+                    |sk-[A-Za-z0-9_-]{16,}
+                    |gh[pousr]_[A-Za-z0-9_]{8,}
+                    |github_pat_[A-Za-z0-9_]{8,}
+                    |xox[baprs]-[A-Za-z0-9-]+
+                    |AKIA[0-9A-Z]{16}
+                    |eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}
+                )
+                |\b(?:bearer|basic)\s+[A-Za-z0-9_./+=:-]+
+                |-----BEGIN(?:[ A-Z]+)?PRIVATE\s+KEY-----
+                |://[^\s/:@]+:[^\s/@]+@
+                |(?<![A-Za-z0-9_])["']?
+                (
+                    [A-Za-z_][A-Za-z0-9_-]*
+                    (?:
+                        (?:[\x20\t]+|[./])
+                            [A-Za-z_][A-Za-z0-9_-]*
+                        |\[[\x20\t]*["']?
+                            [A-Za-z_][A-Za-z0-9_-]*
+                            ["']?[\x20\t]*\]
+                    ){0,7}
+                )
+                ["']?\s*[:=](?!//)
+            )
+            """#
         )
     }
 
     static func permitsUserInfoKey(_ key: String) -> Bool {
         let normalized = key.lowercased()
+        let collapsed = normalized.filter { $0.isLetter || $0.isNumber }
+        let keyWords = words(in: key)
+        let wordPairs = zip(keyWords, keyWords.dropFirst()).map {
+            "\($0):\($1)"
+        }
         return !privateKeys.contains(normalized)
-            && !normalized.contains("bookmark")
-            && !normalized.contains("credential")
-            && !normalized.contains("password")
-            && !normalized.contains("secret")
-            && !normalized.contains("token")
-            && !normalized.contains("authorization")
+            && privateKeyWords.isDisjoint(with: keyWords)
+            && privateKeyWordPairs.isDisjoint(with: wordPairs)
+            && !privateCollapsedKeys.contains(collapsed)
+            && !privateCollapsedKeySuffixes.contains(where: {
+                collapsed.hasSuffix($0)
+            })
+            && !hasPrivateCollapsedPrefix(collapsed)
+    }
+
+    private static func hasPrivateCollapsedPrefix(_ key: String) -> Bool {
+        let candidate = safeCollapsedLeadingWords.first(where: {
+            key.hasPrefix($0)
+        }).map {
+            String(key.dropFirst($0.count))
+        } ?? key
+        return privateCollapsedKeyPrefixes.contains(where: {
+            candidate.hasPrefix($0)
+        })
+    }
+
+    private static func words(in key: String) -> [String] {
+        let characters = Array(key)
+        var words: [String] = []
+        var word = ""
+
+        func appendWord() {
+            guard !word.isEmpty else { return }
+            words.append(word.lowercased())
+            word.removeAll(keepingCapacity: true)
+        }
+
+        for index in characters.indices {
+            let character = characters[index]
+            guard character.isLetter || character.isNumber else {
+                appendWord()
+                continue
+            }
+            if !word.isEmpty, character.isUppercase {
+                let previous = characters[characters.index(before: index)]
+                let next = characters.index(after: index) < characters.endIndex
+                    ? characters[characters.index(after: index)]
+                    : nil
+                if previous.isLowercase || previous.isNumber
+                    || (previous.isUppercase && next?.isLowercase == true) {
+                    appendWord()
+                }
+            }
+            word.append(character)
+        }
+        appendWord()
+        return words
     }
 
     static func sanitizedForensicString(_ value: Any) -> String? {
@@ -538,9 +861,28 @@ enum MirmirDiagnosticPrivacyValidator {
 
     private static func containsCredential(_ value: String) throws -> Bool {
         let range = NSRange(value.startIndex..<value.endIndex, in: value)
-        return try credentialExpression.get().firstMatch(
-            in: value,
-            range: range
-        ) != nil
+        let expression = try credentialExpression.get()
+        var containsCredential = false
+        expression.enumerateMatches(in: value, range: range) {
+            match,
+            _,
+            stop in
+            guard let match else { return }
+            let assignmentKeyRange = match.range(at: 1)
+            guard assignmentKeyRange.location != NSNotFound,
+                  let assignmentKeyRange = Range(
+                    assignmentKeyRange,
+                    in: value
+                  ) else {
+                containsCredential = true
+                stop.pointee = true
+                return
+            }
+            if !permitsUserInfoKey(String(value[assignmentKeyRange])) {
+                containsCredential = true
+                stop.pointee = true
+            }
+        }
+        return containsCredential
     }
 }

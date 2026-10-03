@@ -1,7 +1,7 @@
 # Cache management
 
-Mirmir 1.4.2 build 11 includes the durable workflow-cache controls introduced in
-1.4.0 build 9 and repairs their confirmation and post-action readback. The cache
+Mirmir 1.4.3 build 12 carries the durable workflow-cache controls introduced in
+1.4.0 build 9 and the 1.4.2 confirmation and post-action readback repair. The cache
 contains queue state, private source snapshots, checkpoints, recovery records,
 and recognized in-progress working artifacts. Completed output movies remain at
 the destinations selected by the user and are not cache contents.
@@ -72,9 +72,10 @@ including the zero-job location gate and completed-output preservation. The
 full 1.4.2 macOS Debug result bundle reports 543 total tests: 540 passed,
 zero failed, and three expected opt-in capture tests skipped. After the fixture
 proof, owner-authorized live cleanup removed 18 finished and four unfinished
-jobs through the same view-model methods, then cleared residual cache data.
-The installed 1.4.1 app reopened the same root with zero jobs and **Choose
-Location…** enabled. It was not replaced.
+jobs through the same view-model methods, then cleared residual cache data. At
+that October 1 check, the installed 1.4.1 app reopened the same root with zero
+jobs and **Choose Location…** enabled; it was not replaced during that
+verification.
 
 The named cache-control cases are
 `testCacheControlsDeleteCompletedFailedCancelledThenPausedContainedAndUnlockLocation`,
