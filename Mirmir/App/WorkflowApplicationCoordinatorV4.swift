@@ -4827,6 +4827,24 @@ private extension WorkflowApplicationCoordinatorV4 {
         var checkpoint = initialCheckpoint
         var nextFrameIndex = initialFrameIndex
         var processingDuration = initialDuration
+        let diagnosticContext = MirmirDiagnosticExecutionContext(
+            jobID: jobID.rawValue,
+            workflowID: dispatch.claim.jobBinding.requestID.rawValue,
+            queueItemID: jobID.rawValue
+        )
+        let diagnosticStartedUptime = DispatchTime.now().uptimeNanoseconds
+        var lastDiagnosticUptime: UInt64?
+        var sourceAuthenticationNanoseconds: UInt64 = 0
+        var segmentProcessingNanoseconds: UInt64 = 0
+        var checkpointCommitNanoseconds: UInt64 = 0
+        MirmirDiagnosticScope.recorder.recordJobStarted(
+            executionContext: diagnosticContext,
+            request: activated.request,
+            source: source,
+            actualBackendID: activated.preparedPlanBinding.resolvedBackendID,
+            maximumInputFramesPerBoundary: maximumInputFramesPerBoundary,
+            startingInputFrameIndex: initialFrameIndex
+        )
         if checkpointIsTerminal(checkpoint) {
             guard let checkpoint else {
                 throw WorkflowApplicationControllerErrorV4
@@ -4868,10 +4886,12 @@ private extension WorkflowApplicationCoordinatorV4 {
             } else {
                 authoritativeStartTime = nil
             }
-            // Reopen and authenticate the complete immutable source before
-            // every segment. Auxiliary-track finalization receives this same
-            // queue-owned URL through `activated.request`.
+            // Reopen and fence the queue-owned source before every segment.
+            // Auxiliary finalization receives this same private snapshot.
+            let sourceAuthenticationStarted = DispatchTime.now().uptimeNanoseconds
             try activated.revalidateAll()
+            sourceAuthenticationNanoseconds += DispatchTime.now().uptimeNanoseconds
+                - sourceAuthenticationStarted
             guard let cancellation = active?.cancellation else {
                 throw WorkflowApplicationControllerErrorV4.noActiveJob
             }
@@ -4886,6 +4906,7 @@ private extension WorkflowApplicationCoordinatorV4 {
                 overwriteExistingFile: false
             )
             let segment: WorkflowApplicationProcessedSegmentV4
+            let segmentProcessingStarted = DispatchTime.now().uptimeNanoseconds
             do {
                 segment = try await engine.processPrepared(
                     jobID: jobID,
@@ -4901,6 +4922,8 @@ private extension WorkflowApplicationCoordinatorV4 {
                 try? await queue.removeApplicationWorkingArtifact(workingURL)
                 throw error
             }
+            segmentProcessingNanoseconds += DispatchTime.now().uptimeNanoseconds
+                - segmentProcessingStarted
             processingDuration += segment.segment.processingDurationSeconds
             try throwIfActiveControlFailed()
             if active?.pauseRequested == true,
@@ -4915,6 +4938,7 @@ private extension WorkflowApplicationCoordinatorV4 {
                 active?.lifecycle = .pausing
                 await emitSnapshot(to: snapshot)
             }
+            let checkpointCommitStarted = DispatchTime.now().uptimeNanoseconds
             let committed = try await queue
                 .commitApplicationCheckpointBoundary(
                     dispatch: dispatch,
@@ -4933,30 +4957,37 @@ private extension WorkflowApplicationCoordinatorV4 {
             nextFrameIndex = Int(
                 segment.segment.lastCompletedInputOrdinal + 1
             )
-            MirmirDiagnosticScope.recorder.recordCheckpoint(
-                subsystem: "workflow_application_coordinator",
-                operation: "continue_processing",
-                executionContext: .init(
-                    jobID: jobID.rawValue,
-                    workflowID: dispatch.claim.jobBinding.requestID.rawValue,
-                    queueItemID: jobID.rawValue
-                ),
-                durable: .init(
-                    nextInputSampleIndex: Int64(nextFrameIndex),
-                    segmentOrdinal: Int(clamping:
-                        committed.checkpoint.body.ordinal
+            let diagnosticUptime = DispatchTime.now().uptimeNanoseconds
+            checkpointCommitNanoseconds += diagnosticUptime - checkpointCommitStarted
+            if segment.segment.terminal || active?.lifecycle == .pausing
+                || (lastDiagnosticUptime.map({
+                    diagnosticUptime >= $0
+                        && diagnosticUptime - $0 >= 60_000_000_000
+                }) ?? true) {
+                lastDiagnosticUptime = diagnosticUptime
+                MirmirDiagnosticScope.recorder.recordProgress(
+                    executionContext: diagnosticContext,
+                    durable: .init(
+                        nextInputSampleIndex: Int64(nextFrameIndex),
+                        segmentOrdinal: Int(clamping:
+                            committed.checkpoint.body.ordinal
+                        ),
+                        segmentCount: committed.checkpoint.body.segments.count,
+                        isComplete: checkpointIsTerminal(
+                            committed.checkpoint
+                        ),
+                        checkpointSchema: "workflow-checkpoint-v4-v3",
+                        checkpointURL: nil
                     ),
-                    segmentCount: committed.checkpoint.body.segments.count,
-                    isComplete: checkpointIsTerminal(
-                        committed.checkpoint
-                    ),
-                    checkpointSchema: "workflow-checkpoint-v4-v3",
-                    publishAttempted: true,
-                    atomicPublicationFailed: false,
-                    checkpointURL: nil
-                ),
-                destinationURL: activated.request.outputURL
-            )
+                    elapsedNanoseconds: diagnosticUptime
+                        - diagnosticStartedUptime,
+                    processingDurationSeconds: processingDuration - initialDuration,
+                    completedInputFrames: nextFrameIndex - initialFrameIndex,
+                    sourceAuthenticationNanoseconds: sourceAuthenticationNanoseconds,
+                    segmentProcessingNanoseconds: segmentProcessingNanoseconds,
+                    checkpointCommitNanoseconds: checkpointCommitNanoseconds
+                )
+            }
 
             if active?.lifecycle == .pausing {
                 _ = try await queue.completeApplicationPause(

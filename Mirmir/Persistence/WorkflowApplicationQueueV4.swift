@@ -3337,7 +3337,11 @@ private extension WorkflowApplicationQueueV4 {
                     jobID: jobID,
                     path: temporaryURL.path
                 )
-                hasher.update(data: Data(buffer[0..<count]))
+                buffer.withUnsafeBytes {
+                    hasher.update(
+                        bufferPointer: UnsafeRawBufferPointer(rebasing: $0[..<count])
+                    )
+                }
                 byteCount = nextCount
             }
 
@@ -3516,7 +3520,11 @@ private extension WorkflowApplicationQueueV4 {
                 throw WorkflowApplicationQueueErrorV4
                     .sourceSnapshotInvalid(jobID)
             }
-            hasher.update(data: Data(buffer[0..<count]))
+            buffer.withUnsafeBytes {
+                hasher.update(
+                    bufferPointer: UnsafeRawBufferPointer(rebasing: $0[..<count])
+                )
+            }
             observedByteCount = next
         }
         var after = stat()

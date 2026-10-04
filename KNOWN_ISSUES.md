@@ -1,8 +1,35 @@
 # Mirmir accepted limitations and follow-up work
 
-Updated for Mirmir 1.4.5 build 14 on October 3, 2026. These entries distinguish
+Updated for Mirmir 1.5.0 build 15 on October 4, 2026. These entries distinguish
 source repair from installed-product and full-media qualification. The
-installed `/Applications/Mirmir.app` remains 1.4.2 build 11.
+installed `/Applications/Mirmir.app` reports 1.4.5 build 14 and has not been
+replaced by this source update.
+
+## PERF-001 — Diagnostic overhead during long deterministic jobs
+
+**Status:** Source repair and isolated measurements complete; full-length
+throughput verification open
+
+The previous persistent diagnostic append reread, decoded, canonicalized, and
+privacy-validated every retained record. The broader credential checks added in
+1.4.3 increased that existing history-replay cost. An optimized isolated
+benchmark with 7,999 retained records measured 5.235 seconds per durable append
+in the released source and 5.231 milliseconds with the 1.5.0 history cache.
+The resulting journals were byte-identical. This is an append measurement,
+not a completed-job speed result.
+
+Version 1.5.0 retains privacy validation, cross-process locking, journal-change
+detection, and corrupt-tail recovery. It records progress and active-job
+process samples at minute intervals, keeps detailed failures, and omits
+duplicate successful checkpoint notices. It also restores the scaler's cheaper
+NV12/P010 validation without changing visible output bytes.
+
+Full-source SHA-256 authentication still runs at every deterministic segment.
+Removing the intermediate hash-buffer copy does not remove that full read.
+The original one-hour throughput and the complete cause of the reported
+18-hour run have not been established by a matched full-length rerun. See
+[`docs/v4/CURRENT_QUALIFICATION_STATUS.md`](docs/v4/CURRENT_QUALIFICATION_STATUS.md)
+for the measured scope and current verification results.
 
 ## CACHE-001 — Cache confirmations in installed 1.4.1
 
@@ -18,12 +45,12 @@ contained, failed, and cancelled jobs, verified owned files were removed, and
 observed the empty-queue location gate become available. The owner then
 authorized clearing the live root through those same methods. The installed
 1.4.1 app reopened it with zero jobs and **Choose Location…** enabled. The
-current installed `/Applications/Mirmir.app` reports 1.4.2 build 11, but its
+current installed `/Applications/Mirmir.app` reports 1.4.5 build 14, but its
 cache confirmation behavior has not been rechecked in this investigation.
 
 ## DV4-057 — Short nominal-cadence video terminal boundary
 
-**Status:** Source repair, named regression, and current-candidate short-source
+**Status:** Source repair, named regression, and historical 1.4.3 short-source
 workflow complete; installed-product and extended large-media verification open
 
 **Priority:** Corrective defect
@@ -39,8 +66,8 @@ The shared clock policy now returns the exact `123392/12288` boundary before it
 considers the distinct container duration. An admitted boundary is consulted
 only when the exact rational is incommensurate with the required clock, and it
 must still be the immediate floor or ceiling tick. The named asset regression
-derives the frame count and both boundaries from the source. The installed
-1.4.2 build 11 does not contain the new fix.
+derives the frame count and both boundaries from the source. The current
+installed build's short-source completion has not been rechecked here.
 
 The durable coordinator separately inventories 241 encoded primary-video
 samples and requires the terminal decoded ordinal to account for all 241 before
@@ -48,15 +75,15 @@ finalization. The named terminal-completeness regressions reject a 240-of-241
 terminal decode and verify that finalization is not called. This completeness
 check does not change the shared clock-admission rule.
 
-The named current-source asset regression passed 1 of 1. The production
+The named 1.4.3 asset regression passed 1 of 1. The production
 durable-workflow run on the reported source and its independent postvalidation
 passed 66 of 66 checks, with 241 video frames in the source and output. This
-short-source result does not complete DV4-002 or verify the installed 1.4.2
-application.
+historical short-source result does not complete DV4-002 or qualify the current
+source or installed application.
 
 ## AUD-001 — Singleton audio selection group
 
-**Status:** Source repair, focused regression, and current-candidate
+**Status:** Source repair, focused regression, and historical 1.4.3
 short-source workflow complete; installed-product verification open
 
 **Priority:** Corrective defect
@@ -76,8 +103,8 @@ that track as its default selection.
 
 The same production workflow and independent postvalidation preserved all 470
 source audio packets in the output and matched the one-member audible selection
-group and default track. The installed 1.4.2 application does not contain this
-repair.
+group and default track. That historical result does not verify audio
+preservation in the current installed application.
 
 ## DV4-001 — Deterministic v4 error 16 on legal NTSC timing
 

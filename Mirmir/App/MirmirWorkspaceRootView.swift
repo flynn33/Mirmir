@@ -43,7 +43,11 @@ struct MirmirWorkspaceRootView: View {
             sampleProvider: sampleProvider,
             diagnosticRecorder: MirmirDiagnosticRecorder(
                 store: viewModel.diagnosticStore
-            )
+            ),
+            isWorkActive: { [weak viewModel] in
+                viewModel?.isProcessing == true
+                    || viewModel?.isWorkflowProcessing == true
+            }
         )
     }
 

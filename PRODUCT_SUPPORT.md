@@ -1,8 +1,8 @@
 # Mirmir product support
 
-Current source identity: **Mirmir 1.4.5 (14)**. The installed
-`/Applications/Mirmir.app` reports 1.4.2 (11) and does not contain the 1.4.3
-timing, diagnostics, or singleton-audio repairs.
+Current source identity: **Mirmir 1.5.0 (15)**. On October 4, 2026, the installed
+`/Applications/Mirmir.app` reports 1.4.5 (14). It has not been replaced by this
+source update.
 
 Mirmir is a sandboxed macOS 15.4-or-later application. It reads local media
 through security-scoped bookmarks, builds an explicit whole-asset plan, and
@@ -58,8 +58,8 @@ production durable workflow. Independent postvalidation passed 66 of 66 checks
 and found 241 video frames and 470 audio packets in both the source and output.
 The output is
 `/Users/jimdaley/Desktop/Mirmir-1.4.3-Build12-Evidence/83-final-real-source-production-1024-green/durable-workflow-run/durable-workflow-output.mov`.
-This current-candidate short-source result does not complete DV4-002 or verify
-the unchanged installed 1.4.2 application.
+This historical 1.4.3 short-source result does not complete DV4-002 or qualify
+the current 1.5.0 source or installed 1.4.5 application.
 
 VideoToolbox methods fail closed when the exact source, target, or scale
 geometry is unsupported. Automatic pre-scale and post-scale geometry
@@ -117,6 +117,36 @@ in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
 - CPU and Metal consume one fixed-point semantic contract. Release evidence
   requires byte equality for visible output planes across NV12, P010, arbitrary
   geometry, temporal, interlaced, and alpha conformance cases.
+
+## Long-running deterministic jobs and diagnostics
+
+Version 1.5.0 reuses validated diagnostic history while the journal's file
+revision is unchanged. A changed journal or uncertain write requires a fresh
+validated load. New records still undergo privacy validation and durable
+append under the cross-process lock; existing history and export formats remain
+compatible.
+
+Successful progress is recorded at the first committed boundary, at minute
+intervals, and when processing pauses or completes. Duplicate successful
+checkpoint notices are omitted. Job start/resume records carry source and
+request details; progress records carry elapsed time, frame rate, and cumulative
+source-authentication, segment-processing, and checkpoint-commit time. Errors
+retain detailed diagnostics. The live dashboard still refreshes each second,
+while persistent process samples are collected at minute intervals during
+active work. CPU percentages now convert Mach counters to time before computing
+the rate.
+
+The deterministic scaler skips redundant representability checks for 8-bit
+NV12 and uses a visible-row alignment scan for P010. Invalid P010 input still
+reports the first malformed component before any destination bytes change.
+CPU and Metal retain the same pixel contract.
+
+Each deterministic segment still authenticates the entire private source
+snapshot with SHA-256. Version 1.5.0 removes an intermediate copy from each hash
+buffer; it does not eliminate the full-source read. The isolated append and
+scaler measurements are recorded in
+[`docs/v4/CURRENT_QUALIFICATION_STATUS.md`](docs/v4/CURRENT_QUALIFICATION_STATUS.md).
+A completed full-length job is still required to establish end-to-end speed.
 
 ## Media and track preservation
 
@@ -235,14 +265,17 @@ in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
   identifiers 053–057 for numeric, exact-representation,
   rational-denominator, admitted-boundary, and nonadjacent failures. Terminal
   source-sample completeness is checked separately before finalization.
-- The installed `/Applications/Mirmir.app` reports 1.4.2 build 11. Its cache
-  confirmation behavior has not been rechecked in this investigation, and it
-  does not contain the 1.4.3 timing, diagnostics, or singleton-audio repairs. The
-  DockCase app remains 1.3.4 build 8. The historical Ferris job was not resumed;
+- The installed `/Applications/Mirmir.app` reports 1.4.5 build 14 as checked on
+  October 4. This source update has not replaced it or rechecked its cache
+  confirmation behavior. The historical Ferris job was not resumed;
   its cached checkpoint, segments, and recovery lock were removed during the
   owner-authorized October 1 cache clear.
 
 ## Qualification boundary
+
+Version 1.5.0 build-15 qualification results are recorded in
+[`docs/v4/CURRENT_QUALIFICATION_STATUS.md`](docs/v4/CURRENT_QUALIFICATION_STATUS.md).
+The earlier results below retain their original version and evidence scope.
 
 The historical 1.4.3 build-12 named site-057 regression passed 1 of 1. Its full
 Debug scheme completed 590 tests: 586 passed, zero failed, and four explicit

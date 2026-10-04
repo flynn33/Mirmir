@@ -72,7 +72,7 @@ final class MirmirTests: XCTestCase {
     }
 
     @MainActor
-    func testWorkspaceTelemetryUsesTheViewModelDiagnosticStore()
+    func testIdleWorkspaceTelemetryUpdatesTheDashboardWithoutJournaling()
         async throws {
         let store = MirmirDiagnosticStore(inMemoryWith: .production)
         let viewModel = MirmirViewModel(
@@ -97,7 +97,8 @@ final class MirmirTests: XCTestCase {
         telemetry.refresh()
         let snapshot = try await store.snapshot()
 
-        XCTAssertTrue(snapshot.records.contains {
+        XCTAssertEqual(telemetry.snapshot?.physicalFootprintBytes, 8_192)
+        XCTAssertFalse(snapshot.records.contains {
             $0.event.operation.rawValue == "sample_process"
                 && $0.event.code.rawValue == "process_telemetry_sample"
         })
@@ -461,6 +462,89 @@ final class MirmirTests: XCTestCase {
 }
 
 final class MirmirDashboardTelemetryTests: XCTestCase {
+    func testPerformanceFieldsKeepMeasuredPhasesSeparateFromEngineDuration()
+        throws {
+        let fields = try MirmirDiagnosticRecorder.performanceFields(
+            elapsedNanoseconds: 60_000_000_000,
+            processingDurationSeconds: 10.25,
+            completedInputFrames: 120,
+            sourceAuthenticationNanoseconds: 7_000_000_000,
+            segmentProcessingNanoseconds: 11_000_000_000,
+            checkpointCommitNanoseconds: 3_000_000_000
+        )
+        let values = Dictionary(uniqueKeysWithValues: fields.map {
+            ($0.key.rawValue, $0.value.displayValue)
+        })
+        XCTAssertEqual(values["run_elapsed_ms"], "60000")
+        XCTAssertEqual(values["processing_duration_ms"], "10250")
+        XCTAssertEqual(values["source_authentication_ms"], "7000")
+        XCTAssertEqual(values["segment_processing_ms"], "11000")
+        XCTAssertEqual(values["checkpoint_commit_ms"], "3000")
+        XCTAssertEqual(values["frames_per_second_hundredths"], "200")
+    }
+
+    func testMachResourceUsageTicksConvertBeforeCPUCalculation() throws {
+        let timebase = MirmirMachTimebase(numerator: 125, denominator: 3)
+        let previous = counters(timestamp: 12_000_000)
+        let current = counters(
+            timestamp: 24_000_000,
+            user: timebase.nanoseconds(forMachTicks: 12_000_000)
+        )
+
+        XCTAssertEqual(current.userNanoseconds, 500_000_000)
+        let snapshot = MirmirTelemetryCalculator.snapshot(
+            previous: previous, current: current, timebase: timebase
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(snapshot.processCPUPercent), 100,
+            accuracy: 0.000_001
+        )
+    }
+
+    @MainActor
+    func testTelemetryJournalSamplesOnlyActiveWorkAtMinuteIntervals()
+        async throws {
+        let store = MirmirDiagnosticStore(inMemoryWith: .production)
+        let samples = MirmirTelemetryTestSequence()
+        var workActive = false
+        let telemetry = MirmirDashboardTelemetry(
+            sampleProvider: { samples.next() },
+            timebase: MirmirMachTimebase(numerator: 1, denominator: 1),
+            diagnosticRecorder: MirmirDiagnosticRecorder(store: store),
+            isWorkActive: { workActive },
+            diagnosticUptime: { samples.uptime() }
+        )
+
+        telemetry.refresh()
+        workActive = true
+        telemetry.refresh()
+        for _ in 0..<59 { telemetry.refresh() }
+        var records = try await store.snapshot().records.filter {
+            $0.event.code.rawValue == "process_telemetry_sample"
+        }
+        XCTAssertEqual(records.count, 1)
+        XCTAssertTrue(records[0].event.fields.contains {
+            $0.key.rawValue == "process_cpu_percent_hundredths"
+        })
+        XCTAssertFalse(records[0].event.fields.contains {
+            $0.key.rawValue == "metal_device_name"
+        })
+
+        telemetry.refresh()
+        workActive = false
+        for _ in 0..<70 { telemetry.refresh() }
+        records = try await store.snapshot().records.filter {
+            $0.event.code.rawValue == "process_telemetry_sample"
+        }
+        XCTAssertEqual(records.count, 2)
+        workActive = true
+        telemetry.refresh()
+        records = try await store.snapshot().records.filter {
+            $0.event.code.rawValue == "process_telemetry_sample"
+        }
+        XCTAssertEqual(records.count, 3)
+    }
+
     func testFirstSamplePublishesMemoryAndCumulativeIOWithoutRates() {
         let current = counters(
             timestamp: 1_000,
@@ -604,6 +688,30 @@ final class MirmirDashboardTelemetryTests: XCTestCase {
             diskReadBytes: read,
             diskWrittenBytes: written
         )
+    }
+}
+
+private final class MirmirTelemetryTestSequence: @unchecked Sendable {
+    private let lock = NSLock()
+    private var sampleOrdinal: UInt64 = 0
+
+    func next() -> MirmirProcessTelemetryCounters {
+        lock.withLock {
+            sampleOrdinal += 1
+            return MirmirProcessTelemetryCounters(
+                timestampTicks: sampleOrdinal * 1_000_000_000,
+                userNanoseconds: sampleOrdinal * 250_000_000,
+                systemNanoseconds: 0,
+                residentBytes: 4_096,
+                physicalFootprintBytes: 8_192,
+                diskReadBytes: sampleOrdinal * 100,
+                diskWrittenBytes: sampleOrdinal * 200
+            )
+        }
+    }
+
+    func uptime() -> UInt64 {
+        lock.withLock { sampleOrdinal * 1_000_000_000 }
     }
 }
 

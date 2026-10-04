@@ -7,6 +7,39 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-04
+
+### Improved
+
+- Reuse validated diagnostic journal history across unchanged appends while
+  retaining revision checks, cross-process locking, privacy validation, and
+  corrupt-tail recovery. Drop duplicate checkpoint successes and collect
+  active-job telemetry/progress at minute intervals with detailed failures.
+- Correct process CPU measurements by converting Mach resource-usage counters
+  before calculating percentages.
+- Restore the deterministic scaler's cheaper NV12/P010 input validation with
+  CPU/Metal parity and invalid-input coverage. Hash source buffers directly
+  without per-chunk copies; full-source boundary authentication remains.
+
+### Build and verification
+
+- Align `VERSION`, `BUILD_NUMBER`, app/test Debug/Release settings, current
+  documentation, and the roadmap tracker to 1.5.0 build 15. Apply Xcode 27's
+  recommended project settings and omit unused AppIntents metadata tasks.
+- Clean Debug tests passed 594, with zero failures and four opt-in skips.
+  Clean universal Release build passed for Apple Silicon and Intel. Both build
+  logs contain zero errors and zero warnings; Xcode reports **No Issues**.
+  Version tests passed 9 of 9 and tracker tests passed 5 of 5.
+- Isolated diagnostic appends used 1.216 milliseconds of CPU versus 5.227
+  seconds with 7,999 retained records, with byte-identical resulting journals.
+  The final paired Metal scaler median fell from 15.761 to 12.563 milliseconds
+  at 1920×816 → 2880×1224, with equal CPU/Metal and before/after output bytes.
+  These measurements do not establish full-movie completion time.
+- Historical benchmark replay remains 12 of 13, with a source-manifest
+  mismatch. The packaged P06 source-provenance gate also fails in both the
+  preceding 1.4.5 tree and this tree. Those qualification receipts and assets
+  were not resealed; see `docs/v4/CURRENT_QUALIFICATION_STATUS.md`.
+
 ## [1.4.5] - 2026-10-03
 
 ### Fixed

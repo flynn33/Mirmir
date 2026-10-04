@@ -3,15 +3,18 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-Version 1.4.4 build 13 restored the specified unrelated product changes and
-matching tests/benchmarks to the 1.4.2 baseline while retaining the clock,
-diagnostics, and singleton AAC repairs. That pass left mixed code files unchanged.
-Version 1.4.5 build 14 removes the obsolete split-position test that referenced
-the restored view’s private helper. Diagnostic tests remain unchanged. The
-unsigned test build and named site-057 regression pass. See
-`docs/v4/CURRENT_QUALIFICATION_STATUS.md` for the current checks.
+Version **1.5.0 build 15** reduces diagnostic CPU work by reusing validated
+journal history, omitting duplicate checkpoint successes, and collecting
+active-job telemetry and progress at minute intervals. Detailed failures remain
+available. Progress summaries separate source authentication, segment
+processing, and checkpoint time. Process CPU percentages now use the correct
+Mach time units. The deterministic scaler restores cheaper NV12/P010 input
+validation, and source hashing avoids per-chunk buffer copies while retaining
+full authentication at every segment boundary. See
+[`docs/v4/CURRENT_QUALIFICATION_STATUS.md`](docs/v4/CURRENT_QUALIFICATION_STATUS.md)
+for verification and remaining qualification work.
 
-Version 1.4.5 build 14 carries the deterministic ASH P06 CPU and Metal engine
+Version 1.5.0 build 15 carries the deterministic ASH P06 CPU and Metal engine
 beside the supported Apple scaling frameworks, preserves the completed
 simulator-only M7 candidate selection, and adds qualified source admission,
 VideoToolbox capability checks, multi-audio preservation, and deterministic
@@ -69,7 +72,7 @@ deliberate operator actions.
   bounded process telemetry. Diagnostics exports the journal as JSON or
   Markdown and the current process's available unified logs as JSON.
 
-Version 1.4.5 keeps these product boundaries explicit:
+Version 1.5.0 keeps these product boundaries explicit:
 
 - Deterministic resource allocation is not a first-release target. It is
   excluded from version 1.4.0 rather than treated as unfinished release work.
@@ -100,7 +103,8 @@ See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.
 See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) for accepted first-release limitations
 and post-first-release qualification and enhancement work.
-See [`CHANGELOG.md`](CHANGELOG.md) for the 1.4.3 timing, diagnostics, and
+See [`CHANGELOG.md`](CHANGELOG.md) for the 1.5.0 diagnostic and engine efficiency
+changes, the 1.4.3 timing, diagnostics, and
 singleton-audio corrections, the 1.4.2 cache-control correction,
 the 1.4.1 timing correction, the 1.4.0
 cache-management release, the
@@ -112,6 +116,14 @@ location changes, unavailable-root recovery, and deletion safety.
 The [Mirmir Wiki](https://github.com/flynn33/Mirmir/wiki) provides the complete
 product guide, architecture reference, ASH engine documentation, diagrams,
 testing procedures, and troubleshooting material.
+
+Version 1.5.0 build-15 verification on October 4, 2026:
+
+- Clean Debug testing: 594 passed, zero failed, four opt-in skips.
+- Clean universal Release build: Apple Silicon and Intel, with zero errors and
+  zero warnings in both build logs. Xcode's Issue Navigator shows **No Issues**.
+- Version tests: 9 of 9; tracker tests: 5 of 5. Historical benchmark and P06
+  provenance qualification gaps remain documented in the current status page.
 
 Historical 1.4.3 build-12 source and build qualification on October 3, 2026:
 
@@ -125,7 +137,7 @@ Historical 1.4.3 build-12 source and build qualification on October 3, 2026:
   and unified-log JSON through the visible Diagnostics controls.
 
 These historical results apply to 1.4.3. They do not
-complete DV4-002 or verify the unchanged installed 1.4.2 application.
+complete DV4-002 or verify the then-installed 1.4.2 application.
 Application archiving and distribution are outside this qualification.
 
 The historical local Apple Distribution archive for 1.4.2 build 11 was prepared
@@ -263,6 +275,14 @@ records include raw local source, output, and checkpoint paths so an exported
 record can identify a failing media and persistence boundary without guessing.
 Credential-shaped values, authorization data, tokens, passwords, secrets, and
 security bookmarks remain excluded.
+
+Routine diagnostics keep one runtime identity and one job start/resume
+configuration, minute-level active processing/resource summaries, lifecycle
+events, and detailed failures. Progress summaries split source authentication,
+segment processing, and checkpoint time. The journal reuses validated history
+while its descriptor-bound revision remains unchanged. See
+[`docs/DEVELOPMENT_DIAGNOSTICS.md`](docs/DEVELOPMENT_DIAGNOSTICS.md) for the
+collection, locking, and verification contract.
 
 Processing failures record the requested and actual backend, fallback status,
 source/requested/effective geometry, pixel and color/HDR state, exact timing

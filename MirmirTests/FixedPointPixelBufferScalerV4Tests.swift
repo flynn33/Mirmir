@@ -543,6 +543,215 @@ final class FixedPointPixelBufferScalerV4Tests: XCTestCase {
         )
     }
 
+    func testUnalignedPlanarP010SourcePreservesOutputAndFailsBeforeMutation()
+        async throws {
+        let storage = PixelStorageV4.p010VideoRange10Bit
+        let fixture = try UnalignedPlanarP010Fixture(width: 4, height: 4)
+        let unalignedSource = fixture.pixelBuffer
+        let lockStatus = CVPixelBufferLockBaseAddress(
+            unalignedSource,
+            .readOnly
+        )
+        guard lockStatus == kCVReturnSuccess else {
+            return XCTFail("Unable to lock unaligned P010 fixture: \(lockStatus)")
+        }
+        do {
+            defer {
+                CVPixelBufferUnlockBaseAddress(unalignedSource, .readOnly)
+            }
+            for planeIndex in 0..<CVPixelBufferGetPlaneCount(unalignedSource) {
+                let baseAddress = try XCTUnwrap(
+                    CVPixelBufferGetBaseAddressOfPlane(
+                        unalignedSource,
+                        planeIndex
+                    )
+                )
+                XCTAssertEqual(UInt(bitPattern: baseAddress) & 1, 1)
+            }
+        }
+        try fill(unalignedSource, storage: storage)
+
+        let alignedSource = try makeBuffer(storage: storage, width: 4, height: 4)
+        try fill(alignedSource, storage: storage)
+        let alignedDestination = try makeBuffer(
+            storage: storage,
+            width: 8,
+            height: 8
+        )
+        let unalignedDestination = try makeBuffer(
+            storage: storage,
+            width: 8,
+            height: 8
+        )
+        let scaler = try FixedPointPixelBufferScalerV4(
+            backend: .cpu,
+            storage: storage,
+            sourceWidth: 4,
+            sourceHeight: 4,
+            targetWidth: 8,
+            targetHeight: 8
+        )
+        try await scaler.process(
+            source: alignedSource,
+            destination: alignedDestination
+        )
+        try await scaler.process(
+            source: unalignedSource,
+            destination: unalignedDestination
+        )
+        XCTAssertEqual(
+            try visibleSignalCodes(unalignedDestination, storage: storage),
+            try visibleSignalCodes(alignedDestination, storage: storage)
+        )
+
+        try mutateFirstStoredCode(unalignedSource) { $0 | 1 }
+        try fillAllPlaneBytes(unalignedDestination, value: 0xA5)
+        let destinationBefore = try allPlaneBytes(unalignedDestination)
+        await XCTAssertThrowsErrorAsync(
+            try await scaler.process(
+                source: unalignedSource,
+                destination: unalignedDestination
+            )
+        ) { error in
+            guard case PixelLayoutV4Error.invalidStoredCodeAlignment = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(
+            try allPlaneBytes(unalignedDestination),
+            destinationBefore
+        )
+        XCTAssertEqual(scaler.hotPathDiagnostics().completedFrameCount, 2)
+    }
+
+    func testP010ValidationIgnoresPaddingAndRejectsEveryLowBitInLastChromaCode()
+        async throws {
+        var backends = [FixedPointExecutionBackendV4.cpu]
+        if MTLCreateSystemDefaultDevice() != nil {
+            backends.append(.metal)
+        }
+        for storage in [
+            PixelStorageV4.p010VideoRange10Bit,
+            .p010FullRange10Bit
+        ] {
+            var expectedCodes: [UInt16]?
+            for backend in backends {
+                let source = try makeBuffer(
+                    storage: storage,
+                    width: 7,
+                    height: 5
+                )
+                let destination = try makeBuffer(
+                    storage: storage,
+                    width: 13,
+                    height: 9
+                )
+                // Nonzero low bits in padding must never enter validation.
+                try fillAllPlaneBytes(source, value: 0xFF)
+                try fill(source, storage: storage)
+                try assertPaddingBytes(
+                    source,
+                    storage: storage,
+                    expected: 0xFF,
+                    backend: backend
+                )
+                let sourceBefore = try allPlaneBytes(source)
+                let scaler = try FixedPointPixelBufferScalerV4(
+                    backend: backend,
+                    storage: storage,
+                    sourceWidth: 7,
+                    sourceHeight: 5,
+                    targetWidth: 13,
+                    targetHeight: 9
+                )
+                try await scaler.process(
+                    source: source,
+                    destination: destination
+                )
+                let codes = try visibleSignalCodes(
+                    destination,
+                    storage: storage
+                )
+                if let expectedCodes {
+                    XCTAssertEqual(codes, expectedCodes)
+                } else {
+                    expectedCodes = codes
+                }
+                XCTAssertEqual(try allPlaneBytes(source), sourceBefore)
+
+                let plane = 1
+                let lastRow = CVPixelBufferGetHeightOfPlane(source, plane) - 1
+                let lastComponent = CVPixelBufferGetWidthOfPlane(source, plane)
+                    * 2 - 1
+                for lowBit in 0..<6 {
+                    try fill(source, storage: storage)
+                    XCTAssertEqual(
+                        CVPixelBufferLockBaseAddress(source, []),
+                        kCVReturnSuccess
+                    )
+                    let malformed: UInt16
+                    do {
+                        defer { CVPixelBufferUnlockBaseAddress(source, []) }
+                        let base = try XCTUnwrap(
+                            CVPixelBufferGetBaseAddressOfPlane(source, plane)
+                        ).assumingMemoryBound(to: UInt8.self)
+                        let offset = lastRow
+                            * CVPixelBufferGetBytesPerRowOfPlane(source, plane)
+                            + lastComponent * 2
+                        malformed = UInt16(base[offset])
+                            | (UInt16(base[offset + 1]) << 8)
+                            | (UInt16(1) << UInt16(lowBit))
+                        base[offset] = UInt8(truncatingIfNeeded: malformed)
+                        base[offset + 1] = UInt8(
+                            truncatingIfNeeded: malformed >> 8
+                        )
+                    }
+                    let malformedSourceBefore = try allPlaneBytes(source)
+                    try fillAllPlaneBytes(destination, value: 0xA5)
+                    let destinationBefore = try allPlaneBytes(destination)
+                    await XCTAssertThrowsErrorAsync(
+                        try await scaler.process(
+                            source: source,
+                            destination: destination
+                        )
+                    ) { error in
+                        XCTAssertEqual(
+                            error as? PixelLayoutV4Error,
+                            .invalidStoredCodeAlignment(
+                                plane: plane,
+                                component: 1,
+                                value: malformed,
+                                requiredZeroLowBits: 6
+                            )
+                        )
+                    }
+                    XCTAssertEqual(
+                        try allPlaneBytes(destination),
+                        destinationBefore
+                    )
+                    XCTAssertEqual(
+                        try allPlaneBytes(source),
+                        malformedSourceBefore
+                    )
+                    XCTAssertEqual(
+                        scaler.hotPathDiagnostics().completedFrameCount,
+                        1
+                    )
+                }
+                try fill(source, storage: storage)
+                try await scaler.process(
+                    source: source,
+                    destination: destination
+                )
+                XCTAssertEqual(
+                    try visibleSignalCodes(destination, storage: storage),
+                    codes
+                )
+                XCTAssertEqual(scaler.hotPathDiagnostics().completedFrameCount, 2)
+            }
+        }
+    }
+
     func testDirectCPUAndMetalWritesLeaveEveryPaddingByteUntouched()
         async throws {
         var backends = [FixedPointExecutionBackendV4.cpu]
@@ -870,6 +1079,88 @@ final class FixedPointPixelBufferScalerV4Tests: XCTestCase {
         }
         XCTAssertTrue(observedPadding, "fixture must exercise padded rows")
     }
+}
+
+private final class UnalignedPlanarP010Fixture {
+    let pixelBuffer: CVPixelBuffer
+
+    private let storage: UnalignedPlanarP010Storage
+
+    init(width: Int, height: Int) throws {
+        let lumaRowBytes = width * 2
+        let chromaWidth = (width + 1) / 2
+        let chromaHeight = (height + 1) / 2
+        let chromaRowBytes = chromaWidth * 4
+        let lumaByteCount = lumaRowBytes * height
+        let chromaOffset = lumaByteCount + 3
+        let byteCount = chromaOffset + chromaRowBytes * chromaHeight
+        let storage = try UnalignedPlanarP010Storage(byteCount: byteCount)
+        self.storage = storage
+
+        var planeBaseAddresses: [UnsafeMutableRawPointer?] = [
+            storage.baseAddress.advanced(by: 1),
+            storage.baseAddress.advanced(by: chromaOffset)
+        ]
+        var planeWidths = [width, chromaWidth]
+        var planeHeights = [height, chromaHeight]
+        var planeBytesPerRow = [lumaRowBytes, chromaRowBytes]
+        var pixelBuffer: CVPixelBuffer?
+        let retainedStorage = Unmanaged.passRetained(storage)
+        let status = CVPixelBufferCreateWithPlanarBytes(
+            kCFAllocatorDefault,
+            width,
+            height,
+            PixelStorageV4.p010VideoRange10Bit.pixelFormat,
+            nil,
+            0,
+            planeBaseAddresses.count,
+            &planeBaseAddresses,
+            &planeWidths,
+            &planeHeights,
+            &planeBytesPerRow,
+            releaseUnalignedPlanarP010Storage,
+            retainedStorage.toOpaque(),
+            nil,
+            &pixelBuffer
+        )
+        guard status == kCVReturnSuccess, let pixelBuffer else {
+            retainedStorage.release()
+            throw NSError(
+                domain: "UnalignedPlanarP010Fixture",
+                code: Int(status)
+            )
+        }
+        self.pixelBuffer = pixelBuffer
+    }
+}
+
+private final class UnalignedPlanarP010Storage {
+    let baseAddress: UnsafeMutableRawPointer
+
+    init(byteCount: Int) throws {
+        guard let baseAddress = malloc(byteCount) else {
+            throw NSError(domain: "UnalignedPlanarP010Fixture", code: -1)
+        }
+        self.baseAddress = baseAddress
+        memset(baseAddress, 0, byteCount)
+    }
+
+    deinit {
+        free(baseAddress)
+    }
+}
+
+private func releaseUnalignedPlanarP010Storage(
+    releaseRefCon: UnsafeMutableRawPointer?,
+    dataPtr _: UnsafeRawPointer?,
+    dataSize _: Int,
+    numberOfPlanes _: Int,
+    planeAddresses _: UnsafeMutablePointer<UnsafeRawPointer?>?
+) {
+    guard let releaseRefCon else { return }
+    Unmanaged<UnalignedPlanarP010Storage>
+        .fromOpaque(releaseRefCon)
+        .release()
 }
 
 private final class CrossPlaneAliasedNV12Fixture {

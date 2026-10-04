@@ -415,9 +415,19 @@ struct MirmirDiagnosticRecorder: Sendable {
         function: String = #function,
         line: UInt = #line
     ) {
+        guard store != nil else { return }
+        if error == nil,
+           (subsystem == "durable_checkpoint"
+                && operation == "publish_boundary")
+                || (subsystem == "durable_coordinator"
+                    && operation == "commit_checkpoint") {
+            return
+        }
         do {
             var fields = try Self.durableFields(durable)
-            if let destinationURL {
+            if let destinationURL,
+               error != nil || subsystem != "workflow_application_coordinator"
+                    || operation != "continue_processing" {
                 fields.append(contentsOf: try Self.diskFields(
                     destinationURL: destinationURL,
                     checkpointURL: durable.checkpointURL
@@ -463,6 +473,134 @@ struct MirmirDiagnosticRecorder: Sendable {
             }
         } catch {
             Self.reportRecordingFailure(error, operation: operation)
+        }
+    }
+
+    func recordJobStarted(
+        executionContext: MirmirDiagnosticExecutionContext,
+        request: UpscaleRequest,
+        source: VideoInfo,
+        actualBackendID: UpscaleBackendID,
+        maximumInputFramesPerBoundary: Int,
+        startingInputFrameIndex: Int
+    ) {
+        guard store != nil else { return }
+        do {
+            var fields = [
+                try Self.textField("source_path", request.inputURL.path),
+                try Self.textField("output_path", request.outputURL.path),
+                try Self.textField("requested_backend", request.backendID.rawValue),
+                try Self.textField("actual_backend", actualBackendID.rawValue),
+                try Self.field("source_geometry", .dimensions(
+                    width: Self.diagnosticDimension(source.displaySize.width),
+                    height: Self.diagnosticDimension(source.displaySize.height)
+                )),
+                try Self.field("requested_geometry", .dimensions(
+                    width: request.targetWidth, height: request.targetHeight
+                )),
+                try Self.textField("requested_output_codec", request.outputCodec.rawValue),
+                try Self.field("maximum_input_frames_per_boundary", .signedInteger(
+                    Int64(maximumInputFramesPerBoundary)
+                )),
+                try Self.field("next_input_sample_index", .signedInteger(
+                    Int64(startingInputFrameIndex)
+                ))
+            ]
+            fields.append(contentsOf: try Self.timeFields(
+                prefix: "source_frame_duration", source.minimumFrameDuration
+            ))
+            fields.append(contentsOf: try Self.timeFields(
+                prefix: "source_duration", source.duration
+            ))
+            enqueue(
+                severity: .notice,
+                subsystem: "workflow_application_coordinator",
+                operation: "prepare_job",
+                code: startingInputFrameIndex == 0
+                    ? "workflow_job_started" : "workflow_job_resumed",
+                executionContext: executionContext,
+                fields: fields
+            )
+        } catch {
+            Self.reportRecordingFailure(error, operation: "prepare_job")
+        }
+    }
+
+    static func performanceFields(
+        elapsedNanoseconds: UInt64,
+        processingDurationSeconds: TimeInterval,
+        completedInputFrames: Int,
+        sourceAuthenticationNanoseconds: UInt64 = 0,
+        segmentProcessingNanoseconds: UInt64 = 0,
+        checkpointCommitNanoseconds: UInt64 = 0
+    ) throws -> [MirmirDiagnosticField] {
+        var fields = [
+            try field("run_elapsed_ms", .durationMilliseconds(
+                elapsedNanoseconds / 1_000_000
+            )),
+            try field("completed_input_frames", .signedInteger(
+                Int64(completedInputFrames)
+            )),
+            try field("source_authentication_ms", .durationMilliseconds(
+                sourceAuthenticationNanoseconds / 1_000_000
+            )),
+            try field("segment_processing_ms", .durationMilliseconds(
+                segmentProcessingNanoseconds / 1_000_000
+            )),
+            try field("checkpoint_commit_ms", .durationMilliseconds(
+                checkpointCommitNanoseconds / 1_000_000
+            ))
+        ]
+        let processingMilliseconds = processingDurationSeconds * 1_000
+        if processingMilliseconds.isFinite,
+           processingMilliseconds >= 0,
+           processingMilliseconds < Double(UInt64.max) {
+            fields.append(try field("processing_duration_ms", .durationMilliseconds(
+                UInt64(processingMilliseconds)
+            )))
+        }
+        if elapsedNanoseconds > 0 {
+            let rate = Double(completedInputFrames) * 100_000_000_000
+                / Double(elapsedNanoseconds)
+            if rate.isFinite, rate >= 0, rate < Double(UInt64.max) {
+                fields.append(try field("frames_per_second_hundredths", .unsignedInteger(
+                    UInt64(rate.rounded())
+                )))
+            }
+        }
+        return fields
+    }
+
+    func recordProgress(
+        executionContext: MirmirDiagnosticExecutionContext,
+        durable: MirmirDiagnosticDurableContext,
+        elapsedNanoseconds: UInt64,
+        processingDurationSeconds: TimeInterval,
+        completedInputFrames: Int,
+        sourceAuthenticationNanoseconds: UInt64,
+        segmentProcessingNanoseconds: UInt64,
+        checkpointCommitNanoseconds: UInt64
+    ) {
+        guard store != nil else { return }
+        do {
+            let fields = try Self.performanceFields(
+                elapsedNanoseconds: elapsedNanoseconds,
+                processingDurationSeconds: processingDurationSeconds,
+                completedInputFrames: completedInputFrames,
+                sourceAuthenticationNanoseconds: sourceAuthenticationNanoseconds,
+                segmentProcessingNanoseconds: segmentProcessingNanoseconds,
+                checkpointCommitNanoseconds: checkpointCommitNanoseconds
+            )
+            recordCheckpoint(
+                subsystem: "workflow_application_coordinator",
+                operation: "continue_processing",
+                executionContext: executionContext,
+                durable: durable,
+                destinationURL: nil,
+                fields: fields
+            )
+        } catch {
+            Self.reportRecordingFailure(error, operation: "continue_processing")
         }
     }
 

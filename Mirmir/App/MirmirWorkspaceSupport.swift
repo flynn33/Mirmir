@@ -230,6 +230,14 @@ struct MirmirMachTimebase: Equatable, Sendable {
     let numerator: UInt32
     let denominator: UInt32
 
+    func nanoseconds(forMachTicks ticks: UInt64) -> UInt64 {
+        precondition(denominator > 0)
+        let product = ticks.multipliedFullWidth(by: UInt64(numerator))
+        let divisor = UInt64(denominator)
+        guard product.high < divisor else { return UInt64.max }
+        return divisor.dividingFullWidth(product).quotient
+    }
+
     static let current: Self = {
         var info = mach_timebase_info_data_t()
         mach_timebase_info(&info)
@@ -377,8 +385,12 @@ struct MirmirSystemProcessTelemetrySampler: Sendable {
 
         return MirmirProcessTelemetryCounters(
             timestampTicks: mach_continuous_time(),
-            userNanoseconds: usage.ri_user_time,
-            systemNanoseconds: usage.ri_system_time,
+            userNanoseconds: MirmirMachTimebase.current.nanoseconds(
+                forMachTicks: usage.ri_user_time
+            ),
+            systemNanoseconds: MirmirMachTimebase.current.nanoseconds(
+                forMachTicks: usage.ri_system_time
+            ),
             residentBytes: usage.ri_resident_size,
             physicalFootprintBytes: usage.ri_phys_footprint,
             diskReadBytes: usage.ri_diskio_bytesread,
@@ -400,10 +412,12 @@ final class MirmirDashboardTelemetry {
     @ObservationIgnored private let sampleProvider: MirmirTelemetrySampleProvider
     @ObservationIgnored private let timebase: MirmirMachTimebase
     @ObservationIgnored private let diagnosticRecorder: MirmirDiagnosticRecorder
+    @ObservationIgnored private let isWorkActive: @MainActor () -> Bool
+    @ObservationIgnored private let diagnosticUptime: @Sendable () -> UInt64
     @ObservationIgnored private var previousCounters:
         MirmirProcessTelemetryCounters?
     @ObservationIgnored private var hasLoggedFailure = false
-    @ObservationIgnored private var successfulSampleCount = 0
+    @ObservationIgnored private var lastDiagnosticSampleUptime: UInt64?
 
     init(
         sampleProvider: @escaping MirmirTelemetrySampleProvider = {
@@ -411,12 +425,18 @@ final class MirmirDashboardTelemetry {
         },
         timebase: MirmirMachTimebase = .current,
         metalDeviceName: String? = MTLCreateSystemDefaultDevice()?.name,
-        diagnosticRecorder: MirmirDiagnosticRecorder = .application
+        diagnosticRecorder: MirmirDiagnosticRecorder = .application,
+        isWorkActive: @escaping @MainActor () -> Bool = { false },
+        diagnosticUptime: @escaping @Sendable () -> UInt64 = {
+            DispatchTime.now().uptimeNanoseconds
+        }
     ) {
         self.sampleProvider = sampleProvider
         self.timebase = timebase
         self.metalDeviceName = metalDeviceName
         self.diagnosticRecorder = diagnosticRecorder
+        self.isWorkActive = isWorkActive
+        self.diagnosticUptime = diagnosticUptime
     }
 
     func monitor() async {
@@ -444,10 +464,17 @@ final class MirmirDashboardTelemetry {
             )
             previousCounters = counters
             errorDescription = nil
-            successfulSampleCount += 1
-            if successfulSampleCount <= 2
-                || successfulSampleCount.isMultiple(of: 30) {
-                recordDiagnosticTelemetry(counters: counters)
+            if isWorkActive() {
+                let now = diagnosticUptime()
+                if snapshot?.processCPUPercent != nil,
+                   lastDiagnosticSampleUptime.map({
+                       now >= $0 && now - $0 >= 60_000_000_000
+                   }) ?? true {
+                    lastDiagnosticSampleUptime = now
+                    recordDiagnosticTelemetry(counters: counters)
+                }
+            } else {
+                lastDiagnosticSampleUptime = nil
             }
             if hasLoggedFailure {
                 MirmirLog.telemetry.notice("Dashboard telemetry sampling recovered")
@@ -506,11 +533,6 @@ final class MirmirDashboardTelemetry {
                 fields.append(try MirmirDiagnosticRecorder.field(
                     "process_cpu_percent_hundredths",
                     .signedInteger(Int64((cpu * 100).rounded()))
-                ))
-            }
-            if let metalDeviceName {
-                fields.append(try MirmirDiagnosticRecorder.textField(
-                    "metal_device_name", metalDeviceName
                 ))
             }
             diagnosticRecorder.enqueue(

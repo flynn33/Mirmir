@@ -30,6 +30,8 @@ actor MirmirDiagnosticStore {
     private let lockURL: URL?
     private let fileSystem: (any MirmirDiagnosticFileSystem)?
     private var state: MirmirDiagnosticStoreState
+    private var journalRevision: WorkflowRegularFileRevision?
+    private var journalReloadCount: UInt64 = 0
     private var persistenceFailureCount: UInt64
     private var lastPersistenceFailureOperation: String?
     nonisolated let storageKind: MirmirDiagnosticStorageKind
@@ -142,7 +144,7 @@ actor MirmirDiagnosticStore {
         self.diagnosticSubmissionQueue = MirmirDiagnosticSubmissionQueue()
         self.persistenceFailureCount = 0
         self.lastPersistenceFailureOperation = nil
-        self.state = try Self.persistenceBoundary(operation: "load") {
+        let initial = try Self.persistenceBoundary(operation: "load") {
             try fileSystem.withExclusiveLock(at: lockURL) { transaction in
                 var loaded = try Self.loadAndRepair(
                     fileSystem: transaction,
@@ -155,17 +157,18 @@ actor MirmirDiagnosticStore {
                 if let runtimeIdentity {
                     let prepared = try Self.prepareSessionStartRecord(
                         runtimeIdentity,
-                        state: &loaded,
+                        state: &loaded.state,
                         policy: policy,
                         nowMilliseconds: clock.wallMilliseconds(),
                         uptimeNanoseconds: clock.uptimeNanoseconds(),
                         sessionID: diagnosticSessionID
                     )
-                    try Self.persist(
+                    loaded.revision = try Self.persist(
                         prepared,
                         fileSystem: transaction,
                         journalURL: journalURL,
-                        maximumFileBytes: policy.maximumTotalBytes
+                        maximumFileBytes: policy.maximumTotalBytes,
+                        expectedRevision: loaded.revision
                     )
                     if let rejection = prepared.rejection {
                         throw rejection
@@ -174,6 +177,9 @@ actor MirmirDiagnosticStore {
                 return loaded
             }
         }
+        self.state = initial.state
+        journalRevision = initial.revision
+        journalReloadCount = 1
     }
 
     static func production() throws -> MirmirDiagnosticStore {
@@ -213,6 +219,33 @@ actor MirmirDiagnosticStore {
         )
     }
 
+    func persistenceReloadCount() -> UInt64 { journalReloadCount }
+
+    private func refreshJournalIfChanged(
+        fileSystem: any MirmirDiagnosticFileSystem,
+        journalURL: URL,
+        nowMilliseconds: Int64,
+        uptimeNanoseconds: UInt64
+    ) throws {
+        let observed = try fileSystem.regularFileRevision(
+            journalURL,
+            maximumBytes: policy.maximumTotalBytes
+        )
+        if let observed, observed == journalRevision { return }
+        journalRevision = nil
+        let loaded = try Self.loadAndRepair(
+            fileSystem: fileSystem,
+            journalURL: journalURL,
+            policy: policy,
+            nowMilliseconds: nowMilliseconds,
+            uptimeNanoseconds: uptimeNanoseconds,
+            sessionID: sessionID
+        )
+        state = loaded.state
+        journalReloadCount = Self.saturatingIncrement(journalReloadCount)
+        journalRevision = loaded.revision
+    }
+
     @discardableResult
     func record(_ event: MirmirDiagnosticEvent) throws
         -> MirmirDiagnosticRecord {
@@ -222,36 +255,38 @@ actor MirmirDiagnosticStore {
             if let fileSystem, let journalURL, let lockURL {
                 let result = try Self.persistenceBoundary(operation: "record") {
                     try fileSystem.withExclusiveLock(at: lockURL) { transaction in
-                        var loaded = try Self.loadAndRepair(
+                        try refreshJournalIfChanged(
                             fileSystem: transaction,
                             journalURL: journalURL,
-                            policy: policy,
                             nowMilliseconds: now,
-                            uptimeNanoseconds: uptime,
-                            sessionID: sessionID
+                            uptimeNanoseconds: uptime
                         )
+                        // A failed or indeterminate append forces a complete
+                        // reload before any later record can reuse this state.
+                        let validatedRevision = journalRevision
+                        journalRevision = nil
                         let mutation = try Self.prepareRecord(
                             event,
-                            state: &loaded,
+                            state: &state,
                             policy: policy,
                             nowMilliseconds: now,
                             uptimeNanoseconds: uptime,
                             sessionID: sessionID
                         )
-                        try Self.persist(
+                        journalRevision = try Self.persist(
                             mutation,
                             fileSystem: transaction,
                             journalURL: journalURL,
-                            maximumFileBytes: policy.maximumTotalBytes
+                            maximumFileBytes: policy.maximumTotalBytes,
+                            expectedRevision: validatedRevision
                         )
-                        return (loaded, mutation)
+                        return mutation
                     }
                 }
-                state = result.0
-                if let rejection = result.1.rejection {
+                if let rejection = result.rejection {
                     throw rejection
                 }
-                guard let record = result.1.record else {
+                guard let record = result.record else {
                     throw MirmirDiagnosticStoreError.malformedJournal
                 }
                 return record
@@ -265,7 +300,6 @@ actor MirmirDiagnosticStore {
                 uptimeNanoseconds: uptime,
                 sessionID: sessionID
             )
-            state.journalByteCount = try Self.journalData(state).count
             if let rejection = mutation.rejection {
                 throw rejection
             }
@@ -295,16 +329,27 @@ actor MirmirDiagnosticStore {
         let uptime = clock.uptimeNanoseconds()
         do {
             if let fileSystem, let journalURL, let lockURL {
-                state = try Self.persistenceBoundary(operation: "snapshot") {
+                try Self.persistenceBoundary(operation: "snapshot") {
                     try fileSystem.withExclusiveLock(at: lockURL) { transaction in
-                        try Self.loadAndRepair(
+                        try refreshJournalIfChanged(
                             fileSystem: transaction,
                             journalURL: journalURL,
+                            nowMilliseconds: now,
+                            uptimeNanoseconds: uptime
+                        )
+                        if Self.pruneExpired(
+                            state: &state,
                             policy: policy,
                             nowMilliseconds: now,
-                            uptimeNanoseconds: uptime,
-                            sessionID: sessionID
-                        )
+                            preservingSessionID: sessionID
+                        ) {
+                            journalRevision = nil
+                            let replacement = try Self.journalData(state)
+                            try transaction.replaceAtomically(
+                                replacement, at: journalURL
+                            )
+                            state.journalByteCount = replacement.count
+                        }
                     }
                 }
             } else if Self.pruneExpired(

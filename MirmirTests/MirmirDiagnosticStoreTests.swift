@@ -692,7 +692,8 @@ struct MirmirDiagnosticStoreTests {
             },
             timebase: MirmirMachTimebase(numerator: 1, denominator: 1),
             metalDeviceName: "Test GPU",
-            diagnosticRecorder: MirmirDiagnosticRecorder(store: store)
+            diagnosticRecorder: MirmirDiagnosticRecorder(store: store),
+            isWorkActive: { true }
         )
         telemetry.refresh()
         telemetry.refresh()
@@ -702,14 +703,82 @@ struct MirmirDiagnosticStoreTests {
         )
         #expect(exported.contains("process_telemetry_sample"))
         #expect(exported.contains("physical_footprint_bytes"))
-        #expect(exported.contains("metal_device_name"))
+        #expect(!exported.contains("metal_device_name"))
         #expect(exported.contains("process_cpu_percent_hundredths"))
         #expect(exported.contains("\"signed_value\" : 2500"))
         #expect(
             exported.components(
                 separatedBy: "\"code\" : \"process_telemetry_sample\""
-            ).count - 1 == 2
+            ).count - 1 == 1
         )
+    }
+
+    @Test
+    func testLowLevelCheckpointSuccessesAreOmittedButFailuresRemain()
+        async throws {
+        let store = MirmirDiagnosticStore(inMemoryWith: .production)
+        let recorder = MirmirDiagnosticRecorder(store: store)
+        let context = MirmirDiagnosticExecutionContext(
+            jobID: "job-checkpoint-policy", workflowID: "workflow-policy",
+            queueItemID: "queue-policy"
+        )
+        for (subsystem, operation) in [
+            ("durable_checkpoint", "publish_boundary"),
+            ("durable_coordinator", "commit_checkpoint")
+        ] {
+            recorder.recordCheckpoint(
+                subsystem: subsystem, operation: operation,
+                executionContext: context,
+                durable: .init(nextInputSampleIndex: 60, segmentOrdinal: 0),
+                destinationURL: nil
+            )
+        }
+        #expect((try await store.snapshot()).records.isEmpty)
+        for (subsystem, operation) in [
+            ("durable_checkpoint", "publish_boundary"),
+            ("durable_coordinator", "commit_checkpoint")
+        ] {
+            recorder.recordCheckpoint(
+                subsystem: subsystem, operation: operation,
+                executionContext: context,
+                durable: .init(
+                    nextInputSampleIndex: 60, segmentOrdinal: 0,
+                    atomicPublicationFailed: true
+                ),
+                destinationURL: nil,
+                error: NSError(domain: NSPOSIXErrorDomain, code: Int(ENOSPC))
+            )
+        }
+        let failures = try await store.snapshot()
+        #expect(failures.records.count == 2)
+        #expect(failures.records.allSatisfy {
+            $0.event.code.rawValue == "enospc"
+                && $0.event.fields.contains {
+                    $0.key.rawValue == "job_id"
+                        && $0.value.displayValue == context.jobID
+                }
+                && $0.event.fields.contains {
+                    $0.key.rawValue == "next_input_sample_index"
+                        && $0.value.displayValue == "60"
+                }
+        })
+    }
+
+    @Test
+    func testSparsePerformanceSummaryUsesExecutionTimeAndCompletedFrames()
+        throws {
+        let fields = try MirmirDiagnosticRecorder.performanceFields(
+            elapsedNanoseconds: 60_000_000_000,
+            processingDurationSeconds: 10.25,
+            completedInputFrames: 120
+        )
+        let values = Dictionary(uniqueKeysWithValues: fields.map {
+            ($0.key.rawValue, $0.value.displayValue)
+        })
+        #expect(values["run_elapsed_ms"] == "60000")
+        #expect(values["processing_duration_ms"] == "10250")
+        #expect(values["completed_input_frames"] == "120")
+        #expect(values["frames_per_second_hundredths"] == "200")
     }
 
     @Test
@@ -896,6 +965,168 @@ struct MirmirDiagnosticStoreTests {
         )
         #expect(exported.contains("tokenization_duration_ms"))
         #expect(exported.contains("/Users/developer/Movies/source.mov"))
+    }
+
+    @Test
+    func testUnchangedJournalAppendsReuseValidatedHistory() async throws {
+        let directory = temporaryDirectory("cached-history")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try MirmirDiagnosticStore(
+            persistentDirectoryURL: directory,
+            runtimeIdentity: nil
+        )
+        for index in 0..<100 {
+            _ = try await store.record(try event(code: "cached_event_\(index)"))
+        }
+        let snapshot = try await store.snapshot()
+        #expect(snapshot.records.count == 100)
+        #expect(snapshot.records.map(\.sequence) == Array(0..<100).map(UInt64.init))
+        #expect(await store.persistenceReloadCount() == 1)
+    }
+
+    @Test
+    func testInterleavedStoresObserveEveryJournalRevision() async throws {
+        let directory = temporaryDirectory("interleaved-stores")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let first = try MirmirDiagnosticStore(
+            persistentDirectoryURL: directory,
+            runtimeIdentity: nil
+        )
+        let second = try MirmirDiagnosticStore(
+            persistentDirectoryURL: directory,
+            runtimeIdentity: nil
+        )
+        for index in 0..<20 {
+            let store = index.isMultiple(of: 2) ? first : second
+            _ = try await store.record(try event(code: "interleaved_\(index)"))
+        }
+        let firstSnapshot = try await first.snapshot()
+        let secondSnapshot = try await second.snapshot()
+        #expect(firstSnapshot.records == secondSnapshot.records)
+        #expect(firstSnapshot.records.map(\.sequence) == Array(0..<20).map(UInt64.init))
+        #expect(await first.persistenceReloadCount() > 1)
+        #expect(await second.persistenceReloadCount() > 1)
+    }
+
+    @Test
+    func testJournalRevisionRemainsBoundToReadBytesAfterReplacement() throws {
+        let directory = temporaryDirectory("journal-revision-replacement")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(
+            at: directory, withIntermediateDirectories: true
+        )
+        let fileSystem = try WorkflowLocalDurableFileSystem(
+            trustedRootURL: directory
+        )
+        let journal = directory.appendingPathComponent("revision.jsonl")
+        try fileSystem.writeNewAtomically(Data("before\n".utf8), to: journal)
+        let read = try fileSystem.readRegularFileWithRevision(
+            journal, maximumBytes: 1024
+        )
+        try fileSystem.replaceAtomically(Data("after!\n".utf8), at: journal)
+        #expect(read.data == Data("before\n".utf8))
+        #expect(read.revision != (try fileSystem.regularFileRevision(
+            journal, maximumBytes: 1024
+        )))
+        #expect(throws: WorkflowDurableFileSystemError.self) {
+            try fileSystem.appendDurablyWithRevision(
+                Data("next\n".utf8), to: journal, maximumFileBytes: 1024,
+                expectedRevision: read.revision
+            )
+        }
+        #expect(try Data(contentsOf: journal) == Data("after!\n".utf8))
+    }
+
+    @Test
+    func testJournalAppendRejectsMutationBetweenRevisionCheckAndOpen() throws {
+        let directory = temporaryDirectory("journal-revision-open-race")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(
+            at: directory, withIntermediateDirectories: true
+        )
+        let journal = directory.appendingPathComponent("revision.jsonl")
+        let fileSystem = try WorkflowLocalDurableFileSystem(
+            trustedRootURL: directory,
+            operationHook: { point, url in
+                if point == .beforeAppend {
+                    let handle = try FileHandle(forWritingTo: url)
+                    defer { try? handle.close() }
+                    try handle.write(contentsOf: Data("changed\n".utf8))
+                }
+            }
+        )
+        try fileSystem.writeNewAtomically(Data("initial\n".utf8), to: journal)
+        let read = try fileSystem.readRegularFileWithRevision(
+            journal, maximumBytes: 1024
+        )
+        #expect(throws: WorkflowDurableFileSystemError.self) {
+            try fileSystem.appendDurablyWithRevision(
+                Data("next\n".utf8), to: journal, maximumFileBytes: 1024,
+                expectedRevision: read.revision
+            )
+        }
+        #expect(try Data(contentsOf: journal) == Data("changed\n".utf8))
+    }
+
+    @Test
+    func testCachedJournalDetectsSameLengthExternalPrivacyViolation()
+        async throws {
+        let directory = temporaryDirectory("cached-privacy-mutation")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try MirmirDiagnosticStore(
+            persistentDirectoryURL: directory,
+            runtimeIdentity: nil
+        )
+        _ = try await store.record(try event(
+            code: "cached_privacy_probe",
+            fields: [try MirmirDiagnosticRecorder.textField(
+                "safe_context", "safe-context"
+            )]
+        ))
+        let journal = directory.appendingPathComponent(
+            MirmirDiagnosticStore.journalFileName
+        )
+        let original = try Data(contentsOf: journal)
+        let modified = Data(String(decoding: original, as: UTF8.self)
+            .replacingOccurrences(of: "safe-context", with: "Bearer abcde").utf8)
+        #expect(original.count == modified.count)
+        let handle = try FileHandle(forWritingTo: journal)
+        try handle.write(contentsOf: modified)
+        try handle.close()
+        let snapshot = try await store.snapshot()
+        #expect(snapshot.recoveredCorruptTailCount == 1)
+        #expect(snapshot.records.count == 1)
+        #expect(snapshot.records.first?.event.code.rawValue == "diagnostic_store_tail_recovered")
+        #expect(await store.persistenceReloadCount() == 2)
+        let exported = String(decoding: try await store.exportJSON(), as: UTF8.self)
+        #expect(!exported.contains("Bearer abcde"))
+    }
+
+    @Test
+    func testCachedJournalRecoversExternallyAppendedPartialRecord()
+        async throws {
+        let directory = temporaryDirectory("cached-partial-tail")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try MirmirDiagnosticStore(
+            persistentDirectoryURL: directory,
+            runtimeIdentity: nil
+        )
+        _ = try await store.record(try event(code: "before_partial_tail"))
+        let journal = directory.appendingPathComponent(
+            MirmirDiagnosticStore.journalFileName
+        )
+        let handle = try FileHandle(forWritingTo: journal)
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data("{\"incomplete\":".utf8))
+        try handle.close()
+        _ = try await store.record(try event(code: "after_partial_tail"))
+        let snapshot = try await store.snapshot()
+        #expect(snapshot.recoveredCorruptTailCount == 1)
+        #expect(snapshot.records.map(\.event.code.rawValue) == [
+            "before_partial_tail", "diagnostic_store_tail_recovered",
+            "after_partial_tail"
+        ])
+        #expect(await store.persistenceReloadCount() == 2)
     }
 
     @Test

@@ -1,5 +1,6 @@
 import AVFoundation
 import CoreVideo
+import Darwin
 import Foundation
 import XCTest
 @testable import Mirmir
@@ -1260,6 +1261,66 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         )
     }
 
+    func testActivatedSnapshotRejectsRetainedWritableMappingWithUnchangedMetadata()
+        async throws
+    {
+        let fixture = try makeFixture()
+        try Data(repeating: 0x5a, count: 2 * 1_048_576 + 17)
+            .write(to: fixture.inputURL)
+        let queue = try makeQueue(fixture: fixture)
+        let receipt = try await queue.enqueue(
+            request: request(fixture: fixture),
+            preparedPlanBinding: preparedBinding()
+        )
+        guard case .active(let initial) = await queue.activate(
+            jobID: receipt.specification.jobID
+        ) else {
+            return XCTFail("Expected the source snapshot to authenticate")
+        }
+        let snapshotURL = initial.request.inputURL
+        initial.close()
+        XCTAssertEqual(chmod(snapshotURL.path, 0o600), 0)
+        let descriptor = open(snapshotURL.path, O_RDWR | O_NOFOLLOW | O_CLOEXEC)
+        guard descriptor >= 0 else { return XCTFail("Cannot open the test snapshot") }
+        defer { close(descriptor) }
+        let byteCount = Int(initial.sourceSnapshot.byteCount)
+        let mapping = mmap(
+            nil, byteCount, PROT_READ | PROT_WRITE, MAP_SHARED, descriptor, 0
+        )
+        guard mapping != MAP_FAILED, let mapping else {
+            return XCTFail("Cannot map the test snapshot")
+        }
+        defer { munmap(mapping, byteCount) }
+        XCTAssertEqual(fchmod(descriptor, S_IRUSR), 0)
+        guard case .active(let activated) = await queue.activate(
+            jobID: receipt.specification.jobID
+        ) else {
+            return XCTFail("A retained mapping must not prevent authentication")
+        }
+        defer { activated.close() }
+        var before = stat()
+        XCTAssertEqual(fstat(descriptor, &before), 0)
+        let byte = mapping.assumingMemoryBound(to: UInt8.self)
+            .advanced(by: byteCount - 1)
+        byte.pointee ^= 0xff
+        var after = stat()
+        XCTAssertEqual(fstat(descriptor, &after), 0)
+        XCTAssertEqual(before.st_size, after.st_size)
+        XCTAssertEqual(before.st_mtimespec.tv_sec, after.st_mtimespec.tv_sec)
+        XCTAssertEqual(before.st_mtimespec.tv_nsec, after.st_mtimespec.tv_nsec)
+        XCTAssertEqual(before.st_ctimespec.tv_sec, after.st_ctimespec.tv_sec)
+        XCTAssertEqual(before.st_ctimespec.tv_nsec, after.st_ctimespec.tv_nsec)
+        XCTAssertThrowsError(try activated.revalidateAll()) { error in
+            guard case WorkflowApplicationQueueErrorV4.sourceSnapshotInvalid = error
+            else { return XCTFail("Unexpected mapping mutation error: \(error)") }
+        }
+        guard case .blocked(.sourceSnapshotInvalid) = await queue.activate(
+            jobID: receipt.specification.jobID
+        ) else {
+            return XCTFail("A fresh activation must reject the mapped mutation")
+        }
+    }
+
     func testTamperedPrivateSourceSnapshotFailsClosedAcrossRelaunch()
         async throws
     {
@@ -2208,6 +2269,69 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
                 atPath: reenqueuedActive.request.inputURL.path
             )
         )
+    }
+
+    func testSparseSummaryExportsCommittedSegmentPhaseTimings() async throws {
+        let fixture = try makeFixture()
+        let segmentTemplateURL = fixture.rootURL.appendingPathComponent(
+            "diagnostic-summary-segment-template.mov"
+        )
+        try await writePublicationSegment(to: segmentTemplateURL)
+        let engine = WorkflowApplicationSnapshotIsolationEngineV4(
+            binding: try preparedBinding(),
+            originalURL: fixture.inputURL,
+            segmentTemplateURL: segmentTemplateURL
+        )
+        let coordinator = WorkflowApplicationCoordinatorV4(
+            queue: try makeQueue(fixture: fixture),
+            engine: engine,
+            maximumInputFramesPerBoundary: 1
+        )
+        let store = MirmirDiagnosticStore(inMemoryWith: .production)
+        do {
+            _ = try await MirmirDiagnosticScope.$recorder.withValue(
+                MirmirDiagnosticRecorder(store: store)
+            ) {
+                try await coordinator.submit(
+                    request: request(fixture: fixture),
+                    progress: { _ in },
+                    snapshot: { _ in }
+                )
+            }
+            XCTFail("Expected the proof engine to stop after its second read")
+        } catch WorkflowApplicationFailingEngineErrorV4.injectedAfterDispatch {
+            // One committed segment must remain available for diagnosis.
+        }
+        let snapshot = try await store.snapshot()
+        let summaries = snapshot.records.filter {
+            $0.event.operation.rawValue == "continue_processing"
+                && $0.event.code.rawValue == "durable_checkpoint_committed"
+        }
+        XCTAssertEqual(summaries.count, 1)
+        let summary = try XCTUnwrap(summaries.first)
+        let fields = Dictionary(uniqueKeysWithValues: summary.event.fields.map {
+            ($0.key.rawValue, $0.value.displayValue)
+        })
+        XCTAssertEqual(fields["completed_input_frames"], "1")
+        XCTAssertEqual(fields["processing_duration_ms"], "10")
+        let source = try XCTUnwrap(fields["source_authentication_ms"].flatMap(UInt64.init))
+        let segment = try XCTUnwrap(fields["segment_processing_ms"].flatMap(UInt64.init))
+        let checkpoint = try XCTUnwrap(fields["checkpoint_commit_ms"].flatMap(UInt64.init))
+        let elapsed = try XCTUnwrap(fields["run_elapsed_ms"].flatMap(UInt64.init))
+        XCTAssertLessThanOrEqual(source + segment + checkpoint, elapsed)
+        XCTAssertNotNil(fields["frames_per_second_hundredths"])
+        let exported = String(decoding: try await store.exportJSON(), as: UTF8.self)
+        for key in ["source_authentication_ms", "segment_processing_ms", "checkpoint_commit_ms"] {
+            XCTAssertTrue(exported.contains(key))
+        }
+        let starts = snapshot.records.filter {
+            $0.event.code.rawValue == "workflow_job_started"
+        }
+        XCTAssertEqual(starts.count, 1)
+        XCTAssertTrue(starts.first?.event.fields.contains {
+            $0.key.rawValue == "maximum_input_frames_per_boundary"
+                && $0.value.displayValue == "1"
+        } == true)
     }
 
     func testOriginalMutationCannotAffectLaterSegmentReaders() async throws {

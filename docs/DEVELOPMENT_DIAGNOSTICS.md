@@ -1,5 +1,7 @@
 # Development diagnostics
 
+Current source identity: **Mirmir 1.5.0 (15)**.
+
 Mirmir's development diagnostic system is the existing module at
 `Mirmir/Modules/Diagnostics`. It owns one persistent journal,
 `diagnostics-v1.jsonl`, and one operator export component that calls the
@@ -70,13 +72,38 @@ while it calls the processing and durable-workflow layers. Its boundary events
 therefore reach the same journal shown by the Diagnostics page. User-requested
 cancellation is excluded from failure records.
 
-Checkpoint commits and final publication record both success and failure.
-Failure records take priority. The production workspace records bounded
-process CPU, resident and physical memory, cumulative disk I/O, and Metal
-device identity for the first two successful samples and every 30 successful
-one-second samples after that. The second sample includes the first CPU delta.
-A sampling failure and its recovery are recorded once per outage. This does
-not measure system-wide CPU usage or thermal state.
+Routine collection keeps the information needed to identify a regression:
+
+- One session identity record contains app/build, OS, architecture, and Metal
+  device identity.
+- Each durable job start or resume records job identity, source/output paths,
+  requested and selected backend, geometry, codec, exact source cadence and
+  duration, segment budget, and starting frame.
+- Durable progress summaries record the first committed boundary, then at
+  most once per minute, plus pause and terminal boundaries. They contain the
+  committed frame/segment position, execution elapsed time, processing time,
+  throughput, and accumulated source-authentication, segment-processing, and
+  checkpoint-commit/working-cleanup durations. These timers bracket segment
+  boundaries, not individual frames. Durations and completed frames cover the
+  current execution after preparation; resume starts a new execution interval.
+  Final assembly/publication is reported separately. The duplicate successful
+  low-level checkpoint and commit
+  events are omitted before field assembly or disk-space queries.
+- While processing is active, process CPU, resident/physical memory, and
+  cumulative disk I/O are recorded with the first CPU-bearing sample and then
+  at most once per minute. The dashboard continues to refresh once per second;
+  idle dashboard samples do not enter the journal. CPU counters are converted
+  from Mach ticks to nanoseconds before calculating percentages. One fully
+  occupied core corresponds to 100%. Each stored CPU percentage describes the
+  latest sampling interval, not a minute average.
+- Failures retain the detailed contract above; sparse success collection does
+  not suppress checkpoint or publication errors. Final publication successes,
+  lifecycle/control changes, and one sampling failure/recovery per outage
+  remain available.
+
+Successful progress records do not repeatedly collect disk-space or volume
+identity. Failures still collect that context. This instrumentation does not
+measure system-wide CPU usage, GPU utilization, or thermal state.
 
 ## Persistence and export
 
@@ -116,7 +143,24 @@ the journal exports carry the same `diagnostic_session_id`, which provides an
 explicit join key for the current process. Older journal sessions retain their
 own start record and runtime identity.
 
+The store validates the complete journal when opening it and when its file
+revision changes. Routine appends reuse the validated actor state and validate
+only the new record. The existing exclusive journal lock serializes cooperating
+processes. Descriptor-bound file revisions include identity, size, permissions,
+and nanosecond modification/change times; a changed revision forces reload and
+the existing corrupt-tail/privacy recovery. Failed or indeterminate writes and
+retention rewrites invalidate cached authority. Adapters without revision
+support always reload. External tools must take the journal lock before
+modifying it; arbitrary concurrent writes that bypass the lock are unsupported.
+The v1 journal schema, retention limits, privacy validation, durable writes,
+and export UI remain in place.
+
 ## Verification
+
+The 1.5.0 build-15 clean Debug scheme passed 594 tests with zero failures and
+four existing opt-in skips. Clean Debug and universal Release logs contain no
+errors or warnings; Xcode's Issue Navigator shows **No Issues**. The full-movie
+throughput and packaged P06 provenance qualification remain separate checks.
 
 Run the diagnostic tests alone with:
 
@@ -161,6 +205,13 @@ and continued journal recording while a log export is blocked.
 Swift output-finalization reason survives both journal exports, while
 `testCredentialBearingLocalizedErrorDescriptionIsOmitted` verifies fail-closed
 privacy filtering and omission accounting.
+
+The cache regressions verify unchanged-history reuse, interleaved stores,
+same-size external credential edits, partial-tail recovery, stale read
+revisions after replacement, and mutation between the revision check and
+append open. Telemetry tests cover Mach time conversion, active-only minute
+sampling, dashboard updates while idle, and sparse success records retaining
+checkpoint failures.
 
 For the shared clock-policy repair, the loaded short video was checked directly
 with AVFoundation: 241 decoded frames, last PTS `122880/12288`, and video track

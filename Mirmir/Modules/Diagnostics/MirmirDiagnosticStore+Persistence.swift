@@ -13,6 +13,11 @@ extension MirmirDiagnosticStore {
         let requiresRewrite: Bool
     }
 
+    struct LoadedJournal {
+        var state: MirmirDiagnosticStoreState
+        var revision: WorkflowRegularFileRevision?
+    }
+
     static func prepareSessionStartRecord(
         _ identity: MirmirDiagnosticRuntimeIdentity,
         state: inout MirmirDiagnosticStoreState,
@@ -88,7 +93,6 @@ extension MirmirDiagnosticStore {
             nowMilliseconds: nowMilliseconds,
             preservingSessionID: sessionID
         )
-        let baselineState = state
         let record = try MirmirDiagnosticRecord(
             sequence: state.nextSequence,
             timestampUnixMilliseconds: nowMilliseconds,
@@ -134,6 +138,22 @@ extension MirmirDiagnosticStore {
             )
         }
 
+        if !expiredRecordsPruned,
+           state.records.count < policy.maximumRecords,
+           state.journalByteCount + line.count <= policy.maximumTotalBytes {
+            state.nextSequence += 1
+            state.records.append(
+                MirmirStoredDiagnosticRecord(record: record, line: line)
+            )
+            state.journalByteCount += line.count
+            return PreparedRecord(
+                record: record,
+                persistence: .append(line),
+                rejection: nil
+            )
+        }
+
+        let baselineState = state
         state.nextSequence += 1
         state.records.append(
             MirmirStoredDiagnosticRecord(record: record, line: line)
@@ -190,17 +210,20 @@ extension MirmirDiagnosticStore {
         _ prepared: PreparedRecord,
         fileSystem: any MirmirDiagnosticFileSystem,
         journalURL: URL,
-        maximumFileBytes: Int
-    ) throws {
+        maximumFileBytes: Int,
+        expectedRevision: WorkflowRegularFileRevision? = nil
+    ) throws -> WorkflowRegularFileRevision? {
         switch prepared.persistence {
         case .append(let line):
-            try fileSystem.appendLineDurably(
+            return try fileSystem.appendLineDurablyWithRevision(
                 line,
                 to: journalURL,
-                maximumFileBytes: maximumFileBytes
+                maximumFileBytes: maximumFileBytes,
+                expectedRevision: expectedRevision
             )
         case .replace(let data):
             try fileSystem.replaceAtomically(data, at: journalURL)
+            return nil
         }
     }
 
@@ -211,7 +234,7 @@ extension MirmirDiagnosticStore {
         nowMilliseconds: Int64,
         uptimeNanoseconds: UInt64,
         sessionID: MirmirDiagnosticID
-    ) throws -> MirmirDiagnosticStoreState {
+    ) throws -> LoadedJournal {
         guard fileSystem.exists(journalURL) else {
             var empty = MirmirDiagnosticStoreState.empty
             let data = try journalData(empty)
@@ -220,13 +243,20 @@ extension MirmirDiagnosticStore {
             }
             try fileSystem.writeNewAtomically(data, to: journalURL)
             empty.journalByteCount = data.count
-            return empty
+            let created = try fileSystem.readRegularFileWithRevision(
+                journalURL, maximumBytes: policy.maximumTotalBytes
+            )
+            guard created.data == data else {
+                throw MirmirDiagnosticFileSystemError.ioFailure
+            }
+            return LoadedJournal(state: empty, revision: created.revision)
         }
 
-        let data = try fileSystem.readRegularFile(
+        let read = try fileSystem.readRegularFileWithRevision(
             journalURL,
             maximumBytes: policy.maximumTotalBytes
         )
+        let data = read.data
         var parsed = try parseJournal(data, policy: policy)
         var requiresRewrite = parsed.requiresRewrite
         if parsed.corruptTailBytes > 0 {
@@ -273,13 +303,22 @@ extension MirmirDiagnosticStore {
         guard replacement.count <= policy.maximumTotalBytes else {
             throw MirmirDiagnosticStoreError.journalCapacityInsufficient
         }
+        if let revision = read.revision,
+           revision != (try fileSystem.regularFileRevision(
+               journalURL, maximumBytes: policy.maximumTotalBytes
+           )) {
+            throw MirmirDiagnosticFileSystemError.ioFailure
+        }
         if requiresRewrite {
             try fileSystem.replaceAtomically(replacement, at: journalURL)
             parsed.state.journalByteCount = replacement.count
         } else {
             parsed.state.journalByteCount = data.count
         }
-        return parsed.state
+        return LoadedJournal(
+            state: parsed.state,
+            revision: requiresRewrite ? nil : read.revision
+        )
     }
 
     static func parseJournal(

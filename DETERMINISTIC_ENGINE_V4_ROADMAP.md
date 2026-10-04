@@ -1,6 +1,6 @@
 # Deterministic Engine v4 roadmap
 
-Status: current source target 1.4.5 (14); the 1.4.0 (9) implementation
+Status: current source target 1.5.0 (15); the 1.4.0 (9) implementation
 milestone and M7 simulator candidate selection are historical checkpoints
 
 Scope: Mirmir deterministic CPU and Metal engines, media pipeline, and durable job workflow
@@ -28,7 +28,11 @@ Version 1.4.0 build 9 adds bookmark-backed cache-location selection and
 fail-closed inactive job/cache deletion without changing the deterministic
 engine contract. Deterministic resource allocation and automatic VideoToolbox
 geometry adaptation are post-first-release targets and are not part of version
-1.4.0. The current source target is version 1.4.5 build 14. Its current
+1.4.0. Version 1.5.0 build 15 reduces diagnostic append and collection overhead,
+restores cheaper NV12/P010 validation, corrects process CPU counter conversion,
+and avoids source-hash buffer copies. Full-source authentication remains at each
+deterministic segment, and isolated measurements do not establish full-length
+job throughput. The current source target is version 1.5.0 build 15. Its current
 qualification gates are recorded separately in
 `docs/v4/CURRENT_QUALIFICATION_STATUS.md`; none of the historical checkpoints
 substitutes for those gates.

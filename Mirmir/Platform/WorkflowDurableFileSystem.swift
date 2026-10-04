@@ -119,6 +119,38 @@ protocol WorkflowDurableFileSystem: Sendable {
     ) throws -> WorkflowExclusiveFileLease
 }
 
+/// A cheap revision fence for a previously read regular file. Content is
+/// re-read whenever any of these filesystem observations changes.
+struct WorkflowRegularFileRevision: Equatable, Sendable {
+    let device: UInt64
+    let inode: UInt64
+    let generation: UInt32
+    let byteCount: Int64
+    let mode: UInt16
+    let owner: UInt32
+    let group: UInt32
+    let flags: UInt32
+    let modificationSeconds: Int64
+    let modificationNanoseconds: Int64
+    let changeSeconds: Int64
+    let changeNanoseconds: Int64
+
+    init(_ metadata: stat) {
+        device = UInt64(metadata.st_dev)
+        inode = UInt64(metadata.st_ino)
+        generation = metadata.st_gen
+        byteCount = metadata.st_size
+        mode = metadata.st_mode
+        owner = metadata.st_uid
+        group = metadata.st_gid
+        flags = metadata.st_flags
+        modificationSeconds = Int64(metadata.st_mtimespec.tv_sec)
+        modificationNanoseconds = Int64(metadata.st_mtimespec.tv_nsec)
+        changeSeconds = Int64(metadata.st_ctimespec.tv_sec)
+        changeNanoseconds = Int64(metadata.st_ctimespec.tv_nsec)
+    }
+}
+
 struct WorkflowLocalDurableFileSystem: WorkflowDurableFileSystem {
     typealias OperationHook =
         @Sendable (WorkflowFileSystemFaultPoint, URL) throws -> Void
@@ -232,6 +264,12 @@ struct WorkflowLocalDurableFileSystem: WorkflowDurableFileSystem {
     }
 
     func readRegularFile(_ url: URL, maximumBytes: Int) throws -> Data {
+        try readRegularFileWithRevision(url, maximumBytes: maximumBytes).data
+    }
+
+    func readRegularFileWithRevision(
+        _ url: URL, maximumBytes: Int
+    ) throws -> (data: Data, revision: WorkflowRegularFileRevision) {
         guard maximumBytes >= 0 else {
             throw WorkflowDurableFileSystemError.fileTooLarge(
                 path: url.path,
@@ -270,7 +308,9 @@ struct WorkflowLocalDurableFileSystem: WorkflowDurableFileSystem {
             var opened = stat()
             guard
                 fstat(descriptor, &opened) == 0,
-                Self.sameFile(pathBefore, opened)
+                Self.sameFile(pathBefore, opened),
+                WorkflowRegularFileRevision(pathBefore)
+                    == WorkflowRegularFileRevision(opened)
             else {
                 throw WorkflowDurableFileSystemError.unsafePath(url.path)
             }
@@ -283,12 +323,39 @@ struct WorkflowLocalDurableFileSystem: WorkflowDurableFileSystem {
                 fstatat(parent, name, &pathAfter, AT_SYMLINK_NOFOLLOW) == 0,
                 Self.sameFile(opened, after),
                 Self.sameFile(after, pathAfter),
-                after.st_size == opened.st_size
+                WorkflowRegularFileRevision(opened)
+                    == WorkflowRegularFileRevision(after),
+                WorkflowRegularFileRevision(after)
+                    == WorkflowRegularFileRevision(pathAfter)
             else {
                 throw WorkflowDurableFileSystemError.unsafePath(url.path)
             }
             try validateTrustedRoot()
-            return data
+            return (data, WorkflowRegularFileRevision(after))
+        }
+    }
+
+    func regularFileRevision(
+        _ url: URL,
+        maximumBytes: Int
+    ) throws -> WorkflowRegularFileRevision? {
+        try withParentDirectory(of: url) { parent, name, _ in
+            var metadata = stat()
+            guard fstatat(parent, name, &metadata, AT_SYMLINK_NOFOLLOW) == 0 else {
+                if errno == ENOENT { return nil }
+                throw ioError(operation: "revision_stat", url: url)
+            }
+            guard Self.isSingleLinkRegularFile(metadata) else {
+                throw WorkflowDurableFileSystemError.unsafePath(url.path)
+            }
+            guard metadata.st_size >= 0,
+                  metadata.st_size <= Int64(maximumBytes) else {
+                throw WorkflowDurableFileSystemError.fileTooLarge(
+                    path: url.path,
+                    maximumBytes: maximumBytes
+                )
+            }
+            return WorkflowRegularFileRevision(metadata)
         }
     }
 
@@ -305,6 +372,17 @@ struct WorkflowLocalDurableFileSystem: WorkflowDurableFileSystem {
         to url: URL,
         maximumFileBytes: Int
     ) throws {
+        _ = try appendDurablyWithRevision(
+            data, to: url, maximumFileBytes: maximumFileBytes
+        )
+    }
+
+    func appendDurablyWithRevision(
+        _ data: Data,
+        to url: URL,
+        maximumFileBytes: Int,
+        expectedRevision: WorkflowRegularFileRevision? = nil
+    ) throws -> WorkflowRegularFileRevision {
         guard !data.isEmpty, maximumFileBytes >= 0 else {
             throw WorkflowDurableFileSystemError.ioFailure(
                 operation: "append",
@@ -312,7 +390,7 @@ struct WorkflowLocalDurableFileSystem: WorkflowDurableFileSystem {
                 code: EINVAL
             )
         }
-        try withParentDirectory(of: url) { parent, name, _ in
+        return try withParentDirectory(of: url) { parent, name, _ in
             var before = stat()
             guard
                 fstatat(parent, name, &before, AT_SYMLINK_NOFOLLOW) == 0,
@@ -325,6 +403,10 @@ struct WorkflowLocalDurableFileSystem: WorkflowDurableFileSystem {
                     path: url.path,
                     maximumBytes: maximumFileBytes
                 )
+            }
+            if let expectedRevision,
+               expectedRevision != WorkflowRegularFileRevision(before) {
+                throw WorkflowDurableFileSystemError.unsafePath(url.path)
             }
             try operationHook(.beforeAppend, url)
             let descriptor = openat(
@@ -339,7 +421,9 @@ struct WorkflowLocalDurableFileSystem: WorkflowDurableFileSystem {
             var opened = stat()
             guard
                 fstat(descriptor, &opened) == 0,
-                Self.sameFile(before, opened)
+                Self.sameFile(before, opened),
+                WorkflowRegularFileRevision(before)
+                    == WorkflowRegularFileRevision(opened)
             else {
                 throw WorkflowDurableFileSystemError.unsafePath(url.path)
             }
@@ -365,11 +449,14 @@ struct WorkflowLocalDurableFileSystem: WorkflowDurableFileSystem {
                     fstatat(parent, name, &pathAfter, AT_SYMLINK_NOFOLLOW) == 0,
                     Self.sameFile(opened, after),
                     Self.sameFile(after, pathAfter),
+                    WorkflowRegularFileRevision(after)
+                        == WorkflowRegularFileRevision(pathAfter),
                     after.st_size == opened.st_size + Int64(data.count)
                 else {
                     throw WorkflowDurableFileSystemError.unsafePath(url.path)
                 }
                 try validateTrustedRoot()
+                return WorkflowRegularFileRevision(after)
             } catch {
                 if wroteAnyBytes {
                     throw WorkflowDurableFileSystemError.indeterminate(

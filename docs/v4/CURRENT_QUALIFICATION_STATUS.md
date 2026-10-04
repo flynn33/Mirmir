@@ -1,9 +1,89 @@
 # Deterministic engine v4 current qualification status
 
-Current source identity: 1.4.5 build 14. The obsolete split-position test was
-removed from `MirmirTests.swift`; its diagnostic tests and other mixed code
-files are unchanged. The 1.4.4 restoration of the 36 specified baseline paths
-remains intact.
+Verified October 4, 2026.
+
+Current source identity: 1.5.0 build 15. This update removes repeated diagnostic
+history validation from unchanged appends, collects sparse active-job progress
+and process samples, corrects process CPU counter conversion, restores cheaper
+NV12/P010 scaler validation, and avoids an intermediate source-hash buffer copy.
+The exact-first timing policy and full-source boundary authentication remain.
+
+The clean 1.5.0 build-15 Debug scheme passed all 594 executed Swift tests, with
+zero failures and four existing opt-in tests skipped (598 total). The clean
+universal Release build also succeeded. Both final build logs contain zero
+`error:` or `warning:` diagnostics, and no App Intents metadata extraction task
+ran. The correct GitHub checkout's Xcode window reported **No Issues** and a
+successful build at 13:09. Version-contract tests passed 9 of 9; roadmap-tracker
+unit tests passed 5 of 5.
+
+Final evidence is retained at:
+
+- `/tmp/mirmir-1.5.0-15-warning-free-debug.log`
+- `/tmp/mirmir-1.5.0-15-warning-free-tests.xcresult`
+- `/tmp/mirmir-1.5.0-15-warning-free-release.log`
+
+No full-length job rerun or replacement of the installed 1.4.5 application has
+been performed in this pass. The source identity limitation below remains open.
+
+## Open source identity gate
+
+`repository_identity_v4.verify_runtime_bundle` rejects both the current source
+and the unchanged 1.4.5 commit `3a1b3481a19106d895306c2f20b0833d27fabc9e` with
+`runtime source revision does not match production source closure`. The
+baseline check used all 398 tracked production Swift/Metal sources, the exact
+baseline provenance contract and tools, and the packaged ASH-P06 assets copied
+from Git into an isolated directory.
+
+The baseline closure computes
+`2bc8793b21a1b0429fe7e080d199e0ecfa12e41b15c1fb945c6a8f2addffabaf`, while
+the packaged runtime binds
+`070556595835048d0112e8de2399be7067ec931079802c906aa8400f51e62f00`. The
+working closure also differs from the packaged revision. This pre-existing
+provenance gate remains unresolved; passing build, behavior, or timing checks
+does not close it. Runtime assets and historical evidence were not resealed.
+The comparison and both complete source manifests are retained at
+`/tmp/mirmir-p06-baseline-provenance-audit-xwls4uw0/`.
+
+## October 4 efficiency measurements
+
+Both isolated Swift harnesses used optimized production sources on the same
+Mac. The persistent-store harness seeded 7,999 actual exported records in a
+14,485,728-byte canonical journal and timed three complete durable appends per
+version. Initialization, seed encoding, and verification were outside the append
+timing. The real descriptor-relative filesystem, power-loss durability, and
+privacy validator were used.
+
+| Measurement | Released 1.4.5 source | Efficiency candidate |
+| --- | --- | --- |
+| Mean persistent append wall time | 5.23475 seconds | 5.23086 milliseconds |
+| Mean persistent append CPU time | 5.22720 seconds | 1.21633 milliseconds |
+| 1920×816 → 2880×1224 NV12 CPU scaler median | 20.137 milliseconds | 17.516 milliseconds |
+| 1920×816 → 2880×1224 NV12 Metal scaler median | 15.761 milliseconds | 12.563 milliseconds |
+
+The candidate performed one history load at initialization and no additional
+loads through the three appends or snapshot. Before and after journals were
+byte-identical, with all 8,002 records, sequences, fields, history bytes, and
+counters verified. The scaler harness verified equal visible output bytes
+before and after, including CPU/Metal equality on the reported geometry and the
+standard NV12/P010 cases. These are append and scaler measurements, not a
+whole-engine or full-movie throughput qualification. The first earlier scaler
+baseline run had higher latency; the table uses the final paired run.
+
+Source hashes, commands, results, and scope are retained locally in:
+
+- `/tmp/mirmir-diagnostic-store-benchmark-nnxvf4tm/comparison.json`
+- `/tmp/mirmir-diagnostic-store-benchmark-nnxvf4tm/manifest.json`
+- `/tmp/mirmir-scaler-validation-benchmark-nwg5kq_g/comparison.json`
+
+The full-source SHA-256 read still occurs at every deterministic segment. The
+original one-hour run and reported 18-hour run have not been reproduced as a
+matched before/after full-length comparison. DV4-002 remains open.
+
+## Historical 1.4.5 qualification
+
+Version 1.4.5 removed the obsolete split-position test from `MirmirTests.swift`;
+its diagnostic tests and other mixed code files were unchanged. The 1.4.4
+restoration of the 36 specified baseline paths remained intact.
 
 The unsigned Debug test build succeeded. The named
 `testRavenForgeSite057ExactRepresentableEndIgnoresDistinctContainerBoundary`
@@ -17,7 +97,7 @@ No ASH reseal or benchmark/evidence changes were made. The full Swift suite
 was not run in this pass.
 
 The remaining verification narrative below belongs to 1.4.3 and earlier
-commits; it does not establish qualification of the restored source.
+commits; it does not establish qualification of the 1.5.0 source.
 
 Historical qualification receipts retain their original dates and source
 identities.
@@ -43,15 +123,15 @@ decisions.
 
 | Field | Verified value |
 | --- | --- |
-| Product | Mirmir 1.4.5 (14) |
-| Version authorities | `VERSION` = `1.4.5`; `BUILD_NUMBER` = `14` |
-| Installed application | `/Applications/Mirmir.app` 1.4.2 (11); not replaced by 1.4.5 |
+| Product | Mirmir 1.5.0 (15) |
+| Version authorities | `VERSION` = `1.5.0`; `BUILD_NUMBER` = `15` |
+| Installed application | `/Applications/Mirmir.app` 1.4.5 (14), checked October 4; not replaced by this update |
 | Bundle identifier | `com.mirmir.app` |
 | Minimum macOS | 15.4 |
 | M0–M6 implementation | Complete |
 | P06 semantic runtime-manifest identity | `e4cc2394ff7454447d11a37fccf99f8e6c66ca6e68f5302a734e999cd815b5b4` |
 | P06 runtime-manifest file SHA-256 | `13c47e84e31309a0c7008c05b19fdb0ae43c92773c5ce5fc3331598c96f912f5` |
-| P06 production-source revision | `070556595835048d0112e8de2399be7067ec931079802c906aa8400f51e62f00` |
+| P06 packaged production-source revision | `070556595835048d0112e8de2399be7067ec931079802c906aa8400f51e62f00` |
 | P06 builder-source SHA-256 | `944014c7c35eb780722658c63f79e6ea59a14c3b0da25a33b8c78773e9451a68` |
 
 The previous 1.3.0 build 3 universal Developer ID archive and its
@@ -115,7 +195,7 @@ derives 241 decoded frames, `123392/12288` exact nominal end, and the distinct
 `123396/12288` track end from the reported short MP4. A separate durable
 coordinator invariant inventories encoded primary-video samples and rejects a
 terminal decoded ordinal that accounts for only 240 of 241 samples before
-finalization or publication recovery. The named current-source asset regression
+finalization or publication recovery. The named 1.4.3 asset regression
 passed 1 of 1 on October 3.
 
 The historical 1.4.3 build-12 full Debug scheme completed 590 tests: 586 passed,
@@ -138,10 +218,10 @@ panels created and validated these export files:
 - `/Users/jimdaley/Desktop/Mirmir-1.4.3-Build12-Evidence/Mirmir-Compare-Build12-Diagnostics.md`
 - `/Users/jimdaley/Desktop/Mirmir-1.4.3-Build12-Evidence/Mirmir-Compare-Build12-App-Logs.json`
 
-These are source, build, current-media, and export-control results. They do not
-verify the unchanged installed 1.4.2 application or complete DV4-002
-large-media qualification. Application archiving and distribution are outside
-this source qualification. The 1.4.2 and 1.4.1 archives below remain historical.
+These are historical 1.4.3 source, build, media, and export-control results. They
+do not qualify the current source or installed application or complete DV4-002
+large-media qualification. Application archiving and distribution were outside
+that source qualification. The 1.4.2 and 1.4.1 archives below remain historical.
 
 The historical build 9 serial macOS Debug scheme completed 532 tests: 529
 passed, zero failed, and three expected opt-in capture tests skipped. The prior
@@ -162,8 +242,8 @@ Its packaged application is `com.mirmir.app` version 1.4.1 build 10, contains
 app-scoped bookmark, and user-selected read/write entitlements. The archive was
 not uploaded, submitted, distributed, released, notarized, or installed over
 `/Volumes/DockCase/Apps/Mirmir.app`. The previously
-documented Desktop path is not present. The installed DockCase application
-remains 1.3.4 build 8.
+documented Desktop path was not present. The DockCase application was observed
+as 1.3.4 build 8 during that historical check.
 
 A historical universal 1.4.2 build-11 Apple Distribution archive prepared for
 owner handoff only exists at
