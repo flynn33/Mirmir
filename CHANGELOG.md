@@ -7,6 +7,42 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-06
+
+### Improved
+
+- Run independent full-frame block rows and tiled motion searches in bounded
+  parallel batches. Merge results in the original order with unchanged candidate
+  ties, integer evidence, and serial frame-history publication.
+- Use scoped read-only plane buffer borrows in full-frame candidate searches
+  to avoid repeated Array storage access in the inner pixel loop. Retain the
+  existing candidate bounds, checked arithmetic, and tie ordering.
+- Hold a scoped user-initiated process activity through planning, processing,
+  finalization, and publication recovery. Release it on pause, cancellation,
+  failure, or completion; allow display sleep and leave idle queues unprotected.
+- Recognize short NTSC tracks whose averaged rate drifts after terminal clock
+  rounding, using distinct fine-clock evidence and the closer period. Retain
+  exact decoded-cadence rejection and other constant frame rates.
+- Preserve PCM samples when a reduced movie clock cannot represent the audio
+  endpoint. Include the preserved PCM clock and restore planned edit ranges;
+  retain encoded-stream and whole-asset validation before publication.
+- Add independent serial-oracle parity, tiled reconstruction, activity lifecycle,
+  and durable NTSC completion/resume coverage. Version authorities and explicit
+  Xcode app/test source membership are aligned to 1.6.0 build 16.
+
+### Build and verification
+
+- Native Xcode My Mac suites passed: Debug 628 and Release 623 tests, zero
+  failures and five opt-in skips each. Universal Release includes arm64 and
+  x86_64; final build and test logs contain zero compiler warnings or errors.
+- Optimized motion analysis improved 6.46× and 6.48× on the retained fixtures,
+  with identical fields. A live 66-frame 1080p-to-4K Metal job completed and
+  passed 35 independent media checks, including preserved PCM payload.
+- Retain strict parity assertions and evidence for an earlier untraced
+  decoded-frame mismatch whose cause remains unknown; traced repeats and final
+  full suites passed. Full-length throughput and the pre-existing P06 source
+  closure gate remain open. See `docs/v4/CURRENT_QUALIFICATION_STATUS.md`.
+
 ## [1.5.0] - 2026-10-04
 
 ### Improved

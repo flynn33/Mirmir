@@ -1,29 +1,47 @@
 # Deterministic engine v4 current qualification status
 
-Verified October 4, 2026.
+Verified October 6, 2026.
 
-Current source identity: 1.5.0 build 15. This update removes repeated diagnostic
-history validation from unchanged appends, collects sparse active-job progress
-and process samples, corrects process CPU counter conversion, restores cheaper
-NV12/P010 scaler validation, and avoids an intermediate source-hash buffer copy.
-The exact-first timing policy and full-source boundary authentication remain.
+Current source identity: 1.6.0 build 16. Independent motion blocks now run in
+bounded parallel batches, results merge in a fixed order, and frame history
+remains sequential. Scoped process activities protect active work from App Nap
+while permitting display sleep. Full-source boundary authentication, exact
+cadence, canonical candidate ordering, and checkpoint contracts remain intact.
 
-The clean 1.5.0 build-15 Debug scheme passed all 594 executed Swift tests, with
-zero failures and four existing opt-in tests skipped (598 total). The clean
-universal Release build also succeeded. Both final build logs contain zero
-`error:` or `warning:` diagnostics, and no App Intents metadata extraction task
-ran. The correct GitHub checkout's Xcode window reported **No Issues** and a
-successful build at 13:09. Version-contract tests passed 9 of 9; roadmap-tracker
-unit tests passed 5 of 5.
+## Current 1.6.0 verification
 
-Final evidence is retained at:
+Native Xcode 27.0 tests on macOS 27.0.1, arm64, **My Mac**, passed in both
+configurations: Debug 628 passed, zero failed, five opt-in skips; Release 623
+passed, zero failed, five opt-in skips. Both commands treated Swift and C
+warnings as errors and emitted zero compiler warnings or errors. Release tests
+enabled testability; the production Release configuration remains unchanged.
+The universal production Release build also passed with zero compiler warnings
+or errors, contains arm64 and x86_64 slices, identifies as 1.6.0 (16), and passes
+strict code-signature verification. Mirmir has no iOS Simulator destination.
+The Mac was locked during the final GUI check, so a fresh visible Xcode Issue
+Navigator result was not obtained.
 
-- `/tmp/mirmir-1.5.0-15-warning-free-debug.log`
-- `/tmp/mirmir-1.5.0-15-warning-free-tests.xcresult`
-- `/tmp/mirmir-1.5.0-15-warning-free-release.log`
+The optimized motion benchmark used five alternating pairs with identical
+fields. Median analysis time improved 6.46× at 1920×816 and 6.48× at 3840×1632.
+A live deterministic Metal job completed 66 frames from 1920×1080 to
+3840×2160 through two durable segments and final publication. Independent
+ffprobe/ffmpeg verification passed 35 of 35 checks, including every video
+frame, exact admitted NTSC timing, dimensions, color metadata, and all 132,132
+PCM audio samples with an identical payload digest. These short-job and
+motion-only results do not establish full-length movie throughput.
 
-No full-length job rerun or replacement of the installed 1.4.5 application has
-been performed in this pass. The source identity limitation below remains open.
+An earlier untraced Release 157-frame CPU/Metal comparison differed at 34
+decoded H.264 frame ordinals. Its pre-encoder output was not captured, so the
+cause remains unknown. Subsequent traced CPU, Metal, and same-backend repeats
+matched all input, pre-encoder output, timing, and decoded-frame records; both
+final full suites also passed. Instrumentation changes timing and cannot
+attribute the earlier failure. All strict parity assertions remain in place.
+
+Portable receipts, frozen source hashes, and scope are retained in
+[`evidence/motion-parallelism-2026-10-06/`](evidence/motion-parallelism-2026-10-06/README.md).
+Original build logs, result bundles, source/output movies, and trace attachments
+are retained locally in
+`/Users/jimdaley/Desktop/Mirmir-1.6.0-Build16-Evidence/`.
 
 ## Open source identity gate
 
@@ -97,7 +115,7 @@ No ASH reseal or benchmark/evidence changes were made. The full Swift suite
 was not run in this pass.
 
 The remaining verification narrative below belongs to 1.4.3 and earlier
-commits; it does not establish qualification of the 1.5.0 source.
+commits; it does not establish qualification of the 1.6.0 source.
 
 Historical qualification receipts retain their original dates and source
 identities.
@@ -123,9 +141,9 @@ decisions.
 
 | Field | Verified value |
 | --- | --- |
-| Product | Mirmir 1.5.0 (15) |
-| Version authorities | `VERSION` = `1.5.0`; `BUILD_NUMBER` = `15` |
-| Installed application | `/Applications/Mirmir.app` 1.4.5 (14), checked October 4; not replaced by this update |
+| Product | Mirmir 1.6.0 (16) |
+| Version authorities | `VERSION` = `1.6.0`; `BUILD_NUMBER` = `16` |
+| Installed application | `/Applications/Mirmir.app` 1.5.0 (15), checked October 6; not replaced by this update |
 | Bundle identifier | `com.mirmir.app` |
 | Minimum macOS | 15.4 |
 | M0–M6 implementation | Complete |

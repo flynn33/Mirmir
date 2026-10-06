@@ -3,18 +3,17 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-Version **1.5.0 build 15** reduces diagnostic CPU work by reusing validated
-journal history, omitting duplicate checkpoint successes, and collecting
-active-job telemetry and progress at minute intervals. Detailed failures remain
-available. Progress summaries separate source authentication, segment
-processing, and checkpoint time. Process CPU percentages now use the correct
-Mach time units. The deterministic scaler restores cheaper NV12/P010 input
-validation, and source hashing avoids per-chunk buffer copies while retaining
-full authentication at every segment boundary. See
+Version **1.6.0 build 16** adds bounded parallel motion searches and scoped
+App Nap protection during active upscaling. Workers share immutable frame data
+and combine results in a fixed order; temporal history and exact NTSC timing
+remain ordered. Planning, processing, finalization, and recovery hold an
+activity that permits display sleep and ends when work stops. See
+[`docs/DETERMINISTIC_MOTION_PARALLELISM.md`](docs/DETERMINISTIC_MOTION_PARALLELISM.md)
+for implementation and verification details, and
 [`docs/v4/CURRENT_QUALIFICATION_STATUS.md`](docs/v4/CURRENT_QUALIFICATION_STATUS.md)
-for verification and remaining qualification work.
+for current results and remaining qualification work.
 
-Version 1.5.0 build 15 carries the deterministic ASH P06 CPU and Metal engine
+Version 1.6.0 build 16 carries the deterministic ASH P06 CPU and Metal engine
 beside the supported Apple scaling frameworks, preserves the completed
 simulator-only M7 candidate selection, and adds qualified source admission,
 VideoToolbox capability checks, multi-audio preservation, and deterministic
@@ -45,7 +44,8 @@ deliberate operator actions.
 - Native 8-bit NV12 and 10-bit P010/HDR processing, field-aware deinterlacing,
   rational sample-aspect/clean-aperture geometry, and ProRes 4444 alpha output.
 - State-conditioned spatial reconstruction plus bounded, motion-compensated
-  temporal history with deterministic checkpoint restoration.
+  temporal history with deterministic checkpoint restoration and parallel
+  motion block searches. Active processing remains protected from App Nap.
 - Explicit Apple-native choices using VideoToolbox, MetalFX, Metal Performance
   Shaders, Core Image, Accelerate/vImage, and pixel transfer where available.
 - HEVC, H.264, Apple ProRes 422, and alpha-capable Apple ProRes 4444 output in
@@ -72,7 +72,7 @@ deliberate operator actions.
   bounded process telemetry. Diagnostics exports the journal as JSON or
   Markdown and the current process's available unified logs as JSON.
 
-Version 1.5.0 keeps these product boundaries explicit:
+Version 1.6.0 keeps these product boundaries explicit:
 
 - Deterministic resource allocation is not a first-release target. It is
   excluded from version 1.4.0 rather than treated as unfinished release work.
@@ -103,8 +103,8 @@ See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.
 See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) for accepted first-release limitations
 and post-first-release qualification and enhancement work.
-See [`CHANGELOG.md`](CHANGELOG.md) for the 1.5.0 diagnostic and engine efficiency
-changes, the 1.4.3 timing, diagnostics, and
+See [`CHANGELOG.md`](CHANGELOG.md) for the 1.6.0 parallel motion and processing activity
+changes, the 1.5.0 diagnostic and engine efficiency update, the 1.4.3 timing, diagnostics, and
 singleton-audio corrections, the 1.4.2 cache-control correction,
 the 1.4.1 timing correction, the 1.4.0
 cache-management release, the
@@ -117,7 +117,23 @@ The [Mirmir Wiki](https://github.com/flynn33/Mirmir/wiki) provides the complete
 product guide, architecture reference, ASH engine documentation, diagrams,
 testing procedures, and troubleshooting material.
 
-Version 1.5.0 build-15 verification on October 4, 2026:
+Current 1.6.0 build-16 verification on October 6, 2026:
+
+- Native Xcode **My Mac** tests: Debug 628 passed and Release 623 passed,
+  zero failures and five opt-in skips in each configuration.
+- Universal Release app: arm64 and x86_64; zero compiler warnings or errors
+  across the final builds and tests. The final visible GUI check was unavailable
+  while the Mac was locked.
+- Motion analysis: 6.46× and 6.48× faster on the retained fixtures with identical
+  fields. A 66-frame 1080p-to-4K Metal job completed and passed all 35 independent
+  media checks. These measurements do not establish full-movie speedup.
+- An earlier untraced decoded-frame parity mismatch remains unexplained;
+  subsequent traced repeats and final suites passed. Strict checks and
+  qualification limits are retained in the
+  [current status](docs/v4/CURRENT_QUALIFICATION_STATUS.md) and
+  [verification receipts](docs/v4/evidence/motion-parallelism-2026-10-06/README.md).
+
+Historical 1.5.0 build-15 verification on October 4, 2026:
 
 - Clean Debug testing: 594 passed, zero failed, four opt-in skips.
 - Clean universal Release build: Apple Silicon and Intel, with zero errors and

@@ -1,6 +1,6 @@
 # Deterministic Engine v4 roadmap
 
-Status: current source target 1.5.0 (15); the 1.4.0 (9) implementation
+Status: current source target 1.6.0 (16); the 1.4.0 (9) implementation
 milestone and M7 simulator candidate selection are historical checkpoints
 
 Scope: Mirmir deterministic CPU and Metal engines, media pipeline, and durable job workflow
@@ -32,7 +32,9 @@ geometry adaptation are post-first-release targets and are not part of version
 restores cheaper NV12/P010 validation, corrects process CPU counter conversion,
 and avoids source-hash buffer copies. Full-source authentication remains at each
 deterministic segment, and isolated measurements do not establish full-length
-job throughput. The current source target is version 1.5.0 build 15. Its current
+job throughput. Version 1.6.0 build 16 adds bounded parallel motion batches with fixed-order
+results and scoped App Nap protection; frame history remains sequential.
+The current source target is version 1.6.0 build 16. Its current
 qualification gates are recorded separately in
 `docs/v4/CURRENT_QUALIFICATION_STATUS.md`; none of the historical checkpoints
 substitutes for those gates.

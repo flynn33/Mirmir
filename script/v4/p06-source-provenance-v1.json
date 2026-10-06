@@ -26,6 +26,7 @@
     "Mirmir/App/MirmirDeploymentMode.swift",
     "Mirmir/App/MirmirDeveloperRootView.swift",
     "Mirmir/App/MirmirModuleRegistry.swift",
+    "Mirmir/App/MirmirProcessingActivity.swift",
     "Mirmir/App/MirmirProductionRootView.swift",
     "Mirmir/App/MirmirUpscaleWorkspace.swift",
     "Mirmir/App/MirmirViewModel.swift",

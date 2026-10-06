@@ -1,0 +1,88 @@
+{
+  "build": 16,
+  "limitations": [
+    "Mirmir is macOS-only; iOS Simulator was not used.",
+    "Fresh visible Xcode Issue Navigator verification was unavailable while the Mac was locked.",
+    "Earlier untraced Release decoded-frame parity mismatch remains unexplained; traced repeats and both final full suites passed with strict checks retained.",
+    "Motion benchmark and 66-frame production job do not establish full-length movie throughput.",
+    "Pre-existing packaged P06 source-closure gate remains unresolved.",
+    "Installed 1.5.0 (15) application was not replaced."
+  ],
+  "productionUniversalRelease": {
+    "architectures": [
+      "x86_64",
+      "arm64"
+    ],
+    "compilerErrors": 0,
+    "compilerWarnings": 0,
+    "destination": "generic/platform=macOS",
+    "embeddedTestBundles": 0,
+    "logFile": "final-borrowed-universal-release.log",
+    "logSHA256": "b893d9be13458a1ead5d645d4c6f00f92504268ed54fef9122af472a505dcdc0",
+    "result": "Build Succeeded",
+    "settings": {
+      "ARCHS": "arm64 x86_64",
+      "GCC_TREAT_WARNINGS_AS_ERRORS": "YES",
+      "ONLY_ACTIVE_ARCH": "NO",
+      "SWIFT_TREAT_WARNINGS_AS_ERRORS": "YES"
+    },
+    "signatureVerification": "codesign --verify --deep --strict passed"
+  },
+  "schema": "mirmir-final-native-verification-v1",
+  "separateReceipts": {
+    "completedNative4KJob": "production-job-run.json",
+    "earlierParityInvestigation": "ntsc-parity-investigation.json",
+    "frozenSourceHashes": "FINAL_SOURCE_SHA256SUMS",
+    "independentMediaValidation": "production-job-validation.json",
+    "motionBenchmark": "motion-parallel-benchmark.json"
+  },
+  "testRuns": [
+    {
+      "compilerErrors": 0,
+      "compilerWarnings": 0,
+      "configuration": "Debug",
+      "destination": "platform=macOS,arch=arm64",
+      "failedTests": 0,
+      "logSHA256": "192441e5939d3dd9ba7fa8854013929a02f31f95a1ee055149fc8f1cc38b5e9f",
+      "passedTests": 628,
+      "result": "Passed",
+      "resultBundle": "final-qualified-debug-tests.xcresult",
+      "runtimeWarnings": [],
+      "settings": {
+        "GCC_TREAT_WARNINGS_AS_ERRORS": "YES",
+        "ONLY_ACTIVE_ARCH": "YES",
+        "SWIFT_TREAT_WARNINGS_AS_ERRORS": "YES"
+      },
+      "skippedTests": 5,
+      "totalTests": 633
+    },
+    {
+      "compilerErrors": 0,
+      "compilerWarnings": 0,
+      "configuration": "Release",
+      "destination": "platform=macOS,arch=arm64",
+      "failedTests": 0,
+      "logSHA256": "e1cd152386276d4b79d1fbc9ea26eccb65f264d84ba26b24eecad00992872ac7",
+      "passedTests": 623,
+      "result": "Passed",
+      "resultBundle": "final-qualified-release-tests.xcresult",
+      "runtimeWarnings": [],
+      "settings": {
+        "ENABLE_TESTABILITY": "YES",
+        "GCC_TREAT_WARNINGS_AS_ERRORS": "YES",
+        "ONLY_ACTIVE_ARCH": "YES",
+        "SWIFT_TREAT_WARNINGS_AS_ERRORS": "YES"
+      },
+      "skippedTests": 5,
+      "totalTests": 628
+    }
+  ],
+  "toolchain": {
+    "macOS": "27.0.1 (26A434)",
+    "testArchitecture": "arm64",
+    "testDestinationName": "My Mac",
+    "xcode": "27.0 (27A266a)"
+  },
+  "verifiedDate": "2026-10-06",
+  "version": "1.6.0"
+}

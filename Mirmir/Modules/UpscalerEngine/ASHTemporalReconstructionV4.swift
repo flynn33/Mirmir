@@ -632,6 +632,73 @@ struct ASHTemporalMotionFieldResultV4: Equatable, Sendable {
     let allocationDiagnostics: ASHTemporalMotionAllocationDiagnosticsV4
 }
 
+enum ASHTemporalMotionExecutionPolicyV4: Sendable {
+    case automatic
+    case serial
+    case parallel(maximumWorkers: Int)
+
+    static let parallelBlockThreshold = 256
+
+    func workerCount(rows: Int, blockCount: Int) throws -> Int {
+        let available = max(1, ProcessInfo.processInfo.activeProcessorCount)
+        switch self {
+        case .automatic:
+            return blockCount < Self.parallelBlockThreshold
+                ? 1 : min(rows, available)
+        case .serial:
+            return 1
+        case .parallel(let maximumWorkers):
+            guard maximumWorkers > 0 else {
+                throw ASHTemporalV4Error.invalidConfiguration
+            }
+            return min(rows, min(available, maximumWorkers))
+        }
+    }
+}
+
+private enum ASHTemporalMotionBatchExecutorV4 {
+    private static let queue = DispatchQueue(
+        label: "com.mirmir.deterministic.motion.v4",
+        qos: .userInitiated,
+        attributes: .concurrent
+    )
+
+    static func perform(iterations: Int, work: @Sendable (Int) -> Void) {
+        queue.sync {
+            DispatchQueue.concurrentPerform(iterations: iterations, execute: work)
+        }
+    }
+}
+
+// Matching reads immutable samples and owns its result buffers. The lock
+// protects only publication; concurrentPerform joins before ordered reads.
+private final class ASHTemporalMotionBatchResultsV4<Payload: Sendable>:
+    @unchecked Sendable {
+    private let lock = NSLock()
+    private var results: [Result<Payload, Error>?]
+
+    init(count: Int) {
+        results = Array(repeating: nil, count: count)
+    }
+
+    func store(_ result: Result<Payload, Error>, at index: Int) {
+        lock.lock()
+        results[index] = result
+        lock.unlock()
+    }
+
+    func take(at index: Int) throws -> Payload {
+        lock.lock()
+        let result = results[index]
+        results[index] = nil
+        lock.unlock()
+        guard let result else {
+            throw ASHTemporalV4Error.invalidMotionField
+        }
+        return try result.get()
+    }
+}
+
 enum ASHTemporalMotionAnalyzerV4 {
     private struct Candidate: Comparable {
         let absoluteDifference: UInt64
@@ -715,8 +782,10 @@ enum ASHTemporalMotionAnalyzerV4 {
     static func analyzeField(
         current: ASHTemporalFrameV4,
         previous: ASHTemporalFrameV4,
-        configuration: ASHTemporalBlockMatchingConfigurationV4 = .canonical
+        configuration: ASHTemporalBlockMatchingConfigurationV4 = .canonical,
+        executionPolicy: ASHTemporalMotionExecutionPolicyV4 = .automatic
     ) throws -> ASHTemporalMotionFieldResultV4 {
+        try Task.checkCancellation()
         try current.validate()
         try previous.validate()
         guard previous.ordinal < current.ordinal,
@@ -753,6 +822,10 @@ enum ASHTemporalMotionAnalyzerV4 {
             currentPlane.height,
             configuration.blockHeight
         )
+        let workerCount = try executionPolicy.workerCount(
+            rows: rows,
+            blockCount: columns * rows
+        )
         if sceneDifference >= configuration.sceneCutHistogramThresholdQ16 {
             let field = ASHTemporalMotionFieldV4(
                 policyID: configuration.policyID,
@@ -784,15 +857,122 @@ enum ASHTemporalMotionAnalyzerV4 {
             )
         }
 
+        var vectors: [ASHTemporalMotionVectorV4] = []
+        if workerCount == 1 {
+            vectors = try matchRows(
+                0..<rows,
+                columns: columns,
+                currentPlane: currentPlane,
+                previousPlane: previousPlane,
+                configuration: configuration,
+                checkCancellation: true
+            )
+        } else {
+            vectors.reserveCapacity(columns * rows)
+            let results = ASHTemporalMotionBatchResultsV4<
+                [ASHTemporalMotionVectorV4]
+            >(count: workerCount)
+            let rowsPerWorker = rows / workerCount
+            let extraRows = rows % workerCount
+            ASHTemporalMotionBatchExecutorV4.perform(iterations: workerCount) { index in
+                let lower = index * rowsPerWorker + min(index, extraRows)
+                let upper = lower + rowsPerWorker + (index < extraRows ? 1 : 0)
+                results.store(Result {
+                    try matchRows(
+                        lower..<upper,
+                        columns: columns,
+                        currentPlane: currentPlane,
+                        previousPlane: previousPlane,
+                        configuration: configuration
+                    )
+                }, at: index)
+            }
+            // Dispatch workers do not inherit the initiating Swift task.
+            try Task.checkCancellation()
+            // Completion order never changes vector order or error selection.
+            for index in 0..<workerCount {
+                vectors.append(contentsOf: try results.take(at: index))
+            }
+        }
+        try Task.checkCancellation()
+
+        var weightedEvidence: UInt64 = 0
+        var weightedCount: UInt64 = 0
+        for vector in vectors {
+            let sampleCount = UInt64(vector.width * vector.height)
+            let weighted = UInt64(vector.normalizedCostQ16)
+                .multipliedReportingOverflow(by: sampleCount)
+            let nextEvidence = weightedEvidence.addingReportingOverflow(
+                weighted.partialValue
+            )
+            let nextCount = weightedCount.addingReportingOverflow(sampleCount)
+            guard !weighted.overflow,
+                  !nextEvidence.overflow,
+                  !nextCount.overflow else {
+                throw ASHTemporalV4Error.arithmeticOverflow
+            }
+            weightedEvidence = nextEvidence.partialValue
+            weightedCount = nextCount.partialValue
+        }
+        let temporalEvidence = try divideRoundedTiesToEven(
+            weightedEvidence,
+            by: weightedCount
+        )
+        guard temporalEvidence <= UInt64(ASHNormalizedQ16V4.scale) else {
+            throw ASHTemporalV4Error.arithmeticOverflow
+        }
+        let field = ASHTemporalMotionFieldV4(
+            policyID: configuration.policyID,
+            currentFrameID: current.frameID,
+            previousFrameID: previous.frameID,
+            streamID: current.streamID,
+            formatIdentity: current.formatIdentity,
+            planeWidth: currentPlane.width,
+            planeHeight: currentPlane.height,
+            minimumCode: currentPlane.minimumCode,
+            maximumCode: currentPlane.maximumCode,
+            sceneDifferenceQ16: sceneDifference,
+            sceneCut: false,
+            temporalEvidenceQ16: UInt32(temporalEvidence),
+            blockColumns: columns,
+            blockRows: rows,
+            vectors: vectors
+        )
+        try field.validate()
+        let vectorBytes = vectors.count.multipliedReportingOverflow(
+            by: MemoryLayout<ASHTemporalMotionVectorV4>.stride
+                * (workerCount > 1 ? 2 : 1)
+        )
+        guard !vectorBytes.overflow else {
+            throw ASHTemporalV4Error.arithmeticOverflow
+        }
+        return ASHTemporalMotionFieldResultV4(
+            field: field,
+            allocationDiagnostics: ASHTemporalMotionAllocationDiagnosticsV4(
+                maximumRetainedCandidatesPerBlock: 2,
+                materializedAlignedSampleCount: 0,
+                vectorCount: vectors.count,
+                vectorStorageByteUpperBound: vectorBytes.partialValue
+            )
+        )
+    }
+
+    private static func matchRows(
+        _ rowRange: Range<Int>,
+        columns: Int,
+        currentPlane: ASHTemporalPlaneV4,
+        previousPlane: ASHTemporalPlaneV4,
+        configuration: ASHTemporalBlockMatchingConfigurationV4,
+        checkCancellation: Bool = false
+    ) throws -> [ASHTemporalMotionVectorV4] {
         let signalRange = UInt64(
             currentPlane.maximumCode - currentPlane.minimumCode
         )
         var vectors: [ASHTemporalMotionVectorV4] = []
-        vectors.reserveCapacity(columns * rows)
-        var weightedEvidence: UInt64 = 0
-        var weightedCount: UInt64 = 0
+        vectors.reserveCapacity(columns * rowRange.count)
 
-        for blockY in 0..<rows {
+        for blockY in rowRange {
+            if checkCancellation { try Task.checkCancellation() }
             for blockX in 0..<columns {
                 let originX = blockX * configuration.blockWidth
                 let originY = blockY * configuration.blockHeight
@@ -839,7 +1019,7 @@ enum ASHTemporalMotionAnalyzerV4 {
                 let occluded = costQ16
                     > configuration.occlusionCostThresholdQ16
                     || confidenceQ16 < configuration.minimumConfidenceQ16
-                let index = vectors.count
+                let index = blockY * columns + blockX
                 vectors.append(ASHTemporalMotionVectorV4(
                     blockIndex: index,
                     originX: originX,
@@ -853,64 +1033,9 @@ enum ASHTemporalMotionAnalyzerV4 {
                     confidenceQ16: confidenceQ16,
                     occluded: occluded
                 ))
-                let weighted = UInt64(costQ16).multipliedReportingOverflow(
-                    by: sampleCount
-                )
-                let nextEvidence = weightedEvidence.addingReportingOverflow(
-                    weighted.partialValue
-                )
-                let nextCount = weightedCount.addingReportingOverflow(
-                    sampleCount
-                )
-                guard !weighted.overflow,
-                      !nextEvidence.overflow,
-                      !nextCount.overflow else {
-                    throw ASHTemporalV4Error.arithmeticOverflow
-                }
-                weightedEvidence = nextEvidence.partialValue
-                weightedCount = nextCount.partialValue
             }
         }
-        let temporalEvidence = try divideRoundedTiesToEven(
-            weightedEvidence,
-            by: weightedCount
-        )
-        guard temporalEvidence <= UInt64(ASHNormalizedQ16V4.scale) else {
-            throw ASHTemporalV4Error.arithmeticOverflow
-        }
-        let field = ASHTemporalMotionFieldV4(
-            policyID: configuration.policyID,
-            currentFrameID: current.frameID,
-            previousFrameID: previous.frameID,
-            streamID: current.streamID,
-            formatIdentity: current.formatIdentity,
-            planeWidth: currentPlane.width,
-            planeHeight: currentPlane.height,
-            minimumCode: currentPlane.minimumCode,
-            maximumCode: currentPlane.maximumCode,
-            sceneDifferenceQ16: sceneDifference,
-            sceneCut: false,
-            temporalEvidenceQ16: UInt32(temporalEvidence),
-            blockColumns: columns,
-            blockRows: rows,
-            vectors: vectors
-        )
-        try field.validate()
-        let vectorBytes = vectors.count.multipliedReportingOverflow(
-            by: MemoryLayout<ASHTemporalMotionVectorV4>.stride
-        )
-        guard !vectorBytes.overflow else {
-            throw ASHTemporalV4Error.arithmeticOverflow
-        }
-        return ASHTemporalMotionFieldResultV4(
-            field: field,
-            allocationDiagnostics: ASHTemporalMotionAllocationDiagnosticsV4(
-                maximumRetainedCandidatesPerBlock: 2,
-                materializedAlignedSampleCount: 0,
-                vectorCount: vectors.count,
-                vectorStorageByteUpperBound: vectorBytes.partialValue
-            )
-        )
+        return vectors
     }
 
     private static func bestTwoCandidates(
@@ -929,48 +1054,52 @@ enum ASHTemporalMotionAnalyzerV4 {
         guard minimumDX <= maximumDX, minimumDY <= maximumDY else {
             throw ASHTemporalV4Error.invalidMotionField
         }
-        var best: Candidate?
-        var second: Candidate?
-        for dy in minimumDY...maximumDY {
-            for dx in minimumDX...maximumDX {
-                var difference: UInt64 = 0
-                for localY in 0..<height {
-                    for localX in 0..<width {
-                        let currentValue = current.sample(
-                            x: originX + localX,
-                            y: originY + localY
-                        )
-                        let previousValue = previous.sample(
-                            x: originX + localX + dx,
-                            y: originY + localY + dy
-                        )
-                        let delta = currentValue > previousValue
-                            ? UInt64(currentValue - previousValue)
-                            : UInt64(previousValue - currentValue)
-                        let sum = difference.addingReportingOverflow(delta)
-                        guard !sum.overflow else {
-                            throw ASHTemporalV4Error.arithmeticOverflow
+        return try current.samples.withUnsafeBufferPointer { currentSamples in
+            try previous.samples.withUnsafeBufferPointer { previousSamples in
+                var best: Candidate?
+                var second: Candidate?
+                for dy in minimumDY...maximumDY {
+                    for dx in minimumDX...maximumDX {
+                        var difference: UInt64 = 0
+                        for localY in 0..<height {
+                            for localX in 0..<width {
+                                let currentValue = currentSamples[
+                                    (originY + localY) * current.width
+                                        + originX + localX
+                                ]
+                                let previousValue = previousSamples[
+                                    (originY + localY + dy) * previous.width
+                                        + originX + localX + dx
+                                ]
+                                let delta = currentValue > previousValue
+                                    ? UInt64(currentValue - previousValue)
+                                    : UInt64(previousValue - currentValue)
+                                let sum = difference.addingReportingOverflow(delta)
+                                guard !sum.overflow else {
+                                    throw ASHTemporalV4Error.arithmeticOverflow
+                                }
+                                difference = sum.partialValue
+                            }
                         }
-                        difference = sum.partialValue
+                        let candidate = Candidate(
+                            absoluteDifference: difference,
+                            dx: dx,
+                            dy: dy
+                        )
+                        if best == nil || candidate < best! {
+                            second = best
+                            best = candidate
+                        } else if second == nil || candidate < second! {
+                            second = candidate
+                        }
                     }
                 }
-                let candidate = Candidate(
-                    absoluteDifference: difference,
-                    dx: dx,
-                    dy: dy
-                )
-                if best == nil || candidate < best! {
-                    second = best
-                    best = candidate
-                } else if second == nil || candidate < second! {
-                    second = candidate
+                guard let best else {
+                    throw ASHTemporalV4Error.invalidMotionField
                 }
+                return (best, second ?? best)
             }
         }
-        guard let best else {
-            throw ASHTemporalV4Error.invalidMotionField
-        }
-        return (best, second ?? best)
     }
 
     private static func histogramDifferenceQ16(
@@ -1607,6 +1736,12 @@ struct ASHTemporalTiledMotionResultV4: Equatable, Sendable {
 }
 
 enum ASHTemporalTiledMotionAnalyzerV4 {
+    private struct TileBatchResult: Sendable {
+        let state: ASHTemporalTileMotionStateV4
+        let weightedEvidence: UInt64
+        let sampleCount: UInt64
+    }
+
     private struct Candidate: Comparable {
         let absoluteDifference: UInt64
         let dx: Int
@@ -1629,8 +1764,10 @@ enum ASHTemporalTiledMotionAnalyzerV4 {
     static func analyze(
         current: ASHTemporalTiledFrameV4,
         previous: ASHTemporalTiledFrameV4,
-        configuration: ASHTemporalBlockMatchingConfigurationV4 = .canonical
+        configuration: ASHTemporalBlockMatchingConfigurationV4 = .canonical,
+        executionPolicy: ASHTemporalMotionExecutionPolicyV4 = .automatic
     ) throws -> ASHTemporalTiledMotionResultV4 {
+        try Task.checkCancellation()
         try current.validate()
         try previous.validate()
         guard previous.ordinal < current.ordinal,
@@ -1655,6 +1792,16 @@ enum ASHTemporalTiledMotionAnalyzerV4 {
               }) else {
             throw ASHTemporalV4Error.planeGeometryMismatch
         }
+        var blockCount = 0
+        for tileIndex in 0..<current.grid.tileCount {
+            let active = try current.grid.descriptor(at: tileIndex).active
+            blockCount += ceilingDivision(active.width, configuration.blockWidth)
+                * ceilingDivision(active.height, configuration.blockHeight)
+        }
+        let workerCount = try executionPolicy.workerCount(
+            rows: current.grid.tileCount,
+            blockCount: blockCount
+        )
         let sceneDifference = try histogramDifferenceQ16(
             current: current,
             previous: previous
@@ -1715,138 +1862,61 @@ enum ASHTemporalTiledMotionAnalyzerV4 {
         var largestVectorCount = 0
         var globalWeightedEvidence: UInt64 = 0
         var globalSampleCount: UInt64 = 0
-        for tileIndex in 0..<current.grid.tileCount {
+        // Each worker owns one tile's bounded block array. Waves cap the
+        // pending results and give cancellation back to the initiating task.
+        for batchStart in stride(
+            from: 0, to: current.grid.tileCount, by: workerCount
+        ) {
             try Task.checkCancellation()
-            let descriptor = try current.grid.descriptor(at: tileIndex)
-            let currentTile = current.tiles[tileIndex]
-            let previousTile = previous.tiles[tileIndex]
-            let columns = ceilingDivision(
-                descriptor.active.width,
-                configuration.blockWidth
+            let count = min(workerCount, current.grid.tileCount - batchStart)
+            let results = ASHTemporalMotionBatchResultsV4<TileBatchResult>(
+                count: count
             )
-            let rows = ceilingDivision(
-                descriptor.active.height,
-                configuration.blockHeight
-            )
-            var vectors: [ASHTemporalMotionVectorV4] = []
-            vectors.reserveCapacity(columns * rows)
-            var tileWeightedEvidence: UInt64 = 0
-            var tileSampleCount: UInt64 = 0
-            let signalRange = UInt64(
-                currentTile.maximumCode - currentTile.minimumCode
-            )
-            for blockRow in 0..<rows {
-                for blockColumn in 0..<columns {
-                    let originX = descriptor.active.x
-                        + blockColumn * configuration.blockWidth
-                    let originY = descriptor.active.y
-                        + blockRow * configuration.blockHeight
-                    let width = min(
-                        configuration.blockWidth,
-                        descriptor.active.maximumX - originX
+            if workerCount == 1 {
+                results.store(Result {
+                    try matchTile(
+                        at: batchStart,
+                        current: current,
+                        previous: previous,
+                        configuration: configuration,
+                        checkCancellation: true
                     )
-                    let height = min(
-                        configuration.blockHeight,
-                        descriptor.active.maximumY - originY
-                    )
-                    let candidates = try bestTwoCandidates(
-                        current: currentTile,
-                        previous: previousTile,
-                        grid: current.grid,
-                        originX: originX,
-                        originY: originY,
-                        width: width,
-                        height: height,
-                        radius: configuration.searchRadius
-                    )
-                    let blockSampleCount = UInt64(width * height)
-                    let denominator = blockSampleCount
-                        .multipliedReportingOverflow(by: signalRange)
-                    guard !denominator.overflow else {
-                        throw ASHTemporalV4Error.arithmeticOverflow
-                    }
-                    let costQ16 = try normalizedQ16(
-                        numerator: candidates.best.absoluteDifference,
-                        denominator: denominator.partialValue
-                    )
-                    let confidenceQ16: UInt32
-                    if candidates.second.absoluteDifference
-                        > candidates.best.absoluteDifference {
-                        confidenceQ16 = try normalizedQ16(
-                            numerator: candidates.second.absoluteDifference
-                                - candidates.best.absoluteDifference,
-                            denominator: max(
-                                candidates.second.absoluteDifference,
-                                1
-                            )
+                }, at: 0)
+            } else {
+                ASHTemporalMotionBatchExecutorV4.perform(iterations: count) { index in
+                    results.store(Result {
+                        try matchTile(
+                            at: batchStart + index,
+                            current: current,
+                            previous: previous,
+                            configuration: configuration,
+                            checkCancellation: false
                         )
-                    } else {
-                        confidenceQ16 = 0
-                    }
-                    let occluded = costQ16
-                        > configuration.occlusionCostThresholdQ16
-                        || confidenceQ16
-                            < configuration.minimumConfidenceQ16
-                    vectors.append(ASHTemporalMotionVectorV4(
-                        blockIndex: vectors.count,
-                        originX: originX,
-                        originY: originY,
-                        width: width,
-                        height: height,
-                        dx: Int16(candidates.best.dx),
-                        dy: Int16(candidates.best.dy),
-                        absoluteDifference:
-                            candidates.best.absoluteDifference,
-                        normalizedCostQ16: costQ16,
-                        confidenceQ16: confidenceQ16,
-                        occluded: occluded
-                    ))
-                    let weighted = UInt64(costQ16)
-                        .multipliedReportingOverflow(by: blockSampleCount)
-                    let tileSum = tileWeightedEvidence
-                        .addingReportingOverflow(weighted.partialValue)
-                    let tileCount = tileSampleCount
-                        .addingReportingOverflow(blockSampleCount)
-                    guard !weighted.overflow,
-                          !tileSum.overflow,
-                          !tileCount.overflow else {
-                        throw ASHTemporalV4Error.arithmeticOverflow
-                    }
-                    tileWeightedEvidence = tileSum.partialValue
-                    tileSampleCount = tileCount.partialValue
+                    }, at: index)
                 }
             }
-            let tileEvidence = try divideRoundedTiesToEven(
-                tileWeightedEvidence,
-                by: tileSampleCount
-            )
-            guard let tileEvidenceQ16 = UInt32(exactly: tileEvidence),
-                  tileEvidenceQ16 <= ASHNormalizedQ16V4.scale else {
-                throw ASHTemporalV4Error.arithmeticOverflow
+            try Task.checkCancellation()
+            for index in 0..<count {
+                let result = try results.take(at: index)
+                states.append(result.state)
+                let nextTotal = totalVectorCount
+                    .addingReportingOverflow(result.state.vectors.count)
+                let globalEvidence = globalWeightedEvidence
+                    .addingReportingOverflow(result.weightedEvidence)
+                let globalCount = globalSampleCount
+                    .addingReportingOverflow(result.sampleCount)
+                guard !nextTotal.overflow,
+                      !globalEvidence.overflow,
+                      !globalCount.overflow else {
+                    throw ASHTemporalV4Error.arithmeticOverflow
+                }
+                totalVectorCount = nextTotal.partialValue
+                largestVectorCount = max(
+                    largestVectorCount, result.state.vectors.count
+                )
+                globalWeightedEvidence = globalEvidence.partialValue
+                globalSampleCount = globalCount.partialValue
             }
-            states.append(ASHTemporalTileMotionStateV4(
-                tileIndex: tileIndex,
-                sceneCut: false,
-                temporalEvidenceQ16: tileEvidenceQ16,
-                blockColumns: columns,
-                blockRows: rows,
-                vectors: vectors
-            ))
-            let nextTotal = totalVectorCount
-                .addingReportingOverflow(vectors.count)
-            let globalEvidence = globalWeightedEvidence
-                .addingReportingOverflow(tileWeightedEvidence)
-            let globalCount = globalSampleCount
-                .addingReportingOverflow(tileSampleCount)
-            guard !nextTotal.overflow,
-                  !globalEvidence.overflow,
-                  !globalCount.overflow else {
-                throw ASHTemporalV4Error.arithmeticOverflow
-            }
-            totalVectorCount = nextTotal.partialValue
-            largestVectorCount = max(largestVectorCount, vectors.count)
-            globalWeightedEvidence = globalEvidence.partialValue
-            globalSampleCount = globalCount.partialValue
         }
         let globalEvidence = try divideRoundedTiesToEven(
             globalWeightedEvidence,
@@ -1884,6 +1954,135 @@ enum ASHTemporalTiledMotionAnalyzerV4 {
                     fullFrameMotionVectorArrayAllocationCount: 0,
                     materializedAlignedSampleCount: 0
                 )
+        )
+    }
+
+    private static func matchTile(
+        at tileIndex: Int,
+        current: ASHTemporalTiledFrameV4,
+        previous: ASHTemporalTiledFrameV4,
+        configuration: ASHTemporalBlockMatchingConfigurationV4,
+        checkCancellation: Bool
+    ) throws -> TileBatchResult {
+        let descriptor = try current.grid.descriptor(at: tileIndex)
+        let currentTile = current.tiles[tileIndex]
+        let previousTile = previous.tiles[tileIndex]
+        let columns = ceilingDivision(
+            descriptor.active.width,
+            configuration.blockWidth
+        )
+        let rows = ceilingDivision(
+            descriptor.active.height,
+            configuration.blockHeight
+        )
+        var vectors: [ASHTemporalMotionVectorV4] = []
+        vectors.reserveCapacity(columns * rows)
+        var tileWeightedEvidence: UInt64 = 0
+        var tileSampleCount: UInt64 = 0
+        let signalRange = UInt64(
+            currentTile.maximumCode - currentTile.minimumCode
+        )
+        for blockRow in 0..<rows {
+            if checkCancellation { try Task.checkCancellation() }
+            for blockColumn in 0..<columns {
+                let originX = descriptor.active.x
+                    + blockColumn * configuration.blockWidth
+                let originY = descriptor.active.y
+                    + blockRow * configuration.blockHeight
+                let width = min(
+                    configuration.blockWidth,
+                    descriptor.active.maximumX - originX
+                )
+                let height = min(
+                    configuration.blockHeight,
+                    descriptor.active.maximumY - originY
+                )
+                let candidates = try bestTwoCandidates(
+                    current: currentTile,
+                    previous: previousTile,
+                    grid: current.grid,
+                    originX: originX,
+                    originY: originY,
+                    width: width,
+                    height: height,
+                    radius: configuration.searchRadius
+                )
+                let blockSampleCount = UInt64(width * height)
+                let denominator = blockSampleCount
+                    .multipliedReportingOverflow(by: signalRange)
+                guard !denominator.overflow else {
+                    throw ASHTemporalV4Error.arithmeticOverflow
+                }
+                let costQ16 = try normalizedQ16(
+                    numerator: candidates.best.absoluteDifference,
+                    denominator: denominator.partialValue
+                )
+                let confidenceQ16: UInt32
+                if candidates.second.absoluteDifference
+                    > candidates.best.absoluteDifference {
+                    confidenceQ16 = try normalizedQ16(
+                        numerator: candidates.second.absoluteDifference
+                            - candidates.best.absoluteDifference,
+                        denominator: max(
+                            candidates.second.absoluteDifference,
+                            1
+                        )
+                    )
+                } else {
+                    confidenceQ16 = 0
+                }
+                let occluded = costQ16
+                    > configuration.occlusionCostThresholdQ16
+                    || confidenceQ16
+                        < configuration.minimumConfidenceQ16
+                vectors.append(ASHTemporalMotionVectorV4(
+                    blockIndex: vectors.count,
+                    originX: originX,
+                    originY: originY,
+                    width: width,
+                    height: height,
+                    dx: Int16(candidates.best.dx),
+                    dy: Int16(candidates.best.dy),
+                    absoluteDifference:
+                        candidates.best.absoluteDifference,
+                    normalizedCostQ16: costQ16,
+                    confidenceQ16: confidenceQ16,
+                    occluded: occluded
+                ))
+                let weighted = UInt64(costQ16)
+                    .multipliedReportingOverflow(by: blockSampleCount)
+                let tileSum = tileWeightedEvidence
+                    .addingReportingOverflow(weighted.partialValue)
+                let tileCount = tileSampleCount
+                    .addingReportingOverflow(blockSampleCount)
+                guard !weighted.overflow,
+                      !tileSum.overflow,
+                      !tileCount.overflow else {
+                    throw ASHTemporalV4Error.arithmeticOverflow
+                }
+                tileWeightedEvidence = tileSum.partialValue
+                tileSampleCount = tileCount.partialValue
+            }
+        }
+        let tileEvidence = try divideRoundedTiesToEven(
+            tileWeightedEvidence,
+            by: tileSampleCount
+        )
+        guard let tileEvidenceQ16 = UInt32(exactly: tileEvidence),
+              tileEvidenceQ16 <= ASHNormalizedQ16V4.scale else {
+            throw ASHTemporalV4Error.arithmeticOverflow
+        }
+        return TileBatchResult(
+            state: ASHTemporalTileMotionStateV4(
+                tileIndex: tileIndex,
+                sceneCut: false,
+                temporalEvidenceQ16: tileEvidenceQ16,
+                blockColumns: columns,
+                blockRows: rows,
+                vectors: vectors
+            ),
+            weightedEvidence: tileWeightedEvidence,
+            sampleCount: tileSampleCount
         )
     }
 

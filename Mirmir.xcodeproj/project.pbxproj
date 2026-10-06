@@ -189,6 +189,8 @@
 		D5200000000000000000000A /* MirmirSettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5100000000000000000000A /* MirmirSettingsViews.swift */; };
 		D5200000000000000000000B /* MirmirDiagnosticStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5100000000000000000000B /* MirmirDiagnosticStoreTests.swift */; };
 		F52000000000000000000001 /* raven-forge-site057-video-timing.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = F51000000000000000000001 /* raven-forge-site057-video-timing.mp4 */; };
+		E62000000000000000000001 /* MirmirProcessingActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = E61000000000000000000001 /* MirmirProcessingActivity.swift */; };
+		E62000000000000000000002 /* MirmirProcessingActivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E61000000000000000000002 /* MirmirProcessingActivityTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -388,6 +390,8 @@
 		D5100000000000000000000A /* MirmirSettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MirmirSettingsViews.swift; path = ../UI/Views/MirmirSettingsViews.swift; sourceTree = "<group>"; };
 		D5100000000000000000000B /* MirmirDiagnosticStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirDiagnosticStoreTests.swift; sourceTree = "<group>"; };
 		F51000000000000000000001 /* raven-forge-site057-video-timing.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "raven-forge-site057-video-timing.mp4"; sourceTree = "<group>"; };
+		E61000000000000000000001 /* MirmirProcessingActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirProcessingActivity.swift; sourceTree = "<group>"; };
+		E61000000000000000000002 /* MirmirProcessingActivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirProcessingActivityTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -477,6 +481,7 @@
 				E41000000000000000000003 /* MirmirSynchronizedPlaybackController.swift */,
 				E41000000000000000000004 /* MirmirCompletedComparisonPlaybackView.swift */,
 				D41000000000000000000066 /* WorkflowApplicationCoordinatorV4.swift */,
+				E61000000000000000000001 /* MirmirProcessingActivity.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -555,6 +560,7 @@
 					B4100000000000000000004C /* WorkflowSegmentCheckpointStoreV4Tests.swift */,
 					B41000000000000000000064 /* WorkflowQueueDispatcherV4Tests.swift */,
 					D41000000000000000000067 /* WorkflowApplicationQueueV4Tests.swift */,
+					E61000000000000000000002 /* MirmirProcessingActivityTests.swift */,
 					D5100000000000000000000B /* MirmirDiagnosticStoreTests.swift */,
 					F50000000000000000000001 /* Fixtures */,
 					10000000000000000000000D /* Support */,
@@ -1008,6 +1014,7 @@
 				B42000000000000000000063 /* WorkflowQueueDispatcherV4.swift in Sources */,
 				D42000000000000000000065 /* WorkflowApplicationQueueV4.swift in Sources */,
 				D42000000000000000000066 /* WorkflowApplicationCoordinatorV4.swift in Sources */,
+				E62000000000000000000001 /* MirmirProcessingActivity.swift in Sources */,
 				F42000000000000000000001 /* WorkflowCacheLocationV4.swift in Sources */,
 				);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1055,6 +1062,7 @@
 				B4200000000000000000004C /* WorkflowSegmentCheckpointStoreV4Tests.swift in Sources */,
 				B42000000000000000000064 /* WorkflowQueueDispatcherV4Tests.swift in Sources */,
 				D42000000000000000000067 /* WorkflowApplicationQueueV4Tests.swift in Sources */,
+				E62000000000000000000002 /* MirmirProcessingActivityTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1175,7 +1183,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Mirmir/Mirmir.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 16;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1187,7 +1195,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.5.0;
+				MARKETING_VERSION = 1.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mirmir.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_STRICT_CONCURRENCY = targeted;
@@ -1201,7 +1209,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Mirmir/Mirmir.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 16;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1213,7 +1221,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.5.0;
+				MARKETING_VERSION = 1.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mirmir.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_STRICT_CONCURRENCY = targeted;
@@ -1226,7 +1234,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 16;
 				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1234,7 +1242,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.5.0;
+				MARKETING_VERSION = 1.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mirmir.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_STRICT_CONCURRENCY = targeted;
@@ -1248,7 +1256,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 15;
+				CURRENT_PROJECT_VERSION = 16;
 				DEAD_CODE_STRIPPING = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1256,7 +1264,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.5.0;
+				MARKETING_VERSION = 1.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mirmir.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_STRICT_CONCURRENCY = targeted;

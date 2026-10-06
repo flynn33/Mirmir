@@ -1,8 +1,8 @@
 # Mirmir accepted limitations and follow-up work
 
-Updated for Mirmir 1.5.0 build 15 on October 4, 2026. These entries distinguish
+Updated for Mirmir 1.6.0 build 16 on October 6, 2026. These entries distinguish
 source repair from installed-product and full-media qualification. The
-installed `/Applications/Mirmir.app` reports 1.4.5 build 14 and has not been
+installed `/Applications/Mirmir.app` reports 1.5.0 build 15 and has not been
 replaced by this source update.
 
 ## PERF-001 — Diagnostic overhead during long deterministic jobs
@@ -45,7 +45,7 @@ contained, failed, and cancelled jobs, verified owned files were removed, and
 observed the empty-queue location gate become available. The owner then
 authorized clearing the live root through those same methods. The installed
 1.4.1 app reopened it with zero jobs and **Choose Location…** enabled. The
-current installed `/Applications/Mirmir.app` reports 1.4.5 build 14, but its
+current installed `/Applications/Mirmir.app` reports 1.5.0 build 15, but its
 cache confirmation behavior has not been rechecked in this investigation.
 
 ## DV4-057 — Short nominal-cadence video terminal boundary

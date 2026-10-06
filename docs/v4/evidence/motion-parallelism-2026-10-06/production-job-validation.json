@@ -1,0 +1,1037 @@
+{
+  "artifacts": {
+    "output": {
+      "audio_bytes": 264264,
+      "audio_sha256": "51841ca58dfc2421a9c92b1c8c46af90e04c9dfb6f7952f609185569a511d871",
+      "file_bytes": 19798887,
+      "file_sha256": "2a9d2971af2cfda42c61bab3bdb7245bbf9afbb0cf78e385cb1be6ebf1d04149",
+      "path": "912C0A47-2ECA-4F2B-A45A-49868D15656D.mov"
+    },
+    "source": {
+      "audio_bytes": 264264,
+      "audio_sha256": "51841ca58dfc2421a9c92b1c8c46af90e04c9dfb6f7952f609185569a511d871",
+      "file_bytes": 3042510,
+      "file_sha256": "9a73ef499046b32367462d17c0e5b01270400506a94f59babd87d833eede031b",
+      "path": "CA8FDDA4-BE4E-4377-863F-E30F571FEDC6.mov"
+    }
+  },
+  "checks": [
+    {
+      "expected": {
+        "all": 2,
+        "audio": 1,
+        "video": 1
+      },
+      "name": "source track inventory",
+      "observed": {
+        "all": 2,
+        "audio": 1,
+        "video": 1
+      },
+      "passed": true
+    },
+    {
+      "expected": "h264",
+      "name": "source video codec",
+      "observed": "h264",
+      "passed": true
+    },
+    {
+      "expected": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "name": "source video begins at zero",
+      "observed": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "passed": true
+    },
+    {
+      "expected": 66,
+      "name": "source actual decoded video count",
+      "observed": {
+        "count_frames": 66,
+        "decoded": 66
+      },
+      "passed": true
+    },
+    {
+      "expected": "strictly increasing",
+      "name": "source monotonic video PTS",
+      "observed": [
+        {
+          "denominator": 1,
+          "numerator": 0
+        },
+        {
+          "denominator": 45000,
+          "numerator": 1877
+        },
+        {
+          "denominator": 22500,
+          "numerator": 1877
+        },
+        {
+          "denominator": 90000,
+          "numerator": 11261
+        },
+        {
+          "denominator": 6000,
+          "numerator": 1001
+        },
+        {
+          "denominator": 90000,
+          "numerator": 18769
+        },
+        {
+          "denominator": 90000,
+          "numerator": 22523
+        },
+        {
+          "denominator": 22500,
+          "numerator": 6569
+        },
+        {
+          "denominator": 3000,
+          "numerator": 1001
+        },
+        {
+          "denominator": 11250,
+          "numerator": 4223
+        },
+        {
+          "denominator": 45000,
+          "numerator": 18769
+        },
+        {
+          "denominator": 90000,
+          "numerator": 41291
+        },
+        {
+          "denominator": 2000,
+          "numerator": 1001
+        },
+        {
+          "denominator": 90000,
+          "numerator": 48799
+        },
+        {
+          "denominator": 90000,
+          "numerator": 52553
+        },
+        {
+          "denominator": 45000,
+          "numerator": 28153
+        },
+        {
+          "denominator": 1500,
+          "numerator": 1001
+        },
+        {
+          "denominator": 45000,
+          "numerator": 31907
+        },
+        {
+          "denominator": 5625,
+          "numerator": 4223
+        },
+        {
+          "denominator": 90000,
+          "numerator": 71321
+        },
+        {
+          "denominator": 1200,
+          "numerator": 1001
+        },
+        {
+          "denominator": 90000,
+          "numerator": 78829
+        },
+        {
+          "denominator": 90000,
+          "numerator": 82583
+        },
+        {
+          "denominator": 5625,
+          "numerator": 5396
+        },
+        {
+          "denominator": 1000,
+          "numerator": 1001
+        },
+        {
+          "denominator": 22500,
+          "numerator": 23461
+        },
+        {
+          "denominator": 45000,
+          "numerator": 48799
+        },
+        {
+          "denominator": 90000,
+          "numerator": 101351
+        },
+        {
+          "denominator": 6000,
+          "numerator": 7007
+        },
+        {
+          "denominator": 90000,
+          "numerator": 108859
+        },
+        {
+          "denominator": 90000,
+          "numerator": 112613
+        },
+        {
+          "denominator": 45000,
+          "numerator": 58183
+        },
+        {
+          "denominator": 750,
+          "numerator": 1001
+        },
+        {
+          "denominator": 45000,
+          "numerator": 61937
+        },
+        {
+          "denominator": 22500,
+          "numerator": 31907
+        },
+        {
+          "denominator": 90000,
+          "numerator": 131381
+        },
+        {
+          "denominator": 2000,
+          "numerator": 3003
+        },
+        {
+          "denominator": 90000,
+          "numerator": 138889
+        },
+        {
+          "denominator": 90000,
+          "numerator": 142643
+        },
+        {
+          "denominator": 22500,
+          "numerator": 36599
+        },
+        {
+          "denominator": 600,
+          "numerator": 1001
+        },
+        {
+          "denominator": 5625,
+          "numerator": 9619
+        },
+        {
+          "denominator": 45000,
+          "numerator": 78829
+        },
+        {
+          "denominator": 90000,
+          "numerator": 161411
+        },
+        {
+          "denominator": 6000,
+          "numerator": 11011
+        },
+        {
+          "denominator": 90000,
+          "numerator": 168919
+        },
+        {
+          "denominator": 90000,
+          "numerator": 172673
+        },
+        {
+          "denominator": 45000,
+          "numerator": 88213
+        },
+        {
+          "denominator": 500,
+          "numerator": 1001
+        },
+        {
+          "denominator": 45000,
+          "numerator": 91967
+        },
+        {
+          "denominator": 11250,
+          "numerator": 23461
+        },
+        {
+          "denominator": 90000,
+          "numerator": 191441
+        },
+        {
+          "denominator": 6000,
+          "numerator": 13013
+        },
+        {
+          "denominator": 90000,
+          "numerator": 198949
+        },
+        {
+          "denominator": 90000,
+          "numerator": 202703
+        },
+        {
+          "denominator": 11250,
+          "numerator": 25807
+        },
+        {
+          "denominator": 3000,
+          "numerator": 7007
+        },
+        {
+          "denominator": 22500,
+          "numerator": 53491
+        },
+        {
+          "denominator": 45000,
+          "numerator": 108859
+        },
+        {
+          "denominator": 90000,
+          "numerator": 221471
+        },
+        {
+          "denominator": 400,
+          "numerator": 1001
+        },
+        {
+          "denominator": 90000,
+          "numerator": 228979
+        },
+        {
+          "denominator": 90000,
+          "numerator": 232733
+        },
+        {
+          "denominator": 45000,
+          "numerator": 118243
+        },
+        {
+          "denominator": 375,
+          "numerator": 1001
+        },
+        {
+          "denominator": 45000,
+          "numerator": 121997
+        }
+      ],
+      "passed": true
+    },
+    {
+      "expected": "Every decoded PTS is exactly the floor or ceiling of its 1001/24000 ordinal on its declared clock",
+      "name": "source all NTSC frame timestamps",
+      "observed": {
+        "matching": 66,
+        "tick": {
+          "denominator": 90000,
+          "numerator": 1
+        },
+        "total": 66
+      },
+      "passed": true
+    },
+    {
+      "expected": {
+        "allowed_clock_boundaries": [
+          {
+            "denominator": 90000,
+            "numerator": 247747
+          },
+          {
+            "denominator": 22500,
+            "numerator": 61937
+          }
+        ],
+        "exact_ntsc_end": {
+          "denominator": 4000,
+          "numerator": 11011
+        }
+      },
+      "name": "source terminal clock boundary",
+      "observed": {
+        "denominator": 22500,
+        "numerator": 61937
+      },
+      "passed": true
+    },
+    {
+      "expected": [
+        1920,
+        1080
+      ],
+      "name": "source decoded geometry",
+      "observed": {
+        "decoded_rasters": [
+          [
+            1920,
+            1080
+          ]
+        ],
+        "stream": [
+          1920,
+          1080
+        ]
+      },
+      "passed": true
+    },
+    {
+      "expected": {
+        "matrix": "bt709",
+        "range": "tv"
+      },
+      "name": "source BT709 matrix and range",
+      "observed": {
+        "matrix": "bt709",
+        "range": "tv"
+      },
+      "passed": true
+    },
+    {
+      "expected": "progressive",
+      "name": "source progressive geometry",
+      "observed": "progressive",
+      "passed": true
+    },
+    {
+      "expected": {
+        "bits_per_sample": 16,
+        "channels": 1,
+        "codec_name": "pcm_s16le",
+        "sample_rate": "48000"
+      },
+      "name": "source PCM format",
+      "observed": {
+        "bits_per_sample": 16,
+        "channels": 1,
+        "codec_name": "pcm_s16le",
+        "sample_rate": "48000"
+      },
+      "passed": true
+    },
+    {
+      "expected": 132132,
+      "name": "source actual decoded PCM sample count",
+      "observed": 132132,
+      "passed": true
+    },
+    {
+      "expected": {
+        "denominator": 4000,
+        "numerator": 11011
+      },
+      "name": "source continuous audio timeline",
+      "observed": {
+        "continuous_from_zero": true,
+        "end": {
+          "denominator": 4000,
+          "numerator": 11011
+        }
+      },
+      "passed": true
+    },
+    {
+      "expected": 264264,
+      "name": "source decoded PCM byte count",
+      "observed": 264264,
+      "passed": true
+    },
+    {
+      "expected": {
+        "all": 2,
+        "audio": 1,
+        "video": 1
+      },
+      "name": "output track inventory",
+      "observed": {
+        "all": 2,
+        "audio": 1,
+        "video": 1
+      },
+      "passed": true
+    },
+    {
+      "expected": "h264",
+      "name": "output video codec",
+      "observed": "h264",
+      "passed": true
+    },
+    {
+      "expected": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "name": "output video begins at zero",
+      "observed": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "passed": true
+    },
+    {
+      "expected": 66,
+      "name": "output actual decoded video count",
+      "observed": {
+        "count_frames": 66,
+        "decoded": 66
+      },
+      "passed": true
+    },
+    {
+      "expected": "strictly increasing",
+      "name": "output monotonic video PTS",
+      "observed": [
+        {
+          "denominator": 1,
+          "numerator": 0
+        },
+        {
+          "denominator": 45000,
+          "numerator": 1877
+        },
+        {
+          "denominator": 22500,
+          "numerator": 1877
+        },
+        {
+          "denominator": 90000,
+          "numerator": 11261
+        },
+        {
+          "denominator": 6000,
+          "numerator": 1001
+        },
+        {
+          "denominator": 90000,
+          "numerator": 18769
+        },
+        {
+          "denominator": 90000,
+          "numerator": 22523
+        },
+        {
+          "denominator": 22500,
+          "numerator": 6569
+        },
+        {
+          "denominator": 3000,
+          "numerator": 1001
+        },
+        {
+          "denominator": 11250,
+          "numerator": 4223
+        },
+        {
+          "denominator": 45000,
+          "numerator": 18769
+        },
+        {
+          "denominator": 90000,
+          "numerator": 41291
+        },
+        {
+          "denominator": 2000,
+          "numerator": 1001
+        },
+        {
+          "denominator": 90000,
+          "numerator": 48799
+        },
+        {
+          "denominator": 11250,
+          "numerator": 6569
+        },
+        {
+          "denominator": 45000,
+          "numerator": 28153
+        },
+        {
+          "denominator": 1500,
+          "numerator": 1001
+        },
+        {
+          "denominator": 45000,
+          "numerator": 31907
+        },
+        {
+          "denominator": 90000,
+          "numerator": 67567
+        },
+        {
+          "denominator": 90000,
+          "numerator": 71321
+        },
+        {
+          "denominator": 1200,
+          "numerator": 1001
+        },
+        {
+          "denominator": 90000,
+          "numerator": 78829
+        },
+        {
+          "denominator": 45000,
+          "numerator": 41291
+        },
+        {
+          "denominator": 5625,
+          "numerator": 5396
+        },
+        {
+          "denominator": 1000,
+          "numerator": 1001
+        },
+        {
+          "denominator": 22500,
+          "numerator": 23461
+        },
+        {
+          "denominator": 90000,
+          "numerator": 97597
+        },
+        {
+          "denominator": 90000,
+          "numerator": 101351
+        },
+        {
+          "denominator": 6000,
+          "numerator": 7007
+        },
+        {
+          "denominator": 90000,
+          "numerator": 108859
+        },
+        {
+          "denominator": 90000,
+          "numerator": 112613
+        },
+        {
+          "denominator": 45000,
+          "numerator": 58183
+        },
+        {
+          "denominator": 750,
+          "numerator": 1001
+        },
+        {
+          "denominator": 45000,
+          "numerator": 61937
+        },
+        {
+          "denominator": 22500,
+          "numerator": 31907
+        },
+        {
+          "denominator": 90000,
+          "numerator": 131381
+        },
+        {
+          "denominator": 2000,
+          "numerator": 3003
+        },
+        {
+          "denominator": 90000,
+          "numerator": 138889
+        },
+        {
+          "denominator": 90000,
+          "numerator": 142643
+        },
+        {
+          "denominator": 22500,
+          "numerator": 36599
+        },
+        {
+          "denominator": 600,
+          "numerator": 1001
+        },
+        {
+          "denominator": 5625,
+          "numerator": 9619
+        },
+        {
+          "denominator": 45000,
+          "numerator": 78829
+        },
+        {
+          "denominator": 90000,
+          "numerator": 161411
+        },
+        {
+          "denominator": 6000,
+          "numerator": 11011
+        },
+        {
+          "denominator": 90000,
+          "numerator": 168919
+        },
+        {
+          "denominator": 90000,
+          "numerator": 172673
+        },
+        {
+          "denominator": 45000,
+          "numerator": 88213
+        },
+        {
+          "denominator": 500,
+          "numerator": 1001
+        },
+        {
+          "denominator": 45000,
+          "numerator": 91967
+        },
+        {
+          "denominator": 11250,
+          "numerator": 23461
+        },
+        {
+          "denominator": 90000,
+          "numerator": 191441
+        },
+        {
+          "denominator": 6000,
+          "numerator": 13013
+        },
+        {
+          "denominator": 90000,
+          "numerator": 198949
+        },
+        {
+          "denominator": 90000,
+          "numerator": 202703
+        },
+        {
+          "denominator": 11250,
+          "numerator": 25807
+        },
+        {
+          "denominator": 3000,
+          "numerator": 7007
+        },
+        {
+          "denominator": 22500,
+          "numerator": 53491
+        },
+        {
+          "denominator": 45000,
+          "numerator": 108859
+        },
+        {
+          "denominator": 90000,
+          "numerator": 221471
+        },
+        {
+          "denominator": 400,
+          "numerator": 1001
+        },
+        {
+          "denominator": 90000,
+          "numerator": 228979
+        },
+        {
+          "denominator": 90000,
+          "numerator": 232733
+        },
+        {
+          "denominator": 45000,
+          "numerator": 118243
+        },
+        {
+          "denominator": 375,
+          "numerator": 1001
+        },
+        {
+          "denominator": 45000,
+          "numerator": 121997
+        }
+      ],
+      "passed": true
+    },
+    {
+      "expected": "Every decoded PTS is exactly the floor or ceiling of its 1001/24000 ordinal on its declared clock",
+      "name": "output all NTSC frame timestamps",
+      "observed": {
+        "matching": 66,
+        "tick": {
+          "denominator": 90000,
+          "numerator": 1
+        },
+        "total": 66
+      },
+      "passed": true
+    },
+    {
+      "expected": {
+        "allowed_clock_boundaries": [
+          {
+            "denominator": 90000,
+            "numerator": 247747
+          },
+          {
+            "denominator": 22500,
+            "numerator": 61937
+          }
+        ],
+        "exact_ntsc_end": {
+          "denominator": 4000,
+          "numerator": 11011
+        }
+      },
+      "name": "output terminal clock boundary",
+      "observed": {
+        "denominator": 22500,
+        "numerator": 61937
+      },
+      "passed": true
+    },
+    {
+      "expected": [
+        3840,
+        2160
+      ],
+      "name": "output decoded geometry",
+      "observed": {
+        "decoded_rasters": [
+          [
+            3840,
+            2160
+          ]
+        ],
+        "stream": [
+          3840,
+          2160
+        ]
+      },
+      "passed": true
+    },
+    {
+      "expected": {
+        "matrix": "bt709",
+        "range": "tv"
+      },
+      "name": "output BT709 matrix and range",
+      "observed": {
+        "matrix": "bt709",
+        "range": "tv"
+      },
+      "passed": true
+    },
+    {
+      "expected": "progressive",
+      "name": "output progressive geometry",
+      "observed": "progressive",
+      "passed": true
+    },
+    {
+      "expected": {
+        "bits_per_sample": 16,
+        "channels": 1,
+        "codec_name": "pcm_s16le",
+        "sample_rate": "48000"
+      },
+      "name": "output PCM format",
+      "observed": {
+        "bits_per_sample": 16,
+        "channels": 1,
+        "codec_name": "pcm_s16le",
+        "sample_rate": "48000"
+      },
+      "passed": true
+    },
+    {
+      "expected": 132132,
+      "name": "output actual decoded PCM sample count",
+      "observed": 132132,
+      "passed": true
+    },
+    {
+      "expected": {
+        "denominator": 4000,
+        "numerator": 11011
+      },
+      "name": "output continuous audio timeline",
+      "observed": {
+        "continuous_from_zero": true,
+        "end": {
+          "denominator": 4000,
+          "numerator": 11011
+        }
+      },
+      "passed": true
+    },
+    {
+      "expected": 264264,
+      "name": "output decoded PCM byte count",
+      "observed": 264264,
+      "passed": true
+    },
+    {
+      "expected": "identical decoded PCM samples and bytes",
+      "name": "preserved PCM payload",
+      "observed": {
+        "output": "51841ca58dfc2421a9c92b1c8c46af90e04c9dfb6f7952f609185569a511d871",
+        "source": "51841ca58dfc2421a9c92b1c8c46af90e04c9dfb6f7952f609185569a511d871"
+      },
+      "passed": true
+    },
+    {
+      "expected": "Both observed streams independently validate every same source ordinal against the exact 1001/24000 lattice; no observed timestamps are rewritten",
+      "name": "normalized source/output NTSC ordinal times",
+      "observed": {
+        "canonical_rational_matches": 66,
+        "first_output_pts": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "first_source_pts": {
+          "denominator": 1,
+          "numerator": 0
+        },
+        "total": 66
+      },
+      "passed": true
+    },
+    {
+      "expected": "exact rational equality",
+      "name": "preserved video duration",
+      "observed": {
+        "output": {
+          "denominator": 22500,
+          "numerator": 61937
+        },
+        "source": {
+          "denominator": 22500,
+          "numerator": 61937
+        }
+      },
+      "passed": true
+    },
+    {
+      "expected": "bt709",
+      "name": "preserved color_space",
+      "observed": "bt709",
+      "passed": true
+    },
+    {
+      "expected": "tv",
+      "name": "preserved color_range",
+      "observed": "tv",
+      "passed": true
+    },
+    {
+      "expected": "bt709",
+      "name": "preserved color_transfer",
+      "observed": "bt709",
+      "passed": true
+    },
+    {
+      "expected": "bt709",
+      "name": "preserved color_primaries",
+      "observed": "bt709",
+      "passed": true
+    }
+  ],
+  "generated_at": "2026-10-06T13:28:54.588567+00:00",
+  "limits": [
+    "Video encoding is lossy H264; file and decoded video hashes are not compared to source as an accuracy test.",
+    "Serial/parallel deterministic field parity and CPU/Metal video parity are established by the separate Xcode tests.",
+    "This verifies the retained short production source, not the unfinished full-length feature-film job."
+  ],
+  "observations": {
+    "output_color_metadata": {
+      "color_primaries": "bt709",
+      "color_range": "tv",
+      "color_space": "bt709",
+      "color_transfer": "bt709",
+      "display_aspect_ratio": "16:9",
+      "sample_aspect_ratio": "1:1"
+    },
+    "raw_source_output_pts": {
+      "differences": [
+        {
+          "ordinal": 14,
+          "output": {
+            "denominator": 11250,
+            "numerator": 6569
+          },
+          "output_minus_source": {
+            "denominator": 90000,
+            "numerator": -1
+          },
+          "source": {
+            "denominator": 90000,
+            "numerator": 52553
+          }
+        },
+        {
+          "ordinal": 18,
+          "output": {
+            "denominator": 90000,
+            "numerator": 67567
+          },
+          "output_minus_source": {
+            "denominator": 90000,
+            "numerator": -1
+          },
+          "source": {
+            "denominator": 5625,
+            "numerator": 4223
+          }
+        },
+        {
+          "ordinal": 22,
+          "output": {
+            "denominator": 45000,
+            "numerator": 41291
+          },
+          "output_minus_source": {
+            "denominator": 90000,
+            "numerator": -1
+          },
+          "source": {
+            "denominator": 90000,
+            "numerator": 82583
+          }
+        },
+        {
+          "ordinal": 26,
+          "output": {
+            "denominator": 90000,
+            "numerator": 97597
+          },
+          "output_minus_source": {
+            "denominator": 90000,
+            "numerator": -1
+          },
+          "source": {
+            "denominator": 45000,
+            "numerator": 48799
+          }
+        }
+      ],
+      "exact_rational_matches": 62,
+      "total": 66
+    },
+    "source_color_metadata": {
+      "color_primaries": "bt709",
+      "color_range": "tv",
+      "color_space": "bt709",
+      "color_transfer": "bt709",
+      "display_aspect_ratio": null,
+      "sample_aspect_ratio": null
+    }
+  },
+  "passed": true,
+  "schema": "mirmir-independent-production-media-validation-v1"
+}
