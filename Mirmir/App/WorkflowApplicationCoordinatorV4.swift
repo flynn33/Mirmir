@@ -3844,6 +3844,7 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
     private let engine: any WorkflowApplicationDeterministicExecutingV4
     private let cacheLocationAccess: WorkflowCacheLocationAccessV4?
     private let maximumInputFramesPerBoundary: Int
+    private let processingActivityFactory: MirmirProcessingActivityFactory
     private var active: ActiveExecution?
     private var heartbeatTask: Task<Void, Never>?
     private var drainTask: Task<Void, Never>?
@@ -3871,13 +3872,16 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
         queue: WorkflowApplicationQueueV4,
         engine: any WorkflowApplicationDeterministicExecutingV4,
         maximumInputFramesPerBoundary: Int = 60,
-        cacheLocationAccess: WorkflowCacheLocationAccessV4? = nil
+        cacheLocationAccess: WorkflowCacheLocationAccessV4? = nil,
+        processingActivityFactory: @escaping MirmirProcessingActivityFactory =
+            MirmirProcessingActivity.begin
     ) {
         precondition(maximumInputFramesPerBoundary > 0)
         self.queue = queue
         self.engine = engine
         self.maximumInputFramesPerBoundary = maximumInputFramesPerBoundary
         self.cacheLocationAccess = cacheLocationAccess
+        self.processingActivityFactory = processingActivityFactory
     }
 
     static func live(
@@ -4082,6 +4086,10 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
             throw WorkflowApplicationControllerErrorV4
                 .dispatchCapacityExhausted
         }
+        let processingActivity = processingActivityFactory(
+            "Resuming an upscale job"
+        )
+        defer { processingActivity.end() }
         let attemptID = try Self.attemptID(jobID: jobID)
         let dispatch = try await queue.resumeApplicationJob(
             jobID: jobID,
@@ -4272,6 +4280,10 @@ private extension WorkflowApplicationCoordinatorV4 {
                 continue
             }
 
+            let processingActivity = processingActivityFactory(
+                "Recovering an upscale publication"
+            )
+            defer { processingActivity.end() }
             let cancellation = ProcessingCancellation()
             active = ActiveExecution(
                 dispatch: dispatch,
@@ -4527,6 +4539,10 @@ private extension WorkflowApplicationCoordinatorV4 {
         request: UpscaleRequest,
         priority: Int32
     ) async throws -> WorkflowApplicationEnqueueReceiptV4 {
+        let processingActivity = processingActivityFactory(
+            "Preparing an upscale job"
+        )
+        defer { processingActivity.end() }
         let prepared = try await engine.prepareSubmission(request: request)
         let receipt = try await queue.enqueue(
             request: prepared.request,
@@ -4664,6 +4680,10 @@ private extension WorkflowApplicationCoordinatorV4 {
                 .dispatchCapacityExhausted
         }
         let jobID = dispatch.claim.jobID
+        let processingActivity = processingActivityFactory(
+            "Processing an upscale job"
+        )
+        defer { processingActivity.end() }
         currentDrainJobID = jobID
         let jobProgress: @Sendable (UpscaleProgress) -> Void = {
             progress(jobID, $0)

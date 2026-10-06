@@ -168,6 +168,33 @@ actor DeterministicV4WholeAssetPlanner {
             if abs(rate - ntscRate) <= tolerance {
                 return try ExactRationalV4(1_001, 24_000)
             }
+            // Short tracks can report an averaged rate affected by their
+            // rounded terminal tick. A tick must distinguish the NTSC and
+            // 24 fps periods (which differ by 1/24000 second).
+            // Require an unambiguous duration clock and the closer period;
+            // the decoded samples must still pass the exact cadence validator.
+            if let duration = minimumFrameDuration,
+               duration.isNumeric,
+               duration.value > 0,
+               duration.timescale >= 24_000,
+               !duration.flags.contains(.hasBeenRounded) {
+                let ntscDuration = CMTime(value: 1_001, timescale: 24_000)
+                let advertisedDuration = 1 / Double(rate)
+                let ntscDifference = abs(
+                    advertisedDuration - CMTimeGetSeconds(ntscDuration)
+                )
+                let clock = MediaClockConversionPolicyV4.self
+                if clock.isExactOrAdjacentClockQuantization(
+                    duration, of: ntscDuration
+                ), !clock.isExactOrAdjacentClockQuantization(
+                    duration, of: CMTime(value: 1, timescale: 24)
+                ), ntscDifference <= 1 / Double(duration.timescale),
+                   ntscDifference < abs(
+                    advertisedDuration - CMTimeGetSeconds(duration)
+                   ) {
+                    return try ExactRationalV4(1_001, 24_000)
+                }
+            }
         }
         if let duration = minimumFrameDuration,
            duration.isNumeric,

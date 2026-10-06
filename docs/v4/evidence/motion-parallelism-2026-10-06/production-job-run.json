@@ -1,0 +1,41 @@
+{
+  "audioResult": "Preserved",
+  "backend": "mirmirDeterministicMetal",
+  "checkpointPath": "head-v1.json",
+  "encodedHeight": 2160,
+  "encodedWidth": 3840,
+  "finishedAt": "2026-10-06T13:27:25Z",
+  "outputAudioTracks": 1,
+  "outputDecodedFrames": 66,
+  "outputEmptyReaderMarkers": 4,
+  "outputEncodedSamples": 66,
+  "outputEndTimescale": 90000,
+  "outputEndValue": 247748,
+  "outputPath": "durable-workflow-output.mov",
+  "outputProbeStreamBuffers": 70,
+  "outputReaderBuffers": 70,
+  "pid": 13940,
+  "processedFrames": 66,
+  "processingDurationSeconds": 14.198642015457153,
+  "schema": "mirmir-v4-production-job-evidence-v1",
+  "segmentCount": 2,
+  "segmentEndTimescales": [
+    90000,
+    90000
+  ],
+  "segmentEndValues": [
+    225225,
+    247748
+  ],
+  "sourceAudioTracks": 1,
+  "sourceDecodedFrames": 66,
+  "sourceEmptyReaderMarkers": 4,
+  "sourceEncodedSamples": 66,
+  "sourceEndTimescale": 90000,
+  "sourceEndValue": 247748,
+  "sourcePath": "source-native-1080p-66-ntsc.mov",
+  "sourceProbeStreamBuffers": 70,
+  "sourceReaderBuffers": 70,
+  "startedAt": "2026-10-06T13:27:03Z",
+  "status": "engine_completed"
+}

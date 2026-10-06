@@ -209,8 +209,10 @@ final class VideoProcessingSessionTests: XCTestCase {
         let inputURL = fixtures.url(for: "deterministic-input.mov")
         let outputURL = fixtures.url(for: "deterministic-output.mov")
         try await VideoProbeFixtureFactory.makeVideo(at: inputURL, transform: .identity)
+        let activityRecorder = MirmirProcessingActivityTestRecorder()
         let coordinator = UpscaleCoordinator(
-            backendCatalog: try deterministicCatalog()
+            backendCatalog: try deterministicCatalog(),
+            processingActivityFactory: { activityRecorder.begin($0) }
         )
 
         let result = try await coordinator.process(
@@ -224,7 +226,7 @@ final class VideoProcessingSessionTests: XCTestCase {
                 preserveAudio: false,
                 overwriteExistingFile: false
             ),
-            progress: { _ in }
+            progress: { activityRecorder.recordProtectedProgress($0) }
         )
 
         XCTAssertEqual(result.actualBackendID, .mirmirDeterministicCPU)
@@ -232,6 +234,14 @@ final class VideoProcessingSessionTests: XCTestCase {
         XCTAssertEqual(result.encodedHeight, 96)
         XCTAssertEqual(result.processedFrameCount, 3)
         XCTAssertFalse(try directoryContainsPartialFile(fixtures.rootURL))
+        let activity = activityRecorder.snapshot
+        XCTAssertEqual(activity.beginCount, 1)
+        XCTAssertEqual(activity.endCount, 1)
+        XCTAssertEqual(activity.activeCount, 0)
+        XCTAssertTrue(activity.progressActivityCounts.allSatisfy { $0 == 1 })
+        XCTAssertTrue(activity.progressPhases.contains(.finalizing))
+        XCTAssertTrue(activity.progressPhases.contains(.validatingOutput))
+        XCTAssertTrue(activity.progressPhases.contains(.completed))
     }
 
     func testDeterministicMetalProcessesShortClipWithoutBackendFallback() async throws {
@@ -240,8 +250,10 @@ final class VideoProcessingSessionTests: XCTestCase {
         let inputURL = fixtures.url(for: "deterministic-metal-input.mov")
         let outputURL = fixtures.url(for: "deterministic-metal-output.mov")
         try await VideoProbeFixtureFactory.makeVideo(at: inputURL, transform: .identity)
+        let activityRecorder = MirmirProcessingActivityTestRecorder()
         let coordinator = UpscaleCoordinator(
-            backendCatalog: try deterministicCatalog()
+            backendCatalog: try deterministicCatalog(),
+            processingActivityFactory: { activityRecorder.begin($0) }
         )
 
         let result = try await coordinator.process(
@@ -255,7 +267,7 @@ final class VideoProcessingSessionTests: XCTestCase {
                 preserveAudio: false,
                 overwriteExistingFile: false
             ),
-            progress: { _ in }
+            progress: { activityRecorder.recordProtectedProgress($0) }
         )
 
         XCTAssertEqual(result.actualBackendID, .mirmirDeterministicMetal)
@@ -264,6 +276,14 @@ final class VideoProcessingSessionTests: XCTestCase {
         XCTAssertEqual(result.processedFrameCount, 3)
         XCTAssertTrue(FileManager.default.fileExists(atPath: outputURL.path))
         XCTAssertFalse(try directoryContainsPartialFile(fixtures.rootURL))
+        let activity = activityRecorder.snapshot
+        XCTAssertEqual(activity.beginCount, 1)
+        XCTAssertEqual(activity.endCount, 1)
+        XCTAssertEqual(activity.activeCount, 0)
+        XCTAssertTrue(activity.progressActivityCounts.allSatisfy { $0 == 1 })
+        XCTAssertTrue(activity.progressPhases.contains(.finalizing))
+        XCTAssertTrue(activity.progressPhases.contains(.validatingOutput))
+        XCTAssertTrue(activity.progressPhases.contains(.completed))
     }
 
     func testDeterministicCPUAndMetalProduceVerifiedProRes422WholeAssets()

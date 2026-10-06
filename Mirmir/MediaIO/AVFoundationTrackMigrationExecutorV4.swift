@@ -1,4 +1,5 @@
 import AVFoundation
+import AudioToolbox
 import CoreGraphics
 import CoreMedia
 import CryptoKit
@@ -516,15 +517,7 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                 pipes: pipes,
                 writer: writer
             )
-            writer.movieTimeScale = try Self.exactEditMapMovieTimescale(
-                pipes.map {
-                    (
-                        trackID: $0.trackID,
-                        timeRange: $0.plannedTimeRange,
-                        edits: $0.edits
-                    )
-                }
-            )
+            writer.movieTimeScale = try Self.writerMovieTimescale(pipes)
             try cancellation.check()
 
             let readers = uniqueReaders(in: pipes)
@@ -806,6 +799,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         let passThroughFormatContract: PassThroughFormatContract?
         let plannedTimeRange: MediaExactTimeRangeV4
         let edits: [MediaTrackEditV4]
+        let preservedPCMSampleClockTimescales: [CMTimeScale]
         let requiresEditMapRebuild: Bool
         let replacementPresentationOffset: ExactRationalV4?
         let processedReplacementMediaStart: ExactRationalV4?
@@ -1584,6 +1578,20 @@ private extension AVFoundationTrackMigrationExecutorV4 {
 
             let formatDescriptions = try await sourceTrack
                 .load(.formatDescriptions)
+            let preservedPCMSampleClockTimescales: [CMTimeScale]
+            if planned.action == .passThrough,
+               sourceTrack.mediaType == .audio {
+                preservedPCMSampleClockTimescales = try Self
+                    .preservedPCMSampleClockTimescales(
+                        formatDescriptions,
+                        sourceNativeClock: CMTimeScale(
+                            exactly: planned.source.timebase.denominator
+                        ) ?? 0,
+                        trackID: id
+                    )
+            } else {
+                preservedPCMSampleClockTimescales = []
+            }
             guard writer.availableMediaTypes.contains(sourceTrack.mediaType)
             else {
                 throw AVFoundationTrackMigrationExecutorV4Error
@@ -1861,6 +1869,8 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 plannedTimeRange: planned.expectedOutput?.timeRange
                     ?? planned.source.timeRange,
                 edits: expectedEdits,
+                preservedPCMSampleClockTimescales:
+                    preservedPCMSampleClockTimescales,
                 requiresEditMapRebuild: containsScaledEdit
                     || requiresTranscodeEditRebuild
                     || requiresReplacementEditRebuild,
@@ -1944,14 +1954,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         fileType: AVFileType,
         pipes: [TrackPipe]
     ) throws {
-        guard pipes.contains(where: \.requiresEditMapRebuild) else {
-            return
-        }
-        let movie = AVMutableMovie(
-            url: url,
-            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
-        )
-        let expectedMovieTimescale = try Self.exactEditMapMovieTimescale(
+        let plannedMovieTimescale = try Self.exactEditMapMovieTimescale(
             pipes.map {
                 (
                     trackID: $0.trackID,
@@ -1959,6 +1962,26 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     edits: $0.edits
                 )
             }
+        )
+        let expectedMovieTimescale = try Self
+            .movieTimescalePreservingPCMSamples(
+                plannedMovieTimescale: plannedMovieTimescale,
+                preservedPCMSampleClocks: Self.preservedPCMSampleClocks(pipes)
+            )
+        let refinesPCMClock = expectedMovieTimescale != plannedMovieTimescale
+        func requiresRebuild(_ pipe: TrackPipe) -> Bool {
+            // A finer movie clock exposes the exact PCM media end. Restore
+            // the source's declared edit boundary rather than replacing it
+            // with the writer's implicit media-length edit.
+            pipe.requiresEditMapRebuild
+                || (refinesPCMClock
+                    && !pipe.preservedPCMSampleClockTimescales.isEmpty
+                    && !pipe.edits.isEmpty)
+        }
+        guard pipes.contains(where: requiresRebuild) else { return }
+        let movie = AVMutableMovie(
+            url: url,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
         )
         guard movie.timescale == expectedMovieTimescale else {
             throw AVFoundationTrackMigrationExecutorV4Error
@@ -1972,7 +1995,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 .sourceTrackInventoryMismatch
         }
         for (track, pipe) in zip(movie.tracks, pipes)
-        where pipe.requiresEditMapRebuild {
+        where requiresRebuild(pipe) {
             let mediaRange = track.mediaPresentationTimeRange
             track.removeTimeRange(track.timeRange)
             guard track.mediaPresentationTimeRange == mediaRange else {
@@ -2017,6 +2040,102 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 .init(error)
             )
         }
+    }
+
+    static func preservedPCMSampleClockTimescales(
+        _ descriptions: [CMFormatDescription],
+        sourceNativeClock: CMTimeScale,
+        trackID: MediaTrackStableIDV4
+    ) throws -> [CMTimeScale] {
+        var timescales: Set<CMTimeScale> = []
+        for description in descriptions {
+            guard CMFormatDescriptionGetMediaType(description)
+                == kCMMediaType_Audio,
+                  CMFormatDescriptionGetMediaSubType(description)
+                == kAudioFormatLinearPCM else { continue }
+            guard sourceNativeClock > 0 else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .unsupportedTrack(
+                        trackID,
+                        reason: "edit_map_timescale_not_representable"
+                    )
+            }
+            // The probed native media clock represents stored sample timing
+            // even when a PCM description has a fractional nominal rate.
+            timescales.insert(sourceNativeClock)
+            if let format = CMAudioFormatDescriptionGetStreamBasicDescription(
+                description
+            )?.pointee,
+               let timescale = CMTimeScale(exactly: format.mSampleRate),
+               timescale > 0 {
+                timescales.insert(timescale)
+            }
+        }
+        return timescales.sorted()
+    }
+
+    static func preservedPCMSampleClocks(
+        _ pipes: [TrackPipe]
+    ) -> [(trackID: MediaTrackStableIDV4, timescale: CMTimeScale)] {
+        pipes.flatMap { pipe in
+            pipe.preservedPCMSampleClockTimescales.map {
+                (trackID: pipe.trackID, timescale: $0)
+            }
+        }
+    }
+
+    static func writerMovieTimescale(_ pipes: [TrackPipe]) throws
+        -> CMTimeScale
+    {
+        try movieTimescalePreservingPCMSamples(
+            plannedMovieTimescale: exactEditMapMovieTimescale(pipes.map {
+                (
+                    trackID: $0.trackID,
+                    timeRange: $0.plannedTimeRange,
+                    edits: $0.edits
+                )
+            }),
+            preservedPCMSampleClocks: preservedPCMSampleClocks(pipes)
+        )
+    }
+
+    static func movieTimescalePreservingPCMSamples(
+        plannedMovieTimescale: CMTimeScale,
+        preservedPCMSampleClocks: [(
+            trackID: MediaTrackStableIDV4,
+            timescale: CMTimeScale
+        )]
+    ) throws -> CMTimeScale {
+        guard plannedMovieTimescale > 0 else {
+            throw AVFoundationTrackMigrationExecutorV4Error
+                .sourceTrackInventoryMismatch
+        }
+        var movieTimescale = UInt64(plannedMovieTimescale)
+        // AVAssetWriter can round an implicit PCM edit down on a movie
+        // clock that cannot represent its media end, hiding a final sample.
+        for clock in preservedPCMSampleClocks {
+            guard clock.timescale > 0 else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .unsupportedTrack(
+                        clock.trackID,
+                        reason: "edit_map_timescale_not_representable"
+                    )
+            }
+            let sampleTimescale = UInt64(clock.timescale)
+            let multiplier = sampleTimescale / greatestCommonDivisor(
+                movieTimescale,
+                sampleTimescale
+            )
+            guard movieTimescale <= UInt64(CMTimeScale.max) / multiplier else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .unsupportedTrack(
+                        clock.trackID,
+                        reason: "edit_map_timescale_not_representable"
+                    )
+            }
+            movieTimescale *= multiplier
+        }
+        return CMTimeScale(movieTimescale)
     }
 
     static func exactEditMapMovieTimescale(
@@ -3599,6 +3718,31 @@ extension AVFoundationTrackMigrationExecutorV4 {
         )]
     ) throws -> CMTimeScale {
         try exactEditMapMovieTimescale(requirements)
+    }
+
+    static func movieTimescalePreservingPCMSamplesForQualification(
+        plannedMovieTimescale: CMTimeScale,
+        preservedPCMSampleClocks: [(
+            trackID: MediaTrackStableIDV4,
+            timescale: CMTimeScale
+        )]
+    ) throws -> CMTimeScale {
+        try movieTimescalePreservingPCMSamples(
+            plannedMovieTimescale: plannedMovieTimescale,
+            preservedPCMSampleClocks: preservedPCMSampleClocks
+        )
+    }
+
+    static func preservedPCMSampleClockTimescalesForQualification(
+        _ descriptions: [CMFormatDescription],
+        sourceNativeClock: CMTimeScale,
+        trackID: MediaTrackStableIDV4
+    ) throws -> [CMTimeScale] {
+        try preservedPCMSampleClockTimescales(
+            descriptions,
+            sourceNativeClock: sourceNativeClock,
+            trackID: trackID
+        )
     }
 
     /// Shared by the executable reopen gate and real-sample qualification so

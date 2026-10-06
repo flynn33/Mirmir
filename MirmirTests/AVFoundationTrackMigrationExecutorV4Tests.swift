@@ -1619,6 +1619,85 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertEqual(nominal, try ExactRationalV4(1_001, 24_000))
     }
 
+    func testPlannerRecognizesShortNTSCTrackAverageRateOnDistinctClock()
+        throws {
+        for rate: Float in [23.976064682006836, 23.97601318359375] {
+            for tick: Int64 in [3_753, 3_754] {
+                XCTAssertEqual(
+                    try DeterministicV4WholeAssetPlanner.nominalFrameDuration(
+                        nominalFrameRate: rate,
+                        minimumFrameDuration: CMTime(value: tick, timescale: 90_000),
+                        fallbackTimebase: ExactRationalV4(1, 90_000)
+                    ),
+                    try ExactRationalV4(1_001, 24_000)
+                )
+            }
+        }
+    }
+
+    func testPlannerDoesNotGuessNTSCFromAmbiguousOrContradictoryClock()
+        throws {
+        let cases: [(Float, CMTime)] = [
+            (24, CMTime(value: 1, timescale: 24)),
+            (24, CMTime(value: 3_750, timescale: 90_000)),
+            (25, CMTime(value: 1, timescale: 25)),
+            (30, CMTime(value: 1, timescale: 30)),
+            (12, CMTime(value: 2, timescale: 24)),
+            (Float(600.0 / 26.0), CMTime(value: 26, timescale: 600)),
+            (Float(90_000.0 / 3_753.0), CMTime(value: 3_753, timescale: 90_000)),
+            (Float(90_000.0 / 3_754.0), CMTime(value: 3_754, timescale: 90_000)),
+            (23.976064682006836, CMTime(value: 25, timescale: 600)),
+            (23.95, CMTime(value: 3_753, timescale: 90_000)),
+            (23.976064682006836, CMTime(value: 3_755, timescale: 90_000))
+        ]
+        for (rate, minimum) in cases {
+            XCTAssertEqual(
+                try DeterministicV4WholeAssetPlanner.nominalFrameDuration(
+                    nominalFrameRate: rate,
+                    minimumFrameDuration: minimum,
+                    fallbackTimebase: ExactRationalV4(1, 90_000)
+                ),
+                try ExactRationalV4(minimum.value, Int64(minimum.timescale))
+            )
+        }
+        XCTAssertEqual(
+            try DeterministicV4WholeAssetPlanner.nominalFrameDuration(
+                nominalFrameRate: 23.976064682006836,
+                minimumFrameDuration: nil,
+                fallbackTimebase: ExactRationalV4(1, 90_000)
+            ),
+            try ExactRationalV4(
+                1_000_000, Int64((Double(Float(23.976064682006836)) * 1_000_000).rounded())
+            )
+        )
+    }
+
+    func testShortNTSCMetadataRecognitionStillRejectsDecodedTimingGap()
+        throws {
+        let nominal = try DeterministicV4WholeAssetPlanner.nominalFrameDuration(
+            nominalFrameRate: 23.976064682006836,
+            minimumFrameDuration: CMTime(value: 3_753, timescale: 90_000),
+            fallbackTimebase: ExactRationalV4(1, 90_000)
+        )
+        let valid = [0, 3_754, 7_508, 11_261].map {
+            CMTime(value: Int64($0), timescale: 90_000)
+        }
+        let durations = Array(repeating: CMTime.invalid, count: valid.count)
+        XCTAssertNoThrow(try DeterministicV4MediaProcessingSession.validateNominalDecodedCadence(
+            presentationTimes: valid, decodedDurations: durations,
+            nominalSourceFrameDuration: nominal
+        ))
+        var invalid = valid
+        invalid[2] = CMTime(value: 7_510, timescale: 90_000)
+        XCTAssertThrowsError(try DeterministicV4MediaProcessingSession.validateNominalDecodedCadence(
+            presentationTimes: invalid, decodedDurations: durations,
+            nominalSourceFrameDuration: nominal
+        )) {
+            XCTAssertEqual($0 as? DeterministicV4MediaSegmentError,
+                .invalidSampleTiming(site: .nominalCadenceOffLattice))
+        }
+    }
+
     func testEncodedSegmentTimingAcceptsUniqueLegalClockQuantization()
         throws {
         let expected = try HDR10PlusPresentationTimeV4(
@@ -5701,6 +5780,157 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
                     timeRange: timeRange,
                     edits: [incompatibleEdit]
                 )])
+        ) { error in
+            XCTAssertEqual(
+                error as? AVFoundationTrackMigrationExecutorV4Error,
+                .unsupportedTrack(
+                    trackID,
+                    reason: "edit_map_timescale_not_representable"
+                )
+            )
+        }
+    }
+
+    func testMovieTimescalePreservingPCMSamplesIncludesExactSampleClock()
+        throws {
+        let trackID = try MediaTrackStableIDV4("av-track-2")
+        let timescale = try AVFoundationTrackMigrationExecutorV4
+            .movieTimescalePreservingPCMSamplesForQualification(
+                plannedMovieTimescale: 22_500,
+                preservedPCMSampleClocks: [(trackID: trackID, timescale: 48_000)]
+            )
+
+        XCTAssertEqual(timescale, 720_000)
+        for boundary in [
+            CMTime(value: 61_937, timescale: 22_500),
+            CMTime(value: 132_131, timescale: 48_000),
+            CMTime(value: 132_132, timescale: 48_000)
+        ] {
+            let converted = CMTimeConvertScale(
+                boundary,
+                timescale: timescale,
+                method: .default
+            )
+            XCTAssertFalse(converted.flags.contains(.hasBeenRounded))
+            XCTAssertEqual(CMTimeCompare(converted, boundary), 0)
+        }
+        XCTAssertEqual(
+            try AVFoundationTrackMigrationExecutorV4
+                .movieTimescalePreservingPCMSamplesForQualification(
+                    plannedMovieTimescale: timescale,
+                    preservedPCMSampleClocks: [(trackID: trackID, timescale: 48_000)]
+                ),
+            timescale
+        )
+    }
+
+    func testMovieTimescaleWithoutPreservedPCMSamplesKeepsPlannedClock()
+        throws {
+        XCTAssertEqual(
+            try AVFoundationTrackMigrationExecutorV4
+                .movieTimescalePreservingPCMSamplesForQualification(
+                    plannedMovieTimescale: 22_500,
+                    preservedPCMSampleClocks: []
+                ),
+            22_500
+        )
+    }
+
+    func testPreservedPCMSampleClockUsesNativeClockForFractionalSampleRate()
+        throws {
+        let trackID = try MediaTrackStableIDV4("av-track-2")
+        let format = try audioFormatDescription(sampleRate: 48_000.5, channels: 1)
+        let stream = try XCTUnwrap(
+            CMAudioFormatDescriptionGetStreamBasicDescription(format)
+        ).pointee
+        XCTAssertEqual(stream.mSampleRate, 48_000.5)
+        let clocks = try AVFoundationTrackMigrationExecutorV4
+            .preservedPCMSampleClockTimescalesForQualification(
+                [format],
+                sourceNativeClock: 96_001,
+                trackID: trackID
+            )
+
+        XCTAssertEqual(clocks, [96_001])
+        let movieClock = try AVFoundationTrackMigrationExecutorV4
+            .movieTimescalePreservingPCMSamplesForQualification(
+                plannedMovieTimescale: 600,
+                preservedPCMSampleClocks: clocks.map {
+                    (trackID: trackID, timescale: $0)
+                }
+            )
+        let exactSamplePeriod = CMTime(value: 2, timescale: 96_001)
+        let converted = CMTimeConvertScale(
+            exactSamplePeriod,
+            timescale: movieClock,
+            method: .default
+        )
+        XCTAssertEqual(movieClock, 57_600_600)
+        XCTAssertFalse(converted.flags.contains(.hasBeenRounded))
+        XCTAssertEqual(CMTimeCompare(converted, exactSamplePeriod), 0)
+    }
+
+    func testPreservedPCMSampleClockFilterIgnoresAACAndVideo() throws {
+        let trackID = try MediaTrackStableIDV4("av-track-2")
+        var stream = AudioStreamBasicDescription(
+            mSampleRate: 48_000.5,
+            mFormatID: kAudioFormatMPEG4AAC,
+            mFormatFlags: 0,
+            mBytesPerPacket: 0,
+            mFramesPerPacket: 1_024,
+            mBytesPerFrame: 0,
+            mChannelsPerFrame: 1,
+            mBitsPerChannel: 0,
+            mReserved: 0
+        )
+        var audio: CMAudioFormatDescription?
+        XCTAssertEqual(CMAudioFormatDescriptionCreate(
+            allocator: kCFAllocatorDefault,
+            asbd: &stream,
+            layoutSize: 0,
+            layout: nil,
+            magicCookieSize: 0,
+            magicCookie: nil,
+            extensions: nil,
+            formatDescriptionOut: &audio
+        ), noErr)
+        var video: CMVideoFormatDescription?
+        XCTAssertEqual(CMVideoFormatDescriptionCreate(
+            allocator: kCFAllocatorDefault,
+            codecType: kCMVideoCodecType_H264,
+            width: 96,
+            height: 64,
+            extensions: nil,
+            formatDescriptionOut: &video
+        ), noErr)
+        let clocks = try AVFoundationTrackMigrationExecutorV4
+            .preservedPCMSampleClockTimescalesForQualification(
+                [try XCTUnwrap(audio), try XCTUnwrap(video)],
+                sourceNativeClock: 96_001,
+                trackID: trackID
+            )
+        XCTAssertTrue(clocks.isEmpty)
+        XCTAssertEqual(
+            try AVFoundationTrackMigrationExecutorV4
+                .movieTimescalePreservingPCMSamplesForQualification(
+                    plannedMovieTimescale: 22_500,
+                    preservedPCMSampleClocks: clocks.map {
+                        (trackID: trackID, timescale: $0)
+                    }
+                ),
+            22_500
+        )
+    }
+
+    func testMovieTimescalePreservingPCMSamplesRejectsUnrepresentableLCM()
+        throws {
+        let trackID = try MediaTrackStableIDV4("av-track-2")
+        XCTAssertThrowsError(
+            try AVFoundationTrackMigrationExecutorV4
+                .movieTimescalePreservingPCMSamplesForQualification(
+                    plannedMovieTimescale: 2_147_483_647,
+                    preservedPCMSampleClocks: [(trackID: trackID, timescale: 48_000)]
+                )
         ) { error in
             XCTAssertEqual(
                 error as? AVFoundationTrackMigrationExecutorV4Error,

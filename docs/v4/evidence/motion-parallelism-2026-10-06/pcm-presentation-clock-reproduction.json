@@ -1,0 +1,104 @@
+{
+  "cases": [
+    {
+      "movieTimescale": 720000,
+      "name": "audio-only passthrough",
+      "payloadSHA256": "51841ca58dfc2421a9c92b1c8c46af90e04c9dfb6f7952f609185569a511d871",
+      "presentationEnd": {
+        "epoch": 0,
+        "flags": 1,
+        "timescale": 720000,
+        "value": 1981980
+      },
+      "productionSampleStreamDigest": "efd676ef17e857c8a33c341636268b47ae6b6cf5209b45855ad468e484d7f8b5",
+      "reappliedEdits": "none",
+      "sampleCount": 132132,
+      "sampleEvidence": "native-pcm-roundtrip/samples.json",
+      "sampleTimingSHA256": "f5b98db8cf9f8dbe62a7cb986d45a8a4263cfc75c18bc0a92e2f0dfddcdf977e"
+    },
+    {
+      "movieTimescale": 22500,
+      "name": "audio-only coarse-clock passthrough",
+      "payloadSHA256": "765b8763fe5edb3cd16aceb9ed91064fb80b6a03d10cc4ae225ed4316a56ce88",
+      "presentationEnd": {
+        "epoch": 0,
+        "flags": 1,
+        "timescale": 22500,
+        "value": 61936
+      },
+      "reappliedEdits": "none",
+      "sampleCount": 132131,
+      "sampleEvidence": "native-pcm-22500-roundtrip/samples.json",
+      "sampleTimingSHA256": "3a76cad2e3a264bda8877f5b6c476080301d8e8b6c1f9c5d58d1baae4fe0d8a4"
+    },
+    {
+      "movieTimescale": 22500,
+      "name": "video/audio coarse-clock passthrough",
+      "payloadSHA256": "765b8763fe5edb3cd16aceb9ed91064fb80b6a03d10cc4ae225ed4316a56ce88",
+      "presentationEnd": {
+        "epoch": 0,
+        "flags": 1,
+        "timescale": 22500,
+        "value": 61936
+      },
+      "reappliedEdits": "none",
+      "sampleCount": 132131,
+      "sampleEvidence": "combined-native-writer-only/samples.json",
+      "sampleTimingSHA256": "3a76cad2e3a264bda8877f5b6c476080301d8e8b6c1f9c5d58d1baae4fe0d8a4"
+    },
+    {
+      "movieTimescale": 22500,
+      "name": "video/audio coarse-clock passthrough with video edits",
+      "payloadSHA256": "765b8763fe5edb3cd16aceb9ed91064fb80b6a03d10cc4ae225ed4316a56ce88",
+      "presentationEnd": {
+        "epoch": 0,
+        "flags": 1,
+        "timescale": 22500,
+        "value": 61936
+      },
+      "productionSampleStreamDigest": "686eb7c04cf37c3d880f4e020ac476b46e3a99ea0ecafcb75bd5d5df2fa19ecc",
+      "reappliedEdits": "video",
+      "sampleCount": 132131,
+      "sampleEvidence": "combined-native-pcm-roundtrip/samples.json",
+      "sampleTimingSHA256": "3a76cad2e3a264bda8877f5b6c476080301d8e8b6c1f9c5d58d1baae4fe0d8a4"
+    },
+    {
+      "movieTimescale": 720000,
+      "name": "video/audio refined-clock passthrough with planned edits",
+      "payloadSHA256": "51841ca58dfc2421a9c92b1c8c46af90e04c9dfb6f7952f609185569a511d871",
+      "presentationEnd": {
+        "epoch": 0,
+        "flags": 1,
+        "timescale": 720000,
+        "value": 1981984
+      },
+      "productionSampleStreamDigest": "efd676ef17e857c8a33c341636268b47ae6b6cf5209b45855ad468e484d7f8b5",
+      "reappliedEdits": "all",
+      "sampleCount": 132132,
+      "sampleEvidence": "combined-native-pcm-720000-rebuilt-all/samples.json",
+      "sampleTimingSHA256": "f5b98db8cf9f8dbe62a7cb986d45a8a4263cfc75c18bc0a92e2f0dfddcdf977e"
+    }
+  ],
+  "observedMechanism": "22500 movie ticks cannot exactly represent the 48000-Hz PCM media end; writer-generated presentation edits hide the final PCM sample. Including the PCM sample clock in the movie-timescale LCM and reapplying planned edits preserves sample-stream identity and the declared movie boundary.",
+  "productionVerificationAtCapture": "Pending root-run product tests.",
+  "repositoryReceiptNote": "Derived from the retained standalone control receipt; host paths are relative, and the original pending product status is retained as productionVerificationAtCapture. Original counts, clocks, boundaries and digests are unchanged. Raw media and sample inventories remain local.",
+  "scope": "Standalone native AVFoundation writer/reader controls using copied production sample-digest implementation; product Xcode validation is separate.",
+  "sourceFileSHA256": "9a73ef499046b32367462d17c0e5b01270400506a94f59babd87d833eede031b",
+  "sourcePCM": {
+    "payloadSHA256": "51841ca58dfc2421a9c92b1c8c46af90e04c9dfb6f7952f609185569a511d871",
+    "rangeEnd": {
+      "epoch": 0,
+      "flags": 1,
+      "timescale": 90000,
+      "value": 247748
+    },
+    "sampleCount": 132132,
+    "sampleTimingSHA256": "f5b98db8cf9f8dbe62a7cb986d45a8a4263cfc75c18bc0a92e2f0dfddcdf977e"
+  },
+  "sourceProductionSampleStreamDigest": "efd676ef17e857c8a33c341636268b47ae6b6cf5209b45855ad468e484d7f8b5",
+  "subsequentProductionEvidence": {
+    "independentValidation": "production-job-validation.json",
+    "jobReceipt": "production-job-run.json",
+    "status": "Native macOS Release production job completed; independent ffprobe/ffmpeg checks passed 35/35."
+  }
+}

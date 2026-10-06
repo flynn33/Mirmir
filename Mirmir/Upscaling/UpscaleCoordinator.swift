@@ -28,18 +28,22 @@ actor UpscaleCoordinator {
     private let backendCatalog: UpscaleBackendCatalog
     private let runtimeEnvironment: RuntimeEnvironment
     private let processingSession: VideoProcessingSession
+    private let processingActivityFactory: MirmirProcessingActivityFactory
     private var activeCancellation: ProcessingCancellation?
 
     init(
         videoProbe: any VideoProbing = VideoProbe(),
         backendCatalog: UpscaleBackendCatalog = .live(),
         runtimeEnvironment: RuntimeEnvironment = .current(),
-        processingSession: VideoProcessingSession = VideoProcessingSession()
+        processingSession: VideoProcessingSession = VideoProcessingSession(),
+        processingActivityFactory: @escaping MirmirProcessingActivityFactory =
+            MirmirProcessingActivity.begin
     ) {
         self.videoProbe = videoProbe
         self.backendCatalog = backendCatalog
         self.runtimeEnvironment = runtimeEnvironment
         self.processingSession = processingSession
+        self.processingActivityFactory = processingActivityFactory
     }
 
     func process(
@@ -53,6 +57,10 @@ actor UpscaleCoordinator {
         }
         try validate(request)
 
+        let processingActivity = processingActivityFactory(
+            "Processing an upscale job"
+        )
+        defer { processingActivity.end() }
         let cancellation = ProcessingCancellation()
         activeCancellation = cancellation
         defer {

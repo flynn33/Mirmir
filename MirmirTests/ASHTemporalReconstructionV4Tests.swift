@@ -516,6 +516,257 @@ final class ASHTemporalReconstructionV4Tests: XCTestCase {
         }
     }
 
+    func testParallelMotionMatchesIndependentSortedOracleAtUnevenEdges()
+        throws {
+        for (width, height) in [(53, 101), (129, 135), (3, 5), (1, 33), (37, 1)] {
+            let previous = try makeFrame(
+                id: "parallel-0", ordinal: 0, width: width, height: height
+            ) { x, y in self.patternSample(x: x, y: y) }
+            let current = try makeFrame(
+                id: "parallel-1", ordinal: 1, width: width, height: height
+            ) { x, y in
+                self.patternSample(
+                    x: (x + 2) % width,
+                    y: (y + 1) % height
+                )
+            }
+            let reference = try sortedMotionOracle(
+                current: current, previous: previous
+            )
+            XCTAssertFalse(reference.sceneCut)
+            for policy in [ASHTemporalMotionExecutionPolicyV4.serial,
+                           .automatic,
+                           .parallel(maximumWorkers: 2),
+                           .parallel(maximumWorkers: 3),
+                           .parallel(maximumWorkers: 7),
+                           .parallel(maximumWorkers: Int.max)] {
+                let result = try ASHTemporalMotionAnalyzerV4.analyzeField(
+                    current: current, previous: previous,
+                    executionPolicy: policy
+                )
+                XCTAssertEqual(result.field, reference)
+                XCTAssertEqual(
+                    result.allocationDiagnostics.materializedAlignedSampleCount,
+                    0
+                )
+                XCTAssertEqual(
+                    result.allocationDiagnostics.maximumRetainedCandidatesPerBlock,
+                    2
+                )
+            }
+        }
+    }
+
+    func testParallelMotionPreservesTiesOcclusionAndSceneCut() throws {
+        for (previousCode, currentCode) in [
+            (UInt16(400), UInt16(400)), (400, 401), (64, 940)
+        ] {
+            let previous = try makeFrame(
+                id: "constant-0", ordinal: 0, width: 35, height: 73
+            ) { _, _ in previousCode }
+            let current = try makeFrame(
+                id: "constant-1", ordinal: 1, width: 35, height: 73
+            ) { _, _ in currentCode }
+            let reference = try sortedMotionOracle(
+                current: current, previous: previous
+            )
+            for workers in [1, 2, 7] {
+                let result = try ASHTemporalMotionAnalyzerV4.analyzeField(
+                    current: current, previous: previous,
+                    executionPolicy: .parallel(maximumWorkers: workers)
+                )
+                XCTAssertEqual(result.field, reference)
+            }
+            if previousCode == 64 {
+                XCTAssertTrue(reference.sceneCut)
+                XCTAssertTrue(reference.vectors.isEmpty)
+            } else {
+                XCTAssertFalse(reference.sceneCut)
+                XCTAssertTrue(reference.vectors.allSatisfy {
+                    $0.dx == 0 && $0.dy == 0 && $0.confidenceQ16 == 0
+                        && $0.occluded
+                })
+            }
+        }
+    }
+
+    func testParallelMotionRepeatedAndConcurrentCallsMatchIndependentOracle()
+        async throws {
+        let previous = try makeFrame(
+            id: "concurrent-0", ordinal: 0, width: 41, height: 83
+        ) { x, y in self.patternSample(x: x, y: y) }
+        let current = try makeFrame(
+            id: "concurrent-1", ordinal: 1, width: 41, height: 83
+        ) { x, y in self.patternSample(x: min(x + 1, 40), y: y) }
+        let reference = try sortedMotionOracle(
+            current: current, previous: previous
+        )
+        for _ in 0..<4 {
+            XCTAssertEqual(
+                try ASHTemporalMotionAnalyzerV4.analyzeField(
+                    current: current, previous: previous,
+                    executionPolicy: .parallel(maximumWorkers: 7)
+                ).field,
+                reference
+            )
+        }
+        try await withThrowingTaskGroup(of: ASHTemporalMotionFieldV4.self) {
+            group in
+            for index in 0..<8 {
+                group.addTask {
+                    try ASHTemporalMotionAnalyzerV4.analyzeField(
+                        current: current, previous: previous,
+                        executionPolicy: .parallel(
+                            maximumWorkers: index.isMultiple(of: 2) ? 2 : 7
+                        )
+                    ).field
+                }
+            }
+            for try await field in group {
+                XCTAssertEqual(field, reference)
+            }
+        }
+    }
+
+    func testMotionExecutionPolicyBoundsWorkersAndRejectsInvalidLimits()
+        throws {
+        let available = max(1, ProcessInfo.processInfo.activeProcessorCount)
+        XCTAssertEqual(
+            try ASHTemporalMotionExecutionPolicyV4.automatic.workerCount(
+                rows: 100, blockCount: 255
+            ), 1
+        )
+        XCTAssertEqual(
+            try ASHTemporalMotionExecutionPolicyV4.automatic.workerCount(
+                rows: 100, blockCount: 256
+            ), min(100, available)
+        )
+        XCTAssertEqual(
+            try ASHTemporalMotionExecutionPolicyV4.parallel(maximumWorkers: 3)
+                .workerCount(rows: 100, blockCount: 1_000),
+            min(3, available)
+        )
+        XCTAssertEqual(
+            try ASHTemporalMotionExecutionPolicyV4.parallel(maximumWorkers: Int.max)
+                .workerCount(rows: 2, blockCount: 1_000),
+            min(2, available)
+        )
+        let frame = try makeFrame(id: "invalid-worker", ordinal: 0) { _, _ in 400 }
+        let next = try makeFrame(id: "next", ordinal: 1) { _, _ in 400 }
+        for limit in [0, -1] {
+            XCTAssertThrowsError(
+                try ASHTemporalMotionAnalyzerV4.analyzeField(
+                    current: next, previous: frame,
+                    executionPolicy: .parallel(maximumWorkers: limit)
+                )
+            ) { error in
+                XCTAssertEqual(error as? ASHTemporalV4Error, .invalidConfiguration)
+            }
+        }
+        XCTAssertThrowsError(
+            try ASHTemporalMotionAnalyzerV4.analyzeField(
+                current: frame, previous: next,
+                executionPolicy: .parallel(maximumWorkers: 3)
+            )
+        ) { error in
+            XCTAssertEqual(error as? ASHTemporalV4Error, .futureOrConcurrentHistory)
+        }
+    }
+
+    func testCaptureParallelMotionBenchmarkWhenRequested() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let directory = environment["MIRMIR_V4_MOTION_BENCHMARK_DIR"],
+              !directory.isEmpty else {
+            throw XCTSkip("Set MIRMIR_V4_MOTION_BENCHMARK_DIR for motion timing.")
+        }
+        let processingActivity = MirmirProcessingActivity.begin(
+            "Benchmarking deterministic motion"
+        )
+        defer { processingActivity.end() }
+        struct Record: Codable {
+            let width: Int
+            let height: Int
+            let workerCount: Int
+            let fieldsEqual: Bool
+            let serialSeconds: [Double]
+            let parallelSeconds: [Double]
+        }
+        let repetitions = min(10, max(1,
+            Int(environment["MIRMIR_V4_MOTION_BENCHMARK_SAMPLES"] ?? "3") ?? 3
+        ))
+        let policy = ASHTemporalMotionExecutionPolicyV4.parallel(
+            maximumWorkers: max(1,
+                Int(environment["MIRMIR_V4_MOTION_BENCHMARK_WORKERS"] ?? "")
+                    ?? ProcessInfo.processInfo.activeProcessorCount
+            )
+        )
+        var records: [Record] = []
+        for (width, height) in [(1920, 816), (3840, 1632)] {
+            let previous = try makeFrame(
+                id: "timing-0", ordinal: 0, width: width, height: height
+            ) { x, y in self.patternSample(x: x, y: y) }
+            let current = try makeFrame(
+                id: "timing-1", ordinal: 1, width: width, height: height
+            ) { x, y in
+                self.patternSample(x: min(x + 2, width - 1), y: y)
+            }
+            let expected = try ASHTemporalMotionAnalyzerV4.analyzeField(
+                current: current, previous: previous, executionPolicy: .serial
+            ).field
+            XCTAssertFalse(expected.sceneCut)
+            XCTAssertEqual(
+                try ASHTemporalMotionAnalyzerV4.analyzeField(
+                    current: current, previous: previous, executionPolicy: policy
+                ).field, expected
+            )
+            var serialSeconds: [Double] = []
+            var parallelSeconds: [Double] = []
+            var fieldsEqual = true
+            for iteration in 0..<repetitions {
+                let order: [ASHTemporalMotionExecutionPolicyV4] =
+                    iteration.isMultiple(of: 2) ? [.serial, policy] : [policy, .serial]
+                for (index, execution) in order.enumerated() {
+                    let started = DispatchTime.now().uptimeNanoseconds
+                    let field = try ASHTemporalMotionAnalyzerV4.analyzeField(
+                        current: current, previous: previous,
+                        executionPolicy: execution
+                    ).field
+                    let seconds = Double(DispatchTime.now().uptimeNanoseconds - started)
+                        / 1_000_000_000
+                    let isSerial = iteration.isMultiple(of: 2) == (index == 0)
+                    if isSerial { serialSeconds.append(seconds) }
+                    else { parallelSeconds.append(seconds) }
+                    fieldsEqual = fieldsEqual && field == expected
+                    XCTAssertEqual(field, expected)
+                }
+            }
+            records.append(Record(
+                width: width, height: height,
+                workerCount: try policy.workerCount(
+                    rows: (height + 7) / 8,
+                    blockCount: ((width + 7) / 8) * ((height + 7) / 8)
+                ),
+                fieldsEqual: fieldsEqual,
+                serialSeconds: serialSeconds, parallelSeconds: parallelSeconds
+            ))
+        }
+        let output = URL(fileURLWithPath: directory, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: output, withIntermediateDirectories: true
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(records)
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = "motion-parallel-benchmark.json"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        try data.write(
+            to: output.appendingPathComponent("motion-parallel-benchmark.json"),
+            options: .atomic
+        )
+    }
+
     func testThreeRowSpatialWorkspaceMatchesReferenceForEveryState() throws {
         let program = try ASHDepthFourBranchCompilerV4.compileCanonical()
         var workspace = ASHSpatialReconstructionWorkspaceV4()
@@ -1037,6 +1288,137 @@ final class ASHTemporalReconstructionV4Tests: XCTestCase {
         }
     }
 
+    func testParallelTiledMotionMatchesIndependentOracleAndSerialPixels()
+        throws {
+        let program = try ASHDepthFourBranchCompilerV4.compileCanonical()
+        for (width, height) in [(53, 101), (129, 135), (3, 5)] {
+            let previous = try makeTiledFrame(
+                id: "parallel-tile-0", ordinal: 0, width: width, height: height
+            ) { x, y in self.patternSample(x: x, y: y) }
+            let current = try makeTiledFrame(
+                id: "parallel-tile-1", ordinal: 1, width: width, height: height
+            ) { x, y in
+                self.patternSample(x: (x + 2) % width, y: (y + 1) % height)
+            }
+            let fullPrevious = try makeFrame(
+                id: previous.frameID, ordinal: 0, width: width, height: height
+            ) { x, y in self.patternSample(x: x, y: y) }
+            let fullCurrent = try makeFrame(
+                id: current.frameID, ordinal: 1, width: width, height: height
+            ) { x, y in
+                self.patternSample(x: (x + 2) % width, y: (y + 1) % height)
+            }
+            let oracle = try sortedMotionOracle(current: fullCurrent, previous: fullPrevious)
+            XCTAssertFalse(oracle.sceneCut)
+            let serial = try ASHTemporalTiledMotionAnalyzerV4.analyze(
+                current: current, previous: previous, executionPolicy: .serial
+            )
+            XCTAssertEqual(serial.field.sceneDifferenceQ16, oracle.sceneDifferenceQ16)
+            XCTAssertEqual(serial.field.temporalEvidenceQ16, oracle.temporalEvidenceQ16)
+            for state in serial.field.tileStates {
+                let active = try current.grid.descriptor(at: state.tileIndex).active
+                var expected: [ASHTemporalMotionVectorV4] = []
+                for vector in oracle.vectors where active.contains(x: vector.originX, y: vector.originY) {
+                    expected.append(ASHTemporalMotionVectorV4(
+                        blockIndex: expected.count,
+                        originX: vector.originX, originY: vector.originY,
+                        width: vector.width, height: vector.height,
+                        dx: vector.dx, dy: vector.dy,
+                        absoluteDifference: vector.absoluteDifference,
+                        normalizedCostQ16: vector.normalizedCostQ16,
+                        confidenceQ16: vector.confidenceQ16, occluded: vector.occluded
+                    ))
+                }
+                XCTAssertEqual(state.vectors, expected)
+                let weighted = expected.reduce(UInt64(0)) {
+                    $0 + UInt64($1.normalizedCostQ16) * UInt64($1.width * $1.height)
+                }
+                XCTAssertEqual(state.temporalEvidenceQ16, UInt32(oracleRoundedRatio(
+                    weighted, UInt64(active.sampleCount)
+                )))
+            }
+            let expectedPixels = try ASHTemporalTiledReconstructorV4.reconstruct(
+                currentSpatial: current, previousHistory: previous,
+                motionField: serial.field, resetReason: nil, program: program,
+                executor: .cpuFixedPoint, schedule: .raster
+            ).tiles
+            if width > 3 {
+                XCTAssertTrue(expectedPixels.contains { $0.historyWeightQ16 > 0 })
+            }
+            for policy in [ASHTemporalMotionExecutionPolicyV4.automatic,
+                           .parallel(maximumWorkers: 2),
+                           .parallel(maximumWorkers: 3),
+                           .parallel(maximumWorkers: 7),
+                           .parallel(maximumWorkers: Int.max)] {
+                let parallel = try ASHTemporalTiledMotionAnalyzerV4.analyze(
+                    current: current, previous: previous, executionPolicy: policy
+                )
+                XCTAssertEqual(parallel.field, serial.field)
+                XCTAssertEqual(parallel.allocationDiagnostics, serial.allocationDiagnostics)
+                XCTAssertEqual(parallel.allocationDiagnostics.fullFrameMotionVectorArrayAllocationCount, 0)
+                XCTAssertEqual(parallel.allocationDiagnostics.materializedAlignedSampleCount, 0)
+                XCTAssertLessThanOrEqual(parallel.allocationDiagnostics.largestContiguousMotionVectorAllocation, 4)
+                let actualPixels = try ASHTemporalTiledReconstructorV4.reconstruct(
+                    currentSpatial: current, previousHistory: previous,
+                    motionField: parallel.field, resetReason: nil, program: program,
+                    executor: .metalFixedPoint, schedule: .reverseRaster
+                ).tiles
+                XCTAssertEqual(actualPixels, expectedPixels)
+            }
+        }
+    }
+
+    func testParallelTiledMotionPreservesSceneCutAndRejectsInvalidWorkers()
+        throws {
+        let previous = try makeTiledFrame(id: "dark-tile", ordinal: 0) { _, _ in 64 }
+        let current = try makeTiledFrame(id: "light-tile", ordinal: 1) { _, _ in 940 }
+        let serial = try ASHTemporalTiledMotionAnalyzerV4.analyze(
+            current: current, previous: previous, executionPolicy: .serial
+        )
+        let parallel = try ASHTemporalTiledMotionAnalyzerV4.analyze(
+            current: current, previous: previous, executionPolicy: .parallel(maximumWorkers: 7)
+        )
+        XCTAssertEqual(parallel, serial)
+        XCTAssertTrue(parallel.field.sceneCut)
+        XCTAssertTrue(parallel.field.tileStates.allSatisfy { $0.sceneCut && $0.vectors.isEmpty })
+        for workers in [0, -1] {
+            XCTAssertThrowsError(try ASHTemporalTiledMotionAnalyzerV4.analyze(
+                current: current, previous: previous, executionPolicy: .parallel(maximumWorkers: workers)
+            )) { error in
+                XCTAssertEqual(error as? ASHTemporalV4Error, .invalidConfiguration)
+            }
+        }
+    }
+
+    func testCancelledInitiatingTaskCannotPublishFullOrTiledMotion() async throws {
+        let previous = try makeFrame(id: "cancel-full-0", ordinal: 0) { _, _ in 400 }
+        let current = try makeFrame(id: "cancel-full-1", ordinal: 1) { _, _ in 401 }
+        let tiledPrevious = try makeTiledFrame(id: "cancel-tile-0", ordinal: 0) { _, _ in 400 }
+        let tiledCurrent = try makeTiledFrame(id: "cancel-tile-1", ordinal: 1) { _, _ in 401 }
+        for tiled in [false, true] {
+            let operation = Task.detached {
+                withUnsafeCurrentTask { $0?.cancel() }
+                if tiled {
+                    _ = try ASHTemporalTiledMotionAnalyzerV4.analyze(
+                        current: tiledCurrent, previous: tiledPrevious,
+                        executionPolicy: .parallel(maximumWorkers: 7)
+                    )
+                } else {
+                    _ = try ASHTemporalMotionAnalyzerV4.analyzeField(
+                        current: current, previous: previous,
+                        executionPolicy: .parallel(maximumWorkers: 7)
+                    )
+                }
+            }
+            do {
+                try await operation.value
+                XCTFail("A cancelled initiating task published motion.")
+            } catch {
+                XCTAssertTrue(error is CancellationError)
+            }
+        }
+    }
+
     func testTiledHistoryCheckpointRoundTripRestoresMotionAndPixels()
         throws {
         let previous = try makeTiledFrame(
@@ -1144,14 +1526,152 @@ final class ASHTemporalReconstructionV4Tests: XCTestCase {
         )
     }
 
+    // A separate serial implementation materializes and sorts all candidates,
+    // rather than sharing the production best-two selection or batching code.
+    private func sortedMotionOracle(
+        current: ASHTemporalFrameV4,
+        previous: ASHTemporalFrameV4,
+        configuration: ASHTemporalBlockMatchingConfigurationV4 = .canonical
+    ) throws -> ASHTemporalMotionFieldV4 {
+        try current.validate()
+        try previous.validate()
+        let plane = current.luma
+        let prior = previous.luma
+        guard plane.width == prior.width, plane.height == prior.height,
+              plane.minimumCode == prior.minimumCode,
+              plane.maximumCode == prior.maximumCode else {
+            throw ASHTemporalV4Error.planeGeometryMismatch
+        }
+        let codeCount = UInt64(plane.maximumCode - plane.minimumCode) + 1
+        var currentHistogram = [UInt64](repeating: 0, count: 16)
+        var previousHistogram = [UInt64](repeating: 0, count: 16)
+        for (currentSample, previousSample) in zip(plane.samples, prior.samples) {
+            currentHistogram[Int(UInt64(currentSample - plane.minimumCode)
+                * 16 / codeCount)] += 1
+            previousHistogram[Int(UInt64(previousSample - prior.minimumCode)
+                * 16 / codeCount)] += 1
+        }
+        let histogramDistance = zip(currentHistogram, previousHistogram)
+            .reduce(UInt64(0)) { sum, bins in
+                sum + UInt64(abs(Int64(bins.0) - Int64(bins.1)))
+            }
+        let sceneDifference = UInt32(oracleRoundedRatio(
+            histogramDistance * UInt64(ASHNormalizedQ16V4.scale),
+            UInt64(plane.samples.count * 2)
+        ))
+        let sceneCut = sceneDifference
+            >= configuration.sceneCutHistogramThresholdQ16
+        var vectors: [ASHTemporalMotionVectorV4] = []
+        if !sceneCut {
+            for originY in stride(
+                from: 0, to: plane.height, by: configuration.blockHeight
+            ) {
+                for originX in stride(
+                    from: 0, to: plane.width, by: configuration.blockWidth
+                ) {
+                    let width = min(configuration.blockWidth, plane.width - originX)
+                    let height = min(configuration.blockHeight, plane.height - originY)
+                    var candidates: [(cost: UInt64, dx: Int, dy: Int)] = []
+                    for dy in -configuration.searchRadius...configuration.searchRadius {
+                        for dx in -configuration.searchRadius...configuration.searchRadius {
+                            guard originX + dx >= 0, originY + dy >= 0,
+                                  originX + dx + width <= plane.width,
+                                  originY + dy + height <= plane.height else { continue }
+                            let cost = (0..<height).reduce(UInt64(0)) { rowSum, y in
+                                rowSum + (0..<width).reduce(UInt64(0)) { sum, x in
+                                    let currentSample = plane.samples[
+                                        (originY + y) * plane.width + originX + x
+                                    ]
+                                    let previousSample = prior.samples[
+                                        (originY + y + dy) * prior.width + originX + x + dx
+                                    ]
+                                    return sum + UInt64(abs(Int(currentSample) - Int(previousSample)))
+                                }
+                            }
+                            candidates.append((cost, dx, dy))
+                        }
+                    }
+                    candidates.sort {
+                        if $0.cost != $1.cost { return $0.cost < $1.cost }
+                        let lhsDistance = abs($0.dx) + abs($0.dy)
+                        let rhsDistance = abs($1.dx) + abs($1.dy)
+                        if lhsDistance != rhsDistance { return lhsDistance < rhsDistance }
+                        if $0.dy != $1.dy { return $0.dy < $1.dy }
+                        return $0.dx < $1.dx
+                    }
+                    guard let best = candidates.first else {
+                        throw ASHTemporalV4Error.invalidMotionField
+                    }
+                    let second = candidates.count > 1 ? candidates[1] : best
+                    let costQ16 = UInt32(oracleRoundedRatio(
+                        best.cost * UInt64(ASHNormalizedQ16V4.scale),
+                        UInt64(width * height)
+                            * UInt64(plane.maximumCode - plane.minimumCode)
+                    ))
+                    let confidenceQ16 = second.cost > best.cost
+                        ? UInt32(oracleRoundedRatio(
+                            (second.cost - best.cost) * UInt64(ASHNormalizedQ16V4.scale),
+                            second.cost
+                        )) : 0
+                    vectors.append(ASHTemporalMotionVectorV4(
+                        blockIndex: vectors.count,
+                        originX: originX, originY: originY,
+                        width: width, height: height,
+                        dx: Int16(best.dx), dy: Int16(best.dy),
+                        absoluteDifference: best.cost,
+                        normalizedCostQ16: costQ16,
+                        confidenceQ16: confidenceQ16,
+                        occluded: costQ16 > configuration.occlusionCostThresholdQ16
+                            || confidenceQ16 < configuration.minimumConfidenceQ16
+                    ))
+                }
+            }
+        }
+        let weightedEvidence = vectors.reduce(UInt64(0)) { sum, vector in
+            sum + UInt64(vector.normalizedCostQ16)
+                * UInt64(vector.width * vector.height)
+        }
+        let field = ASHTemporalMotionFieldV4(
+            policyID: configuration.policyID,
+            currentFrameID: current.frameID,
+            previousFrameID: previous.frameID,
+            streamID: current.streamID,
+            formatIdentity: current.formatIdentity,
+            planeWidth: plane.width, planeHeight: plane.height,
+            minimumCode: plane.minimumCode, maximumCode: plane.maximumCode,
+            sceneDifferenceQ16: sceneDifference, sceneCut: sceneCut,
+            temporalEvidenceQ16: sceneCut ? sceneDifference : UInt32(oracleRoundedRatio(
+                weightedEvidence, UInt64(plane.samples.count)
+            )),
+            blockColumns: (plane.width + configuration.blockWidth - 1)
+                / configuration.blockWidth,
+            blockRows: (plane.height + configuration.blockHeight - 1)
+                / configuration.blockHeight,
+            vectors: vectors
+        )
+        try field.validate()
+        return field
+    }
+
+    private func oracleRoundedRatio(_ numerator: UInt64, _ denominator: UInt64)
+        -> UInt64 {
+        let quotient = numerator / denominator
+        let twiceRemainder = (numerator % denominator) * 2
+        let roundsUp = twiceRemainder > denominator
+            || (twiceRemainder == denominator && !quotient.isMultiple(of: 2))
+        return quotient + (roundsUp ? 1 : 0)
+    }
+
     private func makeFrame(
         id: String,
         stream: String = "video-main",
         ordinal: Int64,
+        width: Int = 16,
+        height: Int = 16,
         generator: (Int, Int) -> UInt16
     ) throws -> ASHTemporalFrameV4 {
-        let samples = (0..<16).flatMap { y in
-            (0..<16).map { x in generator(x, y) }
+        let samples = (0..<height).flatMap { y in
+            (0..<width).map { x in generator(x, y) }
         }
         return try ASHTemporalFrameV4(
             frameID: id,
@@ -1160,8 +1680,8 @@ final class ASHTemporalReconstructionV4Tests: XCTestCase {
             ordinal: ordinal,
             presentationTime: try ExactRationalV4(ordinal, 30),
             luma: ASHTemporalPlaneV4(
-                width: 16,
-                height: 16,
+                width: width,
+                height: height,
                 minimumCode: 64,
                 maximumCode: 940,
                 samples: samples
@@ -1210,6 +1730,8 @@ final class ASHTemporalReconstructionV4Tests: XCTestCase {
     private func makeTiledFrame(
         id: String,
         ordinal: Int64,
+        width: Int = 32,
+        height: Int = 16,
         generator: (Int, Int) -> UInt16
     ) throws -> ASHTemporalTiledFrameV4 {
         let policy = try ASHTemporalTilePolicyV4(
@@ -1217,8 +1739,8 @@ final class ASHTemporalReconstructionV4Tests: XCTestCase {
             tileWidth: 16,
             tileHeight: 16,
             searchHalo: 4,
-            maximumFrameWidth: 64,
-            maximumFrameHeight: 32
+            maximumFrameWidth: max(width, 64),
+            maximumFrameHeight: max(height, 32)
         )
         return try ASHTemporalTiledFrameBuilderV4.capture(
             frameID: id,
@@ -1227,8 +1749,8 @@ final class ASHTemporalReconstructionV4Tests: XCTestCase {
             ordinal: ordinal,
             presentationTime: ExactRationalV4(ordinal, 30),
             cadenceID: "progressive",
-            frameWidth: 32,
-            frameHeight: 16,
+            frameWidth: width,
+            frameHeight: height,
             minimumCode: 64,
             maximumCode: 940,
             policy: policy,

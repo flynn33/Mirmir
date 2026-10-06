@@ -1,7 +1,7 @@
 # Mirmir product support
 
-Current source identity: **Mirmir 1.5.0 (15)**. On October 4, 2026, the installed
-`/Applications/Mirmir.app` reports 1.4.5 (14). It has not been replaced by this
+Current source identity: **Mirmir 1.6.0 (16)**. On October 6, 2026, the installed
+`/Applications/Mirmir.app` reports 1.5.0 (15). It has not been replaced by this
 source update.
 
 Mirmir is a sandboxed macOS 15.4-or-later application. It reads local media
@@ -59,7 +59,7 @@ and found 241 video frames and 470 audio packets in both the source and output.
 The output is
 `/Users/jimdaley/Desktop/Mirmir-1.4.3-Build12-Evidence/83-final-real-source-production-1024-green/durable-workflow-run/durable-workflow-output.mov`.
 This historical 1.4.3 short-source result does not complete DV4-002 or qualify
-the current 1.5.0 source or installed 1.4.5 application.
+the current 1.6.0 source or currently installed 1.5.0 application.
 
 VideoToolbox methods fail closed when the exact source, target, or scale
 geometry is unsupported. Automatic pre-scale and post-scale geometry

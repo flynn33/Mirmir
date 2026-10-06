@@ -1,4 +1,6 @@
 import AVFoundation
+import AudioToolbox
+import CryptoKit
 import CoreVideo
 import Darwin
 import Foundation
@@ -1559,7 +1561,16 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
             [third.specification.jobID, second.specification.jobID,
              first.specification.jobID]
         )
-        let snapshot = try await coordinator.queueSnapshot()
+        // Dispatch entry precedes the asynchronous failure transition.
+        var snapshot = try await coordinator.queueSnapshot()
+        for _ in 0..<1_500 {
+            if snapshot.items.count == 3,
+               snapshot.items.allSatisfy({ $0.lifecycle == .failed }) {
+                break
+            }
+            try await Task.sleep(nanoseconds: 2_000_000)
+            snapshot = try await coordinator.queueSnapshot()
+        }
         XCTAssertEqual(snapshot.items.map(\.lifecycle), [.failed, .failed, .failed])
         XCTAssertEqual(snapshot.items.map(\.priority), [0, 50, 50])
     }
@@ -1602,14 +1613,19 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
             workerID: "application-worker-capacity-contender"
         )
         let recorder = WorkflowApplicationDispatchRecorderV4()
+        let activityRecorder = MirmirProcessingActivityTestRecorder()
         let coordinator = WorkflowApplicationCoordinatorV4(
             queue: contender,
-            engine: WorkflowApplicationFailingEngineV4(recorder: recorder)
+            engine: WorkflowApplicationFailingEngineV4(recorder: recorder),
+            processingActivityFactory: { activityRecorder.begin($0) }
         )
         _ = try await coordinator.launch()
         try await Task.sleep(nanoseconds: 150_000_000)
         let beforeRelease = await recorder.values()
         XCTAssertEqual(beforeRelease, [])
+        XCTAssertEqual(activityRecorder.snapshot.beginCount, 0)
+        XCTAssertEqual(activityRecorder.snapshot.endCount, 0)
+        XCTAssertEqual(activityRecorder.snapshot.activeCount, 0)
 
         _ = try await holder.transitionApplicationJob(
             heldDispatch,
@@ -2732,14 +2748,146 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         )
     }
 
+    func testParallelDeterministicCPUAndMetalFinalize66FrameNTSCJob()
+        async throws {
+        try await assertParallelDeterministicJob(frameCount: 66)
+    }
+
+    func testParallelDeterministicCPUAndMetalFinalize156FrameNTSCJob()
+        async throws {
+        try await assertParallelDeterministicJob(frameCount: 156)
+    }
+
+    func testParallelDeterministicCPUAndMetalFinalize157FrameNTSCJob()
+        async throws {
+        try await assertParallelDeterministicJob(frameCount: 157)
+    }
+
+    func testParallelDeterministicMetalPauseResumePreservesDecodedFrames()
+        async throws {
+        let fixture = try await makeNTSCMotionFixture(frameCount: 157)
+        let catalog = try parallelDeterministicCatalog()
+        let baseline = try await runNTSCMotionJob(
+            fixture: fixture,
+            catalog: catalog,
+            backend: .mirmirDeterministicMetal,
+            name: "uninterrupted"
+        )
+        let recorder = MirmirProcessingActivityTestRecorder()
+        let latch = WorkflowApplicationBoundaryLatchV4()
+        let queue = try WorkflowApplicationQueueV4(
+            trustedRootURL: fixture.rootURL.appendingPathComponent("resume-store"),
+            workerID: try WorkflowWorkerIDV4("parallel-resume-worker"),
+            resolver: WorkflowApplicationBookmarkResolverStubV4()
+        )
+        let engine = WorkflowApplicationRealBoundaryEngineV4(
+            underlying: WorkflowDeterministicApplicationEngineV4(
+                videoProbe: VideoProbe(),
+                backendCatalog: catalog,
+                runtimeEnvironment: .current()
+            ),
+            latch: latch,
+            activity: recorder
+        )
+        let coordinator = WorkflowApplicationCoordinatorV4(
+            queue: queue,
+            engine: engine,
+            maximumInputFramesPerBoundary: 60,
+            processingActivityFactory: { recorder.begin($0) }
+        )
+        let requested = ntscMotionRequest(
+            fixture: fixture,
+            backend: .mirmirDeterministicMetal,
+            name: "resumed"
+        )
+        let initial = Task {
+            try await coordinator.submit(
+                request: requested,
+                progress: { recorder.recordProtectedProgress($0) },
+                snapshot: { _ in }
+            )
+        }
+        guard await latch.waitUntilReached(timeoutNanoseconds: 30_000_000_000) else {
+            await latch.release()
+            try? await coordinator.cancelActive()
+            _ = try? await initial.value
+            return XCTFail("The real engine did not complete its first boundary.")
+        }
+        XCTAssertGreaterThan(recorder.snapshot.activeCount, 0)
+        do {
+            try await coordinator.requestPause()
+        } catch {
+            await latch.release()
+            _ = try? await initial.value
+            throw error
+        }
+        await latch.release()
+        let paused = try await initial.value
+        guard case .paused(let jobID, _) = paused else {
+            return XCTFail("The real engine did not pause at its durable boundary.")
+        }
+        XCTAssertEqual(recorder.snapshot.activeCount, 0)
+        XCTAssertEqual(recorder.snapshot.beginCount, recorder.snapshot.endCount)
+        XCTAssertFalse(requested.outputURL.fileExists)
+        let pausedCheckpointURL = await queue.applicationCheckpointURL(jobID: jobID)
+        let pausedCheckpoint = try WorkflowCanonicalCodec().decodeCanonical(
+            WorkflowCheckpointDocumentV4.self,
+            from: Data(contentsOf: pausedCheckpointURL)
+        )
+        XCTAssertEqual(pausedCheckpoint.body.segments.count, 1)
+        XCTAssertEqual(
+            pausedCheckpoint.body.trackProgress.first { $0.kind == .video }?
+                .nextInputSampleIndex,
+            60
+        )
+
+        // A recreated coordinator forces restoration from serialized history.
+        let resumedRecorder = MirmirProcessingActivityTestRecorder()
+        let recreated = WorkflowApplicationCoordinatorV4(
+            queue: queue,
+            engine: WorkflowDeterministicApplicationEngineV4(
+                videoProbe: VideoProbe(),
+                backendCatalog: catalog,
+                runtimeEnvironment: .current()
+            ),
+            maximumInputFramesPerBoundary: 60,
+            processingActivityFactory: { resumedRecorder.begin($0) }
+        )
+        let resumed = try await recreated.resume(
+            jobID: jobID,
+            progress: { resumedRecorder.recordProtectedProgress($0) },
+            snapshot: { _ in }
+        )
+        guard case .completed(let completion) = resumed else {
+            return XCTFail("The restored real-engine job did not finalize.")
+        }
+        let decoded = try await detailedDecodedVideoInventory(url: requested.outputURL)
+        try await assertNTSCMotionCompletion(
+            fixture: fixture,
+            queue: queue,
+            completion: completion,
+            decoded: decoded,
+            frameCount: 157,
+            backend: .mirmirDeterministicMetal
+        )
+        XCTAssertEqual(decoded.presentationTimes, baseline.presentationTimes)
+        XCTAssertEqual(decoded.frameSHA256, baseline.frameSHA256)
+        XCTAssertEqual(recorder.snapshot.activeCount, 0)
+        XCTAssertEqual(resumedRecorder.snapshot.activeCount, 0)
+        XCTAssertEqual(resumedRecorder.snapshot.beginCount, resumedRecorder.snapshot.endCount)
+        XCTAssertTrue(recorder.snapshot.progressActivityCounts.allSatisfy { $0 > 0 })
+        XCTAssertTrue(resumedRecorder.snapshot.progressActivityCounts.allSatisfy { $0 > 0 })
+        XCTAssertTrue(resumedRecorder.snapshot.progressPhases.contains(.finalizing))
+        XCTAssertTrue(resumedRecorder.snapshot.progressPhases.contains(.completed))
+    }
+
     func testExternalSourceCompletesProductionDurableWorkflowWhenRequested()
         async throws {
         let environment = ProcessInfo.processInfo.environment
         guard let sourcePath = environment["MIRMIR_REAL_SOURCE_PATH"],
               !sourcePath.isEmpty,
-              let evidencePath = environment[
-                "MIRMIR_REAL_SOURCE_EVIDENCE_DIR"
-              ],
+              let evidencePath = environment["MIRMIR_REAL_SOURCE_EVIDENCE_DIR"]
+                ?? environment["MIRMIR_V4_PARALLEL_JOB_DIR"],
               !evidencePath.isEmpty else {
             throw XCTSkip(
                 "Set MIRMIR_REAL_SOURCE_PATH and "
@@ -2791,7 +2939,8 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
                 .max { $0.sampleCount < $1.sampleCount }
         )
         let sourceDecoded = try await decodedVideoInventory(url: sourceURL)
-        XCTAssertEqual(sourceDecoded.sampleCount, sourcePrimary.sampleCount)
+        let sourceEncoded = try await compressedVideoSampleInventory(url: sourceURL)
+        XCTAssertEqual(sourceDecoded.sampleCount, sourceEncoded.sampleCount)
         XCTAssertGreaterThanOrEqual(
             CMTimeCompare(
                 sourceDecoded.admittedEnd,
@@ -2799,7 +2948,7 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
             ),
             0
         )
-        XCTAssertGreaterThan(sourcePrimary.sampleCount, 60)
+        XCTAssertGreaterThan(sourceEncoded.sampleCount, 60)
         let encodedSize = try XCTUnwrap(source.geometry.encodedSize)
         let sourceWidth = try XCTUnwrap(Int(exactly: encodedSize.width))
         let sourceHeight = try XCTUnwrap(Int(exactly: encodedSize.height))
@@ -2877,24 +3026,85 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
             inMemoryWith: .production
         )
         let recorder = MirmirDiagnosticRecorder(store: diagnosticStore)
-        let outcome = try await MirmirDiagnosticScope.$recorder.withValue(
-            recorder
-        ) {
-            _ = try await coordinator.launch()
-            return try await coordinator.submit(
-                request: UpscaleRequest(
-                    inputURL: sourceURL,
-                    outputURL: outputURL,
-                    backendID: .mirmirDeterministicMetal,
-                    targetWidth: targetWidth,
-                    targetHeight: targetHeight,
-                    outputCodec: .h264,
-                    preserveAudio: true,
-                    overwriteExistingFile: false
-                ),
-                progress: { _ in },
-                snapshot: { _ in }
-            )
+        let evidenceFile = runURL.appendingPathComponent("production-run.json")
+        let startedAt = Date()
+        try JSONSerialization.data(withJSONObject: [
+            "schema": "mirmir-v4-production-job-evidence-v1",
+            "status": "running",
+            "pid": ProcessInfo.processInfo.processIdentifier,
+            "startedAt": ISO8601DateFormatter().string(from: startedAt),
+            "sourcePath": sourceURL.path,
+            "outputPath": outputURL.path,
+            "targetWidth": targetWidth,
+            "targetHeight": targetHeight,
+            "sourceDecodedFrames": sourceDecoded.sampleCount
+        ], options: [.prettyPrinted, .sortedKeys]).write(to: evidenceFile, options: .atomic)
+        let outcome: WorkflowApplicationRunOutcomeV4
+        do {
+            outcome = try await MirmirDiagnosticScope.$recorder.withValue(
+                recorder
+            ) {
+                _ = try await coordinator.launch()
+                return try await coordinator.submit(
+                    request: UpscaleRequest(
+                        inputURL: sourceURL,
+                        outputURL: outputURL,
+                        backendID: .mirmirDeterministicMetal,
+                        targetWidth: targetWidth,
+                        targetHeight: targetHeight,
+                        outputCodec: .h264,
+                        preserveAudio: true,
+                        overwriteExistingFile: false
+                    ),
+                    progress: { _ in },
+                    snapshot: { _ in }
+                )
+            }
+        } catch {
+            let failure = XCTAttachment(string: String(reflecting: error))
+            failure.name = "production-run-error.txt"
+            failure.lifetime = .keepAlways
+            add(failure)
+            let failureEvidence = try? JSONSerialization.data(withJSONObject: [
+                "schema": "mirmir-v4-production-job-evidence-v1",
+                "status": "engine_failed",
+                "error": String(reflecting: error),
+                "pid": ProcessInfo.processInfo.processIdentifier,
+                "sourcePath": sourceURL.path,
+                "outputPath": outputURL.path,
+                "sourceDecodedFrames": sourceDecoded.sampleCount,
+                "sourceEncodedSamples": sourceEncoded.sampleCount,
+                "sourceReaderBuffers": sourceEncoded.bufferCount,
+                "sourceEmptyReaderMarkers": sourceEncoded.emptyMarkerCount
+            ], options: [.prettyPrinted, .sortedKeys])
+            if let failureEvidence {
+                try? failureEvidence.write(to: evidenceFile, options: .atomic)
+            }
+            if let diagnosticData = try? await diagnosticStore.exportJSON() {
+                let attachment = XCTAttachment(
+                    data: diagnosticData,
+                    uniformTypeIdentifier: "public.json"
+                )
+                attachment.name = "failed-diagnostics.json"
+                attachment.lifetime = .keepAlways
+                add(attachment)
+            }
+            for (name, url) in [
+                ("failed-production-run.json", evidenceFile),
+                ("failed-input-" + sourceURL.lastPathComponent, sourceURL)
+            ] where FileManager.default.fileExists(atPath: url.path) {
+                let attachment = XCTAttachment(contentsOfFile: url)
+                attachment.name = name
+                attachment.lifetime = .keepAlways
+                add(attachment)
+            }
+            for (movieOrdinal, url) in failureMovies(in: runURL).enumerated() {
+                let attachment = XCTAttachment(contentsOfFile: url)
+                attachment.name = "failed-run-\(movieOrdinal)-" + url.lastPathComponent
+                attachment.lifetime = .keepAlways
+                add(attachment)
+            }
+            throw error
         }
         guard case .completed(let completion) = outcome else {
             return XCTFail("The external source run paused unexpectedly.")
@@ -2929,7 +3139,7 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         XCTAssertEqual(
             segments.count,
             Int(
-                (sourcePrimary.sampleCount
+                (sourceEncoded.sampleCount
                     + UInt64(maximumInputFramesPerBoundary) - 1)
                     / UInt64(maximumInputFramesPerBoundary)
             )
@@ -2994,8 +3204,10 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
                 .filter { $0.key.mediaType == AVMediaType.video.rawValue }
                 .max { $0.sampleCount < $1.sampleCount }
         )
-        XCTAssertEqual(outputPrimary.sampleCount, sourcePrimary.sampleCount)
         let outputDecoded = try await decodedVideoInventory(url: outputURL)
+        let outputEncoded = try await compressedVideoSampleInventory(url: outputURL)
+        XCTAssertEqual(outputEncoded.sampleCount, sourceEncoded.sampleCount)
+        XCTAssertEqual(outputDecoded.sampleCount, outputEncoded.sampleCount)
         XCTAssertEqual(outputDecoded.sampleCount, sourceDecoded.sampleCount)
         XCTAssertEqual(
             CMTimeCompare(outputDecoded.exactEnd, sourceDecoded.exactEnd),
@@ -3012,10 +3224,969 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
             output.geometry.encodedSize,
             CGSize(width: targetWidth, height: targetHeight)
         )
+        try await diagnosticStore.exportJSON().write(
+            to: runURL.appendingPathComponent("diagnostics.json"),
+            options: .atomic
+        )
+        try JSONSerialization.data(withJSONObject: [
+            "schema": "mirmir-v4-production-job-evidence-v1",
+            "status": "engine_completed",
+            "pid": ProcessInfo.processInfo.processIdentifier,
+            "startedAt": ISO8601DateFormatter().string(from: startedAt),
+            "finishedAt": ISO8601DateFormatter().string(from: Date()),
+            "sourcePath": sourceURL.path,
+            "outputPath": outputURL.path,
+            "backend": completion.result.actualBackendID.rawValue,
+            "encodedWidth": completion.result.encodedWidth,
+            "encodedHeight": completion.result.encodedHeight,
+            "processedFrames": completion.result.processedFrameCount,
+            "sourceDecodedFrames": sourceDecoded.sampleCount,
+            "outputDecodedFrames": outputDecoded.sampleCount,
+            "sourceEncodedSamples": sourceEncoded.sampleCount,
+            "outputEncodedSamples": outputEncoded.sampleCount,
+            "sourceReaderBuffers": sourceEncoded.bufferCount,
+            "outputReaderBuffers": outputEncoded.bufferCount,
+            "sourceEmptyReaderMarkers": sourceEncoded.emptyMarkerCount,
+            "outputEmptyReaderMarkers": outputEncoded.emptyMarkerCount,
+            "sourceProbeStreamBuffers": sourcePrimary.sampleCount,
+            "outputProbeStreamBuffers": outputPrimary.sampleCount,
+            "segmentCount": segments.count,
+            "segmentEndValues": segments.map { $0.endTimeExclusive.value },
+            "segmentEndTimescales": segments.map { $0.endTimeExclusive.timescale },
+            "sourceEndValue": sourceDecoded.exactEnd.value,
+            "sourceEndTimescale": sourceDecoded.exactEnd.timescale,
+            "outputEndValue": outputDecoded.exactEnd.value,
+            "outputEndTimescale": outputDecoded.exactEnd.timescale,
+            "audioResult": completion.result.audioResult.rawValue,
+            "sourceAudioTracks": source.audioTrackCount,
+            "outputAudioTracks": output.audioTrackCount,
+            "processingDurationSeconds": completion.result.processingDurationSeconds,
+            "checkpointPath": checkpointURL.path
+        ], options: [.prettyPrinted, .sortedKeys]).write(to: evidenceFile, options: .atomic)
+        for (name, url) in [
+            ("production-run.json", evidenceFile),
+            ("diagnostics.json", runURL.appendingPathComponent("diagnostics.json")),
+            ("durable-workflow-output.mov", outputURL),
+            (sourceURL.lastPathComponent, sourceURL)
+        ] {
+            let attachment = XCTAttachment(contentsOfFile: url)
+            attachment.name = name
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
     }
 }
 
+private final class WorkflowNTSCFrameTraceV4: @unchecked Sendable {
+    struct Time: Codable, Equatable, Sendable {
+        let value: Int64
+        let timescale: Int32
+        let flags: UInt32
+        let epoch: Int64
+
+        init(_ time: CMTime) {
+            value = time.value
+            timescale = time.timescale
+            flags = time.flags.rawValue
+            epoch = time.epoch
+        }
+    }
+
+    struct Output: Codable, Equatable, Sendable {
+        let sha256: String
+        let presentationTime: Time
+        let duration: Time
+        let sourceField: String
+        let cadenceID: String
+        let temporalGeneration: UInt64
+        let temporalResetReason: String?
+    }
+
+    struct Frame: Codable, Equatable, Sendable {
+        let frameIndex: Int
+        let sourceSHA256: String
+        let sourcePresentationTime: Time
+        let sourceDuration: Time
+        let outputs: [Output]
+    }
+
+    private let lock = NSLock()
+    private var recorded: [UpscaleBackendID: [Frame]] = [:]
+
+    func append(_ frame: Frame, backend: UpscaleBackendID) {
+        lock.lock()
+        defer { lock.unlock() }
+        recorded[backend, default: []].append(frame)
+    }
+
+    func frames(for backend: UpscaleBackendID) -> [Frame] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recorded[backend] ?? []
+    }
+
+    static func hash(_ buffer: CVPixelBuffer) throws -> String {
+        let status = CVPixelBufferLockBaseAddress(buffer, .readOnly)
+        guard status == kCVReturnSuccess else {
+            throw NSError(domain: "MirmirTests.NTSCFrameTrace", code: Int(status))
+        }
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        let format = CVPixelBufferGetPixelFormatType(buffer)
+        let width = CVPixelBufferGetWidth(buffer)
+        let height = CVPixelBufferGetHeight(buffer)
+        var digest = SHA256()
+        digest.update(data: Data("\(format):\(width)x\(height):".utf8))
+        if CVPixelBufferIsPlanar(buffer) {
+            let bytesPerComponent: Int
+            switch format {
+            case kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                 kCVPixelFormatType_420YpCbCr8BiPlanarFullRange:
+                bytesPerComponent = 1
+            case kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange,
+                 kCVPixelFormatType_420YpCbCr10BiPlanarFullRange:
+                bytesPerComponent = 2
+            default:
+                throw NSError(domain: "MirmirTests.NTSCFrameTrace", code: 1)
+            }
+            guard CVPixelBufferGetPlaneCount(buffer) == 2 else {
+                throw NSError(domain: "MirmirTests.NTSCFrameTrace", code: 2)
+            }
+            for plane in 0..<2 {
+                let base = try XCTUnwrap(CVPixelBufferGetBaseAddressOfPlane(buffer, plane))
+                let stride = CVPixelBufferGetBytesPerRowOfPlane(buffer, plane)
+                let rowBytes = CVPixelBufferGetWidthOfPlane(buffer, plane)
+                    * bytesPerComponent * (plane == 0 ? 1 : 2)
+                guard rowBytes <= stride else {
+                    throw NSError(domain: "MirmirTests.NTSCFrameTrace", code: 3)
+                }
+                for row in 0..<CVPixelBufferGetHeightOfPlane(buffer, plane) {
+                    digest.update(data: Data(bytes: base.advanced(by: row * stride), count: rowBytes))
+                }
+            }
+        } else {
+            guard format == kCVPixelFormatType_32BGRA else {
+                throw NSError(domain: "MirmirTests.NTSCFrameTrace", code: 4)
+            }
+            let base = try XCTUnwrap(CVPixelBufferGetBaseAddress(buffer))
+            let stride = CVPixelBufferGetBytesPerRow(buffer)
+            guard width * 4 <= stride else {
+                throw NSError(domain: "MirmirTests.NTSCFrameTrace", code: 5)
+            }
+            for row in 0..<height {
+                digest.update(data: Data(bytes: base.advanced(by: row * stride), count: width * 4))
+            }
+        }
+        return digest.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+private struct WorkflowNTSCTracingBackendV4: UpscaleBackend {
+    let base: any UpscaleBackend
+    let trace: WorkflowNTSCFrameTraceV4
+    var descriptor: BackendDescriptor { base.descriptor }
+
+    func availability(
+        for source: VideoInfo,
+        targetSize: CGSize,
+        environment: RuntimeEnvironment
+    ) async -> BackendAvailability {
+        await base.availability(for: source, targetSize: targetSize, environment: environment)
+    }
+
+    func prepare(
+        request: BackendPreparationRequest,
+        environment: RuntimeEnvironment
+    ) async throws -> any PreparedFrameUpscaler {
+        let prepared = try await base.prepare(request: request, environment: environment)
+        guard let temporal = prepared as? any PreparedCheckpointableTemporalFrameUpscaler,
+              let planning = prepared as? any PreparedDeterministicV4PlanningBackend else {
+            throw NSError(domain: "MirmirTests.NTSCFrameTrace", code: 6)
+        }
+        return WorkflowNTSCTracingPreparedBackendV4(
+            base: prepared,
+            temporal: temporal,
+            planning: planning,
+            trace: trace
+        )
+    }
+}
+
+private struct WorkflowNTSCTracingPreparedBackendV4:
+    PreparedCheckpointableTemporalFrameUpscaler,
+    PreparedDeterministicV4PlanningBackend {
+    let base: any PreparedFrameUpscaler
+    let temporal: any PreparedCheckpointableTemporalFrameUpscaler
+    let planning: any PreparedDeterministicV4PlanningBackend
+    let trace: WorkflowNTSCFrameTraceV4
+    var sourcePixelBufferAttributes: PixelBufferAttributes { base.sourcePixelBufferAttributes }
+    var destinationPixelBufferAttributes: PixelBufferAttributes { base.destinationPixelBufferAttributes }
+    var actualBackendID: UpscaleBackendID { base.actualBackendID }
+    var maximumOutputFramesPerInput: Int { temporal.maximumOutputFramesPerInput }
+    var deterministicExecutor: ASHExecutorV4 { planning.deterministicExecutor }
+    var deterministicStorage: PixelStorageV4 { planning.deterministicStorage }
+
+    func process(source: FramePixelBuffer, destination: FramePixelBuffer, timing: FrameTiming) async throws {
+        try await base.process(source: source, destination: destination, timing: timing)
+    }
+
+    func processTemporal(
+        source: FramePixelBuffer,
+        destinations: [FramePixelBuffer],
+        timing: FrameTiming
+    ) async throws -> [TemporalOutputFrame] {
+        let sourceHash = try WorkflowNTSCFrameTraceV4.hash(source.value)
+        let outputs = try await temporal.processTemporal(source: source, destinations: destinations, timing: timing)
+        let hashes = try outputs.map { output in
+            WorkflowNTSCFrameTraceV4.Output(
+                sha256: try WorkflowNTSCFrameTraceV4.hash(output.pixelBuffer.value),
+                presentationTime: .init(output.presentationTime),
+                duration: .init(output.duration),
+                sourceField: output.sourceField.rawValue,
+                cadenceID: output.cadenceID,
+                temporalGeneration: output.temporalGeneration,
+                temporalResetReason: output.temporalResetReason?.rawValue
+            )
+        }
+        trace.append(.init(
+            frameIndex: timing.frameIndex,
+            sourceSHA256: sourceHash,
+            sourcePresentationTime: .init(timing.presentationTime),
+            sourceDuration: .init(timing.duration),
+            outputs: hashes
+        ), backend: actualBackendID)
+        return outputs
+    }
+
+    func makeTemporalCheckpoint(planSHA256: ASHSHA256V4, lastCompletedInputOrdinal: Int64) async throws -> Data {
+        try await temporal.makeTemporalCheckpoint(planSHA256: planSHA256, lastCompletedInputOrdinal: lastCompletedInputOrdinal)
+    }
+
+    func restoreTemporalCheckpoint(_ data: Data, planSHA256: ASHSHA256V4) async throws {
+        try await temporal.restoreTemporalCheckpoint(data, planSHA256: planSHA256)
+    }
+
+    func makeASHExecutionPlan(media: CanonicalMediaStateV4, request: ASHExecutionRequestV4) async throws -> ASHIdentifiedExecutionPlanV4 {
+        try await planning.makeASHExecutionPlan(media: media, request: request)
+    }
+
+    func finish() async throws { try await base.finish() }
+}
+
+private struct WorkflowNTSCFrameTraceReportV4: Codable {
+    struct DecodedFrame: Codable {
+        let ordinal: Int
+        let presentationTime: WorkflowNTSCFrameTraceV4.Time
+        let sha256: String
+    }
+    struct Run: Codable {
+        let name: String
+        let backendID: String
+        let movieFileName: String
+        let preEncoderFrames: [WorkflowNTSCFrameTraceV4.Frame]
+        let decodedFrames: [DecodedFrame]
+    }
+    let schema: String
+    let frameCount: Int
+    let sourceFileName: String
+    let runs: [Run]
+}
+
 private extension WorkflowApplicationQueueV4Tests {
+    func failureMovies(in runURL: URL) -> [URL] {
+        guard let files = FileManager.default.enumerator(
+            at: runURL,
+            includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+        ) else { return [] }
+        return files.compactMap { item in
+            guard let url = item as? URL,
+                  url.pathExtension.lowercased() == "mov",
+                  let values = try? url.resourceValues(
+                      forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+                  ), values.isRegularFile == true,
+                  values.isSymbolicLink != true else { return nil }
+            return url
+        }.sorted { $0.path < $1.path }
+    }
+
+    struct DetailedDecodedVideoInventory {
+        let presentationTimes: [CMTime]
+        let frameSHA256: [String]
+        let width: Int
+        let height: Int
+        let admittedEnd: CMTime
+    }
+
+    func parallelDeterministicCatalog(
+        frameTrace: WorkflowNTSCFrameTraceV4? = nil
+    ) throws -> UpscaleBackendCatalog {
+        let runtime = try ASHV4SemanticArtifactTestSupport.executableSystemMetalRuntime()
+        let backends: [any UpscaleBackend] = [
+            try XCTUnwrap(DeterministicCPUBackend(
+                descriptor: try XCTUnwrap(BackendDescriptor.descriptor(for: .mirmirDeterministicCPU)),
+                runtimeProvider: .fixed(runtime)
+            )),
+            try XCTUnwrap(DeterministicMetalBackend(
+                descriptor: try XCTUnwrap(BackendDescriptor.descriptor(for: .mirmirDeterministicMetal)),
+                runtimeProvider: .fixed(runtime)
+            ))
+        ]
+        return UpscaleBackendCatalog(backends: backends.map { backend in
+            guard let frameTrace else { return backend }
+            return WorkflowNTSCTracingBackendV4(base: backend, trace: frameTrace)
+                as any UpscaleBackend
+        })
+    }
+
+    func makeNTSCMotionFixture(frameCount: Int) async throws -> Fixture {
+        let fixture = try makeFixture(inputFileName: "ntsc-motion-source.mov")
+        try FileManager.default.removeItem(at: fixture.inputURL)
+        try await writeNTSCMotionSource(to: fixture.inputURL, frameCount: frameCount)
+        return fixture
+    }
+
+    func ntscMotionRequest(
+        fixture: Fixture,
+        backend: UpscaleBackendID,
+        name: String
+    ) -> UpscaleRequest {
+        UpscaleRequest(
+            inputURL: fixture.inputURL,
+            outputURL: fixture.outputDirectoryURL.appendingPathComponent("\(name).mov"),
+            backendID: backend,
+            targetWidth: 192,
+            targetHeight: 128,
+            outputCodec: .h264,
+            preserveAudio: true,
+            overwriteExistingFile: false
+        )
+    }
+
+    func assertParallelDeterministicJob(frameCount: Int) async throws {
+        let fixture = try await makeNTSCMotionFixture(frameCount: frameCount)
+        let frameTrace = WorkflowNTSCFrameTraceV4()
+        let catalog = try parallelDeterministicCatalog(frameTrace: frameTrace)
+        let cpu = try await runNTSCMotionJob(
+            fixture: fixture,
+            catalog: catalog,
+            backend: .mirmirDeterministicCPU,
+            name: "cpu-\(frameCount)"
+        )
+        let metal = try await runNTSCMotionJob(
+            fixture: fixture,
+            catalog: catalog,
+            backend: .mirmirDeterministicMetal,
+            name: "metal-\(frameCount)"
+        )
+        XCTAssertEqual(cpu.presentationTimes.count, frameCount)
+        XCTAssertEqual(metal.presentationTimes.count, frameCount)
+        XCTAssertEqual(cpu.presentationTimes, metal.presentationTimes)
+        let cpuFrames = frameTrace.frames(for: .mirmirDeterministicCPU)
+        let metalFrames = frameTrace.frames(for: .mirmirDeterministicMetal)
+        XCTAssertEqual(cpuFrames.count, frameCount)
+        XCTAssertEqual(metalFrames.count, frameCount)
+        XCTAssertEqual(cpuFrames.map(\.frameIndex), Array(0..<frameCount))
+        XCTAssertEqual(metalFrames.map(\.frameIndex), Array(0..<frameCount))
+        XCTAssertEqual(cpuFrames, metalFrames)
+        var tracedRuns: [WorkflowNTSCFrameTraceReportV4.Run] = [
+            ntscTraceRun(name: "cpu-\(frameCount)", backend: .mirmirDeterministicCPU, frames: cpuFrames, decoded: cpu),
+            ntscTraceRun(name: "metal-\(frameCount)", backend: .mirmirDeterministicMetal, frames: metalFrames, decoded: metal)
+        ]
+        if cpuFrames != metalFrames || cpu.frameSHA256 != metal.frameSHA256 {
+            try retainNTSCParityEvidence(fixture: fixture, frameCount: frameCount, runs: tracedRuns)
+        }
+        XCTAssertEqual(cpu.frameSHA256, metal.frameSHA256)
+
+        let repeatBackends: [UpscaleBackendID]
+        switch ProcessInfo.processInfo.environment["MIRMIR_V4_NTSC_REPEAT_BACKEND"] {
+        case "cpu": repeatBackends = [.mirmirDeterministicCPU]
+        case "metal": repeatBackends = [.mirmirDeterministicMetal]
+        case "both": repeatBackends = [.mirmirDeterministicCPU, .mirmirDeterministicMetal]
+        case nil: repeatBackends = []
+        default:
+            return XCTFail("MIRMIR_V4_NTSC_REPEAT_BACKEND must be cpu, metal, or both.")
+        }
+        for backend in repeatBackends {
+            let repeatedTrace = WorkflowNTSCFrameTraceV4()
+            let name = "\(backend.rawValue)-repeat-\(frameCount)"
+            let repeated = try await runNTSCMotionJob(
+                fixture: fixture,
+                catalog: parallelDeterministicCatalog(frameTrace: repeatedTrace),
+                backend: backend,
+                name: name
+            )
+            let original = backend == .mirmirDeterministicCPU ? cpu : metal
+            let originalFrames = backend == .mirmirDeterministicCPU ? cpuFrames : metalFrames
+            let repeatedFrames = repeatedTrace.frames(for: backend)
+            XCTAssertEqual(repeatedFrames, originalFrames)
+            XCTAssertEqual(repeated.presentationTimes, original.presentationTimes)
+            tracedRuns.append(ntscTraceRun(name: name, backend: backend, frames: repeatedFrames, decoded: repeated))
+            // Opt-in controls retain complete evidence even when encoding repeats exactly.
+            try retainNTSCParityEvidence(fixture: fixture, frameCount: frameCount, runs: tracedRuns)
+            XCTAssertEqual(repeated.frameSHA256, original.frameSHA256)
+        }
+    }
+
+    func ntscTraceRun(
+        name: String,
+        backend: UpscaleBackendID,
+        frames: [WorkflowNTSCFrameTraceV4.Frame],
+        decoded: DetailedDecodedVideoInventory
+    ) -> WorkflowNTSCFrameTraceReportV4.Run {
+        WorkflowNTSCFrameTraceReportV4.Run(
+            name: name,
+            backendID: backend.rawValue,
+            movieFileName: name + ".mov",
+            preEncoderFrames: frames,
+            decodedFrames: zip(decoded.presentationTimes, decoded.frameSHA256).enumerated().map {
+                WorkflowNTSCFrameTraceReportV4.DecodedFrame(
+                    ordinal: $0.offset,
+                    presentationTime: WorkflowNTSCFrameTraceV4.Time($0.element.0),
+                    sha256: $0.element.1
+                )
+            }
+        )
+    }
+
+    func retainNTSCParityEvidence(
+        fixture: Fixture,
+        frameCount: Int,
+        runs: [WorkflowNTSCFrameTraceReportV4.Run]
+    ) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(WorkflowNTSCFrameTraceReportV4(
+            schema: "mirmir-ntsc-preencoder-decoded-parity-v1",
+            frameCount: frameCount,
+            sourceFileName: fixture.inputURL.lastPathComponent,
+            runs: runs
+        ))
+        let report = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        report.name = "ntsc-\(frameCount)-preencoder-decoded-parity.json"
+        report.lifetime = .keepAlways
+        add(report)
+        for url in [fixture.inputURL] + runs.map({ fixture.outputDirectoryURL.appendingPathComponent($0.movieFileName) }) {
+            let attachment = XCTAttachment(contentsOfFile: url)
+            attachment.name = url.lastPathComponent
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+    }
+
+    func runNTSCMotionJob(
+        fixture: Fixture,
+        catalog: UpscaleBackendCatalog,
+        backend: UpscaleBackendID,
+        name: String
+    ) async throws -> DetailedDecodedVideoInventory {
+        let recorder = MirmirProcessingActivityTestRecorder()
+        let queue = try WorkflowApplicationQueueV4(
+            trustedRootURL: fixture.rootURL.appendingPathComponent("\(name)-store"),
+            workerID: try WorkflowWorkerIDV4("parallel-\(name)-worker"),
+            resolver: WorkflowApplicationBookmarkResolverStubV4()
+        )
+        let coordinator = WorkflowApplicationCoordinatorV4(
+            queue: queue,
+            engine: WorkflowDeterministicApplicationEngineV4(
+                videoProbe: VideoProbe(),
+                backendCatalog: catalog,
+                runtimeEnvironment: .current()
+            ),
+            maximumInputFramesPerBoundary: 60,
+            processingActivityFactory: { recorder.begin($0) }
+        )
+        let requested = ntscMotionRequest(fixture: fixture, backend: backend, name: name)
+        let outcome = try await coordinator.submit(
+            request: requested,
+            progress: { recorder.recordProtectedProgress($0) },
+            snapshot: { _ in }
+        )
+        guard case .completed(let completion) = outcome else {
+            throw NSError(domain: "MirmirTests.NTSCMotion", code: 1)
+        }
+        let decoded = try await detailedDecodedVideoInventory(url: requested.outputURL)
+        let source = try await detailedDecodedVideoInventory(url: fixture.inputURL)
+        try await assertNTSCMotionCompletion(
+            fixture: fixture,
+            queue: queue,
+            completion: completion,
+            decoded: decoded,
+            frameCount: source.presentationTimes.count,
+            backend: backend
+        )
+        XCTAssertEqual(recorder.snapshot.activeCount, 0)
+        XCTAssertGreaterThan(recorder.snapshot.beginCount, 0)
+        XCTAssertEqual(recorder.snapshot.beginCount, recorder.snapshot.endCount)
+        assertNTSCDecodedPresentationLattice(source.presentationTimes)
+        assertNTSCDecodedPresentationLattice(decoded.presentationTimes)
+        XCTAssertTrue(recorder.snapshot.progressActivityCounts.allSatisfy { $0 > 0 })
+        XCTAssertTrue(recorder.snapshot.progressPhases.contains(.finalizing))
+        XCTAssertTrue(recorder.snapshot.progressPhases.contains(.completed))
+        return decoded
+    }
+
+    func assertNTSCMotionCompletion(
+        fixture: Fixture,
+        queue: WorkflowApplicationQueueV4,
+        completion: WorkflowApplicationCompletionV4,
+        decoded: DetailedDecodedVideoInventory,
+        frameCount: Int,
+        backend: UpscaleBackendID
+    ) async throws {
+        let snapshot = try await queue.queueSnapshot()
+        let item = try XCTUnwrap(snapshot.items.first)
+        XCTAssertEqual(snapshot.items.count, 1)
+        XCTAssertEqual(item.lifecycle, .completed)
+        let checkpointURL = await queue.applicationCheckpointURL(jobID: item.jobID)
+        let checkpoint = try WorkflowCanonicalCodec().decodeCanonical(
+            WorkflowCheckpointDocumentV4.self,
+            from: Data(contentsOf: checkpointURL)
+        )
+        let segments = checkpoint.body.segments
+        let expectedSegmentCount = (frameCount + 59) / 60
+        XCTAssertEqual(segments.count, expectedSegmentCount)
+        XCTAssertEqual(segments.map(\.ordinal), (0..<expectedSegmentCount).map(UInt64.init))
+        for index in segments.indices.dropLast() {
+            XCTAssertEqual(
+                CMTimeCompare(
+                    CMTime(value: segments[index].endTimeExclusive.value, timescale: segments[index].endTimeExclusive.timescale),
+                    CMTime(value: Int64((index + 1) * 60 * 1_001), timescale: 24_000)
+                ),
+                0
+            )
+        }
+        for index in segments.indices.dropFirst() {
+            XCTAssertEqual(segments[index - 1].nextStartTime, segments[index].startTime)
+        }
+        XCTAssertNil(segments.last?.nextStartTime)
+        let video = try XCTUnwrap(checkpoint.body.trackProgress.first { $0.kind == .video })
+        XCTAssertTrue(video.isComplete)
+        XCTAssertEqual(video.nextInputSampleIndex, UInt64(frameCount))
+        XCTAssertEqual(video.nextOutputSampleIndex, UInt64(frameCount))
+        XCTAssertEqual(completion.result.processedFrameCount, frameCount)
+        XCTAssertEqual(completion.result.actualBackendID, backend)
+        XCTAssertEqual(completion.result.audioResult, .preserved)
+        XCTAssertEqual(completion.result.encodedWidth, 192)
+        XCTAssertEqual(completion.result.encodedHeight, 128)
+        XCTAssertEqual(decoded.width, 192)
+        XCTAssertEqual(decoded.height, 128)
+        XCTAssertEqual(decoded.presentationTimes.count, frameCount)
+        XCTAssertGreaterThan(Set(decoded.frameSHA256).count, 1)
+        assertNTSCDecodedPresentationLattice(decoded.presentationTimes)
+        let outputURL = URL(fileURLWithPath: completion.result.outputURL.path)
+        let output = try await VideoProbe().probe(url: outputURL)
+        let source = try await VideoProbe().probe(url: fixture.inputURL)
+        XCTAssertEqual(output.audioTrackCount, 1)
+        XCTAssertEqual(output.audioTrackCount, source.audioTrackCount)
+        XCTAssertEqual(output.videoTrackCount, 1)
+        XCTAssertEqual(CMTimeCompare(output.duration, source.duration), 0)
+        let sourceAudio = try await encodedAudioInventory(url: fixture.inputURL)
+        let outputAudio = try await encodedAudioInventory(
+            url: outputURL,
+            expectedEnd: sourceAudio.admittedEnd
+        )
+        XCTAssertEqual(outputAudio.sampleCount, UInt64(frameCount * 2_002))
+        XCTAssertEqual(outputAudio.sampleCount, sourceAudio.sampleCount)
+        XCTAssertEqual(outputAudio.sha256, sourceAudio.sha256)
+        XCTAssertEqual(CMTimeCompare(outputAudio.admittedEnd, sourceAudio.admittedEnd), 0)
+        let sourceDecoded = try await detailedDecodedVideoInventory(url: fixture.inputURL)
+        XCTAssertEqual(CMTimeCompare(decoded.admittedEnd, sourceDecoded.admittedEnd), 0)
+        let terminal = try XCTUnwrap(segments.last)
+        XCTAssertEqual(
+            CMTimeCompare(
+                CMTime(value: terminal.endTimeExclusive.value, timescale: terminal.endTimeExclusive.timescale),
+                decoded.admittedEnd
+            ),
+            0
+        )
+    }
+
+    func assertNTSCDecodedPresentationLattice(
+        _ presentations: [CMTime],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        for (ordinal, presentation) in presentations.enumerated() {
+            XCTAssertTrue(presentation.isNumeric, file: file, line: line)
+            XCTAssertGreaterThan(presentation.timescale, 0, file: file, line: line)
+            guard presentation.isNumeric, presentation.timescale > 0 else {
+                continue
+            }
+            // Derive adjacent clock points using integer arithmetic, independently
+            // of the engine's admission helper and CoreMedia's rounding method.
+            let numerator = Int64(ordinal) * 1_001 * Int64(presentation.timescale)
+            let lowerTick = numerator / 24_000
+            let upperTick = lowerTick + (numerator % 24_000 == 0 ? 0 : 1)
+            XCTAssertTrue(
+                presentation.value == lowerTick || presentation.value == upperTick,
+                "Frame \(ordinal) PTS \(presentation.value)/\(presentation.timescale) is not an immediate NTSC clock boundary.",
+                file: file,
+                line: line
+            )
+        }
+    }
+
+    func detailedDecodedVideoInventory(url: URL) async throws -> DetailedDecodedVideoInventory {
+        let asset = AVURLAsset(url: url)
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(tracks.first)
+        let range = try await track.load(.timeRange)
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(
+            track: track,
+            outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
+        )
+        guard reader.canAdd(output) else {
+            throw NSError(domain: "MirmirTests.NTSCMotion", code: 2)
+        }
+        reader.add(output)
+        guard reader.startReading() else {
+            throw reader.error ?? NSError(domain: "MirmirTests.NTSCMotion", code: 3)
+        }
+        var presentations: [CMTime] = []
+        var frameHashes: [String] = []
+        var width = 0
+        var height = 0
+        while let sample = output.copyNextSampleBuffer() {
+            XCTAssertEqual(CMSampleBufferGetNumSamples(sample), 1)
+            let pts = CMSampleBufferGetPresentationTimeStamp(sample)
+            XCTAssertTrue(pts.isNumeric)
+            if let previous = presentations.last {
+                XCTAssertGreaterThan(CMTimeCompare(pts, previous), 0)
+            }
+            presentations.append(pts)
+            let buffer = try XCTUnwrap(CMSampleBufferGetImageBuffer(sample))
+            width = CVPixelBufferGetWidth(buffer)
+            height = CVPixelBufferGetHeight(buffer)
+            XCTAssertEqual(CVPixelBufferLockBaseAddress(buffer, .readOnly), kCVReturnSuccess)
+            do {
+                defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+                let base = try XCTUnwrap(CVPixelBufferGetBaseAddress(buffer))
+                var digest = SHA256()
+                for row in 0..<height {
+                    digest.update(data: Data(
+                        bytes: base.advanced(by: row * CVPixelBufferGetBytesPerRow(buffer)),
+                        count: width * 4
+                    ))
+                }
+                frameHashes.append(digest.finalize().map { String(format: "%02x", $0) }.joined())
+            }
+        }
+        XCTAssertEqual(reader.status, .completed)
+        XCTAssertNil(reader.error)
+        return DetailedDecodedVideoInventory(
+            presentationTimes: presentations,
+            frameSHA256: frameHashes,
+            width: width,
+            height: height,
+            admittedEnd: CMTimeRangeGetEnd(range)
+        )
+    }
+
+    func compressedVideoSampleInventory(url: URL) async throws
+        -> (sampleCount: UInt64, bufferCount: UInt64, emptyMarkerCount: UInt64) {
+        let asset = AVURLAsset(url: url)
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(tracks.first)
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
+        output.alwaysCopiesSampleData = false
+        guard reader.canAdd(output) else {
+            throw NSError(domain: "MirmirTests.CompressedVideoInventory", code: 1)
+        }
+        reader.add(output)
+        guard reader.startReading() else {
+            throw reader.error ?? NSError(domain: "MirmirTests.CompressedVideoInventory", code: 2)
+        }
+        var sampleCount: UInt64 = 0
+        var bufferCount: UInt64 = 0
+        var emptyMarkerCount: UInt64 = 0
+        while let sample = output.copyNextSampleBuffer() {
+            bufferCount += 1
+            let count = CMSampleBufferGetNumSamples(sample)
+            XCTAssertGreaterThanOrEqual(count, 0)
+            if count == 0 {
+                let block = CMSampleBufferGetDataBuffer(sample)
+                XCTAssertEqual(block.map(CMBlockBufferGetDataLength) ?? 0, 0)
+                emptyMarkerCount += 1
+            } else {
+                sampleCount += UInt64(count)
+            }
+        }
+        XCTAssertEqual(reader.status, .completed)
+        XCTAssertNil(reader.error)
+        return (sampleCount, bufferCount, emptyMarkerCount)
+    }
+
+    func encodedAudioInventory(url: URL, expectedEnd: CMTime? = nil) async throws
+        -> (sampleCount: UInt64, sha256: String, admittedEnd: CMTime) {
+        let asset = AVURLAsset(url: url)
+        let tracks = try await asset.loadTracks(withMediaType: .audio)
+        XCTAssertEqual(tracks.count, 1)
+        let track = try XCTUnwrap(tracks.first)
+        let formats = try await track.load(.formatDescriptions)
+        XCTAssertEqual(formats.count, 1)
+        let format = try XCTUnwrap(formats.first)
+        let stream = try XCTUnwrap(
+            CMAudioFormatDescriptionGetStreamBasicDescription(format)
+        ).pointee
+        XCTAssertEqual(stream.mSampleRate, 48_000)
+        XCTAssertEqual(stream.mChannelsPerFrame, 1)
+        XCTAssertEqual(stream.mFormatID, kAudioFormatLinearPCM)
+        XCTAssertEqual(stream.mBitsPerChannel, 16)
+        XCTAssertEqual(stream.mBytesPerFrame, 2)
+        let range = try await track.load(.timeRange)
+        XCTAssertEqual(CMTimeCompare(range.start, .zero), 0)
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
+        guard reader.canAdd(output) else {
+            throw NSError(domain: "MirmirTests.NTSCMotion", code: 4)
+        }
+        reader.add(output)
+        guard reader.startReading() else {
+            throw reader.error ?? NSError(domain: "MirmirTests.NTSCMotion", code: 5)
+        }
+        var count: UInt64 = 0
+        var digest = SHA256()
+        while let sample = output.copyNextSampleBuffer() {
+            let sampleCount = CMSampleBufferGetNumSamples(sample)
+            if sampleCount == 0 {
+                let block = CMSampleBufferGetDataBuffer(sample)
+                XCTAssertEqual(block.map(CMBlockBufferGetDataLength) ?? 0, 0)
+                continue
+            }
+            XCTAssertGreaterThan(sampleCount, 0)
+            let expectedStart = CMTime(value: Int64(count), timescale: 48_000)
+            let expectedDuration = CMTime(value: Int64(sampleCount), timescale: 48_000)
+            XCTAssertEqual(
+                CMTimeCompare(CMSampleBufferGetPresentationTimeStamp(sample), expectedStart),
+                0
+            )
+            XCTAssertEqual(
+                CMTimeCompare(CMSampleBufferGetDuration(sample), expectedDuration),
+                0
+            )
+            count += UInt64(sampleCount)
+            let block = try XCTUnwrap(CMSampleBufferGetDataBuffer(sample))
+            let byteCount = CMBlockBufferGetDataLength(block)
+            XCTAssertEqual(byteCount, sampleCount * 2)
+            var bytes = Data(count: byteCount)
+            let status = bytes.withUnsafeMutableBytes {
+                CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: byteCount, destination: $0.baseAddress!)
+            }
+            XCTAssertEqual(status, kCMBlockBufferNoErr)
+            digest.update(data: bytes)
+        }
+        XCTAssertEqual(reader.status, .completed)
+        XCTAssertNil(reader.error)
+        let admittedEnd = CMTimeRangeGetEnd(range)
+        XCTAssertTrue(admittedEnd.isNumeric)
+        XCTAssertGreaterThan(admittedEnd.timescale, 0)
+        guard admittedEnd.isNumeric, admittedEnd.timescale > 0 else {
+            throw NSError(domain: "MirmirTests.NTSCMotion", code: 6)
+        }
+        if let expectedEnd {
+            // Rewrapping may refine the movie clock; it must preserve the
+            // exact edit boundary originally admitted on the source clock.
+            XCTAssertEqual(CMTimeCompare(admittedEnd, expectedEnd), 0)
+        } else {
+            // Source edit ranges use the movie clock, while PCM sample timing
+            // stays exact at 48 kHz. Admit only adjacent source movie ticks.
+            let numerator = Int64(count) * Int64(admittedEnd.timescale)
+            let lowerTick = numerator / 48_000
+            let upperTick = lowerTick + (numerator % 48_000 == 0 ? 0 : 1)
+            XCTAssertTrue(admittedEnd.value == lowerTick || admittedEnd.value == upperTick)
+        }
+        return (
+            count,
+            digest.finalize().map { String(format: "%02x", $0) }.joined(),
+            admittedEnd
+        )
+    }
+
+    func writeNTSCMotionSource(to url: URL, frameCount: Int) async throws {
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+        writer.movieTimeScale = 90_000
+        let video = AVAssetWriterInput(mediaType: .video, outputSettings: [
+            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoWidthKey: 96,
+            AVVideoHeightKey: 64,
+            AVVideoColorPropertiesKey: [
+                AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+                AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
+            ],
+            AVVideoCompressionPropertiesKey: [
+                AVVideoExpectedSourceFrameRateKey: 24_000.0 / 1_001.0,
+                AVVideoMaxKeyFrameIntervalKey: 1,
+                AVVideoAllowFrameReorderingKey: false,
+                AVVideoAverageBitRateKey: 2_000_000
+            ]
+        ])
+        video.mediaTimeScale = 90_000
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(
+            assetWriterInput: video,
+            sourcePixelBufferAttributes: [
+                kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+                kCVPixelBufferWidthKey as String: 96,
+                kCVPixelBufferHeightKey as String: 64,
+                kCVPixelBufferIOSurfacePropertiesKey as String: [:]
+            ]
+        )
+        var asbd = AudioStreamBasicDescription(
+            mSampleRate: 48_000,
+            mFormatID: kAudioFormatLinearPCM,
+            mFormatFlags: kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked,
+            mBytesPerPacket: 2,
+            mFramesPerPacket: 1,
+            mBytesPerFrame: 2,
+            mChannelsPerFrame: 1,
+            mBitsPerChannel: 16,
+            mReserved: 0
+        )
+        var audioFormat: CMAudioFormatDescription?
+        XCTAssertEqual(CMAudioFormatDescriptionCreate(
+            allocator: kCFAllocatorDefault,
+            asbd: &asbd,
+            layoutSize: 0,
+            layout: nil,
+            magicCookieSize: 0,
+            magicCookie: nil,
+            extensions: nil,
+            formatDescriptionOut: &audioFormat
+        ), noErr)
+        let format = try XCTUnwrap(audioFormat)
+        let audio = AVAssetWriterInput(mediaType: .audio, outputSettings: nil, sourceFormatHint: format)
+        guard writer.canAdd(video), writer.canAdd(audio) else {
+            throw AVFoundationSegmentV4Error.exportUnavailable
+        }
+        writer.add(video)
+        writer.add(audio)
+        guard writer.startWriting() else {
+            throw writer.error ?? AVFoundationSegmentV4Error.exportUnavailable
+        }
+        writer.startSession(atSourceTime: .zero)
+        let audioSamples = (0..<(frameCount * 2_002)).map { index in
+            Int16((index % 96 < 48) ? 900 : -900)
+        }
+        let audioData = audioSamples.withUnsafeBytes { Data($0) }
+        var block: CMBlockBuffer?
+        XCTAssertEqual(CMBlockBufferCreateWithMemoryBlock(
+            allocator: kCFAllocatorDefault,
+            memoryBlock: nil,
+            blockLength: audioData.count,
+            blockAllocator: kCFAllocatorDefault,
+            customBlockSource: nil,
+            offsetToData: 0,
+            dataLength: audioData.count,
+            flags: 0,
+            blockBufferOut: &block
+        ), kCMBlockBufferNoErr)
+        let audioBlock = try XCTUnwrap(block)
+        XCTAssertEqual(audioData.withUnsafeBytes {
+            CMBlockBufferReplaceDataBytes(
+                with: $0.baseAddress!,
+                blockBuffer: audioBlock,
+                offsetIntoDestination: 0,
+                dataLength: audioData.count
+            )
+        }, kCMBlockBufferNoErr)
+        var timing = CMSampleTimingInfo(
+            duration: CMTime(value: 1, timescale: 48_000),
+            presentationTimeStamp: .zero,
+            decodeTimeStamp: .invalid
+        )
+        var sampleSize = 2
+        var audioSample: CMSampleBuffer?
+        XCTAssertEqual(CMSampleBufferCreate(
+            allocator: kCFAllocatorDefault,
+            dataBuffer: audioBlock,
+            dataReady: true,
+            makeDataReadyCallback: nil,
+            refcon: nil,
+            formatDescription: format,
+            sampleCount: audioSamples.count,
+            sampleTimingEntryCount: 1,
+            sampleTimingArray: &timing,
+            sampleSizeEntryCount: 1,
+            sampleSizeArray: &sampleSize,
+            sampleBufferOut: &audioSample
+        ), noErr)
+        while !audio.isReadyForMoreMediaData { await Task.yield() }
+        guard audio.append(try XCTUnwrap(audioSample)) else {
+            throw writer.error ?? AVFoundationSegmentV4Error.exportUnavailable
+        }
+        audio.markAsFinished()
+        let pool = try XCTUnwrap(adaptor.pixelBufferPool)
+        for frame in 0..<frameCount {
+            while !video.isReadyForMoreMediaData { await Task.yield() }
+            var optionalBuffer: CVPixelBuffer?
+            XCTAssertEqual(CVPixelBufferPoolCreatePixelBuffer(
+                kCFAllocatorDefault, pool, &optionalBuffer
+            ), kCVReturnSuccess)
+            let buffer = try XCTUnwrap(optionalBuffer)
+            CVPixelBufferLockBaseAddress(buffer, [])
+            let base = try XCTUnwrap(CVPixelBufferGetBaseAddress(buffer))
+                .assumingMemoryBound(to: UInt8.self)
+            let stride = CVPixelBufferGetBytesPerRow(buffer)
+            for y in 0..<64 {
+                for x in 0..<96 {
+                    let offset = y * stride + x * 4
+                    base[offset] = UInt8(24 + ((x + frame / 3) % 48) * 3)
+                    base[offset + 1] = UInt8(32 + ((y + frame / 4) % 32) * 4)
+                    base[offset + 2] = UInt8(40 + ((x + y + frame / 5) % 40) * 3)
+                    base[offset + 3] = 255
+                }
+            }
+            CVPixelBufferUnlockBaseAddress(buffer, [])
+            let converted = CMTimeConvertScale(
+                CMTime(value: Int64(frame * 1_001), timescale: 24_000),
+                timescale: 90_000,
+                method: .default
+            )
+            let presentation = CMTime(value: converted.value, timescale: 90_000)
+            let nextConverted = CMTimeConvertScale(
+                CMTime(value: Int64((frame + 1) * 1_001), timescale: 24_000),
+                timescale: 90_000,
+                method: .default
+            )
+            let nextPresentation = CMTime(value: nextConverted.value, timescale: 90_000)
+            var format: CMVideoFormatDescription?
+            XCTAssertEqual(CMVideoFormatDescriptionCreateForImageBuffer(
+                allocator: kCFAllocatorDefault,
+                imageBuffer: buffer,
+                formatDescriptionOut: &format
+            ), noErr)
+            // An adaptor supplies PTS only. Explicit durations ensure the fixture
+            // ends on its prescribed NTSC boundary instead of an inferred tick.
+            var sampleTiming = CMSampleTimingInfo(
+                duration: CMTimeSubtract(nextPresentation, presentation),
+                presentationTimeStamp: presentation,
+                decodeTimeStamp: .invalid
+            )
+            var sample: CMSampleBuffer?
+            XCTAssertEqual(CMSampleBufferCreateReadyWithImageBuffer(
+                allocator: kCFAllocatorDefault,
+                imageBuffer: buffer,
+                formatDescription: try XCTUnwrap(format),
+                sampleTiming: &sampleTiming,
+                sampleBufferOut: &sample
+            ), noErr)
+            guard video.append(try XCTUnwrap(sample)) else {
+                throw writer.error ?? AVFoundationSegmentV4Error.exportUnavailable
+            }
+        }
+        video.markAsFinished()
+        writer.endSession(atSourceTime: CMTimeConvertScale(
+            CMTime(value: Int64(frameCount * 1_001), timescale: 24_000),
+            timescale: 90_000,
+            method: .default
+        ))
+        await writer.finishWriting()
+        guard writer.status == .completed else {
+            throw writer.error ?? AVFoundationSegmentV4Error.exportUnavailable
+        }
+    }
+
     struct DecodedVideoInventory {
         let sampleCount: UInt64
         let exactEnd: CMTime
@@ -3054,6 +4225,13 @@ private extension WorkflowApplicationQueueV4Tests {
         let track = try XCTUnwrap(videoTracks.first)
         let nominalDuration = try await track.load(.minFrameDuration)
         let admittedRange = try await track.load(.timeRange)
+        let nominalRate = try await track.load(.nominalFrameRate)
+        let clock = try await track.load(.naturalTimeScale)
+        let nominal = try DeterministicV4WholeAssetPlanner.nominalFrameDuration(
+            nominalFrameRate: nominalRate,
+            minimumFrameDuration: nominalDuration,
+            fallbackTimebase: ExactRationalV4(1, Int64(clock))
+        )
         XCTAssertTrue(nominalDuration.isNumeric)
         XCTAssertGreaterThan(nominalDuration.value, 0)
 
@@ -3082,6 +4260,8 @@ private extension WorkflowApplicationQueueV4Tests {
 
         var sampleCount: UInt64 = 0
         var lastPresentationTime = CMTime.invalid
+        var presentationTimes: [CMTime] = []
+        var decodedDurations: [CMTime] = []
         while let sample = output.copyNextSampleBuffer() {
             let count = CMSampleBufferGetNumSamples(sample)
             if count == 0 { continue }
@@ -3089,6 +4269,8 @@ private extension WorkflowApplicationQueueV4Tests {
             sampleCount += UInt64(count)
             let presentation = CMSampleBufferGetPresentationTimeStamp(sample)
             XCTAssertTrue(presentation.isNumeric)
+            presentationTimes.append(presentation)
+            decodedDurations.append(CMSampleBufferGetDuration(sample))
             if !lastPresentationTime.isNumeric
                 || CMTimeCompare(presentation, lastPresentationTime) > 0 {
                 lastPresentationTime = presentation
@@ -3098,10 +4280,26 @@ private extension WorkflowApplicationQueueV4Tests {
         XCTAssertNil(reader.error)
         XCTAssertGreaterThan(sampleCount, 0)
         XCTAssertTrue(lastPresentationTime.isNumeric)
-        let exactEnd = CMTimeAdd(
-            lastPresentationTime,
-            nominalDuration
+        try DeterministicV4MediaProcessingSession.validateNominalDecodedCadence(
+            presentationTimes: presentationTimes,
+            decodedDurations: decodedDurations,
+            nominalSourceFrameDuration: nominal
         )
+        let first = try XCTUnwrap(presentationTimes.first)
+        let canonicalEnd = CMTimeAdd(
+            first,
+            CMTimeMultiply(
+                try DeterministicV4MediaProcessingSession.nominalDecodedDuration(nominal),
+                multiplier: try XCTUnwrap(Int32(exactly: sampleCount))
+            )
+        )
+        let admittedEnd = CMTimeRangeGetEnd(admittedRange)
+        let boundary = try DeterministicV4MediaProcessingSession.workflowTime(
+            exact: canonicalEnd,
+            admittedBoundary: admittedEnd,
+            timescale: clock
+        )
+        let exactEnd = CMTime(value: boundary.value, timescale: boundary.timescale)
         XCTAssertTrue(exactEnd.isNumeric)
         return DecodedVideoInventory(
             sampleCount: sampleCount,
@@ -3720,6 +4918,144 @@ private actor WorkflowApplicationTerminalCompletenessRejectingEngineV4:
     }
 }
 
+/// Forwards every operation to the production engine; only the first completed
+/// boundary is held so a pause can be requested before its durable commit.
+private actor WorkflowApplicationRealBoundaryEngineV4:
+    WorkflowApplicationDeterministicExecutingV4 {
+    private let underlying: WorkflowDeterministicApplicationEngineV4
+    private let latch: WorkflowApplicationBoundaryLatchV4
+    private let activity: MirmirProcessingActivityTestRecorder
+
+    init(
+        underlying: WorkflowDeterministicApplicationEngineV4,
+        latch: WorkflowApplicationBoundaryLatchV4,
+        activity: MirmirProcessingActivityTestRecorder
+    ) {
+        self.underlying = underlying
+        self.latch = latch
+        self.activity = activity
+    }
+
+    func prepareSubmission(request: UpscaleRequest) async throws
+        -> WorkflowApplicationPreparedSubmissionV4 {
+        XCTAssertGreaterThan(activity.snapshot.activeCount, 0)
+        return try await underlying.prepareSubmission(request: request)
+    }
+
+    func revalidateAndPrepare(
+        jobID: WorkflowJobID,
+        request: UpscaleRequest,
+        expectedBinding: WorkflowVerifiedPreparedPlanBindingV4,
+        cancellation: ProcessingCancellation
+    ) async throws -> VideoInfo {
+        XCTAssertGreaterThan(activity.snapshot.activeCount, 0)
+        return try await underlying.revalidateAndPrepare(
+            jobID: jobID,
+            request: request,
+            expectedBinding: expectedBinding,
+            cancellation: cancellation
+        )
+    }
+
+    func processPrepared(
+        jobID: WorkflowJobID,
+        request: UpscaleRequest,
+        startingInputFrameIndex: Int,
+        startTime: WorkflowMediaTimeV4?,
+        maximumInputFrames: Int,
+        previousCheckpoint: WorkflowCheckpointDocumentV4?,
+        cancellation: ProcessingCancellation,
+        progress: @escaping @Sendable (UpscaleProgress) -> Void
+    ) async throws -> WorkflowApplicationProcessedSegmentV4 {
+        XCTAssertGreaterThan(activity.snapshot.activeCount, 0)
+        let result = try await underlying.processPrepared(
+            jobID: jobID,
+            request: request,
+            startingInputFrameIndex: startingInputFrameIndex,
+            startTime: startTime,
+            maximumInputFrames: maximumInputFrames,
+            previousCheckpoint: previousCheckpoint,
+            cancellation: cancellation,
+            progress: progress
+        )
+        if startingInputFrameIndex == 0 {
+            await latch.reachAndWait()
+        }
+        XCTAssertGreaterThan(activity.snapshot.activeCount, 0)
+        return result
+    }
+
+    func restorePrepared(
+        jobID: WorkflowJobID,
+        temporalCheckpoint: Data,
+        lastCompletedInputOrdinal: Int64
+    ) async throws {
+        XCTAssertGreaterThan(activity.snapshot.activeCount, 0)
+        try await underlying.restorePrepared(
+            jobID: jobID,
+            temporalCheckpoint: temporalCheckpoint,
+            lastCompletedInputOrdinal: lastCompletedInputOrdinal
+        )
+    }
+
+    func validateTerminalSourceCompleteness(
+        jobID: WorkflowJobID,
+        lastCompletedInputOrdinal: Int64
+    ) async throws {
+        XCTAssertGreaterThan(activity.snapshot.activeCount, 0)
+        try await underlying.validateTerminalSourceCompleteness(
+            jobID: jobID,
+            lastCompletedInputOrdinal: lastCompletedInputOrdinal
+        )
+    }
+
+    func preparedAssemblyTimeline(jobID: WorkflowJobID) async throws
+        -> WorkflowApplicationAssemblyTimelineDescriptorV4 {
+        XCTAssertGreaterThan(activity.snapshot.activeCount, 0)
+        return try await underlying.preparedAssemblyTimeline(jobID: jobID)
+    }
+
+    func finalizePreparedOutput(
+        jobID: WorkflowJobID,
+        request: UpscaleRequest,
+        assembledVideoURL: URL,
+        publicationURL: URL,
+        migrationTemporaryURL: URL,
+        cancellation: ProcessingCancellation,
+        progress: @escaping @Sendable (UpscaleProgress) -> Void
+    ) async throws -> WorkflowApplicationFinalizedOutputV4 {
+        XCTAssertGreaterThan(activity.snapshot.activeCount, 0)
+        return try await underlying.finalizePreparedOutput(
+            jobID: jobID,
+            request: request,
+            assembledVideoURL: assembledVideoURL,
+            publicationURL: publicationURL,
+            migrationTemporaryURL: migrationTemporaryURL,
+            cancellation: cancellation,
+            progress: progress
+        )
+    }
+
+    func inspectCompletion(
+        request: UpscaleRequest,
+        checkpoint: WorkflowCheckpointDocumentV4,
+        segmentResult: UpscaleResult?,
+        processingDurationSeconds: TimeInterval
+    ) async throws -> WorkflowApplicationCompletionV4 {
+        XCTAssertGreaterThan(activity.snapshot.activeCount, 0)
+        return try await underlying.inspectCompletion(
+            request: request,
+            checkpoint: checkpoint,
+            segmentResult: segmentResult,
+            processingDurationSeconds: processingDurationSeconds
+        )
+    }
+
+    func abandonPrepared(jobID: WorkflowJobID) async {
+        await underlying.abandonPrepared(jobID: jobID)
+    }
+}
+
 private actor WorkflowApplicationStartTimeRecorderV4 {
     private var startTimes: [WorkflowMediaTimeV4?] = []
 
@@ -3743,8 +5079,8 @@ private actor WorkflowApplicationBoundaryLatchV4 {
         }
     }
 
-    func waitUntilReached() async -> Bool {
-        for _ in 0..<1_500 {
+    func waitUntilReached(timeoutNanoseconds: UInt64 = 3_000_000_000) async -> Bool {
+        for _ in 0..<(timeoutNanoseconds / 2_000_000) {
             if reached { return true }
             try? await Task.sleep(nanoseconds: 2_000_000)
         }
