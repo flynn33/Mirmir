@@ -38,6 +38,6 @@ Ordinary app compilation and source publication do not close this provenance gat
 
 ## Remaining acceptance and evidence access
 
-Full-movie DV4-002 stability, matched whole-engine/whole-movie elapsed-time qualification, Intel execution, and new installed-app identity/acceptance remain open. The separate 8.91× measurement applies to the synthetic 3840×1632 spatial stage on the measured M4 Pro; it is not a feature-length movie speedup.
+At this spatial capture, full-movie DV4-002 stability, matched whole-engine/whole-movie elapsed-time qualification, Intel execution, and new installed-app identity/acceptance were open. The later [finish-stage repair](../end-finalization-repair-2026-10-07/README.md) verified complete saved-job finalization and the installed signed 1.7.0 (17) app. Fresh full GPU processing, matched elapsed time, Intel execution, and these separate parity/source-identity gates remain open. The 8.91× measurement applies to the synthetic 3840×1632 spatial stage on the measured M4 Pro; it is not a feature-length movie speedup.
 
 Original logs, `.xcresult` data, movies and reports are retained locally under `output/spatial-parallelism-2026-10-07/`; they are excluded from source publication. Repository-relative paths, byte counts and SHA-256 values in the JSON identify those local-only originals without machine-private paths. The portable receipt summarizes the failure and limits; it does not embed or replace the originals.

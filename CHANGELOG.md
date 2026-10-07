@@ -9,6 +9,55 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [1.7.0] - 2026-10-07
 
+### Fixed
+
+- Repair durable final video assembly when AVAssetReader exposes a one-tick
+  duration difference after remuxing while exact stored decode cadence and
+  encoded data are unchanged. Retain timestamp, terminal duration, payload,
+  sync, order, and whole-asset duration checks.
+- Compare chapter item clocks as exact reduced rationals, preserving flags
+  and epochs. Reconstruct omitted individual audio DTS only from a declared,
+  exact uniform multi-packet timing entry whose PTS/duration grid matches.
+- Verify AC3 pass-through across equivalent ISO/QuickTime container wrappers
+  using complete codec configuration and exact descriptor inventories after
+  full encoded-stream equality. Keep saved graph and plan identities unchanged.
+- Preserve raw ISO UTF-8 audio track names using MOV's typed track-name
+  encoding. Require exact converted-source metadata equality before accepting
+  the frozen logical identity; changed or missing metadata still fails.
+- Add bounded finish-stage timing and chapter diagnostics to the existing
+  journal, positive and negative regressions, and opt-in saved-checkpoint
+  assembly/finalization verification without changing historical queue state.
+
+### Finish-stage repair verification
+
+- Native My Mac Debug passed **658 tests, zero failed, 12 explicit opt-in
+  skips**. Fresh publication Release passed **653 tests, zero failed, 13
+  opt-in skips**, with no reported runtime warnings. The complete final
+  migration suite passed **102 of 102** with no
+  skips. The signed universal Release build completed with warnings treated as
+  errors and zero compiler warnings/errors.
+- The complete saved deterministic Metal job passed normal production
+  finalization in **266.697 seconds**, publishing all **148,176 video frames,
+  two audio tracks, and 14 chapters** at 3840×1632. Independent verification
+  passed for every encoded packet, exact stored clocks/edits, both audio names,
+  chapter data, and complete decoded audio PCM. Native seek/decode and a
+  QuickTime seek also passed.
+- Installed and launched the signed **1.7.0 (17)** repair, verified its exact
+  executable identity and strict signature, and read back the version and idle
+  Metal route in the native UI. Original app/source/cache backups remain
+  preserved; the historical queue entry remains contained.
+- Recovery reused completed GPU segments; a fresh full GPU render, matched
+  whole-movie throughput, continuous playback, and audible speaker playback
+  were not repeated. Separate Release decoded-parity and runtime source-closure
+  gates remain open. See `docs/DETERMINISTIC_FINALIZATION_REPAIR.md` and
+  `docs/v4/evidence/end-finalization-repair-2026-10-07/`.
+- Persist Swift and C warnings-as-errors in Debug and Release Xcode project
+  settings. The final project built in Xcode for Any Mac at 5:55 PM with an
+  empty unfiltered Issue Navigator, and a fresh signed universal CLI Release
+  build emitted zero compiler warnings/errors and matched the installed
+  repair executable. Separate P06 provenance checks remain failing and
+  documented; locked hashes and assertions were not changed.
+
 ### Improved
 
 - Run state-conditioned spatial reconstruction in bounded parallel row

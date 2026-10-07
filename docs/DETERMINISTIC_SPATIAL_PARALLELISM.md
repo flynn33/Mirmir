@@ -94,7 +94,15 @@ three-row serial assertions:
 
 ## Open qualification boundaries
 
-The fresh version-aligned 1.7.0 (17) default Debug suite passed 635 tests with
+The later October 7 [finish-stage repair](DETERMINISTIC_FINALIZATION_REPAIR.md)
+fully finalized the saved 148,176-frame Metal job, independently verified its
+two audio tracks and 14 chapters, and installed/launched the signed 1.7.0 (17)
+repair. Its native Debug suite passed 658 tests with zero failures and 12
+explicit opt-in skips. Saved GPU cache recovery does not establish fresh full
+GPU processing or a matched whole-movie speedup, and does not close the
+separate parity or runtime source-identity issues below.
+
+The earlier version-aligned 1.7.0 (17) default Debug suite passed 635 tests with
 zero failures and six skips (641 total). Fresh default Release passed 630 tests
 with zero failures and six skips (636 total). Both report no runtime warnings.
 These passing runs do not identify or repair the earlier decoded H.264 parity
@@ -116,6 +124,6 @@ and the quality result. Its 64×48 planes run serially and do not qualify the
 parallel path. The existing runtime source-identity gate remains open; the
 attempted runtime producer stopped at stale frozen capture-observer locks.
 Existing assets, trust constants, and historical seals remain intact. No new
-canonical M7 or full-movie stability/performance result follows. See
+canonical M7 or fresh full-run stability/performance result follows. See
 [current qualification](v4/CURRENT_QUALIFICATION_STATUS.md) and
 [known issues](../KNOWN_ISSUES.md).

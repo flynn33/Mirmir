@@ -93,4 +93,10 @@ job.
 Before the owner-authorized October 1 cache clear, that job had checkpoint
 ordinal 2,468, 2,469 committed segment files, and 36 source frames remaining.
 Its cached checkpoint, segments, and recovery lock have since been removed.
-A new full-media run and installed-app qualification remain separate work.
+A later, separate job completed all 148,176 GPU frames and 2,470 segments, then
+failed in assembly/migration. The October 7 1.7.0 (17) repair finalized that
+saved job with all tracks verified and installed/launched the signed repair.
+Its exact DTS-based assembly-duration rule and reduced chapter-item clocks
+preserve the shared admission policy above. See
+[finish-stage repair](../DETERMINISTIC_FINALIZATION_REPAIR.md). Fresh full GPU
+processing and matched whole-movie throughput remain separate work.

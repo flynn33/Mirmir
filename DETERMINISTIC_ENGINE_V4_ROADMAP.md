@@ -39,6 +39,14 @@ immutable boundary rows and exact serial pixel/control parity. Its measured
 8.91× improvement at 3840×1632 covers that stage only. Fresh Debug and Release
 suites pass, while the earlier decoded H.264 parity incident remains
 unexplained and the runtime source-identity gate remains open.
+The same 1.7.0 build-17 release repairs verified end-stage assembly and track
+migration failures. Production finalization and independent verification
+completed a saved 148,176-frame Metal job with both audio tracks and 14
+chapters, and the signed repair is installed and launched. This recovery reused
+completed GPU cache; fresh full GPU processing and matched whole-movie
+throughput remain separate work. See
+[finish-stage repair](docs/DETERMINISTIC_FINALIZATION_REPAIR.md) and
+[portable evidence](docs/v4/evidence/end-finalization-repair-2026-10-07/README.md).
 The current source target is version 1.7.0 build 17. Its current
 qualification gates are recorded separately in
 `docs/v4/CURRENT_QUALIFICATION_STATUS.md`; none of the historical checkpoints

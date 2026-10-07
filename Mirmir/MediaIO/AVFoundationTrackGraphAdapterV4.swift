@@ -124,6 +124,19 @@ enum AVFoundationTrackGraphAdapterV4 {
         try formatDescriptor(description, ordinal: ordinal).descriptor
     }
 
+    static func canonicalSampleStreamFormatDescriptor(
+        _ description: CMFormatDescription,
+        ordinal: UInt32 = 0
+    ) throws -> MediaTrackFormatDescriptorV4 {
+        // Keep durable graph and plan identities unchanged. Container wrapper
+        // normalization belongs only to verified compressed-stream identity.
+        try formatDescriptor(
+            description,
+            ordinal: ordinal,
+            normalizesAC3ContainerWrapper: true
+        ).descriptor
+    }
+
     static func probe(asset: AVAsset) async throws -> MediaTrackGraphV4 {
         let assetTracks = try await asset.load(.tracks)
         var trackIDMap: [Int32: MediaTrackStableIDV4] = [:]
@@ -461,7 +474,8 @@ enum AVFoundationTrackGraphAdapterV4 {
 
     private static func formatDescriptor(
         _ description: CMFormatDescription,
-        ordinal: UInt32
+        ordinal: UInt32,
+        normalizesAC3ContainerWrapper: Bool = false
     ) throws -> (
         descriptor: MediaTrackFormatDescriptorV4,
         complete: Bool
@@ -479,6 +493,7 @@ enum AVFoundationTrackGraphAdapterV4 {
         }
         var audio: AVFoundationAudioFormatFingerprintV4?
         var normalizesAACContainerWrapper = false
+        var hasCompleteAC3Configuration = false
         if CMFormatDescriptionGetMediaType(description) == kCMMediaType_Audio,
            let stream = CMAudioFormatDescriptionGetStreamBasicDescription(
                description
@@ -503,6 +518,21 @@ enum AVFoundationTrackGraphAdapterV4 {
                 stream.mFormatID == kAudioFormatMPEG4AAC
                 && codecConfigurationPointer != nil
                 && codecConfigurationByteCount > 0
+            if normalizesAC3ContainerWrapper,
+               stream.mFormatID == kAudioFormatAC3,
+               codecConfigurationByteCount == 11,
+               let codecConfigurationPointer {
+                let cookie = Data(
+                    bytes: codecConfigurationPointer,
+                    count: codecConfigurationByteCount
+                )
+                // The observed AC3 cookie is one complete dac3 atom: its
+                // eight-byte header plus the three-byte AC3 configuration.
+                // Unknown or incomplete cookies retain the raw wrapper.
+                hasCompleteAC3Configuration = cookie.prefix(8).elementsEqual(
+                    [0, 0, 0, 11, 0x64, 0x61, 0x63, 0x33]
+                )
+            }
             byteCount = 0
             let channelLayout = CMAudioFormatDescriptionGetChannelLayout(
                 description,
@@ -539,11 +569,11 @@ enum AVFoundationTrackGraphAdapterV4 {
             extensions = [:]
         }
         let fingerprintExtensions: NSDictionary
-        if normalizesAACContainerWrapper {
+        if normalizesAACContainerWrapper || hasCompleteAC3Configuration {
             // Core Media exposes an ISO sample-entry wrapper for MP4 and a
             // QuickTime sample-description wrapper for MOV even when the
-            // AAC semantics are identical. A nonempty magic cookie is required
-            // before normalizing because it binds the codec configuration that
+            // audio semantics are identical. A complete AC3 dac3 cookie or a
+            // nonempty AAC cookie is required because it binds configuration that
             // may otherwise exist only inside the container wrapper. Unknown
             // or incomplete compressed formats retain their verbatim wrapper
             // and therefore fail closed.
@@ -589,10 +619,59 @@ enum AVFoundationTrackGraphAdapterV4 {
         )
     }
 
+    static func migratedTrackMetadataItems(
+        _ items: [AVMetadataItem]
+    ) async throws -> [AVMetadataItem] {
+        var result: [AVMetadataItem] = []
+        for item in items {
+            guard item.identifier?.rawValue == "uiso/name",
+                  item.dataType == kCMMetadataBaseDataType_RawData as String,
+                  let bytes = try await item.load(.dataValue),
+                  let text = String(data: bytes, encoding: .utf8),
+                  Data(text.utf8) == bytes else {
+                result.append(item)
+                continue
+            }
+            // AVAssetWriter silently drops raw ISO track names in MOV. Use
+            // its supported typed track-name encoding without changing text.
+            let converted = item.mutableCopy() as! AVMutableMetadataItem
+            converted.identifier = .quickTimeUserDataTrackName
+            converted.dataType = kCMMetadataBaseDataType_UTF8 as String
+            converted.value = text as NSString
+            // Typed QuickTime userdata serializes an unspecified metadata
+            // language as und. Declare that representation on this converted
+            // item; other metadata and explicit language tags stay bound.
+            converted.extendedLanguageTag = item.extendedLanguageTag ?? "und"
+            converted.locale = item.locale ?? Locale(
+                identifier: converted.extendedLanguageTag ?? "und"
+            )
+            converted.extraAttributes = try await item.load(.extraAttributes)?
+                .filter {
+                    $0.key.rawValue != "dataType"
+                        && $0.key.rawValue != "dataTypeNamespace"
+                }
+            result.append(converted)
+        }
+        return result
+    }
+
+    static func canonicalMigratedTrackMetadataFingerprint(
+        _ items: [AVMetadataItem]
+    ) async throws -> ASHSHA256V4 {
+        try await canonicalTrackMetadataFingerprint(
+            migratedTrackMetadataItems(items)
+        )
+    }
+
     private static func metadataFingerprint(
         for track: AVAssetTrack
     ) async throws -> ASHSHA256V4 {
-        let metadata = try await track.load(.metadata)
+        try await canonicalTrackMetadataFingerprint(track.load(.metadata))
+    }
+
+    static func canonicalTrackMetadataFingerprint(
+        _ metadata: [AVMetadataItem]
+    ) async throws -> ASHSHA256V4 {
         var items: [AVFoundationMetadataFingerprintItemV4] = []
         for item in metadata {
             let dataValue = try await item.load(.dataValue)

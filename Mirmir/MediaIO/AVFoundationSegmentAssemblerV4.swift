@@ -1670,6 +1670,18 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
             timescale: output.duration.timescale
         )
         guard CMTimeCompare(outputDuration, expectedDuration) == 0 else {
+            MirmirDiagnosticScope.recorder.recordTimingFailure(
+                subsystem: "segment_assembly",
+                operation: "verify_duration",
+                processingContext: MirmirDiagnosticScope.processingContext,
+                timing: .init(
+                    observedDuration: outputDuration,
+                    expectedDuration: expectedDuration,
+                    siteID: "assembled_asset_duration"
+                ),
+                durable: .init(segmentCount: segments.count),
+                error: AVFoundationSegmentV4Error.assembledTimingMismatch
+            )
             throw AVFoundationSegmentV4Error.assembledTimingMismatch
         }
     }
@@ -1795,6 +1807,7 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
             )
             var rawPresentationOffset: CMTime?
             var rawDecodeOffset: CMTime?
+            var sampleIndex: Int64 = 0
             var sourceSample = nextConcreteSample(from: source)
             while let currentSource = sourceSample {
                 let nextSource = nextConcreteSample(from: source)
@@ -1817,8 +1830,15 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
                     allowsIndependentDecodeRebasing:
                         allowsIndependentDecodeRebasing
                 ) else {
+                    recordStreamTimingMismatch(
+                        currentSource, currentOutput,
+                        segmentOrdinal: index, sampleIndex: sampleIndex,
+                        logicalOffset: logicalOffset,
+                        siteID: "assembled_compressed_sample"
+                    )
                     throw AVFoundationSegmentV4Error.assembledTimingMismatch
                 }
+                sampleIndex += 1
                 sourceSample = nextSource
                 outputSample = nextOutput
             }
@@ -1911,6 +1931,7 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
             )
             var rawPresentationOffset: CMTime?
             var rawDecodeOffset: CMTime?
+            var sampleIndex: Int64 = 0
             while let sourceSample = nextConcreteSample(from: source) {
                 guard let outputSample = nextConcreteSample(from: output),
                       try decodedPixelData(sourceSample)
@@ -1928,8 +1949,15 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
                     allowsIndependentDecodeRebasing:
                         allowsIndependentDecodeRebasing
                 ) else {
+                    recordStreamTimingMismatch(
+                        sourceSample, outputSample,
+                        segmentOrdinal: index, sampleIndex: sampleIndex,
+                        logicalOffset: logicalOffset,
+                        siteID: "assembled_decoded_sample"
+                    )
                     throw AVFoundationSegmentV4Error.assembledTimingMismatch
                 }
+                sampleIndex += 1
             }
             guard sourceReader.status == .completed else {
                 throw AVFoundationSegmentV4Error.assembledDecodedPayloadMismatch(
@@ -1943,6 +1971,35 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
                 "assembled output has trailing or unreadable frames"
             )
         }
+    }
+
+    private static func recordStreamTimingMismatch(
+        _ source: CMSampleBuffer,
+        _ output: CMSampleBuffer,
+        segmentOrdinal: Int,
+        sampleIndex: Int64,
+        logicalOffset: CMTime,
+        siteID: String
+    ) {
+        MirmirDiagnosticScope.recorder.recordTimingFailure(
+            subsystem: "segment_assembly",
+            operation: "verify_sample_timing",
+            processingContext: MirmirDiagnosticScope.processingContext,
+            timing: .init(
+                sampleIndex: sampleIndex,
+                observedPresentationTime:
+                    CMSampleBufferGetOutputPresentationTimeStamp(output),
+                expectedPresentationTime: CMTimeAdd(
+                    CMSampleBufferGetOutputPresentationTimeStamp(source),
+                    logicalOffset
+                ),
+                observedDuration: CMSampleBufferGetDuration(output),
+                expectedDuration: CMSampleBufferGetDuration(source),
+                siteID: siteID
+            ),
+            durable: .init(segmentOrdinal: segmentOrdinal),
+            error: AVFoundationSegmentV4Error.assembledTimingMismatch
+        )
     }
 
     /// Empty edits may surface as zero-sample marker buffers. They carry no
@@ -1962,7 +2019,7 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
     /// timeline while carrying its absolute placement in the track edit list.
     /// Preserve both contracts: raw sample timing may move only by one constant
     /// per-segment offset, and output timing must match the logical edit offset.
-    private static func sampleTimingsMatch(
+    static func sampleTimingsMatch(
         _ source: CMSampleBuffer,
         _ output: CMSampleBuffer,
         nextSource: CMSampleBuffer? = nil,
@@ -1996,12 +2053,17 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
               ) else {
             return false
         }
+        guard let sourceDuration = authoritativeSampleDuration(
+                  source,
+                  next: nextSource
+              ), let outputDuration = authoritativeSampleDuration(
+                  output,
+                  next: nextOutput
+              ), CMTimeCompare(sourceDuration, outputDuration) == 0 else {
+            return false
+        }
         if !allowsIndependentDecodeRebasing {
-            guard CMTimeCompare(
-                    CMSampleBufferGetDuration(source),
-                    CMSampleBufferGetDuration(output)
-                  ) == 0,
-                  shiftedTimeEquals(
+            guard shiftedTimeEquals(
                     CMSampleBufferGetDecodeTimeStamp(source),
                     CMSampleBufferGetDecodeTimeStamp(output),
                     offset: rawPresentationOffset
@@ -2013,10 +2075,7 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
                     CMSampleBufferGetOutputDecodeTimeStamp(source),
                     CMSampleBufferGetOutputDecodeTimeStamp(output),
                     offset: logicalOffset
-                  ), CMTimeCompare(
-                    CMSampleBufferGetOutputDuration(source),
-                    CMSampleBufferGetOutputDuration(output)
-                  ) == 0 else {
+                  ) else {
                 return false
             }
             return true
@@ -2047,15 +2106,6 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
                 return false
             }
         } else if sourceRawDTS != outputRawDTS {
-            return false
-        }
-        guard let sourceDuration = authoritativeSampleDuration(
-                  source,
-                  next: nextSource
-              ), let outputDuration = authoritativeSampleDuration(
-                  output,
-                  next: nextOutput
-              ), CMTimeCompare(sourceDuration, outputDuration) == 0 else {
             return false
         }
         let editOffset = CMTimeSubtract(

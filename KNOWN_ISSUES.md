@@ -1,11 +1,33 @@
 # Mirmir accepted limitations and follow-up work
 
 Updated for Mirmir 1.7.0 build 17 on October 7, 2026. These entries distinguish
-source repair from installed-product and full-media qualification. October 7
-readback confirmed `/Applications/Mirmir.app` **1.6.0 (16)**, with the original
-Ferris process still present and its job head readable. The active app was not
-replaced; the 1.7.0 (17) validation build remains separate. The October 6
-installation check reporting 1.5.0 (15) is historical.
+source repair from installed-product and full-media qualification. The final
+October 7 readback confirms the signed **1.7.0 (17)** repair installed and
+launched, with the native About version/build and idle Metal route verified.
+The earlier October 7 1.6.0 (16) and October 6 1.5.0 (15) checks are historical.
+
+## DV4-003 — Complete GPU job rejected during final assembly/migration
+
+**Status:** Production repair and saved full-job recovery verified in 1.7.0 (17)
+
+The installed 1.6.0 job completed 148,176 GPU frames and 2,470 segments, then
+failed with `Mirmir.AVFoundationSegmentV4Error` 13 during final assembly.
+The reproduced failure compared a changed AVAssetReader duration against
+unchanged stored decode cadence. Completing the recovered job also exposed
+equivalent chapter-clock representations, omitted individual grouped-audio
+DTS, AC3 container-wrapper differences, and actual dropped ISO audio names.
+The assembler and track migration now handle those verified boundaries with
+exact, narrowly scoped checks; changed timing, payload, formats, or metadata
+remain rejected.
+
+Full production finalization and independent verification passed for all
+148,176 video frames, both audio tracks and their names, all 14 chapters, and
+complete decoded audio PCM. The source, checkpoint, and request hashes are
+unchanged. The historical queue entry remains contained; its lifecycle was not
+rewritten. See [repair details](docs/DETERMINISTIC_FINALIZATION_REPAIR.md).
+
+This recovery used completed GPU cache. A fresh full GPU render and matched
+whole-movie throughput remain separate qualification work.
 
 ## PARITY-001 — Intermittent Release decoded H.264 mismatch
 
@@ -23,7 +45,8 @@ The spatial-stage benchmark and forced parallel pixel tests do not close this
 end-to-end codec qualification issue. The fresh version-aligned Debug suite
 passed 635 tests and Release passed 630, each with zero failures and six skips;
 both report no runtime warnings. These passing runs do not identify or repair
-the earlier incident. Full-movie stability remains unqualified.
+the earlier incident. The saved full-job finalization repair in DV4-003 does
+not identify this separate parity cause or qualify a fresh full GPU run.
 
 ## PROV-001 — Packaged runtime source closure
 
@@ -36,6 +59,13 @@ constants, and historical evidence were retained unchanged. The development
 quality replay is explicitly unsealed and does not replace a newly bound
 runtime candidate. See the
 [current qualification status](docs/v4/CURRENT_QUALIFICATION_STATUS.md).
+
+The publication Python audit also reproduces
+`test_v2_contract_pins_current_capture_tools`: the reproduction contract's
+source-provenance digest differs from the unchanged file. The contract,
+provenance, and assertion were already present in the preceding committed
+tree. This is retained as a failing helper check; sealed bindings and strict
+assertions were not weakened.
 
 ## PERF-002 — Spatial-stage speedup and whole-movie throughput
 
@@ -196,17 +226,21 @@ proof of an end-to-end large-media completion.
 
 ## DV4-002 — Extended large-media Deterministic qualification
 
-**Status:** Post-first-release qualification
+**Status:** Saved full-job finalization verified; fresh full-run qualification open
 **Priority:** Non-blocking follow-up
 
-The historical Ferris run did not publish a complete output movie. Its recorded
-failure is the 36-frame terminal timing defect described in DV4-001; its cache
-was cleared on October 1 with owner authorization. Further testing requires a
-new candidate run.
+The historical run described in DV4-001 did not publish a complete movie and
+its cache was cleared on October 1. A later, separate job completed all 148,176
+GPU frames, then encountered the finish-stage defects described in DV4-003.
+The October 7 repair finalized that complete saved job and independently
+verified the published movie's frame timing, duration, audio, labels, and
+chapters. The signed repair is installed and launched. Recovery reused saved
+GPU frames, so fresh complete-run stability and matched throughput remain open.
 
 ### Qualification work
 
-- Complete the original beta asset or an authenticated byte-identical copy.
+- Repeat the original beta asset or an authenticated byte-identical copy through
+  the repaired candidate's full GPU processing and finalization path.
 - Capture the stable timing site identifier if any timing failure occurs.
 - Tie any further correction to the exact throw site and preserve rejection of
   real timestamp discontinuities.

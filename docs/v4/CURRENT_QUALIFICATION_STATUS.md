@@ -10,7 +10,61 @@ and durable commits remain sequential. Full-source authentication, exact
 cadence, input/output verification, runtime admission, and quality checks remain
 intact.
 
-## Version 1.7.0 build-17 publication verification
+## Version 1.7.0 build-17 finish-stage repair
+
+The installed 1.6.0 job completed all 148,176 deterministic Metal video frames
+and 2,470 segments, then failed during final assembly. The reproduced failure
+was an AVAssetReader-reported duration changing by one tick despite unchanged
+stored decode cadence and payload. Final migration exposed equivalent chapter
+clock representations, omitted individual audio DTS in grouped packets, AC3
+container wrappers, and actual loss of raw ISO audio names. The production
+assembler and migration adapter now handle these boundaries with exact,
+narrowly scoped identity checks. Saved graph, plan, and runtime bindings remain
+unchanged; genuine timing, data, and metadata mutations remain rejected.
+
+The normal My Mac Debug suite passed **658 tests, zero failed, 12 explicit
+opt-in skips**, with an empty runtime-warning list. The complete final migration
+suite separately passed **102 of 102** with no skips. Full production
+finalization of the original saved job passed in **266.697 seconds**. The
+published 3840×1632 movie contains **148,176 video frames, both audio tracks and
+their Stereo names, and 14 chapters**. Independent checks passed for every
+encoded packet, exact stored clocks/edits, all chapter data, and complete
+decoded audio PCM. Native frame extraction passed at beginning, middle, and
+end; QuickTime opened and displayed a decoded scene after seeking.
+
+The signed universal **1.7.0 (17)** repair is installed and launched. Its
+executable matches the repaired Release build exactly, strict signature
+verification passes, and native UI readback confirms the version/build and
+idle Metal route. The original source, checkpoint, request, cache, and app
+backups are preserved. The historical queue entry remains contained.
+
+Recovery used the completed GPU cache. It does not establish a fresh full GPU
+render, matched whole-movie throughput, continuous playback, or audible speaker
+playback. The independent Release decoded-parity incident and runtime source
+closure remain open. See [repair mechanisms and regression coverage](../DETERMINISTIC_FINALIZATION_REPAIR.md)
+and [portable repair evidence](evidence/end-finalization-repair-2026-10-07/README.md).
+
+## Current publication Xcode and Release readback
+
+The final repository project built in Xcode with the `Mirmir` scheme and
+**Any Mac (arm64, x86_64)** destination: **Build Succeeded at 5:55 PM on October
+7**, with **No Issues** in the Issue Navigator, an empty text filter, and both
+Only Errors and Only Latest Issues disabled. Swift and C warnings are treated
+as errors in both Debug and Release project configurations.
+
+A fresh signed universal production Release CLI build also passed with zero
+compiler warnings/errors. Its executable is identical to the installed repair.
+The fresh native Release suite passed **653 tests, zero failed, 13 explicit
+opt-in skips** (666 total), with no reported runtime warnings. It ran in an
+isolated signed test host with the project warnings-as-errors settings. This
+passing parity repeat does not identify or close the earlier intermittent
+decoded H.264 parity cause.
+The source/project hashes and original-receipt digests are retained in
+[publication-verification.json](evidence/end-finalization-repair-2026-10-07/publication-verification.json).
+These build and UI results do not close the separate provenance or parity
+gates. The repair test results above retain their own original run identity.
+
+## Earlier version 1.7.0 build-17 spatial publication verification
 
 Fresh native Debug and Release build-for-testing commands and the universal
 production Release build succeeded with zero compiler warning/error lines.
@@ -25,11 +79,11 @@ remain separate.
 
 Build logs, source-at-build hashes, signature/version receipt, and Xcode UI
 receipt are retained in `output/publication-1.7.0-17-2026-10-07/`.
-The October 7 installed-app readback confirmed `/Applications/Mirmir.app`
-**1.6.0 (16)**, the original Ferris process still present, and its current job
-head readable. The active app was not replaced; the 1.7.0 validation build
-remains separate. The output-only receipt is `ferris-preservation.json` in that
-local directory.
+That earlier October 7 readback confirmed the then-installed app as
+**1.6.0 (16)**, with the original job process present and its head readable.
+The output-only `ferris-preservation.json` receipt records that dated
+observation. The later finish-stage repair and installed 1.7.0 (17) readback
+above supersede the current installation status.
 
 The fresh default Debug suite passed 635 tests with zero failures and six
 opt-in skips (641 total). Fresh default Release passed 630 tests with zero
@@ -160,6 +214,16 @@ does not close it. Runtime assets and historical evidence were not resealed.
 The comparison and both complete source manifests are retained at
 `/tmp/mirmir-p06-baseline-provenance-audit-xwls4uw0/`.
 
+The October 7 publication Python audit also reproduced the unchanged helper
+failure `test_v2_contract_pins_current_capture_tools`: the reproduction
+contract expects source-provenance SHA-256
+`42cffb91247db7d4634894d79a81b00c7e169df0703860f42b575d677d868d2c`,
+while the actual unchanged provenance file is
+`bc6d85a8b4068d06b6134dabde792fb33503cdf0665a9d8a381a1f982790cd09`.
+The contract, provenance, and assertion match the preceding committed tree.
+This failed helper and the live closure check remain visible; no locked hashes
+or assertions were changed to make them pass.
+
 ## October 4 efficiency measurements
 
 Both isolated Swift harnesses used optimized production sources on the same
@@ -241,7 +305,7 @@ decisions.
 | --- | --- |
 | Product | Mirmir 1.7.0 (17) |
 | Version authorities | `VERSION` = `1.7.0`; `BUILD_NUMBER` = `17` |
-| Current installed-application check | `/Applications/Mirmir.app` 1.6.0 (16), checked October 7; original Ferris process present and job head readable; not replaced |
+| Current installed-application check | Signed 1.7.0 (17), installed and launched October 7; exact repaired executable, strict signature, native About version/build, and idle Metal route verified |
 | Historical installed-application check | `/Applications/Mirmir.app` 1.5.0 (15), checked October 6; source publication does not establish current installation |
 | Bundle identifier | `com.mirmir.app` |
 | Minimum macOS | 15.4 |

@@ -3,7 +3,8 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-Version **1.7.0 build 17** adds bounded parallel spatial conditioning to both
+Version **1.7.0 build 17** repairs deterministic finish-stage assembly and
+whole-asset migration, and adds bounded parallel spatial conditioning to both
 deterministic routes. Workers own disjoint row stripes and bounded scratch;
 immutable boundary rows preserve the serial integer stencil and rounding.
 At 3840×1632, the measured spatial-stage median fell from 91.325 to 10.248 ms
@@ -34,10 +35,16 @@ The current marketing version and build number are recorded in
 Xcode. Release packaging, signing, notarization, and publication remain
 deliberate operator actions.
 
-The October 7 readback confirmed the installed `/Applications/Mirmir.app` is
-**1.6.0 (16)**, with the original Ferris process still present and its job head
-readable. The 1.7.0 (17) validation build is separate; the active app was not
-replaced.
+The October 7 finish-stage repair recovered the complete saved deterministic
+Metal job: **148,176 video frames, two audio tracks, and 14 chapters** at
+3840×1632. Production finalization and independent packet, timing, metadata,
+and complete decoded-audio checks passed. The signed universal **1.7.0 (17)**
+repair is installed and launched on the host; the About surface confirms the
+version and build. Original source, checkpoint, cache, and app backups remain
+preserved. The historical queue entry remains contained. Recovery reused the
+completed GPU cache; a fresh full GPU render was not repeated. See
+[the repair details](docs/DETERMINISTIC_FINALIZATION_REPAIR.md) and
+[portable verification receipt](docs/v4/evidence/end-finalization-repair-2026-10-07/README.md).
 
 ## Highlights
 
@@ -105,13 +112,15 @@ Version 1.7.0 keeps these product boundaries explicit:
   terminal remainder. On October 1, the owner authorized clearing that job's
   live cache with the other inactive jobs. Its checkpoint and cached segments
   are no longer present. Source and fixture qualification do not claim that job
-  or any full large-media run completed.
+  completed. A later, separate saved job completed all 148,176 GPU frames and
+  was fully finalized by the October 7 repair described above.
 
 See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.
 See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) for accepted first-release limitations
 and post-first-release qualification and enhancement work.
-See [`CHANGELOG.md`](CHANGELOG.md) for the 1.7.0 parallel spatial conditioning,
+See [`CHANGELOG.md`](CHANGELOG.md) for the 1.7.0 deterministic finalization repair
+and parallel spatial conditioning,
 the 1.6.0 parallel motion and processing activity
 changes, the 1.5.0 diagnostic and engine efficiency update, the 1.4.3 timing, diagnostics, and
 singleton-audio corrections, the 1.4.2 cache-control correction,
@@ -125,6 +134,29 @@ location changes, unavailable-root recovery, and deletion safety.
 The [Mirmir Wiki](https://github.com/flynn33/Mirmir/wiki) provides the complete
 product guide, architecture reference, ASH engine documentation, diagrams,
 testing procedures, and troubleshooting material.
+
+Final finish-stage repair verification on October 7, 2026:
+
+- Native My Mac Debug: **658 passed, zero failed, 12 explicit opt-in skips**.
+  Fresh publication Release: **653 passed, zero failed, 13 opt-in skips**,
+  with no reported runtime warnings.
+  The complete migration suite separately passed **102 of 102** with no skips.
+- The full saved-source production-finalization test passed in **266.697
+  seconds**, accepting the original plan and runtime binding unchanged. Every
+  source/output stream identity and normal completion inspection passed.
+- The signed universal Release build succeeded with warnings treated as
+  errors, zero compiler warnings/errors, and strict signature verification.
+  The installed executable matches that built app; native UI readback confirms
+  1.7.0 / 17 and an idle, ready Metal route.
+- Independent verification covers every video and audio packet, exact stored
+  clocks and edits, both audio names, 14 chapters, complete decoded audio PCM,
+  and native frame extraction at beginning, middle, and end. QuickTime opens
+  the published movie and displays a decoded scene after seeking.
+
+These results establish saved full-job finalization and the installed repair's
+identity. Fresh full GPU processing, matched whole-movie throughput, continuous
+playback, and audible speaker playback were not exercised. The earlier Release
+decoded-parity incident and runtime source-identity gate remain open.
 
 Retained spatial-candidate evidence on October 7, 2026, before the 1.7.0 version
 alignment:
@@ -147,15 +179,24 @@ alignment:
   unchanged. Current runtime-source closure remains open. See the
   [current status](docs/v4/CURRENT_QUALIFICATION_STATUS.md).
 
-Fresh 1.7.0 build-17 Debug and Release test builds and the universal production
-Release build succeeded with zero compiler warnings or errors. The signed app
+Earlier spatial-publication 1.7.0 build-17 Debug and Release test builds and the
+universal production Release build succeeded with zero compiler warnings or
+errors. The signed app
 reports 1.7.0 (17), keeps `com.mirmir.app`, contains arm64 and x86_64, and passes
 strict/deep signature verification. The actual repository project also built
 successfully in Xcode for **Any Mac (arm64, x86_64)** at 2:04 PM on October 7,
 with an empty unfiltered Issue Navigator. These are build results; the earlier
 decoded parity and runtime source-binding issues remain open.
 
-The fresh 1.7.0 (17) default Debug suite passed **635 tests, zero failures,
+The final publication project also built in Xcode for **Any Mac (arm64,
+x86_64)** at **5:55 PM on October 7**, with **No Issues** in the unfiltered Issue
+Navigator. The project now treats Swift and C warnings as errors in both Debug
+and Release. A fresh signed universal Release CLI build produced zero compiler
+warnings/errors and the exact executable already installed as the repair. See
+[current publication readback](docs/v4/evidence/end-finalization-repair-2026-10-07/publication-verification.json).
+
+The earlier spatial-publication 1.7.0 (17) default Debug suite passed **635
+tests, zero failures,
 six skips** out of 641. Fresh default Release passed **630 tests, zero failures,
 six skips** out of 636. Both report no runtime warnings. The explicitly
 enabled one-frame 4096×2160 → 8192×4320 CPU allocation gate also passed **1/1**

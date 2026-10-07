@@ -402,6 +402,28 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
         AVFoundationTrackMigrationProgressV4
     ) -> Void
 
+    static func passThroughOutputFormatsMatchForQualification(
+        source: [CMFormatDescription],
+        output: [CMFormatDescription],
+        observed: [MediaTrackFormatDescriptorV4]
+    ) throws -> Bool {
+        try PassThroughFormatContract(descriptions: source)
+            .verifiesOutputFormats(output, observed: observed)
+    }
+
+    static func canonicalChapterMetadataTime(_ time: CMTime) throws -> CMTime {
+        guard time.isNumeric, time.timescale > 0 else { return time }
+        let rational = try ExactRationalV4(time.value, Int64(time.timescale))
+        // Remuxing can expose the same chapter time on a different movie
+        // clock. Compare its exact value while retaining flags and epoch.
+        return CMTime(
+            value: rational.numerator,
+            timescale: CMTimeScale(rational.denominator),
+            flags: time.flags,
+            epoch: time.epoch
+        )
+    }
+
     static func accountAppendedRealSamples(
         in sample: CMSampleBuffer,
         sampleCount: inout Int64,
@@ -623,6 +645,10 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
             }
             guard outputAuxiliaryMetadata.chapterMetadataSHA256
                     == sourceAuxiliaryMetadata.chapterMetadataSHA256 else {
+                recordChapterMetadataMismatch(
+                    source: sourceAuxiliaryMetadata,
+                    output: outputAuxiliaryMetadata
+                )
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .chapterMetadataMismatch(
                         expected: sourceAuxiliaryMetadata.chapterMetadataSHA256,
@@ -642,7 +668,11 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                 observedOutputGraph,
                 plan: request.identifiedPlan.plan,
                 observedToLogicalID:
-                    streamVerification.observedToLogicalTrackID
+                    streamVerification.observedToLogicalTrackID,
+                verifiedPassThroughFormats:
+                    streamVerification.verifiedPassThroughFormats,
+                verifiedTrackMetadata:
+                    streamVerification.verifiedTrackMetadata
             )
             let report = try MediaTrackSemanticVerifierV4.verify(
                 plan: request.identifiedPlan,
@@ -723,6 +753,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         let assetMetadata: [AVMetadataItem]
         let assetMetadataSHA256: ASHSHA256V4
         let chapterMetadataSHA256: ASHSHA256V4
+        let chapterGroups: [ChapterMetadataGroupPayloadV4]
     }
 
     struct AssetMetadataPayloadV4: Codable {
@@ -793,6 +824,8 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         let reader: AVAssetReader
         let readerOutput: AVAssetReaderTrackOutput
         let writerInput: AVAssetWriterInput
+        let declaredMetadataFingerprint: ASHSHA256V4
+        let migratedMetadataFingerprint: ASHSHA256V4
         let videoHook: AVFoundationVideoTrackProcessingHookV4?
         let nonVideoHook: AVFoundationNonVideoTrackTranscodeHookV4?
         let nonVideoPresentationEnd: CMTime?
@@ -826,8 +859,21 @@ private extension AVFoundationTrackMigrationExecutorV4 {
 
     struct PassThroughFormatContract {
         private let canonicalFingerprints: Set<ASHSHA256V4>
+        let declaredDescriptors: [MediaTrackFormatDescriptorV4]
+        private let streamDescriptors: [MediaTrackFormatDescriptorV4]
 
         init(descriptions: [CMFormatDescription]) throws {
+            declaredDescriptors = try descriptions.enumerated().map {
+                try AVFoundationTrackGraphAdapterV4.canonicalFormatDescriptor(
+                    $0.element, ordinal: UInt32($0.offset)
+                )
+            }
+            streamDescriptors = try descriptions.enumerated().map {
+                try AVFoundationTrackGraphAdapterV4
+                    .canonicalSampleStreamFormatDescriptor(
+                        $0.element, ordinal: UInt32($0.offset)
+                    )
+            }
             canonicalFingerprints = try Set(descriptions.map {
                 try AVFoundationTrackGraphAdapterV4
                     .canonicalFormatDescriptor($0).canonicalFingerprint
@@ -844,6 +890,25 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             let fingerprint = try AVFoundationTrackGraphAdapterV4
                 .canonicalFormatDescriptor(observed).canonicalFingerprint
             return canonicalFingerprints.contains(fingerprint)
+        }
+
+        func verifiesOutputFormats(
+            _ descriptions: [CMFormatDescription],
+            observed: [MediaTrackFormatDescriptorV4]
+        ) throws -> Bool {
+            let outputDeclared = try descriptions.enumerated().map {
+                try AVFoundationTrackGraphAdapterV4.canonicalFormatDescriptor(
+                    $0.element, ordinal: UInt32($0.offset)
+                )
+            }
+            let outputStream = try descriptions.enumerated().map {
+                try AVFoundationTrackGraphAdapterV4
+                    .canonicalSampleStreamFormatDescriptor(
+                        $0.element, ordinal: UInt32($0.offset)
+                    )
+            }
+            return outputDeclared == observed
+                && outputStream == streamDescriptors
         }
     }
 
@@ -1235,6 +1300,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 }
                 let canonicalItems = try await canonicalMetadataItems(
                     group.items,
+                    canonicalizesChapterTimes: true,
                     cancellation: cancellation
                 )
                 chapterGroups.append(ChapterMetadataGroupPayloadV4(
@@ -1259,12 +1325,76 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         return AssetAuxiliaryMetadataIdentityV4(
             assetMetadata: assetMetadata,
             assetMetadataSHA256: assetMetadataSHA256,
-            chapterMetadataSHA256: chapterMetadataSHA256
+            chapterMetadataSHA256: chapterMetadataSHA256,
+            chapterGroups: chapterGroups
         )
+    }
+
+    func recordChapterMetadataMismatch(
+        source: AssetAuxiliaryMetadataIdentityV4,
+        output: AssetAuxiliaryMetadataIdentityV4
+    ) {
+        do {
+            var fields = try [
+                MirmirDiagnosticField(
+                    key: "expected_chapter_group_count",
+                    value: .signedInteger(Int64(source.chapterGroups.count))
+                ),
+                MirmirDiagnosticField(
+                    key: "observed_chapter_group_count",
+                    value: .signedInteger(Int64(output.chapterGroups.count))
+                )
+            ]
+            for index in 0..<max(
+                source.chapterGroups.count, output.chapterGroups.count
+            ) {
+                let expected = index < source.chapterGroups.count
+                    ? try ASHCanonicalJSONV4.encode(source.chapterGroups[index]) : nil
+                let observed = index < output.chapterGroups.count
+                    ? try ASHCanonicalJSONV4.encode(output.chapterGroups[index]) : nil
+                guard expected != observed else { continue }
+                fields.append(try MirmirDiagnosticField(
+                    key: "chapter_group_index", value: .signedInteger(Int64(index))
+                ))
+                for (key, data) in [
+                    ("expected_chapter_group", expected),
+                    ("observed_chapter_group", observed)
+                ] {
+                    if let data, data.count <= 16_384,
+                       let value = String(data: data, encoding: .utf8) {
+                        fields.append(try MirmirDiagnosticField(
+                            key: key, value: .text(value)
+                        ))
+                    }
+                }
+                break
+            }
+            MirmirDiagnosticScope.recorder.enqueue(
+                severity: .error,
+                subsystem: "track_migration",
+                operation: "verify_chapters",
+                code: "chapter_metadata_mismatch",
+                fields: fields,
+                error: AVFoundationTrackMigrationExecutorV4Error
+                    .chapterMetadataMismatch(
+                        expected: source.chapterMetadataSHA256,
+                        actual: output.chapterMetadataSHA256
+                    )
+            )
+        } catch {
+            MirmirDiagnosticScope.recorder.enqueue(
+                severity: .warning,
+                subsystem: "track_migration",
+                operation: "verify_chapters",
+                code: "chapter_diagnostic_encoding_failed",
+                error: error
+            )
+        }
     }
 
     func canonicalMetadataItems(
         _ items: [AVMetadataItem],
+        canonicalizesChapterTimes: Bool = false,
         cancellation: AVFoundationTrackMigrationCancellationV4
     ) async throws -> [Data] {
         var canonicalItems: [Data] = []
@@ -1284,8 +1414,12 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     $0.timeIntervalSinceReferenceDate.bitPattern
                 },
                 dataType: item.dataType,
-                time: RawMetadataTimeV4(item.time),
-                duration: RawMetadataTimeV4(item.duration),
+                time: RawMetadataTimeV4(canonicalizesChapterTimes
+                    ? try Self.canonicalChapterMetadataTime(item.time)
+                    : item.time),
+                duration: RawMetadataTimeV4(canonicalizesChapterTimes
+                    ? try Self.canonicalChapterMetadataTime(item.duration)
+                    : item.duration),
                 value: try loadedValue.map(metadataValue),
                 extraAttributes: try loadedExtraAttributes.map(metadataValue)
             )
@@ -1797,12 +1931,27 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             } else {
                 nonVideoPresentationEnd = nil
             }
+            let sourceMetadata = try await sourceTrack.load(.metadata)
+            let declaredMetadata = try await AVFoundationTrackGraphAdapterV4
+                .canonicalTrackMetadataFingerprint(sourceMetadata)
+            guard declaredMetadata == planned.source.metadataFingerprint else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .unsupportedTrack(id, reason: "source_metadata_mismatch")
+            }
+            let migratedMetadata = writer.outputFileType == .mov
+                ? try await AVFoundationTrackGraphAdapterV4
+                    .canonicalMigratedTrackMetadataFingerprint(sourceMetadata)
+                : declaredMetadata
             try await copyTrackProperties(
                 from: sourceTrack,
                 replacementTrack: replacementForTrack?.track,
                 expected: planned.expectedOutput,
                 to: writerInput,
-                processingHook: videoHook
+                processingHook: videoHook,
+                metadata: writer.outputFileType == .mov
+                    ? try await AVFoundationTrackGraphAdapterV4
+                        .migratedTrackMetadataItems(sourceMetadata)
+                    : sourceMetadata
             )
             guard pipeReader.canAdd(readerOutput) else {
                 throw AVFoundationTrackMigrationExecutorV4Error
@@ -1862,6 +2011,8 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 reader: pipeReader,
                 readerOutput: readerOutput,
                 writerInput: writerInput,
+                declaredMetadataFingerprint: declaredMetadata,
+                migratedMetadataFingerprint: migratedMetadata,
                 videoHook: videoHook,
                 nonVideoHook: nonVideoHook,
                 nonVideoPresentationEnd: nonVideoPresentationEnd,
@@ -1907,10 +2058,11 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         replacementTrack: AVAssetTrack? = nil,
         expected: MediaTrackNodeV4?,
         to input: AVAssetWriterInput,
-        processingHook: AVFoundationVideoTrackProcessingHookV4?
+        processingHook: AVFoundationVideoTrackProcessingHookV4?,
+        metadata: [AVMetadataItem]
     ) async throws {
         guard let expected else { return }
-        input.metadata = try await track.load(.metadata)
+        input.metadata = metadata
         input.languageCode = try await track.load(.languageCode)
         input.extendedLanguageTag = try await track.load(.extendedLanguageTag)
         if track.mediaType == .video
@@ -2795,6 +2947,10 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         let observedToLogicalTrackID: [
             MediaTrackStableIDV4: MediaTrackStableIDV4
         ]
+        let verifiedPassThroughFormats: [
+            MediaTrackStableIDV4: [MediaTrackFormatDescriptorV4]
+        ]
+        let verifiedTrackMetadata: [MediaTrackStableIDV4: ASHSHA256V4]
     }
 
     func verifyPassThroughStreams(
@@ -2814,6 +2970,10 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         var observedToLogical: [
             MediaTrackStableIDV4: MediaTrackStableIDV4
         ] = [:]
+        var verifiedPassThroughFormats: [
+            MediaTrackStableIDV4: [MediaTrackFormatDescriptorV4]
+        ] = [:]
+        var verifiedTrackMetadata: [MediaTrackStableIDV4: ASHSHA256V4] = [:]
         for (ordinal, outputTrack) in outputTracks.enumerated() {
             try cancellation.check()
             let pipe = pipes[ordinal]
@@ -2834,6 +2994,18 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .sourceTrackInventoryMismatch
             }
+            let outputMetadata = try await outputTrack.load(.metadata)
+            let observedMetadata = try await AVFoundationTrackGraphAdapterV4
+                .canonicalTrackMetadataFingerprint(outputMetadata)
+            guard observedMetadata == observedNode.metadataFingerprint,
+                  observedMetadata == pipe.migratedMetadataFingerprint else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .unsupportedTrack(
+                        pipe.trackID, reason: "output_metadata_mismatch"
+                    )
+            }
+            verifiedTrackMetadata[pipe.trackID] =
+                pipe.declaredMetadataFingerprint
             guard pipe.verifiesEncodedSampleStream
                     || pipe.verifiesDynamicHDRStream else {
                 continue
@@ -2922,11 +3094,30 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             }
             if pipe.verifiesEncodedSampleStream {
                 digests[pipe.trackID] = encoded.digest
+                if let contract = pipe.passThroughFormatContract {
+                    let outputFormats = try await outputTrack.load(
+                        .formatDescriptions
+                    )
+                    guard try contract.verifiesOutputFormats(
+                        outputFormats,
+                        observed: observedNode.formatDescriptors
+                    ) else {
+                        throw AVFoundationTrackMigrationExecutorV4Error
+                            .unsupportedTrack(
+                                pipe.trackID,
+                                reason: "output_format_inventory_mismatch"
+                            )
+                    }
+                    verifiedPassThroughFormats[pipe.trackID] =
+                        contract.declaredDescriptors
+                }
             }
         }
         return OutputStreamVerificationV4(
             digests: digests,
-            observedToLogicalTrackID: observedToLogical
+            observedToLogicalTrackID: observedToLogical,
+            verifiedPassThroughFormats: verifiedPassThroughFormats,
+            verifiedTrackMetadata: verifiedTrackMetadata
         )
     }
 
@@ -2936,13 +3127,19 @@ private extension AVFoundationTrackMigrationExecutorV4 {
     /// in writer-input order. Rebind only those uncontrollable identities to
     /// the plan's logical identities; all observed media semantics, group
     /// policy, associations, and encoded sample streams remain independently
-    /// verified after the rebind.
+    /// verified after the rebind. Pass-through format identities are rebound
+    /// only after exact stream equality and complete normalized format equality
+    /// prove that a container wrapper changed without changing codec semantics.
     func reconcileOutputGraph(
         _ observed: MediaTrackGraphV4,
         plan: MediaTrackGraphPlanV4,
         observedToLogicalID: [
             MediaTrackStableIDV4: MediaTrackStableIDV4
-        ]
+        ],
+        verifiedPassThroughFormats: [
+            MediaTrackStableIDV4: [MediaTrackFormatDescriptorV4]
+        ],
+        verifiedTrackMetadata: [MediaTrackStableIDV4: ASHSHA256V4]
     ) throws -> MediaTrackGraphV4 {
         let expectedTracks = plan.tracks.compactMap(\.expectedOutput)
         let expectedByID = Dictionary(
@@ -2962,6 +3159,26 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .sourceTrackInventoryMismatch
             }
+            let formats: [MediaTrackFormatDescriptorV4]
+            if let verified = verifiedPassThroughFormats[logicalID] {
+                guard verified == expected.formatDescriptors else {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .unsupportedTrack(
+                            logicalID,
+                            reason: "planned_format_inventory_mismatch"
+                        )
+                }
+                formats = verified
+            } else {
+                formats = actual.formatDescriptors
+            }
+            guard let metadata = verifiedTrackMetadata[logicalID],
+                  metadata == expected.metadataFingerprint else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .unsupportedTrack(
+                        logicalID, reason: "planned_metadata_mismatch"
+                    )
+            }
             return try MediaTrackNodeV4(
                 identity: expected.identity,
                 enabled: actual.enabled,
@@ -2972,8 +3189,8 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 timebase: actual.timebase,
                 timeRange: actual.timeRange,
                 edits: actual.edits,
-                formatDescriptors: actual.formatDescriptors,
-                metadataFingerprint: actual.metadataFingerprint
+                formatDescriptors: formats,
+                metadataFingerprint: metadata
             )
         }
 
@@ -3861,8 +4078,25 @@ struct SampleStreamAccumulatorV4 {
         }
         guard let format,
               let formatFingerprint = try? AVFoundationTrackGraphAdapterV4
-                .canonicalFormatDescriptor(format).canonicalFingerprint else {
+                .canonicalSampleStreamFormatDescriptor(format)
+                .canonicalFingerprint else {
             throw Error(status: kCMFormatDescriptionError_InvalidParameter)
+        }
+
+        var uniformAudioTiming: CMSampleTimingInfo?
+        if mediaType == kCMMediaType_Audio, sampleCount > 1 {
+            var shared = CMSampleTimingInfo.invalid
+            var entryCount = 0
+            let status = CMSampleBufferGetSampleTimingInfoArray(
+                sample,
+                entryCount: 1,
+                arrayToFill: &shared,
+                entriesNeededOut: &entryCount
+            )
+            if status == noErr, entryCount == 1,
+               shared.decodeTimeStamp.isNumeric {
+                uniformAudioTiming = shared
+            }
         }
 
         let dataBuffer = CMSampleBufferGetDataBuffer(sample)
@@ -3876,6 +4110,39 @@ struct SampleStreamAccumulatorV4 {
             )
             guard timingStatus == noErr else {
                 throw Error(status: timingStatus)
+            }
+            if let shared = uniformAudioTiming,
+               !timing.decodeTimeStamp.isValid {
+                // Core Media can omit individual audio DTS values when one
+                // timing entry describes several packets. Recover only the
+                // declared uniform clock; explicit packet timing stays intact.
+                guard Self.isExactNumeric(shared.decodeTimeStamp),
+                      Self.isExactNumeric(shared.presentationTimeStamp),
+                      Self.isPositiveExact(shared.duration),
+                      shared.duration.epoch == 0,
+                      let ordinal = Int64(exactly: index) else {
+                    throw Error(status: kCMSampleBufferError_SampleTimingInfoInvalid)
+                }
+                let offsetValue = shared.duration.value
+                    .multipliedReportingOverflow(by: ordinal)
+                guard !offsetValue.overflow else {
+                    throw Error(status: kCMSampleBufferError_SampleTimingInfoInvalid)
+                }
+                let offset = CMTime(
+                    value: offsetValue.partialValue,
+                    timescale: shared.duration.timescale
+                )
+                let expectedPTS = CMTimeAdd(shared.presentationTimeStamp, offset)
+                let recoveredDTS = CMTimeAdd(shared.decodeTimeStamp, offset)
+                guard Self.isExactNumeric(expectedPTS),
+                      Self.isExactNumeric(recoveredDTS),
+                      Self.isExactNumeric(timing.presentationTimeStamp),
+                      timing.presentationTimeStamp.epoch == expectedPTS.epoch,
+                      CMTimeCompare(timing.presentationTimeStamp, expectedPTS) == 0,
+                      CMTimeCompare(timing.duration, shared.duration) == 0 else {
+                    throw Error(status: kCMSampleBufferError_SampleTimingInfoInvalid)
+                }
+                timing.decodeTimeStamp = recoveredDTS
             }
             let sampleSize = CMSampleBufferGetSampleSize(sample, at: index)
             let payload: Data

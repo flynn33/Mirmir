@@ -9,6 +9,94 @@ import XCTest
 @testable import Mirmir
 
 final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
+    func testChapterMetadataTimeCanonicalizesEquivalentZeroClocks() throws {
+        for timescale: CMTimeScale in [1, 500, 1_000, 90_000] {
+            let canonical = try AVFoundationTrackMigrationExecutorV4
+                .canonicalChapterMetadataTime(
+                    CMTime(value: 0, timescale: timescale)
+                )
+            XCTAssertEqual(canonical.value, 0)
+            XCTAssertEqual(canonical.timescale, 1)
+            XCTAssertEqual(canonical.flags, .valid)
+            XCTAssertEqual(canonical.epoch, 0)
+        }
+    }
+
+    func testChapterMetadataTimeCanonicalizesExactRationalsAndRetainsChanges()
+        throws {
+        let source = CMTime(value: 3_753, timescale: 90_000)
+        let canonical = try AVFoundationTrackMigrationExecutorV4
+            .canonicalChapterMetadataTime(source)
+        let equivalent = try AVFoundationTrackMigrationExecutorV4
+            .canonicalChapterMetadataTime(
+                CMTime(value: 417, timescale: 10_000)
+            )
+        XCTAssertEqual(canonical.value, 417)
+        XCTAssertEqual(canonical.timescale, 10_000)
+        XCTAssertEqual(equivalent.value, canonical.value)
+        XCTAssertEqual(equivalent.timescale, canonical.timescale)
+        XCTAssertEqual(CMTimeCompare(source, canonical), 0)
+
+        let changed = try AVFoundationTrackMigrationExecutorV4
+            .canonicalChapterMetadataTime(
+                CMTime(value: 3_754, timescale: 90_000)
+            )
+        XCTAssertNotEqual(CMTimeCompare(canonical, changed), 0)
+
+        let chapterDuration = try AVFoundationTrackMigrationExecutorV4
+            .canonicalChapterMetadataTime(
+                CMTime(value: 392_100, timescale: 1_000)
+            )
+        XCTAssertEqual(chapterDuration.value, 3_921)
+        XCTAssertEqual(chapterDuration.timescale, 10)
+    }
+
+    func testChapterMetadataTimePreservesNumericFlagsAndEpoch() throws {
+        let original = CMTime(
+            value: 0,
+            timescale: 500,
+            flags: [.valid, .hasBeenRounded],
+            epoch: 7
+        )
+        let canonical = try AVFoundationTrackMigrationExecutorV4
+            .canonicalChapterMetadataTime(original)
+        XCTAssertEqual(canonical.value, 0)
+        XCTAssertEqual(canonical.timescale, 1)
+        XCTAssertEqual(canonical.flags, original.flags)
+        XCTAssertEqual(canonical.epoch, original.epoch)
+
+        let exact = try AVFoundationTrackMigrationExecutorV4
+            .canonicalChapterMetadataTime(
+                CMTime(value: 0, timescale: 500, flags: .valid, epoch: 7)
+            )
+        let differentEpoch = try AVFoundationTrackMigrationExecutorV4
+            .canonicalChapterMetadataTime(
+                CMTime(value: 0, timescale: 500, flags: original.flags, epoch: 8)
+            )
+        XCTAssertNotEqual(canonical.flags, exact.flags)
+        XCTAssertNotEqual(canonical.epoch, differentEpoch.epoch)
+    }
+
+    func testChapterMetadataTimePreservesNonnumericRepresentations() throws {
+        let originals: [CMTime] = [
+            .invalid,
+            .indefinite,
+            .positiveInfinity,
+            .negativeInfinity,
+            CMTime(value: 17, timescale: 500, flags: [], epoch: 7),
+            CMTime(value: 17, timescale: 0, flags: .valid, epoch: 7),
+            CMTime(value: 17, timescale: -500, flags: .valid, epoch: 7),
+        ]
+        for original in originals {
+            let canonical = try AVFoundationTrackMigrationExecutorV4
+                .canonicalChapterMetadataTime(original)
+            XCTAssertEqual(canonical.value, original.value)
+            XCTAssertEqual(canonical.timescale, original.timescale)
+            XCTAssertEqual(canonical.flags, original.flags)
+            XCTAssertEqual(canonical.epoch, original.epoch)
+        }
+    }
+
     func testMediaSegmentErrorCode16IsInvalidSampleTiming() {
         let site = DeterministicV4InvalidSampleTimingSite
             .nominalCadenceOffLattice
@@ -3209,6 +3297,354 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
+    func testAC3SampleStreamFormatNormalizesContainerWrappersWithoutChangingGraphIdentity()
+        throws {
+        let cookie = Data([0, 0, 0, 11, 0x64, 0x61, 0x63, 0x33, 0x10, 0x12, 0x40])
+        let iso = try sampleStreamAC3QualificationFormat(
+            cookie: cookie, usesISOWrapper: true
+        )
+        let movie = try sampleStreamAC3QualificationFormat(
+            cookie: cookie, usesISOWrapper: false
+        )
+
+        XCTAssertNotEqual(
+            try AVFoundationTrackGraphAdapterV4.canonicalFormatDescriptor(iso),
+            try AVFoundationTrackGraphAdapterV4.canonicalFormatDescriptor(movie)
+        )
+        XCTAssertEqual(
+            try AVFoundationTrackGraphAdapterV4.canonicalSampleStreamFormatDescriptor(iso),
+            try AVFoundationTrackGraphAdapterV4.canonicalSampleStreamFormatDescriptor(movie)
+        )
+        XCTAssertEqual(
+            try AVFoundationTrackGraphAdapterV4.canonicalSampleStreamFormatDescriptor(
+                iso, ordinal: 7
+            ).ordinal,
+            7
+        )
+        let timing = CMSampleTimingInfo(
+            duration: CMTime(value: 1_536, timescale: 48_000),
+            presentationTimeStamp: .zero,
+            decodeTimeStamp: .zero
+        )
+        var sourceStream = SampleStreamAccumulatorV4()
+        var outputStream = SampleStreamAccumulatorV4()
+        try sourceStream.append(sampleStreamQualificationBuffer(
+            payloads: [Data([1, 2, 3, 4])], start: .zero,
+            duration: timing.duration, timings: [timing],
+            formatDescription: iso
+        ))
+        try outputStream.append(sampleStreamQualificationBuffer(
+            payloads: [Data([1, 2, 3, 4])], start: .zero,
+            duration: timing.duration, timings: [timing],
+            formatDescription: movie
+        ))
+        XCTAssertEqual(sourceStream.digest, outputStream.digest)
+    }
+
+    func testAC3SampleStreamFormatBindsCodecConfigurationAudioDescriptionAndOtherExtensions()
+        throws {
+        let cookie = Data([0, 0, 0, 11, 0x64, 0x61, 0x63, 0x33, 0x10, 0x12, 0x40])
+        let original = try AVFoundationTrackGraphAdapterV4
+            .canonicalSampleStreamFormatDescriptor(
+                sampleStreamAC3QualificationFormat(
+                    cookie: cookie, usesISOWrapper: true,
+                    otherExtension: "original"
+                )
+            )
+        var changedCookie = cookie
+        changedCookie[9] ^= 0x08
+        let changes = try [
+            sampleStreamAC3QualificationFormat(
+                cookie: changedCookie, usesISOWrapper: false,
+                otherExtension: "original"
+            ),
+            sampleStreamAC3QualificationFormat(
+                cookie: cookie, usesISOWrapper: false,
+                sampleRate: 44_100, otherExtension: "original"
+            ),
+            sampleStreamAC3QualificationFormat(
+                cookie: cookie, usesISOWrapper: false,
+                channels: 6, otherExtension: "original"
+            ),
+            sampleStreamAC3QualificationFormat(
+                cookie: cookie, usesISOWrapper: false,
+                otherExtension: "changed"
+            )
+        ]
+        for change in changes {
+            XCTAssertNotEqual(
+                original,
+                try AVFoundationTrackGraphAdapterV4
+                    .canonicalSampleStreamFormatDescriptor(change)
+            )
+        }
+    }
+
+    func testAC3SampleStreamFormatKeepsWrappersForMissingMalformedAndUnknownCookies()
+        throws {
+        let cookie = Data([0, 0, 0, 11, 0x64, 0x61, 0x63, 0x33, 0x10, 0x12, 0x40])
+        var wrongSize = cookie
+        wrongSize[3] = 12
+        var unknownType = cookie
+        unknownType[5] = 0x65
+        let rejectedCookies = [
+            Data(), Data(cookie.dropLast()), cookie + Data([0]),
+            wrongSize, unknownType
+        ]
+        for rejected in rejectedCookies {
+            let iso = try sampleStreamAC3QualificationFormat(
+                cookie: rejected, usesISOWrapper: true
+            )
+            let movie = try sampleStreamAC3QualificationFormat(
+                cookie: rejected, usesISOWrapper: false
+            )
+            XCTAssertEqual(
+                try AVFoundationTrackGraphAdapterV4.canonicalSampleStreamFormatDescriptor(iso),
+                try AVFoundationTrackGraphAdapterV4.canonicalFormatDescriptor(iso)
+            )
+            XCTAssertNotEqual(
+                try AVFoundationTrackGraphAdapterV4.canonicalSampleStreamFormatDescriptor(iso),
+                try AVFoundationTrackGraphAdapterV4.canonicalSampleStreamFormatDescriptor(movie)
+            )
+        }
+        let otherCodecISO = try sampleStreamAC3QualificationFormat(
+            cookie: cookie, usesISOWrapper: true,
+            formatID: kAudioFormatEnhancedAC3
+        )
+        let otherCodecMovie = try sampleStreamAC3QualificationFormat(
+            cookie: cookie, usesISOWrapper: false,
+            formatID: kAudioFormatEnhancedAC3
+        )
+        XCTAssertNotEqual(
+            try AVFoundationTrackGraphAdapterV4.canonicalSampleStreamFormatDescriptor(otherCodecISO),
+            try AVFoundationTrackGraphAdapterV4.canonicalSampleStreamFormatDescriptor(otherCodecMovie)
+        )
+    }
+
+    func testAC3PassThroughOutputFormatProofRetainsInventoryAndObservedDescriptorChecks()
+        throws {
+        let cookie = Data([0, 0, 0, 11, 0x64, 0x61, 0x63, 0x33, 0x10, 0x12, 0x40])
+        let source = try [
+            sampleStreamAC3QualificationFormat(cookie: cookie, usesISOWrapper: true),
+            sampleStreamAC3QualificationFormat(
+                cookie: cookie, usesISOWrapper: true, channels: 6
+            )
+        ]
+        let output = try [
+            sampleStreamAC3QualificationFormat(cookie: cookie, usesISOWrapper: false),
+            sampleStreamAC3QualificationFormat(
+                cookie: cookie, usesISOWrapper: false, channels: 6
+            )
+        ]
+        func observed(_ formats: [CMFormatDescription]) throws
+            -> [MediaTrackFormatDescriptorV4] {
+            try formats.enumerated().map {
+                try AVFoundationTrackGraphAdapterV4.canonicalFormatDescriptor(
+                    $0.element, ordinal: UInt32($0.offset)
+                )
+            }
+        }
+        XCTAssertTrue(try AVFoundationTrackMigrationExecutorV4
+            .passThroughOutputFormatsMatchForQualification(
+                source: source, output: output, observed: observed(output)
+            ))
+        for changedOutput in [[], [output[0]], [output[0], output[1], output[0]],
+                              [output[1], output[0]]] {
+            XCTAssertFalse(try AVFoundationTrackMigrationExecutorV4
+                .passThroughOutputFormatsMatchForQualification(
+                    source: source, output: changedOutput,
+                    observed: observed(changedOutput)
+                ))
+        }
+        XCTAssertFalse(try AVFoundationTrackMigrationExecutorV4
+            .passThroughOutputFormatsMatchForQualification(
+                source: source, output: output, observed: observed(source)
+            ))
+        XCTAssertFalse(try AVFoundationTrackMigrationExecutorV4
+            .passThroughOutputFormatsMatchForQualification(
+                source: source, output: output,
+                observed: [try AVFoundationTrackGraphAdapterV4
+                    .canonicalFormatDescriptor(output[0], ordinal: 7)]
+                    + [try AVFoundationTrackGraphAdapterV4
+                        .canonicalFormatDescriptor(output[1], ordinal: 1)]
+            ))
+    }
+
+    func testAC3PassThroughOutputFormatProofRejectsChangedSemantics() throws {
+        let cookie = Data([0, 0, 0, 11, 0x64, 0x61, 0x63, 0x33, 0x10, 0x12, 0x40])
+        let source = try sampleStreamAC3QualificationFormat(
+            cookie: cookie, usesISOWrapper: true, otherExtension: "original"
+        )
+        var changedCookie = cookie
+        changedCookie[9] ^= 0x08
+        let changedOutputs = try [
+            sampleStreamAC3QualificationFormat(
+                cookie: changedCookie, usesISOWrapper: false,
+                otherExtension: "original"
+            ),
+            sampleStreamAC3QualificationFormat(
+                cookie: cookie, usesISOWrapper: false,
+                sampleRate: 44_100, otherExtension: "original"
+            ),
+            sampleStreamAC3QualificationFormat(
+                cookie: cookie, usesISOWrapper: false,
+                channels: 6, otherExtension: "original"
+            ),
+            sampleStreamAC3QualificationFormat(
+                cookie: cookie, usesISOWrapper: false,
+                otherExtension: "changed"
+            ),
+            sampleStreamAC3QualificationFormat(
+                cookie: Data(cookie.dropLast()), usesISOWrapper: false,
+                otherExtension: "original"
+            )
+        ]
+        for output in changedOutputs {
+            let observed = try AVFoundationTrackGraphAdapterV4
+                .canonicalFormatDescriptor(output)
+            XCTAssertFalse(try AVFoundationTrackMigrationExecutorV4
+                .passThroughOutputFormatsMatchForQualification(
+                    source: [source], output: [output], observed: [observed]
+                ))
+        }
+    }
+
+    func testISOTrackNameMigrationPreservesExactUTF8ValueAndSourceFingerprint()
+        async throws {
+        let source = isoTrackNameQualificationItem(Data("Stéréo 🎧".utf8))
+        source.extendedLanguageTag = "fr"
+        let originalHash = try await AVFoundationTrackGraphAdapterV4
+            .canonicalTrackMetadataFingerprint([source])
+        let output = try await AVFoundationTrackGraphAdapterV4
+            .migratedTrackMetadataItems([source])
+        let item = try XCTUnwrap(output.first)
+        XCTAssertEqual(output.count, 1)
+        XCTAssertEqual(item.identifier, .quickTimeUserDataTrackName)
+        XCTAssertEqual(item.dataType, kCMMetadataBaseDataType_UTF8 as String)
+        XCTAssertEqual(item.extendedLanguageTag, source.extendedLanguageTag)
+        XCTAssertEqual(item.time, source.time)
+        XCTAssertEqual(item.duration, source.duration)
+        let itemString = try await item.load(.stringValue)
+        XCTAssertEqual(
+            Data(try XCTUnwrap(itemString).utf8),
+            Data("Stéréo 🎧".utf8)
+        )
+        let retainedSourceHash = try await AVFoundationTrackGraphAdapterV4
+            .canonicalTrackMetadataFingerprint([source])
+        let rawOutputHash = try await AVFoundationTrackGraphAdapterV4
+            .canonicalTrackMetadataFingerprint(output)
+        let migratedSourceHash = try await AVFoundationTrackGraphAdapterV4
+            .canonicalMigratedTrackMetadataFingerprint([source])
+        let migratedOutputHash = try await AVFoundationTrackGraphAdapterV4
+            .canonicalMigratedTrackMetadataFingerprint(output)
+        XCTAssertEqual(originalHash, retainedSourceHash)
+        XCTAssertNotEqual(originalHash, rawOutputHash)
+        XCTAssertEqual(migratedSourceHash, migratedOutputHash)
+    }
+
+    func testISOTrackNameMigrationBindsMissingChangedLanguageAndUnknownMetadata()
+        async throws {
+        let source = isoTrackNameQualificationItem(Data("Stereo".utf8))
+        let expected = try await AVFoundationTrackGraphAdapterV4
+            .canonicalMigratedTrackMetadataFingerprint([source])
+        let output = try await AVFoundationTrackGraphAdapterV4
+            .migratedTrackMetadataItems([source])
+        let changedName = try XCTUnwrap(output.first?.mutableCopy()
+            as? AVMutableMetadataItem)
+        changedName.value = "Surround" as NSString
+        let changedLanguage = try XCTUnwrap(output.first?.mutableCopy()
+            as? AVMutableMetadataItem)
+        changedLanguage.extendedLanguageTag = "en"
+        let unknown = AVMutableMetadataItem()
+        unknown.identifier = .quickTimeMetadataDescription
+        unknown.dataType = kCMMetadataBaseDataType_UTF8 as String
+        unknown.value = "Additional metadata" as NSString
+        for items in [[], [changedName], [changedLanguage], output + [unknown]] {
+            let actual = try await AVFoundationTrackGraphAdapterV4
+                .canonicalMigratedTrackMetadataFingerprint(items)
+            XCTAssertNotEqual(expected, actual)
+        }
+        let unknownOutput = try await AVFoundationTrackGraphAdapterV4
+            .migratedTrackMetadataItems([unknown])
+        let unknownHash = try await AVFoundationTrackGraphAdapterV4
+            .canonicalTrackMetadataFingerprint([unknown])
+        let unknownOutputHash = try await AVFoundationTrackGraphAdapterV4
+            .canonicalTrackMetadataFingerprint(unknownOutput)
+        XCTAssertEqual(unknownHash, unknownOutputHash)
+    }
+
+    func testISOTrackNameMigrationRetainsInvalidUTF8WithoutLossyConversion()
+        async throws {
+        let source = isoTrackNameQualificationItem(Data([0xff, 0xfe]))
+        let originalHash = try await AVFoundationTrackGraphAdapterV4
+            .canonicalTrackMetadataFingerprint([source])
+        let output = try await AVFoundationTrackGraphAdapterV4
+            .migratedTrackMetadataItems([source])
+        let item = try XCTUnwrap(output.first)
+        let outputData = try await item.load(.dataValue)
+        let migratedHash = try await AVFoundationTrackGraphAdapterV4
+            .canonicalMigratedTrackMetadataFingerprint([source])
+        XCTAssertEqual(output.count, 1)
+        XCTAssertEqual(item.identifier, source.identifier)
+        XCTAssertEqual(item.dataType, source.dataType)
+        XCTAssertEqual(outputData, Data([0xff, 0xfe]))
+        XCTAssertEqual(originalHash, migratedHash)
+    }
+
+    func testAACMP4RawISOTrackNameSurvivesMOVMigration() async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("iso-track-name-source.mp4")
+        let outputURL = directory.url("iso-track-name-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeAACMovie(
+            at: sourceURL, fileType: .mp4
+        )
+        try injectISOTrackNameQualificationAtom(
+            Data("Stereo".utf8), into: sourceURL
+        )
+        let sourceAsset = AVURLAsset(url: sourceURL)
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(asset: sourceAsset)
+        let sourceTracks = try await sourceAsset.loadTracks(withMediaType: .audio)
+        let sourceItems = try await XCTUnwrap(sourceTracks.first).load(.metadata)
+        let sourceItem = try XCTUnwrap(sourceItems.first)
+        XCTAssertEqual(sourceItems.count, 1)
+        XCTAssertEqual(sourceItem.identifier?.rawValue, "uiso/name")
+        let sourceItemData = try await sourceItem.load(.dataValue)
+        XCTAssertEqual(sourceItemData, Data("Stereo".utf8))
+        let sourceMetadataHash = try XCTUnwrap(source.tracks.first).metadataFingerprint
+        let plan = try MediaTrackGraphPlannerV4.makePlan(source: source)
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(.init(
+            sourceURL: sourceURL, destinationURL: outputURL,
+            sourceGraph: source, identifiedPlan: plan,
+            blueprint: try AVFoundationTrackMigrationPlannerV4
+                .makeBlueprint(source: source, plan: plan)
+        ))
+        XCTAssertTrue(result.verificationReport.isConformant)
+        XCTAssertEqual(
+            result.outputGraph.tracks.first?.metadataFingerprint,
+            sourceMetadataHash
+        )
+        let stream = try XCTUnwrap(result.trackResults.first)
+        XCTAssertEqual(stream.sourceSampleStreamSHA256, stream.outputSampleStreamSHA256)
+        let outputTracks = try await AVURLAsset(url: outputURL)
+            .loadTracks(withMediaType: .audio)
+        let outputItems = try await XCTUnwrap(outputTracks.first).load(.metadata)
+        let outputItem = try XCTUnwrap(outputItems.first)
+        XCTAssertEqual(outputItems.count, 1)
+        XCTAssertEqual(outputItem.identifier, .quickTimeUserDataTrackName)
+        let outputString = try await outputItem.load(.stringValue)
+        XCTAssertEqual(
+            Data(try XCTUnwrap(outputString).utf8),
+            Data("Stereo".utf8)
+        )
+        let retainedSource = try await AVFoundationTrackGraphAdapterV4
+            .probe(asset: sourceAsset)
+        XCTAssertEqual(
+            retainedSource.tracks.first?.metadataFingerprint,
+            sourceMetadataHash
+        )
+    }
+
     func testAACMP4PassThroughToMOVPreservesSemanticIdentityAndSamples()
         async throws {
         let directory = try TrackMigrationFixtureDirectoryV4()
@@ -5527,6 +5963,174 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertNotEqual(sourceIdentity.digest, alteredPayloadIdentity.digest)
     }
 
+    func testSampleStreamAccumulatorPreservesUniformAACPacketGrouping() throws {
+        let format = try sampleStreamAACQualificationFormat()
+        let frame = CMTime(value: 1_024, timescale: 48_000)
+        let payloads = [Data([1, 2, 3, 4]), Data([5, 6, 7, 8])]
+        let timing = CMSampleTimingInfo(
+            duration: frame,
+            presentationTimeStamp: frame,
+            decodeTimeStamp: frame
+        )
+        let grouped = try sampleStreamQualificationBuffer(
+            payloads: payloads, start: frame, duration: frame,
+            timings: [timing], formatDescription: format
+        )
+        var readerTiming = CMSampleTimingInfo()
+        XCTAssertEqual(
+            CMSampleBufferGetSampleTimingInfo(
+                grouped, at: 0, timingInfoOut: &readerTiming
+            ),
+            noErr
+        )
+        XCTAssertFalse(readerTiming.decodeTimeStamp.isNumeric)
+        XCTAssertEqual(CMTimeCompare(CMSampleBufferGetDecodeTimeStamp(grouped), frame), 0)
+
+        var groupedIdentity = SampleStreamAccumulatorV4()
+        var separateIdentity = SampleStreamAccumulatorV4()
+        try groupedIdentity.append(grouped)
+        for index in payloads.indices {
+            let timestamp = CMTime(value: Int64((index + 1) * 1_024), timescale: 48_000)
+            try separateIdentity.append(sampleStreamQualificationBuffer(
+                payloads: [payloads[index]], start: timestamp, duration: frame,
+                timings: [CMSampleTimingInfo(
+                    duration: frame,
+                    presentationTimeStamp: timestamp,
+                    decodeTimeStamp: timestamp
+                )], formatDescription: format
+            ))
+        }
+        XCTAssertEqual(groupedIdentity.digest, separateIdentity.digest)
+    }
+
+    func testSampleStreamAccumulatorBindsUniformAACTimingAndPayloadChanges()
+        throws {
+        let format = try sampleStreamAACQualificationFormat()
+        let frame = CMTime(value: 1_024, timescale: 48_000)
+        let payloads = [Data([1, 2, 3, 4]), Data([5, 6, 7, 8])]
+        func digest(
+            presentation: CMTime = CMTime(value: 1_024, timescale: 48_000),
+            decode: CMTime = CMTime(value: 1_024, timescale: 48_000),
+            samples: [Data] = [Data([1, 2, 3, 4]), Data([5, 6, 7, 8])]
+        ) throws -> ASHSHA256V4 {
+            var identity = SampleStreamAccumulatorV4()
+            try identity.append(sampleStreamQualificationBuffer(
+                payloads: samples, start: presentation, duration: frame,
+                timings: [CMSampleTimingInfo(
+                    duration: frame,
+                    presentationTimeStamp: presentation,
+                    decodeTimeStamp: decode
+                )], formatDescription: format
+            ))
+            return identity.digest
+        }
+        let original = try digest()
+        XCTAssertNotEqual(original, try digest(decode: CMTime(value: 2_048, timescale: 48_000)))
+        XCTAssertNotEqual(original, try digest(presentation: CMTime(value: 2_048, timescale: 48_000)))
+        XCTAssertNotEqual(original, try digest(samples: [payloads[0], Data([5, 6, 7, 9])]))
+        XCTAssertNotEqual(original, try digest(decode: .invalid))
+    }
+
+    func testSampleStreamAccumulatorRetainsExplicitAACDecodeTimes() throws {
+        let format = try sampleStreamAACQualificationFormat()
+        let frame = CMTime(value: 1_024, timescale: 48_000)
+        let payloads = [Data([1, 2, 3, 4]), Data([5, 6, 7, 8])]
+        let timings = payloads.indices.map { index in
+            let timestamp = CMTime(value: Int64((index + 1) * 1_024), timescale: 48_000)
+            return CMSampleTimingInfo(
+                duration: frame,
+                presentationTimeStamp: timestamp,
+                decodeTimeStamp: timestamp
+            )
+        }
+        var changedTimings = timings
+        changedTimings[1].decodeTimeStamp = CMTime(value: 3_072, timescale: 48_000)
+        var originalIdentity = SampleStreamAccumulatorV4()
+        var changedIdentity = SampleStreamAccumulatorV4()
+        try originalIdentity.append(sampleStreamQualificationBuffer(
+            payloads: payloads, start: frame, duration: frame,
+            timings: timings, formatDescription: format
+        ))
+        try changedIdentity.append(sampleStreamQualificationBuffer(
+            payloads: payloads, start: frame, duration: frame,
+            timings: changedTimings, formatDescription: format
+        ))
+        XCTAssertNotEqual(originalIdentity.digest, changedIdentity.digest)
+    }
+
+    func testSampleStreamAccumulatorPreservesUniformAACDecodeEpoch() throws {
+        let format = try sampleStreamAACQualificationFormat()
+        let frame = CMTime(value: 1_024, timescale: 48_000)
+        let payloads = [Data([1, 2, 3, 4]), Data([5, 6, 7, 8])]
+        func groupedIdentity(decodeEpoch: CMTimeEpoch) throws -> SampleStreamAccumulatorV4 {
+            var identity = SampleStreamAccumulatorV4()
+            try identity.append(sampleStreamQualificationBuffer(
+                payloads: payloads, start: frame, duration: frame,
+                timings: [CMSampleTimingInfo(
+                    duration: frame,
+                    presentationTimeStamp: frame,
+                    decodeTimeStamp: CMTime(
+                        value: 1_024, timescale: 48_000,
+                        flags: .valid, epoch: decodeEpoch
+                    )
+                )], formatDescription: format
+            ))
+            return identity
+        }
+        let grouped = try groupedIdentity(decodeEpoch: 7)
+        var separate = SampleStreamAccumulatorV4()
+        for index in payloads.indices {
+            let value = Int64((index + 1) * 1_024)
+            let presentation = CMTime(value: value, timescale: 48_000)
+            try separate.append(sampleStreamQualificationBuffer(
+                payloads: [payloads[index]], start: presentation, duration: frame,
+                timings: [CMSampleTimingInfo(
+                    duration: frame,
+                    presentationTimeStamp: presentation,
+                    decodeTimeStamp: CMTime(
+                        value: value, timescale: 48_000, flags: .valid, epoch: 7
+                    )
+                )], formatDescription: format
+            ))
+        }
+        XCTAssertEqual(grouped.digest, separate.digest)
+        XCTAssertNotEqual(grouped.digest, try groupedIdentity(decodeEpoch: 8).digest)
+    }
+
+    func testSampleStreamAccumulatorRejectsRoundedUniformAACClock() throws {
+        let format = try sampleStreamAACQualificationFormat()
+        let frame = CMTime(value: 1_024, timescale: 48_000)
+        let rounded = CMTime(
+            value: 1_024, timescale: 48_000,
+            flags: [.valid, .hasBeenRounded], epoch: 0
+        )
+        let timings = [
+            CMSampleTimingInfo(
+                duration: frame, presentationTimeStamp: frame, decodeTimeStamp: rounded
+            ),
+            CMSampleTimingInfo(
+                duration: frame, presentationTimeStamp: rounded, decodeTimeStamp: frame
+            ),
+            CMSampleTimingInfo(
+                duration: rounded, presentationTimeStamp: frame, decodeTimeStamp: frame
+            ),
+        ]
+        for timing in timings {
+            let buffer = try sampleStreamQualificationBuffer(
+                payloads: [Data([1, 2, 3, 4]), Data([5, 6, 7, 8])],
+                start: frame, duration: frame,
+                timings: [timing], formatDescription: format
+            )
+            var identity = SampleStreamAccumulatorV4()
+            XCTAssertThrowsError(try identity.append(buffer)) {
+                XCTAssertEqual(
+                    ($0 as? SampleStreamAccumulatorV4.Error)?.status,
+                    kCMSampleBufferError_SampleTimingInfoInvalid
+                )
+            }
+        }
+    }
+
     func testSampleStreamAccumulatorBindsTerminalDurationMutation() throws {
         let frame = CMTime(value: 1, timescale: 30)
         let payloads = [
@@ -6326,7 +6930,8 @@ private extension AVFoundationTrackMigrationExecutorV4Tests {
         start: CMTime,
         duration: CMTime,
         formatDuration: CMTime? = nil,
-        timings explicitTimings: [CMSampleTimingInfo]? = nil
+        timings explicitTimings: [CMSampleTimingInfo]? = nil,
+        formatDescription: CMFormatDescription? = nil
     ) throws -> CMSampleBuffer {
         guard !payloads.isEmpty,
               payloads.allSatisfy({ $0.count == MemoryLayout<Int32>.size })
@@ -6335,16 +6940,19 @@ private extension AVFoundationTrackMigrationExecutorV4Tests {
                 "Qualification timecode samples must be four bytes."
             )
         }
-        var format: CMTimeCodeFormatDescription?
-        var status = CMTimeCodeFormatDescriptionCreate(
-            allocator: kCFAllocatorDefault,
-            timeCodeFormatType: kCMTimeCodeFormatType_TimeCode32,
-            frameDuration: formatDuration ?? duration,
-            frameQuanta: 30,
-            flags: 0,
-            extensions: nil,
-            formatDescriptionOut: &format
-        )
+        var format = formatDescription
+        var status = noErr
+        if format == nil {
+            status = CMTimeCodeFormatDescriptionCreate(
+                allocator: kCFAllocatorDefault,
+                timeCodeFormatType: kCMTimeCodeFormatType_TimeCode32,
+                frameDuration: formatDuration ?? duration,
+                frameQuanta: 30,
+                flags: 0,
+                extensions: nil,
+                formatDescriptionOut: &format
+            )
+        }
         guard status == noErr, let format else {
             throw TrackMigrationFixtureErrorV4.coreMedia(status)
         }
@@ -6389,7 +6997,7 @@ private extension AVFoundationTrackMigrationExecutorV4Tests {
                 decodeTimeStamp: .invalid
             )
         }
-        guard timings.count == payloads.count else {
+        guard timings.count == payloads.count || timings.count == 1 else {
             throw TrackMigrationFixtureErrorV4.invalidFixture(
                 "Qualification timing count differs from payload count."
             )
@@ -6418,6 +7026,169 @@ private extension AVFoundationTrackMigrationExecutorV4Tests {
             throw TrackMigrationFixtureErrorV4.coreMedia(status)
         }
         return sampleBuffer
+    }
+
+    func isoTrackNameQualificationItem(_ value: Data) -> AVMutableMetadataItem {
+        let item = AVMutableMetadataItem()
+        item.identifier = AVMetadataIdentifier(rawValue: "uiso/name")
+        item.dataType = kCMMetadataBaseDataType_RawData as String
+        item.value = value as NSData
+        item.extraAttributes = [
+            AVMetadataExtraAttributeKey(rawValue: "dataTypeNamespace"):
+                "com.apple.quicktime.udta",
+            AVMetadataExtraAttributeKey(rawValue: "dataType"): 0
+        ]
+        return item
+    }
+
+    func injectISOTrackNameQualificationAtom(_ value: Data, into url: URL)
+        throws {
+        var movie = try Data(contentsOf: url)
+        func integer(_ data: Data, at offset: Int, count: Int) -> UInt64 {
+            data[offset..<(offset + count)].reduce(0) { ($0 << 8) | UInt64($1) }
+        }
+        func atoms(_ data: Data, in range: Range<Int>) throws
+            -> [(type: String, range: Range<Int>)] {
+            var result: [(String, Range<Int>)] = []
+            var offset = range.lowerBound
+            while offset < range.upperBound {
+                guard range.upperBound - offset >= 8 else {
+                    throw TrackMigrationFixtureErrorV4.invalidFixture("Truncated fixture atom.")
+                }
+                var size = integer(data, at: offset, count: 4)
+                let headerSize: Int
+                if size == 1 {
+                    guard range.upperBound - offset >= 16 else {
+                        throw TrackMigrationFixtureErrorV4.invalidFixture("Truncated fixture extended atom.")
+                    }
+                    size = integer(data, at: offset + 8, count: 8)
+                    headerSize = 16
+                } else {
+                    headerSize = 8
+                    if size == 0 { size = UInt64(range.upperBound - offset) }
+                }
+                guard size >= headerSize, size <= UInt64(range.upperBound - offset),
+                      let count = Int(exactly: size) else {
+                    throw TrackMigrationFixtureErrorV4.invalidFixture("Invalid fixture atom extent.")
+                }
+                let type = String(decoding: data[(offset + 4)..<(offset + 8)], as: UTF8.self)
+                result.append((type, offset..<(offset + count)))
+                offset += count
+            }
+            return result
+        }
+        func sizeBytes(_ size: Int) throws -> Data {
+            guard let exact = UInt32(exactly: size) else {
+                throw TrackMigrationFixtureErrorV4.invalidFixture("Fixture atom exceeds 32-bit size.")
+            }
+            var bigEndian = exact.bigEndian
+            return withUnsafeBytes(of: &bigEndian) { Data($0) }
+        }
+        let topLevel = try atoms(movie, in: 0..<movie.count)
+        let moov = try XCTUnwrap(topLevel.first { $0.type == "moov" })
+        let mdat = try XCTUnwrap(topLevel.first { $0.type == "mdat" })
+        guard moov.range.lowerBound > mdat.range.lowerBound,
+              integer(movie, at: moov.range.lowerBound, count: 4) != 1 else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture("Fixture requires trailing 32-bit moov.")
+        }
+        let children = try atoms(movie, in: (moov.range.lowerBound + 8)..<moov.range.upperBound)
+        let tracks = children.filter { $0.type == "trak" }
+        let track = try XCTUnwrap(tracks.first)
+        guard tracks.count == 1,
+              integer(movie, at: track.range.lowerBound, count: 4) != 1 else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture("Fixture requires one 32-bit track.")
+        }
+        let trackChildren = try atoms(movie, in: (track.range.lowerBound + 8)..<track.range.upperBound)
+        guard !trackChildren.contains(where: { $0.type == "udta" }) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture("Fixture already has track user data.")
+        }
+        let name = try sizeBytes(value.count + 8) + Data("name".utf8) + value
+        let userData = try sizeBytes(name.count + 8) + Data("udta".utf8) + name
+        movie.replaceSubrange(track.range.lowerBound..<(track.range.lowerBound + 4),
+                              with: try sizeBytes(track.range.count + userData.count))
+        movie.replaceSubrange(moov.range.lowerBound..<(moov.range.lowerBound + 4),
+                              with: try sizeBytes(moov.range.count + userData.count))
+        movie.insert(contentsOf: userData, at: track.range.upperBound)
+        try movie.write(to: url, options: .atomic)
+    }
+
+    func sampleStreamAC3QualificationFormat(
+        cookie: Data,
+        usesISOWrapper: Bool,
+        sampleRate: Double = 48_000,
+        channels: UInt32 = 2,
+        formatID: AudioFormatID = kAudioFormatAC3,
+        otherExtension: String? = nil
+    ) throws -> CMAudioFormatDescription {
+        var stream = AudioStreamBasicDescription(
+            mSampleRate: sampleRate,
+            mFormatID: formatID,
+            mFormatFlags: 0,
+            mBytesPerPacket: 0,
+            mFramesPerPacket: 1_536,
+            mBytesPerFrame: 0,
+            mChannelsPerFrame: channels,
+            mBitsPerChannel: 0,
+            mReserved: 0
+        )
+        // Captured from the actual MP4 source and its verified MOV audio replay.
+        let wrapper = try XCTUnwrap(Data(base64Encoded: usesISOWrapper
+            ? "AAAAL2FjLTMAAAAAAAAAAQAAAAAAAAAAAAIAEAAAAAC7gAAAAAAAC2RhYzMQEkA="
+            : "AAAAR2FjLTMAAAAAAAAAAQABAAAAAAAAAAIAEP/+AAC7gAAAAAAGAAAAAAEAAAACAAAAAgAAABN3YXZlAAAAC2RhYzMQEkA="
+        ))
+        var extensions: [String: Any] = [
+            usesISOWrapper ? "VerbatimISOSampleEntry"
+                : "VerbatimSampleDescription": wrapper
+        ]
+        if let otherExtension {
+            extensions["QualificationCodecExtension"] = otherExtension
+        }
+        var format: CMAudioFormatDescription?
+        let status = cookie.withUnsafeBytes { bytes in
+            CMAudioFormatDescriptionCreate(
+                allocator: kCFAllocatorDefault,
+                asbd: &stream,
+                layoutSize: 0,
+                layout: nil,
+                magicCookieSize: cookie.count,
+                magicCookie: bytes.baseAddress,
+                extensions: extensions as CFDictionary,
+                formatDescriptionOut: &format
+            )
+        }
+        guard status == noErr, let format else {
+            throw TrackMigrationFixtureErrorV4.coreMedia(status)
+        }
+        return format
+    }
+
+    func sampleStreamAACQualificationFormat() throws -> CMAudioFormatDescription {
+        var stream = AudioStreamBasicDescription(
+            mSampleRate: 48_000,
+            mFormatID: kAudioFormatMPEG4AAC,
+            mFormatFlags: 0,
+            mBytesPerPacket: 0,
+            mFramesPerPacket: 1_024,
+            mBytesPerFrame: 0,
+            mChannelsPerFrame: 2,
+            mBitsPerChannel: 0,
+            mReserved: 0
+        )
+        var format: CMAudioFormatDescription?
+        let status = CMAudioFormatDescriptionCreate(
+            allocator: kCFAllocatorDefault,
+            asbd: &stream,
+            layoutSize: 0,
+            layout: nil,
+            magicCookieSize: 0,
+            magicCookie: nil,
+            extensions: nil,
+            formatDescriptionOut: &format
+        )
+        guard status == noErr, let format else {
+            throw TrackMigrationFixtureErrorV4.coreMedia(status)
+        }
+        return format
     }
 
     func referenceSampleStreamCanonicalBytes(

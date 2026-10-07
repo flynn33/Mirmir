@@ -1,0 +1,161 @@
+{
+  "schema": "mirmir-finalization-repair-publication-verification-v1",
+  "verifiedDate": "2026-10-07",
+  "version": "1.7.0",
+  "build": "17",
+  "sourceAtPublicationBuildSHA256": {
+    "Mirmir/App/MirmirApp.swift": "b6dc4a8b59d589e6d63b3ed8656712fce8f03ca0621a16be60229be5674ef021",
+    "Mirmir/MediaIO/AVFoundationSegmentAssemblerV4.swift": "4a8e95a7a1665dcaf809525fdd1a4c912a18da0715b4de0138a2cf47131ef646",
+    "Mirmir/MediaIO/AVFoundationTrackGraphAdapterV4.swift": "7527daa30d4026f5cc69b021a723634b28399156c0f6f47bfe9239c4868b8931",
+    "Mirmir/MediaIO/AVFoundationTrackMigrationExecutorV4.swift": "937fe7f1577b7e836f604af168e904e8f1a36efb16e85502a82a420ee4f2e516",
+    "Mirmir.xcodeproj/project.pbxproj": "039094b1ede5c1d313a2e2d7bd9e43e3ed6f0cadc73b83e5fd9547d5039e9981"
+  },
+  "signedUniversalRelease": {
+    "bundleID": "com.mirmir.app",
+    "architectures": [
+      "x86_64",
+      "arm64"
+    ],
+    "executableSHA256": "a1e62015268c9677e682db94dfb1b13c4a3e0c4c9e8d0a8846c76f9f5a66906b",
+    "installedExecutableSHA256": "a1e62015268c9677e682db94dfb1b13c4a3e0c4c9e8d0a8846c76f9f5a66906b",
+    "strictSignatureVerification": "passed",
+    "signingIdentity": "Developer ID Application: James Daley (9AQ2C2838M)",
+    "buildExitCode": 0,
+    "compilerWarnings": 0,
+    "compilerErrors": 0,
+    "projectWarningsAsErrors": {
+      "Debug": true,
+      "Release": true
+    },
+    "executableMatchesInstalledApp": true
+  },
+  "actualXcodeUIBuild": {
+    "observedAt": "2026-10-07T22:56:23.770651+00:00",
+    "projectSHA256": "039094b1ede5c1d313a2e2d7bd9e43e3ed6f0cadc73b83e5fd9547d5039e9981",
+    "scheme": "Mirmir",
+    "destination": "Any Mac (arm64, x86_64)",
+    "result": "Build Succeeded",
+    "visibleBuildTime": "Today at 5:55 PM, October 7, 2026",
+    "issueNavigator": "No Issues",
+    "filters": {
+      "text": "",
+      "onlyErrors": false,
+      "onlyLatestIssues": false
+    },
+    "currentVersion": "1.7.0",
+    "currentBuild": 17
+  },
+  "pythonContractChecks": {
+    "passingUnitTests": 48,
+    "additionalCaptureUnitTestsPassed": 4,
+    "failingUnitTests": 1,
+    "commands": [
+      {
+        "command": "python3 -B script/test_update_version.py",
+        "exitCode": 0
+      },
+      {
+        "command": "python3 -B script/v4/test_update_roadmap_tracker.py",
+        "exitCode": 0
+      },
+      {
+        "command": "python3 -B script/v4/test_derive_m7_quality_contract_v4.py",
+        "exitCode": 0
+      },
+      {
+        "command": "python3 -B script/v4/test_select_simulated_candidate_v4.py",
+        "exitCode": 0
+      },
+      {
+        "command": "python3 -B script/v4/test_p06_source_identity_v4.py",
+        "exitCode": 0
+      },
+      {
+        "command": "python3 -B script/v4/test_natural_quality_corpus.py",
+        "exitCode": 0
+      },
+      {
+        "command": "python3 -B script/v4/test_repository_identity_v4.py",
+        "exitCode": 0
+      },
+      {
+        "command": "python3 -B script/v4/test_capture_p06_reproduction_v4.py",
+        "exitCode": 1
+      },
+      {
+        "command": "python3 -B script/v4/test_capture_support_matrix_v4.py",
+        "exitCode": 0
+      },
+      {
+        "command": "python3 -B script/update_version.py --check",
+        "exitCode": 0
+      },
+      {
+        "command": "python3 -B script/v4/repository_identity_v4.py --repository .",
+        "exitCode": 2
+      }
+    ],
+    "qualificationFailures": [
+      {
+        "command": "python3 -B script/v4/test_capture_p06_reproduction_v4.py",
+        "test": "test_v2_contract_pins_current_capture_tools",
+        "reason": "sourceProvenanceContractSHA256 is stale",
+        "expected": "42cffb91247db7d4634894d79a81b00c7e169df0703860f42b575d677d868d2c",
+        "actual": "bc6d85a8b4068d06b6134dabde792fb33503cdf0665a9d8a381a1f982790cd09",
+        "presentAtUnchangedHEAD": true,
+        "exactHEADReplayEvidence": "python-checks/head-capture-baseline.json",
+        "sourceProvenanceChangeCommit": "ebde38364a2582b6a601c00830c6faac4d3ae07e"
+      },
+      {
+        "command": "python3 -B script/v4/repository_identity_v4.py --repository .",
+        "exitCode": 2,
+        "reason": "runtime source revision does not match production source closure",
+        "presentAtHEADByClosureReplay": true,
+        "evidence": "python-checks/frozen-p06-audit.json"
+      }
+    ],
+    "locksAndAssertionsUnchanged": true,
+    "frozenBaselineReplay": {
+      "sourceCommit": "9c1dcc848716471e12dc01b53a8a096bbba25f44",
+      "capturePinTest": "P06ReproductionCaptureTests.test_v2_contract_pins_current_capture_tools",
+      "capturePinTestExitCode": 1,
+      "sourceProvenanceHistory": {
+        "change": "Added Mirmir/App/MirmirProcessingActivity.swift to source closure without changing reproduction contract pin",
+        "changeCommit": "ebde38364a2582b6a601c00830c6faac4d3ae07e",
+        "currentSHA256": "bc6d85a8b4068d06b6134dabde792fb33503cdf0665a9d8a381a1f982790cd09",
+        "parentSHA256": "42cffb91247db7d4634894d79a81b00c7e169df0703860f42b575d677d868d2c"
+      },
+      "headProductionSourceCount": 399,
+      "headProductionSourceRevision": "b7a414855429ad9f6147427488672a9df64d4b06e27132f73d7b9586d8106e54",
+      "packagedSourceRevision": "070556595835048d0112e8de2399be7067ec931079802c906aa8400f51e62f00",
+      "sourceProvenanceContractMatchesHEAD": true
+    }
+  },
+  "limits": [
+    "Fresh signed builds and actual Xcode UI readback do not close the independent decoded H.264 parity incident or packaged runtime source-closure gate.",
+    "Repair Debug/migration/full-source finalization results are recorded separately in receipt.json.",
+    "Universal compilation does not establish Intel execution or distribution acceptance."
+  ],
+  "originalReceiptSHA256": {
+    "signed-universal-release.json": "5703a543cf30cf21d8c9b04da3cd9ef2c697ec5ad2412f97227b50acc7146b14",
+    "xcode-ui-verification.json": "32b79284f01d9cda83d3e8d903da6a904b2020b50c2ac89b3d2afae0d9cfe44f",
+    "python-ci-audit.json": "a472561bd3f83ef224c2346238416c5ff3d5fe5ffdc986b9e4402415fc0e3303",
+    "release-full-summary.json": "7f91d8531584f16b7f8343d3e4284c4b9e75bae417a751fbf230774009116238",
+    "python-checks/head-capture-baseline.json": "484cee439c9dfb65a18c75c4372a52bbd513ca202074b6ea58da67addc4256f4",
+    "python-checks/frozen-p06-audit.json": "142dd6f7aa4947cc1b962326f157506f3029f042acacda200aeec6b1634029b7"
+  },
+  "freshNativeReleaseSuite": {
+    "configuration": "Release",
+    "destination": "My Mac arm64",
+    "host": "isolated signed sandbox test host",
+    "result": "Passed",
+    "passedTests": 653,
+    "failedTests": 0,
+    "skippedTests": 13,
+    "totalTestCount": 666,
+    "runtimeWarnings": [],
+    "wallTimeSeconds": 176.671,
+    "projectWarningsAsErrors": true,
+    "earlierIntermittentDecodedParityCauseClosed": false
+  }
+}

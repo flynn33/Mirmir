@@ -16,12 +16,20 @@ struct MirmirApp: App {
     @State private var viewModel: MirmirViewModel?
 
     init() {
+#if DEBUG
+        let isSavedAssemblyReplay = ProcessInfo.processInfo.environment[
+            "MIRMIR_SAVED_ASSEMBLY_ROOT"
+        ] != nil
+#else
+        let isSavedAssemblyReplay = false
+#endif
         // Qualification is an isolated process mode. In particular, it must
         // not instantiate the normal UI composition, whose production queue
         // belongs to the user rather than the release observer.
         _viewModel = State(initialValue:
             MirmirNotarizedSmokeInvocationV4.wasRequested
                 || MirmirPackagedEvidenceInvocationV4.wasRequested
+                || isSavedAssemblyReplay
                 ? nil
                 : MirmirViewModel()
         )

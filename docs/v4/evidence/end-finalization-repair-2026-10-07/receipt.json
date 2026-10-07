@@ -1,0 +1,162 @@
+{
+  "schema": "mirmir-deterministic-finalization-repair-summary-v1",
+  "verifiedDate": "2026-10-07",
+  "version": "1.7.0",
+  "build": "17",
+  "bundleIdentifier": "com.mirmir.app",
+  "evidenceScope": "Repair build, saved complete-job finalization, direct published-output verification, and installed-app readback.",
+  "sourceAtRepairBuildSHA256": {
+    "Mirmir/App/MirmirApp.swift": "b6dc4a8b59d589e6d63b3ed8656712fce8f03ca0621a16be60229be5674ef021",
+    "Mirmir/MediaIO/AVFoundationSegmentAssemblerV4.swift": "4a8e95a7a1665dcaf809525fdd1a4c912a18da0715b4de0138a2cf47131ef646",
+    "Mirmir/MediaIO/AVFoundationTrackGraphAdapterV4.swift": "7527daa30d4026f5cc69b021a723634b28399156c0f6f47bfe9239c4868b8931",
+    "Mirmir/MediaIO/AVFoundationTrackMigrationExecutorV4.swift": "937fe7f1577b7e836f604af168e904e8f1a36efb16e85502a82a420ee4f2e516",
+    "Mirmir.xcodeproj/project.pbxproj": "dbf7a22c84898e4cb15bb837304d0b4d96dda9ef3325d8b8a3837ab4d012864b"
+  },
+  "repairBuild": {
+    "configuration": "Release",
+    "architectures": [
+      "x86_64",
+      "arm64"
+    ],
+    "signingIdentity": "Developer ID Application: James Daley (9AQ2C2838M)",
+    "executableSHA256": "a1e62015268c9677e682db94dfb1b13c4a3e0c4c9e8d0a8846c76f9f5a66906b",
+    "buildExitCode": 0,
+    "warningsTreatedAsErrors": true,
+    "compilerWarnings": 0,
+    "compilerErrors": 0,
+    "strictSignatureVerification": "passed"
+  },
+  "nativeRepairTests": {
+    "configuration": "Debug",
+    "destination": "My Mac arm64",
+    "fullSuite": {
+      "passedTests": 658,
+      "failedTests": 0,
+      "skippedTests": 12,
+      "totalTestCount": 670,
+      "runtimeWarnings": []
+    },
+    "completeMigrationSuite": {
+      "passedTests": 102,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "totalTestCount": 102,
+      "runtimeWarnings": []
+    },
+    "explicitSavedFinalizationTest": {
+      "name": "WorkflowSegmentCheckpointStoreV4Tests.testSavedCompleteCheckpointFinalizesAllTracksWhenRequested",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "savedCompleteJob": {
+    "gpuVideoFrameCount": 148176,
+    "segmentCount": 2470,
+    "sourceSHA256": "851cdd1d73b1e2967ca66d00357814dceabb169bc9622d977718f7f361a607d1",
+    "sourceRehashedSHA256": "851cdd1d73b1e2967ca66d00357814dceabb169bc9622d977718f7f361a607d1",
+    "checkpointSHA256": "25800d72c5aa43cc0955f70959da04dce2bf1c686c2c06a2a2ce5bfdbc0ed2a7",
+    "requestSHA256": "94b20b836108ca60b31ee6f4350215ad23bad7f128117854c1d1ef31528fcf5e",
+    "sourceUnchanged": true,
+    "checkpointUnchanged": true,
+    "requestUnchanged": true,
+    "originalQueueLifecycleState": "contained",
+    "historicalQueueLifecycleRewritten": false,
+    "originalAppAndCacheBackupsPreserved": true,
+    "gpuProcessingRepeated": false
+  },
+  "productionFinalization": {
+    "status": "passed",
+    "durationSeconds": 266.69687497615814,
+    "originalPlanID": "641ff83aaa7021af5f514957ed93e7be24fd07aaeab73120e472588a6ecf2d6b",
+    "originalRuntimeBindingID": "1280d495f2a9fa61eead4208bc9e9dfb73e9619bacf1f43be05e0ce298fae957",
+    "originalBindingsAcceptedUnchanged": true,
+    "normalCompletionInspection": "passed",
+    "assetMetadataIdentityEqual": true,
+    "chapterMetadataIdentityEqual": true,
+    "sampleStreamIdentities": [
+      {
+        "trackID": "av-track-1",
+        "action": "process",
+        "sourceSampleStreamSHA256": "44d72643b44589c3b007e10df627283bb24430efca6ac1032d80460789fb499c",
+        "outputSampleStreamSHA256": "44d72643b44589c3b007e10df627283bb24430efca6ac1032d80460789fb499c"
+      },
+      {
+        "trackID": "av-track-2",
+        "action": "pass_through",
+        "sourceSampleStreamSHA256": "0d9f5b57b46bb588999a01c33909d189c3de39d5ba3e780cbabdd0cae8bb0b69",
+        "outputSampleStreamSHA256": "0d9f5b57b46bb588999a01c33909d189c3de39d5ba3e780cbabdd0cae8bb0b69"
+      },
+      {
+        "trackID": "av-track-3",
+        "action": "pass_through",
+        "sourceSampleStreamSHA256": "515bb0ef9de7f6faae17d17aeab04814648a9b805fa76d84f017453d0ba5e76f",
+        "outputSampleStreamSHA256": "515bb0ef9de7f6faae17d17aeab04814648a9b805fa76d84f017453d0ba5e76f"
+      },
+      {
+        "trackID": "av-track-4",
+        "action": "pass_through",
+        "sourceSampleStreamSHA256": "541a8422d0380b9a303b86a05159ad7ebb548cf3d1b7e8f88eea22ff7974d9bb",
+        "outputSampleStreamSHA256": "541a8422d0380b9a303b86a05159ad7ebb548cf3d1b7e8f88eea22ff7974d9bb"
+      }
+    ]
+  },
+  "publishedOutput": {
+    "sha256": "f0d380ee748a48a30f8a48bb8e7891b3b469ff7322561057c19dfdf6055a78e1",
+    "byteCount": 16418407914,
+    "codec": "HEVC",
+    "geometry": {
+      "width": 3840,
+      "height": 1632
+    },
+    "nativeDurationSeconds": "3090087/500",
+    "audioTrackCount": 2,
+    "concretePacketCounts": {
+      "video": 148176,
+      "aac": 289696,
+      "ac3": 193130,
+      "chapterText": 14
+    },
+    "audioTrackNames": [
+      "Stereo",
+      "Stereo"
+    ],
+    "audioTrackNameEncoding": "udta/tnam UTF-8; und unspecified metadata language",
+    "independentVerificationUsedPublishedOutputDirectly": true,
+    "everyEncodedPacketAndStoredClockEdit": "passed",
+    "completeDecodedAudioPCMEquality": "passed",
+    "chapterPayloadNamesAndTiming": "passed",
+    "nativeBeginningMiddleEndDecode": "passed",
+    "nativeChapterCount": 14,
+    "quickTimeOpenAndSeek": "passed"
+  },
+  "installedApp": {
+    "version": "1.7.0",
+    "build": "17",
+    "executableSHA256": "a1e62015268c9677e682db94dfb1b13c4a3e0c4c9e8d0a8846c76f9f5a66906b",
+    "matchesRepairBuild": true,
+    "strictSignatureVerification": "passed",
+    "nativeAboutVersionAndBuildReadback": "passed",
+    "dashboard": "Idle; Metal route Ready on Apple M4 Pro; no active job",
+    "historicalContainedJobCount": 1
+  },
+  "limits": [
+    "A fresh full GPU render was not repeated; recovery used saved completed GPU frames.",
+    "A matched whole-movie throughput comparison was not performed.",
+    "Continuous full-duration playback and audible speaker playback were not exercised.",
+    "Intel execution was not exercised; a universal Intel/Apple silicon app was built.",
+    "The separate intermittent Release decoded H.264 parity cause remains unknown.",
+    "The packaged runtime source-closure gate remains open; historical trust roots and M7 seals were not changed."
+  ],
+  "originalReceiptSHA256": {
+    "installation.json": "51506c135608206fefee70b74481faf09f87d60bd16fc8da08ad7075b8843dfe",
+    "final-signed-build.json": "723d94b815cb1ee6e8e3460bcab26860c241895138951ea948e8d144529e5112",
+    "debug-complete-final-repair-summary.json": "a788313ad3e79e8d65cc318be95c8acfd1834b41fd3128e8c65945ebfde3b019",
+    "executor-track-metadata-final-tests-summary.json": "55b4ff42d9f1c4dac61747f70ab7de2626ea2213e349181abde820e51ed6f151",
+    "final-complete-metadata-repair/saved-finalization-replay.json": "156caad1cf7301c676cf9d1ea7bbd829a28aeeac8dcbe05059100715d47c8911",
+    "published-final-independent/published-recovery-summary.json": "f929ae7d67f7f2472854f44189a8e77bb30b8012328b369db815b2e85fe5ccae",
+    "published-final-independent/independent-recovered-validation.json": "806476275ad38ded517ae8105cab2106c296545225f4ea59540c4616cf4dd7b9",
+    "published-final-audio/ff-entire-audio-preservation.json": "e0670833ad5dc9f604807323cb28ca89c38878644c102c8457865670f9442a3d",
+    "published-native-playback/native-playback-probe.json": "58ca01f74029b676425d49ef9d8f79c9405d0289e64f7431638872459ca99f45"
+  }
+}

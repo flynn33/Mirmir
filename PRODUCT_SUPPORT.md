@@ -1,17 +1,27 @@
 # Mirmir product support
 
-Current source identity: **Mirmir 1.7.0 (17)**. The October 7, 2026 readback
-confirmed installed `/Applications/Mirmir.app` **1.6.0 (16)**, with the original
-Ferris process present and its job head readable. The active app was not
-replaced; the 1.7.0 validation build is separate. The October 6 installation
-check reporting 1.5.0 (15) remains historical. Source publication and binary
-distribution are separate actions.
+Current source and installed repair identity: **Mirmir 1.7.0 (17)**. The final
+October 7, 2026 readback verifies the signed universal repair installed and
+launched, with its exact executable, strict signature, native About
+version/build, and idle Metal route confirmed. Earlier installed-version
+checks are historical. Source publication and binary distribution remain
+separate actions.
 
 The current beta candidate has exact serial/parallel spatial-stage parity and
 an isolated 8.91× spatial speedup at 3840×1632. Fresh version-aligned Debug and
 Release suites pass, while an earlier strict decoded H.264 parity incident
 remains unexplained and the packaged runtime source-identity gate remains open. See [known issues](KNOWN_ISSUES.md) and
 [current qualification](docs/v4/CURRENT_QUALIFICATION_STATUS.md).
+
+The finish-stage repair fully finalized a complete saved deterministic Metal
+job and independently verified all **148,176 video frames, two audio tracks,
+both audio names, and 14 chapters** at 3840×1632. The normal repair Debug suite
+passed 658 tests with zero failures and 12 explicit opt-in skips; the complete
+migration suite passed 102 of 102. Fresh publication Release passed 653 tests
+with zero failures, 13 opt-in skips, and no reported runtime warnings.
+Recovery reused completed GPU frames rather
+than repeating the full GPU processing stage. See
+[repair details](docs/DETERMINISTIC_FINALIZATION_REPAIR.md).
 
 Mirmir is a sandboxed macOS 15.4-or-later application. It reads local media
 through security-scoped bookmarks, builds an explicit whole-asset plan, and
@@ -58,8 +68,17 @@ ordinal 2,468 contains 2,469 committed 60-frame segments and records the video
 `nextInputSampleIndex` as 148,140. The source contains 148,176 frames, leaving a
 36-frame terminal remainder where the installed build failed at site 054. The
 approximately 91 GB job directory was removed in the owner-authorized October 1
-cache cleanup. A new full-length Ferris candidate run and published-output
-verification remain separate DV4-002 qualification work.
+cache cleanup. That older cache is separate from the later complete job used
+for the October 7 finish-stage repair.
+
+The later job completed all 148,176 GPU frames and 2,470 segments, then failed
+at final assembly/migration. The repaired production path finalized that saved
+job, accepted its original plan/runtime binding unchanged, and published a
+complete movie with every video/audio/chapter packet and stored clock/edit
+verified. Complete decoded audio PCM also matches the original. Original
+source, checkpoint, request, cache, and app backups remain preserved; the
+historical queue entry remains contained. A fresh full GPU render and matched
+whole-movie throughput remain separate DV4-002 qualification work.
 
 On October 3, the reported short source at
 `/Users/jimdaley/Mirmir/Mirmir-In/raven-forge-app-splash-2.mp4` completed the

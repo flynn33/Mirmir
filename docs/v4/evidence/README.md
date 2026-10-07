@@ -5,6 +5,14 @@ repository identity and rollback qualification, and the completed M7 simulator
 selection, see
 [`../CURRENT_QUALIFICATION_STATUS.md`](../CURRENT_QUALIFICATION_STATUS.md).
 
+The [`end-finalization-repair-2026-10-07`](end-finalization-repair-2026-10-07/README.md)
+directory records the 1.7.0 (17) finish-stage repair, complete saved-job
+production finalization, independent full-output verification, native test
+results, and installed signed-app identity. Its receipt contains hashes and
+counts; private media, absolute host paths, and raw result bundles remain
+local. Recovery reused saved GPU frames and leaves the separate parity,
+runtime source-identity, and matched-throughput gates open.
+
 Version 1.4.0 historically excluded deterministic resource allocation and
 automatic VideoToolbox geometry adaptation from the first-release target. That
 checkpoint included the qualified hard-link source admission, VideoToolbox Smooth Motion
