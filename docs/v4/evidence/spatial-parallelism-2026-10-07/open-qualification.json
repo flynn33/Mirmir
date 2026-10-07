@@ -1,0 +1,613 @@
+{
+  "schema": "mirmir-spatial-parallelism-open-qualification-v1",
+  "receiptDate": "2026-10-07",
+  "publicationTarget": {
+    "version": "1.7.0",
+    "build": "17",
+    "scope": "source publication; no shipping qualification established by this receipt"
+  },
+  "status": "open",
+  "evidenceScope": "Retained pre-version-alignment candidate evidence; not fresh 1.7.0 (17) suite or installed-app acceptance.",
+  "captureIdentity": {
+    "baseCommit": "817f1f2f56f5b59a5d36818505c368e12069bf48",
+    "productionSourceCount": 399,
+    "productionSourceClosureAtProducerAttempt": "b7a414855429ad9f6147427488672a9df64d4b06e27132f73d7b9586d8106e54",
+    "spatialSourceSHA256AtCapture": "18883dcbdefefc05275560cfeab79b8c44db4cd04e44ca401ab3e7745792d559",
+    "captureMetadataVersion": "1.6.0",
+    "captureMetadataBuild": "16",
+    "identityAppliesTo": "2026-10-07 pre-version-alignment runtime producer attempt; later metadata changes require separate receipts"
+  },
+  "originalSuites": {
+    "Debug": {
+      "result": "Passed",
+      "passedTests": 635,
+      "failedTests": 0,
+      "skippedTests": 6,
+      "totalTestCount": 641
+    },
+    "Release": {
+      "result": "Failed",
+      "passedTests": 630,
+      "failedTests": 1,
+      "skippedTests": 5,
+      "totalTestCount": 636
+    }
+  },
+  "failed156FrameParity": {
+    "test": "WorkflowApplicationQueueV4Tests/testParallelDeterministicCPUAndMetalFinalize156FrameNTSCJob",
+    "failureSite": "MirmirTests/WorkflowApplicationQueueV4Tests.swift:3597",
+    "assertion": "strict decoded BGRA SHA-256 equality",
+    "frameCount": 156,
+    "sourceGeometry": {
+      "width": 96,
+      "height": 64
+    },
+    "outputGeometry": {
+      "width": 192,
+      "height": 128
+    },
+    "automaticSpatialWorkers": 1,
+    "sampleCount": 24576,
+    "parallelSampleThreshold": 262144,
+    "preEncoderRecordsEqual": true,
+    "preEncoderCPUCount": 156,
+    "preEncoderMetalCount": 156,
+    "preEncoderMismatchedOrdinals": [],
+    "decodedCounts": [
+      156,
+      156
+    ],
+    "decodedPTSEqual": true,
+    "decodedMismatchedOrdinals": [
+      125,
+      126,
+      127,
+      128,
+      129,
+      130,
+      131,
+      132,
+      133,
+      134,
+      135,
+      136,
+      137,
+      138,
+      139,
+      140,
+      141,
+      142,
+      143,
+      144,
+      145,
+      146,
+      147,
+      148,
+      154
+    ],
+    "decodedMismatchCount": 25,
+    "independentSoftwareDecode": {
+      "decoder": "ffmpeg 8.1.2 software H.264 decoder",
+      "pixelFormat": "BGRA",
+      "frameCounts": [
+        156,
+        156
+      ],
+      "mismatchedOrdinals": [
+        125,
+        126,
+        127,
+        128,
+        129,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        136,
+        137,
+        138,
+        139,
+        140,
+        141,
+        142,
+        143,
+        144,
+        145,
+        146,
+        147,
+        148,
+        154
+      ],
+      "timingDifferences": []
+    },
+    "compressedOutput": {
+      "imageSliceMismatchOrdinals": [
+        125,
+        126,
+        127,
+        128,
+        129,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        136,
+        137,
+        138,
+        139,
+        140,
+        141,
+        142,
+        143,
+        144,
+        145,
+        146,
+        147,
+        148,
+        154
+      ],
+      "extraPayloadOnlyMismatchOrdinals": [
+        0,
+        60,
+        120
+      ],
+      "extraPayloadDifferences": "NAL type 6 differs; NAL type 5 image slices equal",
+      "packetPayloadHashesIndependentlyVerified": true,
+      "packetDTSMismatchOrdinals": [
+        125,
+        126,
+        128
+      ],
+      "pictureTypeDifference": {
+        "ordinal": 126,
+        "CPU": "B",
+        "Metal": "P"
+      },
+      "sharedFormat": "192x128 H.264 High, yuv420p 8-bit limited BT709; 33-byte SPS/PPS extradata hash equal"
+    },
+    "pixelDifferenceMetrics": {
+      "scope": "25 mismatched frames only; output-to-output difference, not source-relative quality or acceptance",
+      "PSNRPeak": 255,
+      "RGBAlphaExcluded": true,
+      "aggregates": {
+        "RGB8": {
+          "scope": "25 mismatched frames only",
+          "sampleCount": 1843200,
+          "differentSamples": 1261651,
+          "maxAbsoluteDifference": 27,
+          "meanAbsoluteDifference": 1.5130354817708334,
+          "meanSquaredDifference": 5.138187391493055,
+          "PSNRdB": 41.022704217769494,
+          "lowestPerFramePSNRdB": 39.053295835812435
+        },
+        "Y8": {
+          "scope": "25 mismatched frames only",
+          "sampleCount": 614400,
+          "differentSamples": 269217,
+          "maxAbsoluteDifference": 9,
+          "meanAbsoluteDifference": 0.5026969401041667,
+          "meanSquaredDifference": 0.6534293619791667,
+          "PSNRdB": 49.97881715180551,
+          "lowestPerFramePSNRdB": 49.0559044781181
+        },
+        "U8": {
+          "scope": "25 mismatched frames only",
+          "sampleCount": 153600,
+          "differentSamples": 88704,
+          "maxAbsoluteDifference": 11,
+          "meanAbsoluteDifference": 0.7864778645833334,
+          "meanSquaredDifference": 1.3953971354166668,
+          "PSNRdB": 46.6838253377847,
+          "lowestPerFramePSNRdB": 44.21463066990148
+        },
+        "V8": {
+          "scope": "25 mismatched frames only",
+          "sampleCount": 153600,
+          "differentSamples": 92563,
+          "maxAbsoluteDifference": 14,
+          "meanAbsoluteDifference": 0.8757486979166667,
+          "meanSquaredDifference": 1.7404231770833334,
+          "PSNRdB": 45.72425502742074,
+          "lowestPerFramePSNRdB": 43.94597806010768
+        },
+        "alpha8": {
+          "scope": "25 mismatched frames only",
+          "sampleCount": 614400,
+          "differentSamples": 0,
+          "maxAbsoluteDifference": 0,
+          "meanAbsoluteDifference": 0.0,
+          "meanSquaredDifference": 0.0,
+          "PSNRdB": null,
+          "lowestPerFramePSNRdB": null
+        }
+      }
+    },
+    "cause": "Unknown. Equal traced engine outputs and differing encoded image slices do not distinguish writer-handoff metadata/ownership, encoder behavior, and assembly effects.",
+    "missingEvidence": [
+      "actual writer-handoff DTS and format/sample/pixel-buffer attachments",
+      "buffer identity, padding and retained-buffer mutation checks",
+      "segment/checkpoint payloads compared with final movies"
+    ],
+    "disposition": "Original failed result and strict assertion retained; neither passing repeat closes the incident."
+  },
+  "laterFourRunRepeat": {
+    "testResult": {
+      "result": "Passed",
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0
+    },
+    "frameCount": 156,
+    "runCount": 4,
+    "runs": [
+      {
+        "name": "cpu-156",
+        "backendID": "mirmirDeterministicCPU",
+        "preEncoderFramesEqualToCPU": true,
+        "decodedFramesEqualToCPU": true
+      },
+      {
+        "name": "metal-156",
+        "backendID": "mirmirDeterministicMetal",
+        "preEncoderFramesEqualToCPU": true,
+        "decodedFramesEqualToCPU": true
+      },
+      {
+        "name": "mirmirDeterministicCPU-repeat-156",
+        "backendID": "mirmirDeterministicCPU",
+        "preEncoderFramesEqualToCPU": true,
+        "decodedFramesEqualToCPU": true
+      },
+      {
+        "name": "mirmirDeterministicMetal-repeat-156",
+        "backendID": "mirmirDeterministicMetal",
+        "preEncoderFramesEqualToCPU": true,
+        "decodedFramesEqualToCPU": true
+      }
+    ],
+    "limit": "Passing CPU/Metal/same-backend repeat does not explain or invalidate the original failure."
+  },
+  "originalSourceControl": {
+    "baseCommit": "817f1f2f56f5b59a5d36818505c368e12069bf48",
+    "testResult": {
+      "result": "Passed",
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0
+    },
+    "productionSourceCount": 399,
+    "allProductionSourcesMatchedBaseCommit": true,
+    "all438TrackedMirmirFilesMatchedBaseCommit": true,
+    "workflowTestMatchedBaseCommit": true,
+    "frameCount": 156,
+    "runCount": 4,
+    "allPreEncoderFramesEqual": true,
+    "allDecodedFramesEqual": true,
+    "productsUnchanged": true,
+    "rebuilt": false,
+    "engineOverlay": false,
+    "signingAllowed": "NO",
+    "enableTestability": "YES",
+    "onlyActiveArchitecture": "YES",
+    "bundleIdentifiers": [
+      "com.mirmir.app",
+      "com.mirmir.app.tests"
+    ],
+    "fixedUserHomeAdaptedBeforeStartup": true,
+    "startupPreferenceWritesDisabled": true,
+    "failureReproduced": false,
+    "limit": "Unsigned retained M7 products and fixed-home startup differed from the original signed sandbox test host. This passing control does not establish a pre-existing cause or a fix."
+  },
+  "runtimeProducer": {
+    "command": [
+      "script/v4/build_p06_release_runtime.sh",
+      "--artifacts",
+      "output/spatial-parallelism-2026-10-07/runtime-candidate-artifacts",
+      "--output",
+      "output/spatial-parallelism-2026-10-07/runtime-candidate-bundle",
+      "--provenance",
+      "output/spatial-parallelism-2026-10-07/runtime-candidate-provenance"
+    ],
+    "exitStatus": 1,
+    "error": "error: invalidBuildInput(\"locked input size/type mismatch: Mirmir/App/MirmirApp.swift\")",
+    "lockedInputCount": 17,
+    "matchingInputCount": 16,
+    "staleCaptureInput": {
+      "repositoryRelativePath": "Mirmir/App/MirmirApp.swift",
+      "lockedByteCount": 342264,
+      "lockedSHA256": "9fcf2009a18385524f65644cf13e744a0cdd58550808bc43089dff4f12f98a84",
+      "observedByteCount": 342388,
+      "observedSHA256": "361c0ce4df777de3ba00162a2efa7a254a7af831f1bf337d3a151527af74a582",
+      "observedRegularFile": true,
+      "observedSymbolicLink": false,
+      "exactHistoricalCaptureMatchCommit": "5719ce2e08ce324a22e319875179f688c64473d3"
+    },
+    "sourceClosureBeforeAndAfter": "b7a414855429ad9f6147427488672a9df64d4b06e27132f73d7b9586d8106e54",
+    "sourceUnchangedDuringAttempt": true,
+    "freshArtifactsPublished": false,
+    "freshBundlePublished": false,
+    "freshProvenancePublished": false,
+    "freshCandidateArtifactComparisonRun": false,
+    "freshCandidateRuntimeLoadAndTamperCheckRun": false,
+    "existingPackagedSourceRevision": "070556595835048d0112e8de2399be7067ec931079802c906aa8400f51e62f00",
+    "historicalLocksRuntimeAssetsAndTrustConstantsRewritten": false
+  },
+  "repositoryIdentity": {
+    "command": [
+      "python3",
+      "-B",
+      "script/v4/repository_identity_v4.py",
+      "--repository",
+      ".",
+      "--skip-evidence"
+    ],
+    "exitStatus": 2,
+    "error": "v4 repository identity failed closed: runtime source revision does not match production source closure",
+    "limit": "This is an actual source-closure failure. Skipping evidence does not bypass source identity, and ordinary app compilation does not close it."
+  },
+  "earlier157FrameIncident": {
+    "test": "testParallelDeterministicCPUAndMetalFinalize157FrameNTSCJob",
+    "configuration": "Release",
+    "mismatchedDecodedOrdinals": [
+      85,
+      86,
+      87,
+      88,
+      89,
+      90,
+      91,
+      92,
+      93,
+      94,
+      95,
+      96,
+      97,
+      98,
+      99,
+      100,
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      107,
+      108,
+      109,
+      110,
+      111,
+      112,
+      113,
+      114,
+      115,
+      117,
+      118,
+      119
+    ],
+    "mismatchCount": 34,
+    "preEncoderCaptureAvailable": false,
+    "laterFourTracedRunsMatched": true,
+    "cause": "Unknown; traced instrumentation changes timing and did not reproduce the earlier difference.",
+    "trackedEvidence": "docs/v4/evidence/motion-parallelism-2026-10-06/ntsc-parity-investigation.json"
+  },
+  "openBoundaries": [
+    "Root cause and resolution of the retained 156-frame strict decoded parity failure",
+    "Root cause of the earlier untraced 157-frame Release parity failure",
+    "Canonical runtime producer and current production source closure",
+    "Full-length DV4-002 stability and matched whole-engine/whole-movie performance qualification",
+    "Intel execution; a universal build alone is not Intel runtime evidence",
+    "New installed-app identity and acceptance for version 1.7.0 build 17"
+  ],
+  "performanceClaimLimit": "The separately retained 8.91x result is for the synthetic 3840x1632 spatial stage on the measured M4 Pro. No whole-movie speedup is established.",
+  "evidenceAvailability": "The digests below bind original retained evidence. output/ references are local-only and excluded from the source publication; this portable summary does not embed raw MOVs, xcresults, machine-private paths or historical input arrays.",
+  "evidenceDigests": [
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/release-full-summary.json",
+      "byteCount": 23536,
+      "sha256": "c95b6ddab42fee95fe719ca400ff066554c80299446d84930098878be22ca3ef",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/debug-full-summary.json",
+      "byteCount": 1166,
+      "sha256": "39ab0aef1a38cdce778e8606986879de85a780ec8e588640b8f1360529d3e6ef",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/release-full.log",
+      "byteCount": 258638,
+      "sha256": "386a6c7c870084d49eabb15c5d9aec06e49092d436f744aae3668ebe6cae7ce3",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/failed-parity-attachments/manifest.json",
+      "byteCount": 2294,
+      "sha256": "bd012b263ef353e50ec1dd2cf994812402725a916951340436fce7a61abc6fc1",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/failed-parity-attachments/956241FF-8D3D-4F03-9F99-A258CA378AAE.json",
+      "byteCount": 434445,
+      "sha256": "1bdd8091732ecaa81313594fc269141a3ea5d12403533d86112c17ca0b2bf8cc",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/failed-parity-attachments/4765ED8D-AE28-4835-98B1-348603EC6F15.mov",
+      "byteCount": 762783,
+      "sha256": "fe3d4eaee51d9eafcde375876f2c53a5608f9b0562cbb61777ca93246dcae1fc",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/failed-parity-attachments/04D3CDDC-EC3B-4D4B-BF6F-87D765D9CAA0.mov",
+      "byteCount": 762377,
+      "sha256": "17d7b299d5ef2cc0b8a0baefad5135f67e2a0002b37ef81b2cea14efc2d1826d",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/failed-parity-attachments/27E5262B-1DA8-4842-90E1-BD6B9467A97F.mov",
+      "byteCount": 1177182,
+      "sha256": "7ae0236913d82e4fbd76fab4d14a871e131aa6f4e41b4429b1345dd214df9104",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/failed-parity-audit/trace-summary.json",
+      "byteCount": 2296,
+      "sha256": "e35a70fd9597fb3772ccdface3b3899a964df9a8112fd41efca8dc1db7e1c3a3",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/failed-parity-audit/independent-media-summary.json",
+      "byteCount": 5076,
+      "sha256": "04080a09ab0321443df58bcf562074ec2e2730d8eb733c90590b485dda80bc95",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/failed-parity-audit/decoded-pixel-differences.json",
+      "byteCount": 35373,
+      "sha256": "d26fe4d4475c363851e586f38ca5e275963f4e12b5491c9e92251f35fd728083",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/failed-parity-audit/decoded-pixel-commands.json",
+      "byteCount": 2147,
+      "sha256": "bfeda28775646a2530ae3c4df9c40aa81c84fbf96608993db9234ef710d01e2e",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/failed-parity-audit/nal-audit.json",
+      "byteCount": 21020,
+      "sha256": "9d9623d6e71d9b3faef5eaa52a860e66323d886d39c5aae0381a65245cdd8989",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/failed-parity-audit/frame-types-comparison.json",
+      "byteCount": 407,
+      "sha256": "b873fd72e6566a8cb0e303fb5e0f28486dacc709048436478500c023a61b38a4",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/failed-parity-audit/commands-results.json",
+      "byteCount": 2278,
+      "sha256": "dc67912ac7db9c0f470870023692e720e70ac7a4fef9b73892630b17a9fd792b",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/release-156-repeats-summary.json",
+      "byteCount": 968,
+      "sha256": "41a4da6761ff488337dddbec9c9927b8d5d4341da1d57fa0ada16c2ee205c29f",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/repeat-parity-attachments/E020BD0D-6EF3-46D9-AB55-AC5F290D8429.json",
+      "byteCount": 868849,
+      "sha256": "875a20144e375d96ffeb952797e45d5b4332f37cfeeb52fdfe94ad8857711279",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/repeat-parity-summary.json",
+      "byteCount": 1101,
+      "sha256": "86591790ed0f1d1f586a7e400ecbf4e6b226564d391022042b065daf48dbcf4f",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/prechange-156-summary.json",
+      "byteCount": 969,
+      "sha256": "c0432777cdd61a5c1e4640d7b5ca04cedc6257aeafd3d15038b0e9468dd98f28",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/prechange-156-attachments/218EBD6B-33CD-4848-BF18-1051196DECF4.json",
+      "byteCount": 868849,
+      "sha256": "875a20144e375d96ffeb952797e45d5b4332f37cfeeb52fdfe94ad8857711279",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/prechange-156-parity-summary.json",
+      "byteCount": 1525,
+      "sha256": "5d0562fffb5ac5d53da2ace78aebf64385e2dc022155bfaa6bf2ad33fe15c0bb",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/prechange-156-source-proof.json",
+      "byteCount": 161651,
+      "sha256": "301ffba9283a8c5af9a125d65600bc60bbf110b73c9d5a684ad84c3219901d50",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/prechange-156-receipt.json",
+      "byteCount": 3162,
+      "sha256": "b399666d2bb0a18cc5b13018bb135e553df5c82bf65b8c915796949dec5c9a47",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/prechange-156.log",
+      "byteCount": 29716,
+      "sha256": "e48e710aa615cf6e6e560bc553fd03fc6d8086deb35e722d274b162cc94a0094",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/runtime-candidate-build-command.txt",
+      "byteCount": 389,
+      "sha256": "f19f13267fc7c58fa943d4473461ab138b123528ec1ce09892744eeaf35225b4",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/runtime-candidate-source-before.json",
+      "byteCount": 149272,
+      "sha256": "478c033f46b53f07c7ef36c03c2c4735de7ed369b92ab7141d6546bd1d82c9b0",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/runtime-candidate-build.log",
+      "byteCount": 88,
+      "sha256": "63b6c4a352779f758eaa94f8d51cc6d2f9f0ddaeb558c1da882e41a76a0ec6ed",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/runtime-candidate-build-result.json",
+      "byteCount": 763,
+      "sha256": "a2aa91b2a77e40365a9b1c5e47c8a9db3e0a4054aeb3738b7537000a68e6a331",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/runtime-candidate-locked-input-audit.json",
+      "byteCount": 22781,
+      "sha256": "484502b1f1bc0190bca4da4cc7ac8ca91b1c24d57efc4c474a0467473cb29a70",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/runtime-candidate-repository-identity-command.txt",
+      "byteCount": 136,
+      "sha256": "a51d27644f2d5052907da940002cff0fc9335d0e5c3a4e28ca273936f5f1aca6",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/runtime-candidate-repository-identity.log",
+      "byteCount": 103,
+      "sha256": "21126e0888b35b53f53106077793aebb85f72f33125eaa124f403dc6b70de628",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/runtime-candidate-repository-identity-result.json",
+      "byteCount": 280,
+      "sha256": "017ac61f087bae4cbbd6ef3b4d3833485641215e0daa5c2828807db295dd1e57",
+      "availability": "local_only_output_reference"
+    },
+    {
+      "repositoryRelativePath": "docs/v4/evidence/motion-parallelism-2026-10-06/ntsc-parity-investigation.json",
+      "byteCount": 3016,
+      "sha256": "bcfbc8facc446b9d6f48ccd1ba40e5406fc2a453b3a322275a08592902daa11b",
+      "availability": "tracked_source_reference"
+    },
+    {
+      "repositoryRelativePath": "Mirmir/Resources/ASH-P06.bundle/runtime-manifest.json",
+      "byteCount": 3704,
+      "sha256": "13c47e84e31309a0c7008c05b19fdb0ae43c92773c5ce5fc3331598c96f912f5",
+      "availability": "tracked_source_reference"
+    }
+  ]
+}

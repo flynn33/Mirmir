@@ -836,6 +836,536 @@ final class ASHTemporalReconstructionV4Tests: XCTestCase {
         XCTAssertEqual(workspace.storageAllocationCount, stableAllocations)
     }
 
+    func testParallelSpatialStripesMatchReferenceForEveryStateAndWorkerLimit()
+        throws {
+        let program = try ASHDepthFourBranchCompilerV4.compileCanonical()
+        var workspace = ASHSpatialReconstructionWorkspaceV4()
+        for (width, height) in [(7, 19), (17, 23)] {
+            let input = spatialQualificationSamples(width: width, height: height)
+            let plane = try ASHTemporalPlaneV4(
+                width: width, height: height,
+                minimumCode: 64, maximumCode: 940, samples: input
+            )
+            for payload in 0..<256 {
+                let state = try spatialQualificationState(payload)
+                let reference = try ASHSpatialReconstructorV4.reconstruct(
+                    spatial: plane, sourceState: state, program: program
+                )
+                for limit in [1, 2, 3, 7, 14] {
+                    var samples = input
+                    let result = try ASHSpatialReconstructorV4.reconstructInPlace(
+                        samples: &samples, width: width, height: height,
+                        minimumCode: 64, maximumCode: 940,
+                        sourceState: state, program: program, workspace: &workspace,
+                        executionPolicy: .parallel(maximumWorkers: limit)
+                    )
+                    assertSpatialResult(
+                        samples, result: result, reference: reference,
+                        width: width, height: height, maximumWorkers: limit
+                    )
+                }
+            }
+        }
+    }
+
+    func testParallelSpatialBoundaryImpulsesExtremaAndRoundingTiesMatchReference()
+        throws {
+        let program = try ASHDepthFourBranchCompilerV4.compileCanonical()
+        var sawChangedPixels = false
+        for (width, height) in [
+            (1, 1), (17, 1), (1, 17), (2, 2), (5, 3), (11, 17), (17, 23)
+        ] {
+            for (minimum, maximum) in [(UInt16(64), UInt16(940)), (0, UInt16.max)] {
+                var input = spatialQualificationSamples(
+                    width: width, height: height,
+                    minimumCode: minimum, maximumCode: maximum
+                )
+                // Every row carries extrema, so every possible stripe boundary
+                // has an impulse immediately above or below it.
+                for y in 0..<height {
+                    input[y * width + width / 2] = y.isMultiple(of: 2)
+                        ? minimum : maximum
+                }
+                if width >= 5 && height >= 3 {
+                    // The first stencil has half ties rounding toward an even
+                    // lower code; the second rounds toward an even higher code.
+                    let low = minimum
+                    let high = minimum + 1
+                    input[1] = low
+                    input[width] = low
+                    input[width + 2] = high
+                    input[2 * width + 1] = high
+                    input[3] = minimum + 1
+                    input[width + 4] = minimum + 2
+                    input[2 * width + 3] = minimum + 2
+                    XCTAssertEqual((Int(low) + Int(high)) % 2, 1)
+                    XCTAssertEqual((Int(minimum + 1) + Int(minimum + 2)) % 2, 1)
+                    XCTAssertEqual((2 * (Int(low) + Int(high))) % 4, 2)
+                    XCTAssertEqual((2 * (Int(minimum + 1) + Int(minimum + 2))) % 4, 2)
+                }
+                let plane = try ASHTemporalPlaneV4(
+                    width: width, height: height,
+                    minimumCode: minimum, maximumCode: maximum, samples: input
+                )
+                for payload in [0, 85, 170, 255] {
+                    let state = try spatialQualificationState(payload)
+                    let reference = try ASHSpatialReconstructorV4.reconstruct(
+                        spatial: plane, sourceState: state, program: program
+                    )
+                    sawChangedPixels = sawChangedPixels || reference.output.samples != input
+                    for limit in [1, 2, 3, 7, 14, 100] {
+                        var workspace = ASHSpatialReconstructionWorkspaceV4()
+                        var samples = input
+                        let result = try ASHSpatialReconstructorV4.reconstructInPlace(
+                            samples: &samples, width: width, height: height,
+                            minimumCode: minimum, maximumCode: maximum,
+                            sourceState: state, program: program, workspace: &workspace,
+                            executionPolicy: .parallel(maximumWorkers: limit)
+                        )
+                        assertSpatialResult(
+                            samples, result: result, reference: reference,
+                            width: width, height: height, maximumWorkers: limit
+                        )
+                        XCTAssertTrue(samples.allSatisfy { minimum...maximum ~= $0 })
+                        XCTAssertEqual(
+                            workspace.retainedSampleCapacity,
+                            result.retainedRowSampleCount
+                        )
+                    }
+                }
+            }
+        }
+        XCTAssertTrue(sawChangedPixels, "Parity fixtures must exercise conditioning.")
+    }
+
+    func testParallelSpatialWorkspaceReusesBoundedStorage() throws {
+        let program = try ASHDepthFourBranchCompilerV4.compileCanonical()
+        let state = try spatialQualificationState(85)
+        let input = spatialQualificationSamples(width: 17, height: 31)
+        var workspace = ASHSpatialReconstructionWorkspaceV4()
+        var warmed = input
+        let warmup = try ASHSpatialReconstructorV4.reconstructInPlace(
+            samples: &warmed, width: 17, height: 31,
+            minimumCode: 64, maximumCode: 940,
+            sourceState: state, program: program, workspace: &workspace,
+            executionPolicy: .parallel(maximumWorkers: 14)
+        )
+        let capacity = workspace.retainedSampleCapacity
+        let identity = workspace.storageIdentity
+        let allocations = workspace.storageAllocationCount
+        XCTAssertEqual(capacity, 17 * (5 * warmup.workerCount - 2))
+        XCTAssertEqual(workspace.retainedByteUpperBound, capacity * 2)
+        XCTAssertNotEqual(identity, 0)
+        for iteration in 0..<12 {
+            let width = iteration.isMultiple(of: 2) ? 17 : 7
+            let height = iteration.isMultiple(of: 3) ? 31 : 3
+            let input = spatialQualificationSamples(width: width, height: height)
+            let plane = try ASHTemporalPlaneV4(
+                width: width, height: height,
+                minimumCode: 64, maximumCode: 940, samples: input
+            )
+            let reference = try ASHSpatialReconstructorV4.reconstruct(
+                spatial: plane, sourceState: state, program: program
+            )
+            let limit = [1, 2, 3, 7, 14][iteration % 5]
+            var samples = input
+            let result = try ASHSpatialReconstructorV4.reconstructInPlace(
+                samples: &samples, width: width, height: height,
+                minimumCode: 64, maximumCode: 940,
+                sourceState: state, program: program, workspace: &workspace,
+                executionPolicy: .parallel(maximumWorkers: limit)
+            )
+            assertSpatialResult(
+                samples, result: result, reference: reference,
+                width: width, height: height, maximumWorkers: limit
+            )
+            XCTAssertEqual(workspace.retainedSampleCapacity, capacity)
+            XCTAssertEqual(workspace.retainedByteUpperBound, capacity * 2)
+            XCTAssertEqual(workspace.storageIdentity, identity)
+            XCTAssertEqual(workspace.storageAllocationCount, allocations)
+        }
+    }
+
+    func testSpatialExecutionPolicyAndInvalidInputsFailBeforeMutation() throws {
+        let available = max(1, ProcessInfo.processInfo.activeProcessorCount)
+        let threshold = ASHSpatialExecutionPolicyV4.parallelSampleThreshold
+        XCTAssertEqual(
+            try ASHSpatialExecutionPolicyV4.automatic.workerCount(
+                rows: 100, sampleCount: threshold - 1
+            ), 1
+        )
+        XCTAssertEqual(
+            try ASHSpatialExecutionPolicyV4.automatic.workerCount(
+                rows: 100, sampleCount: threshold
+            ), min(100, available)
+        )
+        XCTAssertEqual(
+            try ASHSpatialExecutionPolicyV4.parallel(maximumWorkers: Int.max)
+                .workerCount(rows: 2, sampleCount: 6), min(2, available)
+        )
+        XCTAssertEqual(
+            try ASHSpatialExecutionPolicyV4.serial.workerCount(
+                rows: 100, sampleCount: threshold
+            ), 1
+        )
+        let program = try ASHDepthFourBranchCompilerV4.compileCanonical()
+        let state = try spatialQualificationState(0)
+        let input = spatialQualificationSamples(width: 7, height: 19)
+        var workspace = ASHSpatialReconstructionWorkspaceV4()
+        var warmed = input
+        _ = try ASHSpatialReconstructorV4.reconstructInPlace(
+            samples: &warmed, width: 7, height: 19,
+            minimumCode: 64, maximumCode: 940,
+            sourceState: state, program: program, workspace: &workspace,
+            executionPolicy: .parallel(maximumWorkers: 7)
+        )
+        let identity = workspace.storageIdentity
+        let capacity = workspace.retainedSampleCapacity
+        let allocations = workspace.storageAllocationCount
+        for limit in [0, -1] {
+            var samples = input
+            XCTAssertThrowsError(
+                try ASHSpatialReconstructorV4.reconstructInPlace(
+                    samples: &samples, width: 7, height: 19,
+                    minimumCode: 64, maximumCode: 940,
+                    sourceState: state, program: program, workspace: &workspace,
+                    executionPolicy: .parallel(maximumWorkers: limit)
+                )
+            ) { error in
+                XCTAssertEqual(error as? ASHTemporalV4Error, .invalidConfiguration)
+            }
+            XCTAssertEqual(samples, input)
+            XCTAssertEqual(workspace.storageIdentity, identity)
+            XCTAssertEqual(workspace.retainedSampleCapacity, capacity)
+            XCTAssertEqual(workspace.storageAllocationCount, allocations)
+        }
+        let malformed: [(Int, Int, UInt16, UInt16, [UInt16], ASHState)] = [
+            (0, 19, 64, 940, input, state),
+            (7, 0, 64, 940, input, state),
+            (Int.max, 2, 64, 940, input, state),
+            (7, 19, 940, 940, input, state),
+            (7, 19, 940, 64, input, state),
+            (7, 19, 64, 940, Array(input.dropLast()), state),
+            (7, 19, 64, 940, Array(input.dropLast()) + [63], state),
+            (7, 19, 64, 940, Array(input.dropLast()) + [941], state),
+            (7, 19, 64, 940, input, try ASHState(rawValue: 1)),
+            (0, 0, 940, 64, [63], try ASHState(rawValue: 1))
+        ]
+        for (width, height, minimum, maximum, original, sourceState) in malformed {
+            var serialSamples = original
+            var serialWorkspace = ASHSpatialReconstructionWorkspaceV4()
+            var expectedError: ASHTemporalV4Error?
+            XCTAssertThrowsError(
+                try ASHSpatialReconstructorV4.reconstructInPlace(
+                    samples: &serialSamples, width: width, height: height,
+                    minimumCode: minimum, maximumCode: maximum,
+                    sourceState: sourceState, program: program,
+                    workspace: &serialWorkspace, executionPolicy: .serial
+                )
+            ) { expectedError = $0 as? ASHTemporalV4Error }
+            XCTAssertNotNil(expectedError)
+            XCTAssertEqual(serialSamples, original)
+            for limit in [1, 3, 14] {
+                var samples = original
+                XCTAssertThrowsError(
+                    try ASHSpatialReconstructorV4.reconstructInPlace(
+                        samples: &samples, width: width, height: height,
+                        minimumCode: minimum, maximumCode: maximum,
+                        sourceState: sourceState, program: program, workspace: &workspace,
+                        executionPolicy: .parallel(maximumWorkers: limit)
+                    )
+                ) { XCTAssertEqual($0 as? ASHTemporalV4Error, expectedError) }
+                XCTAssertEqual(samples, original)
+                XCTAssertEqual(workspace.storageIdentity, identity)
+                XCTAssertEqual(workspace.retainedSampleCapacity, capacity)
+                XCTAssertEqual(workspace.storageAllocationCount, allocations)
+            }
+        }
+    }
+
+    func testCancelledParallelSpatialConditioningNeverMutates() async throws {
+        let program = try ASHDepthFourBranchCompilerV4.compileCanonical()
+        let state = try spatialQualificationState(170)
+        let input = spatialQualificationSamples(width: 17, height: 23)
+        let policies: [ASHSpatialExecutionPolicyV4] = [
+            .serial, .automatic,
+            .parallel(maximumWorkers: 1), .parallel(maximumWorkers: 3),
+            .parallel(maximumWorkers: 14)
+        ]
+        for policy in policies {
+            let cancelled = await Task { () -> ([UInt16], Bool) in
+                var samples = input
+                var workspace = ASHSpatialReconstructionWorkspaceV4()
+                withUnsafeCurrentTask { $0?.cancel() }
+                do {
+                    _ = try ASHSpatialReconstructorV4.reconstructInPlace(
+                        samples: &samples, width: 17, height: 23,
+                        minimumCode: 64, maximumCode: 940,
+                        sourceState: state, program: program, workspace: &workspace,
+                        executionPolicy: policy
+                    )
+                    return (samples, false)
+                } catch {
+                    return (samples, error is CancellationError)
+                }
+            }.value
+            XCTAssertTrue(cancelled.1)
+            XCTAssertEqual(cancelled.0, input)
+        }
+    }
+
+    func testParallelSpatialRepeatedAndConcurrentCallsUseIndependentScratch()
+        async throws {
+        let program = try ASHDepthFourBranchCompilerV4.compileCanonical()
+        let state = try spatialQualificationState(85)
+        let width = 31
+        let height = 43
+        let input = spatialQualificationSamples(width: width, height: height)
+        let plane = try ASHTemporalPlaneV4(
+            width: width, height: height,
+            minimumCode: 64, maximumCode: 940, samples: input
+        )
+        let reference = try ASHSpatialReconstructorV4.reconstruct(
+            spatial: plane, sourceState: state, program: program
+        )
+        var warmWorkspace = ASHSpatialReconstructionWorkspaceV4()
+        var warmSamples = input
+        _ = try ASHSpatialReconstructorV4.reconstructInPlace(
+            samples: &warmSamples, width: width, height: height,
+            minimumCode: 64, maximumCode: 940,
+            sourceState: state, program: program, workspace: &warmWorkspace,
+            executionPolicy: .parallel(maximumWorkers: 14)
+        )
+        XCTAssertEqual(warmSamples, reference.output.samples)
+        let seedWorkspace = warmWorkspace
+        let seedIdentity = seedWorkspace.storageIdentity
+        let seedCapacity = seedWorkspace.retainedSampleCapacity
+        let seedAllocations = seedWorkspace.storageAllocationCount
+        let outputs = try await withThrowingTaskGroup(of: [UInt16].self) { group in
+            for limit in [1, 2, 3, 7, 14, 2, 7, 14] {
+                group.addTask {
+                    var workspace = seedWorkspace
+                    var samples = input
+                    _ = try ASHSpatialReconstructorV4.reconstructInPlace(
+                        samples: &samples, width: width, height: height,
+                        minimumCode: 64, maximumCode: 940,
+                        sourceState: state, program: program, workspace: &workspace,
+                        executionPolicy: .parallel(maximumWorkers: limit)
+                    )
+                    return samples
+                }
+            }
+            var outputs: [[UInt16]] = []
+            for try await samples in group { outputs.append(samples) }
+            return outputs
+        }
+        XCTAssertEqual(outputs.count, 8)
+        for samples in outputs { XCTAssertEqual(samples, reference.output.samples) }
+        XCTAssertEqual(plane.samples, input)
+        XCTAssertEqual(seedWorkspace.storageIdentity, seedIdentity)
+        XCTAssertEqual(seedWorkspace.retainedSampleCapacity, seedCapacity)
+        XCTAssertEqual(seedWorkspace.storageAllocationCount, seedAllocations)
+    }
+
+    func testParallelSpatialMatchesReferenceAtNativeMovieGeometries() throws {
+        let program = try ASHDepthFourBranchCompilerV4.compileCanonical()
+        for (width, height) in [(1920, 816), (3840, 1632)] {
+            let input = spatialQualificationSamples(width: width, height: height)
+            let plane = try ASHTemporalPlaneV4(
+                width: width, height: height,
+                minimumCode: 64, maximumCode: 940, samples: input
+            )
+            for payload in [0, 255] {
+                let state = try spatialQualificationState(payload)
+                let reference = try ASHSpatialReconstructorV4.reconstruct(
+                    spatial: plane, sourceState: state, program: program
+                )
+                var workspace = ASHSpatialReconstructionWorkspaceV4()
+                var samples = input
+                let result = try ASHSpatialReconstructorV4.reconstructInPlace(
+                    samples: &samples, width: width, height: height,
+                    minimumCode: 64, maximumCode: 940,
+                    sourceState: state, program: program, workspace: &workspace,
+                    executionPolicy: .parallel(maximumWorkers: 14)
+                )
+                assertSpatialResult(
+                    samples, result: result, reference: reference,
+                    width: width, height: height, maximumWorkers: 14
+                )
+                samples = input
+                let automatic = try ASHSpatialReconstructorV4.reconstructInPlace(
+                    samples: &samples, width: width, height: height,
+                    minimumCode: 64, maximumCode: 940,
+                    sourceState: state, program: program, workspace: &workspace,
+                    executionPolicy: .automatic
+                )
+                XCTAssertEqual(samples, reference.output.samples)
+                XCTAssertEqual(automatic.basisGainsQ16, reference.basisGainsQ16)
+                let automaticWorkers = try ASHSpatialExecutionPolicyV4.automatic
+                    .workerCount(rows: height, sampleCount: input.count)
+                XCTAssertEqual(automatic.workerCount, automaticWorkers)
+                XCTAssertEqual(
+                    workspace.retainedByteUpperBound,
+                    width * (5 * max(result.workerCount, automaticWorkers) - 2) * 2
+                )
+            }
+        }
+    }
+
+    func testCaptureParallelSpatialBenchmarkWhenRequested() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let directory = environment["MIRMIR_V4_SPATIAL_BENCHMARK_DIR"],
+              !directory.isEmpty else {
+            throw XCTSkip("Set MIRMIR_V4_SPATIAL_BENCHMARK_DIR for spatial timing.")
+        }
+        #if DEBUG
+        throw XCTSkip("Spatial timing requires an optimized Release test build.")
+        #else
+        let processingActivity = MirmirProcessingActivity.begin(
+            "Benchmarking deterministic spatial conditioning"
+        )
+        defer { processingActivity.end() }
+        struct Record: Codable {
+            let width: Int
+            let height: Int
+            let requestedWorkerLimit: Int
+            let actualWorkerCount: Int
+            let stateRawValue: UInt16
+            let pixelsAndControlsEqual: Bool
+            let warmupPairs: Int
+            let samplePairs: Int
+            let serialScratchSamples: Int
+            let parallelScratchSamples: Int
+            let parallelScratchBytes: Int
+            let serialStorageAllocationCount: Int
+            let parallelStorageAllocationCount: Int
+            let serialSeconds: [Double]
+            let parallelSeconds: [Double]
+        }
+        struct Report: Codable {
+            let schemaVersion: String
+            let activeProcessorCount: Int
+            let inputPattern: String
+            let timedScope: String
+            let records: [Record]
+        }
+        let repetitions = min(30, max(1,
+            Int(environment["MIRMIR_V4_SPATIAL_BENCHMARK_SAMPLES"] ?? "5") ?? 5
+        ))
+        let warmupPairs = 5
+        let program = try ASHDepthFourBranchCompilerV4.compileCanonical()
+        let state = try spatialQualificationState(85)
+        var records: [Record] = []
+        for (width, height) in [
+            (256, 256), (512, 512), (1024, 256), (1920, 816), (3840, 1632)
+        ] {
+            let input = spatialQualificationSamples(width: width, height: height)
+            let plane = try ASHTemporalPlaneV4(
+                width: width, height: height,
+                minimumCode: 64, maximumCode: 940, samples: input
+            )
+            let reference = try ASHSpatialReconstructorV4.reconstruct(
+                spatial: plane, sourceState: state, program: program
+            )
+            for limit in [1, 2, 4, 8, 14] {
+                let policy = ASHSpatialExecutionPolicyV4.parallel(maximumWorkers: limit)
+                var serialWorkspace = ASHSpatialReconstructionWorkspaceV4()
+                var parallelWorkspace = ASHSpatialReconstructionWorkspaceV4()
+                var serialSamples = Array(repeating: UInt16(0), count: input.count)
+                var parallelSamples = Array(repeating: UInt16(0), count: input.count)
+                var serialSeconds: [Double] = []
+                var parallelSeconds: [Double] = []
+                var allEqual = true
+                var serialAllocationsAfterWarmup = 0
+                var parallelAllocationsAfterWarmup = 0
+                for iteration in 0..<(warmupPairs + repetitions) {
+                    let serialFirst = iteration.isMultiple(of: 2)
+                    for isSerial in [serialFirst, !serialFirst] {
+                        // Reset through a mutable borrow before starting the
+                        // timer, so neither path pays a deferred Array COW copy.
+                        if isSerial {
+                            resetSpatialBenchmarkSamples(&serialSamples, from: input)
+                        } else {
+                            resetSpatialBenchmarkSamples(&parallelSamples, from: input)
+                        }
+                        let started = DispatchTime.now().uptimeNanoseconds
+                        let result: ASHSpatialInPlaceResultV4
+                        if isSerial {
+                            result = try ASHSpatialReconstructorV4.reconstructInPlace(
+                                samples: &serialSamples, width: width, height: height,
+                                minimumCode: 64, maximumCode: 940,
+                                sourceState: state, program: program, workspace: &serialWorkspace,
+                                executionPolicy: .serial
+                            )
+                        } else {
+                            result = try ASHSpatialReconstructorV4.reconstructInPlace(
+                                samples: &parallelSamples, width: width, height: height,
+                                minimumCode: 64, maximumCode: 940,
+                                sourceState: state, program: program, workspace: &parallelWorkspace,
+                                executionPolicy: policy
+                            )
+                        }
+                        let seconds = Double(DispatchTime.now().uptimeNanoseconds - started)
+                            / 1_000_000_000
+                        let pixelsEqual = (isSerial ? serialSamples : parallelSamples)
+                            == reference.output.samples
+                        let controlsEqual = result.stateRawValue == reference.stateRawValue
+                            && result.targetMessageRawValue == reference.targetMessageRawValue
+                            && result.basisGainsQ16 == reference.basisGainsQ16
+                        allEqual = allEqual && pixelsEqual && controlsEqual
+                        XCTAssertTrue(pixelsEqual)
+                        XCTAssertTrue(controlsEqual)
+                        if iteration >= warmupPairs {
+                            if isSerial { serialSeconds.append(seconds) }
+                            else { parallelSeconds.append(seconds) }
+                        }
+                    }
+                    if iteration + 1 == warmupPairs {
+                        serialAllocationsAfterWarmup = serialWorkspace.storageAllocationCount
+                        parallelAllocationsAfterWarmup = parallelWorkspace.storageAllocationCount
+                    }
+                }
+                XCTAssertEqual(serialWorkspace.storageAllocationCount, serialAllocationsAfterWarmup)
+                XCTAssertEqual(parallelWorkspace.storageAllocationCount, parallelAllocationsAfterWarmup)
+                let workers = try policy.workerCount(rows: height, sampleCount: input.count)
+                XCTAssertEqual(parallelWorkspace.retainedSampleCapacity, width * (5 * workers - 2))
+                records.append(Record(
+                    width: width, height: height, requestedWorkerLimit: limit,
+                    actualWorkerCount: workers, stateRawValue: state.rawValue,
+                    pixelsAndControlsEqual: allEqual,
+                    warmupPairs: warmupPairs, samplePairs: repetitions,
+                    serialScratchSamples: serialWorkspace.retainedSampleCapacity,
+                    parallelScratchSamples: parallelWorkspace.retainedSampleCapacity,
+                    parallelScratchBytes: parallelWorkspace.retainedByteUpperBound,
+                    serialStorageAllocationCount: serialWorkspace.storageAllocationCount,
+                    parallelStorageAllocationCount: parallelWorkspace.storageAllocationCount,
+                    serialSeconds: serialSeconds, parallelSeconds: parallelSeconds
+                ))
+            }
+        }
+        let report = Report(
+            schemaVersion: "mirmir-v4-spatial-parallel-benchmark-v1",
+            activeProcessorCount: ProcessInfo.processInfo.activeProcessorCount,
+            inputPattern: "spatial-extrema-and-texture-v1",
+            timedScope: "in-place call including validation, controls, scratch preparation, halo capture, dispatch and join; input reset and exact comparisons excluded",
+            records: records
+        )
+        let output = URL(fileURLWithPath: directory, isDirectory: true)
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(report)
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = "spatial-parallel-benchmark.json"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        try data.write(
+            to: output.appendingPathComponent("spatial-parallel-benchmark.json"),
+            options: .atomic
+        )
+        #endif
+    }
+
     func testInPlaceConditioningCancellationAndInvalidFieldNeverMutate()
         async throws {
         let program = try ASHDepthFourBranchCompilerV4.compileCanonical()
@@ -1660,6 +2190,75 @@ final class ASHTemporalReconstructionV4Tests: XCTestCase {
         let roundsUp = twiceRemainder > denominator
             || (twiceRemainder == denominator && !quotient.isMultiple(of: 2))
         return quotient + (roundsUp ? 1 : 0)
+    }
+
+    private func spatialQualificationState(_ payload: Int) throws -> ASHState {
+        try ASHState(payloadBits: (0..<8).map { bit in (payload >> bit) & 1 })
+    }
+
+    private func spatialQualificationSamples(
+        width: Int,
+        height: Int,
+        minimumCode: UInt16 = 64,
+        maximumCode: UInt16 = 940
+    ) -> [UInt16] {
+        let span = Int(maximumCode) - Int(minimumCode) + 1
+        var samples: [UInt16] = []
+        samples.reserveCapacity(width * height)
+        for y in 0..<height {
+            for x in 0..<width {
+                let selector = (x * 13 + y * 17) % 19
+                switch selector {
+                case 0:
+                    samples.append(minimumCode)
+                case 1:
+                    samples.append(maximumCode)
+                case 2:
+                    samples.append(minimumCode + 1)
+                case 3:
+                    samples.append(maximumCode - 1)
+                default:
+                    let texture = (x * 71 + y * 43 + x * y * 5) % span
+                    samples.append(UInt16(Int(minimumCode) + texture))
+                }
+            }
+        }
+        return samples
+    }
+
+    private func assertSpatialResult(
+        _ samples: [UInt16],
+        result: ASHSpatialInPlaceResultV4,
+        reference: ASHSpatialReconstructionResultV4,
+        width: Int,
+        height: Int,
+        maximumWorkers: Int,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let workers = min(
+            height, maximumWorkers, max(1, ProcessInfo.processInfo.activeProcessorCount)
+        )
+        let context = "\(width)x\(height), state \(reference.stateRawValue), worker limit \(maximumWorkers)"
+        XCTAssertTrue(samples == reference.output.samples, context, file: file, line: line)
+        XCTAssertEqual(result.stateRawValue, reference.stateRawValue, context, file: file, line: line)
+        XCTAssertEqual(result.targetMessageRawValue, reference.targetMessageRawValue, context, file: file, line: line)
+        XCTAssertEqual(result.basisGainsQ16, reference.basisGainsQ16, context, file: file, line: line)
+        XCTAssertEqual(result.workerCount, workers, context, file: file, line: line)
+        XCTAssertEqual(result.retainedRowSampleCount, width * (5 * workers - 2), context, file: file, line: line)
+    }
+
+    private func resetSpatialBenchmarkSamples(
+        _ samples: inout [UInt16],
+        from original: [UInt16]
+    ) {
+        samples.withUnsafeMutableBufferPointer { destination in
+            original.withUnsafeBufferPointer { source in
+                guard let destinationBase = destination.baseAddress,
+                      let sourceBase = source.baseAddress else { return }
+                destinationBase.update(from: sourceBase, count: source.count)
+            }
+        }
     }
 
     private func makeFrame(

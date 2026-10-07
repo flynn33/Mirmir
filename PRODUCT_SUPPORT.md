@@ -1,8 +1,17 @@
 # Mirmir product support
 
-Current source identity: **Mirmir 1.6.0 (16)**. On October 6, 2026, the installed
-`/Applications/Mirmir.app` reports 1.5.0 (15). It has not been replaced by this
-source update.
+Current source identity: **Mirmir 1.7.0 (17)**. The October 7, 2026 readback
+confirmed installed `/Applications/Mirmir.app` **1.6.0 (16)**, with the original
+Ferris process present and its job head readable. The active app was not
+replaced; the 1.7.0 validation build is separate. The October 6 installation
+check reporting 1.5.0 (15) remains historical. Source publication and binary
+distribution are separate actions.
+
+The current beta candidate has exact serial/parallel spatial-stage parity and
+an isolated 8.91× spatial speedup at 3840×1632. Fresh version-aligned Debug and
+Release suites pass, while an earlier strict decoded H.264 parity incident
+remains unexplained and the packaged runtime source-identity gate remains open. See [known issues](KNOWN_ISSUES.md) and
+[current qualification](docs/v4/CURRENT_QUALIFICATION_STATUS.md).
 
 Mirmir is a sandboxed macOS 15.4-or-later application. It reads local media
 through security-scoped bookmarks, builds an explicit whole-asset plan, and
@@ -59,7 +68,7 @@ and found 241 video frames and 470 audio packets in both the source and output.
 The output is
 `/Users/jimdaley/Desktop/Mirmir-1.4.3-Build12-Evidence/83-final-real-source-production-1024-green/durable-workflow-run/durable-workflow-output.mov`.
 This historical 1.4.3 short-source result does not complete DV4-002 or qualify
-the current 1.6.0 source or currently installed 1.5.0 application.
+the current 1.7.0 source or a later installed application.
 
 VideoToolbox methods fail closed when the exact source, target, or scale
 geometry is unsupported. Automatic pre-scale and post-scale geometry
@@ -114,6 +123,12 @@ in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
   full-frame history is retained. Scene cuts, seeks, discontinuities, format or
   color changes, field-cadence changes, and dynamic HDR frame metadata trigger
   the declared spatial fallback/reset behavior.
+- Spatial conditioning uses bounded, disjoint CPU row stripes on both routes
+  for planes with at least 262,144 samples, capped by height and active
+  processor count. Immutable boundary rows preserve the serial stencil;
+  smaller planes use the serial path. Frame history and durable commits remain
+  ordered. This does not move conditioning or motion search onto the GPU. See
+  [spatial parallelism](docs/DETERMINISTIC_SPATIAL_PARALLELISM.md).
 - CPU and Metal consume one fixed-point semantic contract. Release evidence
   requires byte equality for visible output planes across NV12, P010, arbitrary
   geometry, temporal, interlaced, and alpha conformance cases.

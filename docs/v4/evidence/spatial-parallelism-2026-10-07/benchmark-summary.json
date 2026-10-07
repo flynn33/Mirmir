@@ -1,0 +1,257 @@
+{
+  "scope": "in-place call including validation, controls, scratch preparation, halo capture, dispatch and join; input reset and exact comparisons excluded",
+  "activeFerris": true,
+  "samplesPerPair": 5,
+  "records": [
+    {
+      "width": 256,
+      "height": 256,
+      "workers": 1,
+      "serialMedianMS": 0.909292,
+      "parallelMedianMS": 0.89725,
+      "speedup": 1.0134210086375035,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 1536
+    },
+    {
+      "width": 256,
+      "height": 256,
+      "workers": 2,
+      "serialMedianMS": 0.878,
+      "parallelMedianMS": 0.41716600000000004,
+      "speedup": 2.1046777541793915,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 4096
+    },
+    {
+      "width": 256,
+      "height": 256,
+      "workers": 4,
+      "serialMedianMS": 0.95,
+      "parallelMedianMS": 0.236625,
+      "speedup": 4.014791336502905,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 9216
+    },
+    {
+      "width": 256,
+      "height": 256,
+      "workers": 8,
+      "serialMedianMS": 0.915625,
+      "parallelMedianMS": 0.147917,
+      "speedup": 6.190126895488687,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 19456
+    },
+    {
+      "width": 256,
+      "height": 256,
+      "workers": 14,
+      "serialMedianMS": 0.887042,
+      "parallelMedianMS": 0.147792,
+      "speedup": 6.001962217170077,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 34816
+    },
+    {
+      "width": 512,
+      "height": 512,
+      "workers": 1,
+      "serialMedianMS": 3.827709,
+      "parallelMedianMS": 3.7585,
+      "speedup": 1.0184139949447917,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 3072
+    },
+    {
+      "width": 512,
+      "height": 512,
+      "workers": 2,
+      "serialMedianMS": 3.806459,
+      "parallelMedianMS": 1.6915,
+      "speedup": 2.2503452556902155,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 8192
+    },
+    {
+      "width": 512,
+      "height": 512,
+      "workers": 4,
+      "serialMedianMS": 3.773083,
+      "parallelMedianMS": 0.9125,
+      "speedup": 4.134885479452055,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 18432
+    },
+    {
+      "width": 512,
+      "height": 512,
+      "workers": 8,
+      "serialMedianMS": 3.760916,
+      "parallelMedianMS": 0.71,
+      "speedup": 5.297064788732394,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 38912
+    },
+    {
+      "width": 512,
+      "height": 512,
+      "workers": 14,
+      "serialMedianMS": 3.761708,
+      "parallelMedianMS": 0.606375,
+      "speedup": 6.203600082457225,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 69632
+    },
+    {
+      "width": 1024,
+      "height": 256,
+      "workers": 1,
+      "serialMedianMS": 3.725875,
+      "parallelMedianMS": 3.7166669999999997,
+      "speedup": 1.0024774885670413,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 6144
+    },
+    {
+      "width": 1024,
+      "height": 256,
+      "workers": 2,
+      "serialMedianMS": 3.745791,
+      "parallelMedianMS": 1.697458,
+      "speedup": 2.206706145306688,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 16384
+    },
+    {
+      "width": 1024,
+      "height": 256,
+      "workers": 4,
+      "serialMedianMS": 3.895459,
+      "parallelMedianMS": 0.940084,
+      "speedup": 4.143735027933674,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 36864
+    },
+    {
+      "width": 1024,
+      "height": 256,
+      "workers": 8,
+      "serialMedianMS": 3.922,
+      "parallelMedianMS": 0.535041,
+      "speedup": 7.330279361768538,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 77824
+    },
+    {
+      "width": 1024,
+      "height": 256,
+      "workers": 14,
+      "serialMedianMS": 3.785333,
+      "parallelMedianMS": 0.5515,
+      "speedup": 6.863704442429737,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 139264
+    },
+    {
+      "width": 1920,
+      "height": 816,
+      "workers": 1,
+      "serialMedianMS": 23.050334,
+      "parallelMedianMS": 22.901125,
+      "speedup": 1.006515356778324,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 11520
+    },
+    {
+      "width": 1920,
+      "height": 816,
+      "workers": 2,
+      "serialMedianMS": 22.752208,
+      "parallelMedianMS": 9.957291,
+      "speedup": 2.2849797198856594,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 30720
+    },
+    {
+      "width": 1920,
+      "height": 816,
+      "workers": 4,
+      "serialMedianMS": 22.690834,
+      "parallelMedianMS": 5.302125,
+      "speedup": 4.279573567201829,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 69120
+    },
+    {
+      "width": 1920,
+      "height": 816,
+      "workers": 8,
+      "serialMedianMS": 23.022416,
+      "parallelMedianMS": 2.887041,
+      "speedup": 7.974398700953675,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 145920
+    },
+    {
+      "width": 1920,
+      "height": 816,
+      "workers": 14,
+      "serialMedianMS": 22.571375,
+      "parallelMedianMS": 2.448083,
+      "speedup": 9.220020317938566,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 261120
+    },
+    {
+      "width": 3840,
+      "height": 1632,
+      "workers": 1,
+      "serialMedianMS": 91.25266599999999,
+      "parallelMedianMS": 91.23645900000001,
+      "speedup": 1.0001776373193088,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 23040
+    },
+    {
+      "width": 3840,
+      "height": 1632,
+      "workers": 2,
+      "serialMedianMS": 91.46420900000001,
+      "parallelMedianMS": 39.973417,
+      "speedup": 2.2881258562409115,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 61440
+    },
+    {
+      "width": 3840,
+      "height": 1632,
+      "workers": 4,
+      "serialMedianMS": 91.635334,
+      "parallelMedianMS": 21.068958,
+      "speedup": 4.349305456871669,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 138240
+    },
+    {
+      "width": 3840,
+      "height": 1632,
+      "workers": 8,
+      "serialMedianMS": 92.06075,
+      "parallelMedianMS": 11.437166,
+      "speedup": 8.049262378459838,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 291840
+    },
+    {
+      "width": 3840,
+      "height": 1632,
+      "workers": 14,
+      "serialMedianMS": 91.325417,
+      "parallelMedianMS": 10.248417,
+      "speedup": 8.911173013354162,
+      "pixelsAndControlsEqual": true,
+      "scratchBytes": 522240
+    }
+  ]
+}

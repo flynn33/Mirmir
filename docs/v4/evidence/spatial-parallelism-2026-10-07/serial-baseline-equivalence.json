@@ -1,0 +1,7 @@
+{
+  "file": "Mirmir/Modules/UpscalerEngine/ASHTemporalReconstructionV4.swift",
+  "baseRevision": "817f1f2f56f5b59a5d36818505c368e12069bf48",
+  "serialLoadCancellationAndCommitLoopByteIdentical": true,
+  "baselineLoopSHA256": "85f54a9cd91df5d5481ef7b873dec1810f12d5c2fd0fa593b3841da3a5c3da91",
+  "candidateSerialLoopSHA256": "85f54a9cd91df5d5481ef7b873dec1810f12d5c2fd0fa593b3841da3a5c3da91"
+}

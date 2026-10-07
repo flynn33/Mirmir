@@ -1,7 +1,7 @@
 # Deterministic motion parallelism and processing activity
 
-Mirmir 1.6.0 build 16 parallelizes independent motion searches within a
-frame. Source measurement, spatial output, output motion, temporal
+Introduced in Mirmir 1.6.0 build 16, this implementation parallelizes independent
+motion searches within a frame. Source measurement, spatial output, output motion, temporal
 reconstruction, and history publication retain their existing order. Correct
 NTSC timestamps remain on the exact cadence; timestamp discontinuities are
 not used to avoid temporal work.

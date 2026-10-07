@@ -3,17 +3,19 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-Version **1.6.0 build 16** adds bounded parallel motion searches and scoped
-App Nap protection during active upscaling. Workers share immutable frame data
-and combine results in a fixed order; temporal history and exact NTSC timing
-remain ordered. Planning, processing, finalization, and recovery hold an
-activity that permits display sleep and ends when work stops. See
-[`docs/DETERMINISTIC_MOTION_PARALLELISM.md`](docs/DETERMINISTIC_MOTION_PARALLELISM.md)
-for implementation and verification details, and
+Version **1.7.0 build 17** adds bounded parallel spatial conditioning to both
+deterministic routes. Workers own disjoint row stripes and bounded scratch;
+immutable boundary rows preserve the serial integer stencil and rounding.
+At 3840×1632, the measured spatial-stage median fell from 91.325 to 10.248 ms
+with 14 workers across five alternating pairs after warmup, an **8.91×**
+improvement with identical pixels and controls. This measures that stage;
+full-movie completion time remains unqualified. See
+[`docs/DETERMINISTIC_SPATIAL_PARALLELISM.md`](docs/DETERMINISTIC_SPATIAL_PARALLELISM.md)
+for implementation, strict parity coverage, and verification limits, and
 [`docs/v4/CURRENT_QUALIFICATION_STATUS.md`](docs/v4/CURRENT_QUALIFICATION_STATUS.md)
 for current results and remaining qualification work.
 
-Version 1.6.0 build 16 carries the deterministic ASH P06 CPU and Metal engine
+Version 1.7.0 build 17 carries the deterministic ASH P06 CPU and Metal engine
 beside the supported Apple scaling frameworks, preserves the completed
 simulator-only M7 candidate selection, and adds qualified source admission,
 VideoToolbox capability checks, multi-audio preservation, and deterministic
@@ -32,6 +34,11 @@ The current marketing version and build number are recorded in
 Xcode. Release packaging, signing, notarization, and publication remain
 deliberate operator actions.
 
+The October 7 readback confirmed the installed `/Applications/Mirmir.app` is
+**1.6.0 (16)**, with the original Ferris process still present and its job head
+readable. The 1.7.0 (17) validation build is separate; the active app was not
+replaced.
+
 ## Highlights
 
 - Midnight Nordic interface with an interactive before-and-after comparison
@@ -44,8 +51,9 @@ deliberate operator actions.
 - Native 8-bit NV12 and 10-bit P010/HDR processing, field-aware deinterlacing,
   rational sample-aspect/clean-aperture geometry, and ProRes 4444 alpha output.
 - State-conditioned spatial reconstruction plus bounded, motion-compensated
-  temporal history with deterministic checkpoint restoration and parallel
-  motion block searches. Active processing remains protected from App Nap.
+  temporal history with deterministic checkpoint restoration, parallel spatial
+  stripes, and parallel motion block searches. Frames and history stay ordered;
+  active processing remains protected from App Nap.
 - Explicit Apple-native choices using VideoToolbox, MetalFX, Metal Performance
   Shaders, Core Image, Accelerate/vImage, and pixel transfer where available.
 - HEVC, H.264, Apple ProRes 422, and alpha-capable Apple ProRes 4444 output in
@@ -72,7 +80,7 @@ deliberate operator actions.
   bounded process telemetry. Diagnostics exports the journal as JSON or
   Markdown and the current process's available unified logs as JSON.
 
-Version 1.6.0 keeps these product boundaries explicit:
+Version 1.7.0 keeps these product boundaries explicit:
 
 - Deterministic resource allocation is not a first-release target. It is
   excluded from version 1.4.0 rather than treated as unfinished release work.
@@ -103,7 +111,8 @@ See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.
 See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) for accepted first-release limitations
 and post-first-release qualification and enhancement work.
-See [`CHANGELOG.md`](CHANGELOG.md) for the 1.6.0 parallel motion and processing activity
+See [`CHANGELOG.md`](CHANGELOG.md) for the 1.7.0 parallel spatial conditioning,
+the 1.6.0 parallel motion and processing activity
 changes, the 1.5.0 diagnostic and engine efficiency update, the 1.4.3 timing, diagnostics, and
 singleton-audio corrections, the 1.4.2 cache-control correction,
 the 1.4.1 timing correction, the 1.4.0
@@ -117,7 +126,52 @@ The [Mirmir Wiki](https://github.com/flynn33/Mirmir/wiki) provides the complete
 product guide, architecture reference, ASH engine documentation, diagrams,
 testing procedures, and troubleshooting material.
 
-Current 1.6.0 build-16 verification on October 6, 2026:
+Retained spatial-candidate evidence on October 7, 2026, before the 1.7.0 version
+alignment:
+
+- Native Debug: **635 passed, zero failed, six opt-in skips**. Native Release:
+  **630 passed, one failed, five opt-in skips**. The strict decoded H.264 parity
+  test failed in that run: all 156 pre-encoder frames match, while 25 decoded
+  ordinals differ. Four traced repeats matched; the cause remains unknown.
+- Forced serial/parallel tests compare every pixel and spatial control against
+  an independent reference, including all 256 ASH states, stripe boundaries,
+  invalid inputs, cancellation, reused scratch, concurrent calls, and movie
+  geometries. No quality or parity assertion was relaxed.
+- A separately identified, unsealed development capture reproduced all 840
+  baseline candidate/ablation artifacts and its quality results. Its 64×48
+  frames use the serial path; it neither qualifies the parallel path nor
+  replaces the historical sealed M7 selection.
+- The packaged runtime source-identity gate still exits 2. A runtime-production
+  attempt stopped at stale frozen capture-observer locks, with 16 of 17 checks
+  passing. Existing runtime assets, trust constants, and historical seals remain
+  unchanged. Current runtime-source closure remains open. See the
+  [current status](docs/v4/CURRENT_QUALIFICATION_STATUS.md).
+
+Fresh 1.7.0 build-17 Debug and Release test builds and the universal production
+Release build succeeded with zero compiler warnings or errors. The signed app
+reports 1.7.0 (17), keeps `com.mirmir.app`, contains arm64 and x86_64, and passes
+strict/deep signature verification. The actual repository project also built
+successfully in Xcode for **Any Mac (arm64, x86_64)** at 2:04 PM on October 7,
+with an empty unfiltered Issue Navigator. These are build results; the earlier
+decoded parity and runtime source-binding issues remain open.
+
+The fresh 1.7.0 (17) default Debug suite passed **635 tests, zero failures,
+six skips** out of 641. Fresh default Release passed **630 tests, zero failures,
+six skips** out of 636. Both report no runtime warnings. The explicitly
+enabled one-frame 4096×2160 → 8192×4320 CPU allocation gate also passed **1/1**
+with no failures, skips, or reported runtime warnings. These passing fresh
+suites do not identify or repair the earlier decoded H.264 parity incident.
+
+An independent comparison of actual pre-change and current optimized binaries
+confirmed the spatial-stage gain across ten alternating pairs after five
+warmups: **99.776 → 12.518 ms (7.971×)** at 3840×1632 and
+**21.922 → 3.175 ms (6.905×)** at 1920×816. Pixels, controls, and cross-binary
+output digests match. These measurements ran with Ferris active and no
+build/test overlap; neither this confirmation nor the original five-pair 8.91×
+observation is a guaranteed whole-movie multiplier. See the
+[independent receipt](docs/v4/evidence/spatial-parallelism-2026-10-07/INDEPENDENT_VALIDATION.md).
+
+Historical 1.6.0 build-16 verification on October 6, 2026:
 
 - Native Xcode **My Mac** tests: Debug 628 passed and Release 623 passed,
   zero failures and five opt-in skips in each configuration.

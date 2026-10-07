@@ -1,9 +1,55 @@
 # Mirmir accepted limitations and follow-up work
 
-Updated for Mirmir 1.6.0 build 16 on October 6, 2026. These entries distinguish
-source repair from installed-product and full-media qualification. The
-installed `/Applications/Mirmir.app` reports 1.5.0 build 15 and has not been
-replaced by this source update.
+Updated for Mirmir 1.7.0 build 17 on October 7, 2026. These entries distinguish
+source repair from installed-product and full-media qualification. October 7
+readback confirmed `/Applications/Mirmir.app` **1.6.0 (16)**, with the original
+Ferris process still present and its job head readable. The active app was not
+replaced; the 1.7.0 (17) validation build remains separate. The October 6
+installation check reporting 1.5.0 (15) is historical.
+
+## PARITY-001 — Intermittent Release decoded H.264 mismatch
+
+**Status:** Open beta qualification defect; cause unknown
+
+The October 7 spatial candidate's full native Release suite retained one
+failure in strict CPU/Metal decoded-frame parity. All 156 pre-encoder frames
+match, while decoded ordinals 125–148 and 154 differ. Four subsequent traced
+repeats match. These observations do not establish the cause or a repair;
+the strict assertion and captured evidence remain intact. Debug passed 635
+tests with zero failures and six opt-in skips; Release passed 630 with one
+failure and five opt-in skips before the version-only alignment.
+
+The spatial-stage benchmark and forced parallel pixel tests do not close this
+end-to-end codec qualification issue. The fresh version-aligned Debug suite
+passed 635 tests and Release passed 630, each with zero failures and six skips;
+both report no runtime warnings. These passing runs do not identify or repair
+the earlier incident. Full-movie stability remains unqualified.
+
+## PROV-001 — Packaged runtime source closure
+
+**Status:** Open source-identity gate
+
+`repository_identity_v4.verify_runtime_bundle` still rejects the source closure
+with exit 2. The attempted runtime producer separately stopped at stale frozen
+capture-observer source/size locks: 16 of 17 checks passed. Runtime assets, trust
+constants, and historical evidence were retained unchanged. The development
+quality replay is explicitly unsealed and does not replace a newly bound
+runtime candidate. See the
+[current qualification status](docs/v4/CURRENT_QUALIFICATION_STATUS.md).
+
+## PERF-002 — Spatial-stage speedup and whole-movie throughput
+
+**Status:** Exact spatial parity and isolated timing measured; full-movie
+throughput remains open
+
+At 3840×1632 with 14 workers, five alternating measurements after warmup
+reduced the spatial-conditioning median from 91.325 to 10.248 ms, **8.91×**,
+with identical pixels and controls. The benchmark includes validation, halo
+staging, dispatch, and joined completion; it excludes input reset and equality
+checking. This result covers spatial conditioning only. Existing source
+authentication, ordered history, encoding, checkpoints, and output verification
+still contribute to complete-job time. See
+[spatial parallelism](docs/DETERMINISTIC_SPATIAL_PARALLELISM.md).
 
 ## PERF-001 — Diagnostic overhead during long deterministic jobs
 
@@ -45,8 +91,8 @@ contained, failed, and cancelled jobs, verified owned files were removed, and
 observed the empty-queue location gate become available. The owner then
 authorized clearing the live root through those same methods. The installed
 1.4.1 app reopened it with zero jobs and **Choose Location…** enabled. The
-current installed `/Applications/Mirmir.app` reports 1.5.0 build 15, but its
-cache confirmation behavior has not been rechecked in this investigation.
+October 6 installation check reported `/Applications/Mirmir.app` 1.5.0 build
+15; its cache confirmation behavior was not rechecked in that investigation.
 
 ## DV4-057 — Short nominal-cadence video terminal boundary
 

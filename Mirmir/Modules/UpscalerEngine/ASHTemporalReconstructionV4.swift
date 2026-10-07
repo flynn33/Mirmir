@@ -3495,21 +3495,73 @@ struct ASHSpatialReconstructionResultV4: Equatable, Sendable {
     let basisGainsQ16: [UInt32]
 }
 
-/// Three active rows are sufficient for the canonical four-neighbor stencil.
-/// The workspace grows only with width, never with frame area, and exposes
-/// allocation identity for qualification and long-run diagnostics.
+enum ASHSpatialExecutionPolicyV4: Sendable {
+    case automatic
+    case serial
+    case parallel(maximumWorkers: Int)
+
+    static let parallelSampleThreshold = 262_144
+
+    func workerCount(rows: Int, sampleCount: Int) throws -> Int {
+        let available = max(1, ProcessInfo.processInfo.activeProcessorCount)
+        switch self {
+        case .automatic:
+            return sampleCount < Self.parallelSampleThreshold
+                ? 1 : min(rows, available)
+        case .serial:
+            return 1
+        case .parallel(let maximumWorkers):
+            guard maximumWorkers > 0 else {
+                throw ASHTemporalV4Error.invalidConfiguration
+            }
+            return min(rows, min(available, maximumWorkers))
+        }
+    }
+}
+
+private enum ASHSpatialBatchExecutorV4 {
+    private static let queue = DispatchQueue(
+        label: "com.mirmir.deterministic.spatial.v4",
+        qos: .userInitiated,
+        attributes: .concurrent
+    )
+
+    static func perform(iterations: Int, work: @Sendable (Int) -> Void) {
+        queue.sync {
+            DispatchQueue.concurrentPerform(iterations: iterations, execute: work)
+        }
+    }
+}
+
+// These borrows exist only inside one exclusive output borrow and one workspace
+// borrow. Workers own disjoint output stripes and three-row rings; boundary rows
+// are immutable snapshots. The executor joins before either borrow ends.
+private struct ASHSpatialStripeBorrowV4: @unchecked Sendable {
+    let output: UnsafeMutableBufferPointer<UInt16>
+    let rows: UnsafeMutableBufferPointer<UInt16>
+    let previousBoundaryRow: UnsafeBufferPointer<UInt16>
+    let nextBoundaryRow: UnsafeBufferPointer<UInt16>
+    let rowRange: Range<Int>
+}
+
+/// Each worker retains three active rows for the canonical four-neighbor
+/// stencil; two original rows are saved per stripe boundary. Storage grows with
+/// width and the bounded worker count, never with frame area.
 struct ASHSpatialReconstructionWorkspaceV4: Sendable {
     fileprivate(set) var rows: [UInt16] = []
     private(set) var reservedWidth = 0
     private(set) var storageAllocationCount = 0
     private(set) var storageIdentity: UInt = 0
+    private(set) var retainedSampleCapacity = 0
 
-    var retainedSampleCapacity: Int { reservedWidth * 3 }
     var retainedByteUpperBound: Int {
         retainedSampleCapacity * MemoryLayout<UInt16>.stride
     }
 
-    fileprivate mutating func prepare(width: Int) throws {
+    fileprivate mutating func prepare(
+        width: Int,
+        workerCount: Int = 1
+    ) throws {
         guard width > 0 else {
             throw ASHTemporalV4Error.invalidPlaneGeometry(
                 width: width,
@@ -3517,15 +3569,24 @@ struct ASHSpatialReconstructionWorkspaceV4: Sendable {
                 sampleCount: 0
             )
         }
-        let count = width.multipliedReportingOverflow(by: 3)
+        guard workerCount > 0 else {
+            throw ASHTemporalV4Error.invalidConfiguration
+        }
+        let rowCount = workerCount.multipliedReportingOverflow(by: 5)
+        guard !rowCount.overflow else {
+            throw ASHTemporalV4Error.arithmeticOverflow
+        }
+        let count = width.multipliedReportingOverflow(
+            by: rowCount.partialValue - 2
+        )
         guard !count.overflow else {
             throw ASHTemporalV4Error.arithmeticOverflow
         }
         let priorIdentity = storageIdentity
-        let declaredAllocation = width > reservedWidth
+        let declaredAllocation = count.partialValue > retainedSampleCapacity
         if declaredAllocation {
             rows = Array(repeating: 0, count: count.partialValue)
-            reservedWidth = width
+            retainedSampleCapacity = count.partialValue
             storageAllocationCount += 1
         } else if rows.count < count.partialValue {
             rows.append(
@@ -3537,6 +3598,7 @@ struct ASHSpatialReconstructionWorkspaceV4: Sendable {
         } else if rows.count > count.partialValue {
             rows.removeLast(rows.count - count.partialValue)
         }
+        reservedWidth = max(reservedWidth, width)
         let nextIdentity = rows.withUnsafeBufferPointer { buffer -> UInt in
             guard let base = buffer.baseAddress else { return 0 }
             return UInt(bitPattern: base)
@@ -3555,6 +3617,7 @@ struct ASHSpatialInPlaceResultV4: Equatable, Sendable {
     let targetMessageRawValue: UInt8
     let basisGainsQ16: [UInt32]
     let retainedRowSampleCount: Int
+    let workerCount: Int
 }
 
 /// Shared integer spatial reconstruction policy applied after the common
@@ -3647,9 +3710,9 @@ enum ASHSpatialReconstructorV4 {
         )
     }
 
-    /// Applies the exact reference stencil in place while retaining only three
-    /// original source rows. Every validation and cancellation point precedes
-    /// mutation; the commit loop is integer-bounded and non-throwing.
+    /// Applies the exact reference stencil with bounded row storage. Every
+    /// validation and cancellation point precedes mutation; serial and joined
+    /// parallel commit loops are integer-bounded and non-throwing.
     static func reconstructInPlace(
         samples: inout [UInt16],
         width: Int,
@@ -3658,7 +3721,8 @@ enum ASHSpatialReconstructorV4 {
         maximumCode: UInt16,
         sourceState: ASHState,
         program: ASHDepthFourBranchProgramV4,
-        workspace: inout ASHSpatialReconstructionWorkspaceV4
+        workspace: inout ASHSpatialReconstructionWorkspaceV4,
+        executionPolicy: ASHSpatialExecutionPolicyV4 = .automatic
     ) throws -> ASHSpatialInPlaceResultV4 {
         guard sourceState.hasValidIntegrity else {
             throw ASHTemporalV4Error.invalidASHState(sourceState.rawValue)
@@ -3694,7 +3758,31 @@ enum ASHSpatialReconstructorV4 {
         }
         var gains = try expectedBasis.map { try scaledGain($0) }
         gains[3] = 0
-        try workspace.prepare(width: width)
+        let workerCount = try executionPolicy.workerCount(
+            rows: height,
+            sampleCount: sampleCount.partialValue
+        )
+        try workspace.prepare(width: width, workerCount: workerCount)
+
+        if workerCount > 1 {
+            try reconstructParallelStripes(
+                samples: &samples,
+                width: width,
+                height: height,
+                minimumCode: minimumCode,
+                maximumCode: maximumCode,
+                gains: gains,
+                workerCount: workerCount,
+                workspace: &workspace
+            )
+            return ASHSpatialInPlaceResultV4(
+                stateRawValue: sourceState.rawValue,
+                targetMessageRawValue: conditioned.targetMessageRawValue,
+                basisGainsQ16: gains,
+                retainedRowSampleCount: workspace.rows.count,
+                workerCount: workerCount
+            )
+        }
 
         func loadRow(_ sourceY: Int, into slot: Int) {
             let sourceStart = sourceY * width
@@ -3768,8 +3856,170 @@ enum ASHSpatialReconstructorV4 {
             stateRawValue: sourceState.rawValue,
             targetMessageRawValue: conditioned.targetMessageRawValue,
             basisGainsQ16: gains,
-            retainedRowSampleCount: width * 3
+            retainedRowSampleCount: width * 3,
+            workerCount: workerCount
         )
+    }
+
+    private static func reconstructParallelStripes(
+        samples: inout [UInt16],
+        width: Int,
+        height: Int,
+        minimumCode: UInt16,
+        maximumCode: UInt16,
+        gains: [UInt32],
+        workerCount: Int,
+        workspace: inout ASHSpatialReconstructionWorkspaceV4
+    ) throws {
+        let rowsPerWorker = height / workerCount
+        let extraRows = height % workerCount
+        let boundaryStart = workerCount * 3 * width
+        try samples.withUnsafeMutableBufferPointer { output in
+            try workspace.rows.withUnsafeMutableBufferPointer { scratch in
+                // Save both sides of every boundary before any output writes.
+                for index in 1..<workerCount {
+                    let firstRow = index * rowsPerWorker + min(index, extraRows)
+                    let snapshotStart = boundaryStart + (index - 1) * 2 * width
+                    scratch.baseAddress!.advanced(by: snapshotStart).update(
+                        from: output.baseAddress!.advanced(
+                            by: (firstRow - 1) * width
+                        ),
+                        count: width * 2
+                    )
+                }
+                var stripes: [ASHSpatialStripeBorrowV4] = []
+                stripes.reserveCapacity(workerCount)
+                for index in 0..<workerCount {
+                    let lower = index * rowsPerWorker + min(index, extraRows)
+                    let upper = lower + rowsPerWorker
+                        + (index < extraRows ? 1 : 0)
+                    let ringStart = index * 3 * width
+                    let ringEnd = ringStart + 3 * width
+                    let previousBoundary = index == 0
+                        ? UnsafeBufferPointer<UInt16>(start: nil, count: 0)
+                        : UnsafeBufferPointer(
+                            start: scratch.baseAddress!.advanced(
+                                by: boundaryStart + (index - 1) * 2 * width
+                            ),
+                            count: width
+                        )
+                    let nextBoundary = index + 1 == workerCount
+                        ? UnsafeBufferPointer<UInt16>(start: nil, count: 0)
+                        : UnsafeBufferPointer(
+                            start: scratch.baseAddress!.advanced(
+                                by: boundaryStart + (index * 2 + 1) * width
+                            ),
+                            count: width
+                        )
+                    stripes.append(ASHSpatialStripeBorrowV4(
+                        output: UnsafeMutableBufferPointer(
+                            rebasing: output[(lower * width)..<(upper * width)]
+                        ),
+                        rows: UnsafeMutableBufferPointer(
+                            rebasing: scratch[ringStart..<ringEnd]
+                        ),
+                        previousBoundaryRow: previousBoundary,
+                        nextBoundaryRow: nextBoundary,
+                        rowRange: lower..<upper
+                    ))
+                }
+                let stripeBorrows = stripes
+                try Task.checkCancellation()
+                ASHSpatialBatchExecutorV4.perform(iterations: workerCount) { index in
+                    reconstructStripe(
+                        stripeBorrows[index],
+                        width: width,
+                        height: height,
+                        minimumCode: minimumCode,
+                        maximumCode: maximumCode,
+                        gains: gains
+                    )
+                }
+            }
+        }
+    }
+
+    private static func reconstructStripe(
+        _ stripe: ASHSpatialStripeBorrowV4,
+        width: Int,
+        height: Int,
+        minimumCode: UInt16,
+        maximumCode: UInt16,
+        gains: [UInt32]
+    ) {
+        func loadRow(_ sourceY: Int, into slot: Int) {
+            let source: UnsafeBufferPointer<UInt16>
+            if sourceY < stripe.rowRange.lowerBound {
+                source = stripe.previousBoundaryRow
+            } else if sourceY >= stripe.rowRange.upperBound {
+                source = stripe.nextBoundaryRow
+            } else {
+                source = UnsafeBufferPointer(
+                    start: stripe.output.baseAddress!.advanced(
+                        by: (sourceY - stripe.rowRange.lowerBound) * width
+                    ),
+                    count: width
+                )
+            }
+            stripe.rows.baseAddress!.advanced(by: slot * width).update(
+                from: source.baseAddress!,
+                count: width
+            )
+        }
+        let firstRow = stripe.rowRange.lowerBound
+        loadRow(max(0, firstRow - 1), into: 0)
+        loadRow(firstRow, into: 1)
+        loadRow(min(firstRow + 1, height - 1), into: 2)
+        var previousSlot = 0
+        var currentSlot = 1
+        var nextSlot = 2
+        for y in stripe.rowRange {
+            let previousStart = previousSlot * width
+            let currentStart = currentSlot * width
+            let nextStart = nextSlot * width
+            let outputStart = (y - firstRow) * width
+            for x in 0..<width {
+                let leftX = max(0, x - 1)
+                let rightX = min(width - 1, x + 1)
+                let center = Int64(stripe.rows[currentStart + x])
+                let left = Int64(stripe.rows[currentStart + leftX])
+                let right = Int64(stripe.rows[currentStart + rightX])
+                let up = Int64(stripe.rows[previousStart + x])
+                let down = Int64(stripe.rows[nextStart + x])
+                let horizontalAverage = divideSignedTiesToEvenUnchecked(
+                    left + right,
+                    by: 2
+                )
+                let verticalAverage = divideSignedTiesToEvenUnchecked(
+                    up + down,
+                    by: 2
+                )
+                let isotropicAverage = divideSignedTiesToEvenUnchecked(
+                    left + right + up + down,
+                    by: 4
+                )
+                let weighted = (center - horizontalAverage)
+                        * Int64(gains[0])
+                    + (center - verticalAverage) * Int64(gains[1])
+                    + (center - isotropicAverage) * Int64(gains[2])
+                let adjustment = divideSignedTiesToEvenUnchecked(
+                    weighted,
+                    by: Int64(ASHNormalizedQ16V4.scale)
+                )
+                stripe.output[outputStart + x] = UInt16(
+                    min(
+                        Int64(maximumCode),
+                        max(Int64(minimumCode), center + adjustment)
+                    )
+                )
+            }
+            guard y + 1 < stripe.rowRange.upperBound else { continue }
+            let recycledSlot = previousSlot
+            previousSlot = currentSlot
+            currentSlot = nextSlot
+            nextSlot = recycledSlot
+            loadRow(min(y + 2, height - 1), into: nextSlot)
+        }
     }
 
     private static func expectedBasisWeightsQ16(

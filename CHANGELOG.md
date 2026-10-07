@@ -7,6 +7,67 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-07
+
+### Improved
+
+- Run state-conditioned spatial reconstruction in bounded parallel row
+  stripes on both deterministic routes. Snapshot both original boundary rows
+  before workers write; each worker owns its output stripe and three-row ring.
+  Keep the serial integer stencil, ties-to-even rounding, gains, clamps, and
+  temporal publication order unchanged.
+- Retain the serial path for small planes and a forced serial reference for
+  measurements. Worker counts are capped by plane height and active processors;
+  scratch uses `width × (5 × workers − 2)` UInt16 samples, with reusable storage.
+- Add independent parity for all 256 ASH states, uneven stripes, boundary
+  impulses, extrema and rounding ties, degenerate geometry, cancellation,
+  invalid inputs, scratch reuse, concurrent copied workspaces, and native movie
+  dimensions. The opt-in fixture records complete spatial calls and compares
+  every output pixel outside the timed interval.
+- Align canonical version authorities and all Xcode app/test configurations
+  to 1.7.0 build 17.
+
+### Verification and beta limits
+
+- Fresh 1.7.0 (17) native Debug/Release test builds and universal production
+  Release build succeeded with zero compiler warnings or errors. The app has
+  arm64 and x86_64 slices, the original bundle identifier, and a verified strict
+  signature. The actual Xcode Any Mac build succeeded with an empty unfiltered
+  Issue Navigator. These build results do not close the qualification issues
+  below.
+- Fresh 1.7.0 (17) default Debug passed 635 tests (641 total), and Release
+  passed 630 (636 total), each with zero failures and six opt-in skips. Both
+  report no runtime warnings. The explicitly enabled
+  4096×2160 → 8192×4320 one-frame CPU allocation gate passed 1/1, with no
+  failures, skips, or reported runtime warnings. These passing suites do not
+  identify or repair the earlier decoded H.264 parity incident.
+- The 3840×1632 spatial-stage median improved from 91.325 to 10.248 ms, **8.91×**
+  with 14 workers across five alternating pairs after warmup. Pixels and
+  controls match exactly. This does not establish whole-engine or full-movie
+  speedup.
+- Actual pre-change/current optimized binaries independently confirmed the
+  spatial-stage gain with ten alternating pairs after five warmups:
+  99.776 → 12.518 ms (7.971×) at 3840×1632 and 21.922 → 3.175 ms (6.905×) at
+  1920×816. Pixels, controls, and cross-binary output digests match. Ferris
+  remained active, with no build/test overlap. This separate confirmation
+  does not turn the original five-pair 8.91× observation into a guaranteed
+  movie speedup.
+- Before version alignment, native Debug passed 635 tests with zero failures
+  and six opt-in skips. Release passed 630 with one strict decoded H.264 parity
+  failure and five opt-in skips. All 156 pre-encoder frames match, but decoded
+  ordinals 125–148 and 154 differ. Four traced repeats match; the cause remains
+  unknown. The failing assertion remains unchanged.
+- An independently identified, unsealed development frame capture reproduced
+  all 840 baseline candidate/ablation artifacts and the same quality evaluation.
+  Those 64×48 frames use serial conditioning and do not qualify parallel
+  execution or establish a new sealed M7 selection.
+- The runtime source-identity gate remains open with exit 2. Runtime production
+  stopped at stale frozen capture-observer locks, with 16 of 17 checks passing.
+  No runtime assets, trust constants, quality checks, or historical seals were
+  changed to make those gates pass. See
+  `docs/v4/CURRENT_QUALIFICATION_STATUS.md` and
+  `docs/DETERMINISTIC_SPATIAL_PARALLELISM.md`.
+
 ## [1.6.0] - 2026-10-06
 
 ### Improved

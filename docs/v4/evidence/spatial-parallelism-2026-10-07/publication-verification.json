@@ -1,0 +1,183 @@
+{
+  "schema": "mirmir-spatial-publication-verification-v1",
+  "version": "1.7.0",
+  "build": "17",
+  "verifiedUTC": "2026-10-07T19:17:52.911271+00:00",
+  "baseRevision": "817f1f2f56f5b59a5d36818505c368e12069bf48",
+  "destination": "My Mac arm64",
+  "nativeTestHostIdentifier": "com.mirmir.verification.20261007.Mirmir",
+  "testsExecutedSerially": true,
+  "checks": {
+    "debug-full": {
+      "result": "Passed",
+      "passedTests": 635,
+      "failedTests": 0,
+      "skippedTests": 6,
+      "totalTestCount": 641,
+      "runtimeWarnings": [],
+      "startTime": 1791399794.348,
+      "finishTime": 1791400214.555,
+      "localResultBundle": "output/publication-1.7.0-17-2026-10-07/debug-full.xcresult",
+      "receipts": {
+        "debug-full-summary.json": {
+          "bytes": 1167,
+          "sha256": "f8328e0b6be613964d2a24ab6ce2ff55cc2707ff2ad54dd8a7a2144abdeda1f0"
+        },
+        "debug-full.argv.json": {
+          "bytes": 411,
+          "sha256": "f857fb348ac7a727ca54a01c60f3fbec2b2034773d3d046e0a81ec80e195b0b5"
+        },
+        "debug-full.log": {
+          "bytes": 226160,
+          "sha256": "1976a1604f97dfa2cc1805c37cc1426684ec7c04ef7cc6788d3039537f262265"
+        }
+      }
+    },
+    "release-full": {
+      "result": "Passed",
+      "passedTests": 630,
+      "failedTests": 0,
+      "skippedTests": 6,
+      "totalTestCount": 636,
+      "runtimeWarnings": [],
+      "startTime": 1791400371.943,
+      "finishTime": 1791400558.056,
+      "localResultBundle": "output/publication-1.7.0-17-2026-10-07/release-full.xcresult",
+      "receipts": {
+        "release-full-summary.json": {
+          "bytes": 1166,
+          "sha256": "09cf23a559f1e9c1ae0fd37c14bfff0d372e9c98af2311e6afb1bb166bc5d2b0"
+        },
+        "release-full.argv.json": {
+          "bytes": 417,
+          "sha256": "e0f4983b2e6ba189728aa95b008709f0770cbd73d11d0e2deffe1039bdee338d"
+        },
+        "release-full.log": {
+          "bytes": 235835,
+          "sha256": "387ed2fbfc9abb541b6fec55809ad76496b9716d39d1c2eaaa861c709db2c396"
+        }
+      }
+    },
+    "debug-8k": {
+      "result": "Passed",
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "totalTestCount": 1,
+      "runtimeWarnings": [],
+      "startTime": 1791400276.84,
+      "finishTime": 1791400344.549,
+      "localResultBundle": "output/publication-1.7.0-17-2026-10-07/debug-8k.xcresult",
+      "receipts": {
+        "debug-8k-summary.json": {
+          "bytes": 968,
+          "sha256": "6bead851afe9f51c926f04814680796fdaffd7355b85640da5468565ee731e58"
+        },
+        "debug-8k.argv.json": {
+          "bytes": 520,
+          "sha256": "e22d3e685c737d78ac14b49efb7c3c69d6d243daa16179544fa8f26b1ed9e189"
+        },
+        "debug-8k.log": {
+          "bytes": 3314,
+          "sha256": "77de7737d6d753b7999517a52eb7273e13518570514bffba98690d16b1908084"
+        }
+      }
+    }
+  },
+  "builds": {
+    "debug-build": {
+      "succeeded": true,
+      "compilerIssues": [],
+      "warningsTreatedAsErrors": true,
+      "localArgvReceipt": "output/publication-1.7.0-17-2026-10-07/debug-build.argv.json",
+      "argvSHA256": "1938c89334f60ae5b4e52ad4db0e2354bdbdf4e55c669f3034fe38853dfb600e",
+      "logSHA256": "1621549f8b41c6cb0ba082c0bcf439e0bb0bd57c15c7e1b4bf1e23695cdd5a62"
+    },
+    "release-build": {
+      "succeeded": true,
+      "compilerIssues": [],
+      "warningsTreatedAsErrors": true,
+      "localArgvReceipt": "output/publication-1.7.0-17-2026-10-07/release-build.argv.json",
+      "argvSHA256": "b7d00ab7a9086ef684623480280fcbdaa6627b70fd4411c73ae2310985db2d4a",
+      "logSHA256": "dadb889723ab0c48ecc68897ae8e22427df6defa0e23a5e29b07d0dbd6d816e4"
+    },
+    "universal-build": {
+      "succeeded": true,
+      "compilerIssues": [],
+      "warningsTreatedAsErrors": true,
+      "localArgvReceipt": "output/publication-1.7.0-17-2026-10-07/universal-build.argv.json",
+      "argvSHA256": "33cd4651a719e654f76088da037cfe1a6313cbf4c3c204226a69bd9028f27efc",
+      "logSHA256": "7a7a42483c435b721e9894d293ca7180800f5ac50105f008cba5104463f96f5b"
+    }
+  },
+  "universalApp": {
+    "configuration": "Release",
+    "version": "1.7.0",
+    "build": "17",
+    "identifier": "com.mirmir.app",
+    "architectures": [
+      "x86_64",
+      "arm64"
+    ],
+    "codesignVerifyExit": 0,
+    "codesignVerifyOutput": "output/publication-1.7.0-17-2026-10-07/universal-derived/Build/Products/Release/Mirmir.app: valid on disk\noutput/publication-1.7.0-17-2026-10-07/universal-derived/Build/Products/Release/Mirmir.app: satisfies its Designated Requirement",
+    "compilerIssues": [],
+    "buildSucceeded": true,
+    "limits": "Build evidence; no Intel execution, archive, installation or distribution was performed.",
+    "embeddedXCTestBundles": []
+  },
+  "xcodeUIBuild": {
+    "project": "Mirmir.xcodeproj",
+    "absoluteProjectPath": "/Users/jimdaley/GitHub/Mirmir/Mirmir.xcodeproj",
+    "observedUI": {
+      "window": "Mirmir \u2014 Mirmir.xcodeproj",
+      "activeScheme": "Mirmir",
+      "activeDestination": "Any Mac (arm64, x86_64)",
+      "action": "Build (Command-B)",
+      "result": "Mirmir Build Succeeded \u2022 Today at 2:04 PM",
+      "issueNavigatorRows": [],
+      "showOnlyLatestIssues": false,
+      "onlyErrors": false
+    },
+    "version": "1.7.0",
+    "build": "17",
+    "limits": "Build only; installed Mirmir was not launched or replaced."
+  },
+  "sourceEquivalence": {
+    "checkedSourceCount": 482,
+    "sourceProjectVersionUnchangedSinceBuild": true,
+    "changedPaths": [],
+    "priorSpatialProductionFileCount": 438,
+    "productionFilesChangedSinceInitialSpatialVerification": [],
+    "testSourceSHA256": "d5bd9b89e7e5ecde667bcc81f3564e5f805849059cfb013df2aabe34554dc995"
+  },
+  "pythonChecks": {
+    "versionTests": 9,
+    "trackerTests": 5,
+    "M7DerivationTests": 3,
+    "M7SelectionTests": 9,
+    "totalPassed": 26
+  },
+  "openQualification": "The earlier full Release156-frame decoded-output failure remains unexplained despite this passing suite. Runtime producer/source closure, full movie, Intel execution and installed-candidate acceptance remain open. No assertion or trust constant was weakened.",
+  "evidenceAccess": "Original commands, build logs and xcresult bundles are retained locally at the repository-relative output paths. Digests bind those local-only originals.",
+  "liveAppPreservation": {
+    "verifiedUTC": "2026-10-07T19:19:56.660947+00:00",
+    "installedVersion": "1.6.0",
+    "installedBuild": "16",
+    "originalFerrisProcessPresent": true,
+    "jobHeadReadable": true,
+    "jobHeadSHA256": "ff3c634963fdd66b802ef72f98a4236cc24eacfef87dc446bd415e6f5cd80c7a",
+    "limit": "Original installed app and job retained; new source was not installed into the running Ferris job.",
+    "committedOrdinal": 2122,
+    "committedAt": {
+      "nanosecondsSinceUnixEpoch": 1791400786218711000
+    }
+  },
+  "finalLocalChecks": {
+    "versionCheck": "1.7.0",
+    "roadmapTrackerCheck": "passed",
+    "sourceAndWikiWhitespace": "passed",
+    "builtSourceHashCount": 482,
+    "builtSourceProjectVersionUnchanged": true
+  }
+}

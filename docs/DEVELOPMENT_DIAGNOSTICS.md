@@ -1,6 +1,6 @@
 # Development diagnostics
 
-Current source identity: **Mirmir 1.6.0 (16)**.
+Current source identity: **Mirmir 1.7.0 (17)**.
 
 Mirmir's development diagnostic system is the existing module at
 `Mirmir/Modules/Diagnostics`. It owns one persistent journal,

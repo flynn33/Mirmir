@@ -1,0 +1,2593 @@
+{
+  "captureCommand": {
+    "argv": [
+      "python3",
+      "output/spatial-parallelism-2026-10-07/independent-spatial-validation/run-independent-spatial.py"
+    ],
+    "cwd": "{REPO_ROOT}",
+    "exitCode": 0,
+    "stdoutAndStderr": "independent-spatial-capture.log"
+  },
+  "compileProvenance": {
+    "architecture": "arm64",
+    "baseRevision": "817f1f2f56f5b59a5d36818505c368e12069bf48",
+    "compileCommands": [
+      {
+        "argv": [
+          "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+          "-O",
+          "-whole-module-optimization",
+          "-swift-version",
+          "5",
+          "-target",
+          "arm64-apple-macos15.4",
+          "-sdk",
+          "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk",
+          "-warnings-as-errors",
+          "-module-name",
+          "IndependentSpatialValidation",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/prechange/ASHState.swift",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/prechange/ASHCode.swift",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/prechange/ASHCoreV4.swift",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/prechange/ASHCanonicalJSONV4.swift",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/prechange/ASHMeasurementContractV4.swift",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/prechange/ASHDepthFourBranchProgramV4.swift",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/prechange/RationalPresentationGeometryV4.swift",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/prechange/ASHTemporalReconstructionV4.swift",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/prechange/ASHExecutorV4ProductionDeclaration.swift",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/IndependentSpatialHarness.swift",
+          "-o",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/prechange-spatial"
+        ],
+        "variant": "prechange"
+      },
+      {
+        "argv": [
+          "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+          "-O",
+          "-whole-module-optimization",
+          "-swift-version",
+          "5",
+          "-target",
+          "arm64-apple-macos15.4",
+          "-sdk",
+          "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk",
+          "-warnings-as-errors",
+          "-module-name",
+          "IndependentSpatialValidation",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/candidate/ASHState.swift",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/candidate/ASHCode.swift",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/candidate/ASHCoreV4.swift",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/candidate/ASHCanonicalJSONV4.swift",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/candidate/ASHMeasurementContractV4.swift",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/candidate/ASHDepthFourBranchProgramV4.swift",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/candidate/RationalPresentationGeometryV4.swift",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/candidate/ASHTemporalReconstructionV4.swift",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/candidate/ASHExecutorV4ProductionDeclaration.swift",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/IndependentSpatialHarness.swift",
+          "-o",
+          "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/candidate-spatial"
+        ],
+        "variant": "candidate"
+      }
+    ],
+    "compileResults": [
+      {
+        "binarySHA256": "16de79a4bf11fcde692eef92bf497d448e7c2b663b51f2abb946bd32ff5dd9ab",
+        "elapsedSeconds": 6.579706042,
+        "exitCode": 0,
+        "variant": "prechange"
+      },
+      {
+        "binarySHA256": "c91676f5d8a491dcf74de2b67f5ad12c4b45ac0d0d09c23eefb4b7a3a1073941",
+        "elapsedSeconds": 7.2054635419999995,
+        "exitCode": 0,
+        "variant": "candidate"
+      }
+    ],
+    "compiler": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+    "compilerVersion": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0\n",
+    "flags": [
+      "-O",
+      "-whole-module-optimization",
+      "-swift-version",
+      "5",
+      "-target",
+      "arm64-apple-macos15.4",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk",
+      "-warnings-as-errors",
+      "-module-name",
+      "IndependentSpatialValidation"
+    ],
+    "harnessSHA256": "bea9cc650da0e97a28760671583fda3d5d26a853f8606582b63f96089cb022fd",
+    "onlyProductionDifference": "Mirmir/Modules/UpscalerEngine/ASHTemporalReconstructionV4.swift",
+    "productionSourcesUnmodified": true,
+    "sdk": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk",
+    "sdkVersion": "27.0"
+  },
+  "independentPostcaptureAssertions": {
+    "captureExitCode": 0,
+    "completeCallsChecked": 60,
+    "records": [
+      {
+        "allFullPixelAndControlChecksPassed": true,
+        "allTimedOutputStorageUnchanged": true,
+        "controls": {
+          "basisGainsQ16": [
+            500,
+            500,
+            500,
+            0
+          ],
+          "stateRawValue": 340,
+          "targetMessageRawValue": 0
+        },
+        "height": 816,
+        "inputSHA256": "911e6342db43919e18a8330413e6ee1f93f1213b6050ed86367b6fc153dc4d0a",
+        "measuredRuns": 10,
+        "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+        "scratchAllocationCount": 1,
+        "stableScratchIdentity": true,
+        "variant": "prechange",
+        "warmups": 5,
+        "width": 1920
+      },
+      {
+        "allFullPixelAndControlChecksPassed": true,
+        "allTimedOutputStorageUnchanged": true,
+        "controls": {
+          "basisGainsQ16": [
+            500,
+            500,
+            500,
+            0
+          ],
+          "stateRawValue": 340,
+          "targetMessageRawValue": 0
+        },
+        "height": 816,
+        "inputSHA256": "911e6342db43919e18a8330413e6ee1f93f1213b6050ed86367b6fc153dc4d0a",
+        "measuredRuns": 10,
+        "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+        "scratchAllocationCount": 1,
+        "stableScratchIdentity": true,
+        "variant": "candidate",
+        "warmups": 5,
+        "width": 1920
+      },
+      {
+        "allFullPixelAndControlChecksPassed": true,
+        "allTimedOutputStorageUnchanged": true,
+        "controls": {
+          "basisGainsQ16": [
+            500,
+            500,
+            500,
+            0
+          ],
+          "stateRawValue": 340,
+          "targetMessageRawValue": 0
+        },
+        "height": 1632,
+        "inputSHA256": "a7b826177d268d0532bafb376ef693a8133254c06183c7b3bfb6bceddba151ef",
+        "measuredRuns": 10,
+        "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+        "scratchAllocationCount": 1,
+        "stableScratchIdentity": true,
+        "variant": "prechange",
+        "warmups": 5,
+        "width": 3840
+      },
+      {
+        "allFullPixelAndControlChecksPassed": true,
+        "allTimedOutputStorageUnchanged": true,
+        "controls": {
+          "basisGainsQ16": [
+            500,
+            500,
+            500,
+            0
+          ],
+          "stateRawValue": 340,
+          "targetMessageRawValue": 0
+        },
+        "height": 1632,
+        "inputSHA256": "a7b826177d268d0532bafb376ef693a8133254c06183c7b3bfb6bceddba151ef",
+        "measuredRuns": 10,
+        "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+        "scratchAllocationCount": 1,
+        "stableScratchIdentity": true,
+        "variant": "candidate",
+        "warmups": 5,
+        "width": 3840
+      }
+    ]
+  },
+  "limits": [
+    "Synthetic extrema/texture input, one plane, payload85/raw340, canonical program, range64...940, and two geometries.",
+    "Only five warmup pairs plus ten measured pairs per geometry; inclusive quartiles and observed dispersion are reported, without a confidence interval.",
+    "Scratch is warm and retained in measured calls; first-call allocation is saved separately in the raw warmups. Input reset, program/reference construction, output comparison and SHA256 hashing are outside timing.",
+    "Whole-engine/movie timing, real-media qualification, complete new-app movie completion, Intel execution, and all pixel-format/payload performance are unverified by this capture.",
+    "Resampling, motion search, temporal history, measurement, encoding, checkpointing and I/O are outside this spatial-call timer.",
+    "The exact cause of observed run-to-run dispersion is unknown; no scheduler/hardware-counter profile was captured.",
+    "Process snapshots and the parent-reserved quiet window establish no known build/test overlap, not a trace of every unrelated operating-system process."
+  ],
+  "localReceiptDirectory": "output/spatial-parallelism-2026-10-07/independent-spatial-validation",
+  "observedConclusion": {
+    "activeFerrisPIDPreserved": 30948,
+    "allCrossBinaryOutputDigestsEqual": true,
+    "allMeasuredCallsRetainScratchAndOutputStorage": true,
+    "allSixtyFullCallsPixelsAndControlsEqualToUnchangedReference": true,
+    "captureNoKnownBuildOrNativeTestOverlap": true,
+    "compilerHarnessAndFlagsIdentical": true,
+    "constant8911MultiplierVerified": false,
+    "onlyProductionSourceDifference": "Mirmir/Modules/UpscalerEngine/ASHTemporalReconstructionV4.swift",
+    "prechangeIsActualOriginalSourceBinary": true,
+    "scope": "Synthetic single-plane spatial reconstruction stage, complete validated production call on this arm64 host with live Ferris contention.",
+    "wholeMovieSpeedupVerified": false
+  },
+  "originalXCTestCaptureAudit": {
+    "conclusion": "The original 8.911173 ratio is supported by its five raw paired samples at 3840x1632. This independent ten-pair actual-prechange comparison measured 7.970710 for that geometry. Both are spatial-stage captures; a constant or whole-movie multiplier is not established.",
+    "largePlane14WorkerRecords": [
+      {
+        "actualWorkerCount": 14,
+        "height": 816,
+        "measuredOrders": [
+          "parallel,serial",
+          "serial,parallel",
+          "parallel,serial",
+          "serial,parallel",
+          "parallel,serial"
+        ],
+        "measuredPairs": 5,
+        "pairedRatioStatistics": {
+          "count": 5,
+          "iqr": 1.2939794829287425,
+          "maximum": 9.385674931129477,
+          "mean": 8.726483454712213,
+          "median": 9.22648823589723,
+          "medianAbsoluteDeviation": 0.15918669523224693,
+          "minimum": 7.577983009312204,
+          "q1": 8.074145807146705,
+          "q3": 9.368125290075447,
+          "sampleStandardDeviation": 0.8427395962265969
+        },
+        "pairedRatios": [
+          8.074145807146705,
+          9.22648823589723,
+          9.368125290075447,
+          9.385674931129477,
+          7.577983009312204
+        ],
+        "parallelScratchSamples": 130560,
+        "parallelSeconds": {
+          "count": 5,
+          "iqr": 0.0003796250000000002,
+          "maximum": 0.0030605,
+          "mean": 0.0026192082,
+          "median": 0.002448083,
+          "medianAbsoluteDeviation": 5.000000000000013e-05,
+          "minimum": 0.002398083,
+          "q1": 0.002404875,
+          "q3": 0.0027845,
+          "sampleStandardDeviation": 0.00029418478065103905
+        },
+        "parallelStorageAllocationCount": 1,
+        "pixelsAndControlsEqual": true,
+        "ratioOfMedians": 9.220020317938566,
+        "requestedWorkerLimit": 14,
+        "serialScratchSamples": 5760,
+        "serialSeconds": {
+          "count": 5,
+          "iqr": 0.00010475000000000068,
+          "maximum": 0.023192417,
+          "mean": 0.0226598004,
+          "median": 0.022571375,
+          "medianAbsoluteDeviation": 8.891600000000138e-05,
+          "minimum": 0.022465542,
+          "q1": 0.022482459,
+          "q3": 0.022587209,
+          "sampleStandardDeviation": 0.00030247119839713624
+        },
+        "serialStorageAllocationCount": 1,
+        "warmupPairs": 5,
+        "width": 1920
+      },
+      {
+        "actualWorkerCount": 14,
+        "height": 1632,
+        "measuredOrders": [
+          "parallel,serial",
+          "serial,parallel",
+          "parallel,serial",
+          "serial,parallel",
+          "parallel,serial"
+        ],
+        "measuredPairs": 5,
+        "pairedRatioStatistics": {
+          "count": 5,
+          "iqr": 0.2697462178881782,
+          "maximum": 9.439645056535857,
+          "mean": 8.87769595239037,
+          "median": 8.864165656022779,
+          "medianAbsoluteDeviation": 0.1617476101261115,
+          "minimum": 8.410086739711698,
+          "q1": 8.702418045896668,
+          "q3": 8.972164263784846,
+          "sampleStandardDeviation": 0.37890462081974435
+        },
+        "pairedRatios": [
+          8.972164263784846,
+          8.864165656022779,
+          8.410086739711698,
+          9.439645056535857,
+          8.702418045896668
+        ],
+        "parallelScratchSamples": 261120,
+        "parallelSeconds": {
+          "count": 5,
+          "iqr": 0.0003721249999999992,
+          "maximum": 0.010886709,
+          "mean": 0.0102898752,
+          "median": 0.010248417,
+          "medianAbsoluteDeviation": 0.00030245800000000024,
+          "minimum": 0.009584625,
+          "q1": 0.01017875,
+          "q3": 0.010550875,
+          "sampleStandardDeviation": 0.0004836778156595566
+        },
+        "parallelStorageAllocationCount": 1,
+        "pixelsAndControlsEqual": true,
+        "ratioOfMedians": 8.911173013354162,
+        "requestedWorkerLimit": 14,
+        "serialScratchSamples": 11520,
+        "serialSeconds": {
+          "count": 5,
+          "iqr": 0.0007145009999999924,
+          "maximum": 0.091818125,
+          "mean": 0.0912041666,
+          "median": 0.091325417,
+          "medianAbsoluteDeviation": 0.0004817510000000025,
+          "minimum": 0.090475458,
+          "q1": 0.090843666,
+          "q3": 0.091558167,
+          "sampleStandardDeviation": 0.0005426646676229262
+        },
+        "serialStorageAllocationCount": 1,
+        "warmupPairs": 5,
+        "width": 3840
+      }
+    ],
+    "rawAttachmentRepositoryRelativePath": "output/spatial-parallelism-2026-10-07/benchmark-attachments/612FCA8E-B10B-40A1-A3B9-AB2997BBF967.json",
+    "rawAttachmentSHA256": "5cad91d5061cba66a748b70a5bb372b20dfdbae31c4716fcdd0c147a85d44158",
+    "statisticsMethod": "Median and inclusive quartiles; sample standard deviation; each paired ratio is serialSeconds[i]/parallelSeconds[i]. No confidence interval is claimed for five pairs.",
+    "testSourceAudit": {
+      "allOutputSamplesAndControlsComparedOutsideTiming": true,
+      "alternatingOrder": true,
+      "baselineLimitation": "XCTest compared serial and parallel policy in the updated module, rather than two separately compiled old/current modules.",
+      "candidateSerialBodyByteIdenticalToOriginalSerialBody": true,
+      "fiveWarmupPairs": true,
+      "inputResetViaExclusiveMutableBorrowOutsideTiming": true,
+      "noAdditionalScratchAllocationsAfterWarmupAsserted": true,
+      "programAndReferenceOutsideTiming": true,
+      "scopeLimitation": "Spatial conditioning stage only; synthetic input; active Ferris contention; no whole-movie speedup claim.",
+      "scratchRetainedBetweenRuns": true
+    },
+    "testSourcePath": "MirmirTests/ASHTemporalReconstructionV4Tests.swift",
+    "testSourceSHA256": "d5bd9b89e7e5ecde667bcc81f3564e5f805849059cfb013df2aabe34554dc995",
+    "testSymbol": "testCaptureParallelSpatialBenchmarkWhenRequested"
+  },
+  "pathNormalization": {
+    "exactOriginalAbsoluteCommands": "Preserved in the hashed local compile-provenance.json and independent-spatial-raw.json receipts.",
+    "externalCompilerSDKAndInstalledAppPaths": "Retained exactly as captured, not normalized.",
+    "meaning": "The checkout root containing Mirmir.xcodeproj; substituted only for the captured absolute repository prefix in copied receipt fields and compiler argv.",
+    "normalizedFields": "Any copied receipt string containing the captured absolute repository prefix.",
+    "receiptReferences": "repositoryRelativePath fields are relative to the checkout root; nested local-receipt paths such as prechange-spatial are relative to localReceiptDirectory.",
+    "token": "{REPO_ROOT}"
+  },
+  "preservedLocalReceipts": {
+    "IndependentSpatialHarness.swift": {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/independent-spatial-validation/IndependentSpatialHarness.swift",
+      "sha256": "bea9cc650da0e97a28760671583fda3d5d26a853f8606582b63f96089cb022fd"
+    },
+    "candidate-spatial": {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/independent-spatial-validation/candidate-spatial",
+      "sha256": "c91676f5d8a491dcf74de2b67f5ad12c4b45ac0d0d09c23eefb4b7a3a1073941"
+    },
+    "capture-command.json": {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/independent-spatial-validation/capture-command.json",
+      "sha256": "5be097198f01f91193d6f183a74a8e108e58c9611197da4dcfa8b2fee8347545"
+    },
+    "compile-provenance.json": {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/independent-spatial-validation/compile-provenance.json",
+      "sha256": "d8b0684e8ee8f6ce002941ae666e6009b6f94231dd3687da45e6e0fb827c3cd9"
+    },
+    "evidence-manifest.json": {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/independent-spatial-validation/evidence-manifest.json",
+      "sha256": "6c2f03d6bdedd631e8ef8727f084822e5627913cb086d62b679346e9ef5f0579"
+    },
+    "existing-benchmark-audit.json": {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/independent-spatial-validation/existing-benchmark-audit.json",
+      "sha256": "0fd457fd09821b9d3ca0cbd8a72c9f00f3f5e8181bc51b47cd862c531740bff7"
+    },
+    "independent-spatial-capture.log": {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/independent-spatial-validation/independent-spatial-capture.log",
+      "sha256": "4bd1d0d3d1808032050a47d362de934ae86a92a7ec1b63fbf396f26595b42bb5"
+    },
+    "independent-spatial-raw.json": {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/independent-spatial-validation/independent-spatial-raw.json",
+      "sha256": "feaa46c33738362023e1488bc673daeb286c5fad93d771eac963e5f1d72e57bb"
+    },
+    "independent-spatial-summary.json": {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/independent-spatial-validation/independent-spatial-summary.json",
+      "sha256": "e368d37e2a8df668108398c6a34ee91b94abbb7777ba46083afd9a70ecbb4ad2"
+    },
+    "postcapture-validation.json": {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/independent-spatial-validation/postcapture-validation.json",
+      "sha256": "af283e26e242ef12800db2716f72d497d7dfafe9e93e520d28691e51bb2b8901"
+    },
+    "prechange-spatial": {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/independent-spatial-validation/prechange-spatial",
+      "sha256": "16de79a4bf11fcde692eef92bf497d448e7c2b663b51f2abb946bd32ff5dd9ab"
+    },
+    "preflight-checks.json": {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/independent-spatial-validation/preflight-checks.json",
+      "sha256": "1f2ad7680110e66541ff935de97a5dc50d061601060db22c35b414d3673b3e23"
+    },
+    "run-independent-spatial.py": {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/independent-spatial-validation/run-independent-spatial.py",
+      "sha256": "db2f28881ba3208df3f70f6814132a17ea464ed6c7e160d7c1147f2514788521"
+    },
+    "source-provenance.json": {
+      "repositoryRelativePath": "output/spatial-parallelism-2026-10-07/independent-spatial-validation/source-provenance.json",
+      "sha256": "be62464a60914025a4cb4a29fef5f53b8fb7780d7aac9297731b5ee3d2199eae"
+    }
+  },
+  "rawCapture": {
+    "baseline": "Exact production source from Git 817f1f2f56f5b59a5d36818505c368e12069bf48, original serial algorithm and API, separately compiled optimized binary.",
+    "binaries": {
+      "candidate": {
+        "path": "candidate-spatial",
+        "sha256": "c91676f5d8a491dcf74de2b67f5ad12c4b45ac0d0d09c23eefb4b7a3a1073941"
+      },
+      "prechange": {
+        "path": "prechange-spatial",
+        "sha256": "16de79a4bf11fcde692eef92bf497d448e7c2b663b51f2abb946bd32ff5dd9ab"
+      }
+    },
+    "binariesAfter": {
+      "candidate": "c91676f5d8a491dcf74de2b67f5ad12c4b45ac0d0d09c23eefb4b7a3a1073941",
+      "prechange": "16de79a4bf11fcde692eef92bf497d448e7c2b663b51f2abb946bd32ff5dd9ab"
+    },
+    "candidate": "Frozen current production source, default .automatic execution, separately compiled optimized binary.",
+    "compileProvenancePath": "compile-provenance.json",
+    "compileProvenanceSHA256": "d8b0684e8ee8f6ce002941ae666e6009b6f94231dd3687da45e6e0fb827c3cd9",
+    "driverSHA256": "db2f28881ba3208df3f70f6814132a17ea464ed6c7e160d7c1147f2514788521",
+    "finalProcessSnapshot": {
+      "FerrisProcess": {
+        "exitCode": 0,
+        "output": "  PID  PPID  ELAPSED  %CPU COMM\n30948     1 09:35:43 359.2 /Applications/Mirmir.app/Contents/MacOS/Mirmir\n"
+      },
+      "knownBuildAndMirmirProcesses": [
+        "30948     1 /Applications/Mirmir.app/Contents/MacOS/Mirmir"
+      ],
+      "timestampUTC": "2026-10-07T19:16:47.632880+00:00"
+    },
+    "finishUTC": "2026-10-07T19:16:47.601388+00:00",
+    "geometries": [
+      {
+        "exitCodes": {
+          "candidate": 0,
+          "prechange": 0
+        },
+        "expectedCandidateWorkers": 14,
+        "height": 816,
+        "invocations": {
+          "candidate": [
+            "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/candidate-spatial",
+            "1920",
+            "816",
+            "14"
+          ],
+          "prechange": [
+            "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/prechange-spatial",
+            "1920",
+            "816",
+            "1"
+          ]
+        },
+        "pairs": [
+          {
+            "iterationIncludingWarmup": 5,
+            "measured": true,
+            "order": [
+              "candidate",
+              "prechange"
+            ],
+            "pairIndex": 0,
+            "prechangeOverCandidateRatio": 7.397472754222376,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 3179667,
+                "event": "run",
+                "invocation": 5,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "488196063264",
+                "outputStorageIdentityBefore": "488196063264",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 130560,
+                "retainedSampleCapacity": 130560,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 261120,
+                "scratchStorageIdentity": "527001714720",
+                "seconds": 0.003179667
+              },
+              "prechange": {
+                "durationNanoseconds": 23521500,
+                "event": "run",
+                "invocation": 5,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "496349790240",
+                "outputStorageIdentityBefore": "496349790240",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 5760,
+                "retainedSampleCapacity": 5760,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 11520,
+                "scratchStorageIdentity": "509482106912",
+                "seconds": 0.0235215
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:44.851177+00:00",
+            "wallStartUTC": "2026-10-07T19:16:44.820819+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 6,
+            "measured": true,
+            "order": [
+              "prechange",
+              "candidate"
+            ],
+            "pairIndex": 1,
+            "prechangeOverCandidateRatio": 6.85190129504221,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 3198583,
+                "event": "run",
+                "invocation": 6,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "488196063264",
+                "outputStorageIdentityBefore": "488196063264",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 130560,
+                "retainedSampleCapacity": 130560,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 261120,
+                "scratchStorageIdentity": "527001714720",
+                "seconds": 0.003198583
+              },
+              "prechange": {
+                "durationNanoseconds": 21916375,
+                "event": "run",
+                "invocation": 6,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "496349790240",
+                "outputStorageIdentityBefore": "496349790240",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 5760,
+                "retainedSampleCapacity": 5760,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 11520,
+                "scratchStorageIdentity": "509482106912",
+                "seconds": 0.021916375
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:44.880339+00:00",
+            "wallStartUTC": "2026-10-07T19:16:44.851200+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 7,
+            "measured": true,
+            "order": [
+              "candidate",
+              "prechange"
+            ],
+            "pairIndex": 2,
+            "prechangeOverCandidateRatio": 6.9227930517974485,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 3145792,
+                "event": "run",
+                "invocation": 7,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "488196063264",
+                "outputStorageIdentityBefore": "488196063264",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 130560,
+                "retainedSampleCapacity": 130560,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 261120,
+                "scratchStorageIdentity": "527001714720",
+                "seconds": 0.003145792
+              },
+              "prechange": {
+                "durationNanoseconds": 21777667,
+                "event": "run",
+                "invocation": 7,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "496349790240",
+                "outputStorageIdentityBefore": "496349790240",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 5760,
+                "retainedSampleCapacity": 5760,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 11520,
+                "scratchStorageIdentity": "509482106912",
+                "seconds": 0.021777667
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:44.909008+00:00",
+            "wallStartUTC": "2026-10-07T19:16:44.880364+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 8,
+            "measured": true,
+            "order": [
+              "prechange",
+              "candidate"
+            ],
+            "pairIndex": 3,
+            "prechangeOverCandidateRatio": 16.06060064483441,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 2915167,
+                "event": "run",
+                "invocation": 8,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "488196063264",
+                "outputStorageIdentityBefore": "488196063264",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 130560,
+                "retainedSampleCapacity": 130560,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 261120,
+                "scratchStorageIdentity": "527001714720",
+                "seconds": 0.002915167
+              },
+              "prechange": {
+                "durationNanoseconds": 46819333,
+                "event": "run",
+                "invocation": 8,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "496349790240",
+                "outputStorageIdentityBefore": "496349790240",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 5760,
+                "retainedSampleCapacity": 5760,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 11520,
+                "scratchStorageIdentity": "509482106912",
+                "seconds": 0.046819333
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:44.962641+00:00",
+            "wallStartUTC": "2026-10-07T19:16:44.909039+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 9,
+            "measured": true,
+            "order": [
+              "candidate",
+              "prechange"
+            ],
+            "pairIndex": 4,
+            "prechangeOverCandidateRatio": 6.933429383506525,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 3135167,
+                "event": "run",
+                "invocation": 9,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "488196063264",
+                "outputStorageIdentityBefore": "488196063264",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 130560,
+                "retainedSampleCapacity": 130560,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 261120,
+                "scratchStorageIdentity": "527001714720",
+                "seconds": 0.003135167
+              },
+              "prechange": {
+                "durationNanoseconds": 21737459,
+                "event": "run",
+                "invocation": 9,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "496349790240",
+                "outputStorageIdentityBefore": "496349790240",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 5760,
+                "retainedSampleCapacity": 5760,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 11520,
+                "scratchStorageIdentity": "509482106912",
+                "seconds": 0.021737459
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:44.997258+00:00",
+            "wallStartUTC": "2026-10-07T19:16:44.962669+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 10,
+            "measured": true,
+            "order": [
+              "prechange",
+              "candidate"
+            ],
+            "pairIndex": 5,
+            "prechangeOverCandidateRatio": 6.681250338974478,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 3281958,
+                "event": "run",
+                "invocation": 10,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "488196063264",
+                "outputStorageIdentityBefore": "488196063264",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 130560,
+                "retainedSampleCapacity": 130560,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 261120,
+                "scratchStorageIdentity": "527001714720",
+                "seconds": 0.003281958
+              },
+              "prechange": {
+                "durationNanoseconds": 21927583,
+                "event": "run",
+                "invocation": 10,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "496349790240",
+                "outputStorageIdentityBefore": "496349790240",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 5760,
+                "retainedSampleCapacity": 5760,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 11520,
+                "scratchStorageIdentity": "509482106912",
+                "seconds": 0.021927583
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:45.026474+00:00",
+            "wallStartUTC": "2026-10-07T19:16:44.997288+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 11,
+            "measured": true,
+            "order": [
+              "candidate",
+              "prechange"
+            ],
+            "pairIndex": 6,
+            "prechangeOverCandidateRatio": 6.860650332000155,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 3219125,
+                "event": "run",
+                "invocation": 11,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "488196063264",
+                "outputStorageIdentityBefore": "488196063264",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 130560,
+                "retainedSampleCapacity": 130560,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 261120,
+                "scratchStorageIdentity": "527001714720",
+                "seconds": 0.003219125
+              },
+              "prechange": {
+                "durationNanoseconds": 22085291,
+                "event": "run",
+                "invocation": 11,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "496349790240",
+                "outputStorageIdentityBefore": "496349790240",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 5760,
+                "retainedSampleCapacity": 5760,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 11520,
+                "scratchStorageIdentity": "509482106912",
+                "seconds": 0.022085291
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:45.055695+00:00",
+            "wallStartUTC": "2026-10-07T19:16:45.026516+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 12,
+            "measured": true,
+            "order": [
+              "prechange",
+              "candidate"
+            ],
+            "pairIndex": 7,
+            "prechangeOverCandidateRatio": 6.909883262344218,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 3169500,
+                "event": "run",
+                "invocation": 12,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "488196063264",
+                "outputStorageIdentityBefore": "488196063264",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 130560,
+                "retainedSampleCapacity": 130560,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 261120,
+                "scratchStorageIdentity": "527001714720",
+                "seconds": 0.0031695
+              },
+              "prechange": {
+                "durationNanoseconds": 21900875,
+                "event": "run",
+                "invocation": 12,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "496349790240",
+                "outputStorageIdentityBefore": "496349790240",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 5760,
+                "retainedSampleCapacity": 5760,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 11520,
+                "scratchStorageIdentity": "509482106912",
+                "seconds": 0.021900875
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:45.084478+00:00",
+            "wallStartUTC": "2026-10-07T19:16:45.055721+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 13,
+            "measured": true,
+            "order": [
+              "candidate",
+              "prechange"
+            ],
+            "pairIndex": 8,
+            "prechangeOverCandidateRatio": 6.980161216481361,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 3058000,
+                "event": "run",
+                "invocation": 13,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "488196063264",
+                "outputStorageIdentityBefore": "488196063264",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 130560,
+                "retainedSampleCapacity": 130560,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 261120,
+                "scratchStorageIdentity": "527001714720",
+                "seconds": 0.003058
+              },
+              "prechange": {
+                "durationNanoseconds": 21345333,
+                "event": "run",
+                "invocation": 13,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "496349790240",
+                "outputStorageIdentityBefore": "496349790240",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 5760,
+                "retainedSampleCapacity": 5760,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 11520,
+                "scratchStorageIdentity": "509482106912",
+                "seconds": 0.021345333
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:45.112696+00:00",
+            "wallStartUTC": "2026-10-07T19:16:45.084507+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 14,
+            "measured": true,
+            "order": [
+              "prechange",
+              "candidate"
+            ],
+            "pairIndex": 9,
+            "prechangeOverCandidateRatio": 12.047593459737469,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 3256750,
+                "event": "run",
+                "invocation": 14,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "488196063264",
+                "outputStorageIdentityBefore": "488196063264",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 130560,
+                "retainedSampleCapacity": 130560,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 261120,
+                "scratchStorageIdentity": "527001714720",
+                "seconds": 0.00325675
+              },
+              "prechange": {
+                "durationNanoseconds": 39236000,
+                "event": "run",
+                "invocation": 14,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "496349790240",
+                "outputStorageIdentityBefore": "496349790240",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 5760,
+                "retainedSampleCapacity": 5760,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 11520,
+                "scratchStorageIdentity": "509482106912",
+                "seconds": 0.039236
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:45.165212+00:00",
+            "wallStartUTC": "2026-10-07T19:16:45.112807+00:00"
+          }
+        ],
+        "processSnapshotAfter": {
+          "FerrisProcess": {
+            "exitCode": 0,
+            "output": "  PID  PPID  ELAPSED  %CPU COMM\n30948     1 09:35:41 330.1 /Applications/Mirmir.app/Contents/MacOS/Mirmir\n"
+          },
+          "knownBuildAndMirmirProcesses": [
+            "30948     1 /Applications/Mirmir.app/Contents/MacOS/Mirmir"
+          ],
+          "timestampUTC": "2026-10-07T19:16:45.207494+00:00"
+        },
+        "processSnapshotBefore": {
+          "FerrisProcess": {
+            "exitCode": 0,
+            "output": "  PID  PPID  ELAPSED  %CPU COMM\n30948     1 09:35:40  98.5 /Applications/Mirmir.app/Contents/MacOS/Mirmir\n"
+          },
+          "knownBuildAndMirmirProcesses": [
+            "30948     1 /Applications/Mirmir.app/Contents/MacOS/Mirmir"
+          ],
+          "timestampUTC": "2026-10-07T19:16:44.021750+00:00"
+        },
+        "ready": {
+          "candidate": {
+            "activeProcessorCount": 14,
+            "event": "ready",
+            "expectedWorkers": 14,
+            "height": 816,
+            "inputSHA256": "911e6342db43919e18a8330413e6ee1f93f1213b6050ed86367b6fc153dc4d0a",
+            "referenceControls": {
+              "basisGainsQ16": [
+                500,
+                500,
+                500,
+                0
+              ],
+              "stateRawValue": 340,
+              "targetMessageRawValue": 0
+            },
+            "referenceSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+            "sampleByteOrder": "native UInt16 little endian arm64",
+            "sampleCount": 1566720,
+            "stateRawValue": 340,
+            "width": 1920
+          },
+          "prechange": {
+            "activeProcessorCount": 14,
+            "event": "ready",
+            "expectedWorkers": 1,
+            "height": 816,
+            "inputSHA256": "911e6342db43919e18a8330413e6ee1f93f1213b6050ed86367b6fc153dc4d0a",
+            "referenceControls": {
+              "basisGainsQ16": [
+                500,
+                500,
+                500,
+                0
+              ],
+              "stateRawValue": 340,
+              "targetMessageRawValue": 0
+            },
+            "referenceSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+            "sampleByteOrder": "native UInt16 little endian arm64",
+            "sampleCount": 1566720,
+            "stateRawValue": 340,
+            "width": 1920
+          }
+        },
+        "statistics": {
+          "candidateSeconds": {
+            "count": 10,
+            "iqr": 7.616625000000021e-05,
+            "maximum": 0.003281958,
+            "mean": 0.0031559709,
+            "median": 0.0031745835,
+            "medianAbsoluteDeviation": 4.197900000000015e-05,
+            "minimum": 0.002915167,
+            "q1": 0.00313782325,
+            "q3": 0.0032139895,
+            "sampleStandardDeviation": 0.00010577711222760392
+          },
+          "noOutputArrayCOWDuringTimedCalls": true,
+          "pairedRatioStatistics": {
+            "count": 10,
+            "iqr": 0.4201863052009509,
+            "maximum": 16.06060064483441,
+            "mean": 8.364573573894065,
+            "median": 6.928111217651987,
+            "medianAbsoluteDeviation": 0.07183540413080403,
+            "minimum": 6.681250338974478,
+            "q1": 6.87295856458617,
+            "q3": 7.293144869787121,
+            "sampleStandardDeviation": 3.1494605896347307
+          },
+          "pairedRatios": [
+            7.397472754222376,
+            6.85190129504221,
+            6.9227930517974485,
+            16.06060064483441,
+            6.933429383506525,
+            6.681250338974478,
+            6.860650332000155,
+            6.909883262344218,
+            6.980161216481361,
+            12.047593459737469
+          ],
+          "parityAllWarmupsAndMeasuredPairs": true,
+          "prechangeSeconds": {
+            "count": 10,
+            "iqr": 0.0013539787500000018,
+            "maximum": 0.046819333,
+            "mean": 0.0262267416,
+            "median": 0.021921979,
+            "medianAbsoluteDeviation": 0.00017391599999999965,
+            "minimum": 0.021345333,
+            "q1": 0.021808469,
+            "q3": 0.023162447750000002,
+            "sampleStandardDeviation": 0.009051192613784613
+          },
+          "ratioOfMedians": 6.905466181626661,
+          "retainedScratchAllMeasuredPairs": true
+        },
+        "warmups": [
+          {
+            "iterationIncludingWarmup": 0,
+            "measured": false,
+            "order": [
+              "prechange",
+              "candidate"
+            ],
+            "pairIndex": -5,
+            "prechangeOverCandidateRatio": 6.907363152106412,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 3417042,
+                "event": "run",
+                "invocation": 0,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "488196063264",
+                "outputStorageIdentityBefore": "488196063264",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 130560,
+                "retainedSampleCapacity": 130560,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 0,
+                "scratchByteUpperBound": 261120,
+                "scratchStorageIdentity": "527001714720",
+                "seconds": 0.003417042
+              },
+              "prechange": {
+                "durationNanoseconds": 23602750,
+                "event": "run",
+                "invocation": 0,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "496349790240",
+                "outputStorageIdentityBefore": "496349790240",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 5760,
+                "retainedSampleCapacity": 5760,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 0,
+                "scratchByteUpperBound": 11520,
+                "scratchStorageIdentity": "509482106912",
+                "seconds": 0.02360275
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:44.674648+00:00",
+            "wallStartUTC": "2026-10-07T19:16:44.643352+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 1,
+            "measured": false,
+            "order": [
+              "candidate",
+              "prechange"
+            ],
+            "pairIndex": -4,
+            "prechangeOverCandidateRatio": 6.8345284149713175,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 3181791,
+                "event": "run",
+                "invocation": 1,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "488196063264",
+                "outputStorageIdentityBefore": "488196063264",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 130560,
+                "retainedSampleCapacity": 130560,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 261120,
+                "scratchStorageIdentity": "527001714720",
+                "seconds": 0.003181791
+              },
+              "prechange": {
+                "durationNanoseconds": 21746041,
+                "event": "run",
+                "invocation": 1,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "496349790240",
+                "outputStorageIdentityBefore": "496349790240",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 5760,
+                "retainedSampleCapacity": 5760,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 11520,
+                "scratchStorageIdentity": "509482106912",
+                "seconds": 0.021746041
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:44.703395+00:00",
+            "wallStartUTC": "2026-10-07T19:16:44.674728+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 2,
+            "measured": false,
+            "order": [
+              "prechange",
+              "candidate"
+            ],
+            "pairIndex": -3,
+            "prechangeOverCandidateRatio": 10.066561955757479,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 4622250,
+                "event": "run",
+                "invocation": 2,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "488196063264",
+                "outputStorageIdentityBefore": "488196063264",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 130560,
+                "retainedSampleCapacity": 130560,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 261120,
+                "scratchStorageIdentity": "527001714720",
+                "seconds": 0.00462225
+              },
+              "prechange": {
+                "durationNanoseconds": 46530166,
+                "event": "run",
+                "invocation": 2,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "496349790240",
+                "outputStorageIdentityBefore": "496349790240",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 5760,
+                "retainedSampleCapacity": 5760,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 11520,
+                "scratchStorageIdentity": "509482106912",
+                "seconds": 0.046530166
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:44.758729+00:00",
+            "wallStartUTC": "2026-10-07T19:16:44.703418+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 3,
+            "measured": false,
+            "order": [
+              "candidate",
+              "prechange"
+            ],
+            "pairIndex": -2,
+            "prechangeOverCandidateRatio": 6.98273794737697,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 3164166,
+                "event": "run",
+                "invocation": 3,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "488196063264",
+                "outputStorageIdentityBefore": "488196063264",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 130560,
+                "retainedSampleCapacity": 130560,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 261120,
+                "scratchStorageIdentity": "527001714720",
+                "seconds": 0.003164166
+              },
+              "prechange": {
+                "durationNanoseconds": 22094542,
+                "event": "run",
+                "invocation": 3,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "496349790240",
+                "outputStorageIdentityBefore": "496349790240",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 5760,
+                "retainedSampleCapacity": 5760,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 11520,
+                "scratchStorageIdentity": "509482106912",
+                "seconds": 0.022094542
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:44.787771+00:00",
+            "wallStartUTC": "2026-10-07T19:16:44.758755+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 4,
+            "measured": false,
+            "order": [
+              "prechange",
+              "candidate"
+            ],
+            "pairIndex": -1,
+            "prechangeOverCandidateRatio": 9.535013918139231,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 2786292,
+                "event": "run",
+                "invocation": 4,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "488196063264",
+                "outputStorageIdentityBefore": "488196063264",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 130560,
+                "retainedSampleCapacity": 130560,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 261120,
+                "scratchStorageIdentity": "527001714720",
+                "seconds": 0.002786292
+              },
+              "prechange": {
+                "durationNanoseconds": 26567333,
+                "event": "run",
+                "invocation": 4,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "3cafd49707029ae4cacbd098c781d1fadde816af34c0fe0c2740ca312911a0b4",
+                "outputStorageIdentityAfter": "496349790240",
+                "outputStorageIdentityBefore": "496349790240",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 5760,
+                "retainedSampleCapacity": 5760,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 11520,
+                "scratchStorageIdentity": "509482106912",
+                "seconds": 0.026567333
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:44.820795+00:00",
+            "wallStartUTC": "2026-10-07T19:16:44.787786+00:00"
+          }
+        ],
+        "width": 1920
+      },
+      {
+        "exitCodes": {
+          "candidate": 0,
+          "prechange": 0
+        },
+        "expectedCandidateWorkers": 14,
+        "height": 1632,
+        "invocations": {
+          "candidate": [
+            "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/candidate-spatial",
+            "3840",
+            "1632",
+            "14"
+          ],
+          "prechange": [
+            "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/prechange-spatial",
+            "3840",
+            "1632",
+            "1"
+          ]
+        },
+        "pairs": [
+          {
+            "iterationIncludingWarmup": 5,
+            "measured": true,
+            "order": [
+              "candidate",
+              "prechange"
+            ],
+            "pairIndex": 0,
+            "prechangeOverCandidateRatio": 8.316141702340639,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 12609333,
+                "event": "run",
+                "invocation": 5,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "537856589856",
+                "outputStorageIdentityBefore": "537856589856",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 261120,
+                "retainedSampleCapacity": 261120,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 522240,
+                "scratchStorageIdentity": "502406316064",
+                "seconds": 0.012609333
+              },
+              "prechange": {
+                "durationNanoseconds": 104861000,
+                "event": "run",
+                "invocation": 5,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "487860486176",
+                "outputStorageIdentityBefore": "487860486176",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 11520,
+                "retainedSampleCapacity": 11520,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 23040,
+                "scratchStorageIdentity": "520131444768",
+                "seconds": 0.104861
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:46.338541+00:00",
+            "wallStartUTC": "2026-10-07T19:16:46.207181+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 6,
+            "measured": true,
+            "order": [
+              "prechange",
+              "candidate"
+            ],
+            "pairIndex": 1,
+            "prechangeOverCandidateRatio": 7.719090006827191,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 12267125,
+                "event": "run",
+                "invocation": 6,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "537856589856",
+                "outputStorageIdentityBefore": "537856589856",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 261120,
+                "retainedSampleCapacity": 261120,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 522240,
+                "scratchStorageIdentity": "502406316064",
+                "seconds": 0.012267125
+              },
+              "prechange": {
+                "durationNanoseconds": 94691042,
+                "event": "run",
+                "invocation": 6,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "487860486176",
+                "outputStorageIdentityBefore": "487860486176",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 11520,
+                "retainedSampleCapacity": 11520,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 23040,
+                "scratchStorageIdentity": "520131444768",
+                "seconds": 0.094691042
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:46.459928+00:00",
+            "wallStartUTC": "2026-10-07T19:16:46.338570+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 7,
+            "measured": true,
+            "order": [
+              "candidate",
+              "prechange"
+            ],
+            "pairIndex": 2,
+            "prechangeOverCandidateRatio": 9.52969864822949,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 12492875,
+                "event": "run",
+                "invocation": 7,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "537856589856",
+                "outputStorageIdentityBefore": "537856589856",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 261120,
+                "retainedSampleCapacity": 261120,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 522240,
+                "scratchStorageIdentity": "502406316064",
+                "seconds": 0.012492875
+              },
+              "prechange": {
+                "durationNanoseconds": 119053334,
+                "event": "run",
+                "invocation": 7,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "487860486176",
+                "outputStorageIdentityBefore": "487860486176",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 11520,
+                "retainedSampleCapacity": 11520,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 23040,
+                "scratchStorageIdentity": "520131444768",
+                "seconds": 0.119053334
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:46.605971+00:00",
+            "wallStartUTC": "2026-10-07T19:16:46.459956+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 8,
+            "measured": true,
+            "order": [
+              "prechange",
+              "candidate"
+            ],
+            "pairIndex": 3,
+            "prechangeOverCandidateRatio": 8.977542783346408,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 12592166,
+                "event": "run",
+                "invocation": 8,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "537856589856",
+                "outputStorageIdentityBefore": "537856589856",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 261120,
+                "retainedSampleCapacity": 261120,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 522240,
+                "scratchStorageIdentity": "502406316064",
+                "seconds": 0.012592166
+              },
+              "prechange": {
+                "durationNanoseconds": 113046709,
+                "event": "run",
+                "invocation": 8,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "487860486176",
+                "outputStorageIdentityBefore": "487860486176",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 11520,
+                "retainedSampleCapacity": 11520,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 23040,
+                "scratchStorageIdentity": "520131444768",
+                "seconds": 0.113046709
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:46.751682+00:00",
+            "wallStartUTC": "2026-10-07T19:16:46.606004+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 9,
+            "measured": true,
+            "order": [
+              "candidate",
+              "prechange"
+            ],
+            "pairIndex": 4,
+            "prechangeOverCandidateRatio": 7.082913197434237,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 12434667,
+                "event": "run",
+                "invocation": 9,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "537856589856",
+                "outputStorageIdentityBefore": "537856589856",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 261120,
+                "retainedSampleCapacity": 261120,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 522240,
+                "scratchStorageIdentity": "502406316064",
+                "seconds": 0.012434667
+              },
+              "prechange": {
+                "durationNanoseconds": 88073667,
+                "event": "run",
+                "invocation": 9,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "487860486176",
+                "outputStorageIdentityBefore": "487860486176",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 11520,
+                "retainedSampleCapacity": 11520,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 23040,
+                "scratchStorageIdentity": "520131444768",
+                "seconds": 0.088073667
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:46.891792+00:00",
+            "wallStartUTC": "2026-10-07T19:16:46.751715+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 10,
+            "measured": true,
+            "order": [
+              "prechange",
+              "candidate"
+            ],
+            "pairIndex": 5,
+            "prechangeOverCandidateRatio": 7.388317169776904,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 12482917,
+                "event": "run",
+                "invocation": 10,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "537856589856",
+                "outputStorageIdentityBefore": "537856589856",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 261120,
+                "retainedSampleCapacity": 261120,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 522240,
+                "scratchStorageIdentity": "502406316064",
+                "seconds": 0.012482917
+              },
+              "prechange": {
+                "durationNanoseconds": 92227750,
+                "event": "run",
+                "invocation": 10,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "487860486176",
+                "outputStorageIdentityBefore": "487860486176",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 11520,
+                "retainedSampleCapacity": 11520,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 23040,
+                "scratchStorageIdentity": "520131444768",
+                "seconds": 0.09222775
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:47.010824+00:00",
+            "wallStartUTC": "2026-10-07T19:16:46.891823+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 11,
+            "measured": true,
+            "order": [
+              "candidate",
+              "prechange"
+            ],
+            "pairIndex": 6,
+            "prechangeOverCandidateRatio": 9.486282439052042,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 12542791,
+                "event": "run",
+                "invocation": 11,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "537856589856",
+                "outputStorageIdentityBefore": "537856589856",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 261120,
+                "retainedSampleCapacity": 261120,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 522240,
+                "scratchStorageIdentity": "502406316064",
+                "seconds": 0.012542791
+              },
+              "prechange": {
+                "durationNanoseconds": 118984458,
+                "event": "run",
+                "invocation": 11,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "487860486176",
+                "outputStorageIdentityBefore": "487860486176",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 11520,
+                "retainedSampleCapacity": 11520,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 23040,
+                "scratchStorageIdentity": "520131444768",
+                "seconds": 0.118984458
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:47.156274+00:00",
+            "wallStartUTC": "2026-10-07T19:16:47.010857+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 12,
+            "measured": true,
+            "order": [
+              "prechange",
+              "candidate"
+            ],
+            "pairIndex": 7,
+            "prechangeOverCandidateRatio": 5.532586938098215,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 15733666,
+                "event": "run",
+                "invocation": 12,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "537856589856",
+                "outputStorageIdentityBefore": "537856589856",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 261120,
+                "retainedSampleCapacity": 261120,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 522240,
+                "scratchStorageIdentity": "502406316064",
+                "seconds": 0.015733666
+              },
+              "prechange": {
+                "durationNanoseconds": 87047875,
+                "event": "run",
+                "invocation": 12,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "487860486176",
+                "outputStorageIdentityBefore": "487860486176",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 11520,
+                "retainedSampleCapacity": 11520,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 23040,
+                "scratchStorageIdentity": "520131444768",
+                "seconds": 0.087047875
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:47.297013+00:00",
+            "wallStartUTC": "2026-10-07T19:16:47.156306+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 13,
+            "measured": true,
+            "order": [
+              "candidate",
+              "prechange"
+            ],
+            "pairIndex": 8,
+            "prechangeOverCandidateRatio": 7.503635883639149,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 12405375,
+                "event": "run",
+                "invocation": 13,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "537856589856",
+                "outputStorageIdentityBefore": "537856589856",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 261120,
+                "retainedSampleCapacity": 261120,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 522240,
+                "scratchStorageIdentity": "502406316064",
+                "seconds": 0.012405375
+              },
+              "prechange": {
+                "durationNanoseconds": 93085417,
+                "event": "run",
+                "invocation": 13,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "487860486176",
+                "outputStorageIdentityBefore": "487860486176",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 11520,
+                "retainedSampleCapacity": 11520,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 23040,
+                "scratchStorageIdentity": "520131444768",
+                "seconds": 0.093085417
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:47.416160+00:00",
+            "wallStartUTC": "2026-10-07T19:16:47.297048+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 14,
+            "measured": true,
+            "order": [
+              "prechange",
+              "candidate"
+            ],
+            "pairIndex": 9,
+            "prechangeOverCandidateRatio": 9.456403923989846,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 12754875,
+                "event": "run",
+                "invocation": 14,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "537856589856",
+                "outputStorageIdentityBefore": "537856589856",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 261120,
+                "retainedSampleCapacity": 261120,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 522240,
+                "scratchStorageIdentity": "502406316064",
+                "seconds": 0.012754875
+              },
+              "prechange": {
+                "durationNanoseconds": 120615250,
+                "event": "run",
+                "invocation": 14,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "487860486176",
+                "outputStorageIdentityBefore": "487860486176",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 11520,
+                "retainedSampleCapacity": 11520,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 23040,
+                "scratchStorageIdentity": "520131444768",
+                "seconds": 0.12061525
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:47.564106+00:00",
+            "wallStartUTC": "2026-10-07T19:16:47.416188+00:00"
+          }
+        ],
+        "processSnapshotAfter": {
+          "FerrisProcess": {
+            "exitCode": 0,
+            "output": "  PID  PPID  ELAPSED  %CPU COMM\n30948     1 09:35:43 359.2 /Applications/Mirmir.app/Contents/MacOS/Mirmir\n"
+          },
+          "knownBuildAndMirmirProcesses": [
+            "30948     1 /Applications/Mirmir.app/Contents/MacOS/Mirmir"
+          ],
+          "timestampUTC": "2026-10-07T19:16:47.599919+00:00"
+        },
+        "processSnapshotBefore": {
+          "FerrisProcess": {
+            "exitCode": 0,
+            "output": "  PID  PPID  ELAPSED  %CPU COMM\n30948     1 09:35:41 330.1 /Applications/Mirmir.app/Contents/MacOS/Mirmir\n"
+          },
+          "knownBuildAndMirmirProcesses": [
+            "30948     1 /Applications/Mirmir.app/Contents/MacOS/Mirmir"
+          ],
+          "timestampUTC": "2026-10-07T19:16:45.240977+00:00"
+        },
+        "ready": {
+          "candidate": {
+            "activeProcessorCount": 14,
+            "event": "ready",
+            "expectedWorkers": 14,
+            "height": 1632,
+            "inputSHA256": "a7b826177d268d0532bafb376ef693a8133254c06183c7b3bfb6bceddba151ef",
+            "referenceControls": {
+              "basisGainsQ16": [
+                500,
+                500,
+                500,
+                0
+              ],
+              "stateRawValue": 340,
+              "targetMessageRawValue": 0
+            },
+            "referenceSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+            "sampleByteOrder": "native UInt16 little endian arm64",
+            "sampleCount": 6266880,
+            "stateRawValue": 340,
+            "width": 3840
+          },
+          "prechange": {
+            "activeProcessorCount": 14,
+            "event": "ready",
+            "expectedWorkers": 1,
+            "height": 1632,
+            "inputSHA256": "a7b826177d268d0532bafb376ef693a8133254c06183c7b3bfb6bceddba151ef",
+            "referenceControls": {
+              "basisGainsQ16": [
+                500,
+                500,
+                500,
+                0
+              ],
+              "stateRawValue": 340,
+              "targetMessageRawValue": 0
+            },
+            "referenceSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+            "sampleByteOrder": "native UInt16 little endian arm64",
+            "sampleCount": 6266880,
+            "stateRawValue": 340,
+            "width": 3840
+          }
+        },
+        "statistics": {
+          "candidateSeconds": {
+            "count": 10,
+            "iqr": 0.00015831175000000086,
+            "maximum": 0.015733666,
+            "mean": 0.012831579,
+            "median": 0.012517832999999999,
+            "medianAbsoluteDeviation": 8.73330000000002e-05,
+            "minimum": 0.012267125,
+            "q1": 0.0124467295,
+            "q3": 0.01260504125,
+            "sampleStandardDeviation": 0.0010280610515026173
+          },
+          "noOutputArrayCOWDuringTimedCalls": true,
+          "pairedRatioStatistics": {
+            "count": 10,
+            "iqr": 1.9195417905865213,
+            "maximum": 9.52969864822949,
+            "mean": 8.099261269273413,
+            "median": 8.017615854583916,
+            "medianAbsoluteDeviation": 0.9473147929560852,
+            "minimum": 5.532586938098215,
+            "q1": 7.417146848242465,
+            "q3": 9.336688638828987,
+            "sampleStandardDeviation": 1.3019537614611287
+          },
+          "pairedRatios": [
+            8.316141702340639,
+            7.719090006827191,
+            9.52969864822949,
+            8.977542783346408,
+            7.082913197434237,
+            7.388317169776904,
+            9.486282439052042,
+            5.532586938098215,
+            7.503635883639149,
+            9.456403923989846
+          ],
+          "parityAllWarmupsAndMeasuredPairs": true,
+          "prechangeSeconds": {
+            "count": 10,
+            "iqr": 0.02505785399999999,
+            "maximum": 0.12061525,
+            "mean": 0.1031686502,
+            "median": 0.09977602099999999,
+            "medianAbsoluteDeviation": 0.012215249999999997,
+            "minimum": 0.087047875,
+            "q1": 0.09244216675,
+            "q3": 0.11750002074999999,
+            "sampleStandardDeviation": 0.013696185740228585
+          },
+          "ratioOfMedians": 7.970710345792279,
+          "retainedScratchAllMeasuredPairs": true
+        },
+        "warmups": [
+          {
+            "iterationIncludingWarmup": 0,
+            "measured": false,
+            "order": [
+              "prechange",
+              "candidate"
+            ],
+            "pairIndex": -5,
+            "prechangeOverCandidateRatio": 9.018981992462885,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 12571125,
+                "event": "run",
+                "invocation": 0,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "537856589856",
+                "outputStorageIdentityBefore": "537856589856",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 261120,
+                "retainedSampleCapacity": 261120,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 0,
+                "scratchByteUpperBound": 522240,
+                "scratchStorageIdentity": "502406316064",
+                "seconds": 0.012571125
+              },
+              "prechange": {
+                "durationNanoseconds": 113378750,
+                "event": "run",
+                "invocation": 0,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "487860486176",
+                "outputStorageIdentityBefore": "487860486176",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 11520,
+                "retainedSampleCapacity": 11520,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 0,
+                "scratchByteUpperBound": 23040,
+                "scratchStorageIdentity": "520131444768",
+                "seconds": 0.11337875
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:45.644981+00:00",
+            "wallStartUTC": "2026-10-07T19:16:45.504728+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 1,
+            "measured": false,
+            "order": [
+              "candidate",
+              "prechange"
+            ],
+            "pairIndex": -4,
+            "prechangeOverCandidateRatio": 9.531258402573567,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 12667250,
+                "event": "run",
+                "invocation": 1,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "537856589856",
+                "outputStorageIdentityBefore": "537856589856",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 261120,
+                "retainedSampleCapacity": 261120,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 522240,
+                "scratchStorageIdentity": "502406316064",
+                "seconds": 0.01266725
+              },
+              "prechange": {
+                "durationNanoseconds": 120734833,
+                "event": "run",
+                "invocation": 1,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "487860486176",
+                "outputStorageIdentityBefore": "487860486176",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 11520,
+                "retainedSampleCapacity": 11520,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 23040,
+                "scratchStorageIdentity": "520131444768",
+                "seconds": 0.120734833
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:45.793138+00:00",
+            "wallStartUTC": "2026-10-07T19:16:45.645024+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 2,
+            "measured": false,
+            "order": [
+              "prechange",
+              "candidate"
+            ],
+            "pairIndex": -3,
+            "prechangeOverCandidateRatio": 1.9822202961032673,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 44418625,
+                "event": "run",
+                "invocation": 2,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "537856589856",
+                "outputStorageIdentityBefore": "537856589856",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 261120,
+                "retainedSampleCapacity": 261120,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 522240,
+                "scratchStorageIdentity": "502406316064",
+                "seconds": 0.044418625
+              },
+              "prechange": {
+                "durationNanoseconds": 88047500,
+                "event": "run",
+                "invocation": 2,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "487860486176",
+                "outputStorageIdentityBefore": "487860486176",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 11520,
+                "retainedSampleCapacity": 11520,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 23040,
+                "scratchStorageIdentity": "520131444768",
+                "seconds": 0.0880475
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:45.939554+00:00",
+            "wallStartUTC": "2026-10-07T19:16:45.793165+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 3,
+            "measured": false,
+            "order": [
+              "candidate",
+              "prechange"
+            ],
+            "pairIndex": -2,
+            "prechangeOverCandidateRatio": 7.870670386390375,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 11900167,
+                "event": "run",
+                "invocation": 3,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "537856589856",
+                "outputStorageIdentityBefore": "537856589856",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 261120,
+                "retainedSampleCapacity": 261120,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 522240,
+                "scratchStorageIdentity": "502406316064",
+                "seconds": 0.011900167
+              },
+              "prechange": {
+                "durationNanoseconds": 93662292,
+                "event": "run",
+                "invocation": 3,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "487860486176",
+                "outputStorageIdentityBefore": "487860486176",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 11520,
+                "retainedSampleCapacity": 11520,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 23040,
+                "scratchStorageIdentity": "520131444768",
+                "seconds": 0.093662292
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:46.059058+00:00",
+            "wallStartUTC": "2026-10-07T19:16:45.939589+00:00"
+          },
+          {
+            "iterationIncludingWarmup": 4,
+            "measured": false,
+            "order": [
+              "prechange",
+              "candidate"
+            ],
+            "pairIndex": -1,
+            "prechangeOverCandidateRatio": 9.515091334342262,
+            "runs": {
+              "candidate": {
+                "durationNanoseconds": 12719750,
+                "event": "run",
+                "invocation": 4,
+                "observedWorkersFromScratch": 14,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "537856589856",
+                "outputStorageIdentityBefore": "537856589856",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 261120,
+                "retainedSampleCapacity": 261120,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 522240,
+                "scratchStorageIdentity": "502406316064",
+                "seconds": 0.01271975
+              },
+              "prechange": {
+                "durationNanoseconds": 121029583,
+                "event": "run",
+                "invocation": 4,
+                "observedWorkersFromScratch": 1,
+                "outputSHA256": "c90e71cf752f203be98b0e71f8a052e98ad2492082d8fc9cd3a64e34d5fbb764",
+                "outputStorageIdentityAfter": "487860486176",
+                "outputStorageIdentityBefore": "487860486176",
+                "outputStorageUnchangedDuringTimedCall": true,
+                "pixelsAndControlsEqual": true,
+                "retainedRowSampleCount": 11520,
+                "retainedSampleCapacity": 11520,
+                "scratchAllocationCountAfter": 1,
+                "scratchAllocationCountBefore": 1,
+                "scratchByteUpperBound": 23040,
+                "scratchStorageIdentity": "520131444768",
+                "seconds": 0.121029583
+              }
+            },
+            "wallEndUTC": "2026-10-07T19:16:46.207152+00:00",
+            "wallStartUTC": "2026-10-07T19:16:46.059084+00:00"
+          }
+        ],
+        "width": 3840
+      }
+    ],
+    "harnessSHA256": "bea9cc650da0e97a28760671583fda3d5d26a853f8606582b63f96089cb022fd",
+    "initialProcessSnapshot": {
+      "FerrisProcess": {
+        "exitCode": 0,
+        "output": "  PID  PPID  ELAPSED  %CPU COMM\n30948     1 09:35:39 100.0 /Applications/Mirmir.app/Contents/MacOS/Mirmir\n"
+      },
+      "knownBuildAndMirmirProcesses": [
+        "30948     1 /Applications/Mirmir.app/Contents/MacOS/Mirmir"
+      ],
+      "timestampUTC": "2026-10-07T19:16:43.990392+00:00"
+    },
+    "inputPattern": "spatial-extrema-and-texture-v1, copied arithmetic from spatialQualificationSamples",
+    "maximumCode": 940,
+    "measuredPairsPerGeometry": 10,
+    "minimumCode": 64,
+    "pairOrder": "Alternates prechange/candidate and candidate/prechange across warmups and measured pairs; first measured pair is candidate/prechange.",
+    "payload": 85,
+    "processActivity": "Both binaries use identical Foundation userInitiatedAllowingIdleSystemSleep activity for the entire process.",
+    "productionEngineSourceAfterSHA256": "18883dcbdefefc05275560cfeab79b8c44db4cd04e44ca401ab3e7745792d559",
+    "productionEngineSourceBeforeSHA256": "18883dcbdefefc05275560cfeab79b8c44db4cd04e44ca401ab3e7745792d559",
+    "schemaVersion": "mirmir-independent-production-spatial-validation-v1",
+    "scope": "One entire production ASHSpatialReconstructorV4.reconstructInPlace call, with validation, conditioned controls, retained workspace preparation, cancellation check, and serial ring/stencil or parallel halo capture/dispatch/join. Input reset, reference construction, exact full-sample/control comparisons and SHA256 hashing are outside timing.",
+    "scratch": "Each long-lived binary owns a distinct workspace/output array for the entire geometry; allocation count and identity captured on every invocation; cold first allocation is a warmup and retained-workspace calls are measured.",
+    "sourceProvenancePath": "source-provenance.json",
+    "sourceProvenanceSHA256": "be62464a60914025a4cb4a29fef5f53b8fb7780d7aac9297731b5ee3d2199eae",
+    "startUTC": "2026-10-07T19:16:43.957278+00:00",
+    "statisticsMethod": "Median, inclusive quartiles, sample standard deviation, median absolute deviation. Paired ratios divide prechangeSeconds by candidateSeconds at the same pair index. No whole-movie claim or statistical confidence interval.",
+    "succeeded": true,
+    "warmupPairsPerGeometry": 5
+  },
+  "schemaVersion": "mirmir-independent-production-spatial-validation-portable-v1",
+  "sourceProvenance": {
+    "baseRevision": "817f1f2f56f5b59a5d36818505c368e12069bf48",
+    "referenceFunctionByteIdentical": true,
+    "referenceFunctionSHA256": "2ee8bc26f9bf7c39abe22f79ca17e50ef6180c8aaf365d65a6e231f14a45a814",
+    "serialRingCancellationCommitByteIdentical": true,
+    "serialRingCancellationCommitSHA256": "85f54a9cd91df5d5481ef7b873dec1810f12d5c2fd0fa593b3841da3a5c3da91",
+    "sources": [
+      {
+        "copiedPath": "prechange/ASHState.swift",
+        "matchesCurrentRawSource": true,
+        "matchesPrechangeGitRawSource": true,
+        "sha256": "c96f0ef0a1e087cc3c7ac0bf821caa88d72a7e959deabae3749a6f1ad5ebdee2",
+        "sourcePath": "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift",
+        "variant": "prechange"
+      },
+      {
+        "copiedPath": "prechange/ASHCode.swift",
+        "matchesCurrentRawSource": true,
+        "matchesPrechangeGitRawSource": true,
+        "sha256": "e893e66b1e2c71d9ab864ed4765cd275472308dfeefce45e023aa35190de8ab1",
+        "sourcePath": "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift",
+        "variant": "prechange"
+      },
+      {
+        "copiedPath": "prechange/ASHCoreV4.swift",
+        "matchesCurrentRawSource": true,
+        "matchesPrechangeGitRawSource": true,
+        "sha256": "8c4bcaca4e6b079d414dd18573d412245ecd26f426bfa5237febf55ae3e741b9",
+        "sourcePath": "Mirmir/Modules/UpscalerEngine/ASH/ASHCoreV4.swift",
+        "variant": "prechange"
+      },
+      {
+        "copiedPath": "prechange/ASHCanonicalJSONV4.swift",
+        "matchesCurrentRawSource": true,
+        "matchesPrechangeGitRawSource": true,
+        "sha256": "1e62c1d70746039c2e4ce4c21ea96f2f770a729266f60c40043bdb8be40908da",
+        "sourcePath": "Mirmir/Modules/UpscalerEngine/ASH/ASHCanonicalJSONV4.swift",
+        "variant": "prechange"
+      },
+      {
+        "copiedPath": "prechange/ASHMeasurementContractV4.swift",
+        "matchesCurrentRawSource": true,
+        "matchesPrechangeGitRawSource": true,
+        "sha256": "962662a973d84a8d30fad5c6b169522240bde63999e3abb5e6cd0ddeb6bdd501",
+        "sourcePath": "Mirmir/Modules/UpscalerEngine/ASH/ASHMeasurementContractV4.swift",
+        "variant": "prechange"
+      },
+      {
+        "copiedPath": "prechange/ASHDepthFourBranchProgramV4.swift",
+        "matchesCurrentRawSource": true,
+        "matchesPrechangeGitRawSource": true,
+        "sha256": "c3027cfa2e933f9879a29adf3a8070fbb9cf2cc5956c451231790b29d1c0957d",
+        "sourcePath": "Mirmir/Modules/UpscalerEngine/ASH/ASHDepthFourBranchProgramV4.swift",
+        "variant": "prechange"
+      },
+      {
+        "copiedPath": "prechange/RationalPresentationGeometryV4.swift",
+        "matchesCurrentRawSource": true,
+        "matchesPrechangeGitRawSource": true,
+        "sha256": "73aea7a88844d6f77ba37658e01a32e7890cf0d2703dcb125119608b34157743",
+        "sourcePath": "Mirmir/Modules/UpscalerEngine/RationalPresentationGeometryV4.swift",
+        "variant": "prechange"
+      },
+      {
+        "copiedPath": "prechange/ASHTemporalReconstructionV4.swift",
+        "matchesCurrentRawSource": false,
+        "matchesPrechangeGitRawSource": true,
+        "sha256": "b3d6bb8d4d10dc23f1f85836c5df4b8a41fba7910c5f2674779a7f4bcae68ce5",
+        "sourcePath": "Mirmir/Modules/UpscalerEngine/ASHTemporalReconstructionV4.swift",
+        "variant": "prechange"
+      },
+      {
+        "copiedPath": "prechange/ASHExecutorV4ProductionDeclaration.swift",
+        "sha256": "b26d8bbeb0037d05861a768a7c4b28ab07b738ebec53d7a9c92582fbda7f4425",
+        "sourceFileSHA256": "f84ef84e038ecade76a550f9ca235913b109c8b9d47bbefff9e7578d9e50a0f2",
+        "sourceKind": "exact complete enum ASHExecutorV4 declaration from prechange production source",
+        "sourcePath": "Mirmir/Modules/UpscalerEngine/ASH/ASHExecutionPlanV4.swift",
+        "variant": "prechange"
+      },
+      {
+        "copiedPath": "candidate/ASHState.swift",
+        "matchesCurrentRawSource": true,
+        "matchesPrechangeGitRawSource": true,
+        "sha256": "c96f0ef0a1e087cc3c7ac0bf821caa88d72a7e959deabae3749a6f1ad5ebdee2",
+        "sourcePath": "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift",
+        "variant": "candidate"
+      },
+      {
+        "copiedPath": "candidate/ASHCode.swift",
+        "matchesCurrentRawSource": true,
+        "matchesPrechangeGitRawSource": true,
+        "sha256": "e893e66b1e2c71d9ab864ed4765cd275472308dfeefce45e023aa35190de8ab1",
+        "sourcePath": "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift",
+        "variant": "candidate"
+      },
+      {
+        "copiedPath": "candidate/ASHCoreV4.swift",
+        "matchesCurrentRawSource": true,
+        "matchesPrechangeGitRawSource": true,
+        "sha256": "8c4bcaca4e6b079d414dd18573d412245ecd26f426bfa5237febf55ae3e741b9",
+        "sourcePath": "Mirmir/Modules/UpscalerEngine/ASH/ASHCoreV4.swift",
+        "variant": "candidate"
+      },
+      {
+        "copiedPath": "candidate/ASHCanonicalJSONV4.swift",
+        "matchesCurrentRawSource": true,
+        "matchesPrechangeGitRawSource": true,
+        "sha256": "1e62c1d70746039c2e4ce4c21ea96f2f770a729266f60c40043bdb8be40908da",
+        "sourcePath": "Mirmir/Modules/UpscalerEngine/ASH/ASHCanonicalJSONV4.swift",
+        "variant": "candidate"
+      },
+      {
+        "copiedPath": "candidate/ASHMeasurementContractV4.swift",
+        "matchesCurrentRawSource": true,
+        "matchesPrechangeGitRawSource": true,
+        "sha256": "962662a973d84a8d30fad5c6b169522240bde63999e3abb5e6cd0ddeb6bdd501",
+        "sourcePath": "Mirmir/Modules/UpscalerEngine/ASH/ASHMeasurementContractV4.swift",
+        "variant": "candidate"
+      },
+      {
+        "copiedPath": "candidate/ASHDepthFourBranchProgramV4.swift",
+        "matchesCurrentRawSource": true,
+        "matchesPrechangeGitRawSource": true,
+        "sha256": "c3027cfa2e933f9879a29adf3a8070fbb9cf2cc5956c451231790b29d1c0957d",
+        "sourcePath": "Mirmir/Modules/UpscalerEngine/ASH/ASHDepthFourBranchProgramV4.swift",
+        "variant": "candidate"
+      },
+      {
+        "copiedPath": "candidate/RationalPresentationGeometryV4.swift",
+        "matchesCurrentRawSource": true,
+        "matchesPrechangeGitRawSource": true,
+        "sha256": "73aea7a88844d6f77ba37658e01a32e7890cf0d2703dcb125119608b34157743",
+        "sourcePath": "Mirmir/Modules/UpscalerEngine/RationalPresentationGeometryV4.swift",
+        "variant": "candidate"
+      },
+      {
+        "copiedPath": "candidate/ASHTemporalReconstructionV4.swift",
+        "matchesCurrentRawSource": true,
+        "matchesPrechangeGitRawSource": false,
+        "sha256": "18883dcbdefefc05275560cfeab79b8c44db4cd04e44ca401ab3e7745792d559",
+        "sourcePath": "Mirmir/Modules/UpscalerEngine/ASHTemporalReconstructionV4.swift",
+        "variant": "candidate"
+      },
+      {
+        "copiedPath": "candidate/ASHExecutorV4ProductionDeclaration.swift",
+        "sha256": "b26d8bbeb0037d05861a768a7c4b28ab07b738ebec53d7a9c92582fbda7f4425",
+        "sourceFileSHA256": "f84ef84e038ecade76a550f9ca235913b109c8b9d47bbefff9e7578d9e50a0f2",
+        "sourceKind": "exact complete enum ASHExecutorV4 declaration from prechange production source",
+        "sourcePath": "Mirmir/Modules/UpscalerEngine/ASH/ASHExecutionPlanV4.swift",
+        "variant": "candidate"
+      }
+    ]
+  },
+  "summary": {
+    "activeFerrisPreserved": true,
+    "allPixelsAndControlsBitExactAgainstUnchangedReferenceAndAcrossBinaries": true,
+    "baseRevision": "817f1f2f56f5b59a5d36818505c368e12069bf48",
+    "compilerFlagsIdentical": true,
+    "measuredPairsPerGeometry": 10,
+    "rawReceiptPath": "{REPO_ROOT}/output/spatial-parallelism-2026-10-07/independent-spatial-validation/independent-spatial-raw.json",
+    "rawReceiptSHA256": "feaa46c33738362023e1488bc673daeb286c5fad93d771eac963e5f1d72e57bb",
+    "records": [
+      {
+        "candidateScratchBytes": 261120,
+        "candidateScratchSamples": 130560,
+        "candidateSeconds": {
+          "count": 10,
+          "iqr": 7.616625000000021e-05,
+          "maximum": 0.003281958,
+          "mean": 0.0031559709,
+          "median": 0.0031745835,
+          "medianAbsoluteDeviation": 4.197900000000015e-05,
+          "minimum": 0.002915167,
+          "q1": 0.00313782325,
+          "q3": 0.0032139895,
+          "sampleStandardDeviation": 0.00010577711222760392
+        },
+        "candidateWorkers": 14,
+        "height": 816,
+        "noOutputArrayCOWDuringTimedCalls": true,
+        "pairedRatioStatistics": {
+          "count": 10,
+          "iqr": 0.4201863052009509,
+          "maximum": 16.06060064483441,
+          "mean": 8.364573573894065,
+          "median": 6.928111217651987,
+          "medianAbsoluteDeviation": 0.07183540413080403,
+          "minimum": 6.681250338974478,
+          "q1": 6.87295856458617,
+          "q3": 7.293144869787121,
+          "sampleStandardDeviation": 3.1494605896347307
+        },
+        "pairedRatios": [
+          7.397472754222376,
+          6.85190129504221,
+          6.9227930517974485,
+          16.06060064483441,
+          6.933429383506525,
+          6.681250338974478,
+          6.860650332000155,
+          6.909883262344218,
+          6.980161216481361,
+          12.047593459737469
+        ],
+        "parityAllWarmupsAndMeasuredPairs": true,
+        "prechangeScratchSamples": 5760,
+        "prechangeSeconds": {
+          "count": 10,
+          "iqr": 0.0013539787500000018,
+          "maximum": 0.046819333,
+          "mean": 0.0262267416,
+          "median": 0.021921979,
+          "medianAbsoluteDeviation": 0.00017391599999999965,
+          "minimum": 0.021345333,
+          "q1": 0.021808469,
+          "q3": 0.023162447750000002,
+          "sampleStandardDeviation": 0.009051192613784613
+        },
+        "ratioOfMedians": 6.905466181626661,
+        "retainedScratchAllMeasuredPairs": true,
+        "width": 1920
+      },
+      {
+        "candidateScratchBytes": 522240,
+        "candidateScratchSamples": 261120,
+        "candidateSeconds": {
+          "count": 10,
+          "iqr": 0.00015831175000000086,
+          "maximum": 0.015733666,
+          "mean": 0.012831579,
+          "median": 0.012517832999999999,
+          "medianAbsoluteDeviation": 8.73330000000002e-05,
+          "minimum": 0.012267125,
+          "q1": 0.0124467295,
+          "q3": 0.01260504125,
+          "sampleStandardDeviation": 0.0010280610515026173
+        },
+        "candidateWorkers": 14,
+        "height": 1632,
+        "noOutputArrayCOWDuringTimedCalls": true,
+        "pairedRatioStatistics": {
+          "count": 10,
+          "iqr": 1.9195417905865213,
+          "maximum": 9.52969864822949,
+          "mean": 8.099261269273413,
+          "median": 8.017615854583916,
+          "medianAbsoluteDeviation": 0.9473147929560852,
+          "minimum": 5.532586938098215,
+          "q1": 7.417146848242465,
+          "q3": 9.336688638828987,
+          "sampleStandardDeviation": 1.3019537614611287
+        },
+        "pairedRatios": [
+          8.316141702340639,
+          7.719090006827191,
+          9.52969864822949,
+          8.977542783346408,
+          7.082913197434237,
+          7.388317169776904,
+          9.486282439052042,
+          5.532586938098215,
+          7.503635883639149,
+          9.456403923989846
+        ],
+        "parityAllWarmupsAndMeasuredPairs": true,
+        "prechangeScratchSamples": 11520,
+        "prechangeSeconds": {
+          "count": 10,
+          "iqr": 0.02505785399999999,
+          "maximum": 0.12061525,
+          "mean": 0.1031686502,
+          "median": 0.09977602099999999,
+          "medianAbsoluteDeviation": 0.012215249999999997,
+          "minimum": 0.087047875,
+          "q1": 0.09244216675,
+          "q3": 0.11750002074999999,
+          "sampleStandardDeviation": 0.013696185740228585
+        },
+        "ratioOfMedians": 7.970710345792279,
+        "retainedScratchAllMeasuredPairs": true,
+        "width": 3840
+      }
+    ],
+    "schemaVersion": "mirmir-independent-production-spatial-validation-v1",
+    "scope": "One entire production ASHSpatialReconstructorV4.reconstructInPlace call, with validation, conditioned controls, retained workspace preparation, cancellation check, and serial ring/stencil or parallel halo capture/dispatch/join. Input reset, reference construction, exact full-sample/control comparisons and SHA256 hashing are outside timing.",
+    "sourceAndBinariesUnchangedDuringMeasurement": true,
+    "warmupPairsPerGeometry": 5
+  }
+}

@@ -1,0 +1,733 @@
+{
+  "activeProcessorCount" : 14,
+  "inputPattern" : "spatial-extrema-and-texture-v1",
+  "records" : [
+    {
+      "actualWorkerCount" : 1,
+      "height" : 256,
+      "parallelScratchBytes" : 1536,
+      "parallelScratchSamples" : 768,
+      "parallelSeconds" : [
+        0.00089725,
+        0.000895959,
+        0.000887834,
+        0.000902167,
+        0.000903791
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 1,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 768,
+      "serialSeconds" : [
+        0.000920375,
+        0.000901,
+        0.000914459,
+        0.000909041,
+        0.000909292
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 256
+    },
+    {
+      "actualWorkerCount" : 2,
+      "height" : 256,
+      "parallelScratchBytes" : 4096,
+      "parallelScratchSamples" : 2048,
+      "parallelSeconds" : [
+        0.000443417,
+        0.000432875,
+        0.000403542,
+        0.000417166,
+        0.000398042
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 2,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 768,
+      "serialSeconds" : [
+        0.000933167,
+        0.000899333,
+        0.00087675,
+        0.000876625,
+        0.000878
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 256
+    },
+    {
+      "actualWorkerCount" : 4,
+      "height" : 256,
+      "parallelScratchBytes" : 9216,
+      "parallelScratchSamples" : 4608,
+      "parallelSeconds" : [
+        0.000240875,
+        0.000260666,
+        0.000236625,
+        0.000229334,
+        0.000234209
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 4,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 768,
+      "serialSeconds" : [
+        0.00114725,
+        0.00095,
+        0.000945375,
+        0.000981292,
+        0.000912167
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 256
+    },
+    {
+      "actualWorkerCount" : 8,
+      "height" : 256,
+      "parallelScratchBytes" : 19456,
+      "parallelScratchSamples" : 9728,
+      "parallelSeconds" : [
+        0.000150709,
+        0.000147,
+        0.000144959,
+        0.000147917,
+        0.000151125
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 8,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 768,
+      "serialSeconds" : [
+        0.000935625,
+        0.000913208,
+        0.000992791,
+        0.000915625,
+        0.000869292
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 256
+    },
+    {
+      "actualWorkerCount" : 14,
+      "height" : 256,
+      "parallelScratchBytes" : 34816,
+      "parallelScratchSamples" : 17408,
+      "parallelSeconds" : [
+        0.000147792,
+        0.000145625,
+        0.000135791,
+        0.000168667,
+        0.000150833
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 14,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 768,
+      "serialSeconds" : [
+        0.000879958,
+        0.000887042,
+        0.000845333,
+        0.000892292,
+        0.000979042
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 256
+    },
+    {
+      "actualWorkerCount" : 1,
+      "height" : 512,
+      "parallelScratchBytes" : 3072,
+      "parallelScratchSamples" : 1536,
+      "parallelSeconds" : [
+        0.003765584,
+        0.003758583,
+        0.0037585,
+        0.003746583,
+        0.003739917
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 1,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 1536,
+      "serialSeconds" : [
+        0.003816583,
+        0.003847541,
+        0.003782375,
+        0.003916625,
+        0.003827709
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 512
+    },
+    {
+      "actualWorkerCount" : 2,
+      "height" : 512,
+      "parallelScratchBytes" : 8192,
+      "parallelScratchSamples" : 4096,
+      "parallelSeconds" : [
+        0.001679458,
+        0.001704917,
+        0.001681959,
+        0.0016915,
+        0.0017335
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 2,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 1536,
+      "serialSeconds" : [
+        0.003840541,
+        0.003895042,
+        0.003797625,
+        0.0037725,
+        0.003806459
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 512
+    },
+    {
+      "actualWorkerCount" : 4,
+      "height" : 512,
+      "parallelScratchBytes" : 18432,
+      "parallelScratchSamples" : 9216,
+      "parallelSeconds" : [
+        0.0009125,
+        0.000919667,
+        0.000917792,
+        0.000902958,
+        0.000879709
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 4,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 1536,
+      "serialSeconds" : [
+        0.00388225,
+        0.003862958,
+        0.003725542,
+        0.003773083,
+        0.003728709
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 512
+    },
+    {
+      "actualWorkerCount" : 8,
+      "height" : 512,
+      "parallelScratchBytes" : 38912,
+      "parallelScratchSamples" : 19456,
+      "parallelSeconds" : [
+        0.000873917,
+        0.000583917,
+        0.000814333,
+        0.00071,
+        0.00067425
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 8,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 1536,
+      "serialSeconds" : [
+        0.003714583,
+        0.003760916,
+        0.003720667,
+        0.003785625,
+        0.003849833
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 512
+    },
+    {
+      "actualWorkerCount" : 14,
+      "height" : 512,
+      "parallelScratchBytes" : 69632,
+      "parallelScratchSamples" : 34816,
+      "parallelSeconds" : [
+        0.000782042,
+        0.000606375,
+        0.000772833,
+        0.000605125,
+        0.000552542
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 14,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 1536,
+      "serialSeconds" : [
+        0.003694,
+        0.003761708,
+        0.003809542,
+        0.003739,
+        0.003799917
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 512
+    },
+    {
+      "actualWorkerCount" : 1,
+      "height" : 256,
+      "parallelScratchBytes" : 6144,
+      "parallelScratchSamples" : 3072,
+      "parallelSeconds" : [
+        0.003727792,
+        0.003716667,
+        0.003711333,
+        0.003725083,
+        0.003711916
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 1,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 3072,
+      "serialSeconds" : [
+        0.00372175,
+        0.003793542,
+        0.003725875,
+        0.00375975,
+        0.003712084
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 1024
+    },
+    {
+      "actualWorkerCount" : 2,
+      "height" : 256,
+      "parallelScratchBytes" : 16384,
+      "parallelScratchSamples" : 8192,
+      "parallelSeconds" : [
+        0.001697458,
+        0.001737834,
+        0.001707584,
+        0.001693958,
+        0.001679083
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 2,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 3072,
+      "serialSeconds" : [
+        0.003740459,
+        0.003745791,
+        0.0037305,
+        0.003748,
+        0.003804792
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 1024
+    },
+    {
+      "actualWorkerCount" : 4,
+      "height" : 256,
+      "parallelScratchBytes" : 36864,
+      "parallelScratchSamples" : 18432,
+      "parallelSeconds" : [
+        0.000929,
+        0.000973375,
+        0.000940084,
+        0.000968209,
+        0.000911333
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 4,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 3072,
+      "serialSeconds" : [
+        0.003888042,
+        0.003975875,
+        0.003975958,
+        0.003895459,
+        0.003870166
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 1024
+    },
+    {
+      "actualWorkerCount" : 8,
+      "height" : 256,
+      "parallelScratchBytes" : 77824,
+      "parallelScratchSamples" : 38912,
+      "parallelSeconds" : [
+        0.000535041,
+        0.000552167,
+        0.000501666,
+        0.00063625,
+        0.000509166
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 8,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 3072,
+      "serialSeconds" : [
+        0.00404375,
+        0.003877209,
+        0.003922,
+        0.0039665,
+        0.003667541
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 1024
+    },
+    {
+      "actualWorkerCount" : 14,
+      "height" : 256,
+      "parallelScratchBytes" : 139264,
+      "parallelScratchSamples" : 69632,
+      "parallelSeconds" : [
+        0.000573458,
+        0.0005585,
+        0.000487458,
+        0.0005515,
+        0.000542042
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 14,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 3072,
+      "serialSeconds" : [
+        0.003683292,
+        0.003739792,
+        0.003842584,
+        0.003785333,
+        0.003786458
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 1024
+    },
+    {
+      "actualWorkerCount" : 1,
+      "height" : 816,
+      "parallelScratchBytes" : 11520,
+      "parallelScratchSamples" : 5760,
+      "parallelSeconds" : [
+        0.022836959,
+        0.023388833,
+        0.022575,
+        0.022901125,
+        0.023014375
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 1,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 5760,
+      "serialSeconds" : [
+        0.022613125,
+        0.022823625,
+        0.023276875,
+        0.023050334,
+        0.023090917
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 1920
+    },
+    {
+      "actualWorkerCount" : 2,
+      "height" : 816,
+      "parallelScratchBytes" : 30720,
+      "parallelScratchSamples" : 15360,
+      "parallelSeconds" : [
+        0.009925542,
+        0.010069083,
+        0.009920833,
+        0.010027834,
+        0.009957291
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 2,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 5760,
+      "serialSeconds" : [
+        0.022703291,
+        0.023461833,
+        0.022955542,
+        0.022752208,
+        0.022643625
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 1920
+    },
+    {
+      "actualWorkerCount" : 4,
+      "height" : 816,
+      "parallelScratchBytes" : 69120,
+      "parallelScratchSamples" : 34560,
+      "parallelSeconds" : [
+        0.005336542,
+        0.005292625,
+        0.005302125,
+        0.005303416,
+        0.0052925
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 4,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 5760,
+      "serialSeconds" : [
+        0.022690834,
+        0.022628083,
+        0.022632375,
+        0.023369958,
+        0.023086584
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 1920
+    },
+    {
+      "actualWorkerCount" : 8,
+      "height" : 816,
+      "parallelScratchBytes" : 145920,
+      "parallelScratchSamples" : 72960,
+      "parallelSeconds" : [
+        0.002887041,
+        0.002880833,
+        0.00288025,
+        0.002895292,
+        0.002922792
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 8,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 5760,
+      "serialSeconds" : [
+        0.023480792,
+        0.023022416,
+        0.023135459,
+        0.022802875,
+        0.022666917
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 1920
+    },
+    {
+      "actualWorkerCount" : 14,
+      "height" : 816,
+      "parallelScratchBytes" : 261120,
+      "parallelScratchSamples" : 130560,
+      "parallelSeconds" : [
+        0.0027845,
+        0.002448083,
+        0.002398083,
+        0.002404875,
+        0.0030605
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 14,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 5760,
+      "serialSeconds" : [
+        0.022482459,
+        0.022587209,
+        0.022465542,
+        0.022571375,
+        0.023192417
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 1920
+    },
+    {
+      "actualWorkerCount" : 1,
+      "height" : 1632,
+      "parallelScratchBytes" : 23040,
+      "parallelScratchSamples" : 11520,
+      "parallelSeconds" : [
+        0.091236459,
+        0.091454709,
+        0.091053959,
+        0.091890208,
+        0.090643792
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 1,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 11520,
+      "serialSeconds" : [
+        0.091252666,
+        0.090700625,
+        0.091833833,
+        0.090556792,
+        0.09252575
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 3840
+    },
+    {
+      "actualWorkerCount" : 2,
+      "height" : 1632,
+      "parallelScratchBytes" : 61440,
+      "parallelScratchSamples" : 30720,
+      "parallelSeconds" : [
+        0.040558667,
+        0.0401345,
+        0.039582125,
+        0.039916791,
+        0.039973417
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 2,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 11520,
+      "serialSeconds" : [
+        0.090936375,
+        0.091772042,
+        0.091464209,
+        0.091082208,
+        0.091825959
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 3840
+    },
+    {
+      "actualWorkerCount" : 4,
+      "height" : 1632,
+      "parallelScratchBytes" : 138240,
+      "parallelScratchSamples" : 69120,
+      "parallelSeconds" : [
+        0.021068958,
+        0.021079625,
+        0.021044083,
+        0.02114175,
+        0.021065958
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 4,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 11520,
+      "serialSeconds" : [
+        0.091761291,
+        0.090834084,
+        0.091780166,
+        0.090152,
+        0.091635334
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 3840
+    },
+    {
+      "actualWorkerCount" : 8,
+      "height" : 1632,
+      "parallelScratchBytes" : 291840,
+      "parallelScratchSamples" : 145920,
+      "parallelSeconds" : [
+        0.011436292,
+        0.011437166,
+        0.013748959,
+        0.014498292,
+        0.011346458
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 8,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 11520,
+      "serialSeconds" : [
+        0.090676333,
+        0.092362458,
+        0.092716458,
+        0.09206075,
+        0.090968959
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 3840
+    },
+    {
+      "actualWorkerCount" : 14,
+      "height" : 1632,
+      "parallelScratchBytes" : 522240,
+      "parallelScratchSamples" : 261120,
+      "parallelSeconds" : [
+        0.01017875,
+        0.010248417,
+        0.010886709,
+        0.009584625,
+        0.010550875
+      ],
+      "parallelStorageAllocationCount" : 1,
+      "pixelsAndControlsEqual" : true,
+      "requestedWorkerLimit" : 14,
+      "samplePairs" : 5,
+      "serialScratchSamples" : 11520,
+      "serialSeconds" : [
+        0.091325417,
+        0.090843666,
+        0.091558167,
+        0.090475458,
+        0.091818125
+      ],
+      "serialStorageAllocationCount" : 1,
+      "stateRawValue" : 340,
+      "warmupPairs" : 5,
+      "width" : 3840
+    }
+  ],
+  "schemaVersion" : "mirmir-v4-spatial-parallel-benchmark-v1",
+  "timedScope" : "in-place call including validation, controls, scratch preparation, halo capture, dispatch and join; input reset and exact comparisons excluded"
+}

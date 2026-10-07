@@ -1,14 +1,112 @@
 # Deterministic engine v4 current qualification status
 
-Verified October 6, 2026.
+Verified October 7, 2026.
 
-Current source identity: 1.6.0 build 16. Independent motion blocks now run in
-bounded parallel batches, results merge in a fixed order, and frame history
-remains sequential. Scoped process activities protect active work from App Nap
-while permitting display sleep. Full-source boundary authentication, exact
-cadence, canonical candidate ordering, and checkpoint contracts remain intact.
+Current source identity: 1.7.0 build 17. State-conditioned spatial reconstruction
+now uses bounded parallel row stripes with immutable original boundary rows,
+the serial integer stencil, and joined completion. Independent motion blocks
+retain bounded parallel execution and fixed-order assembly. Frames, history,
+and durable commits remain sequential. Full-source authentication, exact
+cadence, input/output verification, runtime admission, and quality checks remain
+intact.
 
-## Current 1.6.0 verification
+## Version 1.7.0 build-17 publication verification
+
+Fresh native Debug and Release build-for-testing commands and the universal
+production Release build succeeded with zero compiler warning/error lines.
+The signed production app identifies as 1.7.0 (17), retains `com.mirmir.app`,
+contains arm64 and x86_64, and passes strict/deep code-signature verification.
+The actual `/Users/jimdaley/GitHub/Mirmir/Mirmir.xcodeproj` also built with the
+Mirmir scheme and **Any Mac (arm64, x86_64)** destination in Xcode: **Build
+Succeeded** at 2:04 PM on October 7, with the unfiltered Issue Navigator empty.
+No archive, installed-app replacement, distribution, or Intel execution follows
+from these build results. Full native suite evidence and the open gates below
+remain separate.
+
+Build logs, source-at-build hashes, signature/version receipt, and Xcode UI
+receipt are retained in `output/publication-1.7.0-17-2026-10-07/`.
+The October 7 installed-app readback confirmed `/Applications/Mirmir.app`
+**1.6.0 (16)**, the original Ferris process still present, and its current job
+head readable. The active app was not replaced; the 1.7.0 validation build
+remains separate. The output-only receipt is `ferris-preservation.json` in that
+local directory.
+
+The fresh default Debug suite passed 635 tests with zero failures and six
+opt-in skips (641 total). Fresh default Release passed 630 tests with zero
+failures and six opt-in skips (636 total). Both have empty `runtimeWarnings`
+lists. These passing runs do not identify or repair the earlier decoded H.264
+parity incident. A separate
+explicit run of
+`DeterministicMetalBackendTests.testCanonical8KEndToEndAllocationGateWhenRequested`
+passed one test with zero failures and zero skips, also with no reported runtime
+warnings. Despite its test-class name, this gate processes one progressive NV12
+frame from 4096×2160 to 8192×4320 with the CPU backend and checks the existing
+Debug allocation contract. It does not qualify 8K Metal, a movie, or throughput.
+The portable publication summary is
+[`publication-verification.json`](evidence/spatial-parallelism-2026-10-07/publication-verification.json).
+
+## Retained pre-version spatial-candidate evidence
+
+On October 7, before version alignment, the native **My Mac** Debug suite
+passed 635 tests with zero failures and six opt-in skips. Release passed 630
+tests with one failure and five opt-in skips. The failure is the retained strict
+decoded H.264 CPU/Metal parity test: all 156 pre-encoder frames match, while
+decoded ordinals 125–148 and 154 differ. Four traced repeat runs match. This
+evidence does not identify the cause or establish a repair; no parity assertion
+was changed. Spatial timing capture was enabled in that Release suite; its
+five skips are separate from the fresh default version-17 run above with that
+capture disabled. The earlier incident remains open and unexplained.
+
+Forced-worker spatial tests compare every output pixel and control with an
+independent reference across all 256 ASH states, uneven stripes, boundary
+impulses, full code extrema, rounding ties, one-row/one-column geometry,
+invalid input, cancellation before mutation, scratch reuse, copied-workspace
+concurrency, and 1920×816/3840×1632 planes. The optimized Release fixture retains
+the original serial implementation for paired timings. At 3840×1632 with 14
+workers, five alternating pairs after warmup reduced the spatial-call median
+from 91.325 to 10.248 ms, **8.91×**, with exact pixels and controls. Full input
+validation, halo staging, worker dispatch, and joined completion are timed;
+input reset/copy and equality checking are outside the timer. This is a spatial
+stage measurement, not whole-engine or feature-length throughput.
+
+An independent comparison used actual pre-change/current optimized binaries
+with ten alternating pairs after five warmups. Median spatial-call time was
+99.776 → 12.518 ms (**7.971×**) at 3840×1632 and 21.922 → 3.175 ms (**6.905×**)
+at 1920×816. All output pixels and controls match, as do cross-binary output
+digests. Ferris remained active and no builds or tests overlapped the paired
+measurements. This is independent confirmation of the stage improvement, with
+separate timings from the original five-pair 8.91× observation; neither is a
+guaranteed multiplier or a whole-movie qualification. See
+[`INDEPENDENT_VALIDATION.md`](evidence/spatial-parallelism-2026-10-07/INDEPENDENT_VALIDATION.md)
+and [`independent-validation.json`](evidence/spatial-parallelism-2026-10-07/independent-validation.json).
+
+An independently identified **development-unsealed** capture reproduced all
+840 baseline candidate/ablation artifacts (168 cases × five variants), and two
+independent evaluations reproduced the baseline quality section. The quality
+index is 122.79205232469828 with paired bootstrap 95% lower bound
+122.31276109657409. Its 64×48 planes remain below the 262,144-sample automatic
+parallel threshold, so the capture does not exercise the parallel spatial path.
+The evaluator retains `releaseQualityGatePass=false`; packaged/natural eligibility
+is absent. The capture does not establish a new sealed M7 selection, committed
+runtime binding, or current performance qualification. Historical P05 timing
+inputs were reused and are not a fresh movie timing baseline.
+
+The runtime source-identity gate still exits 2. An attempted runtime-production
+run stopped at stale frozen `MirmirApp` capture-observer source/size locks, with
+16 of 17 checks passing. Runtime assets, trust constants, capture checks, and
+historical seals were retained unchanged. Repairing this requires a legitimate
+new runtime/source binding and its full validation; changing a frozen lock to
+accept the current file would not supply that evidence.
+
+Portable source-bound receipts and the raw paired benchmark are in
+[`evidence/spatial-parallelism-2026-10-07/`](evidence/spatial-parallelism-2026-10-07/README.md).
+Implementation details and test names are in
+[`../DETERMINISTIC_SPATIAL_PARALLELISM.md`](../DETERMINISTIC_SPATIAL_PARALLELISM.md).
+Original builds, traces, independent captures, and result bundles remain local
+under `output/spatial-parallelism-2026-10-07/`. Version 1.7.0 build-17 publication
+checks are recorded separately from this pre-version-alignment candidate.
+
+## Historical 1.6.0 verification — October 6, 2026
 
 Native Xcode 27.0 tests on macOS 27.0.1, arm64, **My Mac**, passed in both
 configurations: Debug 628 passed, zero failed, five opt-in skips; Release 623
@@ -115,7 +213,7 @@ No ASH reseal or benchmark/evidence changes were made. The full Swift suite
 was not run in this pass.
 
 The remaining verification narrative below belongs to 1.4.3 and earlier
-commits; it does not establish qualification of the 1.6.0 source.
+commits; it does not establish qualification of the 1.7.0 source.
 
 Historical qualification receipts retain their original dates and source
 identities.
@@ -141,9 +239,10 @@ decisions.
 
 | Field | Verified value |
 | --- | --- |
-| Product | Mirmir 1.6.0 (16) |
-| Version authorities | `VERSION` = `1.6.0`; `BUILD_NUMBER` = `16` |
-| Installed application | `/Applications/Mirmir.app` 1.5.0 (15), checked October 6; not replaced by this update |
+| Product | Mirmir 1.7.0 (17) |
+| Version authorities | `VERSION` = `1.7.0`; `BUILD_NUMBER` = `17` |
+| Current installed-application check | `/Applications/Mirmir.app` 1.6.0 (16), checked October 7; original Ferris process present and job head readable; not replaced |
+| Historical installed-application check | `/Applications/Mirmir.app` 1.5.0 (15), checked October 6; source publication does not establish current installation |
 | Bundle identifier | `com.mirmir.app` |
 | Minimum macOS | 15.4 |
 | M0–M6 implementation | Complete |
