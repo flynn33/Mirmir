@@ -163,6 +163,7 @@ final class MirmirViewModel {
         SuperResolutionScaleProvider
     @ObservationIgnored private var workflowController:
         (any WorkflowApplicationControllingV4)?
+    @ObservationIgnored private var hasInitializedWorkflow = false
     @ObservationIgnored private let cacheLocationStore:
         WorkflowCacheLocationStoreV4?
     @ObservationIgnored private let usesInjectedWorkflowController: Bool
@@ -655,6 +656,11 @@ final class MirmirViewModel {
         }
     }
 
+    func initializeWorkflowIfNeeded() async {
+        guard !hasInitializedWorkflow else { return }
+        await initializeWorkflow()
+    }
+
     func initializeWorkflow() async {
         guard !isInitializingWorkflow,
               let workflowController else { return }
@@ -670,6 +676,7 @@ final class MirmirViewModel {
             workflowErrorMessage = Self.recoveryErrorMessage(
                 launch.recovery
             )
+            hasInitializedWorkflow = true
         } catch {
             workflowErrorMessage = error.localizedDescription
             recordBoundaryFailure(
@@ -1613,6 +1620,7 @@ final class MirmirViewModel {
             await previous.installObserver(.none)
         }
         workflowController = replacement
+        hasInitializedWorkflow = true
         applyWorkflowSnapshot(launch.queue)
         workflowRecoverySnapshot = launch.recovery
         workflowErrorMessage = Self.recoveryErrorMessage(launch.recovery)

@@ -1,16 +1,19 @@
 # Mirmir product support
 
-Current source and installed repair identity: **Mirmir 1.7.0 (17)**. The final
-October 7, 2026 readback verifies the signed universal repair installed and
-launched, with its exact executable, strict signature, native About
+Current source identity: **Mirmir 1.7.1 (19)**. Native main-window menu lifecycle
+verification passed; see [window lifecycle](docs/WINDOW_LIFECYCLE.md).
+The historical October 7, 2026 readback verifies the signed universal
+**1.7.0 (17)** repair installed and launched, with its exact executable,
+strict signature, native About
 version/build, and idle Metal route confirmed. Earlier installed-version
 checks are historical. Source publication and binary distribution remain
 separate actions.
 
-The current beta candidate has exact serial/parallel spatial-stage parity and
-an isolated 8.91× spatial speedup at 3840×1632. Fresh version-aligned Debug and
-Release suites pass, while an earlier strict decoded H.264 parity incident
-remains unexplained and the packaged runtime source-identity gate remains open. See [known issues](KNOWN_ISSUES.md) and
+The retained 1.7.0 beta evidence has exact serial/parallel spatial-stage parity
+and an isolated 8.91× spatial speedup at 3840×1632. Its version-aligned Debug and
+Release suites passed, while an earlier strict decoded H.264 parity incident
+remains unexplained and the packaged runtime source-identity gate remains open.
+See [known issues](KNOWN_ISSUES.md) and
 [current qualification](docs/v4/CURRENT_QUALIFICATION_STATUS.md).
 
 The finish-stage repair fully finalized a complete saved deterministic Metal
@@ -87,7 +90,7 @@ and found 241 video frames and 470 audio packets in both the source and output.
 The output is
 `/Users/jimdaley/Desktop/Mirmir-1.4.3-Build12-Evidence/83-final-real-source-production-1024-green/durable-workflow-run/durable-workflow-output.mov`.
 This historical 1.4.3 short-source result does not complete DV4-002 or qualify
-the current 1.7.0 source or a later installed application.
+the current 1.7.1 source or a later installed application.
 
 VideoToolbox methods fail closed when the exact source, target, or scale
 geometry is unsupported. Automatic pre-scale and post-scale geometry
@@ -98,6 +101,10 @@ in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md).
 
 ## Upscale and Compare surfaces
 
+- **Window > Show Main Window** (**Command-0**) reopens the workspace after
+  closing it or brings it forward when already open. Closing the window leaves
+  the application running. See [window lifecycle](docs/WINDOW_LIFECYCLE.md) for
+  verification status.
 - Upscale is the job workspace. It owns source selection, processing method,
   output settings, queue controls, and a live sampled processing preview. It
   does not mount the completed split player or require a completed movie.

@@ -26,7 +26,7 @@ struct MirmirWorkspaceRootView: View {
         .frame(minWidth: 960, minHeight: 680)
         .preferredColorScheme(preferredColorScheme)
         .task {
-            await viewModel.initializeWorkflow()
+            await viewModel.initializeWorkflowIfNeeded()
         }
         .task {
             await dashboardTelemetry.monitor()

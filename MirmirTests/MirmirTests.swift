@@ -1,8 +1,127 @@
+import AppKit
 import CoreMedia
 import XCTest
 @testable import Mirmir
 
 final class MirmirTests: XCTestCase {
+    @MainActor
+    func testWindowMenuReopensClosedMainWindowWithoutCreatingDuplicates()
+        async throws {
+        let application = NSApplication.shared
+        func mainWindows() -> [NSWindow] {
+            application.windows.filter {
+                $0.title == "Mirmir" && $0.canBecomeMain
+                    && ($0.isVisible || $0.isMiniaturized)
+            }
+        }
+        func waitForWindowState(_ condition: () -> Bool) async throws -> Bool {
+            for _ in 0..<100 {
+                if condition() { return true }
+                try await Task.sleep(nanoseconds: 50_000_000)
+            }
+            return condition()
+        }
+        func showMainWindow() throws {
+            let windowMenu = try XCTUnwrap(application.windowsMenu)
+            windowMenu.update()
+            let showItem = try XCTUnwrap(windowMenu.items.first {
+                $0.title == "Show Main Window"
+            })
+            XCTAssertTrue(showItem.isEnabled, "Reopening must remain available.")
+            XCTAssertEqual(showItem.keyEquivalent, "0")
+            XCTAssertTrue(showItem.keyEquivalentModifierMask.contains(.command))
+            windowMenu.performActionForItem(at: windowMenu.index(of: showItem))
+        }
+        func windowState() -> String {
+            let windows = application.windows.map { window in
+                "number=\(window.windowNumber),title=\(window.title),"
+                    + "visible=\(window.isVisible),"
+                    + "miniaturized=\(window.isMiniaturized),"
+                    + "key=\(window.isKeyWindow),"
+                    + "canBecomeKey=\(window.canBecomeKey)"
+            }.joined(separator: "; ")
+            return "active=\(application.isActive),"
+                + "keyWindow=\(application.keyWindow?.windowNumber.description ?? "nil"),"
+                + "frontmost=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "nil"),"
+                + "windows=[\(windows)]"
+        }
+
+        application.activate()
+        let launched = try await waitForWindowState {
+            mainWindows().count == 1
+        }
+        XCTAssertTrue(launched, "The hosted app must present its main window.")
+        let initialWindow = try XCTUnwrap(mainWindows().first)
+        // macOS may refuse synthetic activation of a background test host.
+        // Window lifecycle checks still run when keyboard focus is unavailable.
+        _ = try await waitForWindowState {
+            application.isActive
+        }
+        let verifiesKeyboardFocus = application.isActive
+        if !verifiesKeyboardFocus {
+            XCTContext.runActivity(
+                named: "Keyboard focus not exercised: test host remained inactive"
+            ) { activity in
+                let attachment = XCTAttachment(string: windowState())
+                attachment.lifetime = .keepAlways
+                activity.add(attachment)
+            }
+        }
+        func verifyKeyboardFocus(_ window: NSWindow) async throws {
+            guard verifiesKeyboardFocus else { return }
+            let focused = try await waitForWindowState {
+                application.isActive && window.isKeyWindow
+            }
+            XCTAssertTrue(
+                focused,
+                "An active hosted app must focus its main window. \(windowState())"
+            )
+        }
+        try await verifyKeyboardFocus(initialWindow)
+
+        initialWindow.performClose(nil)
+        let closed = try await waitForWindowState {
+            mainWindows().isEmpty
+        }
+        XCTAssertTrue(closed, "Closing the main window must dismiss it.")
+
+        try showMainWindow()
+        let reopened = try await waitForWindowState {
+            mainWindows().count == 1
+        }
+        XCTAssertTrue(
+            reopened,
+            "Window > Show Main Window must reopen it. \(windowState())"
+        )
+        let reopenedWindow = try XCTUnwrap(mainWindows().first)
+        try await verifyKeyboardFocus(reopenedWindow)
+
+        for _ in 0..<2 {
+            try showMainWindow()
+            try await Task.sleep(nanoseconds: 200_000_000)
+            XCTAssertEqual(mainWindows().count, 1)
+            XCTAssertTrue(mainWindows().first === reopenedWindow)
+            try await verifyKeyboardFocus(reopenedWindow)
+        }
+
+        reopenedWindow.miniaturize(nil)
+        let minimized = try await waitForWindowState {
+            reopenedWindow.isMiniaturized
+        }
+        XCTAssertTrue(minimized)
+        try showMainWindow()
+        let restored = try await waitForWindowState {
+            reopenedWindow.isVisible && !reopenedWindow.isMiniaturized
+        }
+        XCTAssertTrue(
+            restored,
+            "Showing a minimized window must restore it. \(windowState())"
+        )
+        XCTAssertEqual(mainWindows().count, 1)
+        XCTAssertTrue(mainWindows().first === reopenedWindow)
+        try await verifyKeyboardFocus(reopenedWindow)
+    }
+
     @MainActor
     func testInitialStateIsEmpty() {
         let viewModel = MirmirViewModel()
@@ -277,6 +396,92 @@ final class MirmirTests: XCTestCase {
         await viewModel.initializeWorkflow()
 
         XCTAssertEqual(viewModel.workflowRecoverySnapshot, cleanRecovery)
+        XCTAssertNil(viewModel.workflowErrorMessage)
+        XCTAssertFalse(viewModel.isInitializingWorkflow)
+    }
+
+    @MainActor
+    func testAutomaticWorkflowInitializationDoesNotRelaunchWhenWindowReopens()
+        async {
+        let generatedAt = WorkflowWallClockInstantV4(
+            nanosecondsSinceUnixEpoch: 1_000
+        )
+        let launch = WorkflowApplicationLaunchSnapshotV4(
+            queue: WorkflowApplicationQueueSnapshotV4(
+                generatedAt: generatedAt,
+                items: []
+            ),
+            recovery: WorkflowLaunchRecoverySnapshotV4(
+                generatedAt: generatedAt,
+                items: []
+            )
+        )
+        let controller = StubWorkflowApplicationControllerV4(
+            launches: [launch]
+        )
+        let viewModel = MirmirViewModel(
+            videoProbe: WaitingVideoProbe(),
+            workflowController: controller,
+            diagnosticStore: MirmirDiagnosticStore(
+                inMemoryWith: .production
+            )
+        )
+
+        await viewModel.initializeWorkflowIfNeeded()
+        await viewModel.initializeWorkflowIfNeeded()
+
+        let launchCount = await controller.launchCount
+        XCTAssertEqual(launchCount, 1)
+        XCTAssertEqual(viewModel.workflowQueueSnapshot, launch.queue)
+        XCTAssertEqual(viewModel.workflowRecoverySnapshot, launch.recovery)
+        XCTAssertNil(viewModel.workflowErrorMessage)
+        XCTAssertFalse(viewModel.isInitializingWorkflow)
+    }
+
+    @MainActor
+    func testAutomaticWorkflowInitializationRetriesAfterInitialFailure()
+        async {
+        let generatedAt = WorkflowWallClockInstantV4(
+            nanosecondsSinceUnixEpoch: 1_000
+        )
+        let launch = WorkflowApplicationLaunchSnapshotV4(
+            queue: WorkflowApplicationQueueSnapshotV4(
+                generatedAt: generatedAt,
+                items: []
+            ),
+            recovery: WorkflowLaunchRecoverySnapshotV4(
+                generatedAt: generatedAt,
+                items: []
+            )
+        )
+        let controller = StubWorkflowApplicationControllerV4(
+            launches: [launch],
+            failureMessage: "durable store unavailable"
+        )
+        let viewModel = MirmirViewModel(
+            videoProbe: WaitingVideoProbe(),
+            workflowController: controller,
+            diagnosticStore: MirmirDiagnosticStore(
+                inMemoryWith: .production
+            )
+        )
+
+        await viewModel.initializeWorkflowIfNeeded()
+
+        XCTAssertNil(viewModel.workflowQueueSnapshot)
+        XCTAssertEqual(
+            viewModel.workflowErrorMessage,
+            "durable store unavailable"
+        )
+        await controller.setLaunchFailure(nil)
+
+        await viewModel.initializeWorkflowIfNeeded()
+        await viewModel.initializeWorkflowIfNeeded()
+
+        let launchCount = await controller.launchCount
+        XCTAssertEqual(launchCount, 2)
+        XCTAssertEqual(viewModel.workflowQueueSnapshot, launch.queue)
+        XCTAssertEqual(viewModel.workflowRecoverySnapshot, launch.recovery)
         XCTAssertNil(viewModel.workflowErrorMessage)
         XCTAssertFalse(viewModel.isInitializingWorkflow)
     }
@@ -741,8 +946,9 @@ private actor StubWorkflowApplicationControllerV4:
     }
 
     private var launches: [WorkflowApplicationLaunchSnapshotV4]
-    private let failureMessage: String?
+    private var failureMessage: String?
     private let resumeMirmirError: MirmirError?
+    private(set) var launchCount = 0
 
     init(
         launches: [WorkflowApplicationLaunchSnapshotV4],
@@ -756,7 +962,12 @@ private actor StubWorkflowApplicationControllerV4:
 
     func installObserver(_ observer: WorkflowApplicationObserverV4) async {}
 
+    func setLaunchFailure(_ message: String?) {
+        failureMessage = message
+    }
+
     func launch() async throws -> WorkflowApplicationLaunchSnapshotV4 {
+        launchCount += 1
         if let failureMessage {
             throw LaunchFailure(message: failureMessage)
         }

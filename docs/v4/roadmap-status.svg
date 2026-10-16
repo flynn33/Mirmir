@@ -31,7 +31,7 @@
     .footer { font-size: 12px; fill: #88a7ba; }
   </style>
   <rect class="background" width="1200" height="620" rx="22"/>
-  <text class="eyebrow" x="44" y="39">MIRMIR · ASH P06 · VERSION 1.7.0 (17)</text>
+  <text class="eyebrow" x="44" y="39">MIRMIR · ASH P06 · VERSION 1.7.1 (19)</text>
   <text class="title" x="44" y="78">Deterministic Engine v4</text>
   <text class="summary" x="44" y="103">M0–M6 implementation complete</text>
   <text class="summary" x="1148" y="103" text-anchor="end">M7 simulator selection complete</text>
@@ -105,6 +105,6 @@
   <text class="gate-name" x="950" y="516">Evidence</text>
   <text class="gate-value" x="950" y="540">independent replay · PASSED</text>
 </g>
-  <text class="footer" x="44" y="591">Selected candidate_v4 · simulation source ce780af87107 · verified October 7, 2026</text>
+  <text class="footer" x="44" y="591">Selected candidate_v4 · simulation source ce780af87107 · verified October 16, 2026</text>
   <text class="footer" x="1156" y="591" text-anchor="end">Simulator only · no hardware/notarization/shipping/distribution</text>
 </svg>

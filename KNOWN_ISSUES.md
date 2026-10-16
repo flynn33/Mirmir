@@ -1,10 +1,20 @@
 # Mirmir accepted limitations and follow-up work
 
-Updated for Mirmir 1.7.0 build 17 on October 7, 2026. These entries distinguish
-source repair from installed-product and full-media qualification. The final
+Updated for Mirmir 1.7.1 build 19 on October 16, 2026. These entries distinguish
+source repair from installed-product and full-media qualification. The historical
 October 7 readback confirms the signed **1.7.0 (17)** repair installed and
 launched, with the native About version/build and idle Metal route verified.
 The earlier October 7 1.6.0 (16) and October 6 1.5.0 (15) checks are historical.
+
+## UI-001 — Main window cannot be reopened after closing
+
+**Status:** Native menu lifecycle correction verified in 1.7.1 (19)
+
+App Review reported that 1.7.0 (18) had no menu item for reopening its main
+window after closing it. The 1.7.1 patch adds **Window > Show Main Window**
+(**Command-0**) to reopen or focus the workspace.
+See [window lifecycle](docs/WINDOW_LIFECYCLE.md) for the verification procedure.
+This source correction does not establish App Review acceptance.
 
 ## DV4-003 — Complete GPU job rejected during final assembly/migration
 

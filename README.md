@@ -3,9 +3,14 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-Version **1.7.0 build 17** repairs deterministic finish-stage assembly and
-whole-asset migration, and adds bounded parallel spatial conditioning to both
-deterministic routes. Workers own disjoint row stripes and bounded scratch;
+Version **1.7.1 build 19** adds **Window > Show Main Window** (**Command-0**) to
+reopen the workspace after closing it or bring it forward when already open.
+Native menu lifecycle verification passed; see
+[`docs/WINDOW_LIFECYCLE.md`](docs/WINDOW_LIFECYCLE.md) for the review issue and
+verification results and procedure. This patch retains the 1.7.0 deterministic
+finish-stage assembly and whole-asset migration repairs and bounded parallel
+spatial conditioning on both deterministic routes. Workers own disjoint row
+stripes and bounded scratch;
 immutable boundary rows preserve the serial integer stencil and rounding.
 At 3840×1632, the measured spatial-stage median fell from 91.325 to 10.248 ms
 with 14 workers across five alternating pairs after warmup, an **8.91×**
@@ -16,7 +21,7 @@ for implementation, strict parity coverage, and verification limits, and
 [`docs/v4/CURRENT_QUALIFICATION_STATUS.md`](docs/v4/CURRENT_QUALIFICATION_STATUS.md)
 for current results and remaining qualification work.
 
-Version 1.7.0 build 17 carries the deterministic ASH P06 CPU and Metal engine
+Version 1.7.1 build 19 carries the deterministic ASH P06 CPU and Metal engine
 beside the supported Apple scaling frameworks, preserves the completed
 simulator-only M7 candidate selection, and adds qualified source admission,
 VideoToolbox capability checks, multi-audio preservation, and deterministic
@@ -39,7 +44,7 @@ The October 7 finish-stage repair recovered the complete saved deterministic
 Metal job: **148,176 video frames, two audio tracks, and 14 chapters** at
 3840×1632. Production finalization and independent packet, timing, metadata,
 and complete decoded-audio checks passed. The signed universal **1.7.0 (17)**
-repair is installed and launched on the host; the About surface confirms the
+repair was installed and launched on October 7; the About surface confirmed the
 version and build. Original source, checkpoint, cache, and app backups remain
 preserved. The historical queue entry remains contained. Recovery reused the
 completed GPU cache; a fresh full GPU render was not repeated. See
@@ -87,7 +92,7 @@ completed GPU cache; a fresh full GPU render was not repeated. See
   bounded process telemetry. Diagnostics exports the journal as JSON or
   Markdown and the current process's available unified logs as JSON.
 
-Version 1.7.0 keeps these product boundaries explicit:
+Version 1.7.1 keeps these product boundaries explicit:
 
 - Deterministic resource allocation is not a first-release target. It is
   excluded from version 1.4.0 rather than treated as unfinished release work.
@@ -119,7 +124,8 @@ See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.
 See [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md) for accepted first-release limitations
 and post-first-release qualification and enhancement work.
-See [`CHANGELOG.md`](CHANGELOG.md) for the 1.7.0 deterministic finalization repair
+See [`CHANGELOG.md`](CHANGELOG.md) for the 1.7.1 main-window correction,
+the 1.7.0 deterministic finalization repair
 and parallel spatial conditioning,
 the 1.6.0 parallel motion and processing activity
 changes, the 1.5.0 diagnostic and engine efficiency update, the 1.4.3 timing, diagnostics, and

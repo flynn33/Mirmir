@@ -36,16 +36,19 @@ struct MirmirApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("Mirmir", id: "main") {
+        WindowGroup("Mirmir", id: "main", for: String.self) { _ in
             if let viewModel {
                 RootView(viewModel: viewModel)
                     .frame(minWidth: 960, minHeight: 680)
             } else {
                 EmptyView()
             }
+        } defaultValue: {
+            "main"
         }
         .defaultSize(width: 1_180, height: 780)
         .commands {
+            MirmirWindowCommands()
             CommandGroup(replacing: .newItem) {
                 Button("Open Video…") {
                     viewModel?.openVideo()
@@ -53,6 +56,19 @@ struct MirmirApp: App {
                 .keyboardShortcut("o", modifiers: .command)
                 .disabled(viewModel?.isProcessing ?? true)
             }
+        }
+    }
+}
+
+private struct MirmirWindowCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandGroup(after: .windowArrangement) {
+            Button("Show Main Window") {
+                openWindow(id: "main", value: "main")
+            }
+            .keyboardShortcut("0", modifiers: .command)
         }
     }
 }

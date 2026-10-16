@@ -7,6 +7,31 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-10-16
+
+### Fixed
+
+- Add **Window > Show Main Window** (**Command-0**) to reopen or focus the
+  existing workspace, addressing the October 15 App Review finding for
+  1.7.0 (18).
+- Avoid repeating automatic queue launch recovery when the workspace view is
+  recreated, while retaining retry after an initial launch failure.
+- Align the canonical version files, Xcode app/test configurations, and current
+  source documentation to 1.7.1 (19).
+
+### Verification
+
+- The native hosted test passed for the actual Window menu action: close and
+  reopen, repeated focus without duplicate windows, and minimized restoration.
+  Version alignment and all nine version-tool tests passed. The universal
+  Release build signed with Apple Development passed with zero compiler
+  warnings/errors and strict signature verification. Full native Debug passed
+  **661 tests, zero failed, 13 skipped**; Release passed **656 tests, zero
+  failed, 13 skipped**. Both xcresults reported no runtime warnings.
+- Historical 1.7.0 engine evidence below retains its original version and scope.
+  No App Store upload or resubmission is part of this patch. See
+  `docs/WINDOW_LIFECYCLE.md` for test scope and unexercised manual inputs.
+
 ## [1.7.0] - 2026-10-07
 
 ### Fixed

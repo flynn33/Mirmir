@@ -1,9 +1,23 @@
 # Deterministic engine v4 current qualification status
 
-Verified October 7, 2026.
+Verified October 16, 2026.
 
-Current source identity: 1.7.0 build 17. State-conditioned spatial reconstruction
-now uses bounded parallel row stripes with immutable original boundary rows,
+The verified date covers the current source and window lifecycle checks.
+Historical engine and full-movie evidence below retains its October 7 dates,
+original versions, and artifact identities.
+
+Current source identity: 1.7.1 build 19. Native main-window menu lifecycle,
+version alignment, and the development-signed universal Release build passed.
+Full native Debug passed 661 tests with zero failures and 13 skips; Release
+passed 656 tests with zero failures and 13 skips. Both xcresults reported no
+runtime warnings, and both build/test logs contained zero compiler warnings or
+errors.
+See [window lifecycle](../WINDOW_LIFECYCLE.md).
+The engine results below retain
+their original 1.7.0 (17) evidence identity and do not qualify a new engine run.
+
+State-conditioned spatial reconstruction uses bounded parallel row stripes
+with immutable original boundary rows,
 the serial integer stencil, and joined completion. Independent motion blocks
 retain bounded parallel execution and fixed-order assembly. Frames, history,
 and durable commits remain sequential. Full-source authentication, exact
@@ -32,9 +46,9 @@ encoded packet, exact stored clocks/edits, all chapter data, and complete
 decoded audio PCM. Native frame extraction passed at beginning, middle, and
 end; QuickTime opened and displayed a decoded scene after seeking.
 
-The signed universal **1.7.0 (17)** repair is installed and launched. Its
-executable matches the repaired Release build exactly, strict signature
-verification passes, and native UI readback confirms the version/build and
+The signed universal **1.7.0 (17)** repair was installed and launched on October
+7. Its executable matched the repaired Release build exactly, strict signature
+verification passed, and native UI readback confirmed the version/build and
 idle Metal route. The original source, checkpoint, request, cache, and app
 backups are preserved. The historical queue entry remains contained.
 
@@ -44,7 +58,7 @@ playback. The independent Release decoded-parity incident and runtime source
 closure remain open. See [repair mechanisms and regression coverage](../DETERMINISTIC_FINALIZATION_REPAIR.md)
 and [portable repair evidence](evidence/end-finalization-repair-2026-10-07/README.md).
 
-## Current publication Xcode and Release readback
+## Historical October 7 publication Xcode and Release readback
 
 The final repository project built in Xcode with the `Mirmir` scheme and
 **Any Mac (arm64, x86_64)** destination: **Build Succeeded at 5:55 PM on October
@@ -277,7 +291,7 @@ No ASH reseal or benchmark/evidence changes were made. The full Swift suite
 was not run in this pass.
 
 The remaining verification narrative below belongs to 1.4.3 and earlier
-commits; it does not establish qualification of the 1.7.0 source.
+commits; it does not establish qualification of the current 1.7.1 source.
 
 Historical qualification receipts retain their original dates and source
 identities.
@@ -303,9 +317,9 @@ decisions.
 
 | Field | Verified value |
 | --- | --- |
-| Product | Mirmir 1.7.0 (17) |
-| Version authorities | `VERSION` = `1.7.0`; `BUILD_NUMBER` = `17` |
-| Current installed-application check | Signed 1.7.0 (17), installed and launched October 7; exact repaired executable, strict signature, native About version/build, and idle Metal route verified |
+| Current source product | Mirmir 1.7.1 (19) |
+| Version authorities | `VERSION` = `1.7.1`; `BUILD_NUMBER` = `19` |
+| Historical October 7 installed-application check | Signed 1.7.0 (17), installed and launched October 7; exact repaired executable, strict signature, native About version/build, and idle Metal route verified |
 | Historical installed-application check | `/Applications/Mirmir.app` 1.5.0 (15), checked October 6; source publication does not establish current installation |
 | Bundle identifier | `com.mirmir.app` |
 | Minimum macOS | 15.4 |
