@@ -68,7 +68,7 @@
   "openGates": [
     "Final manual UI checks require an available native UI session",
     "Minimum supported macOS and physical Intel hardware untested",
-    "Five specific historical saved-media replay tests not executed",
+    "Saved complete-checkpoint finalization opt-in needs intact source snapshot; historical feature-length replay not performed",
     "Packaged App Store and aggregate release qualification not performed",
     "Customer error 11 domain and configuration remain unconfirmed"
   ],
@@ -173,6 +173,24 @@
       "skippedTests": 0,
       "summarySHA256": "c3a82eff533422897804064ee6c88316a4d37a7538fd96c5633c5eff50d261dc",
       "totalTestCount": 1
+    },
+    "release-synthetic-audio-verification": {
+      "failedTests": 0,
+      "passedTests": 2,
+      "runtimeWarningCount": 0,
+      "scope": "Fresh synthetic fixtures; not historical feature-length source",
+      "skippedTests": 0,
+      "summarySHA256": "cecc3d8013986107cb2c7c451109239356fca5904bbe8991fc7a7a0827b9591a",
+      "totalTestCount": 2
+    },
+    "release-synthetic-migrations": {
+      "failedTests": 0,
+      "passedTests": 2,
+      "runtimeWarningCount": 0,
+      "scope": "Fresh synthetic fixtures; not historical feature-length source",
+      "skippedTests": 0,
+      "summarySHA256": "5a95f9ff3ae013d8f76149b58df75e4ca12b8fb92ce3c619e55284bfccae9557",
+      "totalTestCount": 2
     }
   },
   "version": "1.7.2"

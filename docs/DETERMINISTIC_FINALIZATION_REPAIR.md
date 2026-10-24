@@ -80,8 +80,9 @@ unchanged. The historical queue record remains contained and its lifecycle was
 not rewritten to claim a normal UI completion.
 
 A fresh full GPU render, matched whole-movie throughput, continuous playback,
-and audible speaker playback were not exercised. The separate intermittent
-Release decoded H.264 parity cause and packaged runtime source-closure gate
-remain open in [current qualification status](v4/CURRENT_QUALIFICATION_STATUS.md)
-and [known issues](../KNOWN_ISSUES.md). This repair does not change the sealed
-M7 simulator decision or claim a new whole-movie speedup.
+and audible speaker playback were not exercised. At this historical checkpoint,
+the separate intermittent Release decoded H.264 parity cause and packaged runtime
+source-closure gate
+remained open. The later [October 24 final QA](FINAL_QA_2026-10-24.md) records
+their reproduction, repair, and current acceptance gaps. This repair does not
+change the sealed M7 simulator decision or claim a new whole-movie speedup.

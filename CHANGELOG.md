@@ -33,7 +33,8 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ### Verification
 
-Automated native Debug/Release suites and 389 Python tests pass. Release
+Automated native Debug/Release suites and 389 Python tests pass. Four additional
+saved-media replay checks pass with isolated AAC/AC3 and chaptered fixtures. Release
 clearance remains on hold; current evidence and explicit gaps are recorded
 in `docs/FINAL_QA_2026-10-24.md`. No push, archive submission, or release is part
 of this local QA change.
