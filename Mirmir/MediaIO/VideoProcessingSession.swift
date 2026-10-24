@@ -143,9 +143,8 @@ struct VideoProcessingSession: Sendable {
             backendID: preparedBackend.actualBackendID
         ))
 
-        let asset = AVURLAsset(
-            url: request.inputURL,
-            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        let asset = try await NativeMediaInputAssetResolverV4.asset(
+            url: request.inputURL, cancellation: cancellation
         )
         let tracks = try await asset.load(.tracks)
         let videoTracks = tracks.filter { $0.mediaType == .video }
@@ -373,10 +372,10 @@ struct VideoProcessingSession: Sendable {
                 readerDrainMode: "omitted_by_request"
             )
         }
-        let asset = AVURLAsset(
-            url: request.inputURL,
-            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
-        )
+        guard let asset = try? await NativeMediaInputAssetResolverV4.asset(url: request.inputURL) else {
+            return .init(openedTrackCount: source.audioTrackCount, codecs: [],
+                         alternateGroupFlags: [], readerDrainMode: "source_unavailable")
+        }
         guard let tracks = try? await asset.load(.tracks) else {
             return .init(
                 openedTrackCount: source.audioTrackCount,

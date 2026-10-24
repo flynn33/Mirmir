@@ -11,6 +11,12 @@ private enum CheckpointMutationFixtureError: Error {
     case malformed
 }
 
+private struct UnavailableCPUTestMetalValidatorV4: ASHMetalLibraryValidatingV4 {
+    func validateExecutableMetalLibrary(_ data: Data) throws {
+        throw ASHSystemMetalLibraryValidatorV4Error.metalUnavailable
+    }
+}
+
 final class DeterministicCPUBackendTests: XCTestCase {
     func testCanonicalASHCodeAndStrictDecoderExhaustivelyMatchTheFiniteContract() {
         XCTAssertEqual(ASHCode.codewords.count, 16)
@@ -113,6 +119,205 @@ final class DeterministicCPUBackendTests: XCTestCase {
             environment: deterministicTestEnvironment
         )
         XCTAssertEqual(arbitrary, .available)
+    }
+
+    func testProductionCPUAvailabilityAndProcessingDoNotRequireMetalDevice()
+        async throws {
+        let descriptor = try XCTUnwrap(
+            BackendDescriptor.descriptor(for: .mirmirDeterministicCPU)
+        )
+        let sourceInfo = makeSourceInfo(
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        )
+        let targetSize = CGSize(width: 32, height: 24)
+        let noMetalDevice: @Sendable () throws
+            -> any ASHMetalLibraryValidatingV4 = {
+                try ASHSystemMetalLibraryValidatorV4(device: nil)
+            }
+        let metalProvider = ASHP06RuntimeProviderV4.production(
+            metalLibraryValidator: noMetalDevice
+        )
+        XCTAssertThrowsError(try metalProvider.load()) { error in
+            XCTAssertEqual(
+                error as? ASHSystemMetalLibraryValidatorV4Error,
+                .metalUnavailable
+            )
+        }
+        let previousCPU = try XCTUnwrap(DeterministicCPUBackend(
+            descriptor: descriptor,
+            runtimeProvider: metalProvider
+        ))
+        let previousAvailability = await previousCPU.availability(
+            for: sourceInfo,
+            targetSize: targetSize,
+            environment: deterministicTestEnvironment
+        )
+        guard case .unavailable(.deterministicAssetsIncomplete) =
+                previousAvailability else {
+            return XCTFail("The Metal-dependent provider must report its failure")
+        }
+
+        let backend = try XCTUnwrap(DeterministicCPUBackend(
+            descriptor: descriptor,
+            runtimeProvider: .production(
+                for: .cpu,
+                metalLibraryValidator: noMetalDevice
+            )
+        ))
+        let availability = await backend.availability(
+            for: sourceInfo,
+            targetSize: targetSize,
+            environment: deterministicTestEnvironment
+        )
+        XCTAssertEqual(availability, .available)
+        let prepared = try await backend.prepare(
+            request: BackendPreparationRequest(
+                source: sourceInfo,
+                targetSize: targetSize
+            ),
+            environment: deterministicTestEnvironment
+        )
+        let source = try SyntheticNV12PixelBuffer.make(width: 16, height: 12)
+        try SyntheticNV12PixelBuffer.fill(source, luma: 91, cb: 117, cr: 143)
+        attachProgressiveBT709(to: source)
+        let destination = try SyntheticNV12PixelBuffer.make(width: 32, height: 24)
+        try await prepared.process(
+            source: source,
+            destination: destination,
+            timing: FrameTiming(
+                frameIndex: 0,
+                presentationTime: .zero,
+                duration: CMTime(value: 1, timescale: 30)
+            )
+        )
+        XCTAssertEqual(
+            try SyntheticNV12PixelBuffer.visibleBytes(destination, plane: 0),
+            [UInt8](repeating: 91, count: 32 * 24)
+        )
+        let chroma = try SyntheticNV12PixelBuffer.visibleBytes(
+            destination,
+            plane: 1
+        )
+        XCTAssertEqual(chroma, (0..<(32 * 12)).map {
+            $0.isMultiple(of: 2) ? UInt8(117) : UInt8(143)
+        })
+    }
+
+    func testCPURuntimeLoadingRetainsMetalHashAndProvenanceValidation()
+        throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ash-p06-cpu-integrity-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let original = try ASHV4SemanticArtifactTestSupport.buildAndLoad(
+            at: directory
+        )
+        let policy = try ASHRuntimeTrustPolicyV4(
+            expectedManifestSHA256: original.manifestSHA256,
+            allowedSourceRevisions: [ASHV4SemanticArtifactTestSupport.sourceRevision],
+            allowedBuilderSourceSHA256: [ASHV4SemanticArtifactTestSupport.builderHash]
+        )
+        XCTAssertThrowsError(try ASHP06RuntimeBundleLoaderV4.load(
+            at: directory,
+            trustPolicy: policy,
+            metalLibraryValidator: UnavailableCPUTestMetalValidatorV4()
+        )) { error in
+            XCTAssertEqual(
+                error as? ASHP06RuntimeBundleV4Error,
+                .metalLibraryValidationFailed("metalUnavailable")
+            )
+        }
+        let cpuRuntime = try ASHP06RuntimeBundleLoaderV4.loadForCPU(
+            at: directory,
+            trustPolicy: policy
+        )
+        XCTAssertEqual(cpuRuntime.manifestSHA256, original.manifestSHA256)
+        XCTAssertEqual(
+            try cpuRuntime.measurementContract(),
+            try original.measurementContract()
+        )
+        XCTAssertEqual(try cpuRuntime.branchProgram(), try original.branchProgram())
+
+        let wrongProvenance = try ASHRuntimeTrustPolicyV4(
+            expectedManifestSHA256: original.manifestSHA256,
+            allowedSourceRevisions: [String(repeating: "b", count: 40)],
+            allowedBuilderSourceSHA256: [ASHV4SemanticArtifactTestSupport.builderHash]
+        )
+        XCTAssertThrowsError(try ASHP06RuntimeBundleLoaderV4.loadForCPU(
+            at: directory,
+            trustPolicy: wrongProvenance
+        )) { error in
+            XCTAssertEqual(
+                error as? ASHP06RuntimeBundleV4Error,
+                .untrustedSourceRevision(ASHV4SemanticArtifactTestSupport.sourceRevision)
+            )
+        }
+
+        let metalURL = directory.appendingPathComponent(
+            ASHRuntimeArtifactRoleV4.metalLibrary.canonicalRelativePath
+        )
+        var altered = try Data(contentsOf: metalURL)
+        altered[altered.startIndex] ^= 1
+        try altered.write(to: metalURL)
+        XCTAssertThrowsError(try ASHP06RuntimeBundleLoaderV4.loadForCPU(
+            at: directory,
+            trustPolicy: policy
+        )) { error in
+            guard case .artifactHashMismatch(role: .metalLibrary, _, _) =
+                    error as? ASHP06RuntimeBundleV4Error else {
+                return XCTFail("CPU loading must reject altered Metal bytes: \(error)")
+            }
+        }
+    }
+
+    func testCPURuntimeLoadingRejectsRehashedMetalCompilerBindingDrift()
+        throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ash-p06-cpu-binding-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let original = try ASHV4SemanticArtifactTestSupport.buildAndLoad(
+            at: directory
+        )
+        let role = ASHRuntimeArtifactRoleV4.metalCompilerContract
+        let artifactURL = directory.appendingPathComponent(role.canonicalRelativePath)
+        let bytes = try Data(contentsOf: artifactURL)
+        guard case .object(var object) = try ASHCanonicalJSONV4.parse(bytes) else {
+            return XCTFail("The compiler contract must be an object")
+        }
+        object["targetTriple"] = .string("x86_64-apple-macos15.4")
+        let altered = ASHCanonicalJSONV4.encode(.object(object))
+        try altered.write(to: artifactURL)
+        let artifacts = original.manifest.artifacts.map { artifact in
+            guard artifact.role == role else { return artifact }
+            return ASHRuntimeArtifactV4(
+                role: artifact.role,
+                relativePath: artifact.relativePath,
+                schemaID: artifact.schemaID,
+                contentSHA256: ASHSHA256V4(rawData: altered),
+                byteCount: Int64(altered.count)
+            )
+        }
+        let manifest = try ASHRuntimeManifestV4(
+            releaseStatus: original.manifest.releaseStatus,
+            provenance: original.manifest.provenance,
+            artifacts: artifacts
+        )
+        try ASHCanonicalJSONV4.encode(manifest).write(
+            to: directory.appendingPathComponent(ASHRuntimeManifestV4.fileName)
+        )
+        let policy = try ASHRuntimeTrustPolicyV4(
+            expectedManifestSHA256: manifest.canonicalSHA256,
+            allowedSourceRevisions: [ASHV4SemanticArtifactTestSupport.sourceRevision],
+            allowedBuilderSourceSHA256: [ASHV4SemanticArtifactTestSupport.builderHash]
+        )
+        XCTAssertThrowsError(try ASHP06RuntimeBundleLoaderV4.loadForCPU(
+            at: directory,
+            trustPolicy: policy
+        )) { error in
+            XCTAssertEqual(
+                error as? ASHP06RuntimeBundleV4Error,
+                .metalCompilerBindingMismatch
+            )
+        }
     }
 
     func testRepeatedCPUReferenceFramesAreByteIdenticalForBothNV12Ranges() async throws {

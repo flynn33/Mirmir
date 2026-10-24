@@ -2644,6 +2644,109 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
+    func testDurableWorkflowTranscodesIncompatibleAlternateAudioAndReportsIt()
+        async throws {
+        try await assertDurableWorkflowAudio(
+            incompatibleAudioTransition: true,
+            preserveAudio: true,
+            expectedAudioResult: .transcoded
+        )
+    }
+
+    func testDurableWorkflowPreservesCompatibleAlternateAudioAndReportsIt()
+        async throws {
+        try await assertDurableWorkflowAudio(
+            incompatibleAudioTransition: false,
+            preserveAudio: true,
+            expectedAudioResult: .preserved
+        )
+    }
+
+    func testDurableWorkflowOmitsIncompatibleAudioOnlyWhenRequested()
+        async throws {
+        try await assertDurableWorkflowAudio(
+            incompatibleAudioTransition: true,
+            preserveAudio: false,
+            expectedAudioResult: .omitted
+        )
+    }
+
+    private func assertDurableWorkflowAudio(
+        incompatibleAudioTransition: Bool,
+        preserveAudio: Bool,
+        expectedAudioResult: AudioOutputResult
+    ) async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("durable-multiformat-source.mov")
+        let destinationURL = directory.url("durable-multiformat-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: true,
+            incompatibleAudioTransition: incompatibleAudioTransition
+        )
+        let sourceGraph = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL)
+        )
+        let sourceAudio = sourceGraph.tracks.filter { $0.kind == .audio }
+        XCTAssertEqual(sourceAudio.count, 2)
+        XCTAssertTrue(sourceAudio.allSatisfy {
+            $0.formatDescriptors.count
+                == (incompatibleAudioTransition ? 2 : 1)
+        })
+        let queue = try WorkflowApplicationQueueV4(
+            trustedRootURL: directory.url("durable-store"),
+            workerID: WorkflowWorkerIDV4("durable-audio-transcode-test"),
+            resolver: TrackMigrationWorkflowBookmarkResolverV4()
+        )
+        let coordinator = WorkflowApplicationCoordinatorV4(
+            queue: queue,
+            engine: WorkflowDeterministicApplicationEngineV4(
+                videoProbe: VideoProbe(),
+                backendCatalog: .live(),
+                runtimeEnvironment: .current()
+            ),
+            maximumInputFramesPerBoundary: 4
+        )
+        let outcome = try await coordinator.submit(
+            request: UpscaleRequest(
+                inputURL: sourceURL,
+                outputURL: destinationURL,
+                backendID: .mirmirDeterministicCPU,
+                targetWidth: 96,
+                targetHeight: 72,
+                outputCodec: .h264,
+                preserveAudio: preserveAudio,
+                overwriteExistingFile: false
+            ),
+            progress: { _ in },
+            snapshot: { _ in }
+        )
+        guard case .completed(let completion) = outcome else {
+            return XCTFail("The durable audio-transcode job did not complete.")
+        }
+        XCTAssertEqual(completion.result.audioResult, expectedAudioResult)
+        let outputGraph = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: destinationURL)
+        )
+        let outputAudio = outputGraph.tracks.filter { $0.kind == .audio }
+        if preserveAudio {
+            XCTAssertEqual(outputAudio.count, sourceAudio.count)
+            XCTAssertTrue(outputAudio.allSatisfy {
+                $0.formatDescriptors.count == 1
+                    && $0.formatDescriptors[0].mediaSubtypeID
+                        == (incompatibleAudioTransition
+                            ? "fourcc_61616320" : "fourcc_6c70636d")
+            })
+            XCTAssertEqual(outputGraph.groups, sourceGraph.groups)
+        } else {
+            XCTAssertTrue(outputAudio.isEmpty)
+        }
+        let snapshot = try await queue.queueSnapshot()
+        XCTAssertEqual(snapshot.items.count, 1)
+        XCTAssertTrue(snapshot.items.allSatisfy { $0.lifecycle == .completed })
+    }
+
     func testExecutableMigrationPreservesEveryEncodedTrackAndVerifiesOutput()
         async throws {
         let directory = try TrackMigrationFixtureDirectoryV4()
@@ -7998,6 +8101,29 @@ private actor TrackMigrationRecordingDeterministicBackendV4:
 
     func recordedObservations() -> [Observation] { observations }
     func recordedFinishCallCount() -> Int { finishCallCount }
+}
+
+private struct TrackMigrationWorkflowBookmarkResolverV4:
+    WorkflowSecurityScopedBookmarkResolvingV4 {
+    func makeBookmark(
+        for url: URL,
+        role _: WorkflowScopedResourceRoleV4
+    ) throws -> Data {
+        Data(url.standardizedFileURL.path.utf8)
+    }
+
+    func resolveBookmark(
+        _ data: Data,
+        role _: WorkflowScopedResourceRoleV4
+    ) throws -> WorkflowResolvedScopedResourceV4 {
+        let path = try XCTUnwrap(String(data: data, encoding: .utf8))
+        return WorkflowResolvedScopedResourceV4(
+            url: URL(fileURLWithPath: path),
+            isStale: false,
+            startAccessing: { true },
+            stopAccessing: {}
+        )
+    }
 }
 
 private enum TrackMigrationFixtureFactoryV4 {

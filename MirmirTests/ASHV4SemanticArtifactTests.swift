@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import XCTest
 @testable import Mirmir
@@ -18,6 +19,31 @@ final class ASHV4SemanticArtifactTests: XCTestCase {
         if let temporaryDirectory {
             try? FileManager.default.removeItem(at: temporaryDirectory)
         }
+    }
+
+    func testSHA256EncodingMatchesPublishedVectors() {
+        for (input, expected) in [
+            ("", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+            ("abc", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"),
+            (String(repeating: "a", count: 1_000_000),
+             "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0")
+        ] {
+            XCTAssertEqual(ASHSHA256V4(rawData: Data(input.utf8)).rawValue, expected)
+        }
+    }
+
+    func testSHA256EncodingMatchesEveryTwoBytePCMPayload() {
+        var combined = SHA256()
+        for value in UInt32(0)...UInt32(UInt16.max) {
+            let payload = Data([UInt8(value >> 8), UInt8(value & 0xff)])
+            combined.update(data: Data(ASHSHA256V4(rawData: payload).rawValue.utf8))
+        }
+        // Independent Python hashlib reference over all 65,536 lowercase
+        // payload digests, in unsigned big-endian payload order.
+        XCTAssertEqual(
+            combined.finalize().map { String(format: "%02x", $0) }.joined(),
+            "f08b75e978ea60ad5c8b73e6d266d9d5078c6173dca8fd6d8ba9f7b3f0c476cf"
+        )
     }
 
     func testCanonicalJSONIsStrictAndHashDomainSeparated() throws {

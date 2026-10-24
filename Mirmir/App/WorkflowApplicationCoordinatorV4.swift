@@ -3200,7 +3200,8 @@ actor WorkflowDeterministicApplicationEngineV4:
             try cancellation.check()
             let sourceProgressCursors = try await makeSourceProgressCursors(
                 sourceURL: request.inputURL,
-                plan: plan
+                plan: plan,
+                cancellation: cancellation
             )
             try cancellation.check()
             if let previous = preparedByJobID.removeValue(forKey: jobID) {
@@ -3366,6 +3367,8 @@ actor WorkflowDeterministicApplicationEngineV4:
                     sourceGraph: prepared.plan.sourceGraph,
                     identifiedPlan: prepared.plan.trackPlan,
                     blueprint: prepared.plan.migrationBlueprint,
+                    nonVideoTranscodeHooks:
+                        prepared.plan.nonVideoTranscodeHooks,
                     processedVideoReplacement: .init(
                         trackID: prepared.plan.primaryGraphTrack.identity.stableID,
                         sourceURL: assembledVideoURL
@@ -3403,6 +3406,10 @@ actor WorkflowDeterministicApplicationEngineV4:
         segmentResult: UpscaleResult?,
         processingDurationSeconds: TimeInterval
     ) async throws -> WorkflowApplicationCompletionV4 {
+        let jobID = checkpoint.body.compatibility.jobBinding.jobID
+        guard let prepared = preparedByJobID[jobID] else {
+            throw WorkflowApplicationControllerErrorV4.noActiveJob
+        }
         let source = try await videoProbe.probe(url: request.inputURL)
         let output = try await videoProbe.probe(url: request.outputURL)
         guard let encodedSize = output.geometry.encodedSize,
@@ -3423,6 +3430,19 @@ actor WorkflowDeterministicApplicationEngineV4:
                     track.nextOutputSampleIndex
                 ).partialValue
             }
+        let plannedAudio = prepared.plan.trackPlan.plan.tracks.filter {
+            $0.source.kind == .audio && $0.expectedOutput != nil
+        }
+        let audioResult: AudioOutputResult
+        if !request.preserveAudio {
+            audioResult = .omitted
+        } else if plannedAudio.isEmpty {
+            audioResult = .absent
+        } else if plannedAudio.contains(where: { $0.action == .transcode }) {
+            audioResult = .transcoded
+        } else {
+            audioResult = .preserved
+        }
         let result = UpscaleResult(
             outputURL: request.outputURL,
             actualBackendID: request.backendID,
@@ -3430,9 +3450,7 @@ actor WorkflowDeterministicApplicationEngineV4:
             encodedHeight: height,
             durationSeconds: CMTimeGetSeconds(output.duration),
             outputCodec: request.outputCodec,
-            audioResult: request.preserveAudio
-                ? (output.hasAudio ? .preserved : .absent)
-                : .omitted,
+            audioResult: audioResult,
             processedFrameCount: segmentResult?.processedFrameCount
                 ?? Int(clamping: videoFrames),
             processingDurationSeconds: max(
@@ -3465,9 +3483,9 @@ extension WorkflowDeterministicApplicationEngineV4 {
         afterReadingSample: (@Sendable () -> Void)? = nil
     ) async throws -> UInt64 {
         try cancellation.check()
-        let asset = AVURLAsset(
+        let asset = try await NativeMediaInputAssetResolverV4.asset(
             url: sourceURL,
-            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+            cancellation: cancellation
         )
         let tracks = try await asset.load(.tracks)
         try cancellation.check()
@@ -3713,13 +3731,14 @@ private extension WorkflowDeterministicApplicationEngineV4 {
 
     func makeSourceProgressCursors(
         sourceURL: URL,
-        plan: DeterministicV4PreparedAssetPlan
+        plan: DeterministicV4PreparedAssetPlan,
+        cancellation: ProcessingCancellation
     ) async throws -> [
         MediaTrackStableIDV4: WorkflowSourceTrackProgressCursorV4
     ] {
-        let asset = AVURLAsset(
+        let asset = try await NativeMediaInputAssetResolverV4.asset(
             url: sourceURL,
-            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+            cancellation: cancellation
         )
         let assetTracks = try await asset.load(.tracks)
         guard assetTracks.count == plan.sourceGraph.tracks.count else {
@@ -3843,6 +3862,7 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
     private let queue: WorkflowApplicationQueueV4
     private let engine: any WorkflowApplicationDeterministicExecutingV4
     private let cacheLocationAccess: WorkflowCacheLocationAccessV4?
+    private let derivedInputCacheRootURL: URL?
     private let maximumInputFramesPerBoundary: Int
     private let processingActivityFactory: MirmirProcessingActivityFactory
     private var active: ActiveExecution?
@@ -3873,6 +3893,7 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
         engine: any WorkflowApplicationDeterministicExecutingV4,
         maximumInputFramesPerBoundary: Int = 60,
         cacheLocationAccess: WorkflowCacheLocationAccessV4? = nil,
+        derivedInputCacheRootURL: URL? = nil,
         processingActivityFactory: @escaping MirmirProcessingActivityFactory =
             MirmirProcessingActivity.begin
     ) {
@@ -3881,6 +3902,7 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
         self.engine = engine
         self.maximumInputFramesPerBoundary = maximumInputFramesPerBoundary
         self.cacheLocationAccess = cacheLocationAccess
+        self.derivedInputCacheRootURL = derivedInputCacheRootURL
         self.processingActivityFactory = processingActivityFactory
     }
 
@@ -3920,11 +3942,18 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
                 backendCatalog: backendCatalog,
                 runtimeEnvironment: runtimeEnvironment
             ),
-            cacheLocationAccess: configuration.access
+            cacheLocationAccess: configuration.access,
+            derivedInputCacheRootURL: configuration.workflowRootURL
+                .appendingPathComponent("cache-v4/native-inputs-v1", isDirectory: true)
         )
     }
 
     func launch() async throws -> WorkflowApplicationLaunchSnapshotV4 {
+        if let derivedInputCacheRootURL {
+            try await NativeMediaInputAssetResolverV4.configureCacheRoot(
+                derivedInputCacheRootURL
+            )
+        }
         let publicationRecoveryDeferred = try await
             recoverInterruptedPublications()
         let snapshot = try await queue.launchSnapshot(
@@ -4007,8 +4036,13 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
             ])
         }
         let result = try await queue.clearApplicationCache()
+        let imports = derivedInputCacheRootURL == nil
+            ? 0 : try await NativeMediaInputAssetResolverV4.clearInactiveCache().entryCount
         await emitSnapshot(to: observer.snapshot)
-        return result
+        return WorkflowCacheClearResultV4(
+            deletedJobCount: result.deletedJobCount,
+            deletedArtifactCount: result.deletedArtifactCount + imports
+        )
     }
 
     func submit(

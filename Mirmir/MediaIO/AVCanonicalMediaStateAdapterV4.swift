@@ -164,9 +164,8 @@ struct AVCanonicalMediaStateAdapterV4: Sendable {
         _ request: AVCanonicalMediaStateProbeRequestV4
     ) async throws -> AVCanonicalMediaStateProbeV4 {
         let fileIdentity = try ASHStreamingFileIdentityV4.read(url: request.url)
-        let asset = AVURLAsset(
-            url: request.url,
-            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        let asset = try await NativeMediaInputAssetResolverV4.asset(
+            url: request.url, sourceIdentity: fileIdentity
         )
         let assetTracks: [AVAssetTrack]
         do {

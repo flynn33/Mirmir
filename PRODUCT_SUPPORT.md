@@ -34,29 +34,34 @@ backend selection is never replaced by a different scaler after failure.
 
 ## Input admission
 
-Input containers and codecs must be readable by AVFoundation and compatible
-with the selected processing route. A filename extension alone does not
-establish support for every codec or damaged/protected file. Omitted color
-tags are resolved from an actual decoded frame; explicit tags are preserved.
-H.264/HEVC use their defined video-range default when the range flag is absent.
-ProRes 422 uses the declared 10-bit P010 decode conversion; this converts 4:2:2
-chroma to the engine's 4:2:0 working surface and is not lossless chroma retention.
-Unknown or contradictory declarations still fail with an explanation.
+The current implementation uses native decoding plus a verified AVI sample-entry
+projection for the supported FMP4/H264 cases. This still leaves common input
+failures; broad input support is a required release repair. A filename extension
+alone is not authoritative. Verified RIFF/AVI content supplies the public MIME
+override when needed, including AVI bytes stored under a `.mov` name.
 
-The resumed 1.7.2 audit adds supported progressive MPEG-4 Part 2 and JFIF
-Motion JPEG 4:2:0 admission, deriving range/depth/sampling from bitstream
-headers. MPEG-4 MOV/MP4 and Motion JPEG MOV/AVI fixtures complete production
-exports; PCM audio and AVI language/header representation survive verification.
-Broad input support remains a release blocker: eight tested codec/container
-cases still fail, including MKV, WebM, ASF and specific AVI/JPEG/transport-stream
-inputs. Their exact failures and repair status are in
+Omitted color tags are resolved from an actual decoded frame; explicit tags are
+preserved. H.264/HEVC use their defined video-range default when the range flag
+is absent. ProRes 422 uses the declared 10-bit P010 decode conversion; this
+converts 4:2:2 chroma to the engine's 4:2:0 working surface. Unknown or
+contradictory declarations still fail with an explanation.
+
+Supported MPEG-4 Part 2 and JFIF Motion JPEG 4:2:0 sampling comes from bitstream
+headers. MPEG-4 MOV/MP4, Motion JPEG MOV/AVI and the supported FMP4/H264 AVI
+fixtures complete production exports. The new AVI projection retains original
+packet payloads, PCM and exact track ends, with H264 presentation order derived
+from its bitstream. Its initial verified contract admits progressive H264 POC0
+and MPEG4 I/P pictures with one video and optional PCM audio; other POC/field
+modes, MPEG4 ASP B/S decoding and richer AVI metadata remain open compatibility
+work. MKV, WebM, ASF, MJPEG 4:2:2/4:4:4 and MPEG2 transport streams also require
+production repairs and completed output verification. See
 [the QA report](docs/FINAL_QA_2026-10-24.md).
 
 ## Implemented backends
 
 | Backend | Current contract |
 | --- | --- |
-| Mirmir Deterministic — CPU Reference | Explicit ASH P06 selection. Shared fixed-point spatial and temporal reconstruction, arbitrary integral upscale geometry, supported opaque and alpha formats, verified runtime assets, and no Apple fallback. |
+| Mirmir Deterministic — CPU Reference | Explicit ASH P06 selection. Shared fixed-point spatial and temporal reconstruction, arbitrary integral upscale geometry, supported opaque and alpha formats, verified runtime assets, and no Apple fallback. CPU loading authenticates Metal artifact bytes without requiring a Metal device or executable library. |
 | Mirmir Deterministic — Metal Accelerated | Explicit ASH P06 selection. Executes the same canonical plan, coefficient tables, rounding, clamps, and temporal policy as CPU; preparation fails closed if the bundled runtime or Metal library does not verify. It never substitutes CPU execution. |
 | VideoToolbox Super Resolution — Quality | macOS 26 or later, dimensions/factors reported by the current API, and an explicit system-model download when VideoToolbox reports it is required. |
 | VideoToolbox Super Resolution — Low Latency | macOS 26 or later and only dimensions/factors/pixel formats accepted by the current API. |

@@ -239,9 +239,8 @@ actor DeterministicV4WholeAssetPlanner {
         ))
         try checkCancellation(cancellation)
         let canonicalMedia = try canonicalProbe.requireAdmittedState()
-        let asset = AVURLAsset(
-            url: request.inputURL,
-            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        let asset = try await NativeMediaInputAssetResolverV4.asset(
+            url: request.inputURL, cancellation: cancellation
         )
         let physicalTrackCount = try await asset.load(.tracks).count
         try checkCancellation(cancellation)

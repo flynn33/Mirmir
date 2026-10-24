@@ -1725,5 +1725,133 @@
         }
       ]
     }
+  },
+  "nativeInputFollowupRuntime5": {
+    "evidenceRoot": "output/resumed-qa-2026-10-24/native-import-followup",
+    "formatGate": {
+      "exitCode": 1,
+      "failed": 12,
+      "passed": 16,
+      "receipt": "output/resumed-qa-2026-10-24/native-import-followup/format-gate-reviewed/results.json",
+      "total": 28
+    },
+    "fullSuites": {
+      "debug": {
+        "failedTests": 0,
+        "passedTests": 716,
+        "skippedTests": 13,
+        "summarySHA256": "a6d87268863fd0640056eb809a829ecde05709496231dd824307f690d055acbb",
+        "totalTestCount": 729
+      },
+      "release": {
+        "failedTests": 0,
+        "passedTests": 711,
+        "skippedTests": 13,
+        "summarySHA256": "eca358a710699055c0cda2c20f2b3359c5d36a36199c3ec4610df59f54e52543",
+        "totalTestCount": 724
+      },
+      "rosetta": {
+        "failedTests": 0,
+        "passedTests": 711,
+        "skippedTests": 13,
+        "summarySHA256": "384a5021a0ac7edfecf7232191621ee9c895be9bb2dfd9be7b73a16d578d90b3",
+        "totalTestCount": 724
+      }
+    },
+    "newPCMPerformanceDefect": "Real feature-length AVI still finalizing; per-frame SHA hex formatting dominates samples. Exact-byte repair under verification.",
+    "pythonCommands": 25,
+    "pythonDistinctPassingTests": 397,
+    "queueColdCacheResumeSuites": {
+      "debug": {
+        "failedTests": 0,
+        "passedTests": 54,
+        "skippedTests": 1,
+        "summarySHA256": "007fd3cb228656daff25c180dc3311511a43632c3f9cd6b19dd31123548bead0",
+        "totalTestCount": 55
+      },
+      "release": {
+        "failedTests": 0,
+        "passedTests": 54,
+        "skippedTests": 1,
+        "summarySHA256": "386da3d0ca04e4e5560eab83e0850bb2edd852572aaa1efedbdf8d837851274c",
+        "totalTestCount": 55
+      },
+      "rosetta": {
+        "failedTests": 0,
+        "passedTests": 54,
+        "skippedTests": 1,
+        "summarySHA256": "f186ce01b5e76a3cc5a1643ff1d1a71e46d0bd43dbfe3dfeca5a75effe38c1cd",
+        "totalTestCount": 55
+      }
+    },
+    "runtimeManifestIdentity": "fc4882d234322c5248042647e518f4c86760504353cb74fdd7913a9fe1c8a7ed",
+    "scope": "Before new PCM performance repair; original source/evidence retained",
+    "sourceRevision": "2f4080c735a86fe31aaae0e540191883327c2946f1fb698fd09253376c1a5dfa",
+    "status": "release_blocked"
+  },
+  "nativeInputFollowupRuntime6": {
+    "status": "release_blocked",
+    "evidenceRoot": "output/resumed-qa-2026-10-24/native-import-followup",
+    "runtimeManifestIdentity": "944e519d596430c2a75b18e9a53a6e42915b58d4f7d8bcfdf92315e6ad77e8fd",
+    "sourceRevision": "b96370f62ef851423c69215f3fd7d668de33aa1f416cd8f6efcd3befa4c5d46a",
+    "fullSuites": {
+      "release": {
+        "totalTestCount": 727,
+        "passedTests": 714,
+        "failedTests": 0,
+        "skippedTests": 13,
+        "summarySHA256": "5e3eb3d7a305103b6ca6808e9c4f6106fc18001549babd16ce67943b9460f215"
+      },
+      "debug": {
+        "totalTestCount": 732,
+        "passedTests": 719,
+        "failedTests": 0,
+        "skippedTests": 13,
+        "summarySHA256": "bf6ae65ce95b1cc1caf46d5996a03848deb3e75bee01550898f80228aa3f212d"
+      },
+      "rosetta": {
+        "totalTestCount": 727,
+        "passedTests": 714,
+        "failedTests": 0,
+        "skippedTests": 13,
+        "summarySHA256": "60c7a3e86cbfe003777913814ba7e8a9c265bb99b38b6e218899edcc5dc33be9"
+      }
+    },
+    "affectedSuites": {
+      "release": {
+        "totalTestCount": 121,
+        "passedTests": 121,
+        "failedTests": 0,
+        "skippedTests": 0,
+        "summarySHA256": "afca2267ada58dd0e48da4b5645f2578054c8229c008b9e192034fe209688247"
+      },
+      "debug": {
+        "totalTestCount": 121,
+        "passedTests": 121,
+        "failedTests": 0,
+        "skippedTests": 0,
+        "summarySHA256": "4f7960003ccffa3d168afa98fb6d6eb09c08b908f819aa787e4b41648d2af24e"
+      },
+      "rosetta": {
+        "totalTestCount": 121,
+        "passedTests": 121,
+        "failedTests": 0,
+        "skippedTests": 0,
+        "summarySHA256": "879467aa6c7d4873f20c6860d39ef31c1def4b9845d124b90abde53af6e1c0b7"
+      }
+    },
+    "formatGate": {
+      "passed": 16,
+      "failed": 12,
+      "total": 28,
+      "exitCode": 1,
+      "receipt": "output/resumed-qa-2026-10-24/native-import-followup/format-gate-runtime6/results.json"
+    },
+    "universalArchiveAudit": "output/resumed-qa-2026-10-24/native-import-followup/archive-runtime6-audit.json",
+    "pythonAffectedRecheckTests": 30,
+    "formatUnitRecheckTests": 8,
+    "allDistinctPythonTestsHavePassingResults": 397,
+    "featureLengthAVI": "Source5 slow run retained; fresh repaired source6 run active. No completed output at this checkpoint.",
+    "reportedCustomerError11": "Open; this PCM performance defect does not establish its cause."
   }
 }

@@ -3,30 +3,24 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-Version **1.7.2 build 20** fixes H.264 output varying with frame delivery pace
-and repairs admission of readable movies with omitted
-color tags, preserves decoder-resolved SDR color through deterministic export,
-and admits ProRes 422 through the declared 10-bit working format. Writer error
-11 now has an actionable description and bounded configuration diagnostics.
-Completed deterministic jobs retain the original movie for Compare instead of
-using a private snapshot that cleanup removes. MP4 chapter-list metadata is
-retained during MOV finalization, and early failures now release prepared
-processing backends.
-The resumed audit also repairs supported MPEG-4/JFIF Motion JPEG admission,
-PCM wrapper verification, and AVI language/OpenDML wrapper migration.
+The local **1.7.2 build 20** candidate repairs omitted-color and legacy-video
+admission, deterministic H.264 output pacing, chapter migration, backend
+cleanup, CPU runtime loading, durable audio finalization and AVI input clocks.
+The AVI repair preserves original packet bytes and exact audio while deriving
+H.264 presentation order from its bitstream. Both tested AVI cases complete
+real CPU and Metal upscales with independent picture-order, clock and audio checks.
 
-Release remains blocked: eight additional input cases still fail and the
-reported error-11 incident remains open. The updated native Release suite
-passes 679 tests with zero failures and 13 explicit opt-in skips. The full format
-gate runs 28 CPU/Metal workflows: 12 pass independent frame/timing/audio checks
-and 16 fail across eight input cases. Debug (684 passed) and Rosetta (679 passed)
-also pass. A fresh 90-minute small-raster workflow preserves all 129,600 frames
-and exact decoded audio; this does not qualify 4K throughput. UI testing
-is excluded by the owner. See [`docs/FINAL_QA_2026-10-24.md`](docs/FINAL_QA_2026-10-24.md)
-for fresh evidence, discovered defects, and outstanding release checks. The P06
-runtime was rebuilt twice with identical bytes and its current source closure
-verified. Historical performance and release evidence retains its original
-version and scope; it does not qualify this candidate automatically.
+**Release remains blocked.** Common input formats still fail, and the reported
+error-11 incident has no verified causal repair. The current all-feature QA goal
+remains active. The current full suites pass 714 Release, 719 Debug and 714
+Rosetta tests, with zero failures. The complete format gate passes 16 of 28
+workflows; six inputs still fail on both backends. A fresh 90-minute AVI job
+exposed slow PCM finalization. Its exact-byte repair passes the full suites,
+and a separate feature-length output check is underway. All 397 Python tests
+have passing results.
+See [`docs/FINAL_QA_2026-10-24.md`](docs/FINAL_QA_2026-10-24.md) for exact
+found/fixed/not-fixed outcomes and the scope of each checkpoint. UI testing is
+excluded by the owner. Source and wiki changes remain local; no release is authorized.
 
 Mirmir includes explicit deterministic CPU/Metal processing, supported Apple
 scaling frameworks, durable queues and recovery, independent comparison

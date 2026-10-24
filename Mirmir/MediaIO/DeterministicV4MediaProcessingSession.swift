@@ -1888,9 +1888,8 @@ struct DeterministicV4MediaProcessingSession: Sendable {
             progressPresentationOffset
         ))
         let startedAt = Date()
-        let asset = AVURLAsset(
-            url: request.inputURL,
-            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        let asset = try await NativeMediaInputAssetResolverV4.asset(
+            url: request.inputURL, cancellation: cancellation
         )
         let tracks = try await asset.load(.tracks)
         let primaryOrdinal = Int(

@@ -11,6 +11,24 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ### Fixed
 
+- Remove executable Metal/device validation from the CPU runtime path while
+  retaining full artifact, schema and provenance authentication.
+- Forward durable non-video transcode hooks and report actual preserved,
+  transcoded, omitted or absent audio from the prepared plan.
+- Normalize supported FMP4/H264 AVI sample entries without changing compressed
+  picture payloads; reconstruct H264 B-frame presentation clocks, preserve exact
+  track ends/PCM, and reject unsupported or changing bitstream configurations.
+- Share verified AVI input resolution with planning, processing, thumbnails and
+  comparison playback; sniff content before applying an AVI MIME override.
+- Bind derived-input cache clearing, location and retention to active reader
+  leases; fix atomic private-root creation and concurrent namespace retirement.
+- Remove per-byte Foundation formatting from canonical SHA digests and batch
+  each sample-stream record into one bounded hash update, preserving v4.2
+  fingerprint bytes. The feature-length AVI test exposed this PCM finalization
+  bottleneck; affected and full suites pass, while fresh feature-length output
+  verification is still pending.
+- Extend independent format QA to check every displayed picture's exact clock
+  and original moving-pattern position, with reordered/missing/duplicate tests.
 - Admit supported progressive MPEG-4 Part 2 and JFIF Motion JPEG sampling facts
   consistently in probing and canonical planning, with header rejection tests.
 - Preserve strict PCM stream verification across known `sowt`/`lpcm` wrapper
@@ -48,6 +66,17 @@ do not publish, sign, notarize, or distribute the application automatically.
 - Align Xcode and source version authorities to 1.7.2 (20).
 
 ### Verification
+
+Current follow-up: both tested AVI cases complete CPU and Metal production
+workflows with exact display clocks, independent picture-order checks and
+unchanged decoded audio. Runtime6 full suites pass 714 Release, 719 Debug and
+714 Rosetta tests, with zero failures. The full format gate passes 16 of 28
+workflows. All 397 Python tests have passing results. The fresh 90-minute AVI
+run exposed a PCM finalization bottleneck; its exact-byte repair passes the
+affected/full suites and archive checks, with feature-length output verification
+in progress. Release remains blocked by the reported error-11
+incident and outstanding common-input failures. See the QA report for current
+results; the counts below describe the preceding checkpoint.
 
 Resumed native Release passes 679 tests, with zero failures and 13 opt-in skips.
 The full format gate records 12 passing exports and 16 failures across eight

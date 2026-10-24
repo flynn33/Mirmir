@@ -778,6 +778,53 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         )
     }
 
+    func testCacheClearIncludesInactiveDerivedInputsAndProtectsActiveReaders()
+        async throws {
+        let fixture = try makeFixture()
+        let input = try XCTUnwrap(Bundle(for: Self.self).url(
+            forResource: "native-avi-mpeg4", withExtension: "avi"
+        ))
+        let originalBytes = try Data(contentsOf: input)
+        try originalBytes.write(to: fixture.inputURL)
+        let derivedRoot = fixture.storeURL.appendingPathComponent(
+            "cache-v4/native-inputs-v1", isDirectory: true
+        )
+        let defaultRoot = FileManager.default.urls(
+            for: .cachesDirectory, in: .userDomainMask
+        )[0].appendingPathComponent("Mirmir/NativeMediaInputsV1", isDirectory: true)
+        addTeardownBlock {
+            try await NativeMediaInputAssetResolverV4.configureCacheRoot(defaultRoot)
+        }
+        let coordinator = WorkflowApplicationCoordinatorV4(
+            queue: try makeQueue(fixture: fixture),
+            engine: WorkflowDeterministicApplicationEngineV4(
+                videoProbe: VideoProbe(), backendCatalog: .live(),
+                runtimeEnvironment: .current()
+            ),
+            derivedInputCacheRootURL: derivedRoot
+        )
+        _ = try await coordinator.launch()
+        var derivedURL: URL?
+        weak var releasedAsset: AVURLAsset?
+        do {
+            let asset = try await NativeMediaInputAssetResolverV4.asset(url: fixture.inputURL)
+            releasedAsset = asset
+            derivedURL = asset.url
+            XCTAssertTrue(asset.url.path.hasPrefix(derivedRoot.path + "/"))
+            let bytesInUse = try await NativeMediaInputAssetResolverV4.cacheUsage()
+            XCTAssertGreaterThan(bytesInUse, 0)
+            _ = try await coordinator.clearCache()
+            XCTAssertTrue(asset.url.fileExists,
+                          "Clear Cache must preserve an input held by a reader.")
+            withExtendedLifetime(asset) {}
+        }
+        XCTAssertNil(releasedAsset)
+        let result = try await coordinator.clearCache()
+        XCTAssertGreaterThanOrEqual(result.deletedArtifactCount, 1)
+        XCTAssertFalse(try XCTUnwrap(derivedURL).fileExists)
+        XCTAssertEqual(try Data(contentsOf: fixture.inputURL), originalBytes)
+    }
+
     func testCleanLaunchHasImmutableEmptyQueueAndRecoverySnapshots() async throws {
         let fixture = try makeFixture()
         let clock = WorkflowApplicationQueueTestClockV4(7_000_000_000)
@@ -2946,6 +2993,218 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         XCTAssertTrue(resumedRecorder.snapshot.progressPhases.contains(.completed))
     }
 
+    func testAVIPauseResumeRecreatesClearedDerivedInputForCPUAndMetal()
+        async throws {
+        let defaultRoot = FileManager.default.urls(
+            for: .cachesDirectory, in: .userDomainMask
+        )[0].appendingPathComponent("Mirmir/NativeMediaInputsV1", isDirectory: true)
+        addTeardownBlock {
+            try await NativeMediaInputAssetResolverV4.configureCacheRoot(defaultRoot)
+        }
+        for sourceName in ["native-avi-mpeg4", "native-avi-h264"] {
+            for backend in [UpscaleBackendID.mirmirDeterministicCPU, .mirmirDeterministicMetal] {
+                let fixture = try makeFixture(inputFileName: sourceName + ".avi")
+                let bundled = try XCTUnwrap(Bundle(for: Self.self).url(
+                    forResource: sourceName, withExtension: "avi"
+                ))
+                let originalBytes = try Data(contentsOf: bundled)
+                try originalBytes.write(to: fixture.inputURL)
+                let sourcePCM = try await decodedAudioInventory(url: fixture.inputURL)
+                XCTAssertEqual(sourcePCM.count, 1)
+                XCTAssertEqual(sourcePCM.first?.frameCount, 144_000)
+                let derivedRoot = fixture.rootURL.appendingPathComponent(
+                    "derived-inputs", isDirectory: true
+                )
+                try await NativeMediaInputAssetResolverV4.configureCacheRoot(derivedRoot)
+                let catalog = UpscaleBackendCatalog.live()
+                func requested(_ name: String) -> UpscaleRequest {
+                    UpscaleRequest(
+                        inputURL: fixture.inputURL,
+                        outputURL: fixture.outputDirectoryURL.appendingPathComponent(name + ".mov"),
+                        backendID: backend, targetWidth: 320, targetHeight: 192,
+                        outputCodec: .h264, preserveAudio: true, overwriteExistingFile: false
+                    )
+                }
+                func newEngine() -> WorkflowDeterministicApplicationEngineV4 {
+                    WorkflowDeterministicApplicationEngineV4(
+                        videoProbe: VideoProbe(), backendCatalog: catalog,
+                        runtimeEnvironment: .current()
+                    )
+                }
+                func assertCompletion(
+                    _ completion: WorkflowApplicationCompletionV4,
+                    queue: WorkflowApplicationQueueV4
+                ) async throws -> WorkflowCheckpointDocumentV4 {
+                    XCTAssertEqual(completion.result.actualBackendID, backend)
+                    XCTAssertEqual(completion.result.processedFrameCount, 72)
+                    XCTAssertEqual(completion.result.audioResult, .preserved)
+                    XCTAssertEqual(completion.result.encodedWidth, 320)
+                    XCTAssertEqual(completion.result.encodedHeight, 192)
+                    let snapshot = try await queue.queueSnapshot()
+                    XCTAssertEqual(snapshot.items.count, 1)
+                    let item = try XCTUnwrap(snapshot.items.first)
+                    XCTAssertEqual(item.lifecycle, .completed)
+                    let checkpointURL = await queue.applicationCheckpointURL(jobID: item.jobID)
+                    let checkpoint = try WorkflowCanonicalCodec().decodeCanonical(
+                        WorkflowCheckpointDocumentV4.self,
+                        from: Data(contentsOf: checkpointURL)
+                    )
+                    XCTAssertEqual(checkpoint.body.segments.map(\.ordinal), [0, 1])
+                    let firstSegment = try XCTUnwrap(checkpoint.body.segments.first)
+                    let terminalSegment = try XCTUnwrap(checkpoint.body.segments.last)
+                    XCTAssertEqual(firstSegment.nextStartTime, terminalSegment.startTime)
+                    XCTAssertNil(terminalSegment.nextStartTime)
+                    let video = try XCTUnwrap(checkpoint.body.trackProgress.first { $0.kind == .video })
+                    XCTAssertTrue(video.isComplete)
+                    XCTAssertEqual(video.nextInputSampleIndex, 72)
+                    XCTAssertEqual(video.nextOutputSampleIndex, 72)
+                    let end = terminalSegment.endTimeExclusive
+                    XCTAssertEqual(CMTimeCompare(
+                        CMTime(value: end.value, timescale: end.timescale),
+                        CMTime(value: 3, timescale: 1)
+                    ), 0)
+                    XCTAssertEqual(video.lastOutputTime, end)
+                    let audio = try await decodedAudioInventory(url: completion.result.outputURL)
+                    XCTAssertEqual(audio, sourcePCM)
+                    return checkpoint
+                }
+
+                let baselineRequest = requested("uninterrupted")
+                let baselineRecorder = MirmirProcessingActivityTestRecorder()
+                let baseline: DetailedDecodedVideoInventory
+                do {
+                    let queue = try WorkflowApplicationQueueV4(
+                        trustedRootURL: fixture.rootURL.appendingPathComponent("baseline-store"),
+                        workerID: try WorkflowWorkerIDV4("avi-baseline-worker"),
+                        resolver: WorkflowApplicationBookmarkResolverStubV4()
+                    )
+                    let coordinator = WorkflowApplicationCoordinatorV4(
+                        queue: queue, engine: newEngine(), maximumInputFramesPerBoundary: 60,
+                        derivedInputCacheRootURL: derivedRoot,
+                        processingActivityFactory: { baselineRecorder.begin($0) }
+                    )
+                    let outcome = try await coordinator.submit(
+                        request: baselineRequest,
+                        progress: { baselineRecorder.recordProtectedProgress($0) }, snapshot: { _ in }
+                    )
+                    guard case .completed(let completion) = outcome else {
+                        return XCTFail("The uninterrupted AVI job did not complete: \(sourceName), \(backend).")
+                    }
+                    _ = try await assertCompletion(completion, queue: queue)
+                    baseline = try await detailedDecodedVideoInventory(url: baselineRequest.outputURL)
+                }
+                XCTAssertEqual(baselineRecorder.snapshot.activeCount, 0)
+                XCTAssertEqual(baselineRecorder.snapshot.beginCount, baselineRecorder.snapshot.endCount)
+                XCTAssertEqual(baseline.presentationTimes.count, 72)
+
+                let resumedRequest = requested("resumed")
+                let store = fixture.rootURL.appendingPathComponent("resume-store")
+                let recorder = MirmirProcessingActivityTestRecorder()
+                let latch = WorkflowApplicationBoundaryLatchV4()
+                let queue = try WorkflowApplicationQueueV4(
+                    trustedRootURL: store, workerID: try WorkflowWorkerIDV4("avi-pause-worker"),
+                    resolver: WorkflowApplicationBookmarkResolverStubV4()
+                )
+                let coordinator = WorkflowApplicationCoordinatorV4(
+                    queue: queue,
+                    engine: WorkflowApplicationRealBoundaryEngineV4(
+                        underlying: newEngine(), latch: latch, activity: recorder
+                    ),
+                    maximumInputFramesPerBoundary: 60,
+                    derivedInputCacheRootURL: derivedRoot,
+                    processingActivityFactory: { recorder.begin($0) }
+                )
+                let initial = Task {
+                    try await coordinator.submit(
+                        request: resumedRequest,
+                        progress: { recorder.recordProtectedProgress($0) }, snapshot: { _ in }
+                    )
+                }
+                guard await latch.waitUntilReached(timeoutNanoseconds: 30_000_000_000) else {
+                    await latch.release()
+                    try? await coordinator.cancelActive()
+                    _ = try? await initial.value
+                    return XCTFail("The AVI engine did not reach its first durable boundary.")
+                }
+                do { try await coordinator.requestPause() }
+                catch { await latch.release(); _ = try? await initial.value; throw error }
+                await latch.release()
+                guard case .paused(let jobID, _) = try await initial.value else {
+                    return XCTFail("The AVI engine did not pause at its durable boundary.")
+                }
+                XCTAssertFalse(resumedRequest.outputURL.fileExists)
+                XCTAssertEqual(recorder.snapshot.activeCount, 0)
+                XCTAssertEqual(recorder.snapshot.beginCount, recorder.snapshot.endCount)
+                let pausedCheckpointURL = await queue.applicationCheckpointURL(jobID: jobID)
+                let pausedCheckpoint = try WorkflowCanonicalCodec().decodeCanonical(
+                    WorkflowCheckpointDocumentV4.self, from: Data(contentsOf: pausedCheckpointURL)
+                )
+                XCTAssertEqual(pausedCheckpoint.body.segments.count, 1)
+                XCTAssertEqual(pausedCheckpoint.body.trackProgress.first { $0.kind == .video }?
+                    .nextInputSampleIndex, 60)
+
+                var derivedURL: URL?
+                weak var releasedReader: AVURLAsset?
+                do {
+                    let asset = try await NativeMediaInputAssetResolverV4.asset(url: fixture.inputURL)
+                    releasedReader = asset
+                    derivedURL = asset.url
+                    XCTAssertTrue(asset.url.path.hasPrefix(derivedRoot.path + "/"))
+                    XCTAssertNotEqual(asset.url, fixture.inputURL)
+                    withExtendedLifetime(asset) {}
+                }
+                let deletedURL = try XCTUnwrap(derivedURL)
+                XCTAssertTrue(deletedURL.fileExists)
+                for _ in 0..<200 {
+                    _ = try await NativeMediaInputAssetResolverV4.clearInactiveCache()
+                    if !deletedURL.fileExists { break }
+                    try await Task.sleep(nanoseconds: 5_000_000)
+                }
+                XCTAssertNil(releasedReader)
+                XCTAssertFalse(deletedURL.fileExists,
+                               "Resume must regenerate a physically deleted derived input, not reuse warm media.")
+                XCTAssertFalse(deletedURL.deletingLastPathComponent().fileExists)
+
+                let resumedRecorder = MirmirProcessingActivityTestRecorder()
+                let freshQueue = try WorkflowApplicationQueueV4(
+                    trustedRootURL: store, workerID: try WorkflowWorkerIDV4("avi-resume-worker"),
+                    resolver: WorkflowApplicationBookmarkResolverStubV4()
+                )
+                let recreated = WorkflowApplicationCoordinatorV4(
+                    queue: freshQueue, engine: newEngine(), maximumInputFramesPerBoundary: 60,
+                    derivedInputCacheRootURL: derivedRoot,
+                    processingActivityFactory: { resumedRecorder.begin($0) }
+                )
+                let outcome = try await recreated.resume(
+                    jobID: jobID,
+                    progress: { resumedRecorder.recordProtectedProgress($0) }, snapshot: { _ in }
+                )
+                guard case .completed(let completion) = outcome else {
+                    return XCTFail("The AVI cold-cache resume did not complete.")
+                }
+                XCTAssertTrue(deletedURL.fileExists, "The resumed production engine must recreate its input cache.")
+                let terminal = try await assertCompletion(completion, queue: freshQueue)
+                XCTAssertEqual(terminal.body.compatibility.sourceSnapshotIdentityID,
+                               pausedCheckpoint.body.compatibility.sourceSnapshotIdentityID)
+                let decoded = try await detailedDecodedVideoInventory(url: resumedRequest.outputURL)
+                XCTAssertEqual(decoded.width, 320)
+                XCTAssertEqual(decoded.height, 192)
+                XCTAssertEqual(decoded.presentationTimes, baseline.presentationTimes)
+                XCTAssertEqual(decoded.frameSHA256, baseline.frameSHA256)
+                XCTAssertEqual(CMTimeCompare(decoded.admittedEnd, baseline.admittedEnd), 0)
+                for (index, time) in decoded.presentationTimes.enumerated() {
+                    XCTAssertEqual(CMTimeCompare(time, CMTime(value: Int64(index), timescale: 24)), 0)
+                }
+                XCTAssertEqual(resumedRecorder.snapshot.activeCount, 0)
+                XCTAssertEqual(resumedRecorder.snapshot.beginCount, resumedRecorder.snapshot.endCount)
+                XCTAssertTrue(resumedRecorder.snapshot.progressActivityCounts.allSatisfy { $0 > 0 })
+                XCTAssertTrue(resumedRecorder.snapshot.progressPhases.contains(.finalizing))
+                XCTAssertTrue(resumedRecorder.snapshot.progressPhases.contains(.completed))
+                XCTAssertEqual(try Data(contentsOf: fixture.inputURL), originalBytes)
+            }
+        }
+    }
+
     func testExternalSourceCompletesProductionDurableWorkflowWhenRequested()
         async throws {
         let environment = ProcessInfo.processInfo.environment
@@ -3264,6 +3523,10 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
             Int(videoProgress.nextOutputSampleIndex)
         )
         XCTAssertEqual(completion.result.audioResult, .preserved)
+        let sourceAudioPCM = try await decodedAudioInventory(url: sourceURL)
+        let outputAudioPCM = try await decodedAudioInventory(url: outputURL)
+        XCTAssertEqual(outputAudioPCM, sourceAudioPCM,
+                       "Native decoding must preserve audio bytes and samples, including MOV edits.")
         let output = try await VideoProbe().probe(url: outputURL)
         XCTAssertEqual(output.audioTrackCount, source.audioTrackCount)
         XCTAssertEqual(output.videoTrackCount, source.videoTrackCount)
@@ -3344,6 +3607,11 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
             "audioResult": completion.result.audioResult.rawValue,
             "sourceAudioTracks": source.audioTrackCount,
             "outputAudioTracks": output.audioTrackCount,
+            "nativeDecodedAudio": outputAudioPCM.map { [
+                "frames": $0.frameCount,
+                "byteCount": $0.byteCount,
+                "sha256": $0.sha256
+            ] as [String: Any] },
             "processingDurationSeconds": completion.result.processingDurationSeconds,
             "checkpointPath": checkpointURL.path
         ], options: [.prettyPrinted, .sortedKeys]).write(to: evidenceFile, options: .atomic)
@@ -4271,6 +4539,78 @@ private extension WorkflowApplicationQueueV4Tests {
         }
     }
 
+    struct DecodedAudioInventory: Equatable {
+        let frameCount: UInt64
+        let byteCount: UInt64
+        let sha256: String
+        let sampleRate: Double
+        let channels: UInt32
+    }
+
+    // AVFoundation honors MOV edit boundaries that an independent decoder can
+    // ignore. Compare both native PCM and the separate FFmpeg oracle.
+    func decodedAudioInventory(url: URL) async throws -> [DecodedAudioInventory] {
+        let asset = AVURLAsset(url: url)
+        var result: [DecodedAudioInventory] = []
+        for track in try await asset.loadTracks(withMediaType: .audio) {
+            let reader = try AVAssetReader(asset: asset)
+            let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
+                AVFormatIDKey: kAudioFormatLinearPCM,
+                AVLinearPCMBitDepthKey: 32,
+                AVLinearPCMIsFloatKey: false,
+                AVLinearPCMIsBigEndianKey: false,
+                AVLinearPCMIsNonInterleaved: false
+            ])
+            XCTAssertTrue(reader.canAdd(output))
+            reader.add(output)
+            defer { reader.cancelReading() }
+            guard reader.startReading() else {
+                throw try XCTUnwrap(reader.error)
+            }
+            var digest = SHA256()
+            var frames: UInt64 = 0
+            var bytes: UInt64 = 0
+            var rate: Double?
+            var channels: UInt32?
+            while let sample = output.copyNextSampleBuffer() {
+                try Task.checkCancellation()
+                let count = CMSampleBufferGetNumSamples(sample)
+                guard count > 0 else { continue }
+                let format = try XCTUnwrap(CMSampleBufferGetFormatDescription(sample))
+                let stream = try XCTUnwrap(
+                    CMAudioFormatDescriptionGetStreamBasicDescription(format)
+                ).pointee
+                XCTAssertEqual(stream.mFormatID, kAudioFormatLinearPCM)
+                XCTAssertEqual(stream.mBitsPerChannel, 32)
+                if let rate { XCTAssertEqual(stream.mSampleRate, rate) }
+                if let channels { XCTAssertEqual(stream.mChannelsPerFrame, channels) }
+                rate = stream.mSampleRate
+                channels = stream.mChannelsPerFrame
+                let block = try XCTUnwrap(CMSampleBufferGetDataBuffer(sample))
+                let length = CMBlockBufferGetDataLength(block)
+                XCTAssertEqual(length, count * Int(stream.mBytesPerFrame))
+                var data = Data(count: length)
+                let status = data.withUnsafeMutableBytes {
+                    CMBlockBufferCopyDataBytes(block, atOffset: 0,
+                                              dataLength: length,
+                                              destination: $0.baseAddress!)
+                }
+                XCTAssertEqual(status, kCMBlockBufferNoErr)
+                digest.update(data: data)
+                frames += UInt64(count)
+                bytes += UInt64(length)
+            }
+            XCTAssertEqual(reader.status, .completed)
+            XCTAssertNil(reader.error)
+            result.append(DecodedAudioInventory(
+                frameCount: frames, byteCount: bytes,
+                sha256: digest.finalize().map { String(format: "%02x", $0) }.joined(),
+                sampleRate: try XCTUnwrap(rate), channels: try XCTUnwrap(channels)
+            ))
+        }
+        return result
+    }
+
     struct DecodedVideoInventory {
         let sampleCount: UInt64
         let exactEnd: CMTime
@@ -4301,10 +4641,7 @@ private extension WorkflowApplicationQueueV4Tests {
     func decodedVideoInventory(
         url: URL
     ) async throws -> DecodedVideoInventory {
-        let asset = AVURLAsset(
-            url: url,
-            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
-        )
+        let asset = try await NativeMediaInputAssetResolverV4.asset(url: url)
         let videoTracks = try await asset.loadTracks(withMediaType: .video)
         let track = try XCTUnwrap(videoTracks.first)
         let nominalDuration = try await track.load(.minFrameDuration)

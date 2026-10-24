@@ -4,12 +4,17 @@
 
 **Status:** Open; these defects are not accepted release limitations.
 
-Resumed QA repaired MPEG-4 MOV/MP4 and Motion JPEG 4:2:0 MOV/AVI admission and
-several migration failures. H.264 MKV, MPEG-4/H.264 AVI, Motion JPEG 4:2:2/4:4:4
-MOV, MPEG-2 transport streams, VP9 WebM and WMV ASF still fail concrete tests.
-The transport-stream reader also returns different compressed and decoded
-frame counts. These require importer/decoder/timing repairs, not an availability
-bypass. The reported error-11 incident remains open; improved logging does not
+Resumed QA repaired omitted metadata, legacy sampling, durable audio, CPU
+runtime admission and supported FMP4/H264 AVI imports. The two AVI fixtures now
+complete real CPU and Metal workflows with correct picture order and exact
+audio. H.264 MKV, Motion JPEG 4:2:2/4:4:4 MOV, MPEG-2 transport streams,
+VP9 WebM and WMV ASF still need production importer/decoder/timing repairs.
+MPEG4 ASP B-frame AVI also fails native decoder creation. Additional H264 POC/
+field modes and richer AVI track/metadata graphs remain unverified compatibility
+requirements. The native MPEG2 reader returns 70 real frames where independent
+decoding returns 72; admitting its range alone would conceal missing frames.
+These are required implementation repairs, not accepted format limitations.
+The reported error-11 incident remains open; improved logging does not
 establish a causal repair. See [the QA report](docs/FINAL_QA_2026-10-24.md).
 
 Updated for Mirmir 1.7.2 build 20 on October 24, 2026. These entries distinguish
@@ -17,6 +22,17 @@ source repair from installed-product and full-media qualification. The historica
 October 7 readback confirms the signed **1.7.0 (17)** repair installed and
 launched, with the native About version/build and idle Metal route verified.
 The earlier October 7 1.6.0 (16) and October 6 1.5.0 (15) checks are historical.
+
+## QA-003 — Feature-length PCM finalization performance
+
+**Status:** Local repair passes affected/full suites; fresh feature-length output pending.
+
+The new 90-minute AVI test exposed per-PCM-frame SHA hexadecimal formatting as
+the dominant sampled finalization cost. The repair retains exact fingerprints
+while replacing Foundation formatting and batching one bounded canonical record
+per hash update. Full Release/Debug/Rosetta suites and the universal archive pass.
+The preserved source5 run and fresh repaired source6 workflow are still active;
+full output verification and end-to-end timing are not yet established.
 
 ## MEDIA-001 — MP4 raw chapter list rejected during MOV finalization
 

@@ -1735,6 +1735,31 @@ enum ASHP06RuntimeBundleLoaderV4 {
         metalLibraryValidator: any ASHMetalLibraryValidatingV4,
         fileManager: FileManager = .default
     ) throws -> ASHVerifiedRuntimeBundleV4 {
+        let runtime = try loadForCPU(
+            at: bundleURL,
+            trustPolicy: trustPolicy,
+            fileManager: fileManager
+        )
+        do {
+            try metalLibraryValidator.validateExecutableMetalLibrary(
+                runtime.artifactData(for: .metalLibrary)
+            )
+        } catch {
+            throw ASHP06RuntimeBundleV4Error.metalLibraryValidationFailed(
+                String(describing: error)
+            )
+        }
+        return runtime
+    }
+
+    /// Verifies the complete runtime, including Metal artifact bytes and their
+    /// cross-bindings, without requiring a GPU to execute the CPU backend.
+    /// Metal callers use `load` to also check executable compatibility.
+    static func loadForCPU(
+        at bundleURL: URL,
+        trustPolicy: ASHRuntimeTrustPolicyV4,
+        fileManager: FileManager = .default
+    ) throws -> ASHVerifiedRuntimeBundleV4 {
         let requestedBundle = bundleURL.standardizedFileURL
         let bundleValues = try requestedBundle.resourceValues(
             forKeys: [.isDirectoryKey, .isSymbolicLinkKey]
@@ -1858,15 +1883,6 @@ enum ASHP06RuntimeBundleLoaderV4 {
                 role: descriptor.role,
                 releaseStatus: manifest.releaseStatus
             )
-            if descriptor.role == .metalLibrary {
-                do {
-                    try metalLibraryValidator.validateExecutableMetalLibrary(data)
-                } catch {
-                    throw ASHP06RuntimeBundleV4Error.metalLibraryValidationFailed(
-                        String(describing: error)
-                    )
-                }
-            }
             loaded[descriptor.role] = data
         }
         let inputs = loaded.map {

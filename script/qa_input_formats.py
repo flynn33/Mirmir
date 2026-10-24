@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 from array import array
+from fractions import Fraction
 import hashlib
 import json
 import math
@@ -47,6 +48,36 @@ BACKENDS = {
 def require(condition: bool, reason: str) -> None:
     if not condition:
         raise ValueError(reason)
+
+
+def verify_picture_order(source: list[bytes], output: list[bytes]) -> dict:
+    """Match this moving test pattern after scaling, independently of timestamps.
+
+    Small grayscale signatures tolerate the expected upscaler/encoder changes.
+    They are a fixture-specific ordering check, not a fidelity qualification.
+    """
+    require(bool(source) and len(source) == len(output), "Picture signature count changed")
+    require(len(set(source)) == len(source), "Source signatures cannot distinguish every picture")
+    size = len(source[0])
+    require(size > 0 and all(len(frame) == size for frame in source + output),
+            "Picture signatures have inconsistent dimensions")
+    distances = []
+    for index, picture in enumerate(output):
+        scores = [sum(abs(x - y) for x, y in zip(picture, candidate)) for candidate in source]
+        best = min(scores)
+        require(scores[index] == best and scores.count(best) == 1,
+                f"Picture {index} does not uniquely match its original display position; "
+                f"closest source positions: {[i for i, score in enumerate(scores) if score == best]}")
+        distances.append(best / size)
+    return {"frames": len(output), "displayOrderPassed": True,
+            "signatureSize": [32, 20], "maximumMeanAbsoluteDifference": max(distances)}
+
+
+def verify_display_clock(timestamps: list[int], time_base: str) -> None:
+    require(len(timestamps) == 72, "Expected all 72 displayed picture timestamps")
+    step = Fraction(time_base)
+    require(all(value * step == Fraction(index, 24) for index, value in enumerate(timestamps)),
+            "Displayed pictures do not follow the exact 24 fps source timeline")
 
 
 def verify_media(bundle: Path, source: Path, directory: Path,
@@ -90,6 +121,24 @@ def verify_media(bundle: Path, source: Path, directory: Path,
     # Native XCTest also compares exact decoded/track clocks; source container
     # header duration is not authoritative (AVI and transport streams differ).
     require(after["format"]["duration"] == "3.000000", "Output timeline differs")
+    displayed = json.loads(subprocess.check_output([
+        ffprobe, "-v", "error", "-select_streams", "v:0", "-show_frames",
+        "-show_entries", "frame=best_effort_timestamp", "-of", "json", str(output),
+    ]))
+    verify_display_clock([int(frame["best_effort_timestamp"]) for frame in displayed["frames"]],
+                         video["time_base"])
+
+    def picture_signatures(path: Path) -> list[bytes]:
+        data = subprocess.check_output([
+            ffmpeg, "-nostdin", "-v", "error", "-i", str(path), "-map", "0:v:0",
+            "-vf", "scale=32:20:flags=area,format=gray", "-fps_mode", "passthrough",
+            "-f", "rawvideo", "-pix_fmt", "gray", "-",
+        ])
+        require(len(data) == 72 * 640, "Expected 72 complete picture signatures")
+        return [data[offset:offset + 640] for offset in range(0, len(data), 640)]
+
+    picture_order = verify_picture_order(picture_signatures(source), picture_signatures(output))
+    picture_order["exactDisplayClockPassed"] = True
     source_audio, source_pcm = audio(source)
     output_audio, output_pcm = audio(output)
     source_stream = next(s for s in before["streams"] if s["codec_type"] == "audio")
@@ -129,6 +178,7 @@ def verify_media(bundle: Path, source: Path, directory: Path,
     return {"output": str(output), "decodedFrames": 72, "durationSeconds": 3,
             "outputSize": [320, 192], "sourceAudio": source_audio,
             "outputAudio": output_audio, "audioMode": audio_mode,
+            "pictureOrder": picture_order,
             "fullDecodePassed": True}
 
 

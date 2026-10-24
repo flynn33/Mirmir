@@ -19,12 +19,12 @@ enum ASHProductionP06TrustRootV4 {
     // A zero identity is deliberately non-loadable. The reproducible P06 build
     // patches these three constants together with the checked-in bundle.
     static let manifestSHA256 = try! ASHSHA256V4(
-        "6daf3fd94f1dcf556c117fc525e7cc25a64e01e68c2bbfb2b19757c3781f3c70"
+        "944e519d596430c2a75b18e9a53a6e42915b58d4f7d8bcfdf92315e6ad77e8fd"
     )
     static let sourceRevision =
-        "68c363ca3e5ae6dfef27f35e3121a147ddc4dd0047b20f89cbae08cdfabecf87"
+        "b96370f62ef851423c69215f3fd7d668de33aa1f416cd8f6efcd3befa4c5d46a"
     static let builderSourceSHA256 = try! ASHSHA256V4(
-        "40aad241a07eda3f63919eed2b126eb7dc62777be9bd6520cf2b5a3c824c6dc9"
+        "6f02846a72ea0f4c65418700717c950a1b1e930ddc27c9b57e15335782f57cb1"
     )
 
     static var isConfigured: Bool {
@@ -82,7 +82,14 @@ final class ASHP06RuntimeProviderV4: @unchecked Sendable {
         Self { runtime }
     }
 
-    static func production(bundle: Bundle = .main) -> Self {
+    static func production(
+        bundle: Bundle = .main,
+        for executionBackend: FixedPointExecutionBackendV4 = .metal,
+        metalLibraryValidator: @escaping @Sendable () throws
+            -> any ASHMetalLibraryValidatingV4 = {
+                try ASHSystemMetalLibraryValidatorV4()
+            }
+    ) -> Self {
         let bundleURL = bundle.url(
             forResource: ASHProductionP06TrustRootV4.bundleName,
             withExtension: ASHProductionP06TrustRootV4.bundleExtension
@@ -108,11 +115,19 @@ final class ASHP06RuntimeProviderV4: @unchecked Sendable {
                     ASHProductionP06TrustRootV4.builderSourceSHA256
                 ]
             )
-            return try ASHP06RuntimeBundleLoaderV4.load(
-                at: bundleURL,
-                trustPolicy: policy,
-                metalLibraryValidator: try ASHSystemMetalLibraryValidatorV4()
-            )
+            switch executionBackend {
+            case .cpu:
+                return try ASHP06RuntimeBundleLoaderV4.loadForCPU(
+                    at: bundleURL,
+                    trustPolicy: policy
+                )
+            case .metal:
+                return try ASHP06RuntimeBundleLoaderV4.load(
+                    at: bundleURL,
+                    trustPolicy: policy,
+                    metalLibraryValidator: try metalLibraryValidator()
+                )
+            }
         }
     }
 }

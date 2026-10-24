@@ -1,6 +1,6 @@
 import Foundation
 
-final class ProcessingCancellation: @unchecked Sendable {
+final class ProcessingCancellation: NativeMediaInputCancellationV4, @unchecked Sendable {
     private let lock = NSLock()
     private var cancelled = false
 

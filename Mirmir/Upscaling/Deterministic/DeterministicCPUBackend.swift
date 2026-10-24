@@ -19,7 +19,7 @@ struct DeterministicCPUBackend: UpscaleBackend {
 
     init?(
         descriptor: BackendDescriptor,
-        runtimeProvider: ASHP06RuntimeProviderV4 = .production()
+        runtimeProvider: ASHP06RuntimeProviderV4 = .production(for: .cpu)
     ) {
         guard descriptor.id == .mirmirDeterministicCPU else { return nil }
         self.descriptor = descriptor

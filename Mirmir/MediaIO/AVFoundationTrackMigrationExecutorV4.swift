@@ -159,7 +159,8 @@ struct AVFoundationProcessedVideoReplacementV4: Sendable {
     }
 }
 
-final class AVFoundationTrackMigrationCancellationV4: @unchecked Sendable {
+final class AVFoundationTrackMigrationCancellationV4:
+    NativeMediaInputCancellationV4, @unchecked Sendable {
     private let lock = NSLock()
     private var isCancelled = false
 
@@ -484,9 +485,8 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
             try cancellation.check()
             let hookByTrackID = try validate(request)
 
-            let sourceAsset = AVURLAsset(
-                url: request.sourceURL,
-                options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+            let sourceAsset = try await NativeMediaInputAssetResolverV4.asset(
+                url: request.sourceURL, cancellation: cancellation
             )
             let observedSource = try await AVFoundationTrackGraphAdapterV4
                 .probe(asset: sourceAsset)
@@ -4055,6 +4055,11 @@ struct SampleStreamAccumulatorV4 {
 
     private static let hashDomain = "ash-avfoundation-sample-stream-v4.2"
 
+    // One tag, three times (at most 29 bytes each), two FourCCs, two
+    // 64-byte digest strings and one 8-byte payload size. Reuse fixed storage
+    // and hash each complete record once without changing canonical bytes.
+    private var canonicalRecord = Data(count: 232)
+    private var canonicalRecordByteCount = 0
     private var hasher: SHA256
     private var processedCanonicalByteCount: UInt64 = 0
     private var pendingSample: PendingSample?
@@ -4090,7 +4095,8 @@ struct SampleStreamAccumulatorV4 {
         RetentionDiagnostic(
             processedCanonicalByteCount: processedCanonicalByteCount,
             retainedCanonicalByteCount:
-                pendingSample?.retainedCanonicalByteCount ?? 0,
+                (pendingSample?.retainedCanonicalByteCount ?? 0)
+                    + canonicalRecord.count,
             fixedStateByteCount: MemoryLayout<Self>.stride
         )
     }
@@ -4227,13 +4233,16 @@ struct SampleStreamAccumulatorV4 {
         appendTime(duration)
         appendInteger(pendingSample.mediaType)
         appendInteger(pendingSample.mediaSubtype)
-        appendCanonicalData(Data(
-            pendingSample.formatFingerprint.rawValue.utf8
-        ))
+        appendCanonicalString(pendingSample.formatFingerprint.rawValue)
         appendInteger(pendingSample.sampleSize)
-        appendCanonicalData(Data(
-            pendingSample.payloadSHA256.rawValue.utf8
-        ))
+        appendCanonicalString(pendingSample.payloadSHA256.rawValue)
+        canonicalRecord.withUnsafeBytes { bytes in
+            hasher.update(bufferPointer: UnsafeRawBufferPointer(
+                start: bytes.baseAddress,
+                count: canonicalRecordByteCount
+            ))
+        }
+        canonicalRecordByteCount = 0
         if following != nil {
             retainFinalizedTiming(pendingSample.timing)
         }
@@ -4403,7 +4412,7 @@ struct SampleStreamAccumulatorV4 {
     private mutating func appendInteger<T: FixedWidthInteger>(_ value: T) {
         var bigEndian = value.bigEndian
         withUnsafeBytes(of: &bigEndian) {
-            hasher.update(bufferPointer: $0)
+            appendCanonicalBytes($0)
         }
         recordProcessedByteCount(MemoryLayout<T>.size)
     }
@@ -4411,14 +4420,35 @@ struct SampleStreamAccumulatorV4 {
     private mutating func appendCanonicalByte(_ byte: UInt8) {
         var byte = byte
         withUnsafeBytes(of: &byte) {
-            hasher.update(bufferPointer: $0)
+            appendCanonicalBytes($0)
         }
         recordProcessedByteCount(1)
     }
 
     private mutating func appendCanonicalData(_ data: Data) {
-        hasher.update(data: data)
+        data.withUnsafeBytes { appendCanonicalBytes($0) }
         recordProcessedByteCount(data.count)
+    }
+
+    private mutating func appendCanonicalString(_ string: String) {
+        let contiguous = string.utf8.withContiguousStorageIfAvailable { bytes in
+            appendCanonicalBytes(UnsafeRawBufferPointer(bytes))
+            recordProcessedByteCount(bytes.count)
+            return true
+        }
+        if contiguous == nil { appendCanonicalData(Data(string.utf8)) }
+    }
+
+    private mutating func appendCanonicalBytes(_ bytes: UnsafeRawBufferPointer) {
+        precondition(canonicalRecordByteCount + bytes.count <= canonicalRecord.count)
+        canonicalRecord.withUnsafeMutableBytes { destination in
+            if let sourceAddress = bytes.baseAddress,
+               let destinationAddress = destination.baseAddress {
+                destinationAddress.advanced(by: canonicalRecordByteCount)
+                    .copyMemory(from: sourceAddress, byteCount: bytes.count)
+            }
+        }
+        canonicalRecordByteCount += bytes.count
     }
 
     private mutating func recordProcessedByteCount(_ count: Int) {

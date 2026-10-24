@@ -7,6 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C54000000000000000000009 /* NativeAVIMPEG4PresentationOrderV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C53000000000000000000009 /* NativeAVIMPEG4PresentationOrderV4Tests.swift */; };
+		C54000000000000000000008 /* NativeAVIMPEG4PresentationOrderV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = C53000000000000000000008 /* NativeAVIMPEG4PresentationOrderV4.swift */; };
+		C54000000000000000000007 /* native-avi-h264-display-order.json in Resources */ = {isa = PBXBuildFile; fileRef = C53000000000000000000007 /* native-avi-h264-display-order.json */; };
+		C54000000000000000000006 /* NativeAVICompressedPresentationClockV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = C53000000000000000000006 /* NativeAVICompressedPresentationClockV4.swift */; };
+		C54000000000000000000005 /* NativeMediaInputVerificationV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = C53000000000000000000005 /* NativeMediaInputVerificationV4.swift */; };
+		C54000000000000000000004 /* NativeMediaInputAssetResolverV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C53000000000000000000004 /* NativeMediaInputAssetResolverV4Tests.swift */; };
+		C54000000000000000000003 /* native-avi-mpeg4.avi in Resources */ = {isa = PBXBuildFile; fileRef = C53000000000000000000003 /* native-avi-mpeg4.avi */; };
+		C54000000000000000000002 /* native-avi-h264.avi in Resources */ = {isa = PBXBuildFile; fileRef = C53000000000000000000002 /* native-avi-h264.avi */; };
+		C54000000000000000000001 /* NativeMediaInputAssetResolverV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = C53000000000000000000001 /* NativeMediaInputAssetResolverV4.swift */; };
 		F72000000000000000000002 /* WorkflowQueueDispatcherV4SelfTestMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = F71000000000000000000002 /* WorkflowQueueDispatcherV4SelfTestMain.swift */; };
 		F72000000000000000000001 /* WorkflowDurableCoordinatorV4SelfTestMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = F71000000000000000000001 /* WorkflowDurableCoordinatorV4SelfTestMain.swift */; };
 		320000000000000000000001 /* MirmirApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000001 /* MirmirApp.swift */; };
@@ -209,6 +218,15 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		C53000000000000000000009 /* NativeAVIMPEG4PresentationOrderV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAVIMPEG4PresentationOrderV4Tests.swift; sourceTree = "<group>"; };
+		C53000000000000000000008 /* NativeAVIMPEG4PresentationOrderV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeAVIMPEG4PresentationOrderV4.swift; sourceTree = "<group>"; };
+		C53000000000000000000007 /* native-avi-h264-display-order.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "native-avi-h264-display-order.json"; sourceTree = "<group>"; };
+		C53000000000000000000006 /* NativeAVICompressedPresentationClockV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NativeAVICompressedPresentationClockV4.swift"; sourceTree = "<group>"; };
+		C53000000000000000000005 /* NativeMediaInputVerificationV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMediaInputVerificationV4.swift; sourceTree = "<group>"; };
+		C53000000000000000000004 /* NativeMediaInputAssetResolverV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMediaInputAssetResolverV4Tests.swift; sourceTree = "<group>"; };
+		C53000000000000000000003 /* native-avi-mpeg4.avi */ = {isa = PBXFileReference; lastKnownFileType = file; path = "native-avi-mpeg4.avi"; sourceTree = "<group>"; };
+		C53000000000000000000002 /* native-avi-h264.avi */ = {isa = PBXFileReference; lastKnownFileType = file; path = "native-avi-h264.avi"; sourceTree = "<group>"; };
+		C53000000000000000000001 /* NativeMediaInputAssetResolverV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMediaInputAssetResolverV4.swift; sourceTree = "<group>"; };
 		F71000000000000000000002 /* WorkflowQueueDispatcherV4SelfTestMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = script/v4/WorkflowQueueDispatcherV4SelfTestMain.swift; sourceTree = SOURCE_ROOT; };
 		F71000000000000000000001 /* WorkflowDurableCoordinatorV4SelfTestMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = script/v4/WorkflowDurableCoordinatorV4SelfTestMain.swift; sourceTree = SOURCE_ROOT; };
 		300000000000000000000001 /* Mirmir.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mirmir.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -537,6 +555,8 @@
 				F71000000000000000000001 /* WorkflowDurableCoordinatorV4SelfTestMain.swift */,
 				310000000000000000000010 /* MirmirTests.swift */,
 				310000000000000000000016 /* VideoProbeTests.swift */,
+				C53000000000000000000004 /* NativeMediaInputAssetResolverV4Tests.swift */,
+				C53000000000000000000009 /* NativeAVIMPEG4PresentationOrderV4Tests.swift */,
 				310000000000000000000017 /* SecurityScopedAccessTests.swift */,
 				31000000000000000000001D /* BackendCatalogTests.swift */,
 				31000000000000000000001F /* VImageScalerTests.swift */,
@@ -584,6 +604,9 @@
 			isa = PBXGroup;
 			children = (
 				F51000000000000000000001 /* raven-forge-site057-video-timing.mp4 */,
+				C53000000000000000000003 /* native-avi-mpeg4.avi */,
+				C53000000000000000000002 /* native-avi-h264.avi */,
+				C53000000000000000000007 /* native-avi-h264-display-order.json */,
 				F51000000000000000000004 /* legacy-mjpeg.avi */,
 				F51000000000000000000003 /* legacy-mjpeg.mov */,
 				F51000000000000000000002 /* legacy-mpeg4.mov */,
@@ -595,6 +618,10 @@
 			isa = PBXGroup;
 			children = (
 				310000000000000000000013 /* VideoProbe.swift */,
+				C53000000000000000000001 /* NativeMediaInputAssetResolverV4.swift */,
+				C53000000000000000000005 /* NativeMediaInputVerificationV4.swift */,
+				C53000000000000000000006 /* NativeAVICompressedPresentationClockV4.swift */,
+				C53000000000000000000008 /* NativeAVIMPEG4PresentationOrderV4.swift */,
 				310000000000000000000022 /* AtomicOutputFile.swift */,
 				310000000000000000000023 /* OutputMediaValidator.swift */,
 				310000000000000000000024 /* VideoProcessingSession.swift */,
@@ -881,6 +908,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				F52000000000000000000001 /* raven-forge-site057-video-timing.mp4 in Resources */,
+				C54000000000000000000003 /* native-avi-mpeg4.avi in Resources */,
+				C54000000000000000000002 /* native-avi-h264.avi in Resources */,
+				C54000000000000000000007 /* native-avi-h264-display-order.json in Resources */,
 				F52000000000000000000004 /* legacy-mjpeg.avi in Resources */,
 				F52000000000000000000003 /* legacy-mjpeg.mov in Resources */,
 				F52000000000000000000002 /* legacy-mpeg4.mov in Resources */,
@@ -928,6 +958,10 @@
 				32000000000000000000000B /* MirmirError.swift in Sources */,
 				32000000000000000000000C /* Log.swift in Sources */,
 				320000000000000000000011 /* VideoProbe.swift in Sources */,
+				C54000000000000000000001 /* NativeMediaInputAssetResolverV4.swift in Sources */,
+				C54000000000000000000005 /* NativeMediaInputVerificationV4.swift in Sources */,
+				C54000000000000000000006 /* NativeAVICompressedPresentationClockV4.swift in Sources */,
+				C54000000000000000000008 /* NativeAVIMPEG4PresentationOrderV4.swift in Sources */,
 				320000000000000000000012 /* SecurityScopedAccess.swift in Sources */,
 				320000000000000000000013 /* FourCC.swift in Sources */,
 				320000000000000000000017 /* RuntimeEnvironment.swift in Sources */,
@@ -1046,6 +1080,8 @@
 				32000000000000000000000E /* MirmirTests.swift in Sources */,
 				D5200000000000000000000B /* MirmirDiagnosticStoreTests.swift in Sources */,
 				320000000000000000000014 /* VideoProbeTests.swift in Sources */,
+				C54000000000000000000004 /* NativeMediaInputAssetResolverV4Tests.swift in Sources */,
+				C54000000000000000000009 /* NativeAVIMPEG4PresentationOrderV4Tests.swift in Sources */,
 				320000000000000000000015 /* SecurityScopedAccessTests.swift in Sources */,
 				32000000000000000000001B /* BackendCatalogTests.swift in Sources */,
 				32000000000000000000001D /* VImageScalerTests.swift in Sources */,

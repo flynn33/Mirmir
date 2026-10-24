@@ -4,6 +4,27 @@ import XCTest
 @testable import Mirmir
 
 final class VideoProbeTests: XCTestCase {
+    func testMissingFileAndDirectoryStayInsideProbeErrorBoundary() async throws {
+        let directory = try TemporaryFixtureDirectory()
+        defer { directory.remove() }
+        let missing = directory.url(for: "missing-input.mov")
+        let folder = directory.url(for: "selected-folder")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
+        for url in [missing, folder] {
+            do {
+                _ = try await VideoProbe().probe(url: url)
+                XCTFail("An unavailable local video must not probe successfully.")
+            } catch let error as MirmirError {
+                guard case .probeFailed(let message) = error else {
+                    return XCTFail("Expected a contextual probe failure, got \(error).")
+                }
+                XCTAssertTrue(message.contains(url.lastPathComponent))
+            } catch {
+                XCTFail("The probe boundary leaked a raw file error: \(error).")
+            }
+        }
+    }
+
     func testReadableLegacyMoviesReachBothDeterministicBackends() async throws {
         for (name, fullRange) in [("legacy-mpeg4", false), ("legacy-mjpeg", true)] {
             let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: name, withExtension: "mov"))

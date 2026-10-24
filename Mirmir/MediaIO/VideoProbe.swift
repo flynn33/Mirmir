@@ -12,12 +12,10 @@ struct VideoProbe: VideoProbing {
             throw MirmirError.invalidRequest("Select a video file stored on this Mac.")
         }
 
-        let asset = AVURLAsset(
-            url: url,
-            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
-        )
-
         do {
+            let asset = try await NativeMediaInputAssetResolverV4.asset(
+                url: url, revalidateSource: true
+            )
             let (
                 duration,
                 isPlayable,

@@ -284,6 +284,48 @@ final class VideoProcessingSessionTests: XCTestCase {
         XCTAssertNotNil(player.outputPlayer.currentItem)
     }
 
+    @MainActor
+    func testAVIComparisonAndThumbnailUseNativeResolvedSource()
+        async throws {
+        for fixture in ["native-avi-h264", "native-avi-mpeg4"] {
+            let sourceURL = try XCTUnwrap(Bundle(for: Self.self).url(
+                forResource: fixture,
+                withExtension: "avi"
+            )).standardizedFileURL
+            let outputURL = try await NativeMediaInputAssetResolverV4.asset(
+                url: sourceURL
+            ).url.standardizedFileURL
+            let controller = MirmirSynchronizedPlaybackController()
+            defer { controller.tearDown() }
+            controller.load(sourceURL: sourceURL, completedOutputURL: outputURL)
+            for _ in 0..<200 {
+                if controller.timeline.isReady { break }
+                try await Task.sleep(for: .milliseconds(50))
+            }
+            XCTAssertTrue(controller.timeline.isReady, "\(fixture): \(controller.timeline.loadState)")
+            let sourceAsset = try XCTUnwrap(
+                controller.sourcePlayer.currentItem?.asset as? AVURLAsset
+            )
+            let outputAsset = try XCTUnwrap(
+                controller.outputPlayer.currentItem?.asset as? AVURLAsset
+            )
+            XCTAssertNotEqual(sourceAsset.url.standardizedFileURL, sourceURL)
+            XCTAssertEqual(outputAsset.url.standardizedFileURL, outputURL)
+            let sourceFrame = await MirmirFramePreviewLoader.frame(
+                at: sourceURL,
+                role: .source,
+                preferredTime: 1
+            )
+            let outputFrame = await MirmirFramePreviewLoader.frame(
+                at: outputURL,
+                role: .completedOutput,
+                preferredTime: 1
+            )
+            XCTAssertNotNil(sourceFrame, fixture)
+            XCTAssertNotNil(outputFrame, fixture)
+        }
+    }
+
     func testCommonInputCodecsCompleteBothProductionDeterministicRoutes() async throws {
         let fixtures = try TemporaryFixtureDirectory()
         defer { fixtures.remove() }
