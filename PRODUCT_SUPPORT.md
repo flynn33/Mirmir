@@ -43,6 +43,15 @@ ProRes 422 uses the declared 10-bit P010 decode conversion; this converts 4:2:2
 chroma to the engine's 4:2:0 working surface and is not lossless chroma retention.
 Unknown or contradictory declarations still fail with an explanation.
 
+The resumed 1.7.2 audit adds supported progressive MPEG-4 Part 2 and JFIF
+Motion JPEG 4:2:0 admission, deriving range/depth/sampling from bitstream
+headers. MPEG-4 MOV/MP4 and Motion JPEG MOV/AVI fixtures complete production
+exports; PCM audio and AVI language/header representation survive verification.
+Broad input support remains a release blocker: eight tested codec/container
+cases still fail, including MKV, WebM, ASF and specific AVI/JPEG/transport-stream
+inputs. Their exact failures and repair status are in
+[the QA report](docs/FINAL_QA_2026-10-24.md).
+
 ## Implemented backends
 
 | Backend | Current contract |
@@ -62,6 +71,11 @@ Automatic uses one fixed documented order and considers spatial-only Apple
 backends. It excludes both Deterministic routes and Smooth Motion.
 Consequently, Automatic does not select deterministic v4 for opaque H.264
 input.
+
+Opaque HEVC, H.264 and ProRes 422 output requires even encoded width and height.
+The view model and writer contract enforce this before publication. ProRes 4444
+alpha permits odd dimensions: resumed QA completed a 160×96 to 321×193 production
+workflow and independently decoded all 72 frames with alpha-capable output.
 
 ## Timing correction and large-media boundary
 

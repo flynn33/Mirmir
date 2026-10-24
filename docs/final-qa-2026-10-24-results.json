@@ -461,5 +461,1269 @@
       "totalTestCount": 52
     }
   },
-  "version": "1.7.2"
+  "version": "1.7.2",
+  "resumedQA": {
+    "status": "release_blocked_goal_active",
+    "version": "1.7.2",
+    "build": "20",
+    "evidenceRoot": "output/resumed-qa-2026-10-24",
+    "runtime": {
+      "builderSourceSHA256": "40aad241a07eda3f63919eed2b126eb7dc62777be9bd6520cf2b5a3c824c6dc9",
+      "manifestSHA256": "6daf3fd94f1dcf556c117fc525e7cc25a64e01e68c2bbfb2b19757c3781f3c70",
+      "sourceRevision": "68c363ca3e5ae6dfef27f35e3121a147ddc4dd0047b20f89cbae08cdfabecf87"
+    },
+    "sourceCopy": {
+      "filesChecked": 487,
+      "mismatches": [],
+      "buildSource": "/private/tmp/Mirmir-resumed-qa-source-20261024",
+      "repository": "/Volumes/DockCase/GitHub/Mirmir"
+    },
+    "suites": {
+      "full-release-7": {
+        "passedTests": 679,
+        "failedTests": 0,
+        "skippedTests": 13,
+        "runtimeWarnings": [],
+        "totalTestCount": 692
+      },
+      "full-debug-7": {
+        "passedTests": 684,
+        "failedTests": 0,
+        "skippedTests": 13,
+        "runtimeWarnings": [],
+        "totalTestCount": 697
+      },
+      "full-rosetta-7": {
+        "passedTests": 679,
+        "failedTests": 0,
+        "skippedTests": 13,
+        "runtimeWarnings": [],
+        "totalTestCount": 692
+      }
+    },
+    "formatRuns": [
+      {
+        "name": "h264-mp4",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/h264-mp4.mp4",
+        "exit": 0,
+        "elapsed": 2.814164161682129
+      },
+      {
+        "name": "mpeg4-mov",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/mpeg4-mov.mov",
+        "exit": 0,
+        "elapsed": 2.6984498500823975
+      },
+      {
+        "name": "mjpeg-mov",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/mjpeg-mov.mov",
+        "exit": 0,
+        "elapsed": 7.931209087371826
+      },
+      {
+        "name": "h264-m4v",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/h264-m4v.m4v",
+        "exit": 0,
+        "elapsed": 2.7390658855438232
+      },
+      {
+        "name": "mjpeg-avi",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/mjpeg-avi.avi",
+        "exit": 0,
+        "elapsed": 7.8388659954071045
+      },
+      {
+        "name": "h264-mkv",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/h264-mkv.mkv",
+        "exit": 65,
+        "elapsed": 7.811713933944702
+      },
+      {
+        "name": "mpeg4-mp4",
+        "source": "/private/tmp/mirmir-expanded-format-qa-20261024/mpeg4-mp4.mp4",
+        "backend": "mirmirDeterministicMetal",
+        "exit": 0,
+        "elapsed": 2.8070249557495117
+      },
+      {
+        "name": "mpeg4-avi",
+        "source": "/private/tmp/mirmir-expanded-format-qa-20261024/mpeg4-avi.avi",
+        "backend": "mirmirDeterministicMetal",
+        "exit": 65,
+        "elapsed": 7.589827060699463
+      },
+      {
+        "name": "mjpeg422-mov",
+        "source": "/private/tmp/mirmir-expanded-format-qa-20261024/mjpeg422-mov.mov",
+        "backend": "mirmirDeterministicMetal",
+        "exit": 65,
+        "elapsed": 7.510390996932983
+      },
+      {
+        "name": "mjpeg444-mov",
+        "source": "/private/tmp/mirmir-expanded-format-qa-20261024/mjpeg444-mov.mov",
+        "backend": "mirmirDeterministicMetal",
+        "exit": 65,
+        "elapsed": 7.564990997314453
+      },
+      {
+        "name": "h264-avi",
+        "source": "/private/tmp/mirmir-expanded-format-qa-20261024/h264-avi.avi",
+        "backend": "mirmirDeterministicMetal",
+        "exit": 65,
+        "elapsed": 7.603174209594727
+      },
+      {
+        "name": "mpeg2-ts",
+        "source": "/private/tmp/mirmir-expanded-format-qa-20261024/mpeg2-ts.ts",
+        "backend": "mirmirDeterministicMetal",
+        "exit": 65,
+        "elapsed": 7.7655348777771
+      },
+      {
+        "name": "vp9-webm",
+        "source": "/private/tmp/mirmir-expanded-format-qa-20261024/vp9-webm.webm",
+        "backend": "mirmirDeterministicMetal",
+        "exit": 65,
+        "elapsed": 8.521845817565918
+      },
+      {
+        "name": "wmv-asf",
+        "source": "/private/tmp/mirmir-expanded-format-qa-20261024/wmv-asf.asf",
+        "backend": "mirmirDeterministicMetal",
+        "exit": 65,
+        "elapsed": 8.130945920944214
+      },
+      {
+        "name": "cpu-h264-mp4",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/h264-mp4.mp4",
+        "backend": "mirmirDeterministicCPU",
+        "exit": 0,
+        "elapsed": 2.9179158210754395
+      },
+      {
+        "name": "cpu-mpeg4-mov",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/mpeg4-mov.mov",
+        "backend": "mirmirDeterministicCPU",
+        "exit": 0,
+        "elapsed": 2.787642002105713
+      },
+      {
+        "name": "cpu-mjpeg-mov",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/mjpeg-mov.mov",
+        "backend": "mirmirDeterministicCPU",
+        "exit": 0,
+        "elapsed": 8.302127122879028
+      },
+      {
+        "name": "cpu-h264-m4v",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/h264-m4v.m4v",
+        "backend": "mirmirDeterministicCPU",
+        "exit": 0,
+        "elapsed": 3.0982460975646973
+      },
+      {
+        "name": "cpu-mjpeg-avi",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/mjpeg-avi.avi",
+        "backend": "mirmirDeterministicCPU",
+        "exit": 0,
+        "elapsed": 8.167014122009277
+      }
+    ],
+    "independentExports": [
+      {
+        "name": "h264-mp4",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/h264-mp4.mp4",
+        "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/fixed-6/h264-mp4-attachments/F7CA3897-B39B-4117-B632-2FDED4E28B35.mov",
+        "decodedFrames": 72,
+        "durationSeconds": 3,
+        "outputSize": [
+          320,
+          192
+        ],
+        "sourceColorRange": null,
+        "outputColorRange": "tv",
+        "sourceAudio": {
+          "bytes": 577536,
+          "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+        },
+        "outputAudio": {
+          "bytes": 577536,
+          "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+        },
+        "fullDecodePassed": true
+      },
+      {
+        "name": "mpeg4-mov",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/mpeg4-mov.mov",
+        "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/fixed-6/mpeg4-mov-attachments/BF21C39F-3565-4908-A59D-9060FA44436D.mov",
+        "decodedFrames": 72,
+        "durationSeconds": 3,
+        "outputSize": [
+          320,
+          192
+        ],
+        "sourceColorRange": null,
+        "outputColorRange": "tv",
+        "sourceAudio": {
+          "bytes": 577536,
+          "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+        },
+        "outputAudio": {
+          "bytes": 577536,
+          "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+        },
+        "fullDecodePassed": true
+      },
+      {
+        "name": "mjpeg-mov",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/mjpeg-mov.mov",
+        "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/fixed-6/mjpeg-mov-attachments/FCAA5B30-1E81-4308-A721-37C61279151C.mov",
+        "decodedFrames": 72,
+        "durationSeconds": 3,
+        "outputSize": [
+          320,
+          192
+        ],
+        "sourceColorRange": "pc",
+        "outputColorRange": "pc",
+        "sourceAudio": {
+          "bytes": 576000,
+          "sha256": "56a104c05ea01d10118f8d97a628fc196eb4b525bb06f64c1e2ebf10a3c00fb4"
+        },
+        "outputAudio": {
+          "bytes": 576000,
+          "sha256": "56a104c05ea01d10118f8d97a628fc196eb4b525bb06f64c1e2ebf10a3c00fb4"
+        },
+        "fullDecodePassed": true
+      },
+      {
+        "name": "h264-m4v",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/h264-m4v.m4v",
+        "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/fixed-6/h264-m4v-attachments/740DC91E-7321-4036-AD16-0C67285E0706.mov",
+        "decodedFrames": 72,
+        "durationSeconds": 3,
+        "outputSize": [
+          320,
+          192
+        ],
+        "sourceColorRange": null,
+        "outputColorRange": "tv",
+        "sourceAudio": {
+          "bytes": 577536,
+          "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+        },
+        "outputAudio": {
+          "bytes": 577536,
+          "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+        },
+        "fullDecodePassed": true
+      },
+      {
+        "name": "mjpeg-avi",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/mjpeg-avi.avi",
+        "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/fixed-6/mjpeg-avi-attachments/1825765F-7424-476D-A37E-4A74916FC491.mov",
+        "decodedFrames": 72,
+        "durationSeconds": 3,
+        "outputSize": [
+          320,
+          192
+        ],
+        "sourceColorRange": "pc",
+        "outputColorRange": "pc",
+        "sourceAudio": {
+          "bytes": 576000,
+          "sha256": "56a104c05ea01d10118f8d97a628fc196eb4b525bb06f64c1e2ebf10a3c00fb4"
+        },
+        "outputAudio": {
+          "bytes": 576000,
+          "sha256": "56a104c05ea01d10118f8d97a628fc196eb4b525bb06f64c1e2ebf10a3c00fb4"
+        },
+        "fullDecodePassed": true
+      },
+      {
+        "name": "mpeg4-mp4",
+        "source": "/private/tmp/mirmir-expanded-format-qa-20261024/mpeg4-mp4.mp4",
+        "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/additional-7/mpeg4-mp4-attachments/D06160B9-F42B-4555-89A6-27569F7FB664.mov",
+        "decodedFrames": 72,
+        "durationSeconds": 3,
+        "outputSize": [
+          320,
+          192
+        ],
+        "sourceColorRange": null,
+        "outputColorRange": "tv",
+        "sourceAudio": {
+          "bytes": 577536,
+          "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+        },
+        "outputAudio": {
+          "bytes": 577536,
+          "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+        },
+        "fullDecodePassed": true
+      },
+      {
+        "name": "cpu-h264-mp4",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/h264-mp4.mp4",
+        "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/additional-7/cpu-h264-mp4-attachments/D72194F4-0493-4395-850D-7A9D39A531CE.mov",
+        "decodedFrames": 72,
+        "durationSeconds": 3,
+        "outputSize": [
+          320,
+          192
+        ],
+        "sourceColorRange": null,
+        "outputColorRange": "tv",
+        "sourceAudio": {
+          "bytes": 577536,
+          "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+        },
+        "outputAudio": {
+          "bytes": 577536,
+          "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+        },
+        "fullDecodePassed": true
+      },
+      {
+        "name": "cpu-mpeg4-mov",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/mpeg4-mov.mov",
+        "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/additional-7/cpu-mpeg4-mov-attachments/FCE16222-BB80-4AD6-BCA2-157FBB252BED.mov",
+        "decodedFrames": 72,
+        "durationSeconds": 3,
+        "outputSize": [
+          320,
+          192
+        ],
+        "sourceColorRange": null,
+        "outputColorRange": "tv",
+        "sourceAudio": {
+          "bytes": 577536,
+          "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+        },
+        "outputAudio": {
+          "bytes": 577536,
+          "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+        },
+        "fullDecodePassed": true
+      },
+      {
+        "name": "cpu-mjpeg-mov",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/mjpeg-mov.mov",
+        "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/additional-7/cpu-mjpeg-mov-attachments/D6AC13C2-D76C-47E5-8AD6-2B081C862596.mov",
+        "decodedFrames": 72,
+        "durationSeconds": 3,
+        "outputSize": [
+          320,
+          192
+        ],
+        "sourceColorRange": "pc",
+        "outputColorRange": "pc",
+        "sourceAudio": {
+          "bytes": 576000,
+          "sha256": "56a104c05ea01d10118f8d97a628fc196eb4b525bb06f64c1e2ebf10a3c00fb4"
+        },
+        "outputAudio": {
+          "bytes": 576000,
+          "sha256": "56a104c05ea01d10118f8d97a628fc196eb4b525bb06f64c1e2ebf10a3c00fb4"
+        },
+        "fullDecodePassed": true
+      },
+      {
+        "name": "cpu-h264-m4v",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/h264-m4v.m4v",
+        "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/additional-7/cpu-h264-m4v-attachments/871A07DD-5F56-4F28-8970-15B5D0BC0854.mov",
+        "decodedFrames": 72,
+        "durationSeconds": 3,
+        "outputSize": [
+          320,
+          192
+        ],
+        "sourceColorRange": null,
+        "outputColorRange": "tv",
+        "sourceAudio": {
+          "bytes": 577536,
+          "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+        },
+        "outputAudio": {
+          "bytes": 577536,
+          "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+        },
+        "fullDecodePassed": true
+      },
+      {
+        "name": "cpu-mjpeg-avi",
+        "source": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024/MirmirTests/Fixtures/resumed-qa-20261024/mjpeg-avi.avi",
+        "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/additional-7/cpu-mjpeg-avi-attachments/0915A844-6A88-4A2A-99B8-A4F34A7791EC.mov",
+        "decodedFrames": 72,
+        "durationSeconds": 3,
+        "outputSize": [
+          320,
+          192
+        ],
+        "sourceColorRange": "pc",
+        "outputColorRange": "pc",
+        "sourceAudio": {
+          "bytes": 576000,
+          "sha256": "56a104c05ea01d10118f8d97a628fc196eb4b525bb06f64c1e2ebf10a3c00fb4"
+        },
+        "outputAudio": {
+          "bytes": 576000,
+          "sha256": "56a104c05ea01d10118f8d97a628fc196eb4b525bb06f64c1e2ebf10a3c00fb4"
+        },
+        "fullDecodePassed": true
+      }
+    ],
+    "oddAlpha": {
+      "productionRun": {
+        "audioResult": "Preserved",
+        "backend": "mirmirDeterministicMetal",
+        "checkpointPath": "/Users/jimdaley/Library/Containers/com.mirmir.resumedqadebug20261024/Data/tmp/resumed-qa-20261024/odd-alpha/durable-workflow-run/workflow-store/jobs/job-98915e8d-0ca7-4a22-8a3c-8865a916c248/checkpoints-v4/head-v1.json",
+        "encodedHeight": 193,
+        "encodedWidth": 321,
+        "finishedAt": "2026-10-24T19:38:01Z",
+        "outputAudioTracks": 1,
+        "outputDecodedFrames": 72,
+        "outputEmptyReaderMarkers": 4,
+        "outputEncodedSamples": 72,
+        "outputEndTimescale": 12288,
+        "outputEndValue": 36864,
+        "outputPath": "/Users/jimdaley/Library/Containers/com.mirmir.resumedqadebug20261024/Data/tmp/resumed-qa-20261024/odd-alpha/durable-workflow-run/durable-workflow-output.mov",
+        "outputProbeStreamBuffers": 76,
+        "outputReaderBuffers": 76,
+        "pid": 52507,
+        "processedFrames": 72,
+        "processingDurationSeconds": 4.851837992668152,
+        "schema": "mirmir-v4-production-job-evidence-v1",
+        "segmentCount": 2,
+        "segmentEndTimescales": [
+          12288,
+          12288
+        ],
+        "segmentEndValues": [
+          30720,
+          36864
+        ],
+        "sourceAudioTracks": 1,
+        "sourceDecodedFrames": 72,
+        "sourceEmptyReaderMarkers": 4,
+        "sourceEncodedSamples": 72,
+        "sourceEndTimescale": 12288,
+        "sourceEndValue": 36864,
+        "sourcePath": "/tmp/mirmir-expanded-format-qa-20261024/prores4444-alpha-2.mov",
+        "sourceProbeStreamBuffers": 76,
+        "sourceReaderBuffers": 76,
+        "startedAt": "2026-10-24T19:37:48Z",
+        "status": "engine_completed"
+      },
+      "ffprobe": {
+        "streams": [
+          {
+            "index": 0,
+            "codec_name": "prores",
+            "codec_long_name": "Apple ProRes (iCodec Pro)",
+            "profile": "4444",
+            "codec_type": "video",
+            "codec_tag_string": "ap4h",
+            "codec_tag": "0x68347061",
+            "width": 321,
+            "height": 193,
+            "coded_width": 321,
+            "coded_height": 193,
+            "has_b_frames": 0,
+            "sample_aspect_ratio": "965:963",
+            "display_aspect_ratio": "5:3",
+            "pix_fmt": "yuva444p12le",
+            "level": -99,
+            "color_range": "tv",
+            "color_space": "smpte170m",
+            "color_transfer": "bt709",
+            "color_primaries": "smpte170m",
+            "field_order": "progressive",
+            "refs": 1,
+            "id": "0x1",
+            "r_frame_rate": "24/1",
+            "avg_frame_rate": "24/1",
+            "time_base": "1/12288",
+            "start_pts": 0,
+            "start_time": "0.000000",
+            "duration_ts": 36864,
+            "duration": "3.000000",
+            "bit_rate": "40096512",
+            "bits_per_raw_sample": "12",
+            "nb_frames": "72",
+            "nb_read_frames": "72",
+            "disposition": {
+              "default": 1,
+              "dub": 0,
+              "original": 0,
+              "comment": 0,
+              "lyrics": 0,
+              "karaoke": 0,
+              "forced": 0,
+              "hearing_impaired": 0,
+              "visual_impaired": 0,
+              "clean_effects": 0,
+              "attached_pic": 0,
+              "timed_thumbnails": 0,
+              "non_diegetic": 0,
+              "captions": 0,
+              "descriptions": 0,
+              "metadata": 0,
+              "dependent": 0,
+              "still_image": 0,
+              "multilayer": 0
+            },
+            "tags": {
+              "creation_time": "2026-10-24T19:37:54.000000Z",
+              "language": "und",
+              "handler_name": "Core Media Video",
+              "vendor_id": "[0][0][0][0]",
+              "encoder": "Apple ProRes 4444"
+            }
+          },
+          {
+            "index": 1,
+            "codec_name": "pcm_s16le",
+            "codec_long_name": "PCM signed 16-bit little-endian",
+            "codec_type": "audio",
+            "codec_tag_string": "lpcm",
+            "codec_tag": "0x6d63706c",
+            "sample_fmt": "s16",
+            "sample_rate": "48000",
+            "channels": 1,
+            "bits_per_sample": 16,
+            "initial_padding": 0,
+            "id": "0x2",
+            "r_frame_rate": "0/0",
+            "avg_frame_rate": "0/0",
+            "time_base": "1/48000",
+            "start_pts": 0,
+            "start_time": "0.000000",
+            "duration_ts": 144000,
+            "duration": "3.000000",
+            "bit_rate": "768000",
+            "nb_frames": "144000",
+            "nb_read_frames": "142",
+            "disposition": {
+              "default": 1,
+              "dub": 0,
+              "original": 0,
+              "comment": 0,
+              "lyrics": 0,
+              "karaoke": 0,
+              "forced": 0,
+              "hearing_impaired": 0,
+              "visual_impaired": 0,
+              "clean_effects": 0,
+              "attached_pic": 0,
+              "timed_thumbnails": 0,
+              "non_diegetic": 0,
+              "captions": 0,
+              "descriptions": 0,
+              "metadata": 0,
+              "dependent": 0,
+              "still_image": 0,
+              "multilayer": 0
+            },
+            "tags": {
+              "creation_time": "2026-10-24T19:37:54.000000Z",
+              "language": "und",
+              "handler_name": "Core Media Audio",
+              "vendor_id": "[0][0][0][0]"
+            }
+          }
+        ],
+        "format": {
+          "filename": "output/resumed-qa-2026-10-24/odd-alpha/attachments/0D876A94-0D8E-48BF-BA25-CD77C00A69CE.mov",
+          "nb_streams": 2,
+          "nb_programs": 0,
+          "nb_stream_groups": 0,
+          "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+          "format_long_name": "QuickTime / MOV",
+          "start_time": "0.000000",
+          "duration": "3.000000",
+          "size": "15326109",
+          "bit_rate": "40869624",
+          "probe_score": 100,
+          "tags": {
+            "major_brand": "qt  ",
+            "minor_version": "0",
+            "compatible_brands": "qt  ",
+            "creation_time": "2026-10-24T19:37:54.000000Z",
+            "encoder": "Lavf62.12.102"
+          }
+        }
+      },
+      "fullDecodePassed": true,
+      "sourceAudio": {
+        "bytes": 576000,
+        "sha256": "56a104c05ea01d10118f8d97a628fc196eb4b525bb06f64c1e2ebf10a3c00fb4"
+      },
+      "outputAudio": {
+        "bytes": 576000,
+        "sha256": "56a104c05ea01d10118f8d97a628fc196eb4b525bb06f64c1e2ebf10a3c00fb4"
+      }
+    },
+    "oddOpaqueGuardChecks": [
+      {
+        "name": "hevc-321x193",
+        "exit": 65,
+        "seconds": 8.090452909469604
+      },
+      {
+        "name": "hevc-321x192",
+        "exit": 65,
+        "seconds": 8.147085905075073
+      },
+      {
+        "name": "hevc-320x193",
+        "exit": 65,
+        "seconds": 8.153769969940186
+      },
+      {
+        "name": "h264-321x193",
+        "exit": 65,
+        "seconds": 8.168046951293945
+      },
+      {
+        "name": "proRes422-321x193",
+        "exit": 65,
+        "seconds": 8.160356283187866
+      }
+    ],
+    "python": {
+      "commands": 24,
+      "tests": 389,
+      "initialFailedCommands": [
+        "script/v4/test_media_preservation_v4.py"
+      ],
+      "resolvedBy": [
+        "python/test_media_preservation_v4-recheck.log",
+        "python/test_release_qualification_v4-lock-recheck-2.log"
+      ],
+      "unresolvedFailures": []
+    },
+    "archive": {
+      "archivePath": "/private/tmp/Mirmir-resumed-qa-20261024.xcarchive",
+      "bundleID": "com.mirmir.app",
+      "version": "1.7.2",
+      "build": "20",
+      "minimumOS": "15.4",
+      "executableSHA256": "664ecbb1f563e4f906ec1adbc56b600ffc8cce4170106c5c8c98efa011010637",
+      "checks": {
+        "signature": {
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        "signingDetails": {
+          "exitCode": 0,
+          "stdout": "",
+          "stderr": "Executable=/private/tmp/Mirmir-resumed-qa-20261024.xcarchive/Products/Applications/Mirmir.app/Contents/MacOS/Mirmir\nIdentifier=com.mirmir.app\nFormat=app bundle with Mach-O universal (x86_64 arm64)\nCodeDirectory v=20500 size=18106 flags=0x10000(runtime) hashes=555+7 location=embedded\nVersionPlatform=1\nVersionMin=984064\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=af22d003b3fba57c8ed0e48d9d9afa171ee4d0bb\nCandidateCDHashFull sha256=af22d003b3fba57c8ed0e48d9d9afa171ee4d0bb3b1b94b37de75800da26ef29\nHash choices=sha256\nCMSDigest=af22d003b3fba57c8ed0e48d9d9afa171ee4d0bb3b1b94b37de75800da26ef29\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=8404992\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=af22d003b3fba57c8ed0e48d9d9afa171ee4d0bb\nSignature size=4779\nAuthority=Apple Development: James Daley (FW94K6ZY57)\nAuthority=Apple Worldwide Developer Relations Certification Authority\nAuthority=Apple Root CA\nSigned Time=Oct 24, 2026 at 2:27:57\u202fPM\nInfo.plist entries=35\nTeamIdentifier=9AQ2C2838M\nRuntime Version=27.0.0\nSealed Resources version=2 rules=13 files=17\nInternal requirements count=1 size=176\nTotal signatures=1\nChosen signature=1\n"
+        },
+        "entitlements": {
+          "exitCode": 0,
+          "stdout": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"https://www.apple.com/DTDs/PropertyList-1.0.dtd\"><plist version=\"1.0\"><dict><key>com.apple.security.app-sandbox</key><true/><key>com.apple.security.files.bookmarks.app-scope</key><true/><key>com.apple.security.files.user-selected.read-write</key><true/></dict></plist>\n",
+          "stderr": "Executable=/private/tmp/Mirmir-resumed-qa-20261024.xcarchive/Products/Applications/Mirmir.app/Contents/MacOS/Mirmir\n"
+        },
+        "architectures": {
+          "exitCode": 0,
+          "stdout": "x86_64 arm64\n",
+          "stderr": ""
+        },
+        "executableUUIDs": {
+          "exitCode": 0,
+          "stdout": "UUID: 371E8AA8-44D5-39A4-969F-863CC788CE04 (x86_64) /private/tmp/Mirmir-resumed-qa-20261024.xcarchive/Products/Applications/Mirmir.app/Contents/MacOS/Mirmir\nUUID: 02F2E0D0-18F0-3EDF-B2F1-610058397216 (arm64) /private/tmp/Mirmir-resumed-qa-20261024.xcarchive/Products/Applications/Mirmir.app/Contents/MacOS/Mirmir\n",
+          "stderr": ""
+        },
+        "dSYMUUIDs": {
+          "exitCode": 0,
+          "stdout": "UUID: 371E8AA8-44D5-39A4-969F-863CC788CE04 (x86_64) /private/tmp/Mirmir-resumed-qa-20261024.xcarchive/dSYMs/Mirmir.app.dSYM/Contents/Resources/DWARF/Mirmir\nUUID: 02F2E0D0-18F0-3EDF-B2F1-610058397216 (arm64) /private/tmp/Mirmir-resumed-qa-20261024.xcarchive/dSYMs/Mirmir.app.dSYM/Contents/Resources/DWARF/Mirmir\n",
+          "stderr": ""
+        }
+      },
+      "matchingDSYMUUIDs": true,
+      "provisioningProfile": {
+        "present": false
+      },
+      "buildWarningsOrErrors": [],
+      "uploaded": false,
+      "scope": "Local Xcode archive audit; no export, App Store processing, or installed Store validation"
+    },
+    "previousReleaseArchiveReadOnlyAudit": [
+      {
+        "archive": "/Users/jimdaley/Library/Developer/Xcode/Archives/2026-10-16/Mirmir 10-16-26, 8.27\u202fAM.xcarchive",
+        "version": "1.7.1",
+        "build": "19",
+        "minimumOS": "15.4",
+        "architectures": "x86_64 arm64",
+        "binarySHA256": "70c8225da98eba0349c17a67799f8fc6c5b99a051e8c35cf08baa65947a83e9d",
+        "manifestIdentity": "e4cc2394ff7454447d11a37fccf99f8e6c66ca6e68f5302a734e999cd815b5b4",
+        "manifestIdentityInExecutable": true,
+        "sourceRevision": "070556595835048d0112e8de2399be7067ec931079802c906aa8400f51e62f00",
+        "sourceIdentityInExecutable": true,
+        "artifactHashesValid": true,
+        "codesignVerificationExit": 0,
+        "codesignVerification": "/Users/jimdaley/Library/Developer/Xcode/Archives/2026-10-16/Mirmir 10-16-26, 8.27\u202fAM.xcarchive/Products/Applications/Mirmir.app: valid on disk\n/Users/jimdaley/Library/Developer/Xcode/Archives/2026-10-16/Mirmir 10-16-26, 8.27\u202fAM.xcarchive/Products/Applications/Mirmir.app: satisfies its Designated Requirement\n",
+        "entitlements": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"https://www.apple.com/DTDs/PropertyList-1.0.dtd\"><plist version=\"1.0\"><dict><key>com.apple.security.app-sandbox</key><true/><key>com.apple.security.files.bookmarks.app-scope</key><true/><key>com.apple.security.files.user-selected.read-write</key><true/></dict></plist>\n"
+      }
+    ],
+    "formatGateSmoke": {
+      "configuration": "Debug",
+      "expectedExit": 1,
+      "observedExit": 1,
+      "results": [
+        {
+          "name": "cpu-h264-mp4",
+          "source": "/var/folders/tz/42vs04ls56q51168sddqb5940000gn/T/mirmir-format-qa-zsimdtf_/h264-mp4.mp4",
+          "backend": "mirmirDeterministicCPU",
+          "passed": true,
+          "sourceSHA256": "cfe42747771e03cfd8204c3927f92ab6e16acc57e0fee31ca855a8e6ddb1f9ed",
+          "command": [
+            "xcodebuild",
+            "test-without-building",
+            "-xctestrun",
+            "/private/tmp/Mirmir-resumed-qa-debug-20261024/Build/Products/FormatQA-n2wh5xl0.xctestrun",
+            "-destination",
+            "platform=macOS,id=00006040-0016283C11F8801C,arch=arm64",
+            "-parallel-testing-enabled",
+            "NO",
+            "-only-testing:MirmirTests/WorkflowApplicationQueueV4Tests/testExternalSourceCompletesProductionDurableWorkflowWhenRequested",
+            "-resultBundlePath",
+            "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/format-gate-smoke/cpu-h264-mp4.xcresult"
+          ],
+          "testExit": 0,
+          "verification": {
+            "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/format-gate-smoke/cpu-h264-mp4-attachments/733B5D4A-CBD2-4929-850A-56D6014B4E12.mov",
+            "decodedFrames": 72,
+            "durationSeconds": 3,
+            "outputSize": [
+              320,
+              192
+            ],
+            "sourceAudio": {
+              "bytes": 577536,
+              "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+            },
+            "outputAudio": {
+              "bytes": 577536,
+              "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+            },
+            "audioMode": "preserved",
+            "fullDecodePassed": true
+          },
+          "elapsedSeconds": 26.922706833
+        },
+        {
+          "name": "cpu-h264-mkv",
+          "source": "/var/folders/tz/42vs04ls56q51168sddqb5940000gn/T/mirmir-format-qa-zsimdtf_/h264-mkv.mkv",
+          "backend": "mirmirDeterministicCPU",
+          "passed": false,
+          "sourceSHA256": "45c8239047e505c1c83881b024ee7871c5aca764e83294dbf8df159d0a72a060",
+          "command": [
+            "xcodebuild",
+            "test-without-building",
+            "-xctestrun",
+            "/private/tmp/Mirmir-resumed-qa-debug-20261024/Build/Products/FormatQA-62mjmnw3.xctestrun",
+            "-destination",
+            "platform=macOS,id=00006040-0016283C11F8801C,arch=arm64",
+            "-parallel-testing-enabled",
+            "NO",
+            "-only-testing:MirmirTests/WorkflowApplicationQueueV4Tests/testExternalSourceCompletesProductionDurableWorkflowWhenRequested",
+            "-resultBundlePath",
+            "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/format-gate-smoke/cpu-h264-mkv.xcresult"
+          ],
+          "testExit": 65,
+          "error": "Production workflow test failed; see log and xcresult",
+          "elapsedSeconds": 8.244058874999997
+        }
+      ]
+    },
+    "longRun": {
+      "source": "/private/tmp/mirmir-long-qa-20261024/source-90min.mp4",
+      "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/long-90min-7-attachments/4468024F-89B0-44F6-8764-FB475B3BE29A.mov",
+      "scope": "Fresh 90-minute 160x96 to 320x192 production workflow; not 4K throughput or isolated performance",
+      "decodedFrames": 129600,
+      "durationSeconds": 5400,
+      "outputSize": [
+        320,
+        192
+      ],
+      "sourceAudio": {
+        "bytes": 1036800000,
+        "sha256": "6ed04961b32c644af1f1ba1a747d803e95e69f6f3001e3848faa9784b14b32e0"
+      },
+      "outputAudio": {
+        "bytes": 1036800000,
+        "sha256": "6ed04961b32c644af1f1ba1a747d803e95e69f6f3001e3848faa9784b14b32e0"
+      },
+      "fullDecodePassed": true,
+      "status": "passed",
+      "nativeTestSeconds": 1280.945,
+      "segmentCount": 2160,
+      "processedFrames": 129600,
+      "sourceEndValue": 66355200,
+      "sourceEndTimescale": 12288,
+      "outputEndValue": 66355200,
+      "outputEndTimescale": 12288,
+      "receiptSHA256": "687ef4b9f12e286aeb9b4f86ec36566e140046891a1bb6c39da2535677971129"
+    },
+    "openReleaseBlockers": [
+      "Reported error-11 incident has no verified causal fix",
+      "Eight reproduced input failures: H.264 MKV, MPEG-4/H.264 AVI, Motion JPEG 422/444 MOV, MPEG-2 TS, VP9 WebM, WMV ASF"
+    ],
+    "notReleased": true,
+    "formatGateFull": {
+      "configuration": "Release",
+      "exit": 1,
+      "runs": 28,
+      "passed": 12,
+      "failed": 16,
+      "receipt": "format-gate-full/results.json",
+      "receiptSHA256": "27ea36625a620702fa4bb84097e3f83911d59daaacef064a580f15722c19c54b",
+      "cases": [
+        {
+          "name": "cpu-h264-mp4",
+          "backend": "mirmirDeterministicCPU",
+          "passed": true,
+          "sourceSHA256": "cfe42747771e03cfd8204c3927f92ab6e16acc57e0fee31ca855a8e6ddb1f9ed",
+          "testExit": 0,
+          "verification": {
+            "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/format-gate-full/cpu-h264-mp4-attachments/A3D5CCCB-7A0C-4A50-916B-0B52DBDD3B5E.mov",
+            "decodedFrames": 72,
+            "durationSeconds": 3,
+            "outputSize": [
+              320,
+              192
+            ],
+            "sourceAudio": {
+              "bytes": 577536,
+              "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+            },
+            "outputAudio": {
+              "bytes": 577536,
+              "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+            },
+            "audioMode": "preserved",
+            "fullDecodePassed": true
+          }
+        },
+        {
+          "name": "metal-h264-mp4",
+          "backend": "mirmirDeterministicMetal",
+          "passed": true,
+          "sourceSHA256": "cfe42747771e03cfd8204c3927f92ab6e16acc57e0fee31ca855a8e6ddb1f9ed",
+          "testExit": 0,
+          "verification": {
+            "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/format-gate-full/metal-h264-mp4-attachments/96A011F2-186E-4883-98D3-64874FD4A76E.mov",
+            "decodedFrames": 72,
+            "durationSeconds": 3,
+            "outputSize": [
+              320,
+              192
+            ],
+            "sourceAudio": {
+              "bytes": 577536,
+              "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+            },
+            "outputAudio": {
+              "bytes": 577536,
+              "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+            },
+            "audioMode": "preserved",
+            "fullDecodePassed": true
+          }
+        },
+        {
+          "name": "cpu-h264-m4v",
+          "backend": "mirmirDeterministicCPU",
+          "passed": true,
+          "sourceSHA256": "cfe42747771e03cfd8204c3927f92ab6e16acc57e0fee31ca855a8e6ddb1f9ed",
+          "testExit": 0,
+          "verification": {
+            "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/format-gate-full/cpu-h264-m4v-attachments/B37C609F-E264-4FDE-8F73-7682DD570FEA.mov",
+            "decodedFrames": 72,
+            "durationSeconds": 3,
+            "outputSize": [
+              320,
+              192
+            ],
+            "sourceAudio": {
+              "bytes": 577536,
+              "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+            },
+            "outputAudio": {
+              "bytes": 577536,
+              "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+            },
+            "audioMode": "preserved",
+            "fullDecodePassed": true
+          }
+        },
+        {
+          "name": "metal-h264-m4v",
+          "backend": "mirmirDeterministicMetal",
+          "passed": true,
+          "sourceSHA256": "cfe42747771e03cfd8204c3927f92ab6e16acc57e0fee31ca855a8e6ddb1f9ed",
+          "testExit": 0,
+          "verification": {
+            "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/format-gate-full/metal-h264-m4v-attachments/C9EBF052-F713-4B06-A791-B5DEDD948FAE.mov",
+            "decodedFrames": 72,
+            "durationSeconds": 3,
+            "outputSize": [
+              320,
+              192
+            ],
+            "sourceAudio": {
+              "bytes": 577536,
+              "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+            },
+            "outputAudio": {
+              "bytes": 577536,
+              "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+            },
+            "audioMode": "preserved",
+            "fullDecodePassed": true
+          }
+        },
+        {
+          "name": "cpu-h264-mkv",
+          "backend": "mirmirDeterministicCPU",
+          "passed": false,
+          "sourceSHA256": "b49d2a00a2aba958f2544f342ef61d5ca1f7afe781b5c8138934f771e54a57c6",
+          "testExit": 65,
+          "error": "Production workflow test failed; see log and xcresult"
+        },
+        {
+          "name": "metal-h264-mkv",
+          "backend": "mirmirDeterministicMetal",
+          "passed": false,
+          "sourceSHA256": "b49d2a00a2aba958f2544f342ef61d5ca1f7afe781b5c8138934f771e54a57c6",
+          "testExit": 65,
+          "error": "Production workflow test failed; see log and xcresult"
+        },
+        {
+          "name": "cpu-h264-avi",
+          "backend": "mirmirDeterministicCPU",
+          "passed": false,
+          "sourceSHA256": "a1b37e4d16b63b3eca3c91109b58ebe5e2d3790923104c9f9bef91a9be462191",
+          "testExit": 65,
+          "error": "Production workflow test failed; see log and xcresult"
+        },
+        {
+          "name": "metal-h264-avi",
+          "backend": "mirmirDeterministicMetal",
+          "passed": false,
+          "sourceSHA256": "a1b37e4d16b63b3eca3c91109b58ebe5e2d3790923104c9f9bef91a9be462191",
+          "testExit": 65,
+          "error": "Production workflow test failed; see log and xcresult"
+        },
+        {
+          "name": "cpu-mpeg4-mov",
+          "backend": "mirmirDeterministicCPU",
+          "passed": true,
+          "sourceSHA256": "d54a2a2330a03397bfa3fbde4eff5db1be2e5faa3453e105acd64280d421b636",
+          "testExit": 0,
+          "verification": {
+            "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/format-gate-full/cpu-mpeg4-mov-attachments/8DF75E2D-FE76-4A13-B25D-3DA521DEE18D.mov",
+            "decodedFrames": 72,
+            "durationSeconds": 3,
+            "outputSize": [
+              320,
+              192
+            ],
+            "sourceAudio": {
+              "bytes": 577536,
+              "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+            },
+            "outputAudio": {
+              "bytes": 577536,
+              "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+            },
+            "audioMode": "preserved",
+            "fullDecodePassed": true
+          }
+        },
+        {
+          "name": "metal-mpeg4-mov",
+          "backend": "mirmirDeterministicMetal",
+          "passed": true,
+          "sourceSHA256": "d54a2a2330a03397bfa3fbde4eff5db1be2e5faa3453e105acd64280d421b636",
+          "testExit": 0,
+          "verification": {
+            "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/format-gate-full/metal-mpeg4-mov-attachments/D89FC7F1-6095-467E-B502-530FC2B6A9D4.mov",
+            "decodedFrames": 72,
+            "durationSeconds": 3,
+            "outputSize": [
+              320,
+              192
+            ],
+            "sourceAudio": {
+              "bytes": 577536,
+              "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+            },
+            "outputAudio": {
+              "bytes": 577536,
+              "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+            },
+            "audioMode": "preserved",
+            "fullDecodePassed": true
+          }
+        },
+        {
+          "name": "cpu-mpeg4-mp4",
+          "backend": "mirmirDeterministicCPU",
+          "passed": true,
+          "sourceSHA256": "28d41c5e1b9639b3a2052e5b53abbaa4a2aaf15e8391e4eb106f2a56033ff1a0",
+          "testExit": 0,
+          "verification": {
+            "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/format-gate-full/cpu-mpeg4-mp4-attachments/C38F3DDC-07F5-427C-90DC-302BB66410CE.mov",
+            "decodedFrames": 72,
+            "durationSeconds": 3,
+            "outputSize": [
+              320,
+              192
+            ],
+            "sourceAudio": {
+              "bytes": 577536,
+              "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+            },
+            "outputAudio": {
+              "bytes": 577536,
+              "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+            },
+            "audioMode": "preserved",
+            "fullDecodePassed": true
+          }
+        },
+        {
+          "name": "metal-mpeg4-mp4",
+          "backend": "mirmirDeterministicMetal",
+          "passed": true,
+          "sourceSHA256": "28d41c5e1b9639b3a2052e5b53abbaa4a2aaf15e8391e4eb106f2a56033ff1a0",
+          "testExit": 0,
+          "verification": {
+            "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/format-gate-full/metal-mpeg4-mp4-attachments/F144157C-D199-4F34-81ED-E9764DF82CA7.mov",
+            "decodedFrames": 72,
+            "durationSeconds": 3,
+            "outputSize": [
+              320,
+              192
+            ],
+            "sourceAudio": {
+              "bytes": 577536,
+              "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+            },
+            "outputAudio": {
+              "bytes": 577536,
+              "sha256": "41f6575029cee99f0ce13ec6d7965cc2b954ca5fe06b2a0acb828c41e966030f"
+            },
+            "audioMode": "preserved",
+            "fullDecodePassed": true
+          }
+        },
+        {
+          "name": "cpu-mpeg4-avi",
+          "backend": "mirmirDeterministicCPU",
+          "passed": false,
+          "sourceSHA256": "5f9038641e87b0585081c17a0c2cbb306304fb3fa8ef1e72a884376b5a1f6aaa",
+          "testExit": 65,
+          "error": "Production workflow test failed; see log and xcresult"
+        },
+        {
+          "name": "metal-mpeg4-avi",
+          "backend": "mirmirDeterministicMetal",
+          "passed": false,
+          "sourceSHA256": "5f9038641e87b0585081c17a0c2cbb306304fb3fa8ef1e72a884376b5a1f6aaa",
+          "testExit": 65,
+          "error": "Production workflow test failed; see log and xcresult"
+        },
+        {
+          "name": "cpu-mjpeg-mov",
+          "backend": "mirmirDeterministicCPU",
+          "passed": true,
+          "sourceSHA256": "1d9731f4c98cfccd0d16a00da4620824c605bf763c22ac75b7a691dfaf4f928a",
+          "testExit": 0,
+          "verification": {
+            "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/format-gate-full/cpu-mjpeg-mov-attachments/D64E1E1A-ED22-440B-BFE0-030565B27F31.mov",
+            "decodedFrames": 72,
+            "durationSeconds": 3,
+            "outputSize": [
+              320,
+              192
+            ],
+            "sourceAudio": {
+              "bytes": 576000,
+              "sha256": "56a104c05ea01d10118f8d97a628fc196eb4b525bb06f64c1e2ebf10a3c00fb4"
+            },
+            "outputAudio": {
+              "bytes": 576000,
+              "sha256": "56a104c05ea01d10118f8d97a628fc196eb4b525bb06f64c1e2ebf10a3c00fb4"
+            },
+            "audioMode": "preserved",
+            "fullDecodePassed": true
+          }
+        },
+        {
+          "name": "metal-mjpeg-mov",
+          "backend": "mirmirDeterministicMetal",
+          "passed": true,
+          "sourceSHA256": "1d9731f4c98cfccd0d16a00da4620824c605bf763c22ac75b7a691dfaf4f928a",
+          "testExit": 0,
+          "verification": {
+            "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/format-gate-full/metal-mjpeg-mov-attachments/D9CFC486-3636-4392-B6A1-A0CB3A1D4B2C.mov",
+            "decodedFrames": 72,
+            "durationSeconds": 3,
+            "outputSize": [
+              320,
+              192
+            ],
+            "sourceAudio": {
+              "bytes": 576000,
+              "sha256": "56a104c05ea01d10118f8d97a628fc196eb4b525bb06f64c1e2ebf10a3c00fb4"
+            },
+            "outputAudio": {
+              "bytes": 576000,
+              "sha256": "56a104c05ea01d10118f8d97a628fc196eb4b525bb06f64c1e2ebf10a3c00fb4"
+            },
+            "audioMode": "preserved",
+            "fullDecodePassed": true
+          }
+        },
+        {
+          "name": "cpu-mjpeg-avi",
+          "backend": "mirmirDeterministicCPU",
+          "passed": true,
+          "sourceSHA256": "84bbeea8f1d66cf6137314ebf688dc938e8bd26110a1b0f64133d80122a7d143",
+          "testExit": 0,
+          "verification": {
+            "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/format-gate-full/cpu-mjpeg-avi-attachments/AF85FE06-5F30-4918-9662-5D3ED2C44244.mov",
+            "decodedFrames": 72,
+            "durationSeconds": 3,
+            "outputSize": [
+              320,
+              192
+            ],
+            "sourceAudio": {
+              "bytes": 576000,
+              "sha256": "56a104c05ea01d10118f8d97a628fc196eb4b525bb06f64c1e2ebf10a3c00fb4"
+            },
+            "outputAudio": {
+              "bytes": 576000,
+              "sha256": "56a104c05ea01d10118f8d97a628fc196eb4b525bb06f64c1e2ebf10a3c00fb4"
+            },
+            "audioMode": "preserved",
+            "fullDecodePassed": true
+          }
+        },
+        {
+          "name": "metal-mjpeg-avi",
+          "backend": "mirmirDeterministicMetal",
+          "passed": true,
+          "sourceSHA256": "84bbeea8f1d66cf6137314ebf688dc938e8bd26110a1b0f64133d80122a7d143",
+          "testExit": 0,
+          "verification": {
+            "output": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-24/format-gate-full/metal-mjpeg-avi-attachments/02C99771-E082-4D95-B975-7FB2CC086011.mov",
+            "decodedFrames": 72,
+            "durationSeconds": 3,
+            "outputSize": [
+              320,
+              192
+            ],
+            "sourceAudio": {
+              "bytes": 576000,
+              "sha256": "56a104c05ea01d10118f8d97a628fc196eb4b525bb06f64c1e2ebf10a3c00fb4"
+            },
+            "outputAudio": {
+              "bytes": 576000,
+              "sha256": "56a104c05ea01d10118f8d97a628fc196eb4b525bb06f64c1e2ebf10a3c00fb4"
+            },
+            "audioMode": "preserved",
+            "fullDecodePassed": true
+          }
+        },
+        {
+          "name": "cpu-mjpeg422-mov",
+          "backend": "mirmirDeterministicCPU",
+          "passed": false,
+          "sourceSHA256": "1a49e0b41170280f40c08cde784abdccde2a75e3ad3c6f8e60f4535247dd6b42",
+          "testExit": 65,
+          "error": "Production workflow test failed; see log and xcresult"
+        },
+        {
+          "name": "metal-mjpeg422-mov",
+          "backend": "mirmirDeterministicMetal",
+          "passed": false,
+          "sourceSHA256": "1a49e0b41170280f40c08cde784abdccde2a75e3ad3c6f8e60f4535247dd6b42",
+          "testExit": 65,
+          "error": "Production workflow test failed; see log and xcresult"
+        },
+        {
+          "name": "cpu-mjpeg444-mov",
+          "backend": "mirmirDeterministicCPU",
+          "passed": false,
+          "sourceSHA256": "166abd71d245888cfdc2d6cf44fb8acc2218924b9d20dfbe40748bca1d48a70f",
+          "testExit": 65,
+          "error": "Production workflow test failed; see log and xcresult"
+        },
+        {
+          "name": "metal-mjpeg444-mov",
+          "backend": "mirmirDeterministicMetal",
+          "passed": false,
+          "sourceSHA256": "166abd71d245888cfdc2d6cf44fb8acc2218924b9d20dfbe40748bca1d48a70f",
+          "testExit": 65,
+          "error": "Production workflow test failed; see log and xcresult"
+        },
+        {
+          "name": "cpu-mpeg2-ts",
+          "backend": "mirmirDeterministicCPU",
+          "passed": false,
+          "sourceSHA256": "7bc841f77eba07e3e968b52e69ac20eda2ae430369bd31b64bc913f3f5a4a784",
+          "testExit": 65,
+          "error": "Production workflow test failed; see log and xcresult"
+        },
+        {
+          "name": "metal-mpeg2-ts",
+          "backend": "mirmirDeterministicMetal",
+          "passed": false,
+          "sourceSHA256": "7bc841f77eba07e3e968b52e69ac20eda2ae430369bd31b64bc913f3f5a4a784",
+          "testExit": 65,
+          "error": "Production workflow test failed; see log and xcresult"
+        },
+        {
+          "name": "cpu-vp9-webm",
+          "backend": "mirmirDeterministicCPU",
+          "passed": false,
+          "sourceSHA256": "59ac8ec92ecafe2a578af290e8d5b391beae583f2074c8b706206a28b0ed166b",
+          "testExit": 65,
+          "error": "Production workflow test failed; see log and xcresult"
+        },
+        {
+          "name": "metal-vp9-webm",
+          "backend": "mirmirDeterministicMetal",
+          "passed": false,
+          "sourceSHA256": "59ac8ec92ecafe2a578af290e8d5b391beae583f2074c8b706206a28b0ed166b",
+          "testExit": 65,
+          "error": "Production workflow test failed; see log and xcresult"
+        },
+        {
+          "name": "cpu-wmv-asf",
+          "backend": "mirmirDeterministicCPU",
+          "passed": false,
+          "sourceSHA256": "eeaa6ca4c29c3e6e731e06871fed46b82e598a8e875ccf2789b3736f19ec637e",
+          "testExit": 65,
+          "error": "Production workflow test failed; see log and xcresult"
+        },
+        {
+          "name": "metal-wmv-asf",
+          "backend": "mirmirDeterministicMetal",
+          "passed": false,
+          "sourceSHA256": "eeaa6ca4c29c3e6e731e06871fed46b82e598a8e875ccf2789b3736f19ec637e",
+          "testExit": 65,
+          "error": "Production workflow test failed; see log and xcresult"
+        }
+      ]
+    }
+  }
 }

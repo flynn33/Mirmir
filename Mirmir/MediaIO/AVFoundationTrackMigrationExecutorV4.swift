@@ -2085,8 +2085,11 @@ private extension AVFoundationTrackMigrationExecutorV4 {
     ) async throws {
         guard let expected else { return }
         input.metadata = metadata
-        input.languageCode = try await track.load(.languageCode)
-        input.extendedLanguageTag = try await track.load(.extendedLanguageTag)
+        let languageCode = try await track.load(.languageCode)
+        let extendedLanguageTag = try await track.load(.extendedLanguageTag)
+        input.languageCode = languageCode
+            ?? (extendedLanguageTag == nil ? "und" : nil)
+        input.extendedLanguageTag = extendedLanguageTag
         if track.mediaType == .video
             || track.mediaType == .auxiliaryPicture
             || track.mediaType == .muxed {
@@ -3201,12 +3204,19 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                         logicalID, reason: "planned_metadata_mismatch"
                     )
             }
+            // MOV stores an ISO language code even when AVI has no language
+            // field. Accept only the explicit undetermined representation;
+            // an added language or changed extended tag remains a mismatch.
+            let representsUndeclaredLanguage = expected.language.languageCode == nil
+                && expected.language.extendedLanguageTag == nil
+                && actual.language.languageCode == "und"
+                && actual.language.extendedLanguageTag == nil
             return try MediaTrackNodeV4(
                 identity: expected.identity,
                 enabled: actual.enabled,
                 kind: actual.kind,
                 sourceMediaTypeID: actual.sourceMediaTypeID,
-                language: actual.language,
+                language: representsUndeclaredLanguage ? expected.language : actual.language,
                 roleIDs: actual.roleIDs,
                 timebase: actual.timebase,
                 timeRange: actual.timeRange,

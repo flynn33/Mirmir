@@ -193,6 +193,9 @@
 		F52000000000000000000001 /* raven-forge-site057-video-timing.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = F51000000000000000000001 /* raven-forge-site057-video-timing.mp4 */; };
 		E62000000000000000000001 /* MirmirProcessingActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = E61000000000000000000001 /* MirmirProcessingActivity.swift */; };
 		E62000000000000000000002 /* MirmirProcessingActivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E61000000000000000000002 /* MirmirProcessingActivityTests.swift */; };
+		F52000000000000000000002 /* legacy-mpeg4.mov in Resources */ = {isa = PBXBuildFile; fileRef = F51000000000000000000002; };
+		F52000000000000000000003 /* legacy-mjpeg.mov in Resources */ = {isa = PBXBuildFile; fileRef = F51000000000000000000003; };
+		F52000000000000000000004 /* legacy-mjpeg.avi in Resources */ = {isa = PBXBuildFile; fileRef = F51000000000000000000004; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -396,6 +399,9 @@
 		F51000000000000000000001 /* raven-forge-site057-video-timing.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "raven-forge-site057-video-timing.mp4"; sourceTree = "<group>"; };
 		E61000000000000000000001 /* MirmirProcessingActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirProcessingActivity.swift; sourceTree = "<group>"; };
 		E61000000000000000000002 /* MirmirProcessingActivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirProcessingActivityTests.swift; sourceTree = "<group>"; };
+		F51000000000000000000002 /* legacy-mpeg4.mov */ = {isa = PBXFileReference; lastKnownFileType = file; path = "legacy-mpeg4.mov"; sourceTree = "<group>"; };
+		F51000000000000000000003 /* legacy-mjpeg.mov */ = {isa = PBXFileReference; lastKnownFileType = file; path = "legacy-mjpeg.mov"; sourceTree = "<group>"; };
+		F51000000000000000000004 /* legacy-mjpeg.avi */ = {isa = PBXFileReference; lastKnownFileType = file; path = "legacy-mjpeg.avi"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -578,6 +584,9 @@
 			isa = PBXGroup;
 			children = (
 				F51000000000000000000001 /* raven-forge-site057-video-timing.mp4 */,
+				F51000000000000000000004 /* legacy-mjpeg.avi */,
+				F51000000000000000000003 /* legacy-mjpeg.mov */,
+				F51000000000000000000002 /* legacy-mpeg4.mov */,
 			);
 			path = Fixtures;
 			sourceTree = "<group>";
@@ -872,6 +881,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				F52000000000000000000001 /* raven-forge-site057-video-timing.mp4 in Resources */,
+				F52000000000000000000004 /* legacy-mjpeg.avi in Resources */,
+				F52000000000000000000003 /* legacy-mjpeg.mov in Resources */,
+				F52000000000000000000002 /* legacy-mpeg4.mov in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

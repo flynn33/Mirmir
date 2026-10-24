@@ -12,11 +12,17 @@ Completed deterministic jobs retain the original movie for Compare instead of
 using a private snapshot that cleanup removes. MP4 chapter-list metadata is
 retained during MOV finalization, and early failures now release prepared
 processing backends.
+The resumed audit also repairs supported MPEG-4/JFIF Motion JPEG admission,
+PCM wrapper verification, and AVI language/OpenDML wrapper migration.
 
-Final native Release passes 674 tests with zero failures; Debug, Rosetta,
-389 Python tests, and independent multitrack export checks pass. UI testing is
-excluded by the owner. Release
-clearance remains on hold. See [`docs/FINAL_QA_2026-10-24.md`](docs/FINAL_QA_2026-10-24.md)
+Release remains blocked: eight additional input cases still fail and the
+reported error-11 incident remains open. The updated native Release suite
+passes 679 tests with zero failures and 13 explicit opt-in skips. The full format
+gate runs 28 CPU/Metal workflows: 12 pass independent frame/timing/audio checks
+and 16 fail across eight input cases. Debug (684 passed) and Rosetta (679 passed)
+also pass. A fresh 90-minute small-raster workflow preserves all 129,600 frames
+and exact decoded audio; this does not qualify 4K throughput. UI testing
+is excluded by the owner. See [`docs/FINAL_QA_2026-10-24.md`](docs/FINAL_QA_2026-10-24.md)
 for fresh evidence, discovered defects, and outstanding release checks. The P06
 runtime was rebuilt twice with identical bytes and its current source closure
 verified. Historical performance and release evidence retains its original
@@ -50,8 +56,9 @@ completed GPU cache; a fresh full GPU render was not repeated. See
 - Branded Dashboard and About surfaces with live, app-specific CPU, memory, and
   disk telemetry plus truthful explicit Metal-route activity.
 - Deterministic CPU and Metal ASH P06 routes for arbitrary integral target
-  dimensions, with one canonical fixed-point plan and no silent backend
-  substitution.
+  dimensions within the selected codec's raster constraints, with one canonical
+  fixed-point plan and no silent backend substitution. Opaque HEVC/H.264/ProRes
+  422 output requires even dimensions; ProRes 4444 alpha supports odd dimensions.
 - Native 8-bit NV12 and 10-bit P010/HDR processing, field-aware deinterlacing,
   rational sample-aspect/clean-aperture geometry, and ProRes 4444 alpha output.
 - State-conditioned spatial reconstruction plus bounded, motion-compensated

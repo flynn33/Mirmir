@@ -386,6 +386,175 @@ enum ASHCanonicalPropertyListV4 {
 /// Resolve omitted color tags using the same decoder that supplies processing
 /// pixels. SD material can resolve to BT.601; assuming BT.709 here changes color.
 /// Explicit declarations and changing format descriptions are never replaced.
+/// Sampling facts absent from legacy QuickTime format descriptions. Read the
+/// compressed headers rather than interpreting the packed RGB `Depth` field
+/// as a component precision or assuming that every codec uses video range.
+struct LegacyVideoSamplingFacts: Equatable, Sendable {
+    let bitDepth: UInt8
+    let fullRange: Bool
+    let subsampling: CanonicalChromaSubsamplingV4
+
+    static func resolve(
+        asset: AVAsset, track: AVAssetTrack,
+        descriptions: [CMFormatDescription]
+    ) throws -> Self? {
+        guard descriptions.count == 1, let description = descriptions.first else { return nil }
+        let codec = CMFormatDescriptionGetMediaSubType(description)
+        if codec == kCMVideoCodecType_MPEG4Video {
+            let extensions = CMFormatDescriptionGetExtensions(description) as NSDictionary?
+            guard let atoms = extensions?["SampleDescriptionExtensionAtoms"] as? NSDictionary,
+                  let esds = atoms["esds"] as? Data else { return nil }
+            return mpeg4(esds)
+        }
+        guard [kCMVideoCodecType_JPEG, kCMVideoCodecType_JPEG_OpenDML].contains(codec) else { return nil }
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
+        guard reader.canAdd(output) else { return nil }
+        reader.add(output)
+        defer { reader.cancelReading() }
+        guard reader.startReading() else { throw reader.error ?? failure("Cannot read JPEG headers.") }
+        var facts: Self?
+        while let sample = output.copyNextSampleBuffer() {
+            try Task.checkCancellation()
+            let count = CMSampleBufferGetNumSamples(sample)
+            guard count > 0 else { continue }
+            guard let buffer = CMSampleBufferGetDataBuffer(sample) else { return nil }
+            let length = CMBlockBufferGetDataLength(buffer)
+            guard length > 0, length <= 64 * 1024 * 1024, count <= length else { return nil }
+            var bytes = Data(count: length)
+            let status = bytes.withUnsafeMutableBytes {
+                CMBlockBufferCopyDataBytes(buffer, atOffset: 0, dataLength: length, destination: $0.baseAddress!)
+            }
+            guard status == noErr else { return nil }
+            var offset = 0
+            for index in 0..<count {
+                let size = CMSampleBufferGetSampleSize(sample, at: index)
+                guard size > 0, size <= length - offset,
+                      let current = jpeg(bytes.subdata(in: offset..<(offset + size))) else { return nil }
+                if let facts, facts != current { throw failure("JPEG sampling changes within the video track.") }
+                facts = current
+                offset += size
+            }
+            guard offset == length else { return nil }
+        }
+        guard reader.status == .completed else { throw reader.error ?? failure("Cannot finish reading JPEG headers.") }
+        return facts
+    }
+
+    private static func failure(_ reason: String) -> AVCanonicalMediaStateAdapterV4Error {
+        .avFoundationLoadFailed(path: "video.legacy_sampling", reason: reason)
+    }
+
+    static func jpeg(_ data: Data) -> Self? {
+        let b = [UInt8](data)
+        guard b.count >= 4, b[0] == 0xff, b[1] == 0xd8 else { return nil }
+        var i = 2
+        var jfif = false
+        while i + 4 <= b.count {
+            guard b[i] == 0xff else { return nil }
+            while i < b.count, b[i] == 0xff { i += 1 }
+            guard i + 3 <= b.count else { return nil }
+            let marker = b[i]; i += 1
+            if marker == 0xda || marker == 0xd9 { return nil }
+            let length = Int(b[i]) * 256 + Int(b[i + 1])
+            guard length >= 2, length <= b.count - i else { return nil }
+            if marker == 0xe0, length >= 16 {
+                jfif = Array(b[(i + 2)..<(i + 7)]) == Array("JFIF\0".utf8)
+            }
+            if marker == 0xc0 || marker == 0xc1 || marker == 0xc2 {
+                guard jfif, length == 17, b[i + 2] == 8, b[i + 7] == 3,
+                      b[i + 8] == 1, b[i + 11] == 2, b[i + 14] == 3,
+                      b[i + 12] == 0x11, b[i + 15] == 0x11 else { return nil }
+                let sampling: CanonicalChromaSubsamplingV4
+                switch b[i + 9] {
+                case 0x22: sampling = .yuv420
+                case 0x21: sampling = .yuv422
+                case 0x11: sampling = .yuv444
+                default: return nil
+                }
+                return Self(bitDepth: 8, fullRange: true, subsampling: sampling)
+            }
+            i += length
+        }
+        return nil
+    }
+
+    static func mpeg4(_ data: Data) -> Self? {
+        let b = [UInt8](data)
+        guard b.count >= 8 else { return nil }
+        var fullRange = false
+        var result: Self?
+        for i in 0..<(b.count - 4) where b[i] == 0 && b[i + 1] == 0 && b[i + 2] == 1 {
+            var bits = HeaderBits(bytes: Array(b[(i + 4)...]))
+            let code = b[i + 3]
+            if code == 0xb5 {
+                guard let identifier = bits.read(1) else { return nil }
+                if identifier == 1, bits.read(7) == nil { return nil }
+                guard bits.read(4) == 1, let signal = bits.read(1) else { return nil }
+                if signal == 1 {
+                    guard bits.read(3) != nil, let range = bits.read(1),
+                          let color = bits.read(1) else { return nil }
+                    fullRange = range == 1
+                    if color == 1, bits.read(24) == nil { return nil }
+                }
+            }
+            guard (0x20...0x2f).contains(code) else { continue }
+            guard bits.read(1) != nil, let object = bits.read(8),
+                  [1, 17].contains(object), let identifier = bits.read(1) else { return nil }
+            var version = 1
+            if identifier == 1 {
+                guard let value = bits.read(4), value > 0, bits.read(3) != nil else { return nil }
+                version = value
+            }
+            guard let aspect = bits.read(4) else { return nil }
+            if aspect == 15, bits.read(16) == nil { return nil }
+            guard let control = bits.read(1) else { return nil }
+            if control == 1 {
+                guard bits.read(2) == 1, bits.read(1) != nil,
+                      let vbv = bits.read(1) else { return nil }
+                if vbv == 1 {
+                    for width in [15, 15, 15, 14, 15] {
+                        guard bits.read(width) != nil, bits.read(1) == 1 else { return nil }
+                    }
+                }
+            }
+            guard bits.read(2) == 0, bits.read(1) == 1,
+                  let clock = bits.read(16), clock > 0, bits.read(1) == 1,
+                  let fixed = bits.read(1) else { return nil }
+            if fixed == 1 {
+                let width = max(1, Int.bitWidth - (clock - 1).leadingZeroBitCount)
+                guard bits.read(width) != nil else { return nil }
+            }
+            guard bits.read(1) == 1, let width = bits.read(13), width > 0,
+                  bits.read(1) == 1, let height = bits.read(13), height > 0,
+                  bits.read(1) == 1, bits.read(1) == 0,
+                  bits.read(1) != nil, bits.read(version == 1 ? 1 : 2) == 0,
+                  let nonEightBit = bits.read(1) else { return nil }
+            if nonEightBit == 1 {
+                guard bits.read(4) != nil, bits.read(4) == 8 else { return nil }
+            }
+            let current = Self(bitDepth: 8, fullRange: fullRange, subsampling: .yuv420)
+            if let result, result != current { return nil }
+            result = current
+        }
+        return result
+    }
+
+    private struct HeaderBits {
+        let bytes: [UInt8]
+        var offset = 0
+        mutating func read(_ width: Int) -> Int? {
+            guard width >= 0, width <= 24, offset + width <= bytes.count * 8 else { return nil }
+            var result = 0
+            for _ in 0..<width {
+                result = (result << 1) | Int((bytes[offset / 8] >> (7 - offset % 8)) & 1)
+                offset += 1
+            }
+            return result
+        }
+    }
+}
+
 enum VideoDecodedColorResolver {
     static func resolve(
         asset: AVAsset,

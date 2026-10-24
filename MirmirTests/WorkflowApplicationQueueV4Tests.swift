@@ -2963,6 +2963,12 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
 
         let codecName = environment["MIRMIR_REAL_SOURCE_OUTPUT_CODEC"] ?? "h264"
         let outputCodec = try XCTUnwrap(OutputCodec(rawValue: codecName), "Unknown output codec: \(codecName)")
+        let backendName = environment["MIRMIR_REAL_SOURCE_BACKEND"]
+            ?? UpscaleBackendID.mirmirDeterministicMetal.rawValue
+        let backendID = try XCTUnwrap(UpscaleBackendID(rawValue: backendName))
+        guard [.mirmirDeterministicCPU, .mirmirDeterministicMetal].contains(backendID) else {
+            return XCTFail("This regression requires an explicit deterministic backend.")
+        }
 
         let sourceURL = URL(fileURLWithPath: sourcePath)
             .standardizedFileURL
@@ -3117,7 +3123,7 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
                     request: UpscaleRequest(
                         inputURL: sourceURL,
                         outputURL: outputURL,
-                        backendID: .mirmirDeterministicMetal,
+                        backendID: backendID,
                         targetWidth: targetWidth,
                         targetHeight: targetHeight,
                         outputCodec: outputCodec,
@@ -3249,7 +3255,7 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
 
         XCTAssertEqual(
             completion.result.actualBackendID,
-            .mirmirDeterministicMetal
+            backendID
         )
         XCTAssertEqual(completion.result.encodedWidth, targetWidth)
         XCTAssertEqual(completion.result.encodedHeight, targetHeight)
@@ -3261,8 +3267,18 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         let output = try await VideoProbe().probe(url: outputURL)
         XCTAssertEqual(output.audioTrackCount, source.audioTrackCount)
         XCTAssertEqual(output.videoTrackCount, source.videoTrackCount)
+        // AVI's integer microseconds-per-frame header can round the asset
+        // duration (72 frames at 24 fps reports 2.999952 seconds). Preserve
+        // the exact track timeline, not that lossy container estimate.
+        let sourceAsset = AVURLAsset(url: sourceURL)
+        var sourceTimelineEnd = CMTime.zero
+        for track in try await sourceAsset.load(.tracks) {
+            let range = try await track.load(.timeRange)
+            XCTAssertTrue(range.isValid)
+            sourceTimelineEnd = CMTimeMaximum(sourceTimelineEnd, range.end)
+        }
         XCTAssertEqual(
-            CMTimeCompare(output.duration, source.duration),
+            CMTimeCompare(output.duration, sourceTimelineEnd),
             0
         )
         let outputIdentity = try await AVFoundationSegmentProbeV4()
@@ -4300,8 +4316,10 @@ private extension WorkflowApplicationQueueV4Tests {
             minimumFrameDuration: nominalDuration,
             fallbackTimebase: ExactRationalV4(1, Int64(clock))
         )
-        XCTAssertTrue(nominalDuration.isNumeric)
-        XCTAssertGreaterThan(nominalDuration.value, 0)
+        // AVI can omit minFrameDuration while declaring a usable nominal rate.
+        // Validate the admitted clock used below; exact decoded cadence and
+        // source/output frame counts remain independently checked.
+        XCTAssertTrue(nominal.isPositive)
 
         let reader = try AVAssetReader(asset: asset)
         let output = AVAssetReaderTrackOutput(

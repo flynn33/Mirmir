@@ -3305,6 +3305,107 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
+    func testAVIMissingLanguageRemainsUndeterminedInMovieContainer() async throws {
+        let sourceURL = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "legacy-mjpeg", withExtension: "avi"))
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let destinationURL = directory.url("avi-rewrapped.mov")
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(asset: AVURLAsset(url: sourceURL))
+        XCTAssertTrue(source.tracks.allSatisfy { $0.language.languageCode == nil && $0.language.extendedLanguageTag == nil })
+        let plan = try MediaTrackGraphPlannerV4.makePlan(source: source)
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(.init(
+            sourceURL: sourceURL, destinationURL: destinationURL,
+            sourceGraph: source, identifiedPlan: plan,
+            blueprint: try AVFoundationTrackMigrationPlannerV4.makeBlueprint(source: source, plan: plan)
+        ))
+        XCTAssertTrue(result.verificationReport.isConformant)
+        XCTAssertEqual(result.outputGraph.tracks.map(\.language), source.tracks.map(\.language))
+        let reopened = try await AVURLAsset(url: destinationURL).load(.tracks)
+        XCTAssertEqual(reopened.count, source.tracks.count)
+        for track in reopened {
+            let code = try await track.load(.languageCode)
+            let extended = try await track.load(.extendedLanguageTag)
+            XCTAssertEqual(code, "und")
+            XCTAssertNil(extended)
+        }
+        let originalVideo = try await AVURLAsset(url: sourceURL).loadTracks(withMediaType: .video)
+        let writtenVideo = reopened.filter { $0.mediaType == .video }
+        let before = try await XCTUnwrap(originalVideo.first).load(.formatDescriptions)[0]
+        let after = try await XCTUnwrap(writtenVideo.first).load(.formatDescriptions)[0]
+        let expected = try AVFoundationTrackGraphAdapterV4.canonicalSampleStreamFormatDescriptor(before)
+        XCTAssertEqual(expected, try AVFoundationTrackGraphAdapterV4.canonicalSampleStreamFormatDescriptor(after))
+        let extensions = try XCTUnwrap(CMFormatDescriptionGetExtensions(after) as NSDictionary?)
+        for mutation in 0..<3 {
+            let changed = NSMutableDictionary(dictionary: extensions)
+            switch mutation {
+            case 0:
+                var raw = try XCTUnwrap(changed["VerbatimSampleDescription"] as? Data)
+                raw[20] ^= 1 // an unrecognized vendor header must remain bound
+                changed["VerbatimSampleDescription"] = raw
+            case 1: changed["CVFieldCount"] = 2
+            default: changed["UnrecognizedVideoMetadata"] = "must remain bound"
+            }
+            var description: CMVideoFormatDescription?
+            XCTAssertEqual(CMVideoFormatDescriptionCreate(
+                allocator: kCFAllocatorDefault, codecType: kCMVideoCodecType_JPEG_OpenDML,
+                width: 160, height: 96, extensions: changed,
+                formatDescriptionOut: &description
+            ), noErr)
+            XCTAssertNotEqual(expected, try AVFoundationTrackGraphAdapterV4.canonicalSampleStreamFormatDescriptor(XCTUnwrap(description)))
+        }
+    }
+
+    func testLegacyPCMSampleEntrySurvivesNativeMovieRewrapping() async throws {
+        let sourceURL = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "legacy-mjpeg", withExtension: "mov"))
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let destinationURL = directory.url("legacy-pcm-rewrapped.mov")
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(asset: AVURLAsset(url: sourceURL))
+        let plan = try MediaTrackGraphPlannerV4.makePlan(source: source)
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(.init(
+            sourceURL: sourceURL, destinationURL: destinationURL,
+            sourceGraph: source, identifiedPlan: plan,
+            blueprint: try AVFoundationTrackMigrationPlannerV4.makeBlueprint(source: source, plan: plan)
+        ))
+        XCTAssertTrue(result.verificationReport.isConformant)
+        XCTAssertTrue(result.trackResults.allSatisfy {
+            $0.sourceSampleStreamSHA256 != nil
+                && $0.sourceSampleStreamSHA256 == $0.outputSampleStreamSHA256
+        })
+        let sourceTracks = try await AVURLAsset(url: sourceURL).loadTracks(withMediaType: .audio)
+        let outputTracks = try await AVURLAsset(url: destinationURL).loadTracks(withMediaType: .audio)
+        let before = try await XCTUnwrap(sourceTracks.first).load(.formatDescriptions)[0]
+        let after = try await XCTUnwrap(outputTracks.first).load(.formatDescriptions)[0]
+        XCTAssertNotEqual(
+            try AVFoundationTrackGraphAdapterV4.canonicalFormatDescriptor(before),
+            try AVFoundationTrackGraphAdapterV4.canonicalFormatDescriptor(after)
+        )
+        let expected = try AVFoundationTrackGraphAdapterV4.canonicalSampleStreamFormatDescriptor(before)
+        XCTAssertEqual(expected, try AVFoundationTrackGraphAdapterV4.canonicalSampleStreamFormatDescriptor(after))
+        let extensions = try XCTUnwrap(CMFormatDescriptionGetExtensions(before) as NSDictionary?)
+        let originalASBD = try XCTUnwrap(CMAudioFormatDescriptionGetStreamBasicDescription(before)).pointee
+        for mutation in 0..<4 {
+            var asbd = originalASBD
+            let changed = NSMutableDictionary(dictionary: extensions)
+            switch mutation {
+            case 0: asbd.mSampleRate = 44_100
+            case 1: asbd.mFormatFlags ^= kAudioFormatFlagIsBigEndian
+            case 2: changed["UnrecognizedAudioMetadata"] = "must remain bound"
+            default:
+                var raw = try XCTUnwrap(changed["VerbatimSampleDescription"] as? Data)
+                raw[40] ^= 1 // unknown child atom must never be discarded
+                changed["VerbatimSampleDescription"] = raw
+            }
+            var format: CMAudioFormatDescription?
+            XCTAssertEqual(CMAudioFormatDescriptionCreate(
+                allocator: kCFAllocatorDefault, asbd: &asbd,
+                layoutSize: 0, layout: nil, magicCookieSize: 0, magicCookie: nil,
+                extensions: changed, formatDescriptionOut: &format
+            ), noErr)
+            XCTAssertNotEqual(expected, try AVFoundationTrackGraphAdapterV4.canonicalSampleStreamFormatDescriptor(XCTUnwrap(format)))
+        }
+    }
+
     func testAC3SampleStreamFormatNormalizesContainerWrappersWithoutChangingGraphIdentity()
         throws {
         let cookie = Data([0, 0, 0, 11, 0x64, 0x61, 0x63, 0x33, 0x10, 0x12, 0x40])

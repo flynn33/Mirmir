@@ -11,6 +11,16 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ### Fixed
 
+- Admit supported progressive MPEG-4 Part 2 and JFIF Motion JPEG sampling facts
+  consistently in probing and canonical planning, with header rejection tests.
+- Preserve strict PCM stream verification across known `sowt`/`lpcm` wrapper
+  changes and OpenDML JPEG verification across a known AVI-to-MOV header rewrite.
+  Unknown fields, changed formats and changed payloads remain rejected.
+- Preserve AVI's unspecified language as the explicit MOV `und` representation.
+- Correct external-file QA to use exact track timelines and the production
+  nominal-clock fallback instead of optional or rounded AVI header properties.
+- Add bundled legacy MOV/AVI regressions and CPU selection to the opt-in
+  production workflow test; retain exact frame/timing/audio assertions.
 - Preserve raw MP4 chapter-list metadata during MOV finalization, with exact
   payload and canonical identity checks.
 - Finish prepared backends after preparation cancellation and early output
@@ -28,8 +38,8 @@ do not publish, sign, notarize, or distribute the application automatically.
   including same-session pause/resume. Recovered jobs without a retained
   original require the independent Compare picker.
 - Describe writer rejection code 11 and journal codec, raster, and writer state
-  at both rejection sites. The reported customer failure itself remains
-  unconfirmed without its error domain and configuration.
+  at both rejection sites. The reported customer failure remains open; these
+  diagnostic improvements do not establish or repair its underlying cause.
 - Rebuild and bind the P06 runtime to current production sources. Refresh
   reviewed qualification-tool bindings while retaining strict verification.
   Replay historical hot-path evidence with its pinned historical evaluator.
@@ -39,7 +49,15 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ### Verification
 
-Final native Release passes 674 tests; full Debug and x86-64 suites and final
+Resumed native Release passes 679 tests, with zero failures and 13 opt-in skips.
+The full format gate records 12 passing exports and 16 failures across eight
+input cases on CPU and Metal. A fresh 90-minute workflow completes all 129,600
+frames and 2,160 segments, with independent complete decoding and exact audio
+comparison. Debug passes 684 tests and Rosetta passes 679; the new universal
+archive passes signing/sandbox/dSYM checks without compiler warnings or errors.
+The reported error-11 incident and eight input failures remain release blockers.
+
+The preceding checkpoint's native Release passed 674 tests; full Debug and x86-64 suites and final
 affected-area reruns pass. All 389 Python tests have passing results. Three
 multitrack production exports pass independent video/audio/chapter checks. Four additional
 saved-media replay checks pass with isolated AAC/AC3 and chaptered fixtures.

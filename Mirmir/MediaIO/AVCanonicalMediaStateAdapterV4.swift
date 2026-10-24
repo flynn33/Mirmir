@@ -469,10 +469,14 @@ private extension AVCanonicalMediaStateAdapterV4 {
                     track: track,
                     descriptions: formatDescriptions
                 )
+                let legacySampling = try LegacyVideoSamplingFacts.resolve(
+                    asset: asset, track: track, descriptions: formatDescriptions
+                )
                 let facts = try consistentVideoFacts(
                     formatDescriptions,
                     characteristics: characteristics,
                     decodedColor: decodedColor,
+                    legacySampling: legacySampling,
                     root: root,
                     observations: &observations
                 )
@@ -589,6 +593,7 @@ private extension AVCanonicalMediaStateAdapterV4 {
         _ descriptions: [CMFormatDescription],
         characteristics: [AVMediaCharacteristic],
         decodedColor: [String: String],
+        legacySampling: LegacyVideoSamplingFacts?,
         root: String,
         observations: inout [CanonicalMediaObservationV4]
     ) throws -> VideoFormatFacts {
@@ -603,6 +608,7 @@ private extension AVCanonicalMediaStateAdapterV4 {
                 description,
                 characteristics: characteristics,
                 decodedColor: decodedColor,
+                legacySampling: legacySampling,
                 root: "\(root).format_descriptions[\(index)]",
                 observations: &observations
             )
@@ -625,6 +631,7 @@ private extension AVCanonicalMediaStateAdapterV4 {
         _ description: CMFormatDescription,
         characteristics: [AVMediaCharacteristic],
         decodedColor: [String: String],
+        legacySampling: LegacyVideoSamplingFacts?,
         root: String,
         observations: inout [CanonicalMediaObservationV4]
     ) throws -> VideoFormatFacts {
@@ -656,20 +663,30 @@ private extension AVCanonicalMediaStateAdapterV4 {
             observations: &observations
         )
         let subtype = CMFormatDescriptionGetMediaSubType(description)
-        let bitDepth = try bitDepth(
+        if let legacySampling {
+            let declaredDepth = extensions[kCMFormatDescriptionExtension_BitsPerComponent as String] as? NSNumber
+            let declaredRange = extensions[kCMFormatDescriptionExtension_FullRangeVideo as String] as? NSNumber
+            guard declaredDepth == nil || declaredDepth?.intValue == Int(legacySampling.bitDepth),
+                  declaredRange == nil || declaredRange?.boolValue == legacySampling.fullRange else {
+                throw AVCanonicalMediaStateAdapterV4Error.avFoundationLoadFailed(
+                    path: "\(root).pixel", reason: "Legacy bitstream and container sampling declarations disagree."
+                )
+            }
+        }
+        let bitDepth = try legacySampling?.bitDepth ?? bitDepth(
             description,
             extensions: extensions,
             root: root,
             observations: &observations
         )
-        let subsampling = chromaSubsampling(
+        let subsampling = legacySampling?.subsampling ?? chromaSubsampling(
             description: description,
             subtype: subtype,
             extensions: extensions,
             root: root,
             observations: &observations
         )
-        let range = pixelRange(
+        let range = legacySampling.map { $0.fullRange ? CanonicalPixelRangeV4.full : .video } ?? pixelRange(
             extensions,
             subsampling: subsampling,
             root: root,
@@ -679,6 +696,7 @@ private extension AVCanonicalMediaStateAdapterV4 {
             extensions,
             subsampling: subsampling,
             subtype: subtype,
+            decodedLegacySampling: legacySampling != nil,
             root: root,
             observations: &observations
         )
@@ -694,8 +712,14 @@ private extension AVCanonicalMediaStateAdapterV4 {
             root: root,
             observations: &observations
         )
+        let scanExtensions = extensions.mutableCopy() as! NSMutableDictionary
+        if legacySampling != nil, subtype == kCMVideoCodecType_MPEG4Video,
+           scanExtensions[kCMFormatDescriptionExtension_FieldCount as String] == nil {
+            // The admitted VOL parser verifies its interlaced flag is zero.
+            scanExtensions[kCMFormatDescriptionExtension_FieldCount as String] = NSNumber(value: 1)
+        }
         let scan = scanState(
-            extensions,
+            scanExtensions,
             root: root,
             observations: &observations
         )
@@ -1023,6 +1047,7 @@ private extension AVCanonicalMediaStateAdapterV4 {
         _ extensions: NSDictionary,
         subsampling: CanonicalChromaSubsamplingV4,
         subtype: FourCharCode,
+        decodedLegacySampling: Bool = false,
         root: String,
         observations: inout [CanonicalMediaObservationV4]
     ) -> CanonicalChromaSitingV4 {
@@ -1060,7 +1085,7 @@ private extension AVCanonicalMediaStateAdapterV4 {
             ].contains(subtype)
             observations.append(
                 observation(
-                    severity: proRes422 ? .warning : .unsupported,
+                    severity: proRes422 || decodedLegacySampling ? .warning : .unsupported,
                     code: .unknownValue,
                     path: "\(root).chroma_siting",
                     value: "absent"

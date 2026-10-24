@@ -1,5 +1,17 @@
 # Mirmir accepted limitations and follow-up work
 
+## QA-002 — Broad input support and reported error 11 remain release blockers
+
+**Status:** Open; these defects are not accepted release limitations.
+
+Resumed QA repaired MPEG-4 MOV/MP4 and Motion JPEG 4:2:0 MOV/AVI admission and
+several migration failures. H.264 MKV, MPEG-4/H.264 AVI, Motion JPEG 4:2:2/4:4:4
+MOV, MPEG-2 transport streams, VP9 WebM and WMV ASF still fail concrete tests.
+The transport-stream reader also returns different compressed and decoded
+frame counts. These require importer/decoder/timing repairs, not an availability
+bypass. The reported error-11 incident remains open; improved logging does not
+establish a causal repair. See [the QA report](docs/FINAL_QA_2026-10-24.md).
+
 Updated for Mirmir 1.7.2 build 20 on October 24, 2026. These entries distinguish
 source repair from installed-product and full-media qualification. The historical
 October 7 readback confirms the signed **1.7.0 (17)** repair installed and

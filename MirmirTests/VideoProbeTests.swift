@@ -4,6 +4,69 @@ import XCTest
 @testable import Mirmir
 
 final class VideoProbeTests: XCTestCase {
+    func testReadableLegacyMoviesReachBothDeterministicBackends() async throws {
+        for (name, fullRange) in [("legacy-mpeg4", false), ("legacy-mjpeg", true)] {
+            let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: name, withExtension: "mov"))
+            let info = try await VideoProbe().probe(url: url)
+            XCTAssertEqual(info.color.bitDepth, 8, name)
+            XCTAssertEqual(info.color.isFullRange, fullRange, name)
+            XCTAssertEqual(info.color.dynamicRange, .sdr, name)
+            let catalog = UpscaleBackendCatalog.live()
+            for backend: UpscaleBackendID in [.mirmirDeterministicCPU, .mirmirDeterministicMetal] {
+                let availability = await catalog.availability(
+                    for: backend, source: info,
+                    targetSize: CGSize(width: 320, height: 192), environment: .current()
+                )
+                XCTAssertEqual(availability, .available, "\(name): \(backend)")
+            }
+        }
+    }
+
+    func testLegacyHeaderParsersRejectTruncationAndMissingSamplingEvidence() throws {
+        for length in 0..<16 {
+            XCTAssertNil(LegacyVideoSamplingFacts.jpeg(Data(repeating: 0xff, count: length)))
+            XCTAssertNil(LegacyVideoSamplingFacts.mpeg4(Data(repeating: 0, count: length)))
+        }
+        // A valid JPEG SOF without its JFIF color/range declaration is insufficient.
+        let sof: [UInt8] = [0xff, 0xd8, 0xff, 0xc0, 0, 17, 8, 0, 96, 0, 160, 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1]
+        XCTAssertNil(LegacyVideoSamplingFacts.jpeg(Data(sof)))
+        let jfif: [UInt8] = [0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0, 1, 2, 0, 0, 1, 0, 1, 0, 0]
+        let valid = Data(jfif + sof.dropFirst(2))
+        XCTAssertEqual(LegacyVideoSamplingFacts.jpeg(valid), .init(bitDepth: 8, fullRange: true, subsampling: .yuv420))
+        for length in 0..<valid.count {
+            XCTAssertNil(LegacyVideoSamplingFacts.jpeg(valid.prefix(length)), "truncated at \(length)")
+        }
+        var highPrecision = valid
+        highPrecision[24] = 12
+        XCTAssertNil(LegacyVideoSamplingFacts.jpeg(highPrecision))
+    }
+
+    func testMPEG4HeaderAdmissionRetainsRangeAndRejectsUnsupportedVOLFields() async throws {
+        let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "legacy-mpeg4", withExtension: "mov"))
+        let tracks = try await AVURLAsset(url: url).loadTracks(withMediaType: .video)
+        let description = try await XCTUnwrap(tracks.first).load(.formatDescriptions)[0]
+        let extensions = try XCTUnwrap(CMFormatDescriptionGetExtensions(description) as NSDictionary?)
+        let atoms = try XCTUnwrap(extensions["SampleDescriptionExtensionAtoms"] as? NSDictionary)
+        let esds = try XCTUnwrap(atoms["esds"] as? Data)
+        let vol = try XCTUnwrap(esds.range(of: Data([0, 0, 1, 0x20]))).upperBound
+        // Bind these bit mutations to the actual fixture header, including its
+        // progressive, eight-bit 4:2:0 VOL and 24 fps clock.
+        XCTAssertEqual(Array(esds[vol..<(vol + 10)]), [0, 0xc4, 0x8d, 0x88, 0, 0xc5, 5, 4, 0x0c, 0x14])
+        XCTAssertEqual(LegacyVideoSamplingFacts.mpeg4(esds), .init(bitDepth: 8, fullRange: false, subsampling: .yuv420))
+        for length in 0..<(vol + 10) {
+            XCTAssertNil(LegacyVideoSamplingFacts.mpeg4(esds.prefix(length)), "truncated at \(length)")
+        }
+        for bit in [8, 22, 76, 78, 79] {
+            var unsupported = esds
+            unsupported[vol + bit / 8] ^= 1 << (7 - bit % 8)
+            XCTAssertNil(LegacyVideoSamplingFacts.mpeg4(unsupported), "unsupported VOL bit \(bit)")
+        }
+        let visualObject = try XCTUnwrap(esds.range(of: Data([0, 0, 1, 0xb5]))).upperBound
+        var explicitFullRange = esds
+        explicitFullRange.replaceSubrange(visualObject..<(visualObject + 2), with: [0x89, 0x1d, 0x80])
+        XCTAssertEqual(LegacyVideoSamplingFacts.mpeg4(explicitFullRange), .init(bitDepth: 8, fullRange: true, subsampling: .yuv420))
+    }
+
     func testProbesSDRLandscapeWithAudio() async throws {
         let fixtures = try TemporaryFixtureDirectory()
         defer { fixtures.remove() }
