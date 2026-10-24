@@ -77,6 +77,7 @@ struct VideoProcessingSession: Sendable {
                     )
                 }
         } catch {
+            try? await preparedBackend.finish()
             MirmirDiagnosticScope.recorder.recordProcessingFailure(
                 subsystem: preparedBackend
                     is any PreparedDeterministicV4RuntimePlanningBackend
@@ -351,13 +352,11 @@ struct VideoProcessingSession: Sendable {
             audioTask.cancel()
             reader.cancelReading()
             writer.cancelWriting()
-            try? await preparedBackend.finish()
             throw MirmirError.cancelled
         } catch {
             audioTask.cancel()
             reader.cancelReading()
             writer.cancelWriting()
-            try? await preparedBackend.finish()
             throw error
         }
     }

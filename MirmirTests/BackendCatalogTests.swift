@@ -6,6 +6,75 @@ import XCTest
 @testable import Mirmir
 
 final class BackendCatalogTests: XCTestCase {
+    @MainActor
+    func testModelDownloadProgressSuccessAndDuplicateStart() async throws {
+        let backend = CatalogDownloadBackend()
+        let model = await makeDownloadModel(backend)
+        model.downloadSelectedModel()
+        model.downloadSelectedModel()
+        try await waitForDownloadCondition { await backend.callCount == 1 }
+        await backend.report(-2)
+        try await waitForDownloadCondition { model.modelDownloadProgress == 0 }
+        await backend.report(2)
+        try await waitForDownloadCondition { model.modelDownloadProgress == 1 }
+        await backend.complete(failing: false)
+        try await waitForDownloadCondition { !model.isDownloadingModel }
+        await model.waitForBackendAvailability()
+        XCTAssertEqual(model.modelDownloadMessage, "Apple model is ready.")
+        XCTAssertEqual(model.modelDownloadProgress, 1)
+        XCTAssertEqual(model.backendSnapshot?.entry(for: .videoToolboxSuperResolutionQuality)?.availability, .available)
+        let calls = await backend.callCount
+        XCTAssertEqual(calls, 1)
+    }
+
+    @MainActor
+    func testModelDownloadFailureAllowsRetryAndClearIgnoresLateCallbacks() async throws {
+        let backend = CatalogDownloadBackend()
+        let model = await makeDownloadModel(backend)
+        model.downloadSelectedModel()
+        try await waitForDownloadCondition { await backend.callCount == 1 }
+        await backend.complete(failing: true)
+        try await waitForDownloadCondition { !model.isDownloadingModel }
+        XCTAssertEqual(model.modelDownloadMessage, "Injected model download failure")
+        await model.waitForBackendAvailability()
+        XCTAssertEqual(model.backendSnapshot?.entry(for: .videoToolboxSuperResolutionQuality)?.availability, .modelDownloadRequired(progress: nil))
+        model.downloadSelectedModel()
+        try await waitForDownloadCondition { await backend.callCount == 2 }
+        model.clear()
+        await backend.report(0.8)
+        await backend.complete(failing: false)
+        // Drain the callback tasks from an API that finishes after cancellation.
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertFalse(model.isDownloadingModel)
+        XCTAssertNil(model.modelDownloadProgress)
+        XCTAssertNil(model.modelDownloadMessage)
+        XCTAssertNil(model.currentVideoInfo)
+    }
+
+    @MainActor
+    private func makeDownloadModel(_ backend: CatalogDownloadBackend) async -> MirmirViewModel {
+        let source = makeVideoInfo(url: URL(fileURLWithPath: "/tmp/model-download-fixture.mov"))
+        let model = MirmirViewModel(
+            videoProbe: ImmediateCatalogVideoProbe(info: source),
+            backendCatalog: UpscaleBackendCatalog(backends: [backend]),
+            runtimeEnvironment: testEnvironment
+        )
+        model.selectBackend(.videoToolboxSuperResolutionQuality)
+        model.selectVideo(source.url)
+        await model.waitForCurrentProbe()
+        await model.waitForBackendAvailability()
+        return model
+    }
+
+    @MainActor
+    private func waitForDownloadCondition(_ condition: @MainActor () async -> Bool) async throws {
+        for _ in 0..<500 {
+            if await condition() { return }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        throw CatalogDownloadTestError.timeout
+    }
+
     func testDeterministicReleaseDescriptorsContainNoPreviewIdentity() {
         for id in [
             UpscaleBackendID.mirmirDeterministicCPU,
@@ -1044,4 +1113,41 @@ private func makeVideoInfo(
             dynamicRange: dynamicRange
         )
     )
+}
+
+private enum CatalogDownloadTestError: Error { case timeout }
+
+private actor CatalogDownloadBackend: ModelDownloadableBackend {
+    nonisolated let descriptor = BackendDescriptor.descriptor(for: .videoToolboxSuperResolutionQuality)!
+    private(set) var callCount = 0
+    private var ready = false
+    private var continuation: CheckedContinuation<Void, Error>?
+    private var progress: (@Sendable (Double) -> Void)?
+
+    func availability(for source: VideoInfo, targetSize: CGSize, environment: RuntimeEnvironment) async -> BackendAvailability {
+        ready ? .available : .modelDownloadRequired(progress: nil)
+    }
+
+    func prepare(request: BackendPreparationRequest, environment: RuntimeEnvironment) async throws -> any PreparedFrameUpscaler {
+        throw MirmirError.invalidRequest("The download-state fixture must not prepare frames.")
+    }
+
+    func downloadModel(request: BackendPreparationRequest, environment: RuntimeEnvironment, progress: @escaping @Sendable (Double) -> Void) async throws {
+        callCount += 1
+        self.progress = progress
+        try await withCheckedThrowingContinuation { continuation = $0 }
+    }
+
+    func report(_ value: Double) { progress?(value) }
+
+    func complete(failing: Bool) {
+        let pending = continuation
+        continuation = nil
+        if failing {
+            pending?.resume(throwing: NSError(domain: "model-download-test", code: 1, userInfo: [NSLocalizedDescriptionKey: "Injected model download failure"]))
+        } else {
+            ready = true
+            pending?.resume()
+        }
+    }
 }

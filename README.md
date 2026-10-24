@@ -9,9 +9,13 @@ color tags, preserves decoder-resolved SDR color through deterministic export,
 and admits ProRes 422 through the declared 10-bit working format. Writer error
 11 now has an actionable description and bounded configuration diagnostics.
 Completed deterministic jobs retain the original movie for Compare instead of
-using a private snapshot that cleanup removes.
+using a private snapshot that cleanup removes. MP4 chapter-list metadata is
+retained during MOV finalization, and early failures now release prepared
+processing backends.
 
-Automated native Debug/Release suites and 389 Python tests pass. Release
+Final native Release passes 674 tests with zero failures; Debug, Rosetta,
+389 Python tests, and independent multitrack export checks pass. UI testing is
+excluded by the owner. Release
 clearance remains on hold. See [`docs/FINAL_QA_2026-10-24.md`](docs/FINAL_QA_2026-10-24.md)
 for fresh evidence, discovered defects, and outstanding release checks. The P06
 runtime was rebuilt twice with identical bytes and its current source closure

@@ -6,6 +6,7 @@ test_root="$(mktemp -d "${TMPDIR:-/tmp}/mirmir-av-canonical-v4.XXXXXX")"
 trap 'rm -rf "$test_root"' EXIT
 
 xcrun swiftc \
+    -target "$(uname -m)-apple-macos15.4" \
     -warnings-as-errors \
     -O \
     -o "$test_root/av-canonical-media-state-v4-selftest" \

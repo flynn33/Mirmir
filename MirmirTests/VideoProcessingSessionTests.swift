@@ -522,6 +522,10 @@ final class VideoProcessingSessionTests: XCTestCase {
             .videoToolboxSuperResolutionLowLatency
         ] {
             let availability = try XCTUnwrap(snapshot.entry(for: backendID)?.availability)
+            let capability = XCTAttachment(string: "\(backendID.rawValue): \(availability.statusText)")
+            capability.name = "VideoToolbox runtime capability"
+            capability.lifetime = .keepAlways
+            add(capability)
             switch availability {
             case .available:
                 let outputURL = fixtures.url(for: "\(backendID.rawValue).mov")
@@ -549,6 +553,54 @@ final class VideoProcessingSessionTests: XCTestCase {
         }
     }
 
+    func testVideoToolboxSuperResolutionProcessesSupportedGeometry() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let input = fixtures.url(for: "vt-supported-geometry.mov")
+        try await VideoProbeFixtureFactory.makeVideo(
+            at: input, transform: .identity, width: 256, height: 144
+        )
+        let source = try await VideoProbe().probe(url: input)
+        for (backend, scale) in [
+            (UpscaleBackendID.videoToolboxSuperResolutionQuality, 4),
+            (.videoToolboxSuperResolutionLowLatency, 2)
+        ] {
+            let width = 256 * scale
+            let height = 144 * scale
+            let availability = await UpscaleBackendCatalog.live().availability(
+                for: backend, source: source,
+                targetSize: CGSize(width: width, height: height), environment: .current()
+            )
+            let capability = XCTAttachment(string: "\(backend.rawValue) at \(width)x\(height): \(availability.statusText)")
+            capability.name = "VideoToolbox supported geometry"
+            capability.lifetime = .keepAlways
+            add(capability)
+            switch availability {
+            case .available:
+                let output = fixtures.url(for: "\(backend.rawValue)-supported.mov")
+                let result = try await UpscaleCoordinator().process(UpscaleRequest(
+                    inputURL: input, outputURL: output, backendID: backend,
+                    targetWidth: width, targetHeight: height, outputCodec: .h264,
+                    preserveAudio: false, overwriteExistingFile: false
+                ), progress: { _ in })
+                XCTAssertEqual(result.actualBackendID, backend)
+                XCTAssertEqual(result.processedFrameCount, 3)
+                let observed = try await VideoProbe().probe(url: output)
+                XCTAssertEqual(observed.geometry.encodedSize, CGSize(width: width, height: height))
+                XCTAssertEqual(CMTimeCompare(observed.duration, source.duration), 0)
+                let decodedTimes = try await decodedPresentationTimes(at: output)
+                XCTAssertEqual(decodedTimes.count, 3)
+                for (ordinal, timestamp) in decodedTimes.enumerated() {
+                    XCTAssertEqual(CMTimeCompare(timestamp, CMTime(value: Int64(ordinal), timescale: 30)), 0)
+                }
+            case .modelDownloadRequired:
+                XCTAssertEqual(backend, .videoToolboxSuperResolutionQuality)
+            case .unavailable(let reason):
+                XCTAssertFalse(reason.userFacingDescription.isEmpty)
+            }
+        }
+    }
+
     func testVideoToolboxInterpolationMaintainsDurationAndProducesTwoXCadenceWhenAvailable() async throws {
         let fixtures = try TemporaryFixtureDirectory()
         defer { fixtures.remove() }
@@ -570,6 +622,11 @@ final class VideoProcessingSessionTests: XCTestCase {
             targetSize: CGSize(width: 128, height: 96),
             environment: .current()
         )
+
+        let capability = XCTAttachment(string: availability.statusText)
+        capability.name = "VideoToolbox interpolation runtime capability"
+        capability.lifetime = .keepAlways
+        add(capability)
 
         switch availability {
         case .available:
@@ -887,6 +944,69 @@ final class VideoProcessingSessionTests: XCTestCase {
         XCTAssertEqual(result.outputCodec, .hevc)
         let output = try await VideoProbe().probe(url: outputURL)
         XCTAssertEqual(output.codecFourCC, kCMVideoCodecType_HEVC)
+    }
+
+    func testCancellationDuringPreparationFinishesPreparedBackend() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let input = fixtures.url(for: "prepare-cancel.mov")
+        try await VideoProbeFixtureFactory.makeVideo(at: input, transform: .identity)
+        let entered = ProcessingPhaseLatch()
+        let release = ProcessingPhaseLatch()
+        let prepared = LifecycleTestPreparedUpscaler()
+        let backend = LifecycleTestBackend(
+            descriptor: try XCTUnwrap(BackendDescriptor.descriptor(for: .vImageStandard)),
+            prepared: prepared, entered: entered, release: release
+        )
+        let coordinator = UpscaleCoordinator(backendCatalog: UpscaleBackendCatalog(backends: [backend]))
+        let output = fixtures.url(for: "prepare-cancel-output.mov")
+        let task = Task {
+            try await coordinator.process(UpscaleRequest(
+                inputURL: input, outputURL: output, backendID: .vImageStandard,
+                targetWidth: 128, targetHeight: 96, outputCodec: .h264,
+                preserveAudio: false, overwriteExistingFile: false
+            ), progress: { _ in })
+        }
+        await entered.wait()
+        await coordinator.cancel()
+        await release.signal()
+        do {
+            _ = try await task.value
+            XCTFail("Cancellation must stop before processing.")
+        } catch is CancellationError {
+            // The coordinator has not transferred ownership to the media session.
+        }
+        let count = await prepared.finishCount
+        XCTAssertEqual(count, 1)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: output.path))
+    }
+
+    func testSessionSetupFailureFinishesPreparedBackendAndPreservesDestination() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let input = fixtures.url(for: "setup-source.mov")
+        let output = fixtures.url(for: "existing-output.mov")
+        try await VideoProbeFixtureFactory.makeVideo(at: input, transform: .identity)
+        let sentinel = Data("existing destination".utf8)
+        try sentinel.write(to: output)
+        let source = try await VideoProbe().probe(url: input)
+        let prepared = LifecycleTestPreparedUpscaler()
+        do {
+            _ = try await VideoProcessingSession().process(
+                request: UpscaleRequest(
+                    inputURL: input, outputURL: output, backendID: .vImageStandard,
+                    targetWidth: 128, targetHeight: 96, outputCodec: .h264,
+                    preserveAudio: false, overwriteExistingFile: false
+                ), source: source, preparedBackend: prepared,
+                cancellation: ProcessingCancellation(), progress: { _ in }
+            )
+            XCTFail("The existing destination must be rejected.")
+        } catch let error as MirmirError {
+            XCTAssertEqual(error, .outputAlreadyExists)
+        }
+        let count = await prepared.finishCount
+        XCTAssertEqual(count, 1)
+        XCTAssertEqual(try Data(contentsOf: output), sentinel)
     }
 
     func testCancellationRemovesPartialOutputAndCoordinatorAcceptsNextJob() async throws {
@@ -1229,4 +1349,29 @@ private struct ComparisonFixtureBookmarkResolver: WorkflowSecurityScopedBookmark
             startAccessing: { true }, stopAccessing: {}
         )
     }
+}
+
+private struct LifecycleTestBackend: UpscaleBackend {
+    let descriptor: BackendDescriptor
+    let prepared: LifecycleTestPreparedUpscaler
+    let entered: ProcessingPhaseLatch
+    let release: ProcessingPhaseLatch
+    func availability(for source: VideoInfo, targetSize: CGSize, environment: RuntimeEnvironment) async -> BackendAvailability { .available }
+    func prepare(request: BackendPreparationRequest, environment: RuntimeEnvironment) async throws -> any PreparedFrameUpscaler {
+        await entered.signal()
+        await release.wait()
+        return prepared
+    }
+}
+
+private actor LifecycleTestPreparedUpscaler: PreparedFrameUpscaler {
+    nonisolated let actualBackendID = UpscaleBackendID.vImageStandard
+    nonisolated let sourcePixelBufferAttributes = PixelBufferAttributes()
+    nonisolated let destinationPixelBufferAttributes = PixelBufferAttributes()
+    private(set) var finishCount = 0
+    func process(source: FramePixelBuffer, destination: FramePixelBuffer, timing: FrameTiming) async throws {
+        XCTFail("The early-failure test must not process a frame.")
+        throw CancellationError()
+    }
+    func finish() async throws { finishCount += 1 }
 }

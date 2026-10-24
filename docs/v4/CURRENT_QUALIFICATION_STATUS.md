@@ -6,8 +6,12 @@ The verified date covers the source-closure check and current native/Python QA.
 Release clearance remains on hold.
 Current source: **1.7.2 build 20**.
 
-Native Debug passed 668 tests; native and verified x86-64 Release each passed
-663 tests, all with zero failures and 13 opt-in skips. All 389 Python tests passed. Additional opt-in results and
+Native Debug passed 675 tests; the final native Release suite passed 674, and
+verified x86-64 Release passed 673. All have zero failures and 13 opt-in skips.
+Final affected-area reruns pass 51 tests each in Debug and x86-64 Release. All
+389 distinct Python tests have passing results after reviewed binding updates.
+Three fresh multitrack exports pass independent full-decode/audio/chapter checks.
+UI testing is excluded by the owner. Additional opt-in results and
 remaining release gates are recorded separately. See [the current QA record](../FINAL_QA_2026-10-24.md)
 for candidate tests and remaining release checks. The current P06 source closure
 passes after a reproducible rebuild. An October 24 x86-64 reproduction and
@@ -339,9 +343,9 @@ decisions.
 | Bundle identifier | `com.mirmir.app` |
 | Minimum macOS | 15.4 |
 | M0–M6 implementation | Complete |
-| P06 semantic runtime-manifest identity | `b439118685a015d8e4350d7fb60f09baa49c57846fd4a9869a83fd6781cc880e` |
-| P06 runtime-manifest file SHA-256 | `d905952a00a28af4cbddd3be706378576e9da3a94654414f5397aed511598039` |
-| P06 packaged production-source revision | `30e486a8d6f16c52dd24323ddfd5c59898fe60f9d052a7c5018d62c543d9485f` |
+| P06 semantic runtime-manifest identity | `544e3c36ac3324d67a3e66713dd7331e29462b6c99601981a17e589d497e995f` |
+| P06 runtime-manifest file SHA-256 | `b863309bf12b375e21e5d0978ddded377781d39eaa5457bc891bd043581d29fc` |
+| P06 packaged production-source revision | `f794943d08796b96861aa3880273c07f06946febd94119c31835a8a48b85008e` |
 | P06 builder-source SHA-256 | `40aad241a07eda3f63919eed2b126eb7dc62777be9bd6520cf2b5a3c824c6dc9` |
 
 The previous 1.3.0 build 3 universal Developer ID archive and its

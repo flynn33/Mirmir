@@ -11,6 +11,12 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ### Fixed
 
+- Preserve raw MP4 chapter-list metadata during MOV finalization, with exact
+  payload and canonical identity checks.
+- Finish prepared backends after preparation cancellation and early output
+  setup failures; preserve an existing destination on rejection.
+- Repair canonical-media and workflow terminal self-tests without removing
+  their assertions; add supported-geometry VideoToolbox export coverage.
 - Disable adaptive frame reordering in deterministic H.264 output after a
   controlled reproduction showed that delivery pacing changed decoded pixels
   despite identical input frames and timestamps. Retain strict parity checks.
@@ -33,11 +39,13 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ### Verification
 
-Automated native Debug/Release suites and 389 Python tests pass. Four additional
+Final native Release passes 674 tests; full Debug and x86-64 suites and final
+affected-area reruns pass. All 389 Python tests have passing results. Three
+multitrack production exports pass independent video/audio/chapter checks. Four additional
 saved-media replay checks pass with isolated AAC/AC3 and chaptered fixtures.
 A local universal archive passes signing, sandbox, and matching dSYM checks;
-the final About screen confirms 1.7.2 (20). Native automation crashes block the
-remaining manual walkthrough. Release clearance remains on hold; current evidence and explicit gaps are recorded
+UI checks are excluded by the owner. Functional QA and broader release
+qualification have separate evidence and limits, recorded
 in `docs/FINAL_QA_2026-10-24.md`. No push, archive submission, or release is part
 of this local QA change.
 

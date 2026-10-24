@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F72000000000000000000002 /* WorkflowQueueDispatcherV4SelfTestMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = F71000000000000000000002 /* WorkflowQueueDispatcherV4SelfTestMain.swift */; };
+		F72000000000000000000001 /* WorkflowDurableCoordinatorV4SelfTestMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = F71000000000000000000001 /* WorkflowDurableCoordinatorV4SelfTestMain.swift */; };
 		320000000000000000000001 /* MirmirApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000001 /* MirmirApp.swift */; };
 		320000000000000000000002 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000002 /* RootView.swift */; };
 		320000000000000000000003 /* MirmirViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000003 /* MirmirViewModel.swift */; };
@@ -204,6 +206,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		F71000000000000000000002 /* WorkflowQueueDispatcherV4SelfTestMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = script/v4/WorkflowQueueDispatcherV4SelfTestMain.swift; sourceTree = SOURCE_ROOT; };
+		F71000000000000000000001 /* WorkflowDurableCoordinatorV4SelfTestMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = script/v4/WorkflowDurableCoordinatorV4SelfTestMain.swift; sourceTree = SOURCE_ROOT; };
 		300000000000000000000001 /* Mirmir.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mirmir.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		300000000000000000000002 /* MirmirTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MirmirTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		310000000000000000000001 /* MirmirApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirApp.swift; sourceTree = "<group>"; };
@@ -523,6 +527,8 @@
 		100000000000000000000008 /* MirmirTests */ = {
 			isa = PBXGroup;
 			children = (
+				F71000000000000000000002 /* WorkflowQueueDispatcherV4SelfTestMain.swift */,
+				F71000000000000000000001 /* WorkflowDurableCoordinatorV4SelfTestMain.swift */,
 				310000000000000000000010 /* MirmirTests.swift */,
 				310000000000000000000016 /* VideoProbeTests.swift */,
 				310000000000000000000017 /* SecurityScopedAccessTests.swift */,
@@ -1023,6 +1029,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F72000000000000000000002 /* WorkflowQueueDispatcherV4SelfTestMain.swift in Sources */,
+				F72000000000000000000001 /* WorkflowDurableCoordinatorV4SelfTestMain.swift in Sources */,
 				32000000000000000000000E /* MirmirTests.swift in Sources */,
 				D5200000000000000000000B /* MirmirDiagnosticStoreTests.swift in Sources */,
 				320000000000000000000014 /* VideoProbeTests.swift in Sources */,

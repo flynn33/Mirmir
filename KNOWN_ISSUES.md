@@ -6,6 +6,25 @@ October 7 readback confirms the signed **1.7.0 (17)** repair installed and
 launched, with the native About version/build and idle Metal route verified.
 The earlier October 7 1.6.0 (16) and October 6 1.5.0 (15) checks are historical.
 
+## MEDIA-001 — MP4 raw chapter list rejected during MOV finalization
+
+**Status:** Reproduced and repaired in local 1.7.2 (20) source
+
+The production HEVC MP4 workflow rejected finalization because the MOV writer
+silently dropped raw ISO `chpl` asset metadata. The migration adapter now emits
+the byte-identical item in the QuickTime userdata namespace and compares its
+canonical identity. Payload, language, type, identifier and omission mutations
+still fail. See [final QA](docs/FINAL_QA_2026-10-24.md) for before/after evidence.
+
+## PROCESS-001 — Prepared backend not finished on early failure
+
+**Status:** Reproduced and repaired in local 1.7.2 (20) source
+
+Cancellation after asynchronous preparation and output setup rejection occurred
+outside the cleanup path. The coordinator releases the backend before session
+ownership transfers; the session catches setup as well as processing failures.
+Tests require cleanup and preservation of an existing destination.
+
 ## UI-001 — Main window cannot be reopened after closing
 
 **Status:** Native menu lifecycle correction verified in 1.7.1 (19)

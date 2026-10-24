@@ -83,6 +83,56 @@ final class VideoProbeTests: XCTestCase {
         XCTAssertNotNil(info.estimatedFrameCount)
     }
 
+    func testUnreadableUntaggedFrameRetainsDecoderFailureReason() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let url = fixtures.url(for: "damaged-untagged.mov")
+        try await VideoProbeFixtureFactory.makeVideo(
+            at: url, transform: .identity, includeColorProperties: false
+        )
+        var bytes = try Data(contentsOf: url)
+        func integer(_ offset: Int, _ length: Int) -> UInt64 {
+            bytes[offset..<(offset + length)].reduce(0) { ($0 << 8) | UInt64($1) }
+        }
+        var offset = 0
+        var corrupted = false
+        while offset + 8 <= bytes.count {
+            let size32 = integer(offset, 4)
+            let header = size32 == 1 ? 16 : 8
+            let size = size32 == 1 ? Int(integer(offset + 8, 8))
+                : size32 == 0 ? bytes.count - offset : Int(size32)
+            guard size >= header, offset + size <= bytes.count else {
+                throw VideoProbeFixtureError.failure("Invalid generated movie atom.")
+            }
+            if bytes[(offset + 4)..<(offset + 8)] == Data("mdat".utf8) {
+                bytes.replaceSubrange((offset + header)..<(offset + size), with: repeatElement(UInt8(0), count: size - header))
+                corrupted = true
+                break
+            }
+            offset += size
+        }
+        XCTAssertTrue(corrupted)
+        try bytes.write(to: url)
+        let asset = AVURLAsset(url: url)
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(tracks.first)
+        let descriptions = try await track.load(.formatDescriptions)
+        let reason: String
+        do {
+            _ = try VideoDecodedColorResolver.resolve(asset: asset, track: track, descriptions: descriptions)
+            return XCTFail("The damaged frame must fail decoder color resolution.")
+        } catch AVCanonicalMediaStateAdapterV4Error.avFoundationLoadFailed(let path, let detail) {
+            XCTAssertEqual(path, "video.decoded_color")
+            reason = detail
+        }
+        do {
+            _ = try await VideoProbe().probe(url: url)
+            XCTFail("The damaged source must fail probing.")
+        } catch MirmirError.probeFailed(let detail) {
+            XCTAssertEqual(detail, reason)
+        }
+    }
+
     func testRejectsValidAudioOnlyAsset() async throws {
         let fixtures = try TemporaryFixtureDirectory()
         defer { fixtures.remove() }
@@ -135,8 +185,6 @@ enum VideoProbeFixtureError: LocalizedError {
 }
 
 enum VideoProbeFixtureFactory {
-    private static let width = 64
-    private static let height = 48
     private static let frameRate: CMTimeScale = 30
     private static let frameCount: CMTimeValue = 3
 
@@ -145,7 +193,9 @@ enum VideoProbeFixtureFactory {
         transform: CGAffineTransform,
         presentationTimes: [CMTime]? = nil,
         includeColorProperties: Bool = true,
-        codec: AVVideoCodecType = .h264
+        codec: AVVideoCodecType = .h264,
+        width: Int = 64,
+        height: Int = 48
     ) async throws {
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
         var videoSettings: [String: Any] = [

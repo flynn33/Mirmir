@@ -1,3 +1,5 @@
+import AVFoundation
+import CoreVideo
 import CoreGraphics
 import CoreMedia
 import CryptoKit
@@ -378,5 +380,61 @@ enum ASHCanonicalPropertyListV4 {
             path: path,
             type: String(reflecting: type(of: value))
         )
+    }
+}
+
+/// Resolve omitted color tags using the same decoder that supplies processing
+/// pixels. SD material can resolve to BT.601; assuming BT.709 here changes color.
+/// Explicit declarations and changing format descriptions are never replaced.
+enum VideoDecodedColorResolver {
+    static func resolve(
+        asset: AVAsset,
+        track: AVAssetTrack,
+        descriptions: [CMFormatDescription]
+    ) throws -> [String: String] {
+        let keys = [
+            kCVImageBufferColorPrimariesKey,
+            kCVImageBufferTransferFunctionKey,
+            kCVImageBufferYCbCrMatrixKey
+        ]
+        guard descriptions.count == 1, let description = descriptions.first else {
+            return [:]
+        }
+        let extensions = (
+            CMFormatDescriptionGetExtensions(description) as NSDictionary?
+        ) ?? [:]
+        let missing = keys.filter { extensions[$0 as String] == nil }
+        guard !missing.isEmpty else { return [:] }
+        try Task.checkCancellation()
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
+            kCVPixelBufferPixelFormatTypeKey as String:
+                kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange
+        ])
+        guard reader.canAdd(output) else {
+            throw AVCanonicalMediaStateAdapterV4Error.avFoundationLoadFailed(
+                path: "video.decoded_color",
+                reason: "The video decoder cannot resolve missing color information."
+            )
+        }
+        reader.add(output)
+        defer { reader.cancelReading() }
+        guard reader.startReading(),
+              let sample = output.copyNextSampleBuffer(),
+              let buffer = CMSampleBufferGetImageBuffer(sample) else {
+            throw AVCanonicalMediaStateAdapterV4Error.avFoundationLoadFailed(
+                path: "video.decoded_color",
+                reason: reader.error?.localizedDescription
+                    ?? "The video decoder could not read a frame to resolve missing color information."
+            )
+        }
+        try Task.checkCancellation()
+        var resolved: [String: String] = [:]
+        for key in missing {
+            if let value = CVBufferCopyAttachment(buffer, key, nil) as? String {
+                resolved[key as String] = value
+            }
+        }
+        return resolved
     }
 }

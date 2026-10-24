@@ -411,6 +411,33 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
             .verifiesOutputFormats(output, observed: observed)
     }
 
+    static func movAssetMetadataItems(_ items: [AVMetadataItem]) -> [AVMetadataItem] {
+        items.map { item in
+            guard item.identifier?.rawValue == "uiso/chpl",
+                  item.dataType == kCMMetadataBaseDataType_RawData as String else {
+                return item
+            }
+            // MOV drops ISO chapter-list userdata unless its container namespace
+            // is declared explicitly. Preserve the raw payload and every other field.
+            let converted = item.mutableCopy() as! AVMutableMetadataItem
+            converted.identifier = AVMetadataIdentifier(rawValue: "udta/chpl")
+            return converted
+        }
+    }
+
+    static func canonicalAssetMetadataSHA256(
+        _ items: [AVMetadataItem],
+        cancellation: AVFoundationTrackMigrationCancellationV4 = .init()
+    ) async throws -> ASHSHA256V4 {
+        let canonicalItems = try await Self().canonicalMetadataItems(
+            movAssetMetadataItems(items), cancellation: cancellation
+        )
+        return try ASHCanonicalJSONV4.hash(
+            AssetMetadataPayloadV4(canonicalItems: canonicalItems),
+            domain: "ash-avfoundation-asset-metadata-v4"
+        )
+    }
+
     static func canonicalChapterMetadataTime(_ time: CMTime) throws -> CMTime {
         guard time.isNumeric, time.timescale > 0 else { return time }
         let rational = try ExactRationalV4(time.value, Int64(time.timescale))
@@ -519,7 +546,9 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .assetMetadataReadFailed(.init(error))
             }
-            writer.metadata = sourceAuxiliaryMetadata.assetMetadata
+            writer.metadata = request.outputFileType == .mov
+                ? Self.movAssetMetadataItems(sourceAuxiliaryMetadata.assetMetadata)
+                : sourceAuxiliaryMetadata.assetMetadata
 
             var pipes = try await preparePipes(
                 sourceAsset: sourceAsset,
@@ -1269,15 +1298,8 @@ private extension AVFoundationTrackMigrationExecutorV4 {
     ) async throws -> AssetAuxiliaryMetadataIdentityV4 {
         try cancellation.check()
         let assetMetadata = try await asset.load(.metadata)
-        let assetItems = try await canonicalMetadataItems(
-            assetMetadata,
-            cancellation: cancellation
-        )
-        let assetMetadataSHA256 = try ASHCanonicalJSONV4.hash(
-            AssetMetadataPayloadV4(
-                canonicalItems: assetItems
-            ),
-            domain: "ash-avfoundation-asset-metadata-v4"
+        let assetMetadataSHA256 = try await Self.canonicalAssetMetadataSHA256(
+            assetMetadata, cancellation: cancellation
         )
 
         let locales = try await asset.load(.availableChapterLocales)

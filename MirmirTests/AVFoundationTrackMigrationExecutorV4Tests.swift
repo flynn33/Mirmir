@@ -3653,6 +3653,80 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         )
     }
 
+    func testChapterListContainerMappingRetainsAllIdentityFields() async throws {
+        let item = AVMutableMetadataItem()
+        item.identifier = AVMetadataIdentifier(rawValue: "uiso/chpl")
+        item.dataType = kCMMetadataBaseDataType_RawData as String
+        item.value = Data([1, 2, 3]) as NSData
+        item.extendedLanguageTag = "en-US"
+        let mapped = try XCTUnwrap(AVFoundationTrackMigrationExecutorV4.movAssetMetadataItems([item]).first)
+        XCTAssertEqual(mapped.identifier?.rawValue, "udta/chpl")
+        XCTAssertEqual(item.identifier?.rawValue, "uiso/chpl")
+        let expected = try await AVFoundationTrackMigrationExecutorV4.canonicalAssetMetadataSHA256([item])
+        let observed = try await AVFoundationTrackMigrationExecutorV4.canonicalAssetMetadataSHA256([mapped])
+        XCTAssertEqual(expected, observed)
+        for changed in ["payload", "language", "identifier", "type", "missing"] {
+            let mutation = mapped.mutableCopy() as! AVMutableMetadataItem
+            switch changed {
+            case "payload": mutation.value = Data([1, 2, 4]) as NSData
+            case "language": mutation.extendedLanguageTag = "fr"
+            case "identifier": mutation.identifier = AVMetadataIdentifier(rawValue: "udta/name")
+            case "type": mutation.dataType = kCMMetadataBaseDataType_UTF8 as String
+            default: break
+            }
+            let hash = try await AVFoundationTrackMigrationExecutorV4.canonicalAssetMetadataSHA256(
+                changed == "missing" ? [] : [mutation]
+            )
+            XCTAssertNotEqual(expected, hash, changed)
+        }
+    }
+
+    func testChapterListContainerMappingLeavesUnknownMetadataUntouched() {
+        for (identifier, type) in [
+            ("uiso/name", kCMMetadataBaseDataType_RawData as String),
+            ("uiso/chpl", kCMMetadataBaseDataType_UTF8 as String)
+        ] {
+            let item = AVMutableMetadataItem()
+            item.identifier = AVMetadataIdentifier(rawValue: identifier)
+            item.dataType = type
+            item.value = Data([7]) as NSData
+            let output = AVFoundationTrackMigrationExecutorV4.movAssetMetadataItems([item])
+            XCTAssertTrue(output[0] === item)
+        }
+    }
+
+    func testMP4RawChapterListSurvivesMOVMigration() async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("chapter-list-source.mp4")
+        let outputURL = directory.url("chapter-list-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeAACMovie(at: sourceURL, fileType: .mp4)
+        // Nero chapter-list userdata: version 1, one chapter at zero named Start.
+        let bytes = Data([1, 0, 0, 0, 0, 0, 0, 0, 1,
+                          0, 0, 0, 0, 0, 0, 0, 0, 5]) + Data("Start".utf8)
+        try injectAssetChapterListAtom(bytes, into: sourceURL)
+        let original = try Data(contentsOf: sourceURL)
+        let asset = AVURLAsset(url: sourceURL)
+        let metadata = try await asset.load(.metadata)
+        let chapter = try XCTUnwrap(metadata.first { $0.identifier?.rawValue == "uiso/chpl" })
+        let sourceBytes = try await chapter.load(.dataValue)
+        XCTAssertEqual(sourceBytes, bytes)
+        let graph = try await AVFoundationTrackGraphAdapterV4.probe(asset: asset)
+        let plan = try MediaTrackGraphPlannerV4.makePlan(source: graph)
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(.init(
+            sourceURL: sourceURL, destinationURL: outputURL,
+            sourceGraph: graph, identifiedPlan: plan,
+            blueprint: try AVFoundationTrackMigrationPlannerV4.makeBlueprint(source: graph, plan: plan)
+        ))
+        XCTAssertTrue(result.verificationReport.isConformant)
+        XCTAssertEqual(result.sourceAssetMetadataSHA256, result.outputAssetMetadataSHA256)
+        let outputMetadata = try await AVURLAsset(url: outputURL).load(.metadata)
+        let retained = try XCTUnwrap(outputMetadata.first { $0.identifier?.rawValue == "udta/chpl" })
+        let outputBytes = try await retained.load(.dataValue)
+        XCTAssertEqual(outputBytes, bytes)
+        XCTAssertEqual(try Data(contentsOf: sourceURL), original)
+    }
+
     func testAACMP4PassThroughToMOVPreservesSemanticIdentityAndSamples()
         async throws {
         let directory = try TrackMigrationFixtureDirectoryV4()
@@ -7047,6 +7121,43 @@ private extension AVFoundationTrackMigrationExecutorV4Tests {
             AVMetadataExtraAttributeKey(rawValue: "dataType"): 0
         ]
         return item
+    }
+
+    func injectAssetChapterListAtom(_ payload: Data, into url: URL) throws {
+        var movie = try Data(contentsOf: url)
+        func box(_ type: String, _ data: Data) -> Data {
+            var length = UInt32(data.count + 8).bigEndian
+            return withUnsafeBytes(of: &length) { Data($0) } + Data(type.utf8) + data
+        }
+        var offset = 0
+        var sawMedia = false
+        while offset + 8 <= movie.count {
+            var length = movie[offset..<(offset + 4)].reduce(UInt64(0)) { ($0 << 8) | UInt64($1) }
+            if length == 1 {
+                guard offset + 16 <= movie.count else {
+                    throw TrackMigrationFixtureErrorV4.invalidFixture("Truncated extended atom.")
+                }
+                length = movie[(offset + 8)..<(offset + 16)].reduce(UInt64(0)) { ($0 << 8) | UInt64($1) }
+            } else if length == 0 { length = UInt64(movie.count - offset) }
+            guard length >= 8, length <= UInt64(movie.count - offset) else {
+                throw TrackMigrationFixtureErrorV4.invalidFixture("Invalid fixture atom extent.")
+            }
+            let type = String(decoding: movie[(offset + 4)..<(offset + 8)], as: UTF8.self)
+            if type == "mdat" { sawMedia = true }
+            if type == "moov" {
+                guard sawMedia else {
+                    throw TrackMigrationFixtureErrorV4.invalidFixture("Fixture requires trailing moov.")
+                }
+                let end = offset + Int(length)
+                let original = movie[(offset + 8)..<end]
+                let replacement = box("moov", Data(original) + box("udta", box("chpl", payload)))
+                movie.replaceSubrange(offset..<end, with: replacement)
+                try movie.write(to: url, options: .atomic)
+                return
+            }
+            offset += Int(length)
+        }
+        throw TrackMigrationFixtureErrorV4.invalidFixture("Fixture moov is missing.")
     }
 
     func injectISOTrackNameQualificationAtom(_ value: Data, into url: URL)

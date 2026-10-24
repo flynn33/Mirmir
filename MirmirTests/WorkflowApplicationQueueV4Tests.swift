@@ -2961,6 +2961,9 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
             )
         }
 
+        let codecName = environment["MIRMIR_REAL_SOURCE_OUTPUT_CODEC"] ?? "h264"
+        let outputCodec = try XCTUnwrap(OutputCodec(rawValue: codecName), "Unknown output codec: \(codecName)")
+
         let sourceURL = URL(fileURLWithPath: sourcePath)
             .standardizedFileURL
         guard FileManager.default.fileExists(atPath: sourceURL.path) else {
@@ -3117,7 +3120,7 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
                         backendID: .mirmirDeterministicMetal,
                         targetWidth: targetWidth,
                         targetHeight: targetHeight,
-                        outputCodec: .h264,
+                        outputCodec: outputCodec,
                         preserveAudio: true,
                         overwriteExistingFile: false
                     ),

@@ -1,62 +1,9 @@
 import AVFoundation
 import CoreMedia
-import CoreVideo
 import Foundation
 
 protocol VideoProbing: Sendable {
     func probe(url: URL) async throws -> VideoInfo
-}
-
-/// Resolve omitted color tags using the same decoder that supplies processing
-/// pixels. SD material can resolve to BT.601; assuming BT.709 here changes color.
-/// Explicit declarations and changing format descriptions are never replaced.
-enum VideoDecodedColorResolver {
-    static func resolve(
-        asset: AVAsset,
-        track: AVAssetTrack,
-        descriptions: [CMFormatDescription]
-    ) throws -> [String: String] {
-        let keys = [
-            kCVImageBufferColorPrimariesKey,
-            kCVImageBufferTransferFunctionKey,
-            kCVImageBufferYCbCrMatrixKey
-        ]
-        guard descriptions.count == 1, let description = descriptions.first else {
-            return [:]
-        }
-        let extensions = (
-            CMFormatDescriptionGetExtensions(description) as NSDictionary?
-        ) ?? [:]
-        let missing = keys.filter { extensions[$0 as String] == nil }
-        guard !missing.isEmpty else { return [:] }
-        try Task.checkCancellation()
-        let reader = try AVAssetReader(asset: asset)
-        let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
-            kCVPixelBufferPixelFormatTypeKey as String:
-                kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange
-        ])
-        guard reader.canAdd(output) else {
-            throw MirmirError.probeFailed("The video decoder cannot resolve missing color information.")
-        }
-        reader.add(output)
-        defer { reader.cancelReading() }
-        guard reader.startReading(),
-              let sample = output.copyNextSampleBuffer(),
-              let buffer = CMSampleBufferGetImageBuffer(sample) else {
-            throw MirmirError.probeFailed(
-                reader.error?.localizedDescription
-                    ?? "The video decoder could not read a frame to resolve missing color information."
-            )
-        }
-        try Task.checkCancellation()
-        var resolved: [String: String] = [:]
-        for key in missing {
-            if let value = CVBufferCopyAttachment(buffer, key, nil) as? String {
-                resolved[key as String] = value
-            }
-        }
-        return resolved
-    }
 }
 
 struct VideoProbe: VideoProbing {
@@ -206,6 +153,9 @@ struct VideoProbe: VideoProbing {
             throw CancellationError()
         } catch let error as MirmirError {
             throw error
+        } catch AVCanonicalMediaStateAdapterV4Error.avFoundationLoadFailed(let path, let reason)
+            where path == "video.decoded_color" {
+            throw MirmirError.probeFailed(reason)
         } catch {
             throw MirmirError.probeFailed(
                 "Mirmir couldn’t inspect \(url.lastPathComponent): "

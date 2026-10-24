@@ -2,123 +2,7 @@
   "baseCommit": "9c540497bdd68c9ffe6608cbb14b6592525545c7",
   "build": "20",
   "date": "2026-10-24",
-  "encoderPacingControl": {
-    "beforeFixParityFailures": [
-      {
-        "decodedMismatchCount": 100,
-        "frameCount": 156,
-        "preEncoderMismatchCount": 0
-      },
-      {
-        "decodedMismatchCount": 100,
-        "frameCount": 157,
-        "preEncoderMismatchCount": 0
-      },
-      {
-        "decodedMismatchCount": 24,
-        "frameCount": 66,
-        "preEncoderMismatchCount": 0
-      }
-    ],
-    "beforeFixX86FullSuite": {
-      "failed": 4,
-      "passed": 658,
-      "skipped": 13
-    },
-    "defaultPolicyDecodedMismatchCount": 61,
-    "delayNanoseconds": [
-      0,
-      40000000
-    ],
-    "fixedPolicyDecodedMismatchCount": 0,
-    "regressionFailedBeforeFix": true,
-    "regressionPassesAfterFixInAllThreeFullSuites": true
-  },
-  "environment": {
-    "Xcode": "27",
-    "host": "Apple M4 Pro, 48 GB",
-    "macOS": "27.0.1 (26A434)"
-  },
-  "goalStatus": "blocked",
-  "independentMediaVerification": {
-    "attached_picture": {
-      "identical": true,
-      "output": {
-        "bytes": 57221,
-        "sha256": "f7795cfa68325e51e1e9e8ce5e80f1e2f2b84dd7a9b7cfd7a18ef3e84dbc3f7a"
-      },
-      "source": {
-        "bytes": 57221,
-        "sha256": "f7795cfa68325e51e1e9e8ce5e80f1e2f2b84dd7a9b7cfd7a18ef3e84dbc3f7a"
-      }
-    },
-    "audio_pcm": {
-      "identical": true,
-      "output": {
-        "bytes": 1921024,
-        "sha256": "4bcefb8cdede535d885526cc73df2d028c8f2a2cc5ddab441824cdeb894b9cc4"
-      },
-      "source": {
-        "bytes": 1921024,
-        "sha256": "4bcefb8cdede535d885526cc73df2d028c8f2a2cc5ddab441824cdeb894b9cc4"
-      }
-    },
-    "output_full_decode_exit": 0,
-    "source_full_decode_exit": 0
-  },
-  "localArchive": {
-    "archivePath": "/private/tmp/Mirmir-final-qa-20261024.xcarchive",
-    "build": "20",
-    "buildWarningsOrErrors": [],
-    "bundleID": "com.mirmir.app",
-    "executableSHA256": "b9eaec8653f1a129bc5e1f8c751fb149fb4b7a50ea8088fce713467069202b18",
-    "matchingDSYMUUIDs": true,
-    "minimumOS": "15.4",
-    "provisioningProfile": {
-      "present": false
-    },
-    "scope": "Local Xcode archive audit; no export, App Store processing, or installed Store validation",
-    "secureTimestampReported": false,
-    "signingAuthority": "Apple Development: James Daley (FW94K6ZY57)",
-    "uploaded": false,
-    "version": "1.7.2"
-  },
-  "manualFinalAboutVerified": true,
-  "openGates": [
-    "Final manual UI checks blocked by repeated SkyComputerUseService crashes, including reset/retry",
-    "Minimum supported macOS and physical Intel hardware untested",
-    "Saved complete-checkpoint finalization opt-in needs intact source snapshot; historical feature-length replay not performed",
-    "App Store export/installed Store and aggregate release qualification not performed; local development archive audit passed",
-    "Customer error 11 domain and configuration remain unconfirmed"
-  ],
-  "productionBuild": {
-    "architectures": "x86_64 arm64",
-    "build": "20",
-    "bundleID": "com.mirmir.app",
-    "executableSHA256": "b107b66100a7c83714273661520a7907067659c396c4763e6ede09e09638ef80",
-    "signatureVerification": {
-      "exit": 0
-    },
-    "version": "1.7.2"
-  },
-  "publicationPerformed": false,
-  "python": {
-    "commands": 24,
-    "failedCommands": 0,
-    "tests": 389
-  },
-  "releaseQualified": false,
-  "runtime": {
-    "builderSourceSHA256": "40aad241a07eda3f63919eed2b126eb7dc62777be9bd6520cf2b5a3c824c6dc9",
-    "manifestSHA256": "b439118685a015d8e4350d7fb60f09baa49c57846fd4a9869a83fd6781cc880e",
-    "sourceRevision": "30e486a8d6f16c52dd24323ddfd5c59898fe60f9d052a7c5018d62c543d9485f"
-  },
-  "schemaVersion": "mirmir-local-final-qa-summary-v1",
-  "sourceCopyVerification": {
-    "differences": [],
-    "verifiedFileCount": 484
-  },
-  "suites": {
+  "earlierCandidateSuites": {
     "debug-8k-encoder-fixed": {
       "failedTests": 0,
       "passedTests": 1,
@@ -210,6 +94,371 @@
       "skippedTests": 0,
       "summarySHA256": "5a95f9ff3ae013d8f76149b58df75e4ca12b8fb92ce3c619e55284bfccae9557",
       "totalTestCount": 2
+    }
+  },
+  "earlierRealFileVerification": {
+    "attached_picture": {
+      "identical": true,
+      "output": {
+        "bytes": 57221,
+        "sha256": "f7795cfa68325e51e1e9e8ce5e80f1e2f2b84dd7a9b7cfd7a18ef3e84dbc3f7a"
+      },
+      "source": {
+        "bytes": 57221,
+        "sha256": "f7795cfa68325e51e1e9e8ce5e80f1e2f2b84dd7a9b7cfd7a18ef3e84dbc3f7a"
+      }
+    },
+    "audio_pcm": {
+      "identical": true,
+      "output": {
+        "bytes": 1921024,
+        "sha256": "4bcefb8cdede535d885526cc73df2d028c8f2a2cc5ddab441824cdeb894b9cc4"
+      },
+      "source": {
+        "bytes": 1921024,
+        "sha256": "4bcefb8cdede535d885526cc73df2d028c8f2a2cc5ddab441824cdeb894b9cc4"
+      }
+    },
+    "output_full_decode_exit": 0,
+    "source_full_decode_exit": 0
+  },
+  "encoderPacingControl": {
+    "beforeFixParityFailures": [
+      {
+        "decodedMismatchCount": 100,
+        "frameCount": 156,
+        "preEncoderMismatchCount": 0
+      },
+      {
+        "decodedMismatchCount": 100,
+        "frameCount": 157,
+        "preEncoderMismatchCount": 0
+      },
+      {
+        "decodedMismatchCount": 24,
+        "frameCount": 66,
+        "preEncoderMismatchCount": 0
+      }
+    ],
+    "beforeFixX86FullSuite": {
+      "failed": 4,
+      "passed": 658,
+      "skipped": 13
+    },
+    "defaultPolicyDecodedMismatchCount": 61,
+    "delayNanoseconds": [
+      0,
+      40000000
+    ],
+    "fixedPolicyDecodedMismatchCount": 0,
+    "regressionFailedBeforeFix": true,
+    "regressionPassesAfterFixInAllThreeFullSuites": true
+  },
+  "environment": {
+    "Xcode": "27",
+    "host": "Apple M4 Pro, 48 GB",
+    "macOS": "27.0.1 (26A434)"
+  },
+  "fullSuiteScope": "Debug and Rosetta full suites preceded the final decoder-error text catch; final affected-area suites rerun 51 tests in each. Final native Release full suite and multitrack exports use the reviewed production source and runtime.",
+  "goalCompletionClaimed": false,
+  "goalStatus": "blocked",
+  "independentMediaVerification": [
+    {
+      "audio": [
+        {
+          "equal": true,
+          "index": 0,
+          "output": {
+            "bytes": 577536,
+            "sha256": "4230be9950f5f84b713c8f435e6050b864e70ad074de75537d16c7e8cb0f024b"
+          },
+          "source": {
+            "bytes": 577536,
+            "sha256": "4230be9950f5f84b713c8f435e6050b864e70ad074de75537d16c7e8cb0f024b"
+          }
+        },
+        {
+          "equal": true,
+          "index": 1,
+          "output": {
+            "bytes": 576512,
+            "sha256": "d12c3f51ecfee86dbd2d9e1d3e7408a36b9abaf2040ac03cc425ea848d571a27"
+          },
+          "source": {
+            "bytes": 576512,
+            "sha256": "d12c3f51ecfee86dbd2d9e1d3e7408a36b9abaf2040ac03cc425ea848d571a27"
+          }
+        }
+      ],
+      "chapterCount": 2,
+      "chaptersIdentical": true,
+      "decodedFrames": 72,
+      "fixture": "h264",
+      "fullDecodePassed": true,
+      "output": "/Volumes/DockCase/GitHub/Mirmir/output/final-qa-2026-10-24/reviewed-multitrack-h264-attachments/B80FC6D5-7F96-4ADE-94A3-09E52F971A95.mov",
+      "outputSize": [
+        320,
+        180
+      ],
+      "source": "/Volumes/DockCase/GitHub/Mirmir/output/final-qa-2026-10-24/reviewed-multitrack-h264-attachments/506A3354-EDAD-4131-804A-4E94BA765AA8.mov"
+    },
+    {
+      "audio": [
+        {
+          "equal": true,
+          "index": 0,
+          "output": {
+            "bytes": 577536,
+            "sha256": "4230be9950f5f84b713c8f435e6050b864e70ad074de75537d16c7e8cb0f024b"
+          },
+          "source": {
+            "bytes": 577536,
+            "sha256": "4230be9950f5f84b713c8f435e6050b864e70ad074de75537d16c7e8cb0f024b"
+          }
+        },
+        {
+          "equal": true,
+          "index": 1,
+          "output": {
+            "bytes": 576512,
+            "sha256": "d12c3f51ecfee86dbd2d9e1d3e7408a36b9abaf2040ac03cc425ea848d571a27"
+          },
+          "source": {
+            "bytes": 576512,
+            "sha256": "d12c3f51ecfee86dbd2d9e1d3e7408a36b9abaf2040ac03cc425ea848d571a27"
+          }
+        }
+      ],
+      "chapterCount": 2,
+      "chaptersIdentical": true,
+      "decodedFrames": 72,
+      "fixture": "hevc",
+      "fullDecodePassed": true,
+      "output": "/Volumes/DockCase/GitHub/Mirmir/output/final-qa-2026-10-24/reviewed-multitrack-hevc-attachments/52EDDC81-D9C5-4C64-A69B-81CDBF8AD030.mov",
+      "outputSize": [
+        320,
+        180
+      ],
+      "source": "/Volumes/DockCase/GitHub/Mirmir/output/final-qa-2026-10-24/reviewed-multitrack-hevc-attachments/E29EBA4A-BD11-4071-9088-AFD85CD4CCD1.mp4"
+    },
+    {
+      "audio": [
+        {
+          "equal": true,
+          "index": 0,
+          "output": {
+            "bytes": 577536,
+            "sha256": "4230be9950f5f84b713c8f435e6050b864e70ad074de75537d16c7e8cb0f024b"
+          },
+          "source": {
+            "bytes": 577536,
+            "sha256": "4230be9950f5f84b713c8f435e6050b864e70ad074de75537d16c7e8cb0f024b"
+          }
+        },
+        {
+          "equal": true,
+          "index": 1,
+          "output": {
+            "bytes": 576512,
+            "sha256": "d12c3f51ecfee86dbd2d9e1d3e7408a36b9abaf2040ac03cc425ea848d571a27"
+          },
+          "source": {
+            "bytes": 576512,
+            "sha256": "d12c3f51ecfee86dbd2d9e1d3e7408a36b9abaf2040ac03cc425ea848d571a27"
+          }
+        }
+      ],
+      "chapterCount": 2,
+      "chaptersIdentical": true,
+      "decodedFrames": 72,
+      "fixture": "prores422",
+      "fullDecodePassed": true,
+      "output": "/Volumes/DockCase/GitHub/Mirmir/output/final-qa-2026-10-24/reviewed-multitrack-prores422-attachments/86683BF2-FA91-4B22-8607-5B082E07C0AE.mov",
+      "outputSize": [
+        320,
+        180
+      ],
+      "source": "/Volumes/DockCase/GitHub/Mirmir/output/final-qa-2026-10-24/reviewed-multitrack-prores422-attachments/1BEE024D-515A-4E84-AA9A-8A16EE748215.mov"
+    }
+  ],
+  "localArchive": {
+    "archivePath": "/private/tmp/Mirmir-final-qa-reviewed-20261024.xcarchive",
+    "build": "20",
+    "buildWarningsOrErrors": [],
+    "bundleID": "com.mirmir.app",
+    "executableSHA256": "88c3b597f9fd0497ec45706c505c2e0d1ca965dcff3caa3df1e8cdf21f1c3a3b",
+    "matchingDSYMUUIDs": true,
+    "minimumOS": "15.4",
+    "provisioningProfile": {
+      "present": false
+    },
+    "scope": "Local Xcode archive audit; no export, App Store processing, or installed Store validation",
+    "signatureVerified": true,
+    "signingDetails": "Executable=/private/tmp/Mirmir-final-qa-reviewed-20261024.xcarchive/Products/Applications/Mirmir.app/Contents/MacOS/Mirmir\nIdentifier=com.mirmir.app\nFormat=app bundle with Mach-O universal (x86_64 arm64)\nCodeDirectory v=20500 size=18074 flags=0x10000(runtime) hashes=554+7 location=embedded\nVersionPlatform=1\nVersionMin=984064\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=6b8824e0b1ffd31b7c6778b1b6edce8994d1c42a\nCandidateCDHashFull sha256=6b8824e0b1ffd31b7c6778b1b6edce8994d1c42afe03d61c91f62cf35467cc38\nHash choices=sha256\nCMSDigest=6b8824e0b1ffd31b7c6778b1b6edce8994d1c42afe03d61c91f62cf35467cc38\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=8388608\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=6b8824e0b1ffd31b7c6778b1b6edce8994d1c42a\nSignature size=4779\nAuthority=Apple Development: James Daley (FW94K6ZY57)\nAuthority=Apple Worldwide Developer Relations Certification Authority\nAuthority=Apple Root CA\nSigned Time=Oct 24, 2026 at 12:45:47\u202fPM\nInfo.plist entries=35\nTeamIdentifier=9AQ2C2838M\nRuntime Version=27.0.0\nSealed Resources version=2 rules=13 files=17\nInternal requirements count=1 size=176\nTotal signatures=1\nChosen signature=1\n",
+    "uploaded": false,
+    "version": "1.7.2"
+  },
+  "newFindings": {
+    "backendEarlyExitCleanup": "both cancellation-during-prepare and output-setup regressions failed before repair and pass after",
+    "decoderFailureText": "preserved across shared resolver boundary; corrupt untagged media tested",
+    "modelDownloadCoverageGap": "success/progress/duplicate/failure/retry/late-callback state tests pass",
+    "mp4ChapterListLoss": "reproduced then repaired; raw payload preserved across ISO-to-MOV metadata namespace",
+    "selfTestDependencyFailures": "canonical and workflow self-test entry points repaired",
+    "videoToolboxCoverageGap": "native supported 4x Quality and 2x Low Latency exports passed; unsupported configurations still tested"
+  },
+  "openGates": [
+    "Customer error 11 domain, source, and triggering configuration remain unknown; no production reproduction",
+    "Universal-format claim is not established: import uses AVFoundation and explicit route contracts",
+    "Minimum macOS 15.4 and physical Intel hardware are untested; Rosetta is translated execution",
+    "Fresh Apple model network acquisition was not forced because the model was already Ready; application download lifecycle is tested with injected outcomes",
+    "Historical complete-checkpoint replay lacks an intact source snapshot; fresh durable export and saved assembly are tested",
+    "Feature-length throughput, isolated performance, sealed aggregate qualification, App Store export/upload and installed Store validation are not established"
+  ],
+  "productionBuild": {
+    "architectures": "x86_64 arm64",
+    "build": "20",
+    "bundleID": "com.mirmir.app",
+    "executableSHA256": "88c3b597f9fd0497ec45706c505c2e0d1ca965dcff3caa3df1e8cdf21f1c3a3b",
+    "signatureVerification": {
+      "exit": 0
+    },
+    "source": "reviewed local Xcode archive",
+    "version": "1.7.2"
+  },
+  "publicationPerformed": false,
+  "python": {
+    "commands": 24,
+    "rechecks": {
+      "commands": 24,
+      "distinctTestsInOriginalFullRuns": 389,
+      "initialFailedCommands": [
+        "script/v4/test_media_preservation_v4.py",
+        "script/v4/test_release_qualification_v4.py"
+      ],
+      "note": "Original full-run failures were reviewed fixture/contract source binding changes. The entire 44-test media suite and all three checked-in release lock tests were rerun after refreshing bindings. Repeated tests are not added to the distinct total.",
+      "resolvedBy": [
+        {
+          "log": "test_media_preservation_v4-functional-recheck.log",
+          "sha256": "72b1e576d3a5fd50ff3d194a4694a12e20f27606dfbb4eab899e9ab871910f54"
+        },
+        {
+          "log": "test_release_qualification_v4-locks-functional-recheck.log",
+          "sha256": "5279d1fc9a1ced44f9c96da1414ef59e4676f963fbad52e7a1a2903538819b0d"
+        }
+      ],
+      "unresolvedFailures": []
+    },
+    "tests": 389,
+    "unresolvedFailures": 0
+  },
+  "qaStatus": "passed_on_available_host_with_explicit_unverified_gates",
+  "releaseQualified": false,
+  "runtime": {
+    "builderSourceSHA256": "40aad241a07eda3f63919eed2b126eb7dc62777be9bd6520cf2b5a3c824c6dc9",
+    "bundleFileCount": 13,
+    "manifestFileSHA256": "b863309bf12b375e21e5d0978ddded377781d39eaa5457bc891bd043581d29fc",
+    "manifestSHA256": "544e3c36ac3324d67a3e66713dd7331e29462b6c99601981a17e589d497e995f",
+    "sourceRevision": "f794943d08796b96861aa3880273c07f06946febd94119c31835a8a48b85008e"
+  },
+  "schemaVersion": "mirmir-local-final-qa-summary-v1",
+  "scope": {
+    "functionalFeatures": "all non-UI features in the feature matrix",
+    "screenOrDesktopAutomationUsedInFollowup": false,
+    "ui": "excluded by explicit owner instruction"
+  },
+  "sourceCopyVerification": {
+    "copy": "/private/tmp/Mirmir-final-qa-reviewed-source-20261024",
+    "differences": [],
+    "verifiedFileCount": 591
+  },
+  "suites": {
+    "debug-functional-final": {
+      "failedTests": 0,
+      "passedTests": 675,
+      "runtimeWarningCount": 0,
+      "skippedTests": 13,
+      "summarySHA256": "774b6f46b2ef646875ced31535f103906a63648897ba7f7cf6373d5a734fa63a",
+      "totalTestCount": 688
+    },
+    "durable-selftest-functional-fixed": {
+      "failedTests": 0,
+      "passedTests": 2,
+      "runtimeWarningCount": 0,
+      "skippedTests": 0,
+      "summarySHA256": "9e61fef8332eab441eaeb62c67215b8484de9732576a9b7b83bc89fe6ae8b78b",
+      "totalTestCount": 2
+    },
+    "model-download-state-functional": {
+      "failedTests": 0,
+      "passedTests": 2,
+      "runtimeWarningCount": 0,
+      "skippedTests": 0,
+      "summarySHA256": "6ab439e912558ce34646d805341c6a7a60edb97f17a90aa1cca3e5a9c66aa9f0",
+      "totalTestCount": 2
+    },
+    "queue-selftest-functional-fixed": {
+      "failedTests": 0,
+      "passedTests": 1,
+      "runtimeWarningCount": 0,
+      "skippedTests": 0,
+      "summarySHA256": "99551ebaf172187eb85548fcc9e697d8dd529ce406ea85f235c106849892ef31",
+      "totalTestCount": 1
+    },
+    "release-rosetta-functional-final": {
+      "failedTests": 0,
+      "passedTests": 673,
+      "runtimeWarningCount": 0,
+      "skippedTests": 13,
+      "summarySHA256": "c63cf36ec1b463414f31a64f2fd2df1ef1cd7d0e134cba3f541f1a492d8f1a63",
+      "totalTestCount": 686
+    },
+    "reviewed-debug-regressions": {
+      "failedTests": 0,
+      "passedTests": 51,
+      "runtimeWarningCount": 0,
+      "skippedTests": 1,
+      "summarySHA256": "03369a4a4a45b89f6db894679c7696d499afe49d0dd7c18835f00c7c2b920fb6",
+      "totalTestCount": 52
+    },
+    "reviewed-multitrack-h264": {
+      "failedTests": 0,
+      "passedTests": 1,
+      "runtimeWarningCount": 0,
+      "skippedTests": 0,
+      "summarySHA256": "4c30c97fa10982295e806a40fd5a7423fa89da73b0b2d61ff68d6525a24258d8",
+      "totalTestCount": 1
+    },
+    "reviewed-multitrack-hevc": {
+      "failedTests": 0,
+      "passedTests": 1,
+      "runtimeWarningCount": 0,
+      "skippedTests": 0,
+      "summarySHA256": "1af73ec3ef8897f6ccdcb7376bc46e1411e428badf3ec490b33ef0350c6e894a",
+      "totalTestCount": 1
+    },
+    "reviewed-multitrack-prores422": {
+      "failedTests": 0,
+      "passedTests": 1,
+      "runtimeWarningCount": 0,
+      "skippedTests": 0,
+      "summarySHA256": "1e5ed0039698a83d033f0c762128a3a028df1d6f39bcf509b5f60feb014cf1d4",
+      "totalTestCount": 1
+    },
+    "reviewed-release-full": {
+      "failedTests": 0,
+      "passedTests": 674,
+      "runtimeWarningCount": 0,
+      "skippedTests": 13,
+      "summarySHA256": "b381727170449dfeb0a91ce10731f2f3f421a9d14f1e754c281d52b873c33816",
+      "totalTestCount": 687
+    },
+    "reviewed-rosetta-regressions": {
+      "failedTests": 0,
+      "passedTests": 51,
+      "runtimeWarningCount": 0,
+      "skippedTests": 1,
+      "summarySHA256": "fd78861e8a83b843f98918d31027b987bb3bd5582ac199269c9f279589b4fe36",
+      "totalTestCount": 52
     }
   },
   "version": "1.7.2"
