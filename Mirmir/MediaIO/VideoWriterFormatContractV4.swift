@@ -47,6 +47,7 @@ enum VideoWriterFrameOperationV4: String, Hashable, Sendable {
 
 enum VideoWriterColorContractV4: Hashable, Sendable {
     case sdrBT709
+    case sdr(primaries: String, transferFunction: String, matrix: String)
     case hdr(HDRFormatMetadataV4)
 }
 
@@ -315,7 +316,7 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
         }
 
         switch color {
-        case .sdrBT709:
+        case .sdrBT709, .sdr:
             if sourceContainsDynamicHDRMetadata {
                 throw VideoWriterFormatContractV4Error
                     .dynamicHDRPreservationRequired
@@ -398,6 +399,11 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
             if let profileLevel {
                 compression[AVVideoProfileLevelKey] = profileLevel
             }
+            if codec == .h264 {
+                // Automatic B-frame decisions vary with buffer arrival pacing,
+                // producing different decoded pixels from identical inputs.
+                compression[AVVideoAllowFrameReorderingKey] = false
+            }
             if case .hdr(let metadata) = color {
                 compression.merge(
                     try AVFoundationHDRMetadataAdapterV4
@@ -460,13 +466,13 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
                     NSNumber(value: expectedFormatDescriptionBitDepth)
             ]
             switch color {
-            case .sdrBT709:
+            case .sdrBT709, .sdr:
                 extensions[kCMFormatDescriptionExtension_ColorPrimaries] =
-                    kCMFormatDescriptionColorPrimaries_ITU_R_709_2
+                    colorProperties[AVVideoColorPrimariesKey]
                 extensions[kCMFormatDescriptionExtension_TransferFunction] =
-                    kCMFormatDescriptionTransferFunction_ITU_R_709_2
+                    colorProperties[AVVideoTransferFunctionKey]
                 extensions[kCMFormatDescriptionExtension_YCbCrMatrix] =
-                    kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2
+                    colorProperties[AVVideoYCbCrMatrixKey]
             case .hdr(let metadata):
                 extensions.merge(
                     AVFoundationHDRMetadataAdapterV4
@@ -598,7 +604,7 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
             storage: storage
         )
         switch color {
-        case .sdrBT709:
+        case .sdrBT709, .sdr:
             guard observed == nil else {
                 throw VideoWriterFormatContractV4Error
                     .decodedHDRMetadataMismatch
@@ -657,6 +663,12 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
 
     private var colorProperties: [String: String] {
         switch color {
+        case .sdr(let primaries, let transfer, let matrix):
+            [
+                AVVideoColorPrimariesKey: primaries,
+                AVVideoTransferFunctionKey: transfer,
+                AVVideoYCbCrMatrixKey: matrix
+            ]
         case .sdrBT709:
             [
                 AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
@@ -928,26 +940,23 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
         formatDescription: CMFormatDescription
     ) throws {
         switch color {
-        case .sdrBT709:
+        case .sdrBT709, .sdr:
             try verifyColorField(
                 extensions,
                 key: kCMFormatDescriptionExtension_ColorPrimaries,
-                expected: kCMFormatDescriptionColorPrimaries_ITU_R_709_2
-                    as String,
+                expected: colorProperties[AVVideoColorPrimariesKey]!,
                 field: "color_primaries"
             )
             try verifyColorField(
                 extensions,
                 key: kCMFormatDescriptionExtension_TransferFunction,
-                expected: kCMFormatDescriptionTransferFunction_ITU_R_709_2
-                    as String,
+                expected: colorProperties[AVVideoTransferFunctionKey]!,
                 field: "transfer_function"
             )
             try verifyColorField(
                 extensions,
                 key: kCMFormatDescriptionExtension_YCbCrMatrix,
-                expected: kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2
-                    as String,
+                expected: colorProperties[AVVideoYCbCrMatrixKey]!,
                 field: "ycbcr_matrix"
             )
         case .hdr(let expected):

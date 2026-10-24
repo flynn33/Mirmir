@@ -131,8 +131,15 @@ enum DeterministicV4MediaSegmentError: Error, Equatable, LocalizedError,
     }
 
     var errorDescription: String? {
-        guard case .invalidSampleTiming(let site) = self else { return nil }
-        return "Invalid sample timing at site \(site.rawValue)."
+        switch self {
+        case .invalidSampleTiming(let site):
+            return "Invalid sample timing at site \(site.rawValue)."
+        case .writerRejectedTrack:
+            return "macOS rejected the video output configuration (writer error 11). "
+                + "Export Diagnostics to include the codec and output dimensions."
+        default:
+            return nil
+        }
     }
 }
 
@@ -2050,6 +2057,11 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                 .load(.preferredTransform)
         }
         guard writer.canAdd(writerInput) else {
+            Self.recordWriterRejection(
+                writer: writer,
+                input: writerInput,
+                operation: "configure_segment_writer"
+            )
             throw DeterministicV4MediaSegmentError.writerRejectedTrack
         }
         writer.add(writerInput)
@@ -2538,6 +2550,47 @@ struct DeterministicV4MediaProcessingSession: Sendable {
 }
 
 extension DeterministicV4MediaProcessingSession {
+    private static func recordWriterRejection(
+        writer: AVAssetWriter,
+        input: AVAssetWriterInput,
+        operation: String
+    ) {
+        let settings = input.outputSettings ?? [:]
+        // Restrict this record to technical fields; source metadata can include
+        // arbitrary user text and is deliberately not serialized here.
+        let fields = (try? [
+            MirmirDiagnosticRecorder.textField(
+                "writer_codec",
+                settings[AVVideoCodecKey] as? String ?? "compressed_passthrough"
+            ),
+            MirmirDiagnosticRecorder.textField(
+                "writer_width",
+                (settings[AVVideoWidthKey] as? NSNumber)?.stringValue
+                    ?? String(Double(input.naturalSize.width))
+            ),
+            MirmirDiagnosticRecorder.textField(
+                "writer_height",
+                (settings[AVVideoHeightKey] as? NSNumber)?.stringValue
+                    ?? String(Double(input.naturalSize.height))
+            ),
+            MirmirDiagnosticRecorder.textField(
+                "writer_status", String(writer.status.rawValue)
+            ),
+            MirmirDiagnosticRecorder.textField(
+                "writer_can_apply_settings",
+                String(writer.canApply(outputSettings: input.outputSettings, forMediaType: .video))
+            )
+        ]) ?? []
+        MirmirDiagnosticScope.recorder.enqueue(
+            severity: .error,
+            subsystem: "deterministic_v4",
+            operation: operation,
+            code: "writer_rejected_track",
+            fields: fields,
+            error: writer.error ?? DeterministicV4MediaSegmentError.writerRejectedTrack
+        )
+    }
+
     static func isValidClockQuantization(
         _ observed: CMTime,
         of exact: CMTime
@@ -3928,6 +3981,11 @@ private extension DeterministicV4MediaProcessingSession {
         writerInput.transform = try await track.load(.preferredTransform)
         writerInput.naturalSize = try await track.load(.naturalSize)
         guard writer.canAdd(writerInput) else {
+            Self.recordWriterRejection(
+                writer: writer,
+                input: writerInput,
+                operation: "configure_hdr_metadata_writer"
+            )
             throw DeterministicV4MediaSegmentError.writerRejectedTrack
         }
         writer.add(writerInput)

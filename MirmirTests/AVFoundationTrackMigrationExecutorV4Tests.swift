@@ -97,6 +97,14 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         }
     }
 
+    func testMediaSegmentErrorCode11ExplainsWriterRejection() {
+        let error = DeterministicV4MediaSegmentError.writerRejectedTrack as NSError
+        XCTAssertEqual(error.domain, "Mirmir.DeterministicV4MediaSegmentError")
+        XCTAssertEqual(error.code, 11)
+        XCTAssertTrue(error.localizedDescription.contains("video output configuration"))
+        XCTAssertTrue(error.localizedDescription.contains("Diagnostics"))
+    }
+
     func testMediaSegmentErrorCode16IsInvalidSampleTiming() {
         let site = DeterministicV4InvalidSampleTimingSite
             .nominalCadenceOffLattice

@@ -1,12 +1,27 @@
 # Deterministic engine v4 current qualification status
 
-Verified October 16, 2026.
+Verified October 24, 2026.
 
-The verified date covers the current source and window lifecycle checks.
+The verified date covers the source-closure check and current native/Python QA.
+Release clearance remains on hold.
+Current source: **1.7.2 build 20**.
+
+Native Debug passed 668 tests; native and verified x86-64 Release each passed
+663 tests, all with zero failures and 13 opt-in skips. All 389 Python tests passed. Additional opt-in results and
+remaining release gates are recorded separately. See [the current QA record](../FINAL_QA_2026-10-24.md)
+for candidate tests and remaining release checks. The current P06 source closure
+passes after a reproducible rebuild. An October 24 x86-64 reproduction and
+writer-only pacing control isolated arrival-sensitive H.264 B-frame decisions.
+The new fixed ordering policy and regression results are documented in current
+QA; historical captures retain their original status and identity.
+
+## Historical October 16 window-lifecycle verification
+
+The October 16 verification covered that source and window lifecycle checks.
 Historical engine and full-movie evidence below retains its October 7 dates,
 original versions, and artifact identities.
 
-Current source identity: 1.7.1 build 19. Native main-window menu lifecycle,
+At that checkpoint, source identity was 1.7.1 build 19. Native main-window menu lifecycle,
 version alignment, and the development-signed universal Release build passed.
 Full native Debug passed 661 tests with zero failures and 13 skips; Release
 passed 656 tests with zero failures and 13 skips. Both xcresults reported no
@@ -159,10 +174,10 @@ is absent. The capture does not establish a new sealed M7 selection, committed
 runtime binding, or current performance qualification. Historical P05 timing
 inputs were reused and are not a fresh movie timing baseline.
 
-The runtime source-identity gate still exits 2. An attempted runtime-production
+At the October 7 checkpoint the runtime source-identity gate exited 2. An attempted runtime-production
 run stopped at stale frozen `MirmirApp` capture-observer source/size locks, with
 16 of 17 checks passing. Runtime assets, trust constants, capture checks, and
-historical seals were retained unchanged. Repairing this requires a legitimate
+historical seals were retained unchanged. Repairing that failure required a legitimate
 new runtime/source binding and its full validation; changing a frozen lock to
 accept the current file would not supply that evidence.
 
@@ -209,9 +224,9 @@ Original build logs, result bundles, source/output movies, and trace attachments
 are retained locally in
 `/Users/jimdaley/Desktop/Mirmir-1.6.0-Build16-Evidence/`.
 
-## Open source identity gate
+## Historical source identity failure (repaired October 24)
 
-`repository_identity_v4.verify_runtime_bundle` rejects both the current source
+At that checkpoint, `repository_identity_v4.verify_runtime_bundle` rejected both the source
 and the unchanged 1.4.5 commit `3a1b3481a19106d895306c2f20b0833d27fabc9e` with
 `runtime source revision does not match production source closure`. The
 baseline check used all 398 tracked production Swift/Metal sources, the exact
@@ -222,9 +237,9 @@ The baseline closure computes
 `2bc8793b21a1b0429fe7e080d199e0ecfa12e41b15c1fb945c6a8f2addffabaf`, while
 the packaged runtime binds
 `070556595835048d0112e8de2399be7067ec931079802c906aa8400f51e62f00`. The
-working closure also differs from the packaged revision. This pre-existing
-provenance gate remains unresolved; passing build, behavior, or timing checks
-does not close it. Runtime assets and historical evidence were not resealed.
+working closure also differed from the packaged revision. This was unresolved
+at that checkpoint. The October 24 rebuild and current source-identity check
+are recorded separately in the final QA report; historical evidence was not resealed.
 The comparison and both complete source manifests are retained at
 `/tmp/mirmir-p06-baseline-provenance-audit-xwls4uw0/`.
 
@@ -291,7 +306,7 @@ No ASH reseal or benchmark/evidence changes were made. The full Swift suite
 was not run in this pass.
 
 The remaining verification narrative below belongs to 1.4.3 and earlier
-commits; it does not establish qualification of the current 1.7.1 source.
+commits; it does not establish qualification of the current 1.7.2 source.
 
 Historical qualification receipts retain their original dates and source
 identities.
@@ -317,17 +332,17 @@ decisions.
 
 | Field | Verified value |
 | --- | --- |
-| Current source product | Mirmir 1.7.1 (19) |
-| Version authorities | `VERSION` = `1.7.1`; `BUILD_NUMBER` = `19` |
+| Current source product | Mirmir 1.7.2 (20) |
+| Version authorities | `VERSION` = `1.7.2`; `BUILD_NUMBER` = `20` |
 | Historical October 7 installed-application check | Signed 1.7.0 (17), installed and launched October 7; exact repaired executable, strict signature, native About version/build, and idle Metal route verified |
 | Historical installed-application check | `/Applications/Mirmir.app` 1.5.0 (15), checked October 6; source publication does not establish current installation |
 | Bundle identifier | `com.mirmir.app` |
 | Minimum macOS | 15.4 |
 | M0–M6 implementation | Complete |
-| P06 semantic runtime-manifest identity | `e4cc2394ff7454447d11a37fccf99f8e6c66ca6e68f5302a734e999cd815b5b4` |
-| P06 runtime-manifest file SHA-256 | `13c47e84e31309a0c7008c05b19fdb0ae43c92773c5ce5fc3331598c96f912f5` |
-| P06 packaged production-source revision | `070556595835048d0112e8de2399be7067ec931079802c906aa8400f51e62f00` |
-| P06 builder-source SHA-256 | `944014c7c35eb780722658c63f79e6ea59a14c3b0da25a33b8c78773e9451a68` |
+| P06 semantic runtime-manifest identity | `b439118685a015d8e4350d7fb60f09baa49c57846fd4a9869a83fd6781cc880e` |
+| P06 runtime-manifest file SHA-256 | `d905952a00a28af4cbddd3be706378576e9da3a94654414f5397aed511598039` |
+| P06 packaged production-source revision | `30e486a8d6f16c52dd24323ddfd5c59898fe60f9d052a7c5018d62c543d9485f` |
+| P06 builder-source SHA-256 | `40aad241a07eda3f63919eed2b126eb7dc62777be9bd6520cf2b5a3c824c6dc9` |
 
 The previous 1.3.0 build 3 universal Developer ID archive and its
 notarization-oriented qualification tooling remain historical evidence. They

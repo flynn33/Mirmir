@@ -918,9 +918,19 @@ private extension DeterministicV4WholeAssetPlanner {
         let range: CanonicalPixelRangeV4 = storage.codeRange == .video
             ? .video
             : .full
-        guard pixel.bitDepth == storage.signalBitDepth,
+        // The source inventory retains the encoded 4:2:2 format and Apple's
+        // 12-bit decoder descriptor. Processing explicitly requests 10-bit
+        // P010; the output contract declares the resulting 4:2:0 sampling.
+        let isProRes422Decode = [
+            "encoded-fourcc-6170636e", "encoded-fourcc-61706368",
+            "encoded-fourcc-61706373", "encoded-fourcc-6170636f"
+        ].contains(pixel.formatID)
+            && [10, 12].contains(pixel.bitDepth)
+            && pixel.chromaSubsampling == .yuv422
+            && storage == .p010VideoRange10Bit
+        guard (pixel.bitDepth == storage.signalBitDepth
+                && pixel.chromaSubsampling == .yuv420) || isProRes422Decode,
               pixel.range == range,
-              pixel.chromaSubsampling == .yuv420,
               pixel.alphaModel == .none else {
             throw DeterministicV4WholeAssetPlannerError
                 .unsupportedSourcePixelContract(pixel.formatID)
@@ -977,9 +987,14 @@ private extension DeterministicV4WholeAssetPlanner {
         let transfer709 =
             kCMFormatDescriptionTransferFunction_ITU_R_709_2 as String
         let matrix709 = kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2 as String
-        if color.transferFunction == transfer709 {
-            guard color.primaries == bt709,
-                  color.matrix == matrix709,
+        let sdrTransfers: Set<String> = [
+            transfer709,
+            kCMFormatDescriptionTransferFunction_SMPTE_240M_1995 as String,
+            kCMFormatDescriptionTransferFunction_sRGB as String
+        ]
+        if sdrTransfers.contains(color.transferFunction) {
+            guard color.primaries != "unknown",
+                  color.matrix != "unknown",
                   color.masteringDisplay == nil,
                   color.contentLightLevel == nil,
                   color.ambientViewingEnvironment == nil,
@@ -987,7 +1002,16 @@ private extension DeterministicV4WholeAssetPlanner {
                 throw DeterministicV4WholeAssetPlannerError
                     .unsupportedSourceColorContract(color.transferFunction)
             }
-            return .sdrBT709
+            if color.primaries == bt709,
+               color.transferFunction == transfer709,
+               color.matrix == matrix709 {
+                return .sdrBT709
+            }
+            return .sdr(
+                primaries: color.primaries,
+                transferFunction: color.transferFunction,
+                matrix: color.matrix
+            )
         }
 
         let transfer: HDRTransferFunctionV4
@@ -1159,7 +1183,7 @@ private extension DeterministicV4WholeAssetPlanner {
                 ambientViewingEnvironment: nil,
                 dynamicHDRMetadata: []
             )
-        case .hdr:
+        case .sdr, .hdr:
             color = source.color
         }
         return ASHVideoOutputContractV4(

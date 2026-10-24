@@ -3,37 +3,25 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-Version **1.7.1 build 19** adds **Window > Show Main Window** (**Command-0**) to
-reopen the workspace after closing it or bring it forward when already open.
-Native menu lifecycle verification passed; see
-[`docs/WINDOW_LIFECYCLE.md`](docs/WINDOW_LIFECYCLE.md) for the review issue and
-verification results and procedure. This patch retains the 1.7.0 deterministic
-finish-stage assembly and whole-asset migration repairs and bounded parallel
-spatial conditioning on both deterministic routes. Workers own disjoint row
-stripes and bounded scratch;
-immutable boundary rows preserve the serial integer stencil and rounding.
-At 3840×1632, the measured spatial-stage median fell from 91.325 to 10.248 ms
-with 14 workers across five alternating pairs after warmup, an **8.91×**
-improvement with identical pixels and controls. This measures that stage;
-full-movie completion time remains unqualified. See
-[`docs/DETERMINISTIC_SPATIAL_PARALLELISM.md`](docs/DETERMINISTIC_SPATIAL_PARALLELISM.md)
-for implementation, strict parity coverage, and verification limits, and
-[`docs/v4/CURRENT_QUALIFICATION_STATUS.md`](docs/v4/CURRENT_QUALIFICATION_STATUS.md)
-for current results and remaining qualification work.
+Version **1.7.2 build 20** fixes H.264 output varying with frame delivery pace
+and repairs admission of readable movies with omitted
+color tags, preserves decoder-resolved SDR color through deterministic export,
+and admits ProRes 422 through the declared 10-bit working format. Writer error
+11 now has an actionable description and bounded configuration diagnostics.
+Completed deterministic jobs retain the original movie for Compare instead of
+using a private snapshot that cleanup removes.
 
-Version 1.7.1 build 19 carries the deterministic ASH P06 CPU and Metal engine
-beside the supported Apple scaling frameworks, preserves the completed
-simulator-only M7 candidate selection, and adds qualified source admission,
-VideoToolbox capability checks, multi-audio preservation, and deterministic
-timing diagnostics while keeping every backend choice, preservation decision,
-and fallback boundary visible. It also separates live Upscale processing from
-the independent Compare player and permits authenticated failed jobs to resume
-from their last verified nonterminal checkpoint. Settings can place the durable
-job cache on user-selected storage and remove inactive job data without touching
-completed destination movies. Version 1.4.3 connects the
-development diagnostic exports to the workspace, keeps exactly representable
-media times exact when a distinct container boundary is also present, and
-preserves one-member audible selection groups in conventional output.
+Automated native Debug/Release suites and 389 Python tests pass. Release
+clearance remains on hold. See [`docs/FINAL_QA_2026-10-24.md`](docs/FINAL_QA_2026-10-24.md)
+for fresh evidence, discovered defects, and outstanding release checks. The P06
+runtime was rebuilt twice with identical bytes and its current source closure
+verified. Historical performance and release evidence retains its original
+version and scope; it does not qualify this candidate automatically.
+
+Mirmir includes explicit deterministic CPU/Metal processing, supported Apple
+scaling frameworks, durable queues and recovery, independent comparison
+playback, cache controls, and diagnostic exports. **Window > Show Main Window**
+(**Command-0**) remains available after closing the workspace.
 
 The current marketing version and build number are recorded in
 [`VERSION`](VERSION) and [`BUILD_NUMBER`](BUILD_NUMBER), then synchronized with
@@ -92,7 +80,7 @@ completed GPU cache; a fresh full GPU render was not repeated. See
   bounded process telemetry. Diagnostics exports the journal as JSON or
   Markdown and the current process's available unified logs as JSON.
 
-Version 1.7.1 keeps these product boundaries explicit:
+Version 1.7.2 keeps these product boundaries explicit:
 
 - Deterministic resource allocation is not a first-release target. It is
   excluded from version 1.4.0 rather than treated as unfinished release work.

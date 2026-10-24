@@ -167,6 +167,21 @@ final class BackendCatalogTests: XCTestCase {
     func testSmoothMotionRejectsSourceBeyondReportedTwoXGeometryLimit()
         async throws {
         guard #available(macOS 27.0, *) else { return }
+        if !VTLowLatencyFrameInterpolationConfiguration.isSupported {
+            let source = makeVideoInfo(
+                url: URL(fileURLWithPath: "/tmp/catalog-smooth-motion-unsupported.mov"),
+                encodedSize: CGSize(width: 64, height: 64)
+            )
+            let availability = await SystemBackendCapabilityProbe().availability(
+                for: .videoToolboxInterpolationWithSpatialScale,
+                source: source,
+                targetSize: CGSize(width: 128, height: 128)
+            )
+            XCTAssertEqual(availability, .unavailable(reason: .appleAPIUnsupported(
+                details: "VTLowLatencyFrameInterpolationConfiguration.isSupported is false"
+            )))
+            return
+        }
         let maximumDimension = try XCTUnwrap(
             VTLowLatencyFrameInterpolationConfiguration
                 .maximumDimension(forSpatialScaleFactor: 2)
@@ -611,6 +626,65 @@ final class BackendCatalogTests: XCTestCase {
     }
 
     @MainActor
+    func testCompletedWorkflowKeepsOriginalSourceAfterSnapshotCleanup() async throws {
+        let original = makeVideoInfo(url: URL(fileURLWithPath: "/tmp/original.mov"))
+        let snapshot = makeVideoInfo(url: URL(fileURLWithPath: "/tmp/deleted-private-snapshot/original.mov"))
+        let output = URL(fileURLWithPath: "/tmp/completed.mov")
+        let instant = WorkflowWallClockInstantV4(nanosecondsSinceUnixEpoch: 45)
+        let completion = WorkflowApplicationRunOutcomeV4.completed(
+            WorkflowApplicationCompletionV4(source: snapshot, result: UpscaleResult(
+                outputURL: output, actualBackendID: .mirmirDeterministicCPU,
+                encodedWidth: 640, encodedHeight: 360, durationSeconds: 1,
+                outputCodec: .hevc, audioResult: .absent,
+                processedFrameCount: 24, processingDurationSeconds: 1
+            ))
+        )
+        let controller = CatalogQueueStateControllerV4(
+            queue: .init(generatedAt: instant, items: []),
+            recovery: .init(generatedAt: instant, items: [])
+        )
+        let jobID = try WorkflowJobID("paused-original-selection")
+        await controller.setOutcomes([
+            .paused(jobID: jobID, source: snapshot), completion
+        ])
+        let values = Dictionary(uniqueKeysWithValues: BackendDescriptor.concrete.map {
+            ($0.id, BackendAvailability.available)
+        })
+        let model = MirmirViewModel(
+            videoProbe: ImmediateCatalogVideoProbe(info: original),
+            backendCatalog: UpscaleBackendCatalog(backends: makeStubBackends(values: values)),
+            runtimeEnvironment: testEnvironment, workflowController: controller
+        )
+        await model.initializeWorkflow()
+        model.selectBackend(.mirmirDeterministicCPU)
+        model.selectVideo(original.url)
+        await model.waitForCurrentProbe()
+        await model.waitForBackendAvailability()
+        model.setOutputURL(output)
+        XCTAssertTrue(model.canStart)
+        model.startUpscale()
+        await model.waitForProcessing()
+        XCTAssertEqual(model.currentVideoInfo?.url, original.url)
+        model.clear()
+        model.resumeWorkflowJob(jobID)
+        await model.waitForProcessing()
+        guard case .completed(let source, _) = model.state else {
+            return XCTFail("Expected completed workflow")
+        }
+        XCTAssertEqual(source.url, original.url)
+        XCTAssertEqual(model.currentVideoInfo?.url, original.url)
+        XCTAssertEqual(model.completedComparisonSourceURL, original.url)
+
+        // A recovered job with no retained original must not offer a deleted
+        // processing snapshot as a usable comparison file.
+        model.clear()
+        await controller.setOutcomes([completion])
+        model.resumeWorkflowJob(try WorkflowJobID("recovered-other-job"))
+        await model.waitForProcessing()
+        XCTAssertNil(model.completedComparisonSourceURL)
+    }
+
+    @MainActor
     func testProRes4444AllowsOddIntegralAlphaGeometryInProductDraft()
         async throws {
         let sourceURL = URL(
@@ -781,6 +855,11 @@ private actor CatalogQueueStateControllerV4:
     private let recovery: WorkflowLaunchRecoverySnapshotV4
     private var observer = WorkflowApplicationObserverV4.none
     private var submittedRequests: [UpscaleRequest] = []
+    private var outcomes: [WorkflowApplicationRunOutcomeV4] = []
+
+    func setOutcomes(_ outcomes: [WorkflowApplicationRunOutcomeV4]) {
+        self.outcomes = outcomes
+    }
 
     init(
         queue: WorkflowApplicationQueueSnapshotV4,
@@ -816,6 +895,7 @@ private actor CatalogQueueStateControllerV4:
         ) -> Void
     ) async throws -> WorkflowApplicationRunOutcomeV4 {
         submittedRequests.append(request)
+        if !outcomes.isEmpty { return outcomes.removeFirst() }
         throw CatalogQueueStateControllerErrorV4.unsupported
     }
 
@@ -838,6 +918,7 @@ private actor CatalogQueueStateControllerV4:
             WorkflowApplicationQueueSnapshotV4
         ) -> Void
     ) async throws -> WorkflowApplicationRunOutcomeV4 {
+        if !outcomes.isEmpty { return outcomes.removeFirst() }
         throw CatalogQueueStateControllerErrorV4.unsupported
     }
 

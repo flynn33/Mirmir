@@ -121,9 +121,10 @@ suite; the five skips must not be combined with default-suite receipts.
 
 The development-unsealed quality replay reproduced all 840 baseline artifacts
 and the quality result. Its 64×48 planes run serially and do not qualify the
-parallel path. The existing runtime source-identity gate remains open; the
+parallel path. At that checkpoint the runtime source-identity gate remained open; the
 attempted runtime producer stopped at stale frozen capture-observer locks.
-Existing assets, trust constants, and historical seals remain intact. No new
+Those assets, trust constants, and historical seals were retained. The October 24
+source-identity rebuild is recorded separately in the final QA report. No new
 canonical M7 or fresh full-run stability/performance result follows. See
 [current qualification](v4/CURRENT_QUALIFICATION_STATUS.md) and
 [known issues](../KNOWN_ISSUES.md).

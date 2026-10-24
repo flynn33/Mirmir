@@ -180,6 +180,7 @@ final class VideoWriterFormatContractV4Tests: XCTestCase {
         let nv12Compression = try XCTUnwrap(
             nv12Settings[AVVideoCompressionPropertiesKey] as? [String: Any]
         )
+        XCTAssertEqual(nv12Compression[AVVideoAllowFrameReorderingKey] as? Bool, false)
         XCTAssertEqual(
             nv12Compression[AVVideoProfileLevelKey] as? String,
             kVTProfileLevel_H264_High_AutoLevel as String

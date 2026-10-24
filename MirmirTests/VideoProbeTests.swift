@@ -143,11 +143,13 @@ enum VideoProbeFixtureFactory {
     static func makeVideo(
         at url: URL,
         transform: CGAffineTransform,
-        presentationTimes: [CMTime]? = nil
+        presentationTimes: [CMTime]? = nil,
+        includeColorProperties: Bool = true,
+        codec: AVVideoCodecType = .h264
     ) async throws {
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
-        let videoSettings: [String: Any] = [
-            AVVideoCodecKey: AVVideoCodecType.h264,
+        var videoSettings: [String: Any] = [
+            AVVideoCodecKey: codec,
             AVVideoWidthKey: width,
             AVVideoHeightKey: height,
             AVVideoColorPropertiesKey: [
@@ -156,6 +158,9 @@ enum VideoProbeFixtureFactory {
                 AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
             ]
         ]
+        if !includeColorProperties {
+            videoSettings.removeValue(forKey: AVVideoColorPropertiesKey)
+        }
         let input = AVAssetWriterInput(
             mediaType: .video,
             outputSettings: videoSettings
@@ -226,6 +231,11 @@ enum VideoProbeFixtureFactory {
                 )
             }
             fill(pixelBuffer: pixelBuffer, frameIndex: frameIndex)
+            if !includeColorProperties {
+                CVBufferRemoveAttachment(pixelBuffer, kCVImageBufferColorPrimariesKey)
+                CVBufferRemoveAttachment(pixelBuffer, kCVImageBufferTransferFunctionKey)
+                CVBufferRemoveAttachment(pixelBuffer, kCVImageBufferYCbCrMatrixKey)
+            }
             guard adaptor.append(
                 pixelBuffer,
                 withPresentationTime: presentationTime

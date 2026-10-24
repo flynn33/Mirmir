@@ -20,9 +20,9 @@
   "capture": {
     "archiveProvenanceSourceSHA256": "b4638c3bfe698fc4c291e3f8f522e7e0d2025dd741efab8c74bc6217b815986d",
     "evaluatorSourceSHA256": "5d7b19b4b072170f9549534936136a1a43a06e433468b4c31720a1b5b15362ee",
-    "observerSourceSHA256": "361c0ce4df777de3ba00162a2efa7a254a7af831f1bf337d3a151527af74a582",
+    "observerSourceSHA256": "46654baec4279f4945051102c60b2f9638b1339213b638bed6c41706c30eb3dc",
     "packagedEvidenceSourceSHA256": "5ea4b53d5d696714d1d0f00a1df22cb1a0b8f9769f2e70b133139cb05132f117",
-    "producerSourceSHA256": "7068c7202934af961df30e8f80da87b374e2e951382fcf203f6d3ce58bf4919c",
+    "producerSourceSHA256": "035a10d2b3a7f0e3da8867e213ddcd409b0d9163b42b304d92af08b036fb87cb",
     "runnerSourceSHA256": "4552b7e7d631ea12a2f712fe32122083dd7c9dba576b4655beca319d41076b27"
   },
   "crossProcessCaptureCount": 2,

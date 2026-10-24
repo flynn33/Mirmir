@@ -7,6 +7,37 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+## [1.7.2] - 2026-10-24
+
+### Fixed
+
+- Disable adaptive frame reordering in deterministic H.264 output after a
+  controlled reproduction showed that delivery pacing changed decoded pixels
+  despite identical input frames and timestamps. Retain strict parity checks.
+- Resolve omitted video color tags from the decoded frame without overwriting
+  explicit declarations; retain resolved SDR tags in deterministic output.
+  Apply codec-defined video-range defaults and admit ProRes 422's declared
+  10-bit processing conversion instead of rejecting its decoder descriptor.
+- Keep the selected original movie and access alive for completed-job Compare,
+  including same-session pause/resume. Recovered jobs without a retained
+  original require the independent Compare picker.
+- Describe writer rejection code 11 and journal codec, raster, and writer state
+  at both rejection sites. The reported customer failure itself remains
+  unconfirmed without its error domain and configuration.
+- Rebuild and bind the P06 runtime to current production sources. Refresh
+  reviewed qualification-tool bindings while retaining strict verification.
+  Replay historical hot-path evidence with its pinned historical evaluator.
+- Reset the opt-in baseline capture frame ordinal for each newly prepared
+  engine route; retain the production sequential-ordinal invariant.
+- Align Xcode and source version authorities to 1.7.2 (20).
+
+### Verification
+
+Automated native Debug/Release suites and 389 Python tests pass. Release
+clearance remains on hold; current evidence and explicit gaps are recorded
+in `docs/FINAL_QA_2026-10-24.md`. No push, archive submission, or release is part
+of this local QA change.
+
 ## [1.7.1] - 2026-10-16
 
 ### Fixed

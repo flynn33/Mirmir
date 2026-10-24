@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import math
 import pathlib
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -436,6 +438,21 @@ class PixelBufferScalerHotPathEvaluatorTests(unittest.TestCase):
         report = json.loads(result.stdout)
         self.assertEqual(report["pairCount"], 4)
         self.assertTrue(report["allPairsPassed"])
+
+    def test_historical_replay_rejects_modified_capture(self) -> None:
+        spec = importlib.util.spec_from_file_location("historical_replay", REPEATABILITY_VERIFIER)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as temporary:
+            evidence = pathlib.Path(temporary) / "evidence"
+            shutil.copytree(REPOSITORY_ROOT / module.EVIDENCE_DIRECTORY, evidence)
+            path = evidence / "prepared-direct-after.json"
+            capture = json.loads(path.read_text())
+            capture["identities"]["engineSourceSHA256"] = "0" * 64
+            path.write_text(json.dumps(capture))
+            result = module.replay(evidence)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("failed evaluation", result.stderr)
 
 
 if __name__ == "__main__":

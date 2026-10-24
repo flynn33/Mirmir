@@ -127,6 +127,7 @@ private enum LiveSuperResolutionScaleSupport {
 final class MirmirViewModel {
     private(set) var state: AppState = .empty
     private(set) var currentVideoInfo: VideoInfo?
+    private(set) var completedComparisonSourceURL: URL?
     private(set) var selectedBackendID: UpscaleBackendID = .automatic
     private(set) var backendSnapshot: BackendCatalogSnapshot?
     private(set) var backendTargetSize: CGSize?
@@ -180,6 +181,13 @@ final class MirmirViewModel {
     @ObservationIgnored private var activeBackendAvailabilityID: UUID?
     @ObservationIgnored private var scopedInputAccess: SecurityScopedAccess?
     @ObservationIgnored private var scopedOutputAccess: SecurityScopedAccess?
+    private struct OriginalWorkflowSelection {
+        let source: VideoInfo
+        let inputAccess: SecurityScopedAccess?
+        let outputAccess: SecurityScopedAccess?
+    }
+    @ObservationIgnored private var pausedOriginalSelections:
+        [WorkflowJobID: OriginalWorkflowSelection] = [:]
     @ObservationIgnored private var sourceAspectRatio: Double?
     @ObservationIgnored private var preferredInitialScaleFactor: Int?
 
@@ -408,6 +416,7 @@ final class MirmirViewModel {
 
     func selectVideo(_ url: URL) {
         cancelCurrentWork()
+        completedComparisonSourceURL = nil
 
         guard url.isFileURL else {
             state = .failed(.invalidRequest("Select a video file stored on this Mac."))
@@ -467,6 +476,7 @@ final class MirmirViewModel {
 
     func clear() {
         cancelCurrentWork()
+        completedComparisonSourceURL = nil
         currentVideoInfo = nil
         targetWidth = 0
         targetHeight = 0
@@ -816,6 +826,7 @@ final class MirmirViewModel {
                 return try await workflowController.queueSnapshot()
             }
             applyWorkflowSnapshot(snapshot)
+            pausedOriginalSelections.removeValue(forKey: jobID)
             cacheOperationStatusMessage = "Deleted the cached job."
         } catch {
             cacheLocationErrorMessage = error.localizedDescription
@@ -864,6 +875,8 @@ final class MirmirViewModel {
                 return (count, snapshot)
             }
             let count = result.0
+            let remaining = Set(result.1.items.map(\.jobID))
+            pausedOriginalSelections = pausedOriginalSelections.filter { remaining.contains($0.key) }
             applyWorkflowSnapshot(result.1)
             cacheOperationStatusMessage = count == 1
                 ? "Deleted 1 cached job."
@@ -913,6 +926,7 @@ final class MirmirViewModel {
                 return (result, snapshot)
             }
             let result = response.0
+            pausedOriginalSelections.removeAll()
             applyWorkflowSnapshot(response.1)
             cacheOperationStatusMessage =
                 "Cleared \(result.deletedJobCount) cached job"
@@ -995,6 +1009,7 @@ final class MirmirViewModel {
                             }
                     }
                 guard let self else { return }
+                self.completedComparisonSourceURL = source.url
                 self.state = .completed(source, result)
                 self.processingTask = nil
             } catch let error as MirmirError {
@@ -1194,6 +1209,7 @@ final class MirmirViewModel {
         isWorkflowProcessing = true
         isForegroundWorkflowProcessing = true
         workflowErrorMessage = nil
+        let originalSelection = pausedOriginalSelections[jobID]
         let progressTarget = self
         let diagnosticRecorder = diagnosticRecorder
         processingTask = Task { [weak self] in
@@ -1222,7 +1238,8 @@ final class MirmirViewModel {
                     )
                 }
                 guard let self else { return }
-                self.applyWorkflowOutcome(outcome)
+                self.pausedOriginalSelections.removeValue(forKey: jobID)
+                self.applyWorkflowOutcome(outcome, originalSelection: originalSelection)
                 self.processingTask = nil
                 self.isForegroundWorkflowProcessing = false
                 await self.refreshWorkflowSnapshot()
@@ -1447,6 +1464,11 @@ final class MirmirViewModel {
         isWorkflowProcessing = true
         isForegroundWorkflowProcessing = true
         workflowErrorMessage = nil
+        let originalSelection = OriginalWorkflowSelection(
+            source: source,
+            inputAccess: scopedInputAccess,
+            outputAccess: scopedOutputAccess
+        )
         let progressTarget = self
         let diagnosticRecorder = diagnosticRecorder
         processingTask = Task { [weak self] in
@@ -1477,7 +1499,7 @@ final class MirmirViewModel {
                         )
                     }
                 guard let self else { return }
-                self.applyWorkflowOutcome(outcome)
+                self.applyWorkflowOutcome(outcome, originalSelection: originalSelection)
                 self.processingTask = nil
                 self.isForegroundWorkflowProcessing = false
                 await self.refreshWorkflowSnapshot()
@@ -1522,13 +1544,26 @@ final class MirmirViewModel {
     }
 
     private func applyWorkflowOutcome(
-        _ outcome: WorkflowApplicationRunOutcomeV4
+        _ outcome: WorkflowApplicationRunOutcomeV4,
+        originalSelection: OriginalWorkflowSelection?
     ) {
+        // Completion refers to the private processing snapshot, which terminal
+        // cleanup deletes. Keep the selected original and its access for review.
+        if let originalSelection {
+            scopedInputAccess = originalSelection.inputAccess
+            scopedOutputAccess = originalSelection.outputAccess
+        }
         switch outcome {
         case .completed(let completion):
-            currentVideoInfo = completion.source
-            state = .completed(completion.source, completion.result)
-        case .paused(_, let source):
+            let source = originalSelection?.source ?? completion.source
+            completedComparisonSourceURL = originalSelection?.source.url
+            currentVideoInfo = source
+            state = .completed(source, completion.result)
+        case .paused(let jobID, let snapshotSource):
+            if let originalSelection {
+                pausedOriginalSelections[jobID] = originalSelection
+            }
+            let source = originalSelection?.source ?? snapshotSource
             currentVideoInfo = source
             state = .ready(source)
         }

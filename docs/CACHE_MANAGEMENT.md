@@ -1,6 +1,6 @@
 # Cache management
 
-Mirmir 1.7.1 build 19 carries the durable workflow-cache controls introduced in
+Mirmir 1.7.2 build 20 carries the durable workflow-cache controls introduced in
 1.4.0 build 9 and the 1.4.2 confirmation and post-action readback repair. The cache
 contains queue state, private source snapshots, checkpoints, recovery records,
 and recognized in-progress working artifacts. Completed output movies remain at

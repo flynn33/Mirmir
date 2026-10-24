@@ -1,0 +1,179 @@
+{
+  "baseCommit": "9c540497bdd68c9ffe6608cbb14b6592525545c7",
+  "build": "20",
+  "date": "2026-10-24",
+  "encoderPacingControl": {
+    "beforeFixParityFailures": [
+      {
+        "decodedMismatchCount": 100,
+        "frameCount": 156,
+        "preEncoderMismatchCount": 0
+      },
+      {
+        "decodedMismatchCount": 100,
+        "frameCount": 157,
+        "preEncoderMismatchCount": 0
+      },
+      {
+        "decodedMismatchCount": 24,
+        "frameCount": 66,
+        "preEncoderMismatchCount": 0
+      }
+    ],
+    "beforeFixX86FullSuite": {
+      "failed": 4,
+      "passed": 658,
+      "skipped": 13
+    },
+    "defaultPolicyDecodedMismatchCount": 61,
+    "delayNanoseconds": [
+      0,
+      40000000
+    ],
+    "fixedPolicyDecodedMismatchCount": 0,
+    "regressionFailedBeforeFix": true,
+    "regressionPassesAfterFixInAllThreeFullSuites": true
+  },
+  "environment": {
+    "Xcode": "27",
+    "host": "Apple M4 Pro, 48 GB",
+    "macOS": "27.0.1 (26A434)"
+  },
+  "independentMediaVerification": {
+    "attached_picture": {
+      "identical": true,
+      "output": {
+        "bytes": 57221,
+        "sha256": "f7795cfa68325e51e1e9e8ce5e80f1e2f2b84dd7a9b7cfd7a18ef3e84dbc3f7a"
+      },
+      "source": {
+        "bytes": 57221,
+        "sha256": "f7795cfa68325e51e1e9e8ce5e80f1e2f2b84dd7a9b7cfd7a18ef3e84dbc3f7a"
+      }
+    },
+    "audio_pcm": {
+      "identical": true,
+      "output": {
+        "bytes": 1921024,
+        "sha256": "4bcefb8cdede535d885526cc73df2d028c8f2a2cc5ddab441824cdeb894b9cc4"
+      },
+      "source": {
+        "bytes": 1921024,
+        "sha256": "4bcefb8cdede535d885526cc73df2d028c8f2a2cc5ddab441824cdeb894b9cc4"
+      }
+    },
+    "output_full_decode_exit": 0,
+    "source_full_decode_exit": 0
+  },
+  "openGates": [
+    "Final manual UI checks require an available native UI session",
+    "Minimum supported macOS and physical Intel hardware untested",
+    "Five specific historical saved-media replay tests not executed",
+    "Packaged App Store and aggregate release qualification not performed",
+    "Customer error 11 domain and configuration remain unconfirmed"
+  ],
+  "productionBuild": {
+    "architectures": "x86_64 arm64",
+    "build": "20",
+    "bundleID": "com.mirmir.app",
+    "executableSHA256": "b107b66100a7c83714273661520a7907067659c396c4763e6ede09e09638ef80",
+    "signatureVerification": {
+      "exit": 0
+    },
+    "version": "1.7.2"
+  },
+  "publicationPerformed": false,
+  "python": {
+    "commands": 24,
+    "failedCommands": 0,
+    "tests": 389
+  },
+  "releaseQualified": false,
+  "runtime": {
+    "builderSourceSHA256": "40aad241a07eda3f63919eed2b126eb7dc62777be9bd6520cf2b5a3c824c6dc9",
+    "manifestSHA256": "b439118685a015d8e4350d7fb60f09baa49c57846fd4a9869a83fd6781cc880e",
+    "sourceRevision": "30e486a8d6f16c52dd24323ddfd5c59898fe60f9d052a7c5018d62c543d9485f"
+  },
+  "schemaVersion": "mirmir-local-final-qa-summary-v1",
+  "sourceCopyVerification": {
+    "differences": [],
+    "verifiedFileCount": 484
+  },
+  "suites": {
+    "debug-8k-encoder-fixed": {
+      "failedTests": 0,
+      "passedTests": 1,
+      "runtimeWarningCount": 0,
+      "skippedTests": 0,
+      "summarySHA256": "4e189da0f5ec51336068dc48b06e1228caa380a090370189b04db243bf5d3642",
+      "totalTestCount": 1
+    },
+    "debug-encoder-fixed": {
+      "failedTests": 0,
+      "passedTests": 668,
+      "runtimeWarningCount": 0,
+      "skippedTests": 13,
+      "summarySHA256": "0996b0fcae59d7afe6e140772a62568b7f296fbd6d1a0de6ca0c2ca8d597d41f",
+      "totalTestCount": 681
+    },
+    "release-encoder-fixed": {
+      "failedTests": 0,
+      "passedTests": 663,
+      "runtimeWarningCount": 0,
+      "skippedTests": 13,
+      "summarySHA256": "9d4544c5a6663fc889790feb7e23c1e3f1ab463e4d16979bd1b0298d6ec6f91e",
+      "totalTestCount": 676
+    },
+    "release-optin-captures-encoder-fixed": {
+      "failedTests": 0,
+      "passedTests": 4,
+      "runtimeWarningCount": 0,
+      "skippedTests": 0,
+      "summarySHA256": "ae01d443adc14193a7800b5d7cbcc02192a2ef986c7eba01f1ca4759dca3dd30",
+      "totalTestCount": 4
+    },
+    "release-real-file-encoder-fixed-2": {
+      "failedTests": 0,
+      "passedTests": 1,
+      "runtimeWarningCount": 0,
+      "skippedTests": 0,
+      "summarySHA256": "dfd49a408762110d67123b7b26b44d6f47af464827c71594a34192c2b0ddbda0",
+      "totalTestCount": 1
+    },
+    "release-rosetta-encoder-fixed": {
+      "failedTests": 0,
+      "passedTests": 663,
+      "runtimeWarningCount": 0,
+      "skippedTests": 13,
+      "summarySHA256": "64e33aecf8b866c7eb4c32b6f6044bd37a312f0bff92ce6b741d4b36c4bbea72",
+      "totalTestCount": 676
+    },
+    "release-rosetta-parity-fixed-repeats": {
+      "completedMovies": 20,
+      "failedTests": 0,
+      "passedRepetitions": 5,
+      "passedTests": 1,
+      "runtimeWarningCount": 0,
+      "skippedTests": 0,
+      "summarySHA256": "6d3452fbcc81ace5c3e342f0b350e9f1341080760e4cf11afec8a1e872e6d4c2",
+      "totalTestCount": 1
+    },
+    "release-saved-assembly-encoder-fixed": {
+      "failedTests": 0,
+      "passedTests": 1,
+      "runtimeWarningCount": 0,
+      "skippedTests": 0,
+      "summarySHA256": "ed9c605ab9154ed4aaaaa9d3e89a49f44b6633ffabd1f536d0804d34ce517fd0",
+      "totalTestCount": 1
+    },
+    "release-saved-assembly-verification-encoder-fixed": {
+      "failedTests": 0,
+      "passedTests": 1,
+      "runtimeWarningCount": 0,
+      "skippedTests": 0,
+      "summarySHA256": "c3a82eff533422897804064ee6c88316a4d37a7538fd96c5633c5eff50d261dc",
+      "totalTestCount": 1
+    }
+  },
+  "version": "1.7.2"
+}

@@ -203,6 +203,179 @@ final class VideoProcessingSessionTests: XCTestCase {
         XCTAssertFalse(try directoryContainsPartialFile(fixtures.rootURL))
     }
 
+    func testUntaggedSDRCompletesEveryConventionalSDRRoute() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let input = fixtures.url(for: "untagged-conventional.mov")
+        try await VideoProbeFixtureFactory.makeVideo(
+            at: input, transform: .identity, includeColorProperties: false
+        )
+        let source = try await VideoProbe().probe(url: input)
+        let methods: [UpscaleBackendID] = [
+            .automatic, .mpsLanczos, .mpsBilinear, .coreImageLanczos,
+            .coreImageBicubic, .vImageHighQuality, .vImageStandard,
+            .videoToolboxPixelTransfer
+        ]
+        for method in methods {
+            let output = fixtures.url(for: "untagged-\(method.rawValue).mov")
+            let result = try await UpscaleCoordinator().process(
+                UpscaleRequest(
+                    inputURL: input, outputURL: output, backendID: method,
+                    targetWidth: 128, targetHeight: 96, outputCodec: .h264,
+                    preserveAudio: false, overwriteExistingFile: false
+                ), progress: { _ in }
+            )
+            if method != .automatic { XCTAssertEqual(result.actualBackendID, method) }
+            XCTAssertEqual(result.processedFrameCount, 3)
+            let reopened = try await VideoProbe().probe(url: output)
+            XCTAssertTrue(reopened.isReadable)
+            XCTAssertEqual(reopened.color.colorPrimaries, source.color.colorPrimaries)
+            XCTAssertEqual(reopened.color.transferFunction, source.color.transferFunction)
+            XCTAssertEqual(reopened.color.yCbCrMatrix, source.color.yCbCrMatrix)
+        }
+    }
+
+    @MainActor
+    func testDurableCompletionLoadsOriginalAndOutputInComparisonPlayer() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let input = fixtures.url(for: "comparison-original.mov")
+        try await VideoProbeFixtureFactory.makeVideo(at: input, transform: .identity)
+        let output = fixtures.url(for: "comparison-output.mov")
+        let queue = try WorkflowApplicationQueueV4(
+            trustedRootURL: fixtures.rootURL.appendingPathComponent("queue"),
+            workerID: WorkflowWorkerIDV4("comparison-regression"),
+            resolver: ComparisonFixtureBookmarkResolver()
+        )
+        let workflow = WorkflowApplicationCoordinatorV4(
+            queue: queue,
+            engine: WorkflowDeterministicApplicationEngineV4(
+                videoProbe: VideoProbe(), backendCatalog: .live(),
+                runtimeEnvironment: .current()
+            ),
+            maximumInputFramesPerBoundary: 60
+        )
+        let model = MirmirViewModel(workflowController: workflow)
+        await model.initializeWorkflow()
+        model.selectBackend(.mirmirDeterministicMetal)
+        model.selectVideo(input)
+        await model.waitForCurrentProbe()
+        await model.waitForBackendAvailability()
+        model.setOutputURL(output)
+        XCTAssertTrue(model.canStart)
+        model.startUpscale()
+        await model.waitForProcessing()
+        guard case .completed(_, let result) = model.state else {
+            return XCTFail("Expected durable completion: \(model.state)")
+        }
+        let original = try XCTUnwrap(model.completedComparisonSourceURL)
+        XCTAssertEqual(original, input)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: original.path))
+        let player = MirmirSynchronizedPlaybackController()
+        defer { player.tearDown() }
+        player.load(sourceURL: original, completedOutputURL: result.outputURL)
+        for _ in 0..<200 {
+            if player.timeline.isReady { break }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        XCTAssertTrue(player.timeline.isReady, "\(player.timeline.loadState)")
+        XCTAssertGreaterThan(player.timeline.duration, 0)
+        XCTAssertNotNil(player.sourcePlayer.currentItem)
+        XCTAssertNotNil(player.outputPlayer.currentItem)
+    }
+
+    func testCommonInputCodecsCompleteBothProductionDeterministicRoutes() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        for codec in [AVVideoCodecType.h264, .hevc, .proRes422] {
+            let inputURL = fixtures.url(for: "input-\(codec.rawValue).mov")
+            try await VideoProbeFixtureFactory.makeVideo(
+                at: inputURL,
+                transform: .identity,
+                codec: codec
+            )
+            for backendID in [UpscaleBackendID.mirmirDeterministicCPU, .mirmirDeterministicMetal] {
+                do {
+                    let outputURL = fixtures.url(for: "\(codec.rawValue)-\(backendID.rawValue).mov")
+                    let result = try await UpscaleCoordinator().process(
+                        UpscaleRequest(
+                            inputURL: inputURL,
+                            outputURL: outputURL,
+                            backendID: backendID,
+                            targetWidth: 128,
+                            targetHeight: 96,
+                            outputCodec: .hevc,
+                            preserveAudio: false,
+                            overwriteExistingFile: false
+                        ),
+                        progress: { _ in }
+                    )
+                    XCTAssertEqual(result.actualBackendID, backendID)
+                    XCTAssertEqual(result.processedFrameCount, 3)
+                    let reopened = try await VideoProbe().probe(url: outputURL)
+                    XCTAssertTrue(reopened.isReadable)
+                    XCTAssertEqual(reopened.geometry.encodedSize, CGSize(width: 128, height: 96))
+                } catch {
+                    XCTFail("\(codec.rawValue), \(backendID.rawValue): \(error)")
+                }
+            }
+        }
+    }
+
+    func testUntaggedH264CompletesBothProductionDeterministicRoutes() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let inputURL = fixtures.url(for: "untagged.mov")
+        try await VideoProbeFixtureFactory.makeVideo(
+            at: inputURL,
+            transform: .identity,
+            includeColorProperties: false
+        )
+        let asset = AVURLAsset(url: inputURL)
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(tracks.first)
+        let formats = try await track.load(.formatDescriptions)
+        let format = try XCTUnwrap(formats.first)
+        XCTAssertNil(CMFormatDescriptionGetExtension(
+            format,
+            extensionKey: kCMFormatDescriptionExtension_TransferFunction
+        ), "The regression must use a genuinely untagged source.")
+        let sourceInfo = try await VideoProbe().probe(url: inputURL)
+        XCTAssertEqual(sourceInfo.color.isFullRange, false)
+        XCTAssertEqual(sourceInfo.color.dynamicRange, .sdr)
+        XCTAssertEqual(sourceInfo.color.colorPrimaries, kCVImageBufferColorPrimaries_SMPTE_C as String)
+        XCTAssertEqual(sourceInfo.color.yCbCrMatrix, kCVImageBufferYCbCrMatrix_ITU_R_601_4 as String)
+
+        for backendID in [
+            UpscaleBackendID.mirmirDeterministicCPU,
+            .mirmirDeterministicMetal
+        ] {
+            let outputURL = fixtures.url(for: "\(backendID.rawValue).mov")
+            let result = try await UpscaleCoordinator().process(
+                UpscaleRequest(
+                    inputURL: inputURL,
+                    outputURL: outputURL,
+                    backendID: backendID,
+                    targetWidth: 128,
+                    targetHeight: 96,
+                    outputCodec: .h264,
+                    preserveAudio: false,
+                    overwriteExistingFile: false
+                ),
+                progress: { _ in }
+            )
+            XCTAssertEqual(result.actualBackendID, backendID)
+            XCTAssertEqual(result.processedFrameCount, 3)
+            let outputInfo = try await VideoProbe().probe(url: outputURL)
+            XCTAssertEqual(outputInfo.geometry.encodedSize, CGSize(width: 128, height: 96))
+            XCTAssertTrue(outputInfo.isReadable)
+            XCTAssertEqual(outputInfo.color.colorPrimaries, sourceInfo.color.colorPrimaries)
+            XCTAssertEqual(outputInfo.color.transferFunction, sourceInfo.color.transferFunction)
+            XCTAssertEqual(outputInfo.color.yCbCrMatrix, sourceInfo.color.yCbCrMatrix)
+        }
+        XCTAssertFalse(try directoryContainsPartialFile(fixtures.rootURL))
+    }
+
     func testDeterministicCPUReferenceProcessesShortClipWithoutAppleFallback() async throws {
         let fixtures = try TemporaryFixtureDirectory()
         defer { fixtures.remove() }
@@ -1040,5 +1213,20 @@ private actor ProcessingPhaseLatch {
         await withCheckedContinuation { continuation in
             continuations.append(continuation)
         }
+    }
+}
+
+// These fixture files already live in the test host's private container.
+private struct ComparisonFixtureBookmarkResolver: WorkflowSecurityScopedBookmarkResolvingV4 {
+    func makeBookmark(for url: URL, role: WorkflowScopedResourceRoleV4) throws -> Data {
+        Data(url.path.utf8)
+    }
+
+    func resolveBookmark(_ data: Data, role: WorkflowScopedResourceRoleV4) throws -> WorkflowResolvedScopedResourceV4 {
+        let path = try XCTUnwrap(String(data: data, encoding: .utf8))
+        return WorkflowResolvedScopedResourceV4(
+            url: URL(fileURLWithPath: path), isStale: false,
+            startAccessing: { true }, stopAccessing: {}
+        )
     }
 }

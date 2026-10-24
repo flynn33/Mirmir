@@ -252,10 +252,11 @@ struct MirmirWorkspaceRootView: View {
         original: URL,
         upscaled: URL
     )? {
-        guard case .completed(let source, let result) = viewModel.state else {
+        guard case .completed(_, let result) = viewModel.state,
+              let original = viewModel.completedComparisonSourceURL else {
             return nil
         }
-        return (source.url, result.outputURL)
+        return (original, result.outputURL)
     }
 }
 

@@ -1,7 +1,8 @@
 # Mirmir product support
 
-Current source identity: **Mirmir 1.7.1 (19)**. Native main-window menu lifecycle
-verification passed; see [window lifecycle](docs/WINDOW_LIFECYCLE.md).
+Current source identity: **Mirmir 1.7.2 (20)**. Release clearance remains on hold; see
+[the current QA record](docs/FINAL_QA_2026-10-24.md). The runtime source-identity
+check now passes. This does not establish packaged release qualification.
 The historical October 7, 2026 readback verifies the signed universal
 **1.7.0 (17)** repair installed and launched, with its exact executable,
 strict signature, native About
@@ -12,7 +13,7 @@ separate actions.
 The retained 1.7.0 beta evidence has exact serial/parallel spatial-stage parity
 and an isolated 8.91× spatial speedup at 3840×1632. Its version-aligned Debug and
 Release suites passed, while an earlier strict decoded H.264 parity incident
-remains unexplained and the packaged runtime source-identity gate remains open.
+remains unexplained. The October 24 source-identity repair is recorded separately.
 See [known issues](KNOWN_ISSUES.md) and
 [current qualification](docs/v4/CURRENT_QUALIFICATION_STATUS.md).
 
@@ -30,6 +31,17 @@ Mirmir is a sandboxed macOS 15.4-or-later application. It reads local media
 through security-scoped bookmarks, builds an explicit whole-asset plan, and
 publishes a semantically verified QuickTime movie atomically. An explicit
 backend selection is never replaced by a different scaler after failure.
+
+## Input admission
+
+Input containers and codecs must be readable by AVFoundation and compatible
+with the selected processing route. A filename extension alone does not
+establish support for every codec or damaged/protected file. Omitted color
+tags are resolved from an actual decoded frame; explicit tags are preserved.
+H.264/HEVC use their defined video-range default when the range flag is absent.
+ProRes 422 uses the declared 10-bit P010 decode conversion; this converts 4:2:2
+chroma to the engine's 4:2:0 working surface and is not lossless chroma retention.
+Unknown or contradictory declarations still fail with an explanation.
 
 ## Implemented backends
 
@@ -90,7 +102,7 @@ and found 241 video frames and 470 audio packets in both the source and output.
 The output is
 `/Users/jimdaley/Desktop/Mirmir-1.4.3-Build12-Evidence/83-final-real-source-production-1024-green/durable-workflow-run/durable-workflow-output.mov`.
 This historical 1.4.3 short-source result does not complete DV4-002 or qualify
-the current 1.7.1 source or a later installed application.
+the current 1.7.2 source or a later installed application.
 
 VideoToolbox methods fail closed when the exact source, target, or scale
 geometry is unsupported. Automatic pre-scale and post-scale geometry

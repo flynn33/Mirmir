@@ -2748,6 +2748,71 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         )
     }
 
+    func testH264WriterPreservesDecodedFramesAcrossArrivalPacing() async throws {
+        let fixture = try await makeNTSCMotionFixture(frameCount: 66)
+        _ = try await runNTSCMotionJob(
+            fixture: fixture, catalog: parallelDeterministicCatalog(),
+            backend: .mirmirDeterministicCPU, name: "pacing-source"
+        )
+        let input = fixture.outputDirectoryURL.appendingPathComponent("pacing-source.mov")
+        let geometry = try RationalPresentationGeometryV4(
+            codedWidth: 192, codedHeight: 128,
+            cleanAperture: .fullRaster(width: 192, height: 128),
+            sampleAspectRatio: SampleAspectRatioV4(horizontalSpacing: 1, verticalSpacing: 1)
+        )
+        let contract = try VideoWriterFormatContractV4(
+            codec: .h264, storage: .nv12VideoRange8Bit, color: .sdrBT709,
+            sourceGeometry: geometry, outputWidth: 192, outputHeight: 128,
+            frameOperation: .unmodified
+        )
+        var decoded: [DetailedDecodedVideoInventory] = []
+        var inputHashes: [[String]] = []
+        for delay in [UInt64(0), 40_000_000] {
+            let asset = AVURLAsset(url: input)
+            let tracks = try await asset.loadTracks(withMediaType: .video)
+            let reader = try AVAssetReader(asset: asset)
+            let reading = AVAssetReaderTrackOutput(
+                track: try XCTUnwrap(tracks.first),
+                outputSettings: [kCVPixelBufferPixelFormatTypeKey as String:
+                    kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange]
+            )
+            reading.alwaysCopiesSampleData = true
+            reader.add(reading)
+            let url = fixture.outputDirectoryURL.appendingPathComponent("paced-\(delay).mov")
+            let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+            let writing = AVAssetWriterInput(mediaType: .video, outputSettings: try contract.outputSettings)
+            writing.expectsMediaDataInRealTime = false
+            writer.add(writing)
+            XCTAssertTrue(reader.startReading())
+            XCTAssertTrue(writer.startWriting())
+            writer.startSession(atSourceTime: .zero)
+            var hashes: [String] = []
+            while let sample = reading.copyNextSampleBuffer() {
+                guard let buffer = CMSampleBufferGetImageBuffer(sample) else { continue }
+                hashes.append(try WorkflowNTSCFrameTraceV4.hash(buffer))
+                while !writing.isReadyForMoreMediaData {
+                    guard writer.status == .writing else {
+                        throw try XCTUnwrap(writer.error)
+                    }
+                    try await Task.sleep(nanoseconds: 1_000_000)
+                }
+                if delay > 0 { try await Task.sleep(nanoseconds: delay) }
+                XCTAssertTrue(writing.append(sample), writer.error?.localizedDescription ?? "")
+            }
+            XCTAssertEqual(reader.status, .completed)
+            writing.markAsFinished()
+            await writer.finishWriting()
+            XCTAssertEqual(writer.status, .completed)
+            inputHashes.append(hashes)
+            decoded.append(try await detailedDecodedVideoInventory(url: url))
+        }
+        XCTAssertEqual(inputHashes[0].count, 66)
+        XCTAssertEqual(inputHashes[0], inputHashes[1])
+        XCTAssertEqual(decoded[0].presentationTimes.count, 66)
+        XCTAssertEqual(decoded[0].presentationTimes, decoded[1].presentationTimes)
+        XCTAssertEqual(decoded[0].frameSHA256, decoded[1].frameSHA256)
+    }
+
     func testParallelDeterministicCPUAndMetalFinalize66FrameNTSCJob()
         async throws {
         try await assertParallelDeterministicJob(frameCount: 66)

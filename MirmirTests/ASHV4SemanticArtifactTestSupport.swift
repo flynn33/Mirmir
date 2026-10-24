@@ -12,8 +12,9 @@ struct ASHV4FixtureMetalValidator: ASHMetalLibraryValidatingV4 {
 
 enum ASHV4SemanticArtifactTestSupport {
     static let sourceRevision = String(repeating: "a", count: 40)
+    // The runtime plan binds the refreshed packaged-observer source identity.
     static let expectedPlanSHA256 =
-        "96fc21570bd6adcb2f3a4856449e035537d80bd5d556b58e6f2db6efe9b26fb3"
+        "d35bbd1a0b44da4cf60ebcd6b20849ba4ae29f8412f491aa30d08cdf225a2229"
     static let builderHash = ASHSHA256V4(
         rawData: Data("ash-p06-builder-source-v1".utf8)
     )

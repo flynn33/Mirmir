@@ -464,9 +464,15 @@ private extension AVCanonicalMediaStateAdapterV4 {
             var dynamicMetadata: [CanonicalDynamicHDRMetadataV4] = []
             if kind == .video {
                 let preferredTransform = try await track.load(.preferredTransform)
+                let decodedColor = try VideoDecodedColorResolver.resolve(
+                    asset: asset,
+                    track: track,
+                    descriptions: formatDescriptions
+                )
                 let facts = try consistentVideoFacts(
                     formatDescriptions,
                     characteristics: characteristics,
+                    decodedColor: decodedColor,
                     root: root,
                     observations: &observations
                 )
@@ -582,6 +588,7 @@ private extension AVCanonicalMediaStateAdapterV4 {
     func consistentVideoFacts(
         _ descriptions: [CMFormatDescription],
         characteristics: [AVMediaCharacteristic],
+        decodedColor: [String: String],
         root: String,
         observations: inout [CanonicalMediaObservationV4]
     ) throws -> VideoFormatFacts {
@@ -595,6 +602,7 @@ private extension AVCanonicalMediaStateAdapterV4 {
             try videoFacts(
                 description,
                 characteristics: characteristics,
+                decodedColor: decodedColor,
                 root: "\(root).format_descriptions[\(index)]",
                 observations: &observations
             )
@@ -616,6 +624,7 @@ private extension AVCanonicalMediaStateAdapterV4 {
     func videoFacts(
         _ description: CMFormatDescription,
         characteristics: [AVMediaCharacteristic],
+        decodedColor: [String: String],
         root: String,
         observations: inout [CanonicalMediaObservationV4]
     ) throws -> VideoFormatFacts {
@@ -669,6 +678,7 @@ private extension AVCanonicalMediaStateAdapterV4 {
         let siting = chromaSiting(
             extensions,
             subsampling: subsampling,
+            subtype: subtype,
             root: root,
             observations: &observations
         )
@@ -680,6 +690,7 @@ private extension AVCanonicalMediaStateAdapterV4 {
         )
         let color = try colorState(
             extensions,
+            decodedColor: decodedColor,
             root: root,
             observations: &observations
         )
@@ -1011,6 +1022,7 @@ private extension AVCanonicalMediaStateAdapterV4 {
     func chromaSiting(
         _ extensions: NSDictionary,
         subsampling: CanonicalChromaSubsamplingV4,
+        subtype: FourCharCode,
         root: String,
         observations: inout [CanonicalMediaObservationV4]
     ) -> CanonicalChromaSitingV4 {
@@ -1037,9 +1049,18 @@ private extension AVCanonicalMediaStateAdapterV4 {
             return .unknown
         }
         guard let value = top ?? bottom else {
+            // ProRes 422 is decoded by AVFoundation into the declared P010
+            // processing surface. Retain its absent source tag as unknown;
+            // do not invent a location that the source did not declare.
+            let proRes422 = [
+                kCMVideoCodecType_AppleProRes422,
+                kCMVideoCodecType_AppleProRes422HQ,
+                kCMVideoCodecType_AppleProRes422LT,
+                kCMVideoCodecType_AppleProRes422Proxy
+            ].contains(subtype)
             observations.append(
                 observation(
-                    severity: .unsupported,
+                    severity: proRes422 ? .warning : .unsupported,
                     code: .unknownValue,
                     path: "\(root).chroma_siting",
                     value: "absent"
@@ -1109,11 +1130,21 @@ private extension AVCanonicalMediaStateAdapterV4 {
 
     func colorState(
         _ extensions: NSDictionary,
+        decodedColor: [String: String],
         root: String,
         observations: inout [CanonicalMediaObservationV4]
     ) throws -> CanonicalColorStateV4 {
         func colorString(_ key: CFString, name: String) -> String {
             if let value = extensions[key as String] as? String { return value }
+            if let value = decodedColor[key as String] {
+                observations.append(observation(
+                    severity: .warning,
+                    code: .missingRequiredValue,
+                    path: "\(root).color.\(name)",
+                    value: "absent; decoder resolved \(value)"
+                ))
+                return value
+            }
             observations.append(
                 observation(
                     severity: .unsupported,

@@ -1,6 +1,6 @@
 # Mirmir accepted limitations and follow-up work
 
-Updated for Mirmir 1.7.1 build 19 on October 16, 2026. These entries distinguish
+Updated for Mirmir 1.7.2 build 20 on October 24, 2026. These entries distinguish
 source repair from installed-product and full-media qualification. The historical
 October 7 readback confirms the signed **1.7.0 (17)** repair installed and
 launched, with the native About version/build and idle Metal route verified.
@@ -41,41 +41,37 @@ whole-movie throughput remain separate qualification work.
 
 ## PARITY-001 — Intermittent Release decoded H.264 mismatch
 
-**Status:** Open beta qualification defect; cause unknown
+**Status:** Encoder-arrival sensitivity reproduced and source repair verified in 1.7.2 (20)
 
-The October 7 spatial candidate's full native Release suite retained one
-failure in strict CPU/Metal decoded-frame parity. All 156 pre-encoder frames
-match, while decoded ordinals 125–148 and 154 differ. Four subsequent traced
-repeats match. These observations do not establish the cause or a repair;
-the strict assertion and captured evidence remain intact. Debug passed 635
-tests with zero failures and six opt-in skips; Release passed 630 with one
-failure and five opt-in skips before the version-only alignment.
+The October 24 x86-64 run reproduced failures on 66-, 156-, and 157-frame jobs
+while all traced pre-encoder pixels and presentation timing matched. A separate
+writer-only control re-encoded the same frames and timestamps with fast versus
+40 ms-delayed delivery. Default H.264 encoding changed B/P-frame decisions and
+decoded pixels. Disabling frame reordering made both control outputs identical.
 
-The spatial-stage benchmark and forced parallel pixel tests do not close this
-end-to-end codec qualification issue. The fresh version-aligned Debug suite
-passed 635 tests and Release passed 630, each with zero failures and six skips;
-both report no runtime warnings. These passing runs do not identify or repair
-the earlier incident. The saved full-job finalization repair in DV4-003 does
-not identify this separate parity cause or qualify a fresh full GPU run.
+The deterministic H.264 writer now sets `AVVideoAllowFrameReorderingKey=false`.
+The new arrival-pacing regression fails before that change and passes afterward
+in Debug, native Release, and x86-64 Release. Existing strict CPU/Metal assertions
+remain intact. See [final QA](docs/FINAL_QA_2026-10-24.md) for completed-suite
+results, repeats, and release limits. The policy affects compression efficiency;
+it does not claim fixed output size or whole-movie throughput.
+
+The retained October 7 failure had 156 equal pre-encoder frames and different
+decoded ordinals 125–148 and 154. Its original evidence remains unchanged in
+`docs/v4/evidence/spatial-parallelism-2026-10-07/OPEN_QUALIFICATION.md`. Earlier
+green repetitions did not identify the cause; the new controlled pacing
+reproduction provides the evidence for this repair.
 
 ## PROV-001 — Packaged runtime source closure
 
-**Status:** Open source-identity gate
+**Status:** Current source closure passes; packaged release qualification remains separate
 
-`repository_identity_v4.verify_runtime_bundle` still rejects the source closure
-with exit 2. The attempted runtime producer separately stopped at stale frozen
-capture-observer source/size locks: 16 of 17 checks passed. Runtime assets, trust
-constants, and historical evidence were retained unchanged. The development
-quality replay is explicitly unsealed and does not replace a newly bound
-runtime candidate. See the
-[current qualification status](docs/v4/CURRENT_QUALIFICATION_STATUS.md).
-
-The publication Python audit also reproduces
-`test_v2_contract_pins_current_capture_tools`: the reproduction contract's
-source-provenance digest differs from the unchanged file. The contract,
-provenance, and assertion were already present in the preceding committed
-tree. This is retained as a failing helper check; sealed bindings and strict
-assertions were not weakened.
+The October 24 repair audits the changed capture observer, updates its frozen
+source binding, and rebuilds the P06 runtime twice with byte-identical output.
+`repository_identity_v4.py --repository .` passes for the candidate. Historical
+captures are not relabeled as new evidence. Qualification contract/tool pins
+and the aggregate trust root were refreshed together after producer review.
+See [current QA](docs/FINAL_QA_2026-10-24.md) for the checks and remaining gates.
 
 ## PERF-002 — Spatial-stage speedup and whole-movie throughput
 
