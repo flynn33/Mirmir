@@ -39,6 +39,7 @@
     "host": "Apple M4 Pro, 48 GB",
     "macOS": "27.0.1 (26A434)"
   },
+  "goalStatus": "blocked",
   "independentMediaVerification": {
     "attached_picture": {
       "identical": true,
@@ -65,11 +66,29 @@
     "output_full_decode_exit": 0,
     "source_full_decode_exit": 0
   },
+  "localArchive": {
+    "archivePath": "/private/tmp/Mirmir-final-qa-20261024.xcarchive",
+    "build": "20",
+    "buildWarningsOrErrors": [],
+    "bundleID": "com.mirmir.app",
+    "executableSHA256": "b9eaec8653f1a129bc5e1f8c751fb149fb4b7a50ea8088fce713467069202b18",
+    "matchingDSYMUUIDs": true,
+    "minimumOS": "15.4",
+    "provisioningProfile": {
+      "present": false
+    },
+    "scope": "Local Xcode archive audit; no export, App Store processing, or installed Store validation",
+    "secureTimestampReported": false,
+    "signingAuthority": "Apple Development: James Daley (FW94K6ZY57)",
+    "uploaded": false,
+    "version": "1.7.2"
+  },
+  "manualFinalAboutVerified": true,
   "openGates": [
-    "Final manual UI checks require an available native UI session",
+    "Final manual UI checks blocked by repeated SkyComputerUseService crashes, including reset/retry",
     "Minimum supported macOS and physical Intel hardware untested",
     "Saved complete-checkpoint finalization opt-in needs intact source snapshot; historical feature-length replay not performed",
-    "Packaged App Store and aggregate release qualification not performed",
+    "App Store export/installed Store and aggregate release qualification not performed; local development archive audit passed",
     "Customer error 11 domain and configuration remain unconfirmed"
   ],
   "productionBuild": {

@@ -34,8 +34,10 @@ do not publish, sign, notarize, or distribute the application automatically.
 ### Verification
 
 Automated native Debug/Release suites and 389 Python tests pass. Four additional
-saved-media replay checks pass with isolated AAC/AC3 and chaptered fixtures. Release
-clearance remains on hold; current evidence and explicit gaps are recorded
+saved-media replay checks pass with isolated AAC/AC3 and chaptered fixtures.
+A local universal archive passes signing, sandbox, and matching dSYM checks;
+the final About screen confirms 1.7.2 (20). Native automation crashes block the
+remaining manual walkthrough. Release clearance remains on hold; current evidence and explicit gaps are recorded
 in `docs/FINAL_QA_2026-10-24.md`. No push, archive submission, or release is part
 of this local QA change.
 
