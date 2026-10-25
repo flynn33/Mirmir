@@ -45,6 +45,9 @@ struct DeterministicV4PreparedAssetPlan: Sendable {
     let primaryGraphTrack: MediaTrackNodeV4
     let videoDelivery: DeterministicV4VideoDeliveryPlan
     let encodedFormatDescriptor: MediaTrackFormatDescriptorV4
+    let sourceAVCChromaDeclaration: AVCChromaLocationV4.Declaration?
+    let sourceJFIFSampling: JFIFVideoSamplingV4?
+    let sourceProResWorkingFormat: ProRes422WorkingFormatV4?
     let nominalSourceFrameDuration: ExactRationalV4
     let nonVideoTranscodeHooks: [
         AVFoundationNonVideoTrackTranscodeHookV4
@@ -64,6 +67,9 @@ struct DeterministicV4PreparedAssetPlan: Sendable {
                 writerOutputSettings: writerContract.outputSettings,
                 declaredOutputFormats: [encodedFormatDescriptor],
                 outputHDRMetadata: writerContract.hdrMetadata,
+                sourceAVCChromaDeclaration: sourceAVCChromaDeclaration,
+                sourceJFIFSampling: sourceJFIFSampling,
+                sourceProResWorkingFormat: sourceProResWorkingFormat,
                 nominalSourceFrameDuration: nominalSourceFrameDuration,
                 outputPreferredTransform:
                     writerContract.geometry.avPreferredTransform,
@@ -243,7 +249,8 @@ actor DeterministicV4WholeAssetPlanner {
         let asset = try await NativeMediaInputAssetResolverV4.asset(
             url: request.inputURL, cancellation: cancellation
         )
-        let physicalTrackCount = try await asset.load(.tracks).count
+        let physicalTracks = try await asset.load(.tracks)
+        let physicalTrackCount = physicalTracks.count
         try checkCancellation(cancellation)
         let graph = try await AVFoundationTrackGraphAdapterV4.probe(
             asset: asset
@@ -262,6 +269,37 @@ actor DeterministicV4WholeAssetPlanner {
         guard let sourceVideo = primaryPair.canonical.video else {
             throw DeterministicV4WholeAssetPlannerError.primaryVideoMissing
         }
+
+        guard let primaryIndex = pairings.firstIndex(where: {
+            $0.graph.identity.stableID == primaryPair.graph.identity.stableID
+        }) else { throw DeterministicV4WholeAssetPlannerError.primaryVideoMissing }
+        let sourceFormatDescriptions = try await physicalTracks[primaryIndex].load(.formatDescriptions)
+        let sourceAVCChromaDeclaration = try AVCChromaLocationV4.declaration(
+            from: sourceFormatDescriptions
+        )
+        let sourceJFIFSampling = try LegacyVideoSamplingFacts.resolve(
+            asset: asset, track: physicalTracks[primaryIndex],
+            descriptions: sourceFormatDescriptions
+        )?.nativeWorkingJFIFDeclaration
+        let sourceProResFacts = try ProRes422SourceFactsV4.resolve(
+            asset: asset, track: physicalTracks[primaryIndex], descriptions: sourceFormatDescriptions)
+        guard sourceProResFacts == source.proRes422SourceFacts else {
+            throw ProRes422SourceFactsV4.Failure.unsupported("probed and opened source headers differ")
+        }
+        let sourceProResWorkingFormat = try source.proRes422WorkingFormat
+        if let delivery = sourceProResWorkingFormat {
+            let expected = SpatialChromaGeometryV4(source: .left, target: .left)
+            let fields = delivery.scan == .progressive ? nil : SpatialInterlacedChromaGeometryV4(
+                topSource: .left, bottomSource: .left, target: .left)
+            guard backend.deterministicSourceDeliveryIdentity == delivery.identity,
+                  backend.deterministicChromaGeometry == expected,
+                  backend.deterministicInterlacedChromaGeometry == fields else {
+                throw ProRes422SourceFactsV4.Failure.unsupported("prepared decoder/working identity differs")
+            }
+        }
+        try validateFieldChromaBinding(video: sourceVideo, source: source,
+            backend: backend, descriptions: sourceFormatDescriptions,
+            graphTrack: primaryPair.graph)
 
         let nonVideoPolicy = try await makeNonVideoPolicy(
             asset: asset,
@@ -350,6 +388,9 @@ actor DeterministicV4WholeAssetPlanner {
             primaryGraphTrack: primaryPair.graph,
             videoDelivery: videoDelivery,
             encodedFormatDescriptor: encodedDescriptor,
+            sourceAVCChromaDeclaration: sourceAVCChromaDeclaration,
+            sourceJFIFSampling: sourceJFIFSampling,
+            sourceProResWorkingFormat: sourceProResWorkingFormat,
             nominalSourceFrameDuration: try Self.nominalFrameDuration(
                 nominalFrameRate: source.nominalFrameRate,
                 minimumFrameDuration: source.minimumFrameDuration,
@@ -398,6 +439,51 @@ private extension DeterministicV4WholeAssetPlanner {
             MediaTrackStableIDV4: NonVideoTranscodeDecision
         ]
         let hooks: [AVFoundationNonVideoTrackTranscodeHookV4]
+    }
+
+    func validateFieldChromaBinding(
+        video: CanonicalVideoStateV4,
+        source: VideoInfo,
+        backend: any PreparedDeterministicV4RuntimePlanningBackend,
+        descriptions: [CMFormatDescription],
+        graphTrack: MediaTrackNodeV4
+    ) throws {
+        guard let pair = video.pixel.fieldChromaSiting else { return }
+        guard pair.isValid, video.pixel.chromaSiting == .unknown,
+              video.scan.fieldCount == 2, source.color.fieldCount == 2,
+              source.color.chromaSiting == pair.top,
+              source.color.chromaSitingBottomField == pair.bottom,
+              let sourceTop = SpatialChromaSitingV4(rawValue: pair.top.rawValue),
+              let sourceBottom = SpatialChromaSitingV4(rawValue: pair.bottom.rawValue),
+              backend.deterministicChromaGeometry == SpatialChromaGeometryV4(
+                source: sourceTop, target: sourceTop),
+              backend.deterministicInterlacedChromaGeometry == SpatialInterlacedChromaGeometryV4(
+                topSource: sourceTop, bottomSource: sourceBottom, target: sourceTop),
+              !descriptions.isEmpty else {
+            throw DeterministicV4WholeAssetPlannerError.unsupportedSourcePixelContract(
+                "field_chroma_binding_mismatch")
+        }
+        let descriptors = try descriptions.enumerated().map {
+            try AVFoundationTrackGraphAdapterV4.canonicalFormatDescriptor($0.element,
+                ordinal: UInt32($0.offset))
+        }
+        guard descriptors == graphTrack.formatDescriptors else {
+            throw DeterministicV4WholeAssetPlannerError.unsupportedSourcePixelContract(
+                "field_chroma_encoded_format_mismatch")
+        }
+        for description in descriptions {
+            let extensions = CMFormatDescriptionGetExtensions(description) as NSDictionary? ?? [:]
+            let scan = try AVCanonicalScanDescriptionV4(extensions: extensions).state
+            let declaration = try AVCChromaLocationV4.declaration(from: description)
+            let top = declaration?.location ?? AVCChromaLocationV4.canonicalLocation(
+                extensions[kCMFormatDescriptionExtension_ChromaLocationTopField as String] as? String)
+            let bottom = declaration?.bottomLocation ?? AVCChromaLocationV4.canonicalLocation(
+                extensions[kCMFormatDescriptionExtension_ChromaLocationBottomField as String] as? String)
+            guard scan == video.scan, top == pair.top, bottom == pair.bottom else {
+                throw DeterministicV4WholeAssetPlannerError.unsupportedSourcePixelContract(
+                    "field_chroma_raw_declaration_mismatch")
+            }
+        }
     }
 
     func reconcile(
@@ -788,7 +874,10 @@ private extension DeterministicV4WholeAssetPlanner {
                 request: request,
                 video: video,
                 storage: opaque.deterministicStorage,
-                outputFrameCount: outputFrameCount
+                outputFrameCount: outputFrameCount,
+                workingChromaSiting: opaque.deterministicChromaGeometry.flatMap {
+                    CanonicalChromaSitingV4(rawValue: $0.target.rawValue)
+                }
             ))
         }
 
@@ -877,7 +966,8 @@ private extension DeterministicV4WholeAssetPlanner {
         request: UpscaleRequest,
         video: CanonicalVideoStateV4,
         storage: PixelStorageV4,
-        outputFrameCount: Int
+        outputFrameCount: Int,
+        workingChromaSiting: CanonicalChromaSitingV4? = nil
     ) throws -> VideoWriterFormatContractV4 {
         let codec: VideoWriterCodecV4
         switch request.outputCodec {
@@ -907,7 +997,12 @@ private extension DeterministicV4WholeAssetPlanner {
                 ? .absent
                 : outputFrameCount > 1
                     ? .replicateSourceSceneMetadataAcrossFieldNormalization
-                    : .preserveSourceSceneMetadataAcrossSpatialResampling
+                    : .preserveSourceSceneMetadataAcrossSpatialResampling,
+            chromaSiting: codec == .proRes422 ? nil
+                : workingChromaSiting ?? video.pixel.fieldChromaSiting?.top
+                    ?? (video.pixel.chromaSiting == .unknown
+                        || video.pixel.chromaSiting == .notApplicable
+                        ? nil : video.pixel.chromaSiting)
         )
     }
 
@@ -1194,7 +1289,7 @@ private extension DeterministicV4WholeAssetPlanner {
             bitDepth: UInt8(writerContract.storage.signalBitDepth),
             range: range,
             chromaSubsampling: .yuv420,
-            chromaSiting: source.pixel.chromaSiting,
+            chromaSiting: source.pixel.fieldChromaSiting?.top ?? source.pixel.chromaSiting,
             alphaModel: .none,
             color: color
         )

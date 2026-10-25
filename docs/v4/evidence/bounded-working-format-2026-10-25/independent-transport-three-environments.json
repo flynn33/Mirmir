@@ -1,0 +1,1133 @@
+{
+  "frames": 48,
+  "independentOracle": "Python Fraction, same-field or progressive midpoint, one nearest-ties-even quantization, 10bit representable clipping",
+  "allVisibleYUVWordsExact": true,
+  "oracleSHA256": "1e7b4c5beaf0b9f9cd8358bab99ba9049518e71571b63a8f78cb54bc1bfcf7a7",
+  "observations": [
+    {
+      "environment": "host-02-arm64",
+      "fixture": "progressive",
+      "frame": 0,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "scan": "progressive",
+        "primaries": "ITU_R_709_2",
+        "matrix": "ITU_R_709_2",
+        "height": 96,
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:arm64",
+        "width": 128,
+        "transfer": "ITU_R_709_2"
+      }
+    },
+    {
+      "environment": "host-02-arm64",
+      "fixture": "progressive",
+      "frame": 1,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:arm64",
+        "width": 128,
+        "matrix": "ITU_R_709_2",
+        "scan": "progressive",
+        "primaries": "ITU_R_709_2",
+        "height": 96,
+        "transfer": "ITU_R_709_2"
+      }
+    },
+    {
+      "environment": "host-02-arm64",
+      "fixture": "progressive",
+      "frame": 2,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "width": 128,
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:arm64",
+        "scan": "progressive",
+        "matrix": "ITU_R_709_2",
+        "primaries": "ITU_R_709_2",
+        "transfer": "ITU_R_709_2",
+        "height": 96
+      }
+    },
+    {
+      "environment": "host-02-arm64",
+      "fixture": "progressive",
+      "frame": 3,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "primaries": "ITU_R_709_2",
+        "transfer": "ITU_R_709_2",
+        "width": 128,
+        "height": 96,
+        "scan": "progressive",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:arm64",
+        "matrix": "ITU_R_709_2"
+      }
+    },
+    {
+      "environment": "host-02-arm64",
+      "fixture": "top-first",
+      "frame": 0,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "matrix": "ITU_R_709_2",
+        "width": 128,
+        "transfer": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:arm64",
+        "primaries": "ITU_R_709_2",
+        "height": 96,
+        "scan": "topFirst"
+      }
+    },
+    {
+      "environment": "host-02-arm64",
+      "fixture": "top-first",
+      "frame": 1,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "matrix": "ITU_R_709_2",
+        "width": 128,
+        "transfer": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:arm64",
+        "primaries": "ITU_R_709_2",
+        "height": 96,
+        "scan": "topFirst"
+      }
+    },
+    {
+      "environment": "host-02-arm64",
+      "fixture": "top-first",
+      "frame": 2,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "transfer": "ITU_R_709_2",
+        "width": 128,
+        "primaries": "ITU_R_709_2",
+        "height": 96,
+        "scan": "topFirst",
+        "matrix": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:arm64"
+      }
+    },
+    {
+      "environment": "host-02-arm64",
+      "fixture": "top-first",
+      "frame": 3,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "matrix": "ITU_R_709_2",
+        "width": 128,
+        "transfer": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:arm64",
+        "primaries": "ITU_R_709_2",
+        "height": 96,
+        "scan": "topFirst"
+      }
+    },
+    {
+      "environment": "host-02-arm64",
+      "fixture": "bottom-first",
+      "frame": 0,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "transfer": "ITU_R_709_2",
+        "width": 128,
+        "primaries": "ITU_R_709_2",
+        "height": 96,
+        "scan": "bottomFirst",
+        "matrix": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:arm64"
+      }
+    },
+    {
+      "environment": "host-02-arm64",
+      "fixture": "bottom-first",
+      "frame": 1,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "matrix": "ITU_R_709_2",
+        "width": 128,
+        "transfer": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:arm64",
+        "primaries": "ITU_R_709_2",
+        "height": 96,
+        "scan": "bottomFirst"
+      }
+    },
+    {
+      "environment": "host-02-arm64",
+      "fixture": "bottom-first",
+      "frame": 2,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "transfer": "ITU_R_709_2",
+        "width": 128,
+        "primaries": "ITU_R_709_2",
+        "height": 96,
+        "scan": "bottomFirst",
+        "matrix": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:arm64"
+      }
+    },
+    {
+      "environment": "host-02-arm64",
+      "fixture": "bottom-first",
+      "frame": 3,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "matrix": "ITU_R_709_2",
+        "width": 128,
+        "transfer": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:arm64",
+        "primaries": "ITU_R_709_2",
+        "height": 96,
+        "scan": "bottomFirst"
+      }
+    },
+    {
+      "environment": "host-02-arm64",
+      "fixture": "progressive-no-colr",
+      "frame": 0,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "transfer": "ITU_R_709_2",
+        "width": 128,
+        "primaries": "SMPTE_C",
+        "height": 96,
+        "scan": "progressive",
+        "matrix": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:arm64"
+      }
+    },
+    {
+      "environment": "host-02-arm64",
+      "fixture": "progressive-no-colr",
+      "frame": 1,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "matrix": "ITU_R_709_2",
+        "width": 128,
+        "transfer": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:arm64",
+        "primaries": "SMPTE_C",
+        "height": 96,
+        "scan": "progressive"
+      }
+    },
+    {
+      "environment": "host-02-arm64",
+      "fixture": "progressive-no-colr",
+      "frame": 2,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "transfer": "ITU_R_709_2",
+        "width": 128,
+        "primaries": "SMPTE_C",
+        "height": 96,
+        "scan": "progressive",
+        "matrix": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:arm64"
+      }
+    },
+    {
+      "environment": "host-02-arm64",
+      "fixture": "progressive-no-colr",
+      "frame": 3,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "matrix": "ITU_R_709_2",
+        "width": 128,
+        "transfer": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:arm64",
+        "primaries": "SMPTE_C",
+        "height": 96,
+        "scan": "progressive"
+      }
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "progressive",
+      "frame": 0,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "matrix": "ITU_R_709_2",
+        "scan": "progressive",
+        "primaries": "ITU_R_709_2",
+        "width": 128,
+        "transfer": "ITU_R_709_2",
+        "height": 96,
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:x86_64"
+      }
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "progressive",
+      "frame": 1,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "transfer": "ITU_R_709_2",
+        "width": 128,
+        "matrix": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:x86_64",
+        "primaries": "ITU_R_709_2",
+        "height": 96,
+        "scan": "progressive"
+      }
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "progressive",
+      "frame": 2,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "matrix": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:x86_64",
+        "transfer": "ITU_R_709_2",
+        "scan": "progressive",
+        "width": 128,
+        "primaries": "ITU_R_709_2",
+        "height": 96
+      }
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "progressive",
+      "frame": 3,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "height": 96,
+        "matrix": "ITU_R_709_2",
+        "width": 128,
+        "scan": "progressive",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:x86_64",
+        "transfer": "ITU_R_709_2",
+        "primaries": "ITU_R_709_2"
+      }
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "top-first",
+      "frame": 0,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "transfer": "ITU_R_709_2",
+        "height": 96,
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:x86_64",
+        "matrix": "ITU_R_709_2",
+        "width": 128,
+        "scan": "topFirst",
+        "primaries": "ITU_R_709_2"
+      }
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "top-first",
+      "frame": 1,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "height": 96,
+        "matrix": "ITU_R_709_2",
+        "scan": "topFirst",
+        "primaries": "ITU_R_709_2",
+        "width": 128,
+        "transfer": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:x86_64"
+      }
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "top-first",
+      "frame": 2,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "scan": "topFirst",
+        "height": 96,
+        "matrix": "ITU_R_709_2",
+        "primaries": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:x86_64",
+        "width": 128,
+        "transfer": "ITU_R_709_2"
+      }
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "top-first",
+      "frame": 3,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "transfer": "ITU_R_709_2",
+        "matrix": "ITU_R_709_2",
+        "primaries": "ITU_R_709_2",
+        "height": 96,
+        "scan": "topFirst",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:x86_64",
+        "width": 128
+      }
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "bottom-first",
+      "frame": 0,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "transfer": "ITU_R_709_2",
+        "matrix": "ITU_R_709_2",
+        "primaries": "ITU_R_709_2",
+        "scan": "bottomFirst",
+        "height": 96,
+        "width": 128,
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:x86_64"
+      }
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "bottom-first",
+      "frame": 1,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "transfer": "ITU_R_709_2",
+        "matrix": "ITU_R_709_2",
+        "primaries": "ITU_R_709_2",
+        "scan": "bottomFirst",
+        "height": 96,
+        "width": 128,
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:x86_64"
+      }
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "bottom-first",
+      "frame": 2,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "transfer": "ITU_R_709_2",
+        "matrix": "ITU_R_709_2",
+        "primaries": "ITU_R_709_2",
+        "scan": "bottomFirst",
+        "height": 96,
+        "width": 128,
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:x86_64"
+      }
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "bottom-first",
+      "frame": 3,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "transfer": "ITU_R_709_2",
+        "matrix": "ITU_R_709_2",
+        "scan": "bottomFirst",
+        "primaries": "ITU_R_709_2",
+        "width": 128,
+        "height": 96,
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:x86_64"
+      }
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "progressive-no-colr",
+      "frame": 0,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "height": 96,
+        "scan": "progressive",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:x86_64",
+        "width": 128,
+        "primaries": "SMPTE_C",
+        "matrix": "ITU_R_709_2",
+        "transfer": "ITU_R_709_2"
+      }
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "progressive-no-colr",
+      "frame": 1,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "matrix": "ITU_R_709_2",
+        "width": 128,
+        "scan": "progressive",
+        "primaries": "SMPTE_C",
+        "height": 96,
+        "transfer": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:x86_64"
+      }
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "progressive-no-colr",
+      "frame": 2,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:x86_64",
+        "matrix": "ITU_R_709_2",
+        "height": 96,
+        "width": 128,
+        "primaries": "SMPTE_C",
+        "scan": "progressive",
+        "transfer": "ITU_R_709_2"
+      }
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "progressive-no-colr",
+      "frame": 3,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "matrix": "ITU_R_709_2",
+        "primaries": "SMPTE_C",
+        "height": 96,
+        "decoderEnvironment": "apple-v216:26A434:Mac16,7:x86_64",
+        "scan": "progressive",
+        "width": 128,
+        "transfer": "ITU_R_709_2"
+      }
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "progressive",
+      "frame": 0,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "transfer": "ITU_R_709_2",
+        "matrix": "ITU_R_709_2",
+        "scan": "progressive",
+        "height": 96,
+        "primaries": "ITU_R_709_2",
+        "width": 128,
+        "decoderEnvironment": "apple-v216:24E248:VirtualMac2,1:arm64"
+      }
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "progressive",
+      "frame": 1,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "matrix": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:24E248:VirtualMac2,1:arm64",
+        "transfer": "ITU_R_709_2",
+        "width": 128,
+        "scan": "progressive",
+        "height": 96,
+        "primaries": "ITU_R_709_2"
+      }
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "progressive",
+      "frame": 2,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "width": 128,
+        "decoderEnvironment": "apple-v216:24E248:VirtualMac2,1:arm64",
+        "scan": "progressive",
+        "transfer": "ITU_R_709_2",
+        "matrix": "ITU_R_709_2",
+        "height": 96,
+        "primaries": "ITU_R_709_2"
+      }
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "progressive",
+      "frame": 3,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "scan": "progressive",
+        "decoderEnvironment": "apple-v216:24E248:VirtualMac2,1:arm64",
+        "matrix": "ITU_R_709_2",
+        "height": 96,
+        "primaries": "ITU_R_709_2",
+        "transfer": "ITU_R_709_2",
+        "width": 128
+      }
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "top-first",
+      "frame": 0,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "scan": "topFirst",
+        "matrix": "ITU_R_709_2",
+        "width": 128,
+        "decoderEnvironment": "apple-v216:24E248:VirtualMac2,1:arm64",
+        "transfer": "ITU_R_709_2",
+        "primaries": "ITU_R_709_2",
+        "height": 96
+      }
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "top-first",
+      "frame": 1,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "width": 128,
+        "matrix": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:24E248:VirtualMac2,1:arm64",
+        "height": 96,
+        "transfer": "ITU_R_709_2",
+        "scan": "topFirst",
+        "primaries": "ITU_R_709_2"
+      }
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "top-first",
+      "frame": 2,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "scan": "topFirst",
+        "width": 128,
+        "decoderEnvironment": "apple-v216:24E248:VirtualMac2,1:arm64",
+        "height": 96,
+        "primaries": "ITU_R_709_2",
+        "transfer": "ITU_R_709_2",
+        "matrix": "ITU_R_709_2"
+      }
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "top-first",
+      "frame": 3,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "transfer": "ITU_R_709_2",
+        "scan": "topFirst",
+        "height": 96,
+        "width": 128,
+        "decoderEnvironment": "apple-v216:24E248:VirtualMac2,1:arm64",
+        "primaries": "ITU_R_709_2",
+        "matrix": "ITU_R_709_2"
+      }
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "bottom-first",
+      "frame": 0,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "matrix": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:24E248:VirtualMac2,1:arm64",
+        "primaries": "ITU_R_709_2",
+        "transfer": "ITU_R_709_2",
+        "height": 96,
+        "width": 128,
+        "scan": "bottomFirst"
+      }
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "bottom-first",
+      "frame": 1,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "scan": "bottomFirst",
+        "primaries": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:24E248:VirtualMac2,1:arm64",
+        "transfer": "ITU_R_709_2",
+        "height": 96,
+        "matrix": "ITU_R_709_2",
+        "width": 128
+      }
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "bottom-first",
+      "frame": 2,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "height": 96,
+        "matrix": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:24E248:VirtualMac2,1:arm64",
+        "transfer": "ITU_R_709_2",
+        "scan": "bottomFirst",
+        "primaries": "ITU_R_709_2",
+        "width": 128
+      }
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "bottom-first",
+      "frame": 3,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "75c8ace9e2c37e3196998532bccb2bc6ee9af9d3a8c8145b60c1f1cf4ea7b9f7",
+      "workingSHA256": "a3c7b9ab2217d3d3e395dc600e5c45aad01d801f73a8687a8a0962ce03cd706e",
+      "wrongRowDropDifferentUVWords": 4565,
+      "policy": {
+        "decoderEnvironment": "apple-v216:24E248:VirtualMac2,1:arm64",
+        "matrix": "ITU_R_709_2",
+        "height": 96,
+        "width": 128,
+        "primaries": "ITU_R_709_2",
+        "transfer": "ITU_R_709_2",
+        "scan": "bottomFirst"
+      }
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "progressive-no-colr",
+      "frame": 0,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "transfer": "ITU_R_709_2",
+        "primaries": "SMPTE_C",
+        "width": 128,
+        "matrix": "ITU_R_709_2",
+        "scan": "progressive",
+        "height": 96,
+        "decoderEnvironment": "apple-v216:24E248:VirtualMac2,1:arm64"
+      }
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "progressive-no-colr",
+      "frame": 1,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "width": 128,
+        "primaries": "SMPTE_C",
+        "transfer": "ITU_R_709_2",
+        "height": 96,
+        "matrix": "ITU_R_709_2",
+        "decoderEnvironment": "apple-v216:24E248:VirtualMac2,1:arm64",
+        "scan": "progressive"
+      }
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "progressive-no-colr",
+      "frame": 2,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "decoderEnvironment": "apple-v216:24E248:VirtualMac2,1:arm64",
+        "scan": "progressive",
+        "primaries": "SMPTE_C",
+        "height": 96,
+        "width": 128,
+        "matrix": "ITU_R_709_2",
+        "transfer": "ITU_R_709_2"
+      }
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "progressive-no-colr",
+      "frame": 3,
+      "allVisibleYUVWordsExact": true,
+      "sourceVisibleSHA256": "674ca0a8aa6f0da07acfd9f64b52fcd24619f557a315fa878329a8f457df8547",
+      "workingSHA256": "b1bc5bf2dab37f3dab2e604e9ac93fc913c53a241f51976e956a6c149267f7e9",
+      "wrongRowDropDifferentUVWords": 3913,
+      "policy": {
+        "matrix": "ITU_R_709_2",
+        "height": 96,
+        "scan": "progressive",
+        "transfer": "ITU_R_709_2",
+        "width": 128,
+        "primaries": "SMPTE_C",
+        "decoderEnvironment": "apple-v216:24E248:VirtualMac2,1:arm64"
+      }
+    }
+  ],
+  "crossEnvironmentComparisons": [
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "progressive",
+      "frame": 0,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "progressive",
+      "frame": 1,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "progressive",
+      "frame": 2,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "progressive",
+      "frame": 3,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "top-first",
+      "frame": 0,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "top-first",
+      "frame": 1,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "top-first",
+      "frame": 2,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "top-first",
+      "frame": 3,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "bottom-first",
+      "frame": 0,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "bottom-first",
+      "frame": 1,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "bottom-first",
+      "frame": 2,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "bottom-first",
+      "frame": 3,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "progressive-no-colr",
+      "frame": 0,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "progressive-no-colr",
+      "frame": 1,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "progressive-no-colr",
+      "frame": 2,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "host-02-x86_64",
+      "fixture": "progressive-no-colr",
+      "frame": 3,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "progressive",
+      "frame": 0,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "progressive",
+      "frame": 1,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "progressive",
+      "frame": 2,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "progressive",
+      "frame": 3,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "top-first",
+      "frame": 0,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "top-first",
+      "frame": 1,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "top-first",
+      "frame": 2,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "top-first",
+      "frame": 3,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "bottom-first",
+      "frame": 0,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "bottom-first",
+      "frame": 1,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "bottom-first",
+      "frame": 2,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "bottom-first",
+      "frame": 3,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "progressive-no-colr",
+      "frame": 0,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "progressive-no-colr",
+      "frame": 1,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "progressive-no-colr",
+      "frame": 2,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    },
+    {
+      "environment": "raw-15.4",
+      "fixture": "progressive-no-colr",
+      "frame": 3,
+      "nativeVisibleExact": true,
+      "workingVisibleExact": true,
+      "colorAndGeometryExact": true
+    }
+  ],
+  "allCrossEnvironmentNativeExact": true,
+  "allCrossEnvironmentWorkingExact": true,
+  "allCrossEnvironmentColorAndGeometryExact": true
+}

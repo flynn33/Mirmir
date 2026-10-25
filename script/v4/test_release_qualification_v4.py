@@ -6166,7 +6166,7 @@ class CheckedInReleaseLockTests(unittest.TestCase):
 
         locked_lane(
             "qualityLaneContractSHA256",
-            "script/v4/quality-gate-release-contract-v1.json",
+            "script/v4/quality-gate-release-contract-v2.json",
         )
         locked_sources(
             "qualityLockedSources",
@@ -6176,10 +6176,11 @@ class CheckedInReleaseLockTests(unittest.TestCase):
                 ),
                 "metricToolSHA256": "script/v4/quality_gate_v4.py",
                 "observerSourceSHA256": "Mirmir/App/MirmirApp.swift",
+                "chromaGeometryValidatorSHA256": "script/v4/chroma_geometry_v4.py",
             },
         )
         quality_contract = json.loads(
-            (SCRIPT_DIRECTORY / "quality-gate-release-contract-v1.json").read_text()
+            (SCRIPT_DIRECTORY / "quality-gate-release-contract-v2.json").read_text()
         )
         frozen_quality_baseline = dict(quality_contract["frozenP05Baseline"])
         frozen_quality_baseline.pop("sourceManifestPath")
@@ -6193,7 +6194,7 @@ class CheckedInReleaseLockTests(unittest.TestCase):
         self.assertEqual(
             contract["qualityCorpusLock"]["releaseLockSHA256"],
             qualification.sha256(
-                SCRIPT_DIRECTORY / "natural-quality-corpus-lock-v1.json"
+                SCRIPT_DIRECTORY / "natural-quality-corpus-lock-v2.json"
             ),
         )
 
@@ -6322,7 +6323,7 @@ class CheckedInReleaseLockTests(unittest.TestCase):
 
         locked_lane(
             "parityLaneContractSHA256",
-            "script/v4/cpu-metal-parity-contract-v2.json",
+            "script/v4/cpu-metal-parity-contract-v3.json",
         )
         locked_sources(
             "parityLockedSources",
@@ -6330,6 +6331,7 @@ class CheckedInReleaseLockTests(unittest.TestCase):
                 "captureSourceSHA256": "Mirmir/App/MirmirApp.swift",
                 "evaluatorSHA256": "script/v4/cpu_metal_parity_v4.py",
                 "runnerSHA256": "script/v4/run_cpu_metal_parity_v4.sh",
+                "chromaGeometryValidatorSHA256": "script/v4/chroma_geometry_v4.py",
             },
         )
 
@@ -6437,7 +6439,7 @@ class CheckedInReleaseLockTests(unittest.TestCase):
     def testCheckedInTrustRootEstablishesExternalTrust(self) -> None:
         contract_path = SCRIPT_DIRECTORY / "release-qualification-contract-v1.json"
         trust_root_path = (
-            SCRIPT_DIRECTORY / "release-qualification-trust-root-v1.json"
+            SCRIPT_DIRECTORY / "release-qualification-trust-root-v2.json"
         )
         trust = qualification.establish_external_trust(
             trust_root_path,

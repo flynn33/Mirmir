@@ -2064,6 +2064,9 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             primaryGraphTrack: plan.primaryGraphTrack,
             videoDelivery: plan.videoDelivery,
             encodedFormatDescriptor: plan.encodedFormatDescriptor,
+            sourceAVCChromaDeclaration: plan.sourceAVCChromaDeclaration,
+            sourceJFIFSampling: plan.sourceJFIFSampling,
+            sourceProResWorkingFormat: plan.sourceProResWorkingFormat,
             nominalSourceFrameDuration:
                 try ExactRationalV4(1_001, 24_000),
             nonVideoTranscodeHooks: plan.nonVideoTranscodeHooks
@@ -2271,6 +2274,9 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             primaryGraphTrack: plan.primaryGraphTrack,
             videoDelivery: plan.videoDelivery,
             encodedFormatDescriptor: plan.encodedFormatDescriptor,
+            sourceAVCChromaDeclaration: plan.sourceAVCChromaDeclaration,
+            sourceJFIFSampling: plan.sourceJFIFSampling,
+            sourceProResWorkingFormat: plan.sourceProResWorkingFormat,
             nominalSourceFrameDuration:
                 try ExactRationalV4(1_001, 24_000),
             nonVideoTranscodeHooks: plan.nonVideoTranscodeHooks
@@ -2443,6 +2449,9 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             primaryGraphTrack: plan.primaryGraphTrack,
             videoDelivery: plan.videoDelivery,
             encodedFormatDescriptor: plan.encodedFormatDescriptor,
+            sourceAVCChromaDeclaration: plan.sourceAVCChromaDeclaration,
+            sourceJFIFSampling: plan.sourceJFIFSampling,
+            sourceProResWorkingFormat: plan.sourceProResWorkingFormat,
             nominalSourceFrameDuration:
                 try ExactRationalV4(1_001, 24_000),
             nonVideoTranscodeHooks: plan.nonVideoTranscodeHooks

@@ -1,26 +1,14 @@
 # Mirmir product support
 
-Current source identity: **Mirmir 1.7.2 (20)**. Release clearance remains on hold;
-see [the current continuation](docs/QA_FOLLOWUP_2026-10-25.md). The completed
-runtime8 native baseline passes all selected non-UI suites: Release 745, Debug
-750, Rosetta 745 and macOS 15.4 745, each with zero failures and 13 opt-in skips.
-All 404 Python checks and the local universal archive audit pass. The runtime7
-fresh 90-minute production export passes full independent frame, exact-clock
-and byte-exact audio verification. Additional targeted oracles found chroma
-calibration and physical alignment defects; their fixes, broad-format
-integration and richer audio/metadata handling remain unfinished. These suite
-passes do not qualify those features or authorize release.
-New local download-lifecycle repairs pass actual fresh-VM clear/retry and
-network-failure/retry controls. File selection permits content validation when
-a common container has no registered movie UTI. New vImage/MPS chroma and
-odd-input preview findings remain release blockers; these are functional media
-checks performed from terminal without opening a panel or viewing the screen.
-The historical October 7, 2026 readback verifies the signed universal
-**1.7.0 (17)** repair installed and launched, with its exact executable,
-strict signature, native About
-version/build, and idle Metal route confirmed. Earlier installed-version
-checks are historical. Source publication and binary distribution remain
-separate actions.
+Current source identity: **Mirmir 1.7.2 (20)**. **Release remains blocked.**
+The integrated bounded candidate's optimized non-UI Release suite reports
+815 passed, zero failures, 15 explicit opt-in skips (830 total); default universal Release builds/signs without warnings.
+Physical chroma, progressive JFIF MOV and native ProRes 422 working-delivery
+repairs have bounded evidence. Broader production decoder admission, reported
+error 11, conventional track/title/date/timing defects and current aggregate
+qualification remain open. See [the exact findings and unverified features](docs/BOUNDED_QA_2026-10-25.md).
+Earlier counts in [the continuation](docs/QA_FOLLOWUP_2026-10-25.md) describe
+historical snapshots. Jim handles notarization and Store distribution.
 
 The retained 1.7.0 beta evidence has exact serial/parallel spatial-stage parity
 and an isolated 8.91× spatial speedup at 3840×1632. Its version-aligned Debug and
@@ -54,13 +42,15 @@ override when needed, including AVI bytes stored under a `.mov` name.
 
 Omitted color tags are resolved from an actual decoded frame; explicit tags are
 preserved. H.264/HEVC use their defined video-range default when the range flag
-is absent. ProRes 422 uses the declared 10-bit P010 decode conversion; this
-converts 4:2:2 chroma to the engine's 4:2:0 working surface. Unknown or
+is absent. ProRes 422 deterministic processing reads native v216 and explicitly converts
+progressive adjacent rows or rows within each physical field into 10-bit P010
+working 4:2:0. Original encoded facts remain separate. Unknown or
 contradictory declarations still fail with an explanation.
 
 Supported MPEG-4 Part 2 and JFIF Motion JPEG 4:2:0 sampling comes from bitstream
-headers. MPEG-4 MOV/MP4, Motion JPEG MOV/AVI and the supported FMP4/H264 AVI
-fixtures complete production exports. The new AVI projection retains original
+headers. The tested progressive JFIF420 MOV and supported FMP4/H264 AVI fixtures
+complete production exports. OpenDML MJPEG AVI remains blocked by native
+decoder failures; its source-header proof alone does not qualify decoding. The new AVI projection retains original
 packet payloads, PCM and exact track ends, with H264 presentation order derived
 from its bitstream. Its initial verified contract admits progressive H264 POC0
 and MPEG4 I/P pictures with one video and optional PCM audio; other POC/field

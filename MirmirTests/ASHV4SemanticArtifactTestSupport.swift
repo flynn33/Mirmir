@@ -12,9 +12,14 @@ struct ASHV4FixtureMetalValidator: ASHMetalLibraryValidatingV4 {
 
 enum ASHV4SemanticArtifactTestSupport {
     static let sourceRevision = String(repeating: "a", count: 40)
-    // The runtime plan binds the refreshed packaged-observer source identity.
+    // The current plan binds authenticated physical-siting schema2 and its
+    // verifier source. The old generic identity remains a historical reference.
     static let expectedPlanSHA256 =
+        "03909a4a1db2a7ae4454032b3f676f76d0f730a0eb33e53b70b3867490c9ad3f"
+    static let historicalGenericPlanSHA256 =
         "d35bbd1a0b44da4cf60ebcd6b20849ba4ae29f8412f491aa30d08cdf225a2229"
+    static let historicalCommonPhaseMediaSHA256 =
+        "06ccf008a78313760fc0a310103957351cf2b06f9f76960436aaf411b545cd67"
     static let builderHash = ASHSHA256V4(
         rawData: Data("ash-p06-builder-source-v1".utf8)
     )

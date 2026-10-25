@@ -1526,15 +1526,9 @@ private enum Alpha4444TestError: Error {
 }
 
 private func makeFixedPointMetalLibrary(device: MTLDevice) throws -> MTLLibrary {
-    let testFile = URL(fileURLWithPath: #filePath).resolvingSymlinksInPath()
-    let repositoryRoot = testFile
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-    let sourceURL = repositoryRoot.appendingPathComponent(
-        "Mirmir/Modules/UpscalerEngine/FixedPointMetalKernelsV4.metal"
-    )
-    let source = try String(contentsOf: sourceURL, encoding: .utf8)
-    return try device.makeLibrary(source: source, options: nil)
+    // Exercise the shader compiled into the application without reading a
+    // checkout path that may require separate removable-volume permission.
+    try device.makeDefaultLibrary(bundle: Bundle.main)
 }
 
 private func makeBuffer(

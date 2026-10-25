@@ -1111,7 +1111,8 @@ private func makeVideoInfo(
             alphaModel: alphaModel,
             hasMasteringDisplayMetadata: false,
             hasContentLightLevelMetadata: false,
-            dynamicRange: dynamicRange
+            dynamicRange: dynamicRange,
+            chromaSiting: alphaModel == .none ? .left : .notApplicable
         )
     )
 }
@@ -1357,4 +1358,190 @@ private actor CatalogDownloadBackend: ModelDownloadableBackend {
     }
 
     private enum Failure: Error { case wrongOS, notFresh, timeout, writer, buffer }
+}
+
+
+final class MetalFXBridgeChromaTests: XCTestCase {
+    private static let sites: [(CFString, Int, Int)] = [
+        (kCVImageBufferChromaLocation_Left, 0, 1),
+        (kCVImageBufferChromaLocation_Center, 1, 1),
+        (kCVImageBufferChromaLocation_TopLeft, 0, 0),
+        (kCVImageBufferChromaLocation_Top, 1, 0),
+        (kCVImageBufferChromaLocation_BottomLeft, 0, 2),
+        (kCVImageBufferChromaLocation_Bottom, 1, 2),
+    ]
+
+    // Enumerate representable binary16 values numerically; do not share the
+    // production bit conversion or rely on Float16 in the Intel slice.
+    private static let positiveHalfValues: [Double] = (0...0x3c00).map { bits in
+        let exponent = bits / 1024, mantissa = bits % 1024
+        return exponent == 0 ? Double(mantissa) * pow(2, -24)
+            : Double(1024 + mantissa) * pow(2, Double(exponent - 25))
+    }
+
+    private func nearestHalf(_ value: Double) -> UInt16 {
+        let value = Double(Float(value))
+        let table = Self.positiveHalfValues
+        var low = 0, high = table.count - 1
+        while low < high {
+            let middle = (low + high) / 2
+            if table[middle] < value { low = middle + 1 } else { high = middle }
+        }
+        guard low > 0 else { return 0 }
+        let below = value - table[low - 1], above = table[low] - value
+        if below < above { return UInt16(low - 1) }
+        if above < below { return UInt16(low) }
+        return UInt16(low.isMultiple(of: 2) ? low : low - 1)
+    }
+
+    private func buffer(_ width: Int, _ height: Int) throws -> CVPixelBuffer {
+        var result: CVPixelBuffer?
+        XCTAssertEqual(CVPixelBufferCreate(kCFAllocatorDefault, width, height,
+            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            [kCVPixelBufferIOSurfacePropertiesKey: [:]] as CFDictionary, &result), kCVReturnSuccess)
+        return try XCTUnwrap(result)
+    }
+
+    private func storage(_ image: CVPixelBuffer) -> [Data] {
+        CVPixelBufferLockBaseAddress(image, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(image, .readOnly) }
+        return (0..<2).map { plane in
+            Data(bytes: CVPixelBufferGetBaseAddressOfPlane(image, plane)!,
+                count: CVPixelBufferGetBytesPerRowOfPlane(image, plane) * CVPixelBufferGetHeightOfPlane(image, plane))
+        }
+    }
+
+    private func install709(_ image: CVPixelBuffer) {
+        for (key, value) in [(kCVImageBufferColorPrimariesKey, kCVImageBufferColorPrimaries_ITU_R_709_2),
+            (kCVImageBufferTransferFunctionKey, kCVImageBufferTransferFunction_ITU_R_709_2),
+            (kCVImageBufferYCbCrMatrixKey, kCVImageBufferYCbCrMatrix_ITU_R_709_2)] {
+            CVBufferSetAttachment(image, key, value, .shouldPropagate)
+        }
+    }
+
+    private func expected(_ image: CVPixelBuffer, width: Int, height: Int, nx: Int, ny: Int) -> [UInt16] {
+        CVPixelBufferLockBaseAddress(image, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(image, .readOnly) }
+        let y = CVPixelBufferGetBaseAddressOfPlane(image, 0)!.assumingMemoryBound(to: UInt8.self)
+        let uv = CVPixelBufferGetBaseAddressOfPlane(image, 1)!.assumingMemoryBound(to: UInt8.self)
+        let ys = CVPixelBufferGetBytesPerRowOfPlane(image, 0), uvs = CVPixelBufferGetBytesPerRowOfPlane(image, 1)
+        func chroma(_ column: Int, _ row: Int, _ component: Int) -> Double {
+            let qx = 2 * column - nx, qy = 2 * row - ny
+            let x0 = Int(floor(Double(qx) / 4)), y0 = Int(floor(Double(qy) / 4))
+            let wx = qx - 4 * x0, wy = qy - 4 * y0
+            func sample(_ x: Int, _ y: Int) -> Int {
+                Int(uv[min(height / 2 - 1, max(0, y)) * uvs + min(width / 2 - 1, max(0, x)) * 2 + component])
+            }
+            let sum = sample(x0, y0) * (4 - wx) * (4 - wy)
+                + sample(x0 + 1, y0) * wx * (4 - wy)
+                + sample(x0, y0 + 1) * (4 - wx) * wy
+                + sample(x0 + 1, y0 + 1) * wx * wy
+            return (Double(sum) / 16 - 128) / 224
+        }
+        func encodedToLinear(_ input: Double) -> Double {
+            let v = min(1, max(0, input))
+            return v < 0.081 ? v / 4.5 : pow((v + 0.099) / 1.099, 1 / 0.45)
+        }
+        let kr = 2126.0 / 10000, kb = 722.0 / 10000, kg = 1 - kr - kb
+        var result: [UInt16] = []
+        for row in 0..<height {
+            for column in 0..<width {
+                let luma = (Double(y[row * ys + column]) - 16) / 219
+                let cb = chroma(column, row, 0), cr = chroma(column, row, 1)
+                let red = luma + 2 * (1 - kr) * cr
+                let blue = luma + 2 * (1 - kb) * cb
+                let green = (luma - kr * red - kb * blue) / kg
+                result += [red, green, blue].map { nearestHalf(encodedToLinear($0)) }
+                result.append(0x3c00)
+            }
+        }
+        return result
+    }
+
+    func testDecoderUsesAllSixPhysicalLocationsWithIndependentMatrixAndHalfOracle() throws {
+        for (width, height) in [(2, 2), (8, 6), (32, 24)] {
+            let image = try buffer(width, height)
+            CVPixelBufferLockBaseAddress(image, [])
+            for plane in 0..<2 {
+                let bytes = CVPixelBufferGetBaseAddressOfPlane(image, plane)!.assumingMemoryBound(to: UInt8.self)
+                let stride = CVPixelBufferGetBytesPerRowOfPlane(image, plane)
+                memset(bytes, 0xA7, stride * CVPixelBufferGetHeightOfPlane(image, plane))
+                for row in 0..<CVPixelBufferGetHeightOfPlane(image, plane) {
+                    for column in 0..<CVPixelBufferGetWidthOfPlane(image, plane) {
+                        if plane == 0 { bytes[row * stride + column] = UInt8(64 + (row * 7 + column * 11) % 128) }
+                        else {
+                            bytes[row * stride + 2 * column] = UInt8(96 + (column * 7 + row * 5) % 64)
+                            bytes[row * stride + 2 * column + 1] = UInt8(96 + (column * 3 + row * 11) % 64)
+                        }
+                    }
+                }
+            }
+            CVPixelBufferUnlockBaseAddress(image, [])
+            install709(image)
+            let configuration = NV12ScalerConfiguration(backendID: .metalFXSpatial,
+                pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                sourceWidth: width, sourceHeight: height, targetWidth: width * 2, targetHeight: height * 2)
+            for (site, nx, ny) in Self.sites {
+                for key in [kCVImageBufferChromaLocationTopFieldKey, kCVImageBufferChromaLocationBottomFieldKey] {
+                    CVBufferSetAttachment(image, key, site, .shouldPropagate)
+                }
+                let before = storage(image)
+                let attachments = CVBufferCopyAttachments(image, .shouldPropagate) as NSDictionary?
+                let actual = try MetalFXBT709Bridge.decode(image, configuration: configuration)
+                XCTAssertEqual(actual, expected(image, width: width, height: height, nx: nx, ny: ny), "\(width)x\(height), \(site)")
+                XCTAssertEqual(storage(image), before)
+                XCTAssertEqual(CVBufferCopyAttachments(image, .shouldPropagate) as NSDictionary?, attachments)
+            }
+        }
+    }
+
+    func testDecoderRejectsUnresolvedAndConflictingPhaseWithoutMutation() throws {
+        let image = try buffer(8, 6)
+        install709(image)
+        let configuration = NV12ScalerConfiguration(backendID: .metalFXSpatial,
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            sourceWidth: 8, sourceHeight: 6, targetWidth: 16, targetHeight: 12)
+        let cases: [(CFString?, CFString?)] = [(nil, nil), (kCVImageBufferChromaLocation_DV420, nil),
+            (nil, kCVImageBufferChromaLocation_Left), (kCVImageBufferChromaLocation_Left, kCVImageBufferChromaLocation_Center)]
+        for (top, bottom) in cases {
+            CVBufferRemoveAttachment(image, kCVImageBufferChromaLocationTopFieldKey)
+            CVBufferRemoveAttachment(image, kCVImageBufferChromaLocationBottomFieldKey)
+            if let top { CVBufferSetAttachment(image, kCVImageBufferChromaLocationTopFieldKey, top, .shouldPropagate) }
+            if let bottom { CVBufferSetAttachment(image, kCVImageBufferChromaLocationBottomFieldKey, bottom, .shouldPropagate) }
+            let before = storage(image), attachments = CVBufferCopyAttachments(image, .shouldPropagate) as NSDictionary?
+            XCTAssertThrowsError(try MetalFXBT709Bridge.decode(image, configuration: configuration))
+            XCTAssertEqual(storage(image), before)
+            XCTAssertEqual(CVBufferCopyAttachments(image, .shouldPropagate) as NSDictionary?, attachments)
+        }
+    }
+
+    func testDecoderRejectsExplicitInterlacedFrameBeforeReading() throws {
+        let image = try buffer(8, 6)
+        install709(image)
+        for key in [kCVImageBufferChromaLocationTopFieldKey, kCVImageBufferChromaLocationBottomFieldKey] {
+            CVBufferSetAttachment(image, key, kCVImageBufferChromaLocation_Left, .shouldPropagate)
+        }
+        CVBufferSetAttachment(image, kCVImageBufferFieldCountKey, 2 as CFNumber, .shouldPropagate)
+        XCTAssertEqual((CVBufferCopyAttachment(image, kCVImageBufferFieldCountKey, nil) as? NSNumber)?.intValue, 2)
+        let before = storage(image)
+        let configuration = NV12ScalerConfiguration(backendID: .metalFXSpatial,
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            sourceWidth: 8, sourceHeight: 6, targetWidth: 16, targetHeight: 12)
+        XCTAssertThrowsError(try MetalFXBT709Bridge.decode(image, configuration: configuration))
+        XCTAssertEqual(storage(image), before)
+    }
+
+    func testEncoderClearsStaleBottomPhaseWhenItEmitsProgressiveLeft() throws {
+        let image = try buffer(16, 12)
+        let configuration = NV12ScalerConfiguration(backendID: .metalFXSpatial,
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            sourceWidth: 8, sourceHeight: 6, targetWidth: 16, targetHeight: 12)
+        CVBufferSetAttachment(image, kCVImageBufferChromaLocationBottomFieldKey,
+            kCVImageBufferChromaLocation_Center, .shouldPropagate)
+        var linear = [UInt16](repeating: 0, count: 16 * 12 * 4)
+        for index in stride(from: 3, to: linear.count, by: 4) { linear[index] = 0x3c00 }
+        try MetalFXBT709Bridge.encode(linear, into: image, configuration: configuration)
+        XCTAssertEqual(CVBufferCopyAttachment(image, kCVImageBufferChromaLocationTopFieldKey, nil) as? String, kCVImageBufferChromaLocation_Left as String)
+        XCTAssertNil(CVBufferCopyAttachment(image, kCVImageBufferChromaLocationBottomFieldKey, nil))
+    }
 }

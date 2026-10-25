@@ -76,6 +76,7 @@ actor PreparedMPSScaler: PreparedFrameUpscaler {
         kernel = mode == .lanczos
             ? MPSImageLanczosScale(device: device)
             : MPSImageBilinearScale(device: device)
+        kernel.edgeMode = .clamp
         actualBackendID = configuration.backendID
         sourcePixelBufferAttributes = configuration.attributes(width: configuration.sourceWidth, height: configuration.sourceHeight, metalCompatible: true)
         destinationPixelBufferAttributes = configuration.attributes(width: configuration.targetWidth, height: configuration.targetHeight, metalCompatible: true)
@@ -88,6 +89,11 @@ actor PreparedMPSScaler: PreparedFrameUpscaler {
         try Task.checkCancellation()
         try configuration.validate(source, source: true)
         try configuration.validate(destination, source: false)
+        let chromaTranslation = try NV12FrameAttachments.chromaScaleTranslation(
+            from: source,
+            scaleX: Double(configuration.targetWidth) / Double(configuration.sourceWidth),
+            scaleY: Double(configuration.targetHeight) / Double(configuration.sourceHeight),
+            backendID: actualBackendID, frameIndex: timing.frameIndex)
         let resources = [
             try makePlane(source: source, destination: destination, plane: 0, format: .r8Unorm, frameIndex: timing.frameIndex),
             try makePlane(source: source, destination: destination, plane: 1, format: .rg8Unorm, frameIndex: timing.frameIndex)
@@ -95,12 +101,12 @@ actor PreparedMPSScaler: PreparedFrameUpscaler {
         guard let commandBuffer = queue.makeCommandBuffer() else {
             throw configuration.processingError("Metal could not create a command buffer", frameIndex: timing.frameIndex)
         }
-        for resource in resources {
+        for (plane, resource) in resources.enumerated() {
             var transform = MPSScaleTransform(
                 scaleX: Double(resource.destination.width) / Double(resource.source.width),
                 scaleY: Double(resource.destination.height) / Double(resource.source.height),
-                translateX: 0,
-                translateY: 0
+                translateX: plane == 0 ? 0 : chromaTranslation.x,
+                translateY: plane == 0 ? 0 : chromaTranslation.y
             )
             withUnsafePointer(to: &transform) { kernel.scaleTransform = $0 }
             kernel.encode(commandBuffer: commandBuffer, sourceTexture: resource.source, destinationTexture: resource.destination)

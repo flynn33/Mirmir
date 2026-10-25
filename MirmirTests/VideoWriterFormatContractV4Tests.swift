@@ -6,6 +6,56 @@ import XCTest
 @testable import Mirmir
 
 final class VideoWriterFormatContractV4Tests: XCTestCase {
+    func testExplicitCenterSitingCalibratesAndRejectsMissingOrWrongDeclaration() async throws {
+        for codec: VideoWriterCodecV4 in [.h264, .hevc] {
+            let center = try VideoWriterFormatContractV4(
+                codec: codec, storage: .nv12FullRange8Bit, color: .sdrBT709,
+                sourceGeometry: sourceGeometry(width: 64, height: 48),
+                outputWidth: 128, outputHeight: 96, frameOperation: .spatialResampling,
+                chromaSiting: .center
+            )
+            let left = try VideoWriterFormatContractV4(
+                codec: codec, storage: .nv12FullRange8Bit, color: .sdrBT709,
+                sourceGeometry: sourceGeometry(width: 64, height: 48),
+                outputWidth: 128, outputHeight: 96, frameOperation: .spatialResampling,
+                chromaSiting: .left
+            )
+            XCTAssertNotEqual(center, left)
+            try center.verifyReopenedFormat(
+                center.makeExpectedFormatDescription(),
+                preferredTransform: center.geometry.avPreferredTransform
+            )
+            XCTAssertThrowsError(try center.verifyReopenedFormat(
+                left.makeExpectedFormatDescription(),
+                preferredTransform: left.geometry.avPreferredTransform
+            ))
+            let calibrator = AVFoundationVideoFormatCalibratorV4()
+            let centerFormat = try await calibrator.formatDescriptor(for: center)
+            let leftFormat = try await calibrator.formatDescriptor(for: left)
+            XCTAssertNotEqual(centerFormat, leftFormat)
+            let buffer = try PixelBufferSignalCodecV4.makeBuffer(
+                storage: .nv12FullRange8Bit, width: 128, height: 96,
+                metalCompatible: false
+            )
+            XCTAssertThrowsError(try center.verifyDecodedPixelBuffer(buffer))
+            left.applyChromaSiting(to: buffer)
+            XCTAssertThrowsError(try center.verifyDecodedPixelBuffer(buffer))
+            center.applyChromaSiting(to: buffer)
+            try center.verifyDecodedPixelBuffer(buffer)
+            let propagated = try XCTUnwrap(
+                CVBufferCopyAttachments(buffer, .shouldPropagate) as? [String: Any]
+            )
+            XCTAssertEqual(
+                propagated[kCVImageBufferChromaLocationTopFieldKey as String] as? String,
+                kCVImageBufferChromaLocation_Center as String
+            )
+            XCTAssertEqual(
+                propagated[kCVImageBufferChromaLocationBottomFieldKey as String] as? String,
+                kCVImageBufferChromaLocation_Center as String
+            )
+        }
+    }
+
     func testRotatedNonSquareSARAndCleanApertureTransformExactly() throws {
         let source = try RationalPresentationGeometryV4(
             codedWidth: 720,

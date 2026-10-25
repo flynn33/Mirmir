@@ -992,8 +992,8 @@ enum ASHP06FixedPointSourceIdentityV4 {
     static func spatialScalePlan() throws -> ASHP06LockedFileIdentityV4 {
         try identity(
             "Mirmir/Modules/UpscalerEngine/SpatialScalePlanV4.swift",
-            10_953,
-            "04eb8a6d960e8cbf95ab98d3b3f1baf5bb3826741dfb2dc242de1bda9ca5774e"
+            21_225,
+            "15995cfe2bbf384e85622c5b60b002ca4b66dfcddead3f9b7922d11ce930a16a"
         )
     }
 
@@ -1076,9 +1076,9 @@ struct ASHP06PhaseCoefficientProcedureArtifactV4: Codable, Equatable,
                 .expectedSchemaID,
             artifactRole:
                 ASHRuntimeArtifactRoleV4.phaseCoefficientProcedure.rawValue,
-            kernelContractID: FixedPointCoefficientCompilerV4.procedureID,
+            kernelContractID: SpatialChromaGeometryV4.kernelContractID,
             coordinateProcedureID:
-                "pixel-center-2j-plus-1-times-s-minus-t-over-2t-v1",
+                SpatialChromaGeometryV4.coordinateProcedureID,
             coefficientProcedureID: FixedPointCoefficientCompilerV4.procedureID,
             spatialScalePlanSource:
                 try ASHP06FixedPointSourceIdentityV4.spatialScalePlan(),
@@ -1139,9 +1139,9 @@ enum ASHP06VerificationSourceIdentityV4 {
         ASHP06LockedFileIdentityV4(
             repositoryRelativePath:
                 "Mirmir/Modules/UpscalerEngine/ASH/ASHExecutionPlanV4.swift",
-            byteCount: 20_377,
+            byteCount: 20_371,
             contentSHA256: try ASHSHA256V4(
-                "f84ef84e038ecade76a550f9ca235913b109c8b9d47bbefff9e7578d9e50a0f2"
+                "341baec33cb2822bd1e7790f1312d33f19058e21feae1ddba5e699838a220e5b"
             )
         )
     }
@@ -1380,6 +1380,9 @@ enum ASHP06CanonicalRuntimeArtifactsV4 {
     static func validateLockedRepositoryInputs(
         repositoryRoot: URL,
         historicalNaturalQualityCapture: Data? = nil,
+        historicalNaturalQualityMetric: Data? = nil,
+        historicalNaturalQualityRunner: Data? = nil,
+        historicalNaturalQualityCorpusBuilder: Data? = nil,
         fileManager: FileManager = .default
     ) throws {
         let identities = try ASHP06LockedPerformanceGateV4.allLockedFiles
@@ -1387,15 +1390,50 @@ enum ASHP06CanonicalRuntimeArtifactsV4 {
             + ASHP06FixedPointSourceIdentityV4.allLockedFiles
             + [ASHP06VerificationSourceIdentityV4.executionPlan()]
         let captureIdentity = try ASHP06LockedNaturalQualityEvidenceV4.captureImplementation()
+        let metricIdentity = try ASHP06LockedNaturalQualityEvidenceV4.metricImplementation()
+        let runnerIdentity = try ASHP06LockedNaturalQualityEvidenceV4.runnerImplementation()
+        let corpusBuilderIdentity = try ASHP06LockedNaturalQualityEvidenceV4.corpusBuilder()
         for identity in identities {
             let url = repositoryRoot.appendingPathComponent(
                 identity.repositoryRelativePath,
                 isDirectory: false
             )
-            let historical = identity == captureIdentity
-                ? historicalNaturalQualityCapture : nil
+            let historical: Data?
+            if identity == captureIdentity {
+                historical = historicalNaturalQualityCapture
+            } else if identity == metricIdentity {
+                historical = historicalNaturalQualityMetric
+            } else if identity == runnerIdentity {
+                historical = historicalNaturalQualityRunner
+            } else if identity == corpusBuilderIdentity {
+                historical = historicalNaturalQualityCorpusBuilder
+            } else {
+                historical = nil
+            }
             try validateLockedRepositoryInput(identity, at: url, historical: historical)
         }
+    }
+
+    /// Checks the current regular file without substituting historical bytes.
+    /// The generator chooses the four explicitly historical NaturalQuality
+    /// references; a mismatch in any other input is never an automatic fallback.
+    static func lockedRepositoryInputMatches(
+        _ identity: ASHP06LockedFileIdentityV4,
+        at url: URL
+    ) throws -> Bool {
+        var inspectedURL = url
+        inspectedURL.removeAllCachedResourceValues()
+        let values = try inspectedURL.resourceValues(
+            forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]
+        )
+        guard values.isRegularFile == true, values.isSymbolicLink != true else {
+            throw ASHP06RuntimeBundleV4Error.invalidBuildInput(
+                "locked input size/type mismatch: \(identity.repositoryRelativePath)"
+            )
+        }
+        guard Int64(values.fileSize ?? -1) == identity.byteCount else { return false }
+        return try ASHSHA256V4(rawData: Data(contentsOf: url, options: .mappedIfSafe))
+            == identity.contentSHA256
     }
 
     static func validateLockedRepositoryInput(
@@ -1433,7 +1471,8 @@ enum ASHP06CanonicalRuntimeArtifactsV4 {
         _ identity: ASHP06LockedFileIdentityV4,
         repositoryRoot: URL,
         revision: String,
-        gitExecutable: URL = URL(fileURLWithPath: "/usr/bin/git")
+        gitExecutable: URL = URL(fileURLWithPath: "/usr/bin/git"),
+        expectedGitMode: String? = nil
     ) throws -> Data {
         func failure() -> ASHP06RuntimeBundleV4Error {
             .invalidBuildInput("historical locked input unavailable or invalid: \(identity.repositoryRelativePath)")
@@ -1465,6 +1504,9 @@ enum ASHP06CanonicalRuntimeArtifactsV4 {
         guard object.count == 3, ["100644", "100755"].contains(String(object[0])), object[1] == "blob",
               object[2].utf8.count == 40,
               object[2].utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else { throw failure() }
+        guard expectedGitMode == nil || expectedGitMode == String(object[0]) else {
+            throw failure()
+        }
         let blob = String(object[2])
         let size = try git(["cat-file", "-s", blob])
         guard Int64(String(decoding: size, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))

@@ -101,11 +101,11 @@ class NaturalQualityCorpusTests(unittest.TestCase):
 
     def testReleaseLockBindsEveryReproducibilityInput(self) -> None:
         lock = json.loads(
-            (SCRIPT_DIRECTORY / "natural-quality-corpus-lock-v1.json").read_text()
+            (SCRIPT_DIRECTORY / "natural-quality-corpus-lock-v2.json").read_text()
         )
         self.assertEqual(
             lock["schemaVersion"],
-            "mirmir-ash-v4-natural-quality-corpus-lock-v1",
+            "mirmir-ash-v4-natural-quality-corpus-lock-v2",
         )
         self.assertTrue(lock["releaseEligible"])
         self.assertEqual(lock["clipCount"], 28)
@@ -116,7 +116,7 @@ class NaturalQualityCorpusTests(unittest.TestCase):
         )
         self.assertEqual(
             lock["qualityContractSHA256"],
-            file_sha256(SCRIPT_DIRECTORY / "quality-gate-release-contract-v1.json"),
+            file_sha256(SCRIPT_DIRECTORY / "quality-gate-release-contract-v2.json"),
         )
         self.assertEqual(
             lock["builderSourceSHA256"],

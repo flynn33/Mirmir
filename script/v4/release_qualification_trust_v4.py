@@ -36,6 +36,26 @@ HELPERS: tuple[tuple[str, str, str], ...] = (
         "quality_gate_v4_for_release_qualification",
     ),
 )
+
+SCHEMA_PHASE2 = "mirmir-ash-v4-release-qualification-trust-root-v2"
+CHROMA_HELPER = ("chroma_geometry_replay", "chroma_geometry_v4.py", "chroma_geometry_v4")
+LEGACY_REPLAY_SOURCE_SHA256 = {'support_matrix_replay': '23c0d874e27b7eb37702d18612a969ede2cfda61ed0f968e7c078fd402511403', 'cpu_metal_parity_replay': 'ed0f88fd607268a817159554afbe39a60fca9d4ef8a7c74e44966dd0e2a10a3b', 'p05_baseline_replay': 'd79eff3f6bd7057460546b910cfa7654c9e846d4ff524e7b4ce78be78f6c929f', 'quality_raw_plane_replay': '2c5b0e5a40adc4f016d9346805f2db247ed1cd8a22e3abf26a2c87d3309ac4c8'}
+
+
+def phase2_release_profile(contract: Mapping[str, Any]) -> bool:
+    schemas = contract.get("evidenceSchemas", {})
+    pair = (schemas.get("quality"), schemas.get("cpu_metal_parity"))
+    if pair == ("mirmir-ash-v4-quality-report-v1", "mirmir-ash-v4-cpu-metal-parity-report-v2"):
+        return False
+    if pair == ("mirmir-ash-v4-quality-report-v2", "mirmir-ash-v4-cpu-metal-parity-report-v3"):
+        return True
+    raise ValueError("release quality/parity envelope profile is mixed or unsupported")
+
+
+def trusted_helper_contract(contract: Mapping[str, Any]):
+    return (CHROMA_HELPER, *HELPERS) if phase2_release_profile(contract) else HELPERS
+
+
 VALIDATORS: Mapping[str, str] = {
     "quality": "validate_quality",
     "same_scope_performance": "validate_performance",
@@ -124,6 +144,8 @@ def build_trust_root(
         contract_path,
         "script/v4/release-qualification-contract-v1.json",
     )
+    phase2 = phase2_release_profile(contract)
+    helper_contract = trusted_helper_contract(contract)
     helpers = [
         {
             "role": role,
@@ -133,14 +155,23 @@ def build_trust_root(
                 f"script/v4/{filename}",
             ),
         }
-        for role, filename, module_name in HELPERS
+        for role, filename, module_name in helper_contract
     ]
+    if not phase2 and any(row["sha256"] != LEGACY_REPLAY_SOURCE_SHA256[row["role"]] for row in helpers):
+        raise ValueError("historical trust root requires its exact four-helper source closure")
+    if phase2:
+        by_role = {row["role"]: row["sha256"] for row in helpers}
+        if (by_role["chroma_geometry_replay"] != contract["qualityLockedSources"]["chromaGeometryValidatorSHA256"]
+                or by_role["chroma_geometry_replay"] != contract["parityLockedSources"]["chromaGeometryValidatorSHA256"]
+                or by_role["quality_raw_plane_replay"] != contract["qualityLockedSources"]["metricToolSHA256"]
+                or by_role["cpu_metal_parity_replay"] != contract["parityLockedSources"]["evaluatorSHA256"]):
+            raise ValueError("fresh trust root helpers differ from release source locks")
     dispatch = [
         {
             "role": role,
             "validator": VALIDATORS[role],
             "evidenceSchema": schemas[role],
-            "replayHelperRoles": list(REPLAY_HELPERS[role]),
+            "replayHelperRoles": (["chroma_geometry_replay"] if phase2 and role in {"quality", "cpu_metal_parity"} else []) + list(REPLAY_HELPERS[role]),
         }
         for role in roles
     ]
@@ -150,7 +181,7 @@ def build_trust_root(
         *helpers,
     ]
     return {
-        "schemaVersion": SCHEMA,
+        "schemaVersion": SCHEMA_PHASE2 if phase2 else SCHEMA,
         "hashAlgorithm": "sha256",
         "evaluator": evaluator,
         "contract": contract_descriptor,

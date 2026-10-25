@@ -363,6 +363,7 @@ private extension AVCanonicalMediaStateAdapterV4 {
         let pixel: CanonicalPixelStateV4
         let color: CanonicalColorStateV4
         let scan: CanonicalScanStateV4
+        let sourceBottomChromaSiting: CanonicalChromaSitingV4?
     }
 
     func probeTrack(
@@ -463,11 +464,14 @@ private extension AVCanonicalMediaStateAdapterV4 {
             var dynamicMetadata: [CanonicalDynamicHDRMetadataV4] = []
             if kind == .video {
                 let preferredTransform = try await track.load(.preferredTransform)
-                let decodedColor = try VideoDecodedColorResolver.resolve(
+                let proResFacts = try ProRes422SourceFactsV4.resolve(
+                    asset: asset, track: track, descriptions: formatDescriptions)
+                let nativeDecodedColor = try VideoDecodedColorResolver.resolve(
                     asset: asset,
                     track: track,
                     descriptions: formatDescriptions
                 )
+                let decodedColor = proResFacts?.colorFallback(over: nativeDecodedColor) ?? nativeDecodedColor
                 let legacySampling = try LegacyVideoSamplingFacts.resolve(
                     asset: asset, track: track, descriptions: formatDescriptions
                 )
@@ -476,6 +480,7 @@ private extension AVCanonicalMediaStateAdapterV4 {
                     characteristics: characteristics,
                     decodedColor: decodedColor,
                     legacySampling: legacySampling,
+                    proResFacts: proResFacts,
                     root: root,
                     observations: &observations
                 )
@@ -593,6 +598,7 @@ private extension AVCanonicalMediaStateAdapterV4 {
         characteristics: [AVMediaCharacteristic],
         decodedColor: [String: String],
         legacySampling: LegacyVideoSamplingFacts?,
+        proResFacts: ProRes422SourceFactsV4? = nil,
         root: String,
         observations: inout [CanonicalMediaObservationV4]
     ) throws -> VideoFormatFacts {
@@ -608,6 +614,7 @@ private extension AVCanonicalMediaStateAdapterV4 {
                 characteristics: characteristics,
                 decodedColor: decodedColor,
                 legacySampling: legacySampling,
+                proResFacts: proResFacts,
                 root: "\(root).format_descriptions[\(index)]",
                 observations: &observations
             )
@@ -631,6 +638,7 @@ private extension AVCanonicalMediaStateAdapterV4 {
         characteristics: [AVMediaCharacteristic],
         decodedColor: [String: String],
         legacySampling: LegacyVideoSamplingFacts?,
+        proResFacts: ProRes422SourceFactsV4? = nil,
         root: String,
         observations: inout [CanonicalMediaObservationV4]
     ) throws -> VideoFormatFacts {
@@ -691,7 +699,13 @@ private extension AVCanonicalMediaStateAdapterV4 {
             root: root,
             observations: &observations
         )
-        let siting = chromaSiting(
+        let fieldChromaSiting = try fieldChromaSiting(
+            description: description, extensions: extensions, subsampling: subsampling
+        )
+        let siting = try legacySampling?.jfifDeclaration.map { _ in
+            CanonicalChromaSitingV4.center
+        } ?? chromaSiting(
+            description: description,
             extensions,
             subsampling: subsampling,
             subtype: subtype,
@@ -717,6 +731,15 @@ private extension AVCanonicalMediaStateAdapterV4 {
             // The admitted VOL parser verifies its interlaced flag is zero.
             scanExtensions[kCMFormatDescriptionExtension_FieldCount as String] = NSNumber(value: 1)
         }
+        if let proResFacts {
+            if scanExtensions[kCMFormatDescriptionExtension_FieldCount as String] == nil {
+                scanExtensions[kCMFormatDescriptionExtension_FieldCount as String] = NSNumber(value: proResFacts.scan.fieldCount)
+            }
+            if let detail = proResFacts.scan.fieldDetail,
+               scanExtensions[kCMFormatDescriptionExtension_FieldDetail as String] == nil {
+                scanExtensions[kCMFormatDescriptionExtension_FieldDetail as String] = detail
+            }
+        }
         let scan = scanState(
             scanExtensions,
             root: root,
@@ -736,10 +759,15 @@ private extension AVCanonicalMediaStateAdapterV4 {
                 range: range,
                 chromaSubsampling: subsampling,
                 chromaSiting: siting,
-                alphaModel: alpha
+                alphaModel: alpha,
+                fieldChromaSiting: fieldChromaSiting
             ),
             color: color,
-            scan: scan
+            scan: scan,
+            sourceBottomChromaSiting: try AVCChromaLocationV4.declaration(from: description)?.bottomLocation
+                ?? AVCChromaLocationV4.canonicalLocation(
+                    extensions[kCMFormatDescriptionExtension_ChromaLocationBottomField as String] as? String
+                )
         )
     }
 
@@ -1042,14 +1070,54 @@ private extension AVCanonicalMediaStateAdapterV4 {
         return .unknown
     }
 
+    func fieldChromaSiting(
+        description: CMFormatDescription,
+        extensions: NSDictionary,
+        subsampling: CanonicalChromaSubsamplingV4
+    ) throws -> CanonicalFieldChromaSitingV4? {
+        guard subsampling == .yuv420,
+              (extensions[kCMFormatDescriptionExtension_FieldCount as String] as? NSNumber)?.intValue == 2 else {
+            return nil
+        }
+        let declaration = try AVCChromaLocationV4.declaration(from: description)
+        let top = declaration?.location ?? AVCChromaLocationV4.canonicalLocation(
+            extensions[kCMFormatDescriptionExtension_ChromaLocationTopField as String] as? String)
+        let bottom = declaration?.bottomLocation ?? AVCChromaLocationV4.canonicalLocation(
+            extensions[kCMFormatDescriptionExtension_ChromaLocationBottomField as String] as? String)
+        guard let top, let bottom, top != bottom else { return nil }
+        let pair = CanonicalFieldChromaSitingV4(top: top, bottom: bottom)
+        return pair.isValid ? pair : nil
+    }
+
     func chromaSiting(
+        description: CMFormatDescription,
         _ extensions: NSDictionary,
         subsampling: CanonicalChromaSubsamplingV4,
         subtype: FourCharCode,
         decodedLegacySampling: Bool = false,
         root: String,
         observations: inout [CanonicalMediaObservationV4]
-    ) -> CanonicalChromaSitingV4 {
+    ) throws -> CanonicalChromaSitingV4 {
+        if try MPEG4ProgressiveSamplingV4.declaration(from: description) != nil {
+            return .left
+        }
+        if let pair = try fieldChromaSiting(description: description,
+            extensions: extensions, subsampling: subsampling) {
+            observations.append(observation(severity: .information, code: .unsupportedValue,
+                path: "\(root).field_chroma_siting",
+                value: "top=\(pair.top.rawValue),bottom=\(pair.bottom.rawValue)"))
+            return .unknown
+        }
+        if let declared = try AVCChromaLocationV4.declaration(from: description) {
+            return declared.location
+        }
+        if subtype == kCMVideoCodecType_H264, subsampling == .yuv420 {
+            observations.append(observation(
+                severity: .unsupported, code: .unknownValue,
+                path: "\(root).chroma_siting", value: "avc_sps_unavailable"
+            ))
+            return .unknown
+        }
         if subsampling == .rgb
             || subsampling == .monochrome
             || subsampling == .yuv444 {

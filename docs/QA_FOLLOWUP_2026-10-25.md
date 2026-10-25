@@ -1,5 +1,13 @@
 # Non-UI QA continuation — October 25, 2026
 
+Current bounded checkpoint: physical chroma, progressive JFIF MOV and native
+ProRes422 repairs are integrated locally. Full optimized non-UI Release:
+815 passed, zero failures, 15 explicit opt-in skips (830 total). Default universal Release builds without warnings.
+[Current findings and specific unverified features](BOUNDED_QA_2026-10-25.md) supersede the
+private-candidate status below; earlier counts remain historical. Release is
+blocked and the goal remains active. The later UHD job has ended, but its full
+independent media verification is still pending.
+
 Candidate: **1.7.2 (20)**. **Release remains blocked; the all-features goal is
 active.** This supplements [the prior QA report](FINAL_QA_2026-10-24.md).
 The earlier local checkpoint is `052c95ea682d92efe260ba4e2e9e59868f9410c3`;

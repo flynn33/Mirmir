@@ -1097,7 +1097,14 @@ enum MirmirFramePreviewLoader {
             guard let result = try? await generator.image(at: time) else {
                 return nil
             }
-            return result.image
+            do {
+                return try await NativeThumbnailSignalConverterV4.image(
+                    asset: asset, at: result.actualTime,
+                    size: CGSize(width: result.image.width, height: result.image.height)
+                ) ?? result.image
+            } catch {
+                return nil
+            }
         }
         return await withTaskCancellationHandler {
             await task.value

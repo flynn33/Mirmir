@@ -4405,15 +4405,15 @@ private enum MirmirPackagedParityCaptureV4 {
 
         func validate() throws {
             guard schemaVersion
-                    == "mirmir-ash-v4-cpu-metal-parity-contract-v2",
+                    == "mirmir-ash-v4-cpu-metal-parity-contract-v3",
                   gateID == "deterministic-engine-v4-cpu-metal-byte-parity",
                   buildConfiguration == "Release",
                   captureSchemaVersion
-                    == "mirmir-ash-v4-cpu-metal-parity-capture-v2",
+                    == "mirmir-ash-v4-cpu-metal-parity-capture-v3",
                   reportSchemaVersion
-                    == "mirmir-ash-v4-cpu-metal-parity-report-v2",
+                    == "mirmir-ash-v4-cpu-metal-parity-report-v3",
                   runArtifactSchemaVersion
-                    == "mirmir-ash-v4-cpu-metal-parity-run-v2",
+                    == "mirmir-ash-v4-cpu-metal-parity-run-v3",
                   attachmentSchemaVersion
                     == "mirmir-ash-v4-canonical-semantics-v2",
                   comparison
@@ -4450,7 +4450,8 @@ private enum MirmirPackagedParityCaptureV4 {
             for value in [
                 tools.captureSourceSHA256,
                 tools.evaluatorSHA256,
-                tools.runnerSHA256
+                tools.runnerSHA256,
+                tools.chromaGeometryValidatorSHA256
             ] where !isSHA256(value) {
                 throw ParityCaptureError.invalidContract("invalid tool identity")
             }
@@ -4551,6 +4552,7 @@ private enum MirmirPackagedParityCaptureV4 {
         let captureSourceSHA256: String
         let evaluatorSHA256: String
         let runnerSHA256: String
+        let chromaGeometryValidatorSHA256: String
     }
 
     private struct ParityTimeDefinition: Codable, Equatable {
@@ -5030,8 +5032,80 @@ private enum MirmirPackagedParityCaptureV4 {
         let allocationContract: ParityAllocationContract
     }
 
+    private struct ParityChromaPlanEvidence: Encodable, Equatable {
+        let schemaVersion = "mirmir-ash-v4-parity-chroma-plan-v1"
+        let recipePolicyID = "parity-declared-raw-uv-field-siting-v1"
+        let coordinateProcedureID = SpatialChromaGeometryV4.coordinateProcedureID
+        let kernelContractID = SpatialChromaGeometryV4.kernelContractID
+        let sourceSiting: String
+        let outputSiting: String
+        let planSchemaVersion = SpatialScalePlanV4.subsampledSchemaVersion
+        let sourceLumaWidth: Int
+        let sourceLumaHeight: Int
+        let targetLumaWidth: Int
+        let targetLumaHeight: Int
+        let scalePlanSHA256: String
+        let kernelIRSHA256: String
+
+        init(configuration: DeterministicPreparedConfigurationV4, geometry: SpatialChromaGeometryV4) throws {
+            let plan = try SpatialScalePlanV4(sourceLumaWidth: configuration.sourceWidth,
+                sourceLumaHeight: configuration.sourceHeight, targetLumaWidth: configuration.targetWidth,
+                targetLumaHeight: configuration.targetHeight, chromaGeometry: geometry, borderRule: .reflect101)
+            sourceSiting = geometry.source.rawValue
+            outputSiting = geometry.target.rawValue
+            sourceLumaWidth = configuration.sourceWidth
+            sourceLumaHeight = configuration.sourceHeight
+            targetLumaWidth = configuration.targetWidth
+            targetLumaHeight = configuration.targetHeight
+            scalePlanSHA256 = ASHSHA256V4(rawData: try ASHCanonicalJSONV4.encode(plan)).rawValue
+            kernelIRSHA256 = ASHSHA256V4(rawData: try ASHCanonicalJSONV4.encode(FixedPointKernelIRV4(scalePlan: plan))).rawValue
+        }
+    }
+
+    private struct ParityChromaGeometryEvidence: Encodable, Equatable {
+        let schemaVersion = "mirmir-ash-v4-parity-chroma-geometry-v1"
+        let normalizationPolicyID: String
+        let top: ParityChromaPlanEvidence
+        let bottom: ParityChromaPlanEvidence?
+
+        init(configuration: DeterministicPreparedConfigurationV4) throws {
+            guard let geometry = configuration.chromaGeometry,
+                  geometry.source == .left, geometry.target == .left else {
+                throw ParityCaptureError.invalidFixture("missing authenticated parity UV geometry")
+            }
+            top = try ParityChromaPlanEvidence(configuration: configuration, geometry: geometry)
+            switch configuration.scanMode {
+            case .progressive:
+                guard configuration.interlacedChromaGeometry == nil else {
+                    throw ParityCaptureError.invalidFixture("progressive parity has field geometry")
+                }
+                normalizationPolicyID = "progressive-declared-uv-left-v1"
+                bottom = nil
+            case .interlaced:
+                guard let fields = configuration.interlacedChromaGeometry,
+                      fields.topSource == .left, fields.bottomSource == .center,
+                      fields.target == .left else {
+                    throw ParityCaptureError.invalidFixture("parity field geometry differs from raw recipe")
+                }
+                normalizationPolicyID = SpatialInterlacedChromaGeometryV4.normalizationPolicyID
+                bottom = try ParityChromaPlanEvidence(configuration: configuration,
+                    geometry: fields.geometry(forTopField: false))
+            }
+        }
+
+        private enum CodingKeys: String, CodingKey { case schemaVersion, normalizationPolicyID, top, bottom }
+        func encode(to encoder: Encoder) throws {
+            var values = encoder.container(keyedBy: CodingKeys.self)
+            try values.encode(schemaVersion, forKey: .schemaVersion)
+            try values.encode(normalizationPolicyID, forKey: .normalizationPolicyID)
+            try values.encode(top, forKey: .top)
+            if let bottom { try values.encode(bottom, forKey: .bottom) }
+            else { try values.encodeNil(forKey: .bottom) }
+        }
+    }
+
     private struct ParityExecutionEvidence: Encodable, Equatable {
-        let schemaVersion = "mirmir-ash-v4-bounded-temporal-execution-v1"
+        let schemaVersion = "mirmir-ash-v4-bounded-temporal-execution-v2"
         let caseID: String
         let backend: String
         let spatialSchedule: String
@@ -5039,6 +5113,9 @@ private enum MirmirPackagedParityCaptureV4 {
         let checkpointSchemaID: String
         let checkpointSHA256s: [String]
         let boundedRoute: ParityBoundedRoute?
+        let fixedPointKernelID: String
+        let chromaApplicability: String
+        let chromaGeometry: ParityChromaGeometryEvidence?
 
         private enum CodingKeys: String, CodingKey {
             case schemaVersion
@@ -5049,6 +5126,9 @@ private enum MirmirPackagedParityCaptureV4 {
             case checkpointSchemaID
             case checkpointSHA256s
             case boundedRoute
+            case fixedPointKernelID
+            case chromaApplicability
+            case chromaGeometry
         }
 
         func encode(to encoder: Encoder) throws {
@@ -5060,6 +5140,10 @@ private enum MirmirPackagedParityCaptureV4 {
             try container.encode(temporalSchedule, forKey: .temporalSchedule)
             try container.encode(checkpointSchemaID, forKey: .checkpointSchemaID)
             try container.encode(checkpointSHA256s, forKey: .checkpointSHA256s)
+            try container.encode(fixedPointKernelID, forKey: .fixedPointKernelID)
+            try container.encode(chromaApplicability, forKey: .chromaApplicability)
+            if let chromaGeometry { try container.encode(chromaGeometry, forKey: .chromaGeometry) }
+            else { try container.encodeNil(forKey: .chromaGeometry) }
             if let boundedRoute {
                 try container.encode(boundedRoute, forKey: .boundedRoute)
             } else {
@@ -5460,7 +5544,10 @@ private enum MirmirPackagedParityCaptureV4 {
                 prepared: prepared,
                 definition: definition,
                 policy: tilePolicy
-            )
+            ),
+            fixedPointKernelID: prepared.deterministicConfiguration.fixedPointKernelID,
+            chromaApplicability: "subsampled_420",
+            chromaGeometry: try ParityChromaGeometryEvidence(configuration: configuration)
         ))
         return ParityRunBytes(
             visible: visible,
@@ -5495,7 +5582,10 @@ private enum MirmirPackagedParityCaptureV4 {
             sourceHeight: definition.sourceHeight,
             targetWidth: definition.targetWidth,
             targetHeight: definition.targetHeight,
-            scanMode: scanMode
+            scanMode: scanMode,
+            chromaGeometry: SpatialChromaGeometryV4(source: .left, target: .left),
+            interlacedChromaGeometry: definition.scanMode == "progressive" ? nil
+                : SpatialInterlacedChromaGeometryV4(topSource: .left, bottomSource: .center, target: .left)
         )
     }
 
@@ -5523,6 +5613,9 @@ private enum MirmirPackagedParityCaptureV4 {
             metalDevice: device,
             metalLibrary: library
         )
+        guard prepared.deterministicConfiguration.fixedPointKernelID == SpatialChromaGeometryV4.kernelContractID else {
+            throw ParityCaptureError.invalidFixture("parity used legacy UV coordinates")
+        }
         guard prepared.temporalTileExecutionSchedule == temporalSchedule,
               prepared.temporalTilePolicy == tilePolicy else {
             throw ParityCaptureError.invalidFixture(
@@ -5956,7 +6049,10 @@ private enum MirmirPackagedParityCaptureV4 {
             temporalSchedule: temporalSchedule.rawValue,
             checkpointSchemaID: "none",
             checkpointSHA256s: [],
-            boundedRoute: nil
+            boundedRoute: nil,
+            fixedPointKernelID: "not_applicable_packed_alpha",
+            chromaApplicability: "not_applicable_packed_alpha",
+            chromaGeometry: nil
         ))
         let sourcePadding = try packedPaddingBytes(source, layout: layout)
         let destinationPadding = try packedPaddingBytes(destination, layout: layout)
@@ -6331,7 +6427,10 @@ private enum MirmirPackagedParityCaptureV4 {
                 String(configuration.sourceHeight),
                 String(configuration.targetWidth),
                 String(configuration.targetHeight),
-                configuration.scaleRouteIdentity
+                configuration.scaleRouteIdentity,
+                SpatialChromaGeometryV4.coordinateProcedureID,
+                configuration.chromaGeometryIdentity,
+                configuration.interlacedChromaGeometryIdentity
             ].joined(separator: "|").utf8
         ))
     }
@@ -6741,7 +6840,7 @@ private enum MirmirPackagedParityCaptureV4 {
             artifacts.append(try artifact(url, relativeTo: root))
         }
         return ParityArtifactManifest(
-            schemaVersion: "mirmir-ash-v4-cpu-metal-parity-artifacts-v2",
+            schemaVersion: "mirmir-ash-v4-cpu-metal-parity-artifacts-v3",
             artifacts: artifacts.sorted { $0.path < $1.path }
         )
     }
@@ -6842,10 +6941,57 @@ private enum MirmirPackagedQualityCaptureV4 {
         let referenceSHA256: String
     }
 
+    private struct QualityChromaGeometryEvidence: Codable {
+        let schemaVersion: String
+        let recipePolicyID: String
+        let coordinateProcedureID: String
+        let kernelContractID: String
+        let sourceSiting: String
+        let outputSiting: String
+        let planSchemaVersion: Int
+        let sourceLumaWidth: Int
+        let sourceLumaHeight: Int
+        let targetLumaWidth: Int
+        let targetLumaHeight: Int
+        let scalePlanSHA256: String
+        let kernelIRSHA256: String
+
+        init(configuration: DeterministicPreparedConfigurationV4) throws {
+            guard let geometry = configuration.chromaGeometry,
+                  geometry.source == .center, geometry.target == .center else {
+                throw NSError(domain: "MirmirQualityPhase", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Quality geometry is not authenticated Center."])
+            }
+            let plan = try SpatialScalePlanV4(
+                sourceLumaWidth: configuration.sourceWidth,
+                sourceLumaHeight: configuration.sourceHeight,
+                targetLumaWidth: configuration.targetWidth,
+                targetLumaHeight: configuration.targetHeight,
+                chromaGeometry: geometry,
+                borderRule: .reflect101
+            )
+            let kernel = try FixedPointKernelIRV4(scalePlan: plan)
+            schemaVersion = "mirmir-ash-v4-quality-chroma-geometry-v1"
+            recipePolicyID = "quality-box-source-reference-center-v1"
+            coordinateProcedureID = SpatialChromaGeometryV4.coordinateProcedureID
+            kernelContractID = SpatialChromaGeometryV4.kernelContractID
+            sourceSiting = geometry.source.rawValue
+            outputSiting = geometry.target.rawValue
+            planSchemaVersion = SpatialScalePlanV4.subsampledSchemaVersion
+            sourceLumaWidth = configuration.sourceWidth
+            sourceLumaHeight = configuration.sourceHeight
+            targetLumaWidth = configuration.targetWidth
+            targetLumaHeight = configuration.targetHeight
+            scalePlanSHA256 = ASHSHA256V4(rawData: try ASHCanonicalJSONV4.encode(plan)).rawValue
+            kernelIRSHA256 = ASHSHA256V4(rawData: try ASHCanonicalJSONV4.encode(kernel)).rawValue
+        }
+    }
+
     private struct CaptureCase: Codable {
         let id: String
         let outputs: [String: String]
         let milliseconds: [String: Double]
+        let chromaGeometry: QualityChromaGeometryEvidence
     }
 
     private struct CaptureManifest: Codable {
@@ -6856,6 +7002,7 @@ private enum MirmirPackagedQualityCaptureV4 {
         let sourceTreeIdentitySHA256: String
         let candidateBackendID: String
         let candidateImplementationVersion: String
+        let fixedPointKernelID: String
         let runtimeManifestSHA256: String
         let runtimeSourceRevision: String
         let productionRuntimeLocked: Bool
@@ -6912,7 +7059,8 @@ private enum MirmirPackagedQualityCaptureV4 {
                 sourceHeight: sourceHeight,
                 targetWidth: targetWidth,
                 targetHeight: targetHeight,
-                borderRule: .reflect101
+                borderRule: .reflect101,
+                chromaGeometry: SpatialChromaGeometryV4(source: .center, target: .center)
             )
             self.measurementContract = try runtime.measurementContract()
             self.program = try runtime.branchProgram()
@@ -6920,7 +7068,8 @@ private enum MirmirPackagedQualityCaptureV4 {
                 rawData: Data(
                     "ash-v4-quality-ablation|\(storage.rawValue)|"
                         .appending("\(sourceWidth)x\(sourceHeight)|")
-                        .appending("\(targetWidth)x\(targetHeight)").utf8
+                        .appending("\(targetWidth)x\(targetHeight)|")
+                        .appending(SpatialChromaGeometryV4(source: .center, target: .center).identity).utf8
                 )
             )
             self.history = try ASHTemporalHistoryV4(capacity: 3)
@@ -7444,12 +7593,17 @@ private enum MirmirPackagedQualityCaptureV4 {
                 sourceHeight: first.sourceHeight,
                 targetWidth: first.targetWidth,
                 targetHeight: first.targetHeight,
-                scanMode: .progressive
+                scanMode: .progressive,
+                chromaGeometry: SpatialChromaGeometryV4(source: .center, target: .center)
             )
             let candidate = try PreparedDeterministicV4Upscaler(
                 configuration: configuration,
                 runtime: runtime
             )
+            guard candidate.deterministicConfiguration.fixedPointKernelID
+                    == SpatialChromaGeometryV4.kernelContractID else {
+                throw MirmirPackagedEvidenceErrorV4.capture("Quality candidate used the legacy kernel contract.")
+            }
             let pipelines: [Variant: AblationPipeline] = [
                 .candidateV4: try AblationPipeline(
                     mode: .full,
@@ -7587,7 +7741,8 @@ private enum MirmirPackagedQualityCaptureV4 {
                 captures.append(CaptureCase(
                     id: record.id,
                     outputs: outputs,
-                    milliseconds: milliseconds
+                    milliseconds: milliseconds,
+                    chromaGeometry: try QualityChromaGeometryEvidence(configuration: configuration)
                 ))
             }
             try await candidate.finish()
@@ -7598,7 +7753,7 @@ private enum MirmirPackagedQualityCaptureV4 {
             )
         }
         let manifest = CaptureManifest(
-            schemaVersion: "mirmir-ash-v4-quality-candidate-capture-v1",
+            schemaVersion: "mirmir-ash-v4-quality-candidate-capture-v2",
             contractSHA256: expectedContract,
             corpusManifestSHA256: ASHSHA256V4(rawData: corpusData).rawValue,
             sourceCommit: environment[
@@ -7609,6 +7764,7 @@ private enum MirmirPackagedQualityCaptureV4 {
             ]!,
             candidateBackendID: "mirmir_deterministic_cpu",
             candidateImplementationVersion: ASHRuntimeManifestV4.runtimeIdentity,
+            fixedPointKernelID: SpatialChromaGeometryV4.kernelContractID,
             runtimeManifestSHA256: runtime.manifestSHA256.rawValue,
             runtimeSourceRevision: runtime.manifest.provenance.sourceRevision,
             productionRuntimeLocked: productionRuntimeLocked,
@@ -7653,10 +7809,15 @@ private enum MirmirPackagedQualityCaptureV4 {
                 sourceHeight: first.sourceHeight,
                 targetWidth: first.targetWidth,
                 targetHeight: first.targetHeight,
-                scanMode: .progressive
+                scanMode: .progressive,
+                chromaGeometry: SpatialChromaGeometryV4(source: .center, target: .center)
             ),
             runtime: runtime
         )
+        guard candidate.deterministicConfiguration.fixedPointKernelID
+                == SpatialChromaGeometryV4.kernelContractID else {
+            throw MirmirPackagedEvidenceErrorV4.capture("Quality warmup used the legacy kernel contract.")
+        }
         for index in 0..<count {
             let candidateOutput = try makeBuffer(
                 width: first.targetWidth,
@@ -7745,7 +7906,13 @@ private enum MirmirPackagedQualityCaptureV4 {
         CVBufferSetAttachment(
             buffer,
             kCVImageBufferChromaLocationTopFieldKey,
-            kCVImageBufferChromaLocation_Left,
+            kCVImageBufferChromaLocation_Center,
+            .shouldPropagate
+        )
+        CVBufferSetAttachment(
+            buffer,
+            kCVImageBufferChromaLocationBottomFieldKey,
+            kCVImageBufferChromaLocation_Center,
             .shouldPropagate
         )
         CVBufferSetAttachment(

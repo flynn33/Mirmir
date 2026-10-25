@@ -384,13 +384,16 @@ final class DeterministicCPUBackendTests: XCTestCase {
         }
     }
 
+    // These historical hashes describe the even-sized generic plane grid,
+    // which has Center geometry. Keep the bytes and declare that fixture.
     func testFusedPreparedPathPreservesLegacyProgressiveAndInterlacedPixels() async throws {
         let backend = try makeBackend()
         let progressivePrepared = try await backend.prepare(
             request: BackendPreparationRequest(
                 source: makeSourceInfo(
                     pixelFormat:
-                        kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+                        kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                    chromaSiting: .center
                 ),
                 targetSize: CGSize(width: 28, height: 20)
             ),
@@ -403,7 +406,7 @@ final class DeterministicCPUBackendTests: XCTestCase {
                 height: 12
             )
             try writeMovingPattern(frameIndex: frameIndex, to: source)
-            attachProgressiveBT709(to: source)
+            attachProgressiveBT709(to: source, chromaSiting: kCVImageBufferChromaLocation_Center)
             let destination = try SyntheticNV12PixelBuffer.make(
                 width: 28,
                 height: 20
@@ -433,7 +436,8 @@ final class DeterministicCPUBackendTests: XCTestCase {
                         kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
                     fieldCount: 2,
                     fieldDetail:
-                        kCVImageBufferFieldDetailTemporalTopFirst as String
+                        kCVImageBufferFieldDetailTemporalTopFirst as String,
+                    chromaSiting: .center, bottomChromaSiting: .center
                 ),
                 targetSize: CGSize(width: 32, height: 24)
             ),
@@ -452,7 +456,7 @@ final class DeterministicCPUBackendTests: XCTestCase {
             _ = try await interlacedPrepared.processTemporal(
                 source: FramePixelBuffer(try makeCadenceSource(
                     top: pair.0,
-                    bottom: pair.1
+                    bottom: pair.1, chromaSiting: kCVImageBufferChromaLocation_Center
                 )),
                 destinations: destinations.map(FramePixelBuffer.init),
                 timing: FrameTiming(
@@ -573,7 +577,8 @@ final class DeterministicCPUBackendTests: XCTestCase {
             request: BackendPreparationRequest(
                 source: makeSourceInfo(
                     pixelFormat:
-                        kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+                        kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                    chromaSiting: .center
                 ),
                 targetSize: CGSize(width: 28, height: 20)
             ),
@@ -581,7 +586,7 @@ final class DeterministicCPUBackendTests: XCTestCase {
         )
         let source = try SyntheticNV12PixelBuffer.make(width: 16, height: 12)
         try writeMovingPattern(frameIndex: 0, to: source)
-        attachProgressiveBT709(to: source)
+        attachProgressiveBT709(to: source, chromaSiting: kCVImageBufferChromaLocation_Center)
         let destination = try SyntheticNV12PixelBuffer.make(
             width: 28,
             height: 20
@@ -643,7 +648,8 @@ final class DeterministicCPUBackendTests: XCTestCase {
                         kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
                     fieldCount: 2,
                     fieldDetail:
-                        kCVImageBufferFieldDetailTemporalTopFirst as String
+                        kCVImageBufferFieldDetailTemporalTopFirst as String,
+                    bottomChromaSiting: .center
                 ),
                 targetSize: CGSize(width: 32, height: 24)
             ),
@@ -702,7 +708,7 @@ final class DeterministicCPUBackendTests: XCTestCase {
     }
     #endif
 
-    func testMissingChromaLocationDoesNotInventOrRequireAHiddenFallback() async throws {
+    func testMissingDecodedChromaLocationUsesAuthenticatedPreparedOutputPhase() async throws {
         let sourceInfo = makeSourceInfo(
             pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
         )
@@ -732,13 +738,12 @@ final class DeterministicCPUBackendTests: XCTestCase {
                 duration: CMTime(value: 1, timescale: 30)
             )
         )
-        XCTAssertNil(
-            CVBufferCopyAttachment(
-                destination,
-                kCVImageBufferChromaLocationTopFieldKey,
-                nil
-            )
-        )
+        XCTAssertNil(CVBufferCopyAttachment(
+            source, kCVImageBufferChromaLocationTopFieldKey, nil
+        ))
+        XCTAssertEqual(CVBufferCopyAttachment(
+            destination, kCVImageBufferChromaLocationTopFieldKey, nil
+        ) as? String, kCVImageBufferChromaLocation_Left as String)
     }
 
     func testFinishIsIdempotentAndPreventsFurtherCPUProcessing() async throws {
@@ -2386,7 +2391,9 @@ final class DeterministicCPUBackendTests: XCTestCase {
     private func makeSourceInfo(
         pixelFormat: OSType,
         fieldCount: Int = 1,
-        fieldDetail: String? = nil
+        fieldDetail: String? = nil,
+        chromaSiting: CanonicalChromaSitingV4 = .left,
+        bottomChromaSiting: CanonicalChromaSitingV4 = .left
     ) -> VideoInfo {
         let fullRange = pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
         return VideoInfo(
@@ -2427,16 +2434,21 @@ final class DeterministicCPUBackendTests: XCTestCase {
                 alphaModel: .none,
                 hasMasteringDisplayMetadata: false,
                 hasContentLightLevelMetadata: false,
-                dynamicRange: .sdr
+                dynamicRange: .sdr,
+                chromaSiting: chromaSiting,
+                chromaSitingBottomField: fieldCount == 2 ? bottomChromaSiting : nil
             )
         )
     }
 
-    private func attachProgressiveBT709(to buffer: CVPixelBuffer) {
+    private func attachProgressiveBT709(
+        to buffer: CVPixelBuffer,
+        chromaSiting: CFString = kCVImageBufferChromaLocation_Left
+    ) {
         CVBufferSetAttachment(
             buffer,
             kCVImageBufferChromaLocationTopFieldKey,
-            kCVImageBufferChromaLocation_Left,
+            chromaSiting,
             .shouldPropagate
         )
         CVBufferSetAttachment(
@@ -2614,7 +2626,8 @@ final class DeterministicCPUBackendTests: XCTestCase {
 
     private func makeCadenceSource(
         top: Int,
-        bottom: Int
+        bottom: Int,
+        chromaSiting: CFString = kCVImageBufferChromaLocation_Left
     ) throws -> CVPixelBuffer {
         let buffer = try SyntheticNV12PixelBuffer.make(width: 16, height: 12)
         try SyntheticNV12PixelBuffer.fill(
@@ -2663,7 +2676,7 @@ final class DeterministicCPUBackendTests: XCTestCase {
             ),
             to: buffer
         )
-        attachProgressiveBT709(to: buffer)
+        attachProgressiveBT709(to: buffer, chromaSiting: chromaSiting)
         CVBufferSetAttachment(
             buffer,
             kCVImageBufferFieldCountKey,
@@ -2676,6 +2689,8 @@ final class DeterministicCPUBackendTests: XCTestCase {
             kCVImageBufferFieldDetailTemporalTopFirst,
             .shouldPropagate
         )
+        CVBufferSetAttachment(buffer, kCVImageBufferChromaLocationBottomFieldKey,
+                              chromaSiting, .shouldPropagate)
         return buffer
     }
 }

@@ -1,0 +1,25 @@
+{
+  "purpose": "Native ProRes422 field transport and working conversion fixtures; frame headers and original packets retained",
+  "fixtures": [
+    {
+      "name": "progressive",
+      "source": "/private/tmp/mirmir-native-legacy-working-phase-20261025/controls/prores422-ramp-colr.mov",
+      "sha256": "6dffc82743dbe259197d4e3d2340e6c028349146ec21e2296bea990cd6c926ee"
+    },
+    {
+      "name": "top-first",
+      "source": "/private/tmp/mirmir-native-legacy-working-phase-20261025/controls/prores422-ramp-tff.mov",
+      "sha256": "589e2d6e267b16da26ad54ab59cfa0edf3e13d1daf9fee61ffa65b65b2d45b96"
+    },
+    {
+      "name": "bottom-first",
+      "source": "/private/tmp/mirmir-native-legacy-working-phase-20261025/controls/prores422-ramp-bff.mov",
+      "sha256": "3b84a330d841cc2764b6d9efdff974183023a16262140980363c1b2c290731a0"
+    },
+    {
+      "name": "progressive-no-colr",
+      "source": "/private/tmp/mirmir-native-legacy-working-phase-20261025/controls/prores422-ramp.mov",
+      "sha256": "a91296efb5eb8c5d0fceefe5ab76f2e11279d5f561785c29967b86dbc326dd9f"
+    }
+  ]
+}

@@ -85,16 +85,16 @@ fi
 mkdir -p "$(dirname -- "$OUTPUT")"
 if [ -z "$CONTRACT" ]; then
   if [ "$DIAGNOSTIC_SYNTHETIC" -eq 1 ]; then
-    CONTRACT="$SCRIPT_DIR/quality-gate-contract-v1.json"
+    CONTRACT="$SCRIPT_DIR/quality-gate-contract-v2.json"
   else
-    CONTRACT="$SCRIPT_DIR/quality-gate-release-contract-v1.json"
+    CONTRACT="$SCRIPT_DIR/quality-gate-release-contract-v2.json"
   fi
 fi
 CONTRACT=$(absolute_existing "$CONTRACT")
 if [ "$DIAGNOSTIC_SYNTHETIC" -eq 1 ]; then
-  DEFAULT_CONTRACT=$(absolute_existing "$SCRIPT_DIR/quality-gate-contract-v1.json")
+  DEFAULT_CONTRACT=$(absolute_existing "$SCRIPT_DIR/quality-gate-contract-v2.json")
 else
-  DEFAULT_CONTRACT=$(absolute_existing "$SCRIPT_DIR/quality-gate-release-contract-v1.json")
+  DEFAULT_CONTRACT=$(absolute_existing "$SCRIPT_DIR/quality-gate-release-contract-v2.json")
 fi
 cmp -s "$CONTRACT" "$DEFAULT_CONTRACT" || {
   echo "release quality contract differs from the candidate-locked contract" >&2
@@ -135,12 +135,13 @@ OBSERVER_SOURCE="$REPOSITORY/Mirmir/App/MirmirApp.swift"
 python3 - "$REPOSITORY" "$CANDIDATE" \
   "script/v4/run_quality_gate_v4.sh" \
   "script/v4/quality_gate_v4.py" \
+  "script/v4/chroma_geometry_v4.py" \
   "script/v4/packaged_candidate_evidence_v4.py" \
   "script/v4/run_p05_quality_baseline_v4.sh" \
   "script/v4/p05_baseline_v4.py" \
-  "script/v4/quality-gate-contract-v1.json" \
-  "script/v4/quality-gate-release-contract-v1.json" \
-  "script/v4/natural-quality-corpus-lock-v1.json" \
+  "script/v4/quality-gate-contract-v2.json" \
+  "script/v4/quality-gate-release-contract-v2.json" \
+  "script/v4/natural-quality-corpus-lock-v2.json" \
   "script/v4/natural-quality-sources-v1.json" \
   "script/v4/build_natural_quality_corpus.py" \
   "script/v4/release_candidate_archive_v4.py" \
@@ -185,7 +186,7 @@ fi
 python3 - \
   "$CORPUS_MANIFEST" \
   "$CONTRACT" \
-  "$SCRIPT_DIR/natural-quality-corpus-lock-v1.json" \
+  "$SCRIPT_DIR/natural-quality-corpus-lock-v2.json" \
   "$DIAGNOSTIC_SYNTHETIC" <<'PY'
 from pathlib import Path
 import hashlib,json,sys
@@ -334,9 +335,10 @@ shutil.copyfile(capture_path, output / "capture-manifest.json")
 PY
 
 cp -R "$PACKAGED" "$OUTPUT/packaged-candidate"
-cp "$CONTRACT" "$OUTPUT/quality-gate-contract-v1.json"
+cp "$CONTRACT" "$OUTPUT/quality-gate-contract-v2.json"
 mkdir "$OUTPUT/bindings"
 cp "$TOOL" "$OUTPUT/bindings/quality_gate_v4.py"
+cp "$SCRIPT_DIR/chroma_geometry_v4.py" "$OUTPUT/bindings/chroma_geometry_v4.py"
 cp "$PACKAGED_TOOL" "$OUTPUT/bindings/packaged_candidate_evidence_v4.py"
 cp "$P05_TOOL" "$OUTPUT/bindings/p05_baseline_v4.py"
 cp "$P05_CAPTURE_SOURCE" "$OUTPUT/bindings/P05QualityBaselineCaptureTests.swift"
@@ -344,8 +346,8 @@ cp "$P05_SOURCE_MANIFEST" "$OUTPUT/bindings/p05-baseline-source-manifest-v1.json
 cp "$P05_RUNNER" "$OUTPUT/bindings/run_p05_quality_baseline_v4.sh"
 cp "$OBSERVER_SOURCE" "$OUTPUT/bindings/MirmirApp.swift"
 cp "$RUNNER_SOURCE" "$OUTPUT/bindings/run_quality_gate_v4.sh"
-cp "$SCRIPT_DIR/natural-quality-corpus-lock-v1.json" \
-  "$OUTPUT/bindings/natural-quality-corpus-lock-v1.json"
+cp "$SCRIPT_DIR/natural-quality-corpus-lock-v2.json" \
+  "$OUTPUT/bindings/natural-quality-corpus-lock-v2.json"
 cp "$SCRIPT_DIR/build_natural_quality_corpus.py" \
   "$OUTPUT/bindings/build_natural_quality_corpus.py"
 cp "$SCRIPT_DIR/natural-quality-sources-v1.json" \
@@ -379,14 +381,14 @@ PY
 
 if [ "$DIAGNOSTIC_SYNTHETIC" -eq 0 ]; then
   python3 "$TOOL" verify \
-    --contract "$OUTPUT/quality-gate-contract-v1.json" \
+    --contract "$OUTPUT/quality-gate-contract-v2.json" \
     --report "$OUTPUT/quality-gate-report.json" \
     --repository "$REPOSITORY" \
     --runtime "$RUNTIME" \
     --require-release
 else
   python3 "$TOOL" verify \
-    --contract "$OUTPUT/quality-gate-contract-v1.json" \
+    --contract "$OUTPUT/quality-gate-contract-v2.json" \
     --report "$OUTPUT/quality-gate-report.json" \
     --repository "$REPOSITORY" \
     --runtime "$RUNTIME"

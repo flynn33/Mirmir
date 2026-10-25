@@ -364,6 +364,57 @@ final class VideoProcessingSessionTests: XCTestCase {
         }
     }
 
+    func testProgressiveJFIFMOVCompletesBothProductionDeterministicRoutes() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let input = try XCTUnwrap(Bundle(for: Self.self).url(
+            forResource: "legacy-mjpeg", withExtension: "mov"))
+        let originalBytes = try Data(contentsOf: input)
+        for backend in [UpscaleBackendID.mirmirDeterministicCPU, .mirmirDeterministicMetal] {
+            let output = fixtures.url(for: "jfif-\(backend.rawValue).mov")
+            let result = try await UpscaleCoordinator().process(
+                UpscaleRequest(inputURL: input, outputURL: output, backendID: backend,
+                    targetWidth: 320, targetHeight: 192, outputCodec: .h264,
+                    preserveAudio: true, overwriteExistingFile: false), progress: { _ in })
+            XCTAssertEqual(result.actualBackendID, backend)
+            XCTAssertEqual(result.processedFrameCount, 72)
+            XCTAssertEqual(result.audioResult, .preserved)
+            let reopened = try await VideoProbe().probe(url: output)
+            XCTAssertTrue(reopened.isReadable)
+            XCTAssertEqual(reopened.geometry.encodedSize, CGSize(width: 320, height: 192))
+            XCTAssertEqual(reopened.color.chromaSiting, .center)
+            let tracks = try await AVURLAsset(url: output).loadTracks(withMediaType: .video)
+            let descriptions = try await XCTUnwrap(tracks.first).load(.formatDescriptions)
+            XCTAssertEqual(try AVCChromaLocationV4.declaration(from: descriptions)?.location, .center)
+            let artifact = XCTAttachment(contentsOfFile: output)
+            artifact.name = "jfif-session-\(backend.rawValue).mov"
+            artifact.lifetime = .keepAlways
+            add(artifact)
+        }
+        XCTAssertEqual(try Data(contentsOf: input), originalBytes)
+        XCTAssertFalse(try directoryContainsPartialFile(fixtures.rootURL))
+    }
+
+    func testProRes422WorkingAvailabilityKeepsAutomaticDocumentedScope() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let input = fixtures.url(for: "automatic-prores-input.mov")
+        try await VideoProbeFixtureFactory.makeVideo(at: input, transform: .identity, codec: .proRes422)
+        let source = try await VideoProbe().probe(url: input)
+        let catalog = UpscaleBackendCatalog.live()
+        let snapshot = await catalog.snapshot(for: source,
+            targetSize: CGSize(width: 128, height: 96), environment: .current())
+        XCTAssertEqual(snapshot.entry(for: .mirmirDeterministicCPU)?.availability, .available)
+        XCTAssertEqual(snapshot.entry(for: .mirmirDeterministicMetal)?.availability, .available)
+        let firstApple = AutomaticBackendSelector.orderedBackendIDs.first {
+            snapshot.entry(for: $0)?.availability == .available
+        }
+        let actual = snapshot.resolution(for: .automatic)
+        XCTAssertEqual(actual.actualBackendID, firstApple)
+        XCTAssertEqual(actual.availability, firstApple == nil
+            ? .unavailable(reason: .noCompatibleAutomaticBackend) : .available)
+    }
+
     func testUntaggedH264CompletesBothProductionDeterministicRoutes() async throws {
         let fixtures = try TemporaryFixtureDirectory()
         defer { fixtures.remove() }

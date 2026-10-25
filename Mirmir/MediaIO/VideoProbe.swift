@@ -89,11 +89,14 @@ struct VideoProbe: VideoProbing {
                 throw MirmirError.invalidVideoGeometry
             }
 
-            let decodedColor = try VideoDecodedColorResolver.resolve(
+            let proResFacts = try ProRes422SourceFactsV4.resolve(
+                asset: asset, track: videoTrack, descriptions: formatDescriptions)
+            let nativeDecodedColor = try VideoDecodedColorResolver.resolve(
                 asset: asset,
                 track: videoTrack,
                 descriptions: formatDescriptions
             )
+            let decodedColor = proResFacts?.colorFallback(over: nativeDecodedColor) ?? nativeDecodedColor
             let legacySampling = try LegacyVideoSamplingFacts.resolve(
                 asset: asset, track: videoTrack, descriptions: formatDescriptions
             )
@@ -101,7 +104,8 @@ struct VideoProbe: VideoProbing {
                 from: formatDescriptions,
                 mediaCharacteristics: mediaCharacteristics,
                 decodedColor: decodedColor,
-                legacySampling: legacySampling
+                legacySampling: legacySampling,
+                proResFacts: proResFacts
             )
             let presentationSize = formatFacts?.presentationSize ?? naturalSize
             guard Self.isValid(size: presentationSize) else {
@@ -149,7 +153,8 @@ struct VideoProbe: VideoProbing {
                 isReadable: isReadable,
                 isPlayable: isPlayable,
                 fileSizeBytes: Self.fileSize(at: url),
-                color: formatFacts?.color ?? .unknown
+                color: formatFacts?.color ?? .unknown,
+                proRes422SourceFacts: proResFacts
             )
         } catch is CancellationError {
             throw CancellationError()
@@ -181,14 +186,16 @@ private extension VideoProbe {
         from descriptions: [CMFormatDescription],
         mediaCharacteristics: [AVMediaCharacteristic],
         decodedColor: [String: String],
-        legacySampling: LegacyVideoSamplingFacts?
+        legacySampling: LegacyVideoSamplingFacts?,
+        proResFacts: ProRes422SourceFactsV4? = nil
     ) throws -> FormatFacts? {
         let facts = try descriptions.map { description in
             try formatFacts(
                 from: description,
                 mediaCharacteristics: mediaCharacteristics,
                 decodedColor: decodedColor,
-                legacySampling: legacySampling
+                legacySampling: legacySampling,
+                proResFacts: proResFacts
             )
         }
         guard let first = facts.first else {
@@ -207,7 +214,8 @@ private extension VideoProbe {
         from description: CMFormatDescription,
         mediaCharacteristics: [AVMediaCharacteristic],
         decodedColor: [String: String],
-        legacySampling: LegacyVideoSamplingFacts?
+        legacySampling: LegacyVideoSamplingFacts?,
+        proResFacts: ProRes422SourceFactsV4? = nil
     ) throws -> FormatFacts {
         guard CMFormatDescriptionGetMediaType(description) == kCMMediaType_Video else {
             throw MirmirError.unsupportedVideo(
@@ -240,7 +248,8 @@ private extension VideoProbe {
             codecFourCC: description.mediaSubType.rawValue,
             cleanAperture: cleanAperture,
             pixelAspectRatio: pixelAspectRatio(from: extensions),
-            color: colorInfo(
+            color: try colorInfo(
+                description: description,
                 from: extensions,
                 codec: description.mediaSubType.rawValue,
                 alphaModel: alphaModel(
@@ -249,19 +258,25 @@ private extension VideoProbe {
                 ),
                 mediaCharacteristics: mediaCharacteristics,
                 decodedColor: decodedColor,
-                legacySampling: legacySampling
+                legacySampling: legacySampling,
+                proResFacts: proResFacts
             )
         )
     }
 
+}
+
+extension VideoProbe {
     static func colorInfo(
+        description: CMFormatDescription,
         from extensions: CMFormatDescription.Extensions,
         codec: FourCharCode,
         alphaModel: CanonicalAlphaModelV4,
         mediaCharacteristics: [AVMediaCharacteristic],
         decodedColor: [String: String],
-        legacySampling: LegacyVideoSamplingFacts?
-    ) -> VideoColorInfo {
+        legacySampling: LegacyVideoSamplingFacts?,
+        proResFacts: ProRes422SourceFactsV4? = nil
+    ) throws -> VideoColorInfo {
         let colorPrimaries = stringValue(extensions[.colorPrimaries])
             ?? decodedColor[kCVImageBufferColorPrimariesKey as String]
         let transferFunction = stringValue(extensions[.transferFunction])
@@ -275,6 +290,14 @@ private extension VideoProbe {
             extensions[.masteringDisplayColorVolume] != nil
         let hasContentLightLevelMetadata =
             extensions[.contentLightLevelInfo] != nil
+
+        let mpeg4Sampling = try MPEG4ProgressiveSamplingV4.declaration(from: description)
+        if let mpeg4Sampling, let legacySampling {
+            guard legacySampling.bitDepth == 8, legacySampling.subsampling == .yuv420,
+                  legacySampling.fullRange == mpeg4Sampling.fullRange else {
+                throw MirmirError.unsupportedVideo("MPEG-4 sampling proofs disagree")
+            }
+        }
 
         let hdrTransfers: Set<String> = [
             kCMFormatDescriptionTransferFunction_SMPTE_ST_2084_PQ as String,
@@ -313,15 +336,33 @@ private extension VideoProbe {
             pixelFormat: nil,
             isFullRange: booleanValue(extensions[.fullRangeVideo])
                 ?? legacySampling?.fullRange ?? defaultFullRange(for: codec),
-            fieldCount: positiveInteger(extensions[.fieldCount]),
-            fieldDetail: stringValue(extensions[.fieldDetail]),
+            fieldCount: proResFacts?.scan.fieldCount
+                ?? (mpeg4Sampling == nil ? positiveInteger(extensions[.fieldCount]) : 1),
+            fieldDetail: stringValue(extensions[.fieldDetail]) ?? proResFacts?.scan.fieldDetail,
             alphaModel: alphaModel,
             hasMasteringDisplayMetadata: hasMasteringDisplayMetadata,
             hasContentLightLevelMetadata: hasContentLightLevelMetadata,
-            dynamicRange: dynamicRange
+            dynamicRange: dynamicRange,
+            chromaSiting: codec == kCMVideoCodecType_JPEG_OpenDML ? nil
+                : legacySampling?.nativeWorkingJFIFDeclaration != nil ? .center
+                : mpeg4Sampling != nil ? .left
+                : codec == kCMVideoCodecType_H264
+                    ? try AVCChromaLocationV4.declaration(from: description)?.location
+                    : AVCChromaLocationV4.canonicalLocation(
+                        stringValue(extensions[.chromaLocationTopField])
+                    ),
+            chromaSitingBottomField: codec == kCMVideoCodecType_JPEG_OpenDML ? nil
+                : codec == kCMVideoCodecType_H264
+                ? try AVCChromaLocationV4.declaration(from: description)?.bottomLocation
+                : AVCChromaLocationV4.canonicalLocation(
+                    stringValue(extensions[.chromaLocationBottomField])
+                )
         )
     }
 
+}
+
+private extension VideoProbe {
     static func defaultFullRange(for codec: FourCharCode) -> Bool? {
         // H.264/H.265 Annex E defines an omitted video_full_range_flag as 0.
         // This agrees with the canonical planner's compressed YCbCr default.

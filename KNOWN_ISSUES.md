@@ -1,5 +1,11 @@
 # Mirmir accepted limitations and follow-up work
 
+Current local checkpoint: [bounded QA report](docs/BOUNDED_QA_2026-10-25.md).
+The chroma, progressive JFIF MOV and native ProRes 422 working-format repairs
+are integrated and their bounded checks pass. Remaining entries are release
+blockers, not accepted exceptions; historical private-status text below is
+superseded by the report's exact case boundaries.
+
 ## QA-002 — Broad input support and reported error 11 remain release blockers
 
 **Status:** Open; these defects are not accepted release limitations.

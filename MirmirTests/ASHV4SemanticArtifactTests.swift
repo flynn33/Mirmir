@@ -97,12 +97,217 @@ final class ASHV4SemanticArtifactTests: XCTestCase {
         ), original)
     }
 
+    func testHistoricalExecutableMetricKeepsCurrentReaderAndExactMode() throws {
+        let original = Data("original metric implementation".utf8)
+        let fixture = try historicalCaptureFixture(original, executable: true)
+        let identity = lockedCaptureIdentity(original)
+        XCTAssertTrue(try ASHP06CanonicalRuntimeArtifactsV4.lockedRepositoryInputMatches(identity, at: fixture.source))
+        let current = Data("current metric reader with the new versioned contract".utf8)
+        try current.write(to: fixture.source)
+        XCTAssertFalse(try ASHP06CanonicalRuntimeArtifactsV4.lockedRepositoryInputMatches(identity, at: fixture.source))
+        let historical = try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+            identity, repositoryRoot: fixture.repository, revision: fixture.revision,
+            gitExecutable: fixtureGitExecutable(), expectedGitMode: "100755"
+        )
+        XCTAssertEqual(historical, original)
+        try ASHP06CanonicalRuntimeArtifactsV4.validateLockedRepositoryInput(identity, at: fixture.source, historical: historical)
+        XCTAssertEqual(try Data(contentsOf: fixture.source), current)
+        let metric = try ASHP06LockedNaturalQualityEvidenceV4.metricImplementation()
+        XCTAssertEqual(metric.repositoryRelativePath, "script/v4/quality_gate_v4.py")
+        XCTAssertEqual(metric.byteCount, 81_481)
+        XCTAssertEqual(metric.contentSHA256.rawValue,
+                       "2c5b0e5a40adc4f016d9346805f2db247ed1cd8a22e3abf26a2c87d3309ac4c8")
+    }
+
+    func testHistoricalExecutableMetricRejectsWrongBlobModeTypeAndIdentity() throws {
+        let original = Data("original metric implementation".utf8)
+        let identity = lockedCaptureIdentity(original)
+        let wrongHash = Data("changed! metric implementation".utf8)
+        XCTAssertEqual(wrongHash.count, original.count)
+        for bytes in [original + [0], wrongHash] {
+            let fixture = try historicalCaptureFixture(bytes, executable: true)
+            XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+                identity, repositoryRoot: fixture.repository, revision: fixture.revision,
+                gitExecutable: fixtureGitExecutable(), expectedGitMode: "100755"
+            ))
+        }
+        let wrongMode = try historicalCaptureFixture(original)
+        XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+            identity, repositoryRoot: wrongMode.repository, revision: wrongMode.revision,
+            gitExecutable: fixtureGitExecutable(), expectedGitMode: "100755"
+        ))
+        let symbolic = try historicalCaptureFixture(original, symbolic: true)
+        XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+            identity, repositoryRoot: symbolic.repository, revision: symbolic.revision,
+            gitExecutable: fixtureGitExecutable(), expectedGitMode: "100755"
+        ))
+        let valid = try historicalCaptureFixture(original, executable: true)
+        let tree = try historicalCaptureFixture(original, executable: true)
+        try FileManager.default.removeItem(at: tree.source)
+        try FileManager.default.createDirectory(at: tree.source, withIntermediateDirectories: false)
+        try original.write(to: tree.source.appendingPathComponent("child"))
+        _ = try fixtureGit(["add", "-A"], in: tree.repository)
+        _ = try fixtureGit(["-c", "user.name=Mirmir QA", "-c", "user.email=qa@example.invalid",
+                            "-c", "commit.gpgSign=false", "-c", "core.hooksPath=/dev/null",
+                            "commit", "-q", "-m", "bounded wrong object type"], in: tree.repository)
+        let treeRevision = try fixtureGit(["rev-parse", "HEAD"], in: tree.repository)
+        XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+            identity, repositoryRoot: tree.repository, revision: treeRevision,
+            gitExecutable: fixtureGitExecutable(), expectedGitMode: "100755"
+        ))
+        for bytes in [original + [0], wrongHash] {
+            XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.validateLockedRepositoryInput(
+                identity, at: valid.source, historical: bytes
+            ))
+        }
+        try FileManager.default.removeItem(at: valid.source)
+        try FileManager.default.createSymbolicLink(at: valid.source, withDestinationURL: wrongMode.source)
+        XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.lockedRepositoryInputMatches(identity, at: valid.source))
+        XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.validateLockedRepositoryInput(identity, at: valid.source, historical: original))
+    }
+
+    func testHistoricalMetricRequiresHistoryOnlyForChangedCurrentSource() throws {
+        let original = Data("original metric implementation".utf8)
+        let identity = lockedCaptureIdentity(original)
+        let directory = temporaryDirectory.appendingPathComponent("source-only")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        let source = directory.appendingPathComponent(identity.repositoryRelativePath)
+        try original.write(to: source)
+        XCTAssertTrue(try ASHP06CanonicalRuntimeArtifactsV4.lockedRepositoryInputMatches(identity, at: source))
+        try Data("current new metric".utf8).write(to: source)
+        XCTAssertFalse(try ASHP06CanonicalRuntimeArtifactsV4.lockedRepositoryInputMatches(identity, at: source))
+        for revision in ["HEAD", "main", String(repeating: "f", count: 40)] {
+            XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+                identity, repositoryRoot: directory, revision: revision,
+                gitExecutable: fixtureGitExecutable(), expectedGitMode: "100755"
+            ))
+        }
+    }
+
+    func testHistoricalExecutableRunnerKeepsCurrentRunnerAndLiteralPin() throws {
+        let original = Data("original quality runner implementation".utf8)
+        let fixture = try historicalCaptureFixture(original, executable: true)
+        let identity = lockedCaptureIdentity(original)
+        let current = Data("current runner with explicit versioned capture flags".utf8)
+        try current.write(to: fixture.source)
+        XCTAssertFalse(try ASHP06CanonicalRuntimeArtifactsV4.lockedRepositoryInputMatches(identity, at: fixture.source))
+        let historical = try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+            identity, repositoryRoot: fixture.repository, revision: fixture.revision,
+            gitExecutable: fixtureGitExecutable(), expectedGitMode: "100755"
+        )
+        XCTAssertEqual(historical, original)
+        try ASHP06CanonicalRuntimeArtifactsV4.validateLockedRepositoryInput(identity, at: fixture.source, historical: historical)
+        XCTAssertEqual(try Data(contentsOf: fixture.source), current)
+        let runner = try ASHP06LockedNaturalQualityEvidenceV4.runnerImplementation()
+        XCTAssertEqual(runner.repositoryRelativePath, "script/v4/run_quality_gate_v4.sh")
+        XCTAssertEqual(runner.byteCount, 14_630)
+        XCTAssertEqual(runner.contentSHA256.rawValue,
+                       "d4d06e4a72a506421307a6f0963a44abc157c1cf1bc80101536a13b25600e3cb")
+    }
+
+    func testHistoricalExecutableRunnerRejectsWrongModeBlobAndUnavailableHistory() throws {
+        let original = Data("original quality runner implementation".utf8)
+        let identity = lockedCaptureIdentity(original)
+        for (bytes, executable) in [(original, false), (original + [0], true),
+                                     (Data("changed! quality runner implementation".utf8), true)] {
+            let fixture = try historicalCaptureFixture(bytes, executable: executable)
+            XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+                identity, repositoryRoot: fixture.repository, revision: fixture.revision,
+                gitExecutable: fixtureGitExecutable(), expectedGitMode: "100755"
+            ))
+        }
+        let fixture = try historicalCaptureFixture(original, executable: true)
+        for revision in ["HEAD", String(repeating: "f", count: 40)] {
+            XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+                identity, repositoryRoot: fixture.repository, revision: revision,
+                gitExecutable: fixtureGitExecutable(), expectedGitMode: "100755"
+            ))
+        }
+        try FileManager.default.removeItem(at: fixture.source)
+        try FileManager.default.createDirectory(at: fixture.source, withIntermediateDirectories: false)
+        XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.lockedRepositoryInputMatches(identity, at: fixture.source))
+        XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.validateLockedRepositoryInput(identity, at: fixture.source, historical: original))
+    }
+
+    func testHistoricalCorpusBuilderKeepsCurrentBuilderAndLiteralPin() throws {
+        let original = Data("original natural corpus builder".utf8)
+        let identity = lockedCaptureIdentity(original)
+        let fixture = try historicalCaptureFixture(original)
+        let current = Data("current corpus builder with versioned phase admission".utf8)
+        try current.write(to: fixture.source)
+        XCTAssertFalse(try ASHP06CanonicalRuntimeArtifactsV4.lockedRepositoryInputMatches(identity, at: fixture.source))
+        let historical = try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+            identity, repositoryRoot: fixture.repository, revision: fixture.revision,
+            gitExecutable: fixtureGitExecutable(), expectedGitMode: "100644"
+        )
+        XCTAssertEqual(historical, original)
+        try ASHP06CanonicalRuntimeArtifactsV4.validateLockedRepositoryInput(identity, at: fixture.source, historical: historical)
+        XCTAssertEqual(try Data(contentsOf: fixture.source), current)
+        let builder = try ASHP06LockedNaturalQualityEvidenceV4.corpusBuilder()
+        XCTAssertEqual(builder.repositoryRelativePath, "script/v4/build_natural_quality_corpus.py")
+        XCTAssertEqual(builder.byteCount, 19_178)
+        XCTAssertEqual(builder.contentSHA256.rawValue,
+                       "0150955cfa206bf9e4b3f3ca7b74971543e70d4ec47d4f174eb87b1e33790aa8")
+    }
+
+    func testHistoricalCorpusBuilderRejectsWrongModeBlobSizeHashAndObjectType() throws {
+        let original = Data("original natural corpus builder".utf8)
+        let identity = lockedCaptureIdentity(original)
+        var changed = original
+        changed[0] ^= 1
+        for (bytes, executable, symbolic) in [
+            (original, true, false), (original + [0], false, false),
+            (changed, false, false), (original, false, true)
+        ] {
+            let fixture = try historicalCaptureFixture(bytes, symbolic: symbolic, executable: executable)
+            XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+                identity, repositoryRoot: fixture.repository, revision: fixture.revision,
+                gitExecutable: fixtureGitExecutable(), expectedGitMode: "100644"
+            ))
+        }
+        let tree = try historicalCaptureFixture(original)
+        try FileManager.default.removeItem(at: tree.source)
+        try FileManager.default.createDirectory(at: tree.source, withIntermediateDirectories: false)
+        try original.write(to: tree.source.appendingPathComponent("child"))
+        _ = try fixtureGit(["add", "-A"], in: tree.repository)
+        _ = try fixtureGit(["-c", "user.name=Mirmir QA", "-c", "user.email=qa@example.invalid",
+                            "-c", "commit.gpgSign=false", "-c", "core.hooksPath=/dev/null",
+                            "commit", "-q", "-m", "bounded wrong corpus-builder object type"], in: tree.repository)
+        let revision = try fixtureGit(["rev-parse", "HEAD"], in: tree.repository)
+        XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+            identity, repositoryRoot: tree.repository, revision: revision,
+            gitExecutable: fixtureGitExecutable(), expectedGitMode: "100644"
+        ))
+        XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.lockedRepositoryInputMatches(identity, at: tree.source))
+        XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.validateLockedRepositoryInput(identity, at: tree.source, historical: original))
+    }
+
+    func testHistoricalCorpusBuilderSourceOnlyMatchingWorksAndChangedRequiresHistory() throws {
+        let original = Data("original natural corpus builder".utf8)
+        let identity = lockedCaptureIdentity(original)
+        let directory = temporaryDirectory.appendingPathComponent("source-only-corpus-builder")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        let source = directory.appendingPathComponent(identity.repositoryRelativePath)
+        try original.write(to: source)
+        XCTAssertTrue(try ASHP06CanonicalRuntimeArtifactsV4.lockedRepositoryInputMatches(identity, at: source))
+        try ASHP06CanonicalRuntimeArtifactsV4.validateLockedRepositoryInput(identity, at: source)
+        try Data("current new corpus builder".utf8).write(to: source)
+        XCTAssertFalse(try ASHP06CanonicalRuntimeArtifactsV4.lockedRepositoryInputMatches(identity, at: source))
+        XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.validateLockedRepositoryInput(identity, at: source))
+        for revision in ["HEAD", "main", String(repeating: "f", count: 40)] {
+            XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+                identity, repositoryRoot: directory, revision: revision,
+                gitExecutable: fixtureGitExecutable(), expectedGitMode: "100644"
+            ))
+        }
+    }
+
     private func lockedCaptureIdentity(_ bytes: Data) -> ASHP06LockedFileIdentityV4 {
         ASHP06LockedFileIdentityV4(repositoryRelativePath: "Capture.swift", byteCount: Int64(bytes.count),
                                   contentSHA256: ASHSHA256V4(rawData: bytes))
     }
 
-    private func historicalCaptureFixture(_ bytes: Data, symbolic: Bool = false) throws
+    private func historicalCaptureFixture(_ bytes: Data, symbolic: Bool = false, executable: Bool = false) throws
         -> (repository: URL, source: URL, revision: String) {
         let repository = temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: repository, withIntermediateDirectories: false)
@@ -111,7 +316,12 @@ final class ASHV4SemanticArtifactTests: XCTestCase {
         if symbolic {
             try FileManager.default.createSymbolicLink(atPath: source.path,
                 withDestinationPath: String(decoding: bytes, as: UTF8.self))
-        } else { try bytes.write(to: source) }
+        } else {
+            try bytes.write(to: source)
+            if executable {
+                try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: source.path)
+            }
+        }
         _ = try fixtureGit(["add", "--", "Capture.swift"], in: repository)
         _ = try fixtureGit(["-c", "user.name=Mirmir QA", "-c", "user.email=qa@example.invalid",
                             "-c", "commit.gpgSign=false", "-c", "core.hooksPath=/dev/null",
@@ -254,10 +464,14 @@ final class ASHV4SemanticArtifactTests: XCTestCase {
             try first.metricContract().maximumProcessingTimeRatio,
             try ExactRationalV4(4, 5)
         )
-        XCTAssertEqual(
-            try first.phaseCoefficientProcedure().kernelContractID,
-            FixedPointCoefficientCompilerV4.procedureID
-        )
+        let phaseProcedure = try first.phaseCoefficientProcedure()
+        XCTAssertEqual(phaseProcedure.kernelContractID,
+                       "ash-p06-catmull-rom-q14-subsampled-physical-siting-v2")
+        XCTAssertEqual(phaseProcedure.coordinateProcedureID,
+                       "pixel-center-luma-authenticated-subsampled-siting-v2")
+        XCTAssertEqual(phaseProcedure.coefficientProcedureID,
+                       "ash-p06-catmull-rom-q14-largest-remainder-v1")
+        XCTAssertNotEqual(phaseProcedure.kernelContractID, phaseProcedure.coefficientProcedureID)
         XCTAssertTrue(
             try first.verificationContract().cpuMetalByteIdentityRequired
         )
@@ -272,6 +486,11 @@ final class ASHV4SemanticArtifactTests: XCTestCase {
             firstPlanHash,
             ASHV4SemanticArtifactTestSupport.expectedPlanSHA256
         )
+        XCTAssertNotEqual(firstPlanHash,
+                          ASHV4SemanticArtifactTestSupport.historicalGenericPlanSHA256)
+        XCTAssertEqual(ASHSHA256V4(rawData: try ASHCanonicalJSONV4.encode(
+            ASHV4SemanticArtifactTestSupport.mediaState()
+        )).rawValue, ASHV4SemanticArtifactTestSupport.historicalCommonPhaseMediaSHA256)
 
         let plan = try ASHExecutionPlannerV4.makePlan(
             media: ASHV4SemanticArtifactTestSupport.mediaState(),

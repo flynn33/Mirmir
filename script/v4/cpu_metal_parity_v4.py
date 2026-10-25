@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import base64
 from fractions import Fraction
+import chroma_geometry_v4 as chroma
 import hashlib
 import importlib.util
 import json
@@ -17,15 +18,24 @@ from typing import Any, Iterable, Mapping
 
 
 CONTRACT_SCHEMA = "mirmir-ash-v4-cpu-metal-parity-contract-v2"
+CONTRACT_SCHEMA_PHASE2 = "mirmir-ash-v4-cpu-metal-parity-contract-v3"
 CAPTURE_SCHEMA = "mirmir-ash-v4-cpu-metal-parity-capture-v2"
+CAPTURE_SCHEMA_PHASE2 = "mirmir-ash-v4-cpu-metal-parity-capture-v3"
 CAPTURE_MANIFEST_SCHEMA = "mirmir-ash-v4-cpu-metal-parity-artifacts-v2"
+CAPTURE_MANIFEST_SCHEMA_PHASE2 = "mirmir-ash-v4-cpu-metal-parity-artifacts-v3"
 REPORT_SCHEMA = "mirmir-ash-v4-cpu-metal-parity-report-v2"
+REPORT_SCHEMA_PHASE2 = "mirmir-ash-v4-cpu-metal-parity-report-v3"
 EVIDENCE_MANIFEST_SCHEMA = "mirmir-ash-v4-cpu-metal-parity-evidence-v2"
+EVIDENCE_MANIFEST_SCHEMA_PHASE2 = "mirmir-ash-v4-cpu-metal-parity-evidence-v3"
 RUN_SCHEMA = "mirmir-ash-v4-cpu-metal-parity-run-v2"
+RUN_SCHEMA_PHASE2 = "mirmir-ash-v4-cpu-metal-parity-run-v3"
 SEMANTICS_SCHEMA = "mirmir-ash-v4-canonical-semantics-v2"
 CHECKPOINT_SET_SCHEMA = "mirmir-ash-v4-checkpoint-set-v2"
 RESUME_SET_SCHEMA = "mirmir-ash-v4-resume-set-v2"
 EXECUTION_SCHEMA = "mirmir-ash-v4-bounded-temporal-execution-v1"
+EXECUTION_SCHEMA_PHASE2 = "mirmir-ash-v4-bounded-temporal-execution-v2"
+FIELD_CHROMA_POLICY = "field-bob-authenticated-interleaved-uv-siting-v2"
+TOP_FIELD_CHROMA_ATTACHMENT = "CVImageBufferChromaLocationTopField"
 CONTIGUOUS_CHECKPOINT_SCHEMA = "ash.prepared-temporal-checkpoint.v4.5"
 TILED_CHECKPOINT_SCHEMA = "ash.prepared-tiled-temporal-checkpoint.v4.1"
 FIELD_COUNT_ATTACHMENT = "CVFieldCount"
@@ -591,15 +601,16 @@ def validate_contract(
 ) -> tuple[dict[str, Any], str]:
     contract = require_object(load_json(path), "contract")
     require_exact_keys(contract, CONTRACT_KEYS, "contract")
-    require(contract["schemaVersion"] == CONTRACT_SCHEMA, "unsupported contract schema")
+    phase2 = contract["schemaVersion"] == CONTRACT_SCHEMA_PHASE2
+    require(contract["schemaVersion"] in {CONTRACT_SCHEMA, CONTRACT_SCHEMA_PHASE2}, "unsupported contract schema")
     require(
         contract["gateID"] == "deterministic-engine-v4-cpu-metal-byte-parity",
         "unexpected parity gate ID",
     )
     require(contract["buildConfiguration"] == "Release", "parity must use Release")
-    require(contract["captureSchemaVersion"] == CAPTURE_SCHEMA, "capture schema mismatch")
-    require(contract["reportSchemaVersion"] == REPORT_SCHEMA, "report schema mismatch")
-    require(contract["runArtifactSchemaVersion"] == RUN_SCHEMA, "run schema mismatch")
+    require(contract["captureSchemaVersion"] == (CAPTURE_SCHEMA_PHASE2 if phase2 else CAPTURE_SCHEMA), "capture schema mismatch")
+    require(contract["reportSchemaVersion"] == (REPORT_SCHEMA_PHASE2 if phase2 else REPORT_SCHEMA), "report schema mismatch")
+    require(contract["runArtifactSchemaVersion"] == (RUN_SCHEMA_PHASE2 if phase2 else RUN_SCHEMA), "run schema mismatch")
     require(contract["attachmentSchemaVersion"] == SEMANTICS_SCHEMA, "semantics schema mismatch")
     require(
         contract["comparison"]
@@ -663,13 +674,20 @@ def validate_contract(
     require(runtime["requiredReleaseStatus"] == "release_qualified", "runtime is not qualified")
     tools = require_object(contract["tools"], "tools")
     require_exact_keys(
-        tools, ("captureSourceSHA256", "evaluatorSHA256", "runnerSHA256"), "tools"
+        tools, ("captureSourceSHA256", "evaluatorSHA256", "runnerSHA256")
+            + (("chromaGeometryValidatorSHA256",) if phase2 else ()), "tools"
     )
     actual_tools = {
         "captureSourceSHA256": sha256_file(capture_source),
         "evaluatorSHA256": sha256_file(evaluator),
         "runnerSHA256": sha256_file(runner),
     }
+    if phase2:
+        validator_path = evaluator.with_name("chroma_geometry_v4.py")
+        require(validator_path.is_file() and not validator_path.is_symlink(), "phase2 validator is absent")
+        actual_tools["chromaGeometryValidatorSHA256"] = sha256_file(validator_path)
+        require(sha256_file(Path(chroma.__file__)) == actual_tools["chromaGeometryValidatorSHA256"],
+                "loaded phase2 validator differs from sealed tool")
     for key, digest in actual_tools.items():
         require_sha256(tools[key], f"tools.{key}")
         require(tools[key] == digest, f"locked tool identity mismatch: {key}")
@@ -754,12 +772,12 @@ def validate_contract(
     return contract, sha256_file(path)
 
 
-def validate_capture_manifest(directory: Path) -> tuple[dict[str, Path], str]:
+def validate_capture_manifest(directory: Path, phase2: bool = False) -> tuple[dict[str, Path], str]:
     manifest_path = directory / "artifact-manifest.json"
     manifest = require_object(load_json(manifest_path), "capture artifact manifest")
     require_exact_keys(manifest, ("schemaVersion", "artifacts"), "capture artifact manifest")
     require(
-        manifest["schemaVersion"] == CAPTURE_MANIFEST_SCHEMA,
+        manifest["schemaVersion"] == (CAPTURE_MANIFEST_SCHEMA_PHASE2 if phase2 else CAPTURE_MANIFEST_SCHEMA),
         "capture artifact-manifest schema mismatch",
     )
     declared: dict[str, Path] = {}
@@ -1358,6 +1376,7 @@ def validate_semantics(
     definition: Mapping[str, Any],
     checkpoint_states: Mapping[int, Mapping[str, Any]],
     label: str,
+    phase2: bool = False,
 ) -> dict[str, Any]:
     document = require_object(parse_json_bytes(data, label), label)
     require(canonical_json(document) == data, f"{label} is not canonical JSON")
@@ -1393,6 +1412,15 @@ def validate_semantics(
         source_attachments = validate_attachments(
             item["sourceAttachments"], f"{label}.inputs[{input_index}].sourceAttachments"
         )
+        if phase2 and definition["kind"] != "alpha_spatial":
+            require(attachment_by_key(source_attachments, TOP_FIELD_CHROMA_ATTACHMENT) == {
+                "key": TOP_FIELD_CHROMA_ATTACHMENT, "mode": "should_propagate",
+                "value": {"kind": "string", "value": "Left"}}, f"{label} source top phase differs from recipe")
+            expected_bottom = None if frame["fieldDetail"] == "none" else {
+                "key": BOTTOM_FIELD_CHROMA_ATTACHMENT, "mode": "should_propagate",
+                "value": {"kind": "string", "value": "Center"}}
+            require(attachment_by_key(source_attachments, BOTTOM_FIELD_CHROMA_ATTACHMENT) == expected_bottom,
+                    f"{label} source bottom phase differs from recipe")
         if frame["fieldDetail"] == "none":
             expected_dominance = None
         elif frame["fieldDetail"] == "temporal_top_first":
@@ -1550,7 +1578,7 @@ def validate_semantics(
                 require(
                     attachment_by_key(
                         attachments, BOTTOM_FIELD_CHROMA_ATTACHMENT
-                    ) is None,
+                    ) is None or phase2,
                     f"{label} progressive output retains bottom-field chroma",
                 )
                 expected_attachments = [
@@ -1573,9 +1601,13 @@ def validate_semantics(
                     and attachment_by_key(
                         attachments, BOTTOM_FIELD_CHROMA_ATTACHMENT
                     )
-                    is None,
+                    is None or phase2,
                     f"{label} progressive output has stale field attachments",
                 )
+            if phase2 and definition["kind"] != "alpha_spatial":
+                expected_attachments.append({"key": BOTTOM_FIELD_CHROMA_ATTACHMENT,
+                    "mode": "should_propagate", "value": {"kind": "string", "value": "Left"}})
+                expected_attachments.sort(key=lambda item: item["key"])
             require(
                 attachments == expected_attachments,
                 f"{label} output attachment semantics differ",
@@ -1646,6 +1678,50 @@ RUN_KEYS = {"visible", "semantics", "checkpoints", "resume", "execution"}
 IDENTITY_RUN_KEYS = ("visible", "semantics", "checkpoints", "resume")
 
 
+def validate_phase2_chroma(document: Mapping[str, Any], definition: Mapping[str, Any],
+                           checkpoint_states: Mapping[int, Mapping[str, Any]], label: str) -> None:
+    alpha = definition["kind"] == "alpha_spatial"
+    if alpha:
+        require(document["chromaApplicability"] == "not_applicable_packed_alpha"
+                and document["fixedPointKernelID"] == "not_applicable_packed_alpha"
+                and document["chromaGeometry"] is None, f"{label} alpha falsely claims UV geometry")
+        return
+    require(document["chromaApplicability"] == "subsampled_420"
+            and document["fixedPointKernelID"] == chroma.KERNEL_ID,
+            f"{label} missing actual phase2 kernel contract")
+    geometry = require_object(document["chromaGeometry"], f"{label}.chromaGeometry")
+    require_exact_keys(geometry, ("schemaVersion", "normalizationPolicyID", "top", "bottom"), label)
+    require(geometry["schemaVersion"] == "mirmir-ash-v4-parity-chroma-geometry-v1", f"{label} geometry schema differs")
+    interlaced = definition["scanMode"] != "progressive"
+    expected_policy = FIELD_CHROMA_POLICY if interlaced else "progressive-declared-uv-left-v1"
+    require(geometry["normalizationPolicyID"] == expected_policy, f"{label} normalization policy differs")
+    dims = tuple(definition[key] for key in ("sourceWidth", "sourceHeight", "targetWidth", "targetHeight"))
+    try:
+        chroma.validate_geometry(geometry["top"], dims,
+            schema="mirmir-ash-v4-parity-chroma-plan-v1", policy="parity-declared-raw-uv-field-siting-v1",
+            source="left", target="left", label=f"{label}.chromaGeometry.top")
+        if interlaced:
+            chroma.validate_geometry(geometry["bottom"], dims,
+                schema="mirmir-ash-v4-parity-chroma-plan-v1", policy="parity-declared-raw-uv-field-siting-v1",
+                source="center", target="left", label=f"{label}.chromaGeometry.bottom")
+        else:
+            require(geometry["bottom"] is None, f"{label} progressive claims field geometry")
+    except ValueError as error:
+        require(False, str(error))
+    sw, sh, tw, th = dims
+    route = f"x={Fraction(tw, sw).numerator}/{Fraction(tw, sw).denominator};y={Fraction(th, sh).numerator}/{Fraction(th, sh).denominator}"
+    storage = {"nv12_video_range_8":"nv12_video_range_8_bit", "nv12_full_range_8":"nv12_full_range_8_bit",
+               "p010_video_range_10":"p010_video_range_10_bit", "p010_full_range_10":"p010_full_range_10_bit"}[definition["storage"]]
+    field_identity = (FIELD_CHROMA_POLICY + ":top=left;bottom=center;output=left") if interlaced else "no-authenticated-field-geometry"
+    for state in checkpoint_states.values():
+        checkpoint = parse_json_bytes(state["canonicalData"], f"{label}.checkpoint")
+        parts = ["ash-p06-deterministic-v4", checkpoint["runtimeManifestSHA256"], storage,
+                 str(sw), str(sh), str(tw), str(th), route, chroma.COORDINATE_ID,
+                 chroma.COORDINATE_ID + ":left->left", field_identity]
+        require(checkpoint["formatIdentity"] == sha256_bytes("|".join(parts).encode()),
+                f"{label} checkpoint omits authenticated geometry")
+
+
 def validate_execution_evidence(
     data: bytes,
     definition: Mapping[str, Any],
@@ -1657,16 +1733,13 @@ def validate_execution_evidence(
 ) -> dict[str, Any]:
     document = require_object(parse_json_bytes(data, label), label)
     require(canonical_json(document) == data, f"{label} is not canonical JSON")
-    require_exact_keys(
-        document,
-        (
-            "schemaVersion", "caseID", "backend", "spatialSchedule",
-            "temporalSchedule", "checkpointSchemaID", "checkpointSHA256s",
-            "boundedRoute",
-        ),
-        label,
-    )
-    require(document["schemaVersion"] == EXECUTION_SCHEMA, f"{label} schema differs")
+    phase2 = document.get("schemaVersion") == EXECUTION_SCHEMA_PHASE2
+    keys = ("schemaVersion", "caseID", "backend", "spatialSchedule",
+            "temporalSchedule", "checkpointSchemaID", "checkpointSHA256s", "boundedRoute")
+    require_exact_keys(document, keys + (("fixedPointKernelID", "chromaApplicability", "chromaGeometry") if phase2 else ()), label)
+    require(document["schemaVersion"] in {EXECUTION_SCHEMA, EXECUTION_SCHEMA_PHASE2}, f"{label} schema differs")
+    if phase2:
+        validate_phase2_chroma(document, definition, checkpoint_states, label)
     require(document["caseID"] == definition["id"], f"{label} case ID differs")
     require(document["backend"] == backend, f"{label} backend differs")
     require(document["spatialSchedule"] == spatial_schedule, f"{label} spatial schedule differs")
@@ -1769,6 +1842,7 @@ def validate_run(
     backend: str,
     spatial_schedule: str,
     temporal_schedule: str,
+    phase2_required: bool = False,
 ) -> dict[str, Any]:
     run = require_object(value, label)
     require_exact_keys(run, RUN_KEYS, label)
@@ -1781,12 +1855,14 @@ def validate_run(
         )
         loaded[key] = {"descriptor": raw, "path": path, "data": data}
     states = validate_checkpoint_set(loaded["checkpoints"]["data"], definition, f"{label}.checkpoints")
-    validate_semantics(loaded["semantics"]["data"], definition, states, f"{label}.semantics")
+    phase2 = parse_json_bytes(loaded["execution"]["data"], f"{label}.execution").get("schemaVersion") == EXECUTION_SCHEMA_PHASE2
+    validate_semantics(loaded["semantics"]["data"], definition, states, f"{label}.semantics", phase2=phase2)
     validate_resume_set(loaded["resume"]["data"], definition, f"{label}.resume")
     validate_execution_evidence(
         loaded["execution"]["data"], definition, states, backend,
         spatial_schedule, temporal_schedule, f"{label}.execution",
     )
+    require(phase2 == phase2_required, f"{label} execution version differs from locked contract")
     return loaded
 
 
@@ -1811,16 +1887,17 @@ def validate_backend_run_set(
     sealed: Mapping[str, Path],
     definition: Mapping[str, Any],
     backend_name: str,
+    phase2_required: bool = False,
 ) -> dict[str, Any]:
     backend = require_object(value, label)
     require_exact_keys(backend, ("canonical", "repeat", "schedules"), label)
     canonical = validate_run(
         backend["canonical"], f"{label}.canonical", root, sealed, definition,
-        backend_name, "production_full_frame", "raster",
+        backend_name, "production_full_frame", "raster", phase2_required,
     )
     repeat = validate_run(
         backend["repeat"], f"{label}.repeat", root, sealed, definition,
-        backend_name, "production_full_frame", "raster",
+        backend_name, "production_full_frame", "raster", phase2_required,
     )
     require_distinct_paths(canonical, repeat, f"{label} repeat")
     require_run_equal(canonical, repeat, f"{label} repeat", include_execution=True)
@@ -1852,7 +1929,7 @@ def validate_backend_run_set(
         require(name not in schedules, f"{label} repeats schedule {name}")
         run = validate_run(
             item["run"], f"{label}.schedules[{index}].run", root, sealed,
-            definition, backend_name, name, temporal_name,
+            definition, backend_name, name, temporal_name, phase2_required,
         )
         require_distinct_paths(canonical, run, f"{label} schedule {name}")
         require_run_equal(canonical, run, f"{label} schedule {name}")
@@ -1912,6 +1989,7 @@ def validate_captured_case(
     root: Path,
     sealed: Mapping[str, Path],
     contract_by_id: Mapping[str, dict[str, Any]],
+    phase2_required: bool = False,
 ) -> dict[str, Any]:
     case = require_object(value, label)
     require_exact_keys(case, ("id", "definition", "cpu", "metal", "metadata"), label)
@@ -1920,10 +1998,10 @@ def validate_captured_case(
     definition = contract_by_id[identifier]
     require(case["definition"] == definition, f"captured definition differs: {identifier}")
     cpu = validate_backend_run_set(
-        case["cpu"], f"{label}.cpu", root, sealed, definition, "cpu"
+        case["cpu"], f"{label}.cpu", root, sealed, definition, "cpu", phase2_required
     )
     metal = validate_backend_run_set(
-        case["metal"], f"{label}.metal", root, sealed, definition, "metal"
+        case["metal"], f"{label}.metal", root, sealed, definition, "metal", phase2_required
     )
     require_distinct_paths(cpu["canonical"], metal["canonical"], f"{label} CPU/Metal")
     require_run_equal(cpu["canonical"], metal["canonical"], f"{label} CPU/Metal")
@@ -1954,7 +2032,8 @@ def validate_capture(
     allow_unbound_fixture: bool = False,
 ) -> dict[str, Any]:
     require(directory.is_dir() and not directory.is_symlink(), "capture directory missing/symbolic")
-    sealed, manifest_sha = validate_capture_manifest(directory)
+    phase2 = contract["schemaVersion"] == CONTRACT_SCHEMA_PHASE2
+    sealed, manifest_sha = validate_capture_manifest(directory, phase2=phase2)
     capture_path = directory / "capture.json"
     require(
         capture_path.resolve() in {path.resolve() for path in sealed.values()},
@@ -1977,7 +2056,7 @@ def validate_capture(
         observed_fields in (base_fields, base_fields | packaged_fields),
         "capture field set differs",
     )
-    require(capture["schemaVersion"] == CAPTURE_SCHEMA, "capture schema mismatch")
+    require(capture["schemaVersion"] == (CAPTURE_SCHEMA_PHASE2 if phase2 else CAPTURE_SCHEMA), "capture schema mismatch")
     require(capture["contractSHA256"] == contract_sha, "capture contract identity mismatch")
     require(capture["captureSourceSHA256"] == contract["tools"]["captureSourceSHA256"], "capture source identity mismatch")
     require_revision(capture["sourceRevision"], "capture.sourceRevision")
@@ -2003,7 +2082,7 @@ def validate_capture(
     cases: dict[str, dict[str, Any]] = {}
     for index, raw in enumerate(require_array(capture["cases"], "capture.cases")):
         observed = validate_captured_case(
-            raw, f"capture.cases[{index}]", directory, sealed, contract_by_id
+            raw, f"capture.cases[{index}]", directory, sealed, contract_by_id, phase2
         )
         require(observed["id"] not in cases, f"capture repeats case {observed['id']}")
         cases[observed["id"]] = observed
@@ -2255,6 +2334,8 @@ def evaluate(
             "captureSourceSHA256": contract["tools"]["captureSourceSHA256"],
             "evaluatorSHA256": contract["tools"]["evaluatorSHA256"],
             "runnerSHA256": contract["tools"]["runnerSHA256"],
+            **({"chromaGeometryValidatorSHA256": contract["tools"]["chromaGeometryValidatorSHA256"]}
+                if contract["schemaVersion"] == CONTRACT_SCHEMA_PHASE2 else {}),
             "packagedCandidateIdentity": packaged_identity,
             "evidenceRequestSHA256": [
                 packaged_bindings[0]["requestSHA256"],
@@ -2273,18 +2354,18 @@ def evaluate(
     }
 
 
-def make_root_manifest(root: Path, manifest_path: Path) -> dict[str, Any]:
+def make_root_manifest(root: Path, manifest_path: Path, phase2: bool = False) -> dict[str, Any]:
     artifacts: list[dict[str, Any]] = []
     for path in sorted(root.rglob("*")):
         require(not path.is_symlink(), f"symbolic link in parity evidence: {path}")
         if path.is_file() and path.resolve() != manifest_path.resolve():
             artifacts.append(descriptor(path, root))
-    return {"schemaVersion": EVIDENCE_MANIFEST_SCHEMA, "artifacts": artifacts}
+    return {"schemaVersion": EVIDENCE_MANIFEST_SCHEMA_PHASE2 if phase2 else EVIDENCE_MANIFEST_SCHEMA, "artifacts": artifacts}
 
 
-def verify_root_manifest(root: Path, manifest_path: Path) -> None:
+def verify_root_manifest(root: Path, manifest_path: Path, phase2: bool = False) -> None:
     observed = require_object(load_json(manifest_path), "parity evidence manifest")
-    expected = make_root_manifest(root, manifest_path)
+    expected = make_root_manifest(root, manifest_path, phase2=phase2)
     require(canonical_json(observed) == canonical_json(expected), "parity root seal differs from recomputed artifacts")
     for index, artifact_value in enumerate(observed["artifacts"]):
         validate_descriptor(root, artifact_value, f"root artifact[{index}]")
@@ -2321,7 +2402,8 @@ def command_evaluate(arguments: argparse.Namespace) -> None:
         else None,
     )
     write_json(output, report)
-    write_json(manifest, make_root_manifest(root, manifest))
+    write_json(manifest, make_root_manifest(root, manifest,
+        phase2=report["schemaVersion"] == REPORT_SCHEMA_PHASE2))
 
 
 def command_verify(arguments: argparse.Namespace) -> None:
@@ -2351,7 +2433,8 @@ def command_verify(arguments: argparse.Namespace) -> None:
     )
     observed = load_json(arguments.report.resolve())
     require(canonical_json(observed) == canonical_json(expected), "published parity report differs from recomputed evidence")
-    verify_root_manifest(root, arguments.manifest.resolve())
+    verify_root_manifest(root, arguments.manifest.resolve(),
+        phase2=expected["schemaVersion"] == REPORT_SCHEMA_PHASE2)
 
 
 def parser() -> argparse.ArgumentParser:

@@ -9,8 +9,9 @@ usage() {
 script_directory="${0:A:h}"
 repository_root="${script_directory:h:h}"
 runner_source="${0:A}"
-contract_source="${script_directory}/cpu-metal-parity-contract-v2.json"
+contract_source="${script_directory}/cpu-metal-parity-contract-v3.json"
 evaluator_source="${script_directory}/cpu_metal_parity_v4.py"
+chroma_validator_source="${script_directory}/chroma_geometry_v4.py"
 packaged_tool_source="${script_directory}/packaged_candidate_evidence_v4.py"
 observer_source="${repository_root}/Mirmir/App/MirmirApp.swift"
 
@@ -45,7 +46,7 @@ application_archive="$(resolve_existing "$application_archive")"
 runtime="$(resolve_existing "$runtime")"
 release_configuration="$(resolve_existing "$release_configuration")"
 contract_source="$(resolve_existing "$contract_source")"
-default_contract="$(resolve_existing "$script_directory/cpu-metal-parity-contract-v2.json")"
+default_contract="$(resolve_existing "$script_directory/cpu-metal-parity-contract-v3.json")"
 cmp -s -- "$contract_source" "$default_contract" || {
     print -u2 "Release parity contract differs from the candidate-locked contract"
     exit 66
@@ -73,8 +74,9 @@ PY
 # Every executable lane component, including the production observer source,
 # must be byte-identical to the candidate commit before the archive can run.
 python3 - "$repository_root" "$candidate_revision" \
-    script/v4/cpu-metal-parity-contract-v2.json \
+    script/v4/cpu-metal-parity-contract-v3.json \
     script/v4/cpu_metal_parity_v4.py \
+    script/v4/chroma_geometry_v4.py \
     script/v4/run_cpu_metal_parity_v4.sh \
     script/v4/packaged_candidate_evidence_v4.py \
     Mirmir/App/MirmirApp.swift <<'PY'
@@ -105,30 +107,32 @@ cmp -s -- "$runner_source" "$repository_root/script/v4/run_cpu_metal_parity_v4.s
 mkdir -- "$output_directory"
 sealed_tools="$output_directory/sealed-tools"
 mkdir -- "$sealed_tools"
-cp -- "$contract_source" "$sealed_tools/cpu-metal-parity-contract-v2.json"
+cp -- "$contract_source" "$sealed_tools/cpu-metal-parity-contract-v3.json"
 cp -- "$observer_source" "$sealed_tools/MirmirApp.swift"
 cp -- "$evaluator_source" "$sealed_tools/cpu_metal_parity_v4.py"
+cp -- "$chroma_validator_source" "$sealed_tools/chroma_geometry_v4.py"
 cp -- "$packaged_tool_source" "$sealed_tools/packaged_candidate_evidence_v4.py"
 cp -- "$runner_source" "$sealed_tools/run_cpu_metal_parity_v4.sh"
 cp -- "$candidate_identity_source" "$output_directory/candidate-identity.json"
 
-contract="$sealed_tools/cpu-metal-parity-contract-v2.json"
+contract="$sealed_tools/cpu-metal-parity-contract-v3.json"
 capture_source="$sealed_tools/MirmirApp.swift"
 evaluator="$sealed_tools/cpu_metal_parity_v4.py"
 runner="$sealed_tools/run_cpu_metal_parity_v4.sh"
 packaged_tool="$sealed_tools/packaged_candidate_evidence_v4.py"
 
-python3 - "$contract" "$capture_source" "$evaluator" "$runner" <<'PY'
+python3 - "$contract" "$capture_source" "$evaluator" "$runner" "$sealed_tools/chroma_geometry_v4.py" <<'PY'
 from pathlib import Path
 import hashlib
 import json
 import sys
-contract_path, capture, evaluator, runner = map(Path, sys.argv[1:])
+contract_path, capture, evaluator, runner, chroma_validator = map(Path, sys.argv[1:])
 value = json.loads(contract_path.read_text())
 observed = {
     "captureSourceSHA256": hashlib.sha256(capture.read_bytes()).hexdigest(),
     "evaluatorSHA256": hashlib.sha256(evaluator.read_bytes()).hexdigest(),
     "runnerSHA256": hashlib.sha256(runner.read_bytes()).hexdigest(),
+    "chromaGeometryValidatorSHA256": hashlib.sha256(chroma_validator.read_bytes()).hexdigest(),
 }
 if value.get("tools") != observed:
     raise SystemExit(f"parity tool identities are stale: {observed}")

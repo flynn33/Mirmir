@@ -1,0 +1,62 @@
+[
+  {
+    "test": "ASHTemporalReconstructionV4Tests/testCaptureParallelMotionBenchmarkWhenRequested",
+    "reason": "Set MIRMIR_V4_MOTION_BENCHMARK_DIR for motion timing."
+  },
+  {
+    "test": "ASHTemporalReconstructionV4Tests/testCaptureParallelSpatialBenchmarkWhenRequested",
+    "reason": "Set MIRMIR_V4_SPATIAL_BENCHMARK_DIR for spatial timing."
+  },
+  {
+    "test": "AppleModelCancellationTests/testClearDuringRealDownloadAndRetryDoNotApplyStaleResults",
+    "reason": "Set MIRMIR_RUN_FRESH_APPLE_MODEL_DOWNLOAD_GATE=1 on a fresh macOS 26+ model environment."
+  },
+  {
+    "test": "AppleModelCancellationTests/testRealNetworkFailureAndRetry",
+    "reason": "Set MIRMIR_RUN_OFFLINE_APPLE_MODEL_DOWNLOAD_GATE=1 with the disposable-VM network driver."
+  },
+  {
+    "test": "DeterministicMetalBackendTests/testCanonical8KEndToEndAllocationGateWhenRequested",
+    "reason": "Set MIRMIR_RUN_8K_ALLOCATION_GATE=1 for the physical 8K gate."
+  },
+  {
+    "test": "DeterministicMetalBackendTests/testCaptureV3BaselineWhenRequested",
+    "reason": "Set MIRMIR_V4_BASELINE_DIR to capture the locked v3 corpus."
+  },
+  {
+    "test": "VideoProcessingSessionTests/testCaptureV3EndToEndBaselineWhenRequested",
+    "reason": "Set MIRMIR_V4_BASELINE_DIR to capture end-to-end timing."
+  },
+  {
+    "test": "WorkflowApplicationQueueV4Tests/testExternalSourceCompletesProductionDurableWorkflowWhenRequested",
+    "reason": "Set MIRMIR_REAL_SOURCE_PATH and MIRMIR_REAL_SOURCE_EVIDENCE_DIR to run the production durable-workflow regression."
+  },
+  {
+    "test": "WorkflowSegmentCheckpointStoreV4Tests/testSavedAssembledMovieHasCompleteCheckpointFrameCountWhenRequested",
+    "reason": "Set the saved checkpoint and verify-output paths to verify a completed replay."
+  },
+  {
+    "test": "WorkflowSegmentCheckpointStoreV4Tests/testSavedAudioMovieMigratesAllTracksWhenRequested",
+    "reason": "Set the saved audio movie paths to replay audio migration."
+  },
+  {
+    "test": "WorkflowSegmentCheckpointStoreV4Tests/testSavedAudioTrackMetadataMatchesRepairedWhenRequested",
+    "reason": "Set the original and repaired movie paths to verify track metadata."
+  },
+  {
+    "test": "WorkflowSegmentCheckpointStoreV4Tests/testSavedChapterMovieMigratesAcrossMovieClocksWhenRequested",
+    "reason": "Set the saved chapter movie paths to replay chapter migration."
+  },
+  {
+    "test": "WorkflowSegmentCheckpointStoreV4Tests/testSavedCompleteCheckpointAssemblesWhenRequested",
+    "reason": "Set the MIRMIR_SAVED_ASSEMBLY paths to replay saved segments."
+  },
+  {
+    "test": "WorkflowSegmentCheckpointStoreV4Tests/testSavedCompleteCheckpointFinalizesAllTracksWhenRequested",
+    "reason": "Set the saved finalization paths to finish a complete checkpoint."
+  },
+  {
+    "test": "WorkflowSegmentCheckpointStoreV4Tests/testSavedOriginalAudioStreamsMatchRecoveredWhenRequested",
+    "reason": "Set the original and recovered audio paths to verify both source streams."
+  }
+]

@@ -1,0 +1,111 @@
+{
+  "contract": {
+    "byteCount": 92564,
+    "repositoryRelativePath": "script/v4/release-qualification-contract-v1.json",
+    "sha256": "410a657a102a52f4b8913231b7e89625d32cb5050c4ba2f74c909a73800c7984"
+  },
+  "evaluator": {
+    "byteCount": 376963,
+    "repositoryRelativePath": "script/v4/release_qualification_v4.py",
+    "sha256": "b9ce7f079188c68839dd48467c96a55ee7f8f78a7e2e22826c8eda0ed66821e3"
+  },
+  "hashAlgorithm": "sha256",
+  "helpers": [
+    {
+      "byteCount": 7287,
+      "moduleName": "chroma_geometry_v4",
+      "repositoryRelativePath": "script/v4/chroma_geometry_v4.py",
+      "role": "chroma_geometry_replay",
+      "sha256": "4364e6fc52a42ee2dd2b3f4c76a70b56f81a32bcceddee6ec38ae5a56ab628bf"
+    },
+    {
+      "byteCount": 39104,
+      "moduleName": "support_matrix_v4_for_release_qualification",
+      "repositoryRelativePath": "script/v4/support_matrix_v4.py",
+      "role": "support_matrix_replay",
+      "sha256": "23c0d874e27b7eb37702d18612a969ede2cfda61ed0f968e7c078fd402511403"
+    },
+    {
+      "byteCount": 104563,
+      "moduleName": "cpu_metal_parity_v4_for_release_qualification",
+      "repositoryRelativePath": "script/v4/cpu_metal_parity_v4.py",
+      "role": "cpu_metal_parity_replay",
+      "sha256": "7699b76c7fbb36a2d03684967e7491807699c3c371cc97a1cf804a3d465176e3"
+    },
+    {
+      "byteCount": 11337,
+      "moduleName": "p05_baseline_v4",
+      "repositoryRelativePath": "script/v4/p05_baseline_v4.py",
+      "role": "p05_baseline_replay",
+      "sha256": "d79eff3f6bd7057460546b910cfa7654c9e846d4ff524e7b4ce78be78f6c929f"
+    },
+    {
+      "byteCount": 88301,
+      "moduleName": "quality_gate_v4_for_release_qualification",
+      "repositoryRelativePath": "script/v4/quality_gate_v4.py",
+      "role": "quality_raw_plane_replay",
+      "sha256": "847545aa2d72667ccf80edafd1aef20d91a2272155d7f9afb836e99e63c9d962"
+    }
+  ],
+  "roleDispatch": [
+    {
+      "evidenceSchema": "mirmir-ash-v4-quality-report-v2",
+      "replayHelperRoles": [
+        "chroma_geometry_replay",
+        "p05_baseline_replay",
+        "quality_raw_plane_replay"
+      ],
+      "role": "quality",
+      "validator": "validate_quality"
+    },
+    {
+      "evidenceSchema": "mirmir-v4-performance-gate-report-v1",
+      "replayHelperRoles": [],
+      "role": "same_scope_performance",
+      "validator": "validate_performance"
+    },
+    {
+      "evidenceSchema": "mirmir-ash-v4-cpu-metal-parity-report-v3",
+      "replayHelperRoles": [
+        "chroma_geometry_replay",
+        "cpu_metal_parity_replay"
+      ],
+      "role": "cpu_metal_parity",
+      "validator": "validate_parity"
+    },
+    {
+      "evidenceSchema": "mirmir-ash-v4-media-preservation-report-v2",
+      "replayHelperRoles": [],
+      "role": "media_preservation",
+      "validator": "validate_preservation"
+    },
+    {
+      "evidenceSchema": "mirmir-ash-v4-recovery-report-v2",
+      "replayHelperRoles": [],
+      "role": "recovery",
+      "validator": "validate_recovery"
+    },
+    {
+      "evidenceSchema": "mirmir-ash-v4-p06-reproduction-report-v2",
+      "replayHelperRoles": [],
+      "role": "p06_reproduction",
+      "validator": "validate_p06"
+    },
+    {
+      "evidenceSchema": "mirmir-ash-v4-support-matrix-report-v1",
+      "replayHelperRoles": [
+        "support_matrix_replay"
+      ],
+      "role": "support_matrix",
+      "validator": "validate_support"
+    },
+    {
+      "evidenceSchema": "mirmir-ash-v4-notarized-smoke-report-v1",
+      "replayHelperRoles": [],
+      "role": "notarized_smoke",
+      "validator": "validate_smoke"
+    }
+  ],
+  "schemaVersion": "mirmir-ash-v4-release-qualification-trust-root-v2",
+  "trustedToolSetSHA256": "0d6d0989065541cbec0cec41db50f4b81dda6c25eb30d7e8c0ca262ce1f9366f"
+}

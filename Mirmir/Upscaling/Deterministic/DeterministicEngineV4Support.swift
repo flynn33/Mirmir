@@ -19,12 +19,12 @@ enum ASHProductionP06TrustRootV4 {
     // A zero identity is deliberately non-loadable. The reproducible P06 build
     // patches these three constants together with the checked-in bundle.
     static let manifestSHA256 = try! ASHSHA256V4(
-        "33ef468066be2aac90a48aec6a8f9a41656d58a0c294c47a4bc2b5822e8d82c2"
+        "db56804a443f767f383737661486d551859198a259e5a60dd0820079fcb6bf52"
     )
     static let sourceRevision =
-        "3b48a4c3f60526cbbb6ba66b4ab2238ffd8b77679eda4673acb09ffb35143dfb"
+        "cdb0ed8c765fba7fa0f4dddfb9045d4def6105b9ad62fddc5b6d3eb604feb0d7"
     static let builderSourceSHA256 = try! ASHSHA256V4(
-        "53d202b8ac01dfe5f3b1fac486a64aff6b7a7bb1e5096c6622fbf86943523c41"
+        "d25f738a4dc57a8b60f9155857b12891ad644af5d47d3d77db5db7dfb238fdb8"
     )
 
     static var isConfigured: Bool {
@@ -146,6 +146,19 @@ struct DeterministicPreparedConfigurationV4: Sendable {
     let targetWidth: Int
     let targetHeight: Int
     let scanMode: DeterministicScanModeV4
+    // Nil is retained only for direct historical/vector fixture constructors.
+    // User backend preparation always resolves this in the validator below.
+    var chromaGeometry: SpatialChromaGeometryV4? = nil
+    var interlacedChromaGeometry: SpatialInterlacedChromaGeometryV4? = nil
+    var sourceDeliveryIdentity: String? = nil
+
+    var chromaGeometryIdentity: String {
+        chromaGeometry?.identity ?? "generic-plane-grid-v1"
+    }
+
+    var interlacedChromaGeometryIdentity: String {
+        interlacedChromaGeometry?.identity ?? "no-authenticated-field-geometry"
+    }
 
     var sourceAttributes: PixelBufferAttributes {
         attributes(width: sourceWidth, height: sourceHeight)
@@ -203,6 +216,12 @@ enum DeterministicConfigurationValidatorV4 {
         backendID: UpscaleBackendID,
         executionBackend: FixedPointExecutionBackendV4
     ) -> Result<DeterministicPreparedConfigurationV4, BackendUnavailableReason> {
+        let delivery: ProRes422WorkingFormatV4?
+        do { delivery = try source.proRes422WorkingFormat }
+        catch {
+            return .failure(.unsupportedPixelFormatOrBitDepth(details: "ProRes working delivery: \(error)"))
+        }
+        let color = source.processingColor(proRes: delivery)
         let sourceSize = source.geometry.encodedSize ?? source.naturalSize
         guard let sourceDimensions = integerDimensions(sourceSize) else {
             return .failure(.unsupportedSourceDimensions(
@@ -210,6 +229,12 @@ enum DeterministicConfigurationValidatorV4 {
                 height: safeDimension(sourceSize.height),
                 details: "v4 requires a positive integral encoded raster"
             ))
+        }
+        if let delivery {
+            guard delivery.width == sourceDimensions.width, delivery.height == sourceDimensions.height,
+                  source.color.fieldCount == delivery.scan.fieldCount else {
+                return .failure(.unsupportedPixelFormatOrBitDepth(details: "ProRes probe and working raster/scan disagree"))
+            }
         }
         guard let targetDimensions = integerDimensions(targetSize) else {
             return .failure(.unsupportedTargetDimensions(
@@ -232,19 +257,19 @@ enum DeterministicConfigurationValidatorV4 {
                 details: "the canonical v4 executor limit is 32768 per axis"
             ))
         }
-        guard let isFullRange = source.color.isFullRange else {
+        guard let isFullRange = color.isFullRange else {
             return .failure(.unsupportedPixelFormatOrBitDepth(
                 details: "v4 requires an explicit video/full range contract"
             ))
         }
-        guard source.color.dynamicRange != .unknown else {
+        guard color.dynamicRange != .unknown else {
             return .failure(.unsupportedPixelFormatOrBitDepth(
                 details: "v4 requires an explicit SDR or HDR transfer contract"
             ))
         }
 
-        let bitDepth = source.color.bitDepth
-            ?? (source.color.dynamicRange == .hdr ? 10 : 8)
+        let bitDepth = color.bitDepth
+            ?? (color.dynamicRange == .hdr ? 10 : 8)
         let storage: PixelStorageV4
         switch (bitDepth, isFullRange) {
         case (8, false): storage = .nv12VideoRange8Bit
@@ -257,10 +282,10 @@ enum DeterministicConfigurationValidatorV4 {
                     + "the source reports \(bitDepth)-bit video"
             ))
         }
-        if source.color.dynamicRange == .hdr, storage.signalBitDepth != 10 {
+        if color.dynamicRange == .hdr, storage.signalBitDepth != 10 {
             return .failure(.hdrPreservationUnavailable)
         }
-        if let reported = source.color.pixelFormat,
+        if let reported = color.pixelFormat,
            reported != storage.pixelFormat {
             return .failure(.unsupportedPixelFormatOrBitDepth(
                 details: "the reported pixel format "
@@ -270,16 +295,16 @@ enum DeterministicConfigurationValidatorV4 {
         }
 
         let scanMode: DeterministicScanModeV4
-        switch source.color.fieldCount ?? 1 {
+        switch color.fieldCount ?? 1 {
         case 1:
-            guard source.color.fieldDetail == nil else {
+            guard color.fieldDetail == nil else {
                 return .failure(.unsupportedPixelFormatOrBitDepth(
                     details: "a one-field source carries contradictory field detail"
                 ))
             }
             scanMode = .progressive
         case 2:
-            guard let fieldDetail = source.color.fieldDetail else {
+            guard let fieldDetail = color.fieldDetail else {
                 return .failure(.unsupportedPixelFormatOrBitDepth(
                     details: "interlaced v4 input requires explicit field dominance"
                 ))
@@ -310,6 +335,33 @@ enum DeterministicConfigurationValidatorV4 {
             ))
         }
 
+        guard let authenticatedSiting = color.chromaSiting,
+              let workingSiting = SpatialChromaSitingV4(
+                rawValue: authenticatedSiting.rawValue
+              ) else {
+            return .failure(.unsupportedPixelFormatOrBitDepth(
+                details: "v4 requires a resolved authenticated working chroma location"
+            ))
+        }
+        let chromaGeometry = SpatialChromaGeometryV4(
+            source: workingSiting, target: workingSiting
+        )
+        let fieldGeometry: SpatialInterlacedChromaGeometryV4?
+        switch scanMode {
+        case .progressive:
+            fieldGeometry = nil
+        case .interlaced:
+            guard let bottom = color.chromaSitingBottomField,
+                  let bottomSiting = SpatialChromaSitingV4(rawValue: bottom.rawValue) else {
+                return .failure(.unsupportedPixelFormatOrBitDepth(
+                    details: "interlaced v4 input requires an independently authenticated bottom-field chroma location"
+                ))
+            }
+            fieldGeometry = SpatialInterlacedChromaGeometryV4(
+                topSource: workingSiting, bottomSource: bottomSiting,
+                target: workingSiting
+            )
+        }
         return .success(DeterministicPreparedConfigurationV4(
             backendID: backendID,
             executionBackend: executionBackend,
@@ -318,7 +370,10 @@ enum DeterministicConfigurationValidatorV4 {
             sourceHeight: sourceDimensions.height,
             targetWidth: targetDimensions.width,
             targetHeight: targetDimensions.height,
-            scanMode: scanMode
+            scanMode: scanMode,
+            chromaGeometry: chromaGeometry,
+            interlacedChromaGeometry: fieldGeometry,
+            sourceDeliveryIdentity: delivery?.identity
         ))
     }
 

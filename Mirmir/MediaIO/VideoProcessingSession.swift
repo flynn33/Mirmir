@@ -151,6 +151,16 @@ struct VideoProcessingSession: Sendable {
         guard let videoTrack = videoTracks.first else {
             throw MirmirError.noVideoTrack
         }
+        let sourceVideoDescriptions = try await videoTrack.load(.formatDescriptions)
+        let sourceAVCChromaDeclaration = try AVCChromaLocationV4.declaration(
+            from: sourceVideoDescriptions
+        )
+        let sourceMPEG4Sampling = try MPEG4ProgressiveSamplingV4.declaration(
+            from: sourceVideoDescriptions
+        )
+        let sourceJFIFSampling = try LegacyVideoSamplingFacts.resolve(
+            asset: asset, track: videoTrack, descriptions: sourceVideoDescriptions
+        )?.nativeWorkingJFIFDeclaration
         let audioTracks = tracks.filter { $0.mediaType == .audio }
         let expectedAudioTopology = AudioTopologyV4(
             graph: try await AVFoundationTrackGraphAdapterV4.probe(asset: asset),
@@ -259,6 +269,9 @@ struct VideoProcessingSession: Sendable {
             ))
             let frameCount = try await processVideo(
                 output: videoOutput,
+                sourceAVCChromaDeclaration: sourceAVCChromaDeclaration,
+                sourceMPEG4Sampling: sourceMPEG4Sampling,
+                sourceJFIFSampling: sourceJFIFSampling,
                 input: videoInput,
                 adaptor: adaptor,
                 pool: pool,
@@ -709,6 +722,9 @@ private extension VideoProcessingSession {
 
     func processVideo(
         output: AVAssetReaderTrackOutput,
+        sourceAVCChromaDeclaration: AVCChromaLocationV4.Declaration? = nil,
+        sourceMPEG4Sampling: MPEG4ProgressiveSamplingV4? = nil,
+        sourceJFIFSampling: JFIFVideoSamplingV4? = nil,
         input: AVAssetWriterInput,
         adaptor: AVAssetWriterInputPixelBufferAdaptor,
         pool: CVPixelBufferPool,
@@ -741,6 +757,15 @@ private extension VideoProcessingSession {
                     "video sample \(sourceFrameIndex) contains no image buffer"
                 )
             }
+            try AVCChromaLocationV4.normalizeDecodedBuffer(
+                pixelBuffer, source: sourceAVCChromaDeclaration
+            )
+            try MPEG4ProgressiveSamplingV4.normalizeDecodedBuffer(
+                pixelBuffer, source: sourceMPEG4Sampling
+            )
+            try JFIFVideoSamplingV4.normalizeDecodedBuffer(
+                pixelBuffer, source: sourceJFIFSampling
+            )
             let pts = CMSampleBufferGetPresentationTimeStamp(sample)
             let duration = CMSampleBufferGetDuration(sample)
             guard pts.isNumeric else {

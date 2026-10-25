@@ -383,6 +383,316 @@ enum ASHCanonicalPropertyListV4 {
     }
 }
 
+/// A complete rectangular, progressive, eight-bit MPEG-4 Part 2 VOL. The
+/// admitted 4:2:0 codec sampling lattice is Left; an absent QuickTime attachment
+/// does not change that lattice. Keep this proof separate from legacy partial
+/// header extraction, which is also used for AVI transport admission.
+struct MPEG4ProgressiveSamplingV4: Equatable, Sendable {
+    let width: Int32
+    let height: Int32
+    let fullRange: Bool
+    let sourceConfiguration: Data
+
+    private init(width: Int32, height: Int32, fullRange: Bool, sourceConfiguration: Data) {
+        self.width = width
+        self.height = height
+        self.fullRange = fullRange
+        self.sourceConfiguration = sourceConfiguration
+    }
+
+    static func normalizeDecodedBuffer(_ buffer: CVPixelBuffer, source: Self?) throws {
+        guard let source else { return }
+        let expected = source.fullRange
+            ? kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
+            : kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        let width = Int(source.width), height = Int(source.height)
+        guard CVPixelBufferGetPixelFormatType(buffer) == expected,
+              CVPixelBufferGetWidth(buffer) == width, CVPixelBufferGetHeight(buffer) == height,
+              CVPixelBufferGetPlaneCount(buffer) == 2,
+              CVPixelBufferGetWidthOfPlane(buffer, 0) == width,
+              CVPixelBufferGetHeightOfPlane(buffer, 0) == height,
+              CVPixelBufferGetWidthOfPlane(buffer, 1) == (width + 1) / 2,
+              CVPixelBufferGetHeightOfPlane(buffer, 1) == (height + 1) / 2 else {
+            throw failure("The decoded MPEG-4 surface contradicts its authenticated sampling configuration.")
+        }
+        for (key, expected) in [
+            (kCVImageBufferFieldCountKey, 1),
+            (kCMFormatDescriptionExtension_FullRangeVideo, source.fullRange ? 1 : 0)
+        ] {
+            if let raw = CVBufferCopyAttachment(buffer, key, nil) {
+                guard let value = raw as? NSNumber, value.doubleValue == Double(expected) else {
+                    throw failure("The decoded MPEG-4 sampling declarations contradict the VOL.")
+                }
+            }
+        }
+        guard CVBufferCopyAttachment(buffer, kCVImageBufferFieldDetailKey, nil) == nil else {
+            throw failure("The progressive MPEG-4 surface declares interlaced field detail.")
+        }
+        for key in [kCVImageBufferChromaLocationTopFieldKey, kCVImageBufferChromaLocationBottomFieldKey] {
+            if let raw = CVBufferCopyAttachment(buffer, key, nil) {
+                guard let value = raw as? String, value == kCVImageBufferChromaLocation_Left as String else {
+                    throw failure("The decoded MPEG-4 chroma location contradicts the VOL.")
+                }
+            }
+        }
+        if let raw = CVBufferCopyAttachment(buffer, kCVImageBufferChromaSubsamplingKey, nil) {
+            guard let value = raw as? String, value == kCVImageBufferChromaSubsampling_420 as String else {
+                throw failure("The decoded MPEG-4 chroma subsampling contradicts the VOL.")
+            }
+        }
+        // Progressive CoreVideo surfaces use the top-field location. Preserve
+        // every existing correct attachment and its mode, including bottom.
+        if CVBufferCopyAttachment(buffer, kCVImageBufferChromaLocationTopFieldKey, nil) == nil {
+            CVBufferSetAttachment(buffer, kCVImageBufferChromaLocationTopFieldKey,
+                                  kCVImageBufferChromaLocation_Left, .shouldPropagate)
+        }
+    }
+
+    static func declaration(from descriptions: [CMFormatDescription]) throws -> Self? {
+        guard descriptions.count == 1, let description = descriptions.first else {
+            guard !descriptions.contains(where: {
+                CMFormatDescriptionGetMediaSubType($0) == kCMVideoCodecType_MPEG4Video
+            }) else { throw failure("MPEG-4 changes sampling configurations within its track.") }
+            return nil
+        }
+        return try declaration(from: description)
+    }
+
+    static func declaration(from description: CMFormatDescription) throws -> Self? {
+        guard CMFormatDescriptionGetMediaType(description) == kCMMediaType_Video,
+              CMFormatDescriptionGetMediaSubType(description) == kCMVideoCodecType_MPEG4Video else { return nil }
+        let extensions = (CMFormatDescriptionGetExtensions(description) as NSDictionary?) ?? [:]
+        guard let atoms = extensions[kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms as String] as? NSDictionary,
+              let esds = atoms["esds"] as? Data,
+              let configuration = decoderConfiguration(esds),
+              let proof = parse(configuration) else {
+            throw failure("The MPEG-4 progressive sampling configuration is incomplete or unsupported.")
+        }
+        try proof.validate(description: description)
+        return proof
+    }
+
+    func validate(description: CMFormatDescription) throws {
+        let size = CMVideoFormatDescriptionGetDimensions(description)
+        let extensions = (CMFormatDescriptionGetExtensions(description) as NSDictionary?) ?? [:]
+        guard CMFormatDescriptionGetMediaType(description) == kCMMediaType_Video,
+              CMFormatDescriptionGetMediaSubType(description) == kCMVideoCodecType_MPEG4Video,
+              size.width == width, size.height == height else {
+            throw Self.failure("MPEG-4 VOL and container rasters disagree.")
+        }
+        for (key, expected) in [
+            (kCMFormatDescriptionExtension_BitsPerComponent, 8),
+            (kCMFormatDescriptionExtension_FullRangeVideo, fullRange ? 1 : 0),
+            (kCMFormatDescriptionExtension_FieldCount, 1)
+        ] {
+            if let raw = extensions[key as String] {
+                guard let number = raw as? NSNumber, number.doubleValue == Double(expected) else {
+                    throw Self.failure("MPEG-4 VOL and container sampling declarations disagree.")
+                }
+            }
+        }
+        guard extensions[kCMFormatDescriptionExtension_FieldDetail as String] == nil else {
+            throw Self.failure("Progressive MPEG-4 carries an interlaced field-detail declaration.")
+        }
+        for key in [kCMFormatDescriptionExtension_ChromaLocationTopField,
+                    kCMFormatDescriptionExtension_ChromaLocationBottomField] {
+            if let raw = extensions[key as String] {
+                guard let value = raw as? String, value == kCMFormatDescriptionChromaLocation_Left as String else {
+                    throw Self.failure("MPEG-4 VOL and container chroma locations disagree.")
+                }
+            }
+        }
+        if let raw = extensions[kCVImageBufferChromaSubsamplingKey as String] {
+            guard let value = raw as? String,
+                  value == kCVImageBufferChromaSubsampling_420 as String else {
+                throw Self.failure("MPEG-4 VOL and container chroma subsampling disagree.")
+            }
+        }
+    }
+
+    // ISO/IEC 14496-1 ES_Descriptor -> DecoderConfigDescriptor ->
+    // DecoderSpecificInfo. Authenticate declared descriptor boundaries before
+    // interpreting any start code; payload bytes in unrelated descriptors are
+    // not video configuration.
+    static func decoderConfiguration(_ data: Data) -> Data? {
+        guard (4...1_048_576).contains(data.count) else { return nil }
+        let b = [UInt8](data)
+        guard b.prefix(4).allSatisfy({ $0 == 0 }) else { return nil }
+        var configurations: [Data] = []
+        func walk(_ begin: Int, _ end: Int, _ parent: UInt8) -> Bool {
+            var cursor = begin
+            var tags: Set<UInt8> = []
+            while cursor < end {
+                let tag = b[cursor]; cursor += 1
+                guard tags.insert(tag).inserted else { return false }
+                var count = 0
+                var terminated = false
+                for _ in 0..<4 {
+                    guard cursor < end else { return false }
+                    let value = b[cursor]; cursor += 1
+                    count = (count << 7) | Int(value & 0x7f)
+                    if value & 0x80 == 0 { terminated = true; break }
+                }
+                guard terminated, count <= end - cursor else { return false }
+                let finish = cursor + count
+                switch (parent, tag) {
+                case (0, 3):
+                    guard count >= 3, b[cursor + 2] == 0,
+                          walk(cursor + 3, finish, tag) else { return false }
+                case (3, 4):
+                    guard count >= 13, b[cursor] == 0x20, b[cursor + 1] == 0x11,
+                          walk(cursor + 13, finish, tag) else { return false }
+                case (4, 5):
+                    guard count > 0 else { return false }
+                    configurations.append(Data(b[cursor..<finish]))
+                case (3, 6):
+                    guard count == 1, b[cursor] == 2 else { return false }
+                default: return false
+                }
+                cursor = finish
+            }
+            switch parent {
+            case 0: return tags == [3]
+            case 3: return tags == [4, 6]
+            case 4: return tags == [5]
+            default: return false
+            }
+        }
+        guard walk(4, b.count, 0), configurations.count == 1 else { return nil }
+        return configurations[0]
+    }
+
+    static func parse(_ data: Data) -> Self? {
+        guard (4...1_048_576).contains(data.count) else { return nil }
+        let b = [UInt8](data)
+        var starts: [Int] = []
+        for index in 0..<(b.count - 3) where b[index] == 0 && b[index + 1] == 0 && b[index + 2] == 1 {
+            guard starts.count < 1_024 else { return nil }
+            starts.append(index)
+        }
+        guard starts.first == 0 else { return nil }
+        var range = false
+        var visualSeen = false
+        var layer: Self?
+        for (ordinal, start) in starts.enumerated() {
+            let end = ordinal + 1 < starts.count ? starts[ordinal + 1] : b.count
+            guard end >= start + 4 else { return nil }
+            let code = b[start + 3]
+            var bits = Bits(Array(b[(start + 4)..<end]))
+            switch code {
+            case 0xb0:
+                guard ordinal == 0, end - start == 5 else { return nil }
+            case 0xb5:
+                guard !visualSeen, layer == nil, let identifier = bits.read(1) else { return nil }
+                visualSeen = true
+                if identifier == 1 {
+                    guard let version = bits.read(4), version > 0, bits.read(3) != nil else { return nil }
+                }
+                guard bits.read(4) == 1, let signal = bits.read(1) else { return nil }
+                if signal == 1 {
+                    guard bits.read(3) != nil, let value = bits.read(1), let color = bits.read(1) else { return nil }
+                    range = value == 1
+                    if color == 1, bits.read(24) == nil { return nil }
+                }
+                guard bits.finish() else { return nil }
+            case 0x00...0x1f:
+                guard layer == nil, end == start + 4 else { return nil }
+            case 0x20...0x2f:
+                guard layer == nil, let dimensions = dimensions(&bits) else { return nil }
+                layer = Self(width: Int32(dimensions.0), height: Int32(dimensions.1), fullRange: range,
+                             sourceConfiguration: data)
+            case 0xb2: break // User data has no sampling syntax.
+            default: return nil
+            }
+        }
+        return layer
+    }
+
+    private static func dimensions(_ bits: inout Bits) -> (Int, Int)? {
+        guard bits.read(1) != nil, let object = bits.read(8), [1, 17].contains(object),
+              let identifier = bits.read(1) else { return nil }
+        var version = 1
+        if identifier == 1 {
+            guard let value = bits.read(4), value > 0, bits.read(3) != nil else { return nil }
+            version = value
+        }
+        guard let aspect = bits.read(4), (1...5).contains(aspect) || aspect == 15 else { return nil }
+        if aspect == 15 {
+            guard let x = bits.read(8), x > 0, let y = bits.read(8), y > 0 else { return nil }
+        }
+        guard let control = bits.read(1) else { return nil }
+        if control == 1 {
+            guard bits.read(2) == 1, bits.read(1) != nil, let vbv = bits.read(1) else { return nil }
+            if vbv == 1 {
+                for width in [15, 15, 15, 14, 15] {
+                    guard bits.read(width) != nil, bits.read(1) == 1 else { return nil }
+                }
+            }
+        }
+        guard bits.read(2) == 0, bits.read(1) == 1, let clock = bits.read(16), clock > 0,
+              bits.read(1) == 1, let fixed = bits.read(1) else { return nil }
+        if fixed == 1 {
+            let count = max(1, Int.bitWidth - (clock - 1).leadingZeroBitCount)
+            guard let step = bits.read(count), step > 0, step < clock else { return nil }
+        }
+        guard bits.read(1) == 1, let width = bits.read(13), width > 0,
+              bits.read(1) == 1, let height = bits.read(13), height > 0,
+              bits.read(1) == 1, bits.read(1) == 0, // progressive
+              bits.read(1) == 1, // OBMC disabled
+              bits.read(version == 1 ? 1 : 2) == 0, // no sprite
+              let nonEightBit = bits.read(1) else { return nil }
+        if nonEightBit == 1 {
+            guard bits.read(4) == 5, bits.read(4) == 8 else { return nil }
+        }
+        guard let quantized = bits.read(1) else { return nil }
+        if quantized == 1 {
+            for _ in 0..<2 {
+                guard let custom = bits.read(1) else { return nil }
+                if custom == 1 {
+                    for index in 0..<64 {
+                        guard let value = bits.read(8), index > 0 || value > 0 else { return nil }
+                        if value == 0 { break }
+                    }
+                }
+            }
+        }
+        if version != 1, bits.read(1) == nil { return nil } // quarter_sample
+        guard bits.read(1) == 1, // complexity estimation disabled
+              bits.read(1) != nil, let partitioned = bits.read(1) else { return nil }
+        if partitioned == 1, bits.read(1) == nil { return nil }
+        if version != 1 {
+            guard bits.read(1) == 0, bits.read(1) == 0 else { return nil } // no newpred/reduced resolution
+        }
+        guard bits.read(1) == 0, bits.finish() else { return nil } // no scalability
+        return (width, height)
+    }
+
+    private struct Bits {
+        let bytes: [UInt8]
+        var offset = 0
+        init(_ bytes: [UInt8]) { self.bytes = bytes }
+        mutating func read(_ count: Int) -> Int? {
+            guard (0...24).contains(count), offset + count <= bytes.count * 8 else { return nil }
+            var value = 0
+            for _ in 0..<count {
+                value = value * 2 + Int((bytes[offset / 8] >> (7 - offset % 8)) & 1)
+                offset += 1
+            }
+            return value
+        }
+        mutating func finish() -> Bool {
+            let remaining = bytes.count * 8 - offset
+            guard (1...8).contains(remaining), read(1) == 0 else { return false }
+            for _ in 1..<remaining where read(1) != 1 { return false }
+            return true
+        }
+    }
+
+    private static func failure(_ reason: String) -> AVCanonicalMediaStateAdapterV4Error {
+        .avFoundationLoadFailed(path: "video.mpeg4_sampling", reason: reason)
+    }
+}
+
 /// Resolve omitted color tags using the same decoder that supplies processing
 /// pixels. SD material can resolve to BT.601; assuming BT.709 here changes color.
 /// Explicit declarations and changing format descriptions are never replaced.
@@ -393,11 +703,15 @@ struct LegacyVideoSamplingFacts: Equatable, Sendable {
     let bitDepth: UInt8
     let fullRange: Bool
     let subsampling: CanonicalChromaSubsamplingV4
+    var jfifDeclaration: JFIFVideoSamplingV4? = nil
+    var nativeWorkingJFIFDeclaration: JFIFVideoSamplingV4? = nil
 
     static func resolve(
         asset: AVAsset, track: AVAssetTrack,
         descriptions: [CMFormatDescription]
     ) throws -> Self? {
+        // Sampling consumers must share the same unique MPEG-4 configuration.
+        _ = try MPEG4ProgressiveSamplingV4.declaration(from: descriptions)
         guard descriptions.count == 1, let description = descriptions.first else { return nil }
         let codec = CMFormatDescriptionGetMediaSubType(description)
         if codec == kCMVideoCodecType_MPEG4Video {
@@ -414,6 +728,9 @@ struct LegacyVideoSamplingFacts: Equatable, Sendable {
         defer { reader.cancelReading() }
         guard reader.startReading() else { throw reader.error ?? failure("Cannot read JPEG headers.") }
         var facts: Self?
+        var jfifDeclaration: JFIFVideoSamplingV4?
+        let extensions = CMFormatDescriptionGetExtensions(description) as NSDictionary? ?? [:]
+        let isDeclaredProgressive = (extensions[kCMFormatDescriptionExtension_FieldCount as String] as? NSNumber)?.doubleValue == 1
         while let sample = output.copyNextSampleBuffer() {
             try Task.checkCancellation()
             let count = CMSampleBufferGetNumSamples(sample)
@@ -432,12 +749,24 @@ struct LegacyVideoSamplingFacts: Equatable, Sendable {
                 guard size > 0, size <= length - offset,
                       let current = jpeg(bytes.subdata(in: offset..<(offset + size))) else { return nil }
                 if let facts, facts != current { throw failure("JPEG sampling changes within the video track.") }
+                if current.subsampling == .yuv420, isDeclaredProgressive {
+                    let proof = try JFIFVideoSamplingV4.progressiveDeclaration(from: description)
+                    try proof?.validatePacket(bytes.subdata(in: offset..<(offset + size)))
+                    jfifDeclaration = proof
+                }
                 facts = current
                 offset += size
             }
             guard offset == length else { return nil }
         }
         guard reader.status == .completed else { throw reader.error ?? failure("Cannot finish reading JPEG headers.") }
+        facts?.jfifDeclaration = jfifDeclaration
+        // The source JFIF declaration also applies to OpenDML. Its native
+        // dmb1/default-table decoder path has a separate unqualified behavior;
+        // only the ordinary JPEG decoder is an authenticated identity delivery.
+        if codec == kCMVideoCodecType_JPEG {
+            facts?.nativeWorkingJFIFDeclaration = jfifDeclaration
+        }
         return facts
     }
 

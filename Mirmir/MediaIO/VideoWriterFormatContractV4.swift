@@ -263,6 +263,7 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
     let frameOperation: VideoWriterFrameOperationV4
     let sourceContainsDynamicHDRMetadata: Bool
     let dynamicEncodingPolicy: HDRDynamicEncodingPolicyV4
+    let chromaSiting: CanonicalChromaSitingV4?
 
     init(
         codec: VideoWriterCodecV4,
@@ -273,7 +274,8 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
         outputHeight: Int,
         frameOperation: VideoWriterFrameOperationV4,
         sourceContainsDynamicHDRMetadata: Bool = false,
-        dynamicEncodingPolicy: HDRDynamicEncodingPolicyV4 = .absent
+        dynamicEncodingPolicy: HDRDynamicEncodingPolicyV4 = .absent,
+        chromaSiting: CanonicalChromaSitingV4? = nil
     ) throws {
         guard outputWidth > 0, outputHeight > 0 else {
             throw VideoWriterFormatContractV4Error.nonPositiveOutputDimensions(
@@ -372,6 +374,11 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
             }
         }
 
+        if let chromaSiting, chromaSiting == .unknown || chromaSiting == .notApplicable {
+            throw VideoWriterFormatContractV4Error
+                .malformedFormatDescription(field: "chroma_siting")
+        }
+        self.chromaSiting = chromaSiting
         self.codec = codec
         self.storage = storage
         self.color = color
@@ -479,6 +486,12 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
                         .formatDescriptionExtensions(for: metadata),
                     uniquingKeysWith: { _, new in new }
                 )
+            }
+            if let nativeChromaSiting {
+                extensions[kCMFormatDescriptionExtension_ChromaLocationTopField] =
+                    nativeChromaSiting
+                extensions[kCMFormatDescriptionExtension_ChromaLocationBottomField] =
+                    nativeChromaSiting
             }
             return extensions
         }
@@ -601,9 +614,22 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
         try verifyPixelAspectRatio(extensions)
         try verifyRangeAndBitDepth(extensions)
         try verifyColor(extensions, formatDescription: formatDescription)
+        if chromaSiting != nil,
+           let physical = try AVCChromaLocationV4.declaration(from: formatDescription) {
+            let location = AVCChromaLocationV4.nativeLocation(physical.location)
+            try verifyChromaSiting(top: location, bottom: location)
+        } else {
+            try verifyChromaSiting(
+                top: extensions[kCMFormatDescriptionExtension_ChromaLocationTopField as String] as? String,
+                bottom: extensions[kCMFormatDescriptionExtension_ChromaLocationBottomField as String] as? String
+            )
+        }
     }
 
-    func verifyDecodedPixelBuffer(_ pixelBuffer: CVPixelBuffer) throws {
+    func verifyDecodedPixelBuffer(
+        _ pixelBuffer: CVPixelBuffer,
+        encodedFormatDescription: CMFormatDescription? = nil
+    ) throws {
         let actualStorage: PixelStorageV4
         do {
             actualStorage = try PixelStorageV4(
@@ -621,6 +647,13 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
             )
         }
         try PixelLayoutV4(storage: storage).validateStructure(of: pixelBuffer)
+        let declaration = try encodedFormatDescription.flatMap {
+            try AVCChromaLocationV4.declaration(from: $0)
+        }
+        let locations = try AVCChromaLocationV4.interpretedDecodedLocations(
+            pixelBuffer, source: declaration
+        )
+        try verifyChromaSiting(top: locations.top, bottom: locations.bottom)
         let observed = try AVFoundationHDRMetadataAdapterV4.probe(
             pixelBuffer: pixelBuffer,
             storage: storage
@@ -636,6 +669,44 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
                 throw VideoWriterFormatContractV4Error
                     .decodedHDRMetadataMismatch
             }
+        }
+    }
+
+    private var nativeChromaSiting: CFString? {
+        switch chromaSiting {
+        case .left: kCVImageBufferChromaLocation_Left
+        case .center: kCVImageBufferChromaLocation_Center
+        case .topLeft: kCVImageBufferChromaLocation_TopLeft
+        case .top: kCVImageBufferChromaLocation_Top
+        case .bottomLeft: kCVImageBufferChromaLocation_BottomLeft
+        case .bottom: kCVImageBufferChromaLocation_Bottom
+        case .none, .unknown, .notApplicable: nil
+        }
+    }
+
+    func applyChromaSiting(to pixelBuffer: CVPixelBuffer) {
+        guard let nativeChromaSiting else { return }
+        // The minimum supported OS requires propagation for encoder VUI.
+        CVBufferSetAttachment(pixelBuffer, kCVImageBufferChromaLocationTopFieldKey,
+            nativeChromaSiting, .shouldPropagate)
+        CVBufferSetAttachment(pixelBuffer, kCVImageBufferChromaLocationBottomFieldKey,
+            nativeChromaSiting, .shouldPropagate)
+    }
+
+    private func verifyChromaSiting(top: String?, bottom: String?) throws {
+        guard let expected = nativeChromaSiting as String? else { return }
+        guard top != nil || bottom != nil else {
+            throw VideoWriterFormatContractV4Error
+                .encodedGeometryMissing(field: "chroma_siting")
+        }
+        guard (top ?? bottom) == expected,
+              top == nil || top == expected,
+              bottom == nil || bottom == expected else {
+            throw VideoWriterFormatContractV4Error.encodedGeometryMismatch(
+                field: "chroma_siting",
+                expected: expected,
+                actual: "top=\(top ?? "absent"),bottom=\(bottom ?? "absent")"
+            )
         }
     }
 

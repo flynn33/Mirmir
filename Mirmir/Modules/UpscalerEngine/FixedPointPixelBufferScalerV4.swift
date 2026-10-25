@@ -9,6 +9,8 @@ enum FixedPointPixelBufferScalerV4Error: Error, Equatable, Sendable {
     case lockFailed(destination: Bool, status: CVReturn)
     case arithmeticOverflow
     case invalidComponentCount(plane: Int, count: Int)
+    case chromaSitingMismatch(expected: SpatialChromaSitingV4, actual: String?)
+    case nonProgressiveChromaGeometry
 }
 
 enum FixedPointExecutionBackendV4: String, Codable, Hashable, Sendable {
@@ -70,6 +72,7 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
     let targetHeight: Int
 
     private let layout: PixelLayoutV4
+    private let chromaGeometry: SpatialChromaGeometryV4?
     private let planes: [PreparedPlane]
     private let metalBatch: FixedPointMetalPreparedBatchV4?
     private let componentExecutionCount: Int
@@ -86,7 +89,8 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
         borderRule: SpatialBorderRuleV4 = .clamp,
         executionSchedule: FixedPointExecutionScheduleV4 = .productionFullFrame,
         metalDevice: MTLDevice? = nil,
-        metalLibrary: MTLLibrary? = nil
+        metalLibrary: MTLLibrary? = nil,
+        chromaGeometry: SpatialChromaGeometryV4? = nil
     ) throws {
         let layout = PixelLayoutV4(storage: storage)
         try layout.validateGeometry(width: sourceWidth, height: sourceHeight)
@@ -113,18 +117,30 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
         var prepared: [PreparedPlane] = []
         var allMetalExecutions: [FixedPointMetalPreparedExecutionV4] = []
         prepared.reserveCapacity(layout.planes.count)
-        for plane in layout.planes {
+        for (planeIndex, plane) in layout.planes.enumerated() {
             let sourcePlaneWidth = try plane.width(forFrameWidth: sourceWidth)
             let sourcePlaneHeight = try plane.height(forFrameHeight: sourceHeight)
             let targetPlaneWidth = try plane.width(forFrameWidth: targetWidth)
             let targetPlaneHeight = try plane.height(forFrameHeight: targetHeight)
-            let plan = try SpatialScalePlanV4(
-                sourceWidth: sourcePlaneWidth,
-                sourceHeight: sourcePlaneHeight,
-                targetWidth: targetPlaneWidth,
-                targetHeight: targetPlaneHeight,
-                borderRule: borderRule
-            )
+            let plan: SpatialScalePlanV4
+            if planeIndex == 1, let chromaGeometry {
+                plan = try SpatialScalePlanV4(
+                    sourceLumaWidth: sourceWidth,
+                    sourceLumaHeight: sourceHeight,
+                    targetLumaWidth: targetWidth,
+                    targetLumaHeight: targetHeight,
+                    chromaGeometry: chromaGeometry,
+                    borderRule: borderRule
+                )
+            } else {
+                plan = try SpatialScalePlanV4(
+                    sourceWidth: sourcePlaneWidth,
+                    sourceHeight: sourcePlaneHeight,
+                    targetWidth: targetPlaneWidth,
+                    targetHeight: targetPlaneHeight,
+                    borderRule: borderRule
+                )
+            }
             let kernelIR = try FixedPointKernelIRV4(scalePlan: plan)
             let preparedScale = try FixedPointPreparedScaleV4(
                 scalePlan: plan,
@@ -175,6 +191,7 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
         self.targetWidth = targetWidth
         self.targetHeight = targetHeight
         self.layout = layout
+        self.chromaGeometry = chromaGeometry
         self.planes = prepared
         self.componentExecutionCount = layout.planes.reduce(0) {
             $0 + $1.componentsPerElement
@@ -213,6 +230,7 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
             // one boundary so cancellation can never expose a half-written
             // deterministic frame; the next frame observes cancellation.
             try Task.checkCancellation()
+            try validateChromaGeometry(source)
             let dynamicMetadata = try AVFoundationHDRMetadataAdapterV4
                 .probeDynamicMetadata(from: source)
             try withLockedPlanes(source: source, destination: destination) {
@@ -233,6 +251,7 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
                 to: destination,
                 dynamicMetadata: dynamicMetadata
             )
+            applyOutputChromaGeometry(from: source, to: destination)
             completedFrameCount &+= 1
         }
     }
@@ -588,6 +607,73 @@ final class FixedPointPixelBufferScalerV4: @unchecked Sendable {
                     count: routeIndex
                 )
             )
+        }
+    }
+
+    private func validateChromaGeometry(_ source: CVPixelBuffer) throws {
+        guard let chromaGeometry else { return }
+        if let fieldCount = CVBufferCopyAttachment(
+            source, kCVImageBufferFieldCountKey, nil
+        ) {
+            guard let number = fieldCount as? NSNumber,
+                  CFGetTypeID(number) == CFNumberGetTypeID(),
+                  number.compare(NSNumber(value: 1)) == .orderedSame else {
+                throw FixedPointPixelBufferScalerV4Error.nonProgressiveChromaGeometry
+            }
+        }
+        let expected = Self.chromaLocation(chromaGeometry.source)
+        for key in [
+            kCVImageBufferChromaLocationTopFieldKey,
+            kCVImageBufferChromaLocationBottomFieldKey
+        ] {
+            // An absent decoder tag does not contradict an authenticated
+            // source fact. A present tag must agree; alias repair belongs at
+            // the authenticated decoder boundary, not inside this scaler.
+            if let raw = CVBufferCopyAttachment(source, key, nil) {
+                guard let value = raw as? String, value == expected else {
+                    throw FixedPointPixelBufferScalerV4Error.chromaSitingMismatch(
+                        expected: chromaGeometry.source,
+                        actual: raw as? String
+                    )
+                }
+            }
+        }
+    }
+
+    private func applyOutputChromaGeometry(
+        from source: CVPixelBuffer,
+        to destination: CVPixelBuffer
+    ) {
+        guard let chromaGeometry else { return }
+        let value = Self.chromaLocation(chromaGeometry.target) as CFString
+        var topMode = CVAttachmentMode.shouldPropagate
+        if CVBufferCopyAttachment(
+            source, kCVImageBufferChromaLocationTopFieldKey, &topMode
+        ) == nil {
+            topMode = .shouldPropagate
+        }
+        CVBufferSetAttachment(
+            destination, kCVImageBufferChromaLocationTopFieldKey, value, topMode
+        )
+        var bottomMode = CVAttachmentMode.shouldPropagate
+        if CVBufferCopyAttachment(
+            source, kCVImageBufferChromaLocationBottomFieldKey, &bottomMode
+        ) != nil {
+            CVBufferSetAttachment(
+                destination, kCVImageBufferChromaLocationBottomFieldKey,
+                value, bottomMode
+            )
+        }
+    }
+
+    static func chromaLocation(_ siting: SpatialChromaSitingV4) -> String {
+        switch siting {
+        case .left: kCVImageBufferChromaLocation_Left as String
+        case .center: kCVImageBufferChromaLocation_Center as String
+        case .topLeft: kCVImageBufferChromaLocation_TopLeft as String
+        case .top: kCVImageBufferChromaLocation_Top as String
+        case .bottomLeft: kCVImageBufferChromaLocation_BottomLeft as String
+        case .bottom: kCVImageBufferChromaLocation_Bottom as String
         }
     }
 

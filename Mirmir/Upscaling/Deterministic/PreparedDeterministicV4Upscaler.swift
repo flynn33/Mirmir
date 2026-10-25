@@ -739,6 +739,124 @@ struct ASHPreparedWorkspaceDiagnosticsV4: Equatable, Sendable {
 }
 #endif
 
+/// A temporal vote at a missing row comes from the opposite physical field.
+/// Align that field's sample lattice before comparing or blending its codes.
+/// Selected-field rows remain exact; the existing adaptive deinterlacer owns
+/// the subsequent spatial/temporal decision.
+private struct PreparedChromaFieldTemporalAlignmentV4: Sendable {
+    let width: Int
+    let height: Int
+    let oppositeParity: Int
+    let horizontal: [FixedPointPreparedAxisSampleV4]
+    let vertical: [FixedPointPreparedAxisSampleV4]
+
+    init(width: Int, height: Int, forTopField: Bool,
+         geometry: SpatialInterlacedChromaGeometryV4) throws {
+        guard width > 0, height > 1 else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        self.width = width
+        self.height = height
+        self.oppositeParity = forTopField ? 1 : 0
+        let source = forTopField ? geometry.bottomSource : geometry.topSource
+        let target = forTopField ? geometry.topSource : geometry.bottomSource
+        self.horizontal = try Self.prepareAxis(
+            count: width,
+            offset: ExactRationalV4(
+                target.lumaOffsetNumerator(axis: .horizontal)
+                    - source.lumaOffsetNumerator(axis: .horizontal), 4
+            )
+        )
+        // Adjacent samples of one physical field are four frame-luma rows
+        // apart, while the location numerators are half-luma-index units.
+        self.vertical = try Self.prepareAxis(
+            count: (height + 1 - oppositeParity) / 2,
+            offset: ExactRationalV4(
+                target.lumaOffsetNumerator(axis: .vertical)
+                    - source.lumaOffsetNumerator(axis: .vertical), 8
+            )
+        )
+        let horizontalBound = horizontal.map(Self.absoluteSum).max() ?? 0
+        let verticalBound = vertical.map(Self.absoluteSum).max() ?? 0
+        let first = UInt64(UInt16.max).multipliedReportingOverflow(by: horizontalBound)
+        let second = first.partialValue.multipliedReportingOverflow(by: verticalBound)
+        guard !first.overflow, !second.overflow,
+              second.partialValue <= UInt64(Int64.max) else {
+            throw FixedPointKernelV4Error.executionArithmeticOverflow
+        }
+    }
+
+    func align(_ plane: FieldPlaneV4) throws -> FieldPlaneV4 {
+        guard plane.width == width, plane.height == height else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        var samples = plane.samples
+        for row in vertical.indices {
+            let y = oppositeParity + 2 * row
+            let v = vertical[row]
+            for x in horizontal.indices {
+                let h = horizontal[x]
+                for component in 0..<plane.componentsPerSample {
+                    let a = horizontalValue(plane, sample: h, row: v.source0, component: component)
+                    let b = horizontalValue(plane, sample: h, row: v.source1, component: component)
+                    let c = horizontalValue(plane, sample: h, row: v.source2, component: component)
+                    let d = horizontalValue(plane, sample: h, row: v.source3, component: component)
+                    // The UInt16/coefficient bound was proved at preparation.
+                    let accumulator = (a &* v.coefficient0) &+ (b &* v.coefficient1)
+                        &+ (c &* v.coefficient2) &+ (d &* v.coefficient3)
+                    let rounded = try FixedPointCPUExecutorV4.roundTiesToEven(
+                        accumulator, fractionalBits: 28
+                    )
+                    samples[(y * width + x) * plane.componentsPerSample + component]
+                        = UInt16(min(Int64(plane.maximumCode), max(Int64(plane.minimumCode), rounded)))
+                }
+            }
+        }
+        return try FieldPlaneV4(
+            width: plane.width, height: plane.height,
+            componentsPerSample: plane.componentsPerSample,
+            minimumCode: plane.minimumCode, maximumCode: plane.maximumCode,
+            samples: samples
+        )
+    }
+
+    @inline(__always)
+    private func horizontalValue(_ plane: FieldPlaneV4,
+        sample: FixedPointPreparedAxisSampleV4, row: Int, component: Int) -> Int64 {
+        let base = ((oppositeParity + 2 * row) * width) * plane.componentsPerSample + component
+        return (Int64(plane.samples[base + sample.source0 * plane.componentsPerSample]) &* sample.coefficient0)
+            &+ (Int64(plane.samples[base + sample.source1 * plane.componentsPerSample]) &* sample.coefficient1)
+            &+ (Int64(plane.samples[base + sample.source2 * plane.componentsPerSample]) &* sample.coefficient2)
+            &+ (Int64(plane.samples[base + sample.source3 * plane.componentsPerSample]) &* sample.coefficient3)
+    }
+
+    private static func prepareAxis(count: Int, offset: ExactRationalV4) throws
+        -> [FixedPointPreparedAxisSampleV4] {
+        var base = offset.numerator / offset.denominator
+        if offset.numerator % offset.denominator < 0 { base -= 1 }
+        let phase = try ExactRationalV4(
+            offset.numerator - base * offset.denominator, offset.denominator
+        )
+        let coefficients = try FixedPointCoefficientCompilerV4.compile(phase: phase).coefficients
+        return (0..<count).map { index in
+            let source = FixedPointPhaseKernelV4.tapOffsets.map {
+                FixedPointCPUExecutorV4.borderIndex(Int(base) + index + $0,
+                                                   count: count, rule: .reflect101)
+            }
+            return FixedPointPreparedAxisSampleV4(
+                source0: source[0], source1: source[1], source2: source[2], source3: source[3],
+                coefficient0: Int64(coefficients[0]), coefficient1: Int64(coefficients[1]),
+                coefficient2: Int64(coefficients[2]), coefficient3: Int64(coefficients[3])
+            )
+        }
+    }
+
+    private static func absoluteSum(_ sample: FixedPointPreparedAxisSampleV4) -> UInt64 {
+        sample.coefficient0.magnitude + sample.coefficient1.magnitude
+            + sample.coefficient2.magnitude + sample.coefficient3.magnitude
+    }
+}
+
 actor PreparedDeterministicV4Upscaler:
     PreparedCheckpointableTemporalFrameUpscaler,
     PreparedDeterministicV4PlanningBackend {
@@ -756,11 +874,26 @@ actor PreparedDeterministicV4Upscaler:
     nonisolated let tiledAllocationContract:
         ASHPreparedTiledAllocationContractV4?
 
+    nonisolated var deterministicSourceDeliveryIdentity: String? {
+        configuration.sourceDeliveryIdentity
+    }
+
+    nonisolated var deterministicChromaGeometry: SpatialChromaGeometryV4? {
+        configuration.chromaGeometry
+    }
+    nonisolated var deterministicInterlacedChromaGeometry:
+        SpatialInterlacedChromaGeometryV4? {
+        configuration.interlacedChromaGeometry
+    }
+
     private let configuration: DeterministicPreparedConfigurationV4
     private let runtime: ASHVerifiedRuntimeBundleV4
     private let measurementContract: ASHMeasurementContractV4
     private let branchProgram: ASHDepthFourBranchProgramV4
     private let scaler: FixedPointPixelBufferScalerV4
+    private let bottomFieldScaler: FixedPointPixelBufferScalerV4?
+    private let fieldChromaTemporalAlignments:
+        [FieldParityV4: PreparedChromaFieldTemporalAlignmentV4]
     private let formatIdentity: ASHSHA256V4
     private let interlacedScratchDestinations: [CVPixelBuffer]
     private let interlacedNormalizedSources: [CVPixelBuffer]
@@ -823,6 +956,20 @@ actor PreparedDeterministicV4Upscaler:
         metalLibrary: MTLLibrary? = nil
     ) throws {
         try runtime.verifyBinding()
+        switch configuration.scanMode {
+        case .progressive:
+            guard configuration.interlacedChromaGeometry == nil else {
+                throw configuration.processingError("progressive preparation carries interlaced chroma geometry")
+            }
+        case .interlaced:
+            if let fields = configuration.interlacedChromaGeometry {
+                guard configuration.chromaGeometry == fields.geometry(forTopField: true) else {
+                    throw configuration.processingError("interlaced primary geometry contradicts its bound top-field geometry")
+                }
+            } else if configuration.chromaGeometry != nil {
+                throw configuration.processingError("interlaced preparation must bind both source field locations")
+            }
+        }
         let contract = try runtime.measurementContract()
         let program = try runtime.branchProgram()
         self.configuration = configuration
@@ -921,8 +1068,44 @@ actor PreparedDeterministicV4Upscaler:
             borderRule: .reflect101,
             executionSchedule: executionSchedule,
             metalDevice: metalDevice,
-            metalLibrary: metalLibrary
+            metalLibrary: metalLibrary,
+            chromaGeometry: configuration.chromaGeometry
         )
+        if let fields = configuration.interlacedChromaGeometry,
+           fields.bottomSource != fields.topSource {
+            self.bottomFieldScaler = try FixedPointPixelBufferScalerV4(
+                backend: configuration.executionBackend,
+                storage: configuration.storage,
+                sourceWidth: configuration.sourceWidth,
+                sourceHeight: configuration.sourceHeight,
+                targetWidth: configuration.targetWidth,
+                targetHeight: configuration.targetHeight,
+                borderRule: .reflect101,
+                executionSchedule: executionSchedule,
+                metalDevice: metalDevice,
+                metalLibrary: metalLibrary,
+                chromaGeometry: fields.geometry(forTopField: false)
+            )
+        } else {
+            self.bottomFieldScaler = nil
+        }
+        if let fields = configuration.interlacedChromaGeometry,
+           fields.topSource != fields.bottomSource {
+            self.fieldChromaTemporalAlignments = [
+                .top: try PreparedChromaFieldTemporalAlignmentV4(
+                    width: (configuration.sourceWidth + 1) / 2,
+                    height: (configuration.sourceHeight + 1) / 2,
+                    forTopField: true, geometry: fields
+                ),
+                .bottom: try PreparedChromaFieldTemporalAlignmentV4(
+                    width: (configuration.sourceWidth + 1) / 2,
+                    height: (configuration.sourceHeight + 1) / 2,
+                    forTopField: false, geometry: fields
+                )
+            ]
+        } else {
+            self.fieldChromaTemporalAlignments = [:]
+        }
         if configuration.scanMode == .progressive {
             self.interlacedScratchDestinations = []
             self.interlacedNormalizedSources = []
@@ -953,7 +1136,11 @@ actor PreparedDeterministicV4Upscaler:
                 String(configuration.sourceHeight),
                 String(configuration.targetWidth),
                 String(configuration.targetHeight),
-                configuration.scaleRouteIdentity
+                configuration.scaleRouteIdentity,
+                SpatialChromaGeometryV4.coordinateProcedureID,
+                configuration.chromaGeometryIdentity,
+                configuration.interlacedChromaGeometryIdentity
+                    + (configuration.sourceDeliveryIdentity.map { "|delivery=" + $0 } ?? "")
             ].joined(separator: "|").utf8
         ))
         self.deterministicConfiguration = DeterministicConfiguration(
@@ -965,8 +1152,9 @@ actor PreparedDeterministicV4Upscaler:
             mappingSchemaVersion: contract.contractID,
             operatorBankSchemaVersion: program.operatorManifest.manifestID,
             runtimeManifestSHA256: runtime.manifestSHA256.rawValue,
-            fixedPointKernelID: ASHExecutionRequestV4
-                .canonicalKernelContractID,
+            fixedPointKernelID: configuration.chromaGeometry == nil
+                ? FixedPointCoefficientCompilerV4.procedureID
+                : SpatialChromaGeometryV4.kernelContractID,
             temporalPolicyID: ASHTemporalBlockMatchingConfigurationV4
                 .canonical.policyID
         )
@@ -1109,7 +1297,8 @@ actor PreparedDeterministicV4Upscaler:
     }
 
     func workspaceDiagnostics() -> ASHPreparedWorkspaceDiagnosticsV4 {
-        let scalerDiagnostics = scaler.hotPathDiagnostics()
+        let scalerDiagnostics = ([scaler] + [bottomFieldScaler].compactMap { $0 })
+            .map { $0.hotPathDiagnostics() }
         return ASHPreparedWorkspaceDiagnosticsV4(
             usesBoundedTiledTemporalPath: usesBoundedTiledTemporalPath,
             temporalHistoryCapacity: temporalHistory.capacity,
@@ -1186,13 +1375,13 @@ actor PreparedDeterministicV4Upscaler:
                 lastTiledReconstructionDiagnostics?
                     .materializedAlignedSampleCount ?? 0,
             scalerFullPlaneSwiftArrayStagingSampleCount:
-                scalerDiagnostics.fullPlaneSwiftArrayStagingSampleCount,
+                scalerDiagnostics.reduce(0) { $0 + $1.fullPlaneSwiftArrayStagingSampleCount },
             scalerUsesDirectPixelBufferIO:
-                scalerDiagnostics.usesDirectPixelBufferIO,
+                scalerDiagnostics.allSatisfy(\.usesDirectPixelBufferIO),
             scalerCPUReusableHorizontalSampleCount:
-                scalerDiagnostics.cpuReusableHorizontalSampleCount,
+                scalerDiagnostics.reduce(0) { $0 + $1.cpuReusableHorizontalSampleCount },
             scalerMetalRetainedPlanarSampleCount:
-                scalerDiagnostics.metalRetainedPlanarSampleCount,
+                scalerDiagnostics.reduce(0) { $0 + $1.metalRetainedPlanarSampleCount },
             interlacedNormalizedSourceIdentities:
                 interlacedNormalizedSources.map {
                     UInt(bitPattern: Unmanaged.passUnretained($0).toOpaque())
@@ -1410,6 +1599,7 @@ actor PreparedDeterministicV4Upscaler:
             source: source,
             destinations: destinations
         )
+        try validateInterlacedChromaFacts(source)
         let effectiveDominance = try resolvedFieldDominance(
             from: source,
             fallback: dominance
@@ -1490,22 +1680,31 @@ actor PreparedDeterministicV4Upscaler:
             } else {
                 prior = nil
             }
-            let fields = try DeterministicDeinterlacerV4.deinterlace(
-                previous: prior,
-                current: current,
-                // No future frame is observed. Reusing the sole prior as the
-                // second temporal vote makes agreement explicit and retains
-                // immediate two-field output without a hidden lookahead.
-                next: prior,
-                dominance: effectiveDominance,
-                timing: fieldTiming,
-                thresholds: DeinterlaceThresholdsV4(
-                    motionCodeDifference: configuration.storage.signalBitDepth
-                        == 10 ? 16 : 4,
-                    sceneCutMeanAbsoluteDifference:
-                        configuration.storage.signalBitDepth == 10 ? 128 : 32
+            func deinterlace(_ current: FieldPlaneV4, _ prior: FieldPlaneV4?) throws
+                -> [DeinterlacedFieldFrameV4] {
+                try DeterministicDeinterlacerV4.deinterlace(
+                    previous: prior, current: current, next: prior,
+                    dominance: effectiveDominance, timing: fieldTiming,
+                    thresholds: DeinterlaceThresholdsV4(
+                        motionCodeDifference: configuration.storage.signalBitDepth == 10 ? 16 : 4,
+                        sceneCutMeanAbsoluteDifference: configuration.storage.signalBitDepth == 10 ? 128 : 32
+                    )
                 )
-            )
+            }
+            let fields: [DeinterlacedFieldFrameV4]
+            if planeIndex == 1, let prior, !fieldChromaTemporalAlignments.isEmpty {
+                fields = try effectiveDominance.outputOrder.map { parity in
+                    guard let alignment = fieldChromaTemporalAlignments[parity],
+                          let selected = try deinterlace(
+                            alignment.align(current), alignment.align(prior)
+                          ).first(where: { $0.sourceField == parity }) else {
+                        throw ASHPreparedTemporalCheckpointV4Error.invalidState
+                    }
+                    return selected
+                }
+            } else {
+                fields = try deinterlace(current, prior)
+            }
             let timings = fields.map(\.timing)
             if let outputTimings {
                 guard outputTimings == timings else {
@@ -1563,9 +1762,23 @@ actor PreparedDeterministicV4Upscaler:
                 .shouldPropagate
             )
             CVBufferRemoveAttachment(temporary, kCVImageBufferFieldDetailKey)
-            // A progressive frame has one chroma sample location. Preserve the
-            // source's explicit top/progressive location and discard the stale
-            // bottom-field location copied from interlaced input.
+            if let fields = configuration.interlacedChromaGeometry {
+                let isTop = effectiveDominance.outputOrder[outputIndex] == .top
+                let sourceKey = isTop ? kCVImageBufferChromaLocationTopFieldKey
+                    : kCVImageBufferChromaLocationBottomFieldKey
+                var mode = CVAttachmentMode.shouldPropagate
+                if CVBufferCopyAttachment(source, sourceKey, &mode) == nil {
+                    mode = .shouldPropagate
+                }
+                CVBufferSetAttachment(
+                    temporary, kCVImageBufferChromaLocationTopFieldKey,
+                    FixedPointPixelBufferScalerV4.chromaLocation(
+                        fields.geometry(forTopField: isTop).source
+                    ) as CFString, mode
+                )
+            }
+            // A normalized progressive field carries its own source location;
+            // the selected scaler converts it to the common output location.
             CVBufferRemoveAttachment(
                 temporary,
                 kCVImageBufferChromaLocationBottomFieldKey
@@ -1927,6 +2140,28 @@ actor PreparedDeterministicV4Upscaler:
         }
     }
 
+    private func validateInterlacedChromaFacts(_ source: CVPixelBuffer) throws {
+        guard let fields = configuration.interlacedChromaGeometry else { return }
+        for (key, expected) in [
+            (kCVImageBufferChromaLocationTopFieldKey, fields.topSource),
+            (kCVImageBufferChromaLocationBottomFieldKey, fields.bottomSource)
+        ] {
+            if let raw = CVBufferCopyAttachment(source, key, nil) {
+                guard let value = raw as? String,
+                      value == FixedPointPixelBufferScalerV4.chromaLocation(expected) else {
+                    throw FixedPointPixelBufferScalerV4Error.chromaSitingMismatch(
+                        expected: expected, actual: raw as? String
+                    )
+                }
+            }
+        }
+    }
+
+    private func scaler(for sourceField: TemporalOutputSourceFieldV4)
+        -> FixedPointPixelBufferScalerV4 {
+        sourceField == .bottom ? (bottomFieldScaler ?? scaler) : scaler
+    }
+
     private func resolvedFieldDominance(
         from source: CVPixelBuffer,
         fallback: FieldDominanceV4
@@ -2100,7 +2335,7 @@ actor PreparedDeterministicV4Upscaler:
             cadenceID: sourceTemporalFrame.cadenceID
         )
 
-        try await scaler.process(source: source, destination: destination)
+        try await scaler(for: sourceField).process(source: source, destination: destination)
         try PixelBufferSignalCodecV4.readLuma(
             destination,
             storage: configuration.storage,
@@ -2329,7 +2564,7 @@ actor PreparedDeterministicV4Upscaler:
         )
         try retainedSourceFrame.validate()
 
-        try await scaler.process(source: source, destination: destination)
+        try await scaler(for: sourceField).process(source: source, destination: destination)
         let scaledCapture = try PixelBufferSignalCodecV4.readTiledLuma(
             destination,
             storage: configuration.storage,

@@ -170,11 +170,20 @@ protocol PreparedCheckpointableTemporalFrameUpscaler:
 /// keeps the verified runtime bundle actor-isolated inside the backend.
 protocol PreparedDeterministicV4RuntimePlanningBackend: PreparedFrameUpscaler {
     var deterministicExecutor: ASHExecutorV4 { get }
+    var deterministicSourceDeliveryIdentity: String? { get }
+    var deterministicChromaGeometry: SpatialChromaGeometryV4? { get }
+    var deterministicInterlacedChromaGeometry: SpatialInterlacedChromaGeometryV4? { get }
 
     func makeASHExecutionPlan(
         media: CanonicalMediaStateV4,
         request: ASHExecutionRequestV4
     ) async throws -> ASHIdentifiedExecutionPlanV4
+}
+
+extension PreparedDeterministicV4RuntimePlanningBackend {
+    var deterministicSourceDeliveryIdentity: String? { nil }
+    var deterministicChromaGeometry: SpatialChromaGeometryV4? { nil }
+    var deterministicInterlacedChromaGeometry: SpatialInterlacedChromaGeometryV4? { nil }
 }
 
 protocol PreparedDeterministicV4PlanningBackend:

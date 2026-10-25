@@ -9,6 +9,16 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ### QA continuation — October 25, 2026
 
+- Integrate physical chroma coordinates, authenticated AVC/JFIF source sampling,
+  writer calibration and affected scaler/thumbnail contracts. Preserve historical
+  captures separately; new qualification envelopes bind the changed geometry.
+- Repair native ProRes 422 working delivery through v216 and explicit progressive
+  or same-field P010 conversion. Bind preparation, writer and temporal restore
+  to the proven delivery identity. Bounded ARM/Rosetta/macOS 15.4 and independent
+  complete 10-bit media checks pass. See [the bounded report](docs/BOUNDED_QA_2026-10-25.md).
+- Refresh current source/fixture locks without changing thresholds or coverage.
+  The all-feature QA goal and unresolved release blockers remain open.
+
 - Repair real Apple model retry while a prior download is still active. The
   identical fresh-VM test changes from three failed assertions to Ready/100%
   with zero failures;22 ordinary catalog tests pass. Quality initialization and

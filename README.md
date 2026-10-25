@@ -3,35 +3,20 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-The local **1.7.2 build 20** candidate repairs omitted-color and legacy-video
-admission, deterministic H.264 output pacing, chapter migration, backend
-cleanup, CPU runtime loading, durable audio finalization and AVI input clocks.
-The AVI repair preserves original packet bytes and exact audio while deriving
-H.264 presentation order from its bitstream. Both tested AVI cases complete
-real CPU and Metal upscales with independent picture-order, clock and audio checks.
+The local **1.7.2 build 20** QA candidate now includes physical chroma,
+progressive JFIF MOV and native ProRes 422 working-format repairs. The checkout's
+optimized non-UI Release suite reports **815 passed, zero failures, 15 explicit opt-in skips (830 total)**. The default universal
+Release application builds and verifies with zero compiler warnings/errors.
+Bounded ProRes workflows pass on ARM, Rosetta and actual macOS 15.4, with
+independent complete 10-bit media, packet timing and exact audio checks.
 
-**Release remains blocked.** Common input integration is unfinished, and the
-reported error-11 incident has no verified causal repair. The all-feature QA
-goal remains active. The frozen runtime8 native baseline passes 745 Release,
-750 Debug, 745 Rosetta and 745 macOS 15.4 non-UI tests, with zero failures and
-13 opt-in skips in each. Its 404 Python checks and local universal archive
-audit pass. The runtime7 fresh 90-minute AVI export retains all 129,600 frames
-and 259,200,000 audio samples, independently decoded and verified; the PCM size
-table is 20 bytes. The minimum-OS HDR repair also passes.
-
-Local follow-up also repairs Apple model retry during an active download and
-the file-selection filter that excluded MKV/ASF/VOB. Real fresh-VM clear/retry
-and controlled network failure/retry pass. New vImage/MPS physical chroma
-findings and importer preview defects remain under repair.
-
-Additional media oracles found native chroma calibration and physical chroma
-alignment defects outside those suites. Their repairs remain private and under
-test. A private broad-format importer completes additional workflows, but
-production integration, packaging and further depth/alpha/track work remain
-unfinished. See [the October 25
-follow-up](docs/QA_FOLLOWUP_2026-10-25.md) for found/fixed/not-fixed results and
-specific unverified features. UI testing is excluded by the owner. Source and
-wiki changes remain local; no release is authorized.
+**Release remains blocked.** Broad-format production decoding, reported
+customer error 11, conventional track/metadata loss and other listed acceptance
+gaps remain unresolved. Passing suites are not an all-feature certification.
+See [the bounded QA report](docs/BOUNDED_QA_2026-10-25.md) for found/fixed/not-fixed
+results and the exact unverified features, and [the earlier continuation](docs/QA_FOLLOWUP_2026-10-25.md)
+for historical evidence. UI testing is excluded. Work remains local; Jim handles
+notarization and App Store Connect.
 
 Mirmir includes explicit deterministic CPU/Metal processing, supported Apple
 scaling frameworks, durable queues and recovery, independent comparison

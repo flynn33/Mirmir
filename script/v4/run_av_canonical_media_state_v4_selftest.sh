@@ -18,6 +18,10 @@ xcrun swiftc \
     "$repo_root/Mirmir/Modules/UpscalerEngine/AVFoundationHDRMetadataAdapterV4.swift" \
     "$repo_root/Mirmir/MediaIO/CanonicalMediaAVFoundationSupportV4.swift" \
     "$repo_root/Mirmir/MediaIO/AVCanonicalMediaStateAdapterV4.swift" \
+    "$repo_root/Mirmir/MediaIO/AVCChromaLocationV4.swift" \
+    "$repo_root/Mirmir/MediaIO/JFIFVideoSamplingV4.swift" \
+    "$repo_root/Mirmir/MediaIO/ProRes422WorkingFormatV4.swift" \
+    "$repo_root/Mirmir/MediaIO/ProRes422SourceFactsV4.swift" \
     "$repo_root/Mirmir/MediaIO/NativeAVICompressedPresentationClockV4.swift" \
     "$repo_root/Mirmir/MediaIO/NativeAVIMPEG4PresentationOrderV4.swift" \
     "$repo_root/Mirmir/MediaIO/NativeMediaInputAssetResolverV4.swift" \

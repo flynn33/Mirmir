@@ -22,11 +22,15 @@ from typing import Any, Iterable
 import numpy as np
 
 import p05_baseline_v4 as p05
+import chroma_geometry_v4 as chroma
 
 
 SCHEMA_CORPUS = "mirmir-ash-v4-quality-corpus-v1"
 SCHEMA_CAPTURE = "mirmir-ash-v4-quality-capture-v1"
+SCHEMA_CAPTURE_PHASE2 = "mirmir-ash-v4-quality-capture-v2"
+SCHEMA_CANDIDATE_PHASE2 = "mirmir-ash-v4-quality-candidate-capture-v2"
 SCHEMA_REPORT = "mirmir-ash-v4-quality-report-v1"
+SCHEMA_REPORT_PHASE2 = "mirmir-ash-v4-quality-report-v2"
 REPLAY_NUMERIC_TOLERANCE = 1e-13
 VARIANTS = (
     "baseline_p05",
@@ -308,8 +312,10 @@ def make_reference(
 def generate_corpus(contract_path: Path, output: Path) -> int:
     contract_path = contract_path.resolve()
     contract = json.loads(contract_path.read_text())
-    if contract.get("schemaVersion") != "mirmir-ash-v4-quality-gate-contract-v1":
-        raise SystemExit("unsupported quality contract")
+    try:
+        chroma.quality_contract_phase2(contract)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
     output = output.resolve()
     if output.exists() and any(output.iterdir()):
         raise SystemExit(f"refusing to overwrite nonempty corpus directory: {output}")
@@ -330,19 +336,19 @@ def generate_corpus(contract_path: Path, output: Path) -> int:
             pixel_format = "420v" if (cohort_index + clip) % 2 == 0 else "420f"
             clip_id = f"{cohort}-c{clip:02d}-{pixel_format}"
             for frame in range(int(construction["syntheticDiagnosticFramesPerClip"])):
-                luma, chroma = make_reference(
+                luma, reference_chroma = make_reference(
                     cohort, clip, frame, pixel_format, width, height
                 )
                 source_luma = box_downsample_ties_even(luma)
                 source_chroma = np.stack(
-                    [box_downsample_ties_even(chroma[:, :, channel]) for channel in range(2)],
+                    [box_downsample_ties_even(reference_chroma[:, :, channel]) for channel in range(2)],
                     axis=2,
                 )
                 case_id = f"{clip_id}-f{frame:02d}"
                 source_relative = f"artifacts/{case_id}-source.nv12"
                 reference_relative = f"artifacts/{case_id}-reference.nv12"
                 source_bytes = source_luma.tobytes() + source_chroma.tobytes()
-                reference_bytes = luma.tobytes() + chroma.tobytes()
+                reference_bytes = luma.tobytes() + reference_chroma.tobytes()
                 source_path = output / source_relative
                 reference_path = output / reference_relative
                 source_path.parent.mkdir(parents=True, exist_ok=True)
@@ -761,8 +767,13 @@ def merge_captures(
     )
     if p05_capture.get("schemaVersion") != "mirmir-ash-v4-quality-p05-capture-v1":
         raise SystemExit("unsupported frozen P05 capture manifest")
-    if candidate.get("schemaVersion") != "mirmir-ash-v4-quality-candidate-capture-v1":
+    phase2 = candidate.get("schemaVersion") == SCHEMA_CANDIDATE_PHASE2
+    if not phase2 and candidate.get("schemaVersion") != "mirmir-ash-v4-quality-candidate-capture-v1":
         raise SystemExit("unsupported candidate quality capture manifest")
+    corpus = json.loads(corpus_path.read_text())
+    require_quality_contract_profile(contract, phase2, corpus)
+    if phase2:
+        validate_phase2_geometry(candidate, corpus)
     contract_hash = sha256(contract_path)
     corpus_hash = sha256(corpus_path)
     for label, capture in (("P05", p05_capture), ("candidate", candidate)):
@@ -795,7 +806,8 @@ def merge_captures(
         observed = candidate_by_id[case_id]
         if set(baseline) != {"id", "output", "milliseconds"}:
             raise SystemExit(f"P05 capture case field set differs: {case_id}")
-        if set(observed) != {"id", "outputs", "milliseconds"}:
+        if set(observed) != ({"id", "outputs", "milliseconds", "chromaGeometry"} if phase2
+                else {"id", "outputs", "milliseconds"}):
             raise SystemExit(f"candidate capture case field set differs: {case_id}")
         outputs = observed["outputs"]
         milliseconds = observed["milliseconds"]
@@ -806,6 +818,7 @@ def merge_captures(
         merged_cases.append(
             {
                 "id": case_id,
+                **({"chromaGeometry": observed["chromaGeometry"]} if phase2 else {}),
                 "outputs": {"baseline_p05": baseline["output"], **outputs},
                 "milliseconds": {
                     "baseline_p05": baseline["milliseconds"],
@@ -827,6 +840,8 @@ def merge_captures(
         "fullMirrorIdentityPass",
         "warmupCount",
     }
+    if phase2:
+        candidate_fields.add("fixedPointKernelID")
     candidate_keys = set(candidate)
     base_keys = candidate_fields | {"schemaVersion", "cases"}
     if candidate_keys == base_keys | PACKAGED_CAPTURE_FIELDS:
@@ -842,7 +857,7 @@ def merge_captures(
     else:
         raise SystemExit("candidate capture manifest field set differs")
     merged = {
-        "schemaVersion": SCHEMA_CAPTURE,
+        "schemaVersion": SCHEMA_CAPTURE_PHASE2 if phase2 else SCHEMA_CAPTURE,
         **{key: candidate[key] for key in sorted(candidate_fields)},
         **packaged_fields,
         "baselineIdentity": baseline_identity,
@@ -855,6 +870,71 @@ def merge_captures(
     write_json(output.resolve(), merged)
     print(output.resolve())
     return 0
+
+
+
+def require_quality_contract_profile(
+    contract: dict[str, Any], phase2: bool,
+    corpus: dict[str, Any] | None = None,
+) -> None:
+    try:
+        actual = chroma.quality_contract_phase2(contract)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
+    if actual != phase2:
+        raise SystemExit("quality capture/report and contract phase profiles differ")
+    if phase2 and corpus is not None and corpus.get("construction") != contract["corpusConstruction"]:
+        raise SystemExit("phase2 quality corpus construction differs from contract")
+
+
+def validate_phase2_geometry(capture: dict[str, Any], corpus: dict[str, Any]) -> None:
+    if capture.get("schemaVersion") not in {SCHEMA_CANDIDATE_PHASE2, SCHEMA_CAPTURE_PHASE2}:
+        raise SystemExit("phase2 quality schema differs")
+    if capture.get("fixedPointKernelID") != chroma.KERNEL_ID:
+        raise SystemExit("phase2 quality kernel contract differs")
+    base_keys = {"schemaVersion", "contractSHA256", "corpusManifestSHA256", "sourceCommit",
+        "sourceTreeIdentitySHA256", "candidateBackendID", "candidateImplementationVersion",
+        "runtimeManifestSHA256", "runtimeSourceRevision", "productionRuntimeLocked",
+        "fullMirrorIdentityPass", "warmupCount", "fixedPointKernelID", "cases"}
+    if capture["schemaVersion"] == SCHEMA_CAPTURE_PHASE2:
+        expected_keys = base_keys | PACKAGED_CAPTURE_FIELDS | {"baselineIdentity", "baselineImplementationVersion", "baselineWarmupCount"}
+        if set(capture) != expected_keys:
+            raise SystemExit("phase2 merged quality header field set differs")
+    elif set(capture) not in (base_keys | PACKAGED_CAPTURE_FIELDS, base_keys):
+        raise SystemExit("phase2 candidate quality header field set differs")
+    if (type(capture["productionRuntimeLocked"]) is not bool
+            or type(capture["fullMirrorIdentityPass"]) is not bool
+            or type(capture["warmupCount"]) is not int or capture["warmupCount"] < 1):
+        raise SystemExit("phase2 quality header value types differ")
+    cases = capture.get("cases")
+    definitions = corpus.get("cases")
+    if not isinstance(cases, list) or not isinstance(definitions, list):
+        raise SystemExit("phase2 quality cases are absent")
+    if any(not isinstance(case, dict) or not isinstance(case.get("id"), str) for case in definitions + cases):
+        raise SystemExit("phase2 quality case identifiers differ")
+    by_id = {case.get("id"): case for case in definitions if isinstance(case, dict)}
+    if len(by_id) != len(definitions):
+        raise SystemExit("phase2 quality corpus cases differ")
+    if (not cases or len(cases) != len(definitions)
+            or any(not isinstance(case, dict) for case in cases)
+            or len({case.get("id") for case in cases}) != len(cases)
+            or {case.get("id") for case in cases} != set(by_id)):
+        raise SystemExit("phase2 quality case set differs")
+    for case in cases:
+        if not isinstance(case, dict) or set(case) != {"id", "outputs", "milliseconds", "chromaGeometry"}:
+            raise SystemExit("phase2 quality case field set differs")
+        definition = by_id.get(case["id"])
+        if definition is None:
+            raise SystemExit("phase2 quality case is foreign")
+        dimensions = tuple(definition.get(key) for key in
+            ("sourceWidth", "sourceHeight", "targetWidth", "targetHeight"))
+        try:
+            chroma.validate_geometry(case["chromaGeometry"], dimensions,
+                schema="mirmir-ash-v4-quality-chroma-geometry-v1",
+                policy="quality-box-source-reference-center-v1", source="center", target="center",
+                label=f"quality case {case['id']}")
+        except ValueError as error:
+            raise SystemExit(str(error)) from error
 
 
 def replay_raw_components(
@@ -870,6 +950,10 @@ def replay_raw_components(
 ]:
     """Recompute every per-clip component from reference and output planes."""
 
+    phase2 = capture.get("schemaVersion") == SCHEMA_CAPTURE_PHASE2
+    require_quality_contract_profile(contract, phase2, corpus)
+    if phase2:
+        validate_phase2_geometry(capture, corpus)
     corpus_cases = corpus.get("cases")
     capture_cases = capture.get("cases")
     if not isinstance(corpus_cases, list) or not isinstance(capture_cases, list):
@@ -888,7 +972,8 @@ def replay_raw_components(
     capture_by_id = {case["id"]: case for case in capture_cases}
     for case in corpus_cases:
         record = capture_by_id[case["id"]]
-        if set(record) != {"id", "outputs", "milliseconds"}:
+        if set(record) != ({"id", "outputs", "milliseconds", "chromaGeometry"} if phase2
+                else {"id", "outputs", "milliseconds"}):
             raise SystemExit(f"capture case field set differs: {case['id']}")
         if set(record.get("outputs", {})) != set(VARIANTS):
             raise SystemExit(f"variant set mismatch for {case['id']}")
@@ -1028,6 +1113,13 @@ def validate_packaged_quality_capture(
         "observerSourceSHA256",
         "packagedCandidateIdentity",
     }
+    phase2 = capture_data.get("schemaVersion") == SCHEMA_CAPTURE_PHASE2
+    if phase2:
+        if exact.get("schemaVersion") != SCHEMA_CANDIDATE_PHASE2:
+            raise SystemExit("packaged quality phase2 schema differs")
+        identity_fields.add("fixedPointKernelID")
+    elif exact.get("schemaVersion") != "mirmir-ash-v4-quality-candidate-capture-v1":
+        raise SystemExit("packaged quality historical schema differs")
     for key in identity_fields:
         if capture_data.get(key) != exact.get(key):
             raise SystemExit(
@@ -1053,6 +1145,8 @@ def validate_packaged_quality_capture(
     for case_id in sorted(exact_by_id):
         exact_case = exact_by_id[case_id]
         merged_case = merged_by_id[case_id]
+        if phase2 and merged_case.get("chromaGeometry") != exact_case.get("chromaGeometry"):
+            raise SystemExit(f"packaged quality geometry differs: {case_id}")
         exact_outputs = exact_case.get("outputs")
         exact_times = exact_case.get("milliseconds")
         merged_outputs = merged_case.get("outputs")
@@ -1103,8 +1197,11 @@ def evaluate(
     capture_data = json.loads(capture_path.read_text())
     if corpus.get("schemaVersion") != SCHEMA_CORPUS:
         raise SystemExit("unsupported corpus manifest")
-    if capture_data.get("schemaVersion") != SCHEMA_CAPTURE:
+    if capture_data.get("schemaVersion") not in {SCHEMA_CAPTURE, SCHEMA_CAPTURE_PHASE2}:
         raise SystemExit("unsupported capture manifest")
+    require_quality_contract_profile(
+        contract, capture_data["schemaVersion"] == SCHEMA_CAPTURE_PHASE2, corpus
+    )
     # This must precede all artifact reads and metric evaluation. A P05 lane
     # built from, or relabeled by, the candidate tree is not scoreable.
     baseline_identity = require_frozen_p05_identity(
@@ -1250,11 +1347,13 @@ def evaluate(
         for variant in VARIANTS
     }
     report = {
-        "schemaVersion": SCHEMA_REPORT,
+        "schemaVersion": SCHEMA_REPORT_PHASE2 if capture_data["schemaVersion"] == SCHEMA_CAPTURE_PHASE2 else SCHEMA_REPORT,
         "contract": contract,
         "identities": {
             "contractSHA256": contract_hash,
             "metricToolSHA256": sha256(tool_path),
+            **({"chromaGeometryValidatorSHA256": sha256(Path(chroma.__file__))}
+                if capture_data["schemaVersion"] == SCHEMA_CAPTURE_PHASE2 else {}),
             "corpusManifestSHA256": corpus_hash,
             "corpusArtifactSetSHA256": computed_corpus_set,
             "runtimeManifestSHA256": capture_data["runtimeManifestSHA256"],
@@ -1390,8 +1489,10 @@ def replay_sealed_evidence(
     if not capture_manifest.is_file() or capture_manifest.is_symlink():
         raise SystemExit("capture manifest is absent from quality evidence")
     capture = json.loads(capture_manifest.read_text())
-    if capture.get("schemaVersion") != SCHEMA_CAPTURE:
+    if capture.get("schemaVersion") not in {SCHEMA_CAPTURE, SCHEMA_CAPTURE_PHASE2}:
         raise SystemExit("unsupported sealed capture manifest")
+    if (capture["schemaVersion"] == SCHEMA_CAPTURE_PHASE2) != ("chromaGeometryValidatorSHA256" in identities):
+        raise SystemExit("sealed quality capture/report geometry versions differ")
     expected_capture_identities = {
         "contractSHA256": identities["contractSHA256"],
         "corpusManifestSHA256": identities["corpusManifestSHA256"],
@@ -1451,7 +1552,8 @@ def verify_report(
     require_release: bool = False,
 ) -> int:
     report = json.loads(report_path.read_text())
-    if report.get("schemaVersion") != SCHEMA_REPORT:
+    phase2 = report.get("schemaVersion") == SCHEMA_REPORT_PHASE2
+    if report.get("schemaVersion") not in {SCHEMA_REPORT, SCHEMA_REPORT_PHASE2}:
         raise SystemExit("unsupported report")
     identities = report.get("identities", {})
     required = {
@@ -1471,6 +1573,8 @@ def verify_report(
         "packagedCaptureTreeSHA256",
         "packagedCandidateIdentity",
     }
+    if phase2:
+        required.add("chromaGeometryValidatorSHA256")
     if set(identities) != required:
         raise SystemExit("report identity set is incomplete or unexpected")
 
@@ -1536,10 +1640,18 @@ def verify_report(
         ):
             raise SystemExit("metric tool identity mismatch")
         evaluator_path = bound_evaluator
+    if phase2:
+        bound_validator = evaluator_path.with_name("chroma_geometry_v4.py")
+        if (not bound_validator.is_file() or bound_validator.is_symlink()
+                or sha256(bound_validator) != identities["chromaGeometryValidatorSHA256"]
+                or sha256(Path(chroma.__file__)) != identities["chromaGeometryValidatorSHA256"]):
+            raise SystemExit("quality geometry validator identity mismatch")
     contract_path = (
         contract_path.resolve()
         if contract_path is not None
-        else report_path.parent.resolve() / "quality-gate-contract-v1.json"
+        else report_path.parent.resolve() / (
+            "quality-gate-contract-v2.json" if phase2 else "quality-gate-contract-v1.json"
+        )
     )
     p05_capture_source = evaluator_path.with_name("P05QualityBaselineCaptureTests.swift")
     p05_source_manifest = evaluator_path.with_name("p05-baseline-source-manifest-v1.json")
@@ -1555,6 +1667,7 @@ def verify_report(
     ):
         raise SystemExit("quality verifier sources are incomplete")
     contract = json.loads(contract_path.read_text())
+    require_quality_contract_profile(contract, phase2)
     if report.get("contract") != contract or identities["contractSHA256"] != sha256(contract_path):
         raise SystemExit("contract identity mismatch")
     crop_identity = sha256_bytes(

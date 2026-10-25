@@ -1,0 +1,94 @@
+{
+  "policy": "Current code bindings only; no coverage, tolerance, acceptance, schema, baseline or historical lock changes",
+  "files": [
+    {
+      "path": "script/v4/p06-reproduction-contract-v2.json",
+      "afterSHA256": "d76f39b55a0fc94802ed78ca5c715496a2528efb262d373187403fbfbb5152ff",
+      "changes": [
+        {
+          "path": "/capture/buildRunnerSHA256",
+          "before": "ea46f10a209e17bdb42797400b233d9a05ce9ed2bc8a21d1a7f968415e0f3058",
+          "after": "94b5d7f00b2fa24b6d41ba2358d11f583a0c83d9d6bb322b37f9cc8c261a8833"
+        },
+        {
+          "path": "/capture/sourceProvenanceContractSHA256",
+          "before": "0f5e0a60e838c62628dbab467473d06864894d46a89318597f318e0f8bec3239",
+          "after": "66b7ee70c382b97d9ba4bc5cb46fafb8df69be3c1b7da2e995e1760e1357a1b3"
+        },
+        {
+          "path": "/productionSourceCount",
+          "before": 406,
+          "after": 411
+        }
+      ]
+    },
+    {
+      "path": "script/v4/media-preservation-contract-v1.json",
+      "afterSHA256": "734e2fe0e8b4e2a1a45441b819dceda8703f304b8055b14c0b7ab344f789ed11",
+      "changes": [
+        {
+          "path": "/capture/fixtureSourceSHA256",
+          "before": "28e4805260b8c26568d7806ca8f317e538f9e1f7044a72e169aa9e9516a085d8",
+          "after": "fc15740df641207c2160b603763725ffd0232a4505eb6b817ef8870b5d0ea48d"
+        }
+      ]
+    },
+    {
+      "path": "script/v4/release-qualification-contract-v1.json",
+      "afterSHA256": "410a657a102a52f4b8913231b7e89625d32cb5050c4ba2f74c909a73800c7984",
+      "changes": [
+        {
+          "path": "/mediaPreservationLaneContractSHA256",
+          "before": "5e9aaa2553f0a56de9ce8ae5a9ad7c2509915f65508dbc55c2b8e7a1d95849e9",
+          "after": "734e2fe0e8b4e2a1a45441b819dceda8703f304b8055b14c0b7ab344f789ed11"
+        },
+        {
+          "path": "/mediaPreservationLockedSources/fixtureSourceSHA256",
+          "before": "28e4805260b8c26568d7806ca8f317e538f9e1f7044a72e169aa9e9516a085d8",
+          "after": "fc15740df641207c2160b603763725ffd0232a4505eb6b817ef8870b5d0ea48d"
+        },
+        {
+          "path": "/p06ProductionSourceCount",
+          "before": 406,
+          "after": 411
+        },
+        {
+          "path": "/p06ProductionSourceManifestSHA256",
+          "before": "18f22004725fbc549990554e013778568e4e5ba0515301ba2e1b269e28817e81",
+          "after": "db32257d858057d45a40d1f63643150933d203d429a1512ebc37cd1dbb5fd444"
+        },
+        {
+          "path": "/p06ReproductionLaneContractSHA256",
+          "before": "44d0826f6951a457b3fc4560c5945ea6a65cfadc0774934a3ea0c807245aef38",
+          "after": "d76f39b55a0fc94802ed78ca5c715496a2528efb262d373187403fbfbb5152ff"
+        },
+        {
+          "path": "/p06ReproductionLockedSources/buildRunnerSHA256",
+          "before": "ea46f10a209e17bdb42797400b233d9a05ce9ed2bc8a21d1a7f968415e0f3058",
+          "after": "94b5d7f00b2fa24b6d41ba2358d11f583a0c83d9d6bb322b37f9cc8c261a8833"
+        },
+        {
+          "path": "/p06ReproductionLockedSources/sourceProvenanceContractSHA256",
+          "before": "0f5e0a60e838c62628dbab467473d06864894d46a89318597f318e0f8bec3239",
+          "after": "66b7ee70c382b97d9ba4bc5cb46fafb8df69be3c1b7da2e995e1760e1357a1b3"
+        }
+      ]
+    },
+    {
+      "path": "script/v4/release-qualification-trust-root-v2.json",
+      "afterSHA256": "2a750abb2ee08dc1ff51017206a39de2bedebaea9d0ce4a2f2b2143ff4fea91d",
+      "changes": [
+        {
+          "path": "/contract/sha256",
+          "before": "b2b36f56a50bb119be504b341ddd6d46d83726a8063142f9be4f906170b5fc41",
+          "after": "410a657a102a52f4b8913231b7e89625d32cb5050c4ba2f74c909a73800c7984"
+        },
+        {
+          "path": "/trustedToolSetSHA256",
+          "before": "cddb62f79cddedb14dc8849c258680c228fc6acd5f4660df15240750dbe9e315",
+          "after": "0d6d0989065541cbec0cec41db50f4b81dda6c25eb30d7e8c0ca262ce1f9366f"
+        }
+      ]
+    }
+  ]
+}

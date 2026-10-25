@@ -4474,7 +4474,9 @@ private extension DeterministicV4MediaProcessingSession {
                 guard let pixelBuffer = CMSampleBufferGetImageBuffer(sample) else {
                     throw DeterministicV4MediaSegmentError.readerFailed
                 }
-                try contract.verifyDecodedPixelBuffer(pixelBuffer)
+                try contract.verifyDecodedPixelBuffer(
+                    pixelBuffer, encodedFormatDescription: format
+                )
             }
             guard decodedReader.status == .completed else {
                 throw DeterministicV4MediaSegmentError.readerFailed

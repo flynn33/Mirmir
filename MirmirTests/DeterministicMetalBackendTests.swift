@@ -1400,7 +1400,8 @@ final class DeterministicMetalBackendTests: XCTestCase {
                 alphaModel: alphaModel,
                 hasMasteringDisplayMetadata: false,
                 hasContentLightLevelMetadata: false,
-                dynamicRange: .sdr
+                dynamicRange: .sdr,
+                chromaSiting: alphaModel == .none ? .left : .notApplicable
             )
         )
     }

@@ -79,6 +79,11 @@ actor PreparedCoreImageScaler: PreparedFrameUpscaler {
         try Task.checkCancellation()
         try configuration.validate(source, source: true)
         try configuration.validate(destination, source: false)
+        let chromaTranslation = try NV12FrameAttachments.chromaScaleTranslation(
+            from: source,
+            scaleX: Double(configuration.targetWidth) / Double(configuration.sourceWidth),
+            scaleY: Double(configuration.targetHeight) / Double(configuration.sourceHeight),
+            backendID: actualBackendID, frameIndex: timing.frameIndex)
 
         let sourceLock = CVPixelBufferLockBaseAddress(source, .readOnly)
         guard sourceLock == kCVReturnSuccess else {
@@ -97,6 +102,7 @@ actor PreparedCoreImageScaler: PreparedFrameUpscaler {
                 source: source,
                 destination: destination,
                 plane: plane,
+                translation: plane == 1 ? chromaTranslation : (0, 0),
                 frameIndex: timing.frameIndex
             )
         }
@@ -109,7 +115,7 @@ actor PreparedCoreImageScaler: PreparedFrameUpscaler {
         finished = true
     }
 
-    private func renderPlane(source: CVPixelBuffer, destination: CVPixelBuffer, plane: Int, frameIndex: Int) throws {
+    private func renderPlane(source: CVPixelBuffer, destination: CVPixelBuffer, plane: Int, translation: (x: Double, y: Double), frameIndex: Int) throws {
         guard let sourceAddress = CVPixelBufferGetBaseAddressOfPlane(source, plane),
               let destinationAddress = CVPixelBufferGetBaseAddressOfPlane(destination, plane) else {
             throw configuration.processingError("NV12 plane \(plane) has no accessible base address", frameIndex: frameIndex)
@@ -153,7 +159,7 @@ actor PreparedCoreImageScaler: PreparedFrameUpscaler {
         }
         let bounds = CGRect(x: 0, y: 0, width: destinationWidth, height: destinationHeight)
         context.render(
-            output.cropped(to: bounds),
+            output.transformed(by: CGAffineTransform(translationX: translation.x, y: -translation.y)).cropped(to: bounds),
             toBitmap: destinationAddress,
             rowBytes: destinationRowBytes,
             bounds: bounds,
