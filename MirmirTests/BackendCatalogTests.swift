@@ -1,3 +1,4 @@
+import AVFoundation
 import CoreMedia
 import CoreVideo
 import Foundation
@@ -1150,4 +1151,210 @@ private actor CatalogDownloadBackend: ModelDownloadableBackend {
             pending?.resume()
         }
     }
+}
+
+@MainActor final class AppleModelCancellationTests: XCTestCase {
+    private func report(_ stage: String, _ fields: [String: Any] = [:]) throws {
+        var row = fields
+        row["stage"] = stage
+        row["atUTC"] = ISO8601DateFormatter().string(from: Date())
+        let data = try JSONSerialization.data(withJSONObject: row, options: [.sortedKeys])
+        var line = Data("MODEL_CANCEL_QA ".utf8)
+        line.append(data)
+        line.append(10)
+        XCTAssertLessThan(line.count, 4096)
+        FileHandle.standardOutput.write(line)
+    }
+
+    func testClearDuringRealDownloadAndRetryDoNotApplyStaleResults() async throws {
+        guard ProcessInfo.processInfo.environment["MIRMIR_RUN_FRESH_APPLE_MODEL_DOWNLOAD_GATE"] == "1" else {
+            throw XCTSkip("Set MIRMIR_RUN_FRESH_APPLE_MODEL_DOWNLOAD_GATE=1 on a fresh macOS 26+ model environment.")
+        }
+        guard #available(macOS 26.0, *) else { throw Failure.wrongOS }
+        XCTAssertNil(ProcessInfo.processInfo.environment["TART_METAL_APPLE_FAMILY_MAX"])
+        let configuration = try XCTUnwrap(VTSuperResolutionScalerConfiguration(
+            frameWidth: 320, frameHeight: 192, scaleFactor: 4, inputType: .video,
+            usePrecomputedFlow: false, qualityPrioritization: .normal,
+            revision: VTSuperResolutionScalerConfiguration.defaultRevision))
+        try report("initial-native-state", ["OS": ProcessInfo.processInfo.operatingSystemVersionString,
+            "status": configuration.configurationModelStatus.rawValue,
+            "percentage": configuration.configurationModelPercentageAvailable])
+        guard configuration.configurationModelStatus == .downloadRequired else { throw Failure.notFresh }
+        let source = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "model-cancel-source-" + UUID().uuidString + ".mov")
+        try await makeVideo(at: source)
+        let descriptor = try XCTUnwrap(BackendDescriptor.descriptor(for: .videoToolboxSuperResolutionQuality))
+        let backend = try XCTUnwrap(VTHighQualitySuperResolutionBackend(descriptor: descriptor))
+        let model = MirmirViewModel(backendCatalog: UpscaleBackendCatalog(backends: [backend]),
+                                   runtimeEnvironment: .current())
+        await selectSource(model, url: source)
+        guard let availability = model.backendSnapshot?.entry(for: .videoToolboxSuperResolutionQuality)?.availability,
+              case .modelDownloadRequired = availability else {
+            throw Failure.notFresh
+        }
+        model.downloadSelectedModel()
+        model.downloadSelectedModel()
+        XCTAssertTrue(model.isDownloadingModel)
+        try await until {
+            let value = model.modelDownloadProgress ?? 0
+            return value >= 0.1 && value < 1
+        }
+        let cancelPercentage = model.modelDownloadProgress!
+        try report("before-clear", ["progress": cancelPercentage,
+            "nativeStatus": configuration.configurationModelStatus.rawValue,
+            "nativePercentage": configuration.configurationModelPercentageAvailable,
+            "downloading": model.isDownloadingModel])
+        model.clear()
+        assertCleared(model)
+        for _ in 0..<5 {
+            try await Task.sleep(for: .milliseconds(100))
+            assertCleared(model)
+        }
+        try report("clear-remained-stable", ["observedMilliseconds": 500,
+            "nativeStatus": configuration.configurationModelStatus.rawValue,
+            "nativePercentage": configuration.configurationModelPercentageAvailable,
+            "sourceCleared": model.currentVideoInfo == nil,
+            "progressCleared": model.modelDownloadProgress == nil,
+            "messageCleared": model.modelDownloadMessage == nil,
+            "downloading": model.isDownloadingModel])
+        await selectSource(model, url: source)
+        let retryStatus = configuration.configurationModelStatus.rawValue
+        let retryPercentage = configuration.configurationModelPercentageAvailable
+        let retryWasReady = configuration.configurationModelStatus == .ready
+        model.downloadSelectedModel()
+        XCTAssertTrue(model.isDownloadingModel)
+        try report("retry-started", ["nativeStatus": retryStatus,
+            "nativePercentage": retryPercentage,
+            "downloading": model.isDownloadingModel])
+        try await until { !model.isDownloadingModel }
+        await model.waitForBackendAvailability()
+        XCTAssertEqual(model.currentVideoInfo?.url, source)
+        XCTAssertEqual(model.modelDownloadProgress, 1)
+        XCTAssertEqual(model.modelDownloadMessage, "Apple model is ready.")
+        XCTAssertEqual(model.backendSnapshot?.entry(for: .videoToolboxSuperResolutionQuality)?.availability, .available)
+        XCTAssertEqual(configuration.configurationModelStatus, .ready)
+        let finalMessage = model.modelDownloadMessage
+        try await Task.sleep(for: .milliseconds(600))
+        XCTAssertEqual(model.modelDownloadMessage, finalMessage)
+        XCTAssertEqual(model.modelDownloadProgress, 1)
+        XCTAssertFalse(model.isDownloadingModel)
+        try report("retry-ready-stable", ["nativeStatus": configuration.configurationModelStatus.rawValue,
+            "nativePercentage": configuration.configurationModelPercentageAvailable,
+            "progress": model.modelDownloadProgress!, "clearAtProgress": cancelPercentage,
+            "retryStartedWhileNativeReady": retryWasReady,
+            "currentSourceExact": model.currentVideoInfo?.url == source,
+            "message": model.modelDownloadMessage!, "additionalObservationMilliseconds": 600])
+    }
+
+    func testRealNetworkFailureAndRetry() async throws {
+        guard ProcessInfo.processInfo.environment["MIRMIR_RUN_OFFLINE_APPLE_MODEL_DOWNLOAD_GATE"] == "1" else {
+            throw XCTSkip("Set MIRMIR_RUN_OFFLINE_APPLE_MODEL_DOWNLOAD_GATE=1 with the disposable-VM network driver.")
+        }
+        guard #available(macOS 26.0, *) else { throw Failure.wrongOS }
+        let configuration = try XCTUnwrap(VTSuperResolutionScalerConfiguration(
+            frameWidth: 320, frameHeight: 192, scaleFactor: 4, inputType: .video,
+            usePrecomputedFlow: false, qualityPrioritization: .normal,
+            revision: VTSuperResolutionScalerConfiguration.defaultRevision))
+        guard configuration.configurationModelStatus == .downloadRequired else { throw Failure.notFresh }
+        try report("offline-initial", ["status": configuration.configurationModelStatus.rawValue,
+            "percentage": configuration.configurationModelPercentageAvailable])
+        let source = FileManager.default.temporaryDirectory.appendingPathComponent("model-offline-source-" + UUID().uuidString + ".mov")
+        try await makeVideo(at: source)
+        let descriptor = try XCTUnwrap(BackendDescriptor.descriptor(for: .videoToolboxSuperResolutionQuality))
+        let backend = try XCTUnwrap(VTHighQualitySuperResolutionBackend(descriptor: descriptor))
+        let model = MirmirViewModel(backendCatalog: UpscaleBackendCatalog(backends: [backend]), runtimeEnvironment: .current())
+        await selectSource(model, url: source)
+        model.downloadSelectedModel()
+        XCTAssertTrue(model.isDownloadingModel)
+        try await until(maximumAttempts: 9000) { !model.isDownloadingModel }
+        XCTAssertEqual(configuration.configurationModelStatus, .downloadRequired)
+        XCTAssertNotNil(model.modelDownloadMessage)
+        XCTAssertNotEqual(model.modelDownloadMessage, "Apple model is ready.")
+        XCTAssertEqual(model.currentVideoInfo?.url, source)
+        try report("offline-failed", ["status": configuration.configurationModelStatus.rawValue,
+            "percentage": configuration.configurationModelPercentageAvailable,
+            "message": model.modelDownloadMessage ?? "", "downloading": model.isDownloadingModel])
+        // The external driver restores this QA VM's original route at the receipt above.
+        try await Task.sleep(for: .seconds(5))
+        try report("network-retry-requested")
+        model.downloadSelectedModel()
+        try await until(maximumAttempts: 9000) { !model.isDownloadingModel }
+        await model.waitForBackendAvailability()
+        XCTAssertEqual(model.modelDownloadProgress, 1)
+        XCTAssertEqual(model.modelDownloadMessage, "Apple model is ready.")
+        XCTAssertEqual(model.currentVideoInfo?.url, source)
+        XCTAssertEqual(model.backendSnapshot?.entry(for: .videoToolboxSuperResolutionQuality)?.availability, .available)
+        XCTAssertEqual(configuration.configurationModelStatus, .ready)
+        try report("network-retry-ready", ["status": configuration.configurationModelStatus.rawValue,
+            "progress": model.modelDownloadProgress ?? -1, "message": model.modelDownloadMessage ?? ""])
+    }
+
+    private func selectSource(_ model: MirmirViewModel, url: URL) async {
+        model.selectBackend(.videoToolboxSuperResolutionQuality)
+        model.selectVideo(url)
+        await model.waitForCurrentProbe()
+        model.setTargetWidth(1280)
+        model.setTargetHeight(768)
+        await model.waitForBackendAvailability()
+    }
+
+    private func assertCleared(_ model: MirmirViewModel) {
+        XCTAssertFalse(model.isDownloadingModel)
+        XCTAssertNil(model.modelDownloadProgress)
+        XCTAssertNil(model.modelDownloadMessage)
+        XCTAssertNil(model.currentVideoInfo)
+    }
+
+    private func until(maximumAttempts: Int = 1800, _ condition: () -> Bool) async throws {
+        for _ in 0..<maximumAttempts {
+            if condition() { return }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        throw Failure.timeout
+    }
+
+    private func makeVideo(at url: URL) async throws {
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+        let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
+            AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: 320, AVVideoHeightKey: 192,
+            AVVideoColorPropertiesKey: [AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+                AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2]])
+        let attributes: [String: Any] = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            kCVPixelBufferWidthKey as String: 320, kCVPixelBufferHeightKey as String: 192,
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:]]
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input, sourcePixelBufferAttributes: attributes)
+        guard writer.canAdd(input) else { throw Failure.writer }
+        writer.add(input)
+        guard writer.startWriting() else { throw Failure.writer }
+        writer.startSession(atSourceTime: .zero)
+        for index in 0..<3 {
+            while !input.isReadyForMoreMediaData {
+                guard writer.status != .failed else { throw writer.error ?? Failure.writer }
+                try await Task.sleep(for: .milliseconds(1))
+            }
+            var created: CVPixelBuffer?
+            guard CVPixelBufferCreate(kCFAllocatorDefault, 320, 192,
+                kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange, attributes as CFDictionary, &created) == kCVReturnSuccess,
+                let buffer = created else { throw Failure.buffer }
+            CVPixelBufferLockBaseAddress(buffer, [])
+            for plane in 0..<2 {
+                let height = CVPixelBufferGetHeightOfPlane(buffer, plane)
+                let stride = CVPixelBufferGetBytesPerRowOfPlane(buffer, plane)
+                let base = CVPixelBufferGetBaseAddressOfPlane(buffer, plane)!
+                memset(base, plane == 0 ? Int32(40 + index * 40) : 128, height * stride)
+            }
+            CVPixelBufferUnlockBaseAddress(buffer, [])
+            CVBufferSetAttachment(buffer, kCVImageBufferColorPrimariesKey, kCVImageBufferColorPrimaries_ITU_R_709_2, .shouldPropagate)
+            CVBufferSetAttachment(buffer, kCVImageBufferTransferFunctionKey, kCVImageBufferTransferFunction_ITU_R_709_2, .shouldPropagate)
+            CVBufferSetAttachment(buffer, kCVImageBufferYCbCrMatrixKey, kCVImageBufferYCbCrMatrix_ITU_R_709_2, .shouldPropagate)
+            guard adaptor.append(buffer, withPresentationTime: CMTime(value: Int64(index), timescale: 30)) else { throw Failure.writer }
+        }
+        input.markAsFinished()
+        writer.endSession(atSourceTime: CMTime(value: 3, timescale: 30))
+        await withCheckedContinuation { continuation in writer.finishWriting { continuation.resume() } }
+        guard writer.status == .completed else { throw writer.error ?? Failure.writer }
+    }
+
+    private enum Failure: Error { case wrongOS, notFresh, timeout, writer, buffer }
 }

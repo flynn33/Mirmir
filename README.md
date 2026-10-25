@@ -19,6 +19,11 @@ audit pass. The runtime7 fresh 90-minute AVI export retains all 129,600 frames
 and 259,200,000 audio samples, independently decoded and verified; the PCM size
 table is 20 bytes. The minimum-OS HDR repair also passes.
 
+Local follow-up also repairs Apple model retry during an active download and
+the file-selection filter that excluded MKV/ASF/VOB. Real fresh-VM clear/retry
+and controlled network failure/retry pass. New vImage/MPS physical chroma
+findings and importer preview defects remain under repair.
+
 Additional media oracles found native chroma calibration and physical chroma
 alignment defects outside those suites. Their repairs remain private and under
 test. A private broad-format importer completes additional workflows, but

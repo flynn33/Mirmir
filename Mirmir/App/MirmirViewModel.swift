@@ -405,7 +405,8 @@ final class MirmirViewModel {
 
     func openVideo() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.movie]
+        // Probe the contents; common video containers may have no movie UTI.
+        panel.allowedContentTypes = []
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.canChooseFiles = true

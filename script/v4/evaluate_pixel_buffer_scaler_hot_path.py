@@ -67,6 +67,7 @@ SAMPLE_FIELDS = {
     "metal": "metalMilliseconds",
 }
 ENGINE_SOURCE_PATHS = (
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHCanonicalJSONV4.swift",
     "Mirmir/Modules/UpscalerEngine/RationalPresentationGeometryV4.swift",
     "Mirmir/Modules/UpscalerEngine/SpatialScalePlanV4.swift",
     "Mirmir/Modules/UpscalerEngine/FixedPointKernelV4.swift",

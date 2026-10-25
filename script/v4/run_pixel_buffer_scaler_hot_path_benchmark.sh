@@ -6,6 +6,7 @@ repository_root="${script_directory:h:h}"
 engine_source_root="${1:-$repository_root}"
 benchmark_temporary_directory="$(mktemp -d "${TMPDIR:-/tmp}/mirmir-v4-pixel-buffer-benchmark.XXXXXX")"
 engine_source_paths=(
+    Mirmir/Modules/UpscalerEngine/ASH/ASHCanonicalJSONV4.swift
     Mirmir/Modules/UpscalerEngine/RationalPresentationGeometryV4.swift
     Mirmir/Modules/UpscalerEngine/SpatialScalePlanV4.swift
     Mirmir/Modules/UpscalerEngine/FixedPointKernelV4.swift
@@ -64,10 +65,12 @@ xcrun metallib \
     -o "${benchmark_temporary_directory}/FixedPointMetalKernelsV4.metallib"
 
 xcrun swiftc \
+    -target "$(uname -m)-apple-macos15.4" \
     -O \
     -whole-module-optimization \
     -warnings-as-errors \
     -strict-concurrency=complete \
+    "${engine_source_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHCanonicalJSONV4.swift" \
     "${engine_source_root}/Mirmir/Modules/UpscalerEngine/RationalPresentationGeometryV4.swift" \
     "${engine_source_root}/Mirmir/Modules/UpscalerEngine/SpatialScalePlanV4.swift" \
     "${engine_source_root}/Mirmir/Modules/UpscalerEngine/FixedPointKernelV4.swift" \

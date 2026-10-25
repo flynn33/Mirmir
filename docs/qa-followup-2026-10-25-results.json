@@ -512,7 +512,7 @@
   "currentWorkingTreeQualification": {
     "runtimeLabel": "runtime8_frozen_native_baseline",
     "qualified": false,
-    "reason": "Complete frozen-baseline native Release/Debug/Rosetta/macOS15.4 suites,404 Python tests,reproducible bindings and local universal archive pass. Additional targeted oracles reproduce Center calibration failure39,Left physical chroma misalignment,H264 TopLeft CoreMedia alias,and odd native raw-decoder edge corruption. Private fixes and broad-format integration remain unfinished; these suite passes are not release acceptance.",
+    "reason": "Native baseline is qualified only for its frozen identity; newer model retry/file-selection repairs and active private chroma/import work require coherent rebinding and full suites/archive.",
     "lockedLaneNegativeTests": {
       "passed": 4,
       "failed": 0,
@@ -916,7 +916,9 @@
     },
     "customerError11CauseEstablished": false,
     "physicalMacOS26ProcessingVerified": false,
-    "forcedRealNetworkCancellationOrFailureVerified": false
+    "forcedRealNetworkCancellationOrFailureVerified": true,
+    "realClearRetryVerifiedForSeparateCorrectedCandidate": true,
+    "controlledRealNetworkFailureRetryVerifiedForSeparateCorrectedCandidate": true
   },
   "multiAudioGapless": {
     "evidenceRoot": "output/resumed-qa-2026-10-25/itunes-metadata-audit/multiaudio-ownership",
@@ -947,16 +949,268 @@
     "scope": "Low-resolution input andUHDoutput duration/finalization;not4Kinputorcomparativeperformance."
   },
   "remainingUnverifiedFeatures": [
-    "Root packaged broadformat integration and coherentlatestdependency/sourceprovenance",
-    "Center calibration,physicalLeftUVgeometry,H264TopLefttruth andProResphysicalchromasiting",
-    "Oddraster,additional10/12bit,untaggedcolor,HDR,alpha andricher track graphs through softwareimporter",
-    "Multipleaudio tracks withglobalSMPB andAACtranscode",
-    "Actualreportedcustomer/ownererror11trigger andcausalrepair",
-    "PhysicalIntelhardwareexecution",
-    "Storeinstalledcandidate sandbox/distribution andmodelacquisition",
-    "PhysicalmacOS26qualityprocessing andforcedrealnetworkcancel/failure",
-    "Featurelength4Kinput andisolatedwholemovieperformance",
-    "Historicalcompletecheckpointreplaywithoutoriginalsourcecurrentlyavailable",
-    "Currentcandidatesealedaggregatequality/performance/support/distributionqualification"
-  ]
+    "Packaged production integration of additional MKV, WebM, ASF, MPEG2 transport, MJPEG422/444 and MPEG4 ASP inputs, with current dependencies and provenance;23 private workflows alone do not qualify the root app.",
+    "Coherent RGB8,10/12-bit and odd-raster processing and source-preview/comparison integration. The private raw and presentation proofs remain separate from packaged acceptance.",
+    "Additional software-importer untagged color, HDR, alpha and richer video/audio/metadata track graphs; six Opus/MP2/WMA-to-AAC outputs still have an unbounded-FFmpeg padding boundary.",
+    "One coherent native chroma/field source with authenticated interpretation, physical UV geometry, all native workflows and refreshed runtime/source bindings. Private progressive host/15.4 and temporal controls do not establish that combined acceptance.",
+    "ProRes physical chroma siting and DV420 component-specific field semantics.",
+    "Final vImage/MPS production integration, missing/unknown phase semantics and all remaining native-backend source/conversion paths. The corrected private144-case physical control passes; cross-platform/full-file acceptance remains.",
+    "Multiple source audio tracks with global iTunSMPB combined with copied/transcoded AAC: consumer ownership and the typed production transformation/recovery policy remain unfinished.",
+    "The actual triggering path and causal repair for the reported owner/customer error11 incident.",
+    "Physical Intel hardware execution; Rosetta tests remain translated execution.",
+    "Actual Store-installed candidate sandbox/distribution and model acquisition; local export/audit and original-archive smoke have separate passing evidence.",
+    "Physical macOS26 Apple quality processing. Real fresh-model clear/retry and controlled network failure/retry pass only the corrected tested lifecycle candidate.",
+    "Feature-length4K input processing and isolated whole-movie performance. The active long export uses160x96 source and3840x2160 output.",
+    "Historical complete-checkpoint replay requiring its original intact source snapshot; fresh resume/assembly has separate coverage.",
+    "Current-candidate sealed aggregate quality, performance, support, recovery and distribution qualification after coherent source integration."
+  ],
+  "nativeBaselineLocalCheckpointCommit": "cc882c190fcfd9994b2c752d1753e52634ec6b5d",
+  "actualModelDownloadClearRetry": {
+    "releaseQualified": false,
+    "before": {
+      "testExitCode": 1,
+      "assertionFailures": 3,
+      "clearProgress": 0.25999999046325684,
+      "retryNativeStatus": 1,
+      "finalNativeStatus": 2,
+      "finalAppProgress": 0.8899999856948853,
+      "finalMessage": "VideoToolbox Super Resolution \u2014 Quality is unavailable. The required Apple model is unavailable: The operation couldn\u2019t be completed. (VTFrameProcessorErrorDomain error -19743.)"
+    },
+    "after": {
+      "testExitCode": 0,
+      "testsPassed": 1,
+      "failures": 0,
+      "clearProgress": 0.15000000596046448,
+      "retryNativeStatus": 1,
+      "finalNativeStatus": 2,
+      "finalAppProgress": 1,
+      "finalMessage": "Apple model is ready.",
+      "clearObservationMilliseconds": 500,
+      "finalStabilityObservationMilliseconds": 600
+    },
+    "sameTestSourceSHA256": "b80cd88f6e025769957e815ce87435b50d9cdd1dffbd909db70dba1d67c8cdf6",
+    "sameFactoryDiskSHA256": "6db3c9a0ef8243e51442809a602c7673d9e311e6cf814b99f64bde3a526f82e9",
+    "privateCandidateCompilerWarnings": 0,
+    "privateCandidateCompilerErrors": 0,
+    "normalBackendCatalogPassed": 22,
+    "newPermanentFreshEnvironmentTestSkippedByDefault": 1,
+    "unknown": [
+      "Native internal reason for -19743 beyond SDK AssetDownloadFailed classification",
+      "Forced real-network failure/retry",
+      "Physical macOS26 quality-frame processing",
+      "Store-installed model acquisition"
+    ],
+    "harnessFailuresRetained": [
+      "Ambiguous signing identity resolved with original leaf certificate SHA1",
+      "Missing standalone status probe caused driver failure before any test/download; probe supplied and fresh native DownloadRequired reverified"
+    ],
+    "evidenceRoot": "output/resumed-qa-2026-10-25/apple-model-real-cancellation-fix-01"
+  },
+  "inputSelectionPolicy": {
+    "probeBinarySHA256": "20be3cf02cdcb4275689e9fe5c53146bf1ddae161593f332f02b5f38f2171855",
+    "probeSourceSHA256": "d26c96559eded448a30e39632bdfe67efbe8d286cfb0247293b075ccc6c58382",
+    "SDKHeader": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSSavePanel.h",
+    "SDKHeaderSHA256": "4b89fdb576cce5f5a0d911aa978dc274214a7fa55271eeceb3eb59f12ce88fcc",
+    "observedMovieFilterExclusions": {
+      "host-types": [
+        "mkv",
+        "asf",
+        "vob",
+        "mirmirqa"
+      ],
+      "macos154-types": [
+        "mkv",
+        "asf",
+        "vob",
+        "ogv",
+        "mirmirqa"
+      ]
+    },
+    "sourceChange": "MirmirViewModel.openVideo allowedContentTypes .movie -> empty; VideoProbe remains content validation owner",
+    "screenOrPanelShown": false,
+    "decoderSupportQualifiedByThisProbe": false
+  },
+  "bundledSoftwareRelocatedRebuild": {
+    "archiveVersion": "8.1.2",
+    "sourceArchiveSHA256": "464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c",
+    "architectures": [
+      "arm64",
+      "x86_64"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 77.886456041,
+    "universalLibraries": 5,
+    "headers": 136,
+    "strictScalar": true,
+    "sameAsFinalIntegratedProduct": false,
+    "evidenceRoot": "output/resumed-qa-2026-10-25/software-relocated-full-rebuild-01"
+  },
+  "releaseExecutionSmoke": {
+    "archiveScope": "Original universal native runtime8 Release archive",
+    "host": true,
+    "Rosetta": true,
+    "macOS154": true,
+    "twoSeparateProcessPrepareAndRecovery": true,
+    "frames": 12,
+    "raster": [
+      96,
+      72
+    ],
+    "duration": "2/5",
+    "appObservedDecodedSemanticsIdentical": true,
+    "independentFFmpegDecode": false,
+    "StoreExportAuditsPass": true,
+    "StoreExportDirectExecution": "AMFI -413 / no matching profile; killed -9",
+    "StoreInstalledExecutionVerified": false,
+    "evidenceRoots": [
+      "output/resumed-qa-2026-10-25/exact-release-archive-smoke-baseline-01",
+      "output/resumed-qa-2026-10-25/exact-release-archive-smoke-rosetta-01",
+      "output/resumed-qa-2026-10-25/exact-release-archive-smoke-macos154-01",
+      "output/resumed-qa-2026-10-25/store-export-native-baseline-02"
+    ]
+  },
+  "actualModelNetworkFailureRetry": {
+    "testsPassed": 1,
+    "failures": 0,
+    "testExitCode": 0,
+    "realFreshModel": true,
+    "initialModelState": "DownloadRequired",
+    "actualOfflineError": "VTFrameProcessorErrorDomain -19743",
+    "afterFailureModelState": "DownloadRequired",
+    "sameViewModelBackendRetryReady": true,
+    "finalProgress": 1,
+    "nativeInternalErrorCauseClaimed": false,
+    "routesRemovedOnlyInDisposableQAguest": true,
+    "guestDefaultRouteRestored": true,
+    "hostNetworkModified": false,
+    "compilerWarnings": 0,
+    "screenOrUIControl": false,
+    "qualityFrameProcessingVerified": false,
+    "StoreInstalledAcquisitionVerified": false,
+    "harnessRouteParserFailureRetained": true,
+    "evidenceRoot": "output/resumed-qa-2026-10-25/apple-model-real-network-failure-01",
+    "normalCatalogAndVideoProbeRegression": {
+      "passedTests": 31,
+      "failedTests": 0,
+      "skippedTests": 2,
+      "totalTestCount": 33,
+      "runtimeWarnings": []
+    },
+    "normalCountAuthority": "xcresulttool summary; parallel text log splits one pass word and is not authoritative",
+    "standaloneTypecheckHarnessMissingTestSupportRetained": true
+  },
+  "additionalFrameworkChromaFinding": {
+    "exitCode": 0,
+    "seconds": 0.6234281660000001,
+    "scope": "Diagnostic actual prepared framework adapters and physical linear ramp; XCTest runner success alone is not phase acceptance. No catalog/admission/export acceptance.",
+    "productionSourceSHA256": {
+      "Mirmir/Upscaling/Backends/MPSScaler.swift": "4e4fa51a08a2c08004c1377a5cbb2794adfca398503e234f149e468f6d324691",
+      "Mirmir/Upscaling/Backends/VImageScaler.swift": "0262022d76ed11507565c6da37ea6f223c8ccb2f43197a32d2e1ead86147f1b9",
+      "Mirmir/Upscaling/Backends/NV12ScalerSupport.swift": "80ae3fb198a31b53d9cf99ce182a6c110a7cf0556a071577dd52021217ad0415"
+    },
+    "samePreparedSourcesAsBuiltApp": true,
+    "cases": [
+      {
+        "backend": "vImageStandard",
+        "site": "left",
+        "outputSite": "Left",
+        "errors": [
+          -2
+        ],
+        "sourceUnchanged": true
+      },
+      {
+        "backend": "vImageStandard",
+        "site": "center",
+        "outputSite": "Center",
+        "errors": [
+          0
+        ],
+        "sourceUnchanged": true
+      },
+      {
+        "backend": "vImageHighQuality",
+        "site": "left",
+        "outputSite": "Left",
+        "errors": [
+          -2
+        ],
+        "sourceUnchanged": true
+      },
+      {
+        "backend": "vImageHighQuality",
+        "site": "center",
+        "outputSite": "Center",
+        "errors": [
+          0
+        ],
+        "sourceUnchanged": true
+      },
+      {
+        "backend": "mpsBilinear",
+        "site": "left",
+        "outputSite": "Left",
+        "errors": [
+          -2
+        ],
+        "sourceUnchanged": true
+      },
+      {
+        "backend": "mpsBilinear",
+        "site": "center",
+        "outputSite": "Center",
+        "errors": [
+          0
+        ],
+        "sourceUnchanged": true
+      },
+      {
+        "backend": "mpsLanczos",
+        "site": "left",
+        "outputSite": "Left",
+        "errors": [
+          -3,
+          -2
+        ],
+        "sourceUnchanged": true
+      },
+      {
+        "backend": "mpsLanczos",
+        "site": "center",
+        "outputSite": "Center",
+        "errors": [
+          0
+        ],
+        "sourceUnchanged": true
+      }
+    ],
+    "repairIntegrated": false
+  },
+  "privateFrameworkChromaCandidate": {
+    "oracle": "Independent exact Fraction coordinates from physical declared luma positions, source code proof and every interiorCb/Cr sample; no production geometry helpers imported.",
+    "predeclaredMaximumAbsoluteCodeError": "1",
+    "rationale": "Opaque Apple Lanczos/Bilinear APIs quantize to8bit; interior ramp checks do not claim a fullborderfilterbyteoracle. Constant fullY includingborders is exact.",
+    "cases": 144,
+    "interiorUVCodeComparisons": 45184,
+    "sourcePhysicalRampsExact": true,
+    "allConstantFullYExact": true,
+    "allSourceAndPaddingUnchanged": true,
+    "allOutputSiteDeclarationsExact": true,
+    "failures": [],
+    "allPassed": true,
+    "rootProductionRepairIntegrated": false,
+    "notQualified": [
+      "Missing/unknown phase semantics",
+      "Native whole-file/source interpretation",
+      "MinimumOS/Rosetta and finalcoherent runtime",
+      "Other nativebackends and interlacedroute admission"
+    ],
+    "normalRegression": {
+      "passed": 68,
+      "failed": 0,
+      "skipped": 1,
+      "runtimeWarnings": 0
+    },
+    "evidenceRoot": "output/resumed-qa-2026-10-25/framework-chroma-expanded-02"
+  }
 }

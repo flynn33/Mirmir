@@ -64,7 +64,16 @@ struct VTHighQualitySuperResolutionBackend: ModelDownloadableBackend {
         let configuration: VTSuperResolutionScalerConfiguration
         do { configuration = try makeConfiguration(source: request.source, targetSize: request.targetSize) }
         catch let error as BackendUnavailableReasonBox { throw BackendPreparationError.unavailable(descriptor.id, error.value) }
+        try Task.checkCancellation()
+        while configuration.configurationModelStatus == .downloading {
+            progress(Double(configuration.configurationModelPercentageAvailable))
+            try await Task.sleep(for: .milliseconds(150))
+        }
+        try Task.checkCancellation()
         if configuration.configurationModelStatus == .ready { progress(1); return }
+        guard configuration.configurationModelStatus == .downloadRequired else {
+            throw BackendPreparationError.unavailable(descriptor.id, .modelUnavailable(details: "unknown model state \(configuration.configurationModelStatus.rawValue)"))
+        }
         let polling = Task {
             while !Task.isCancelled {
                 progress(Double(configuration.configurationModelPercentageAvailable))
@@ -72,8 +81,17 @@ struct VTHighQualitySuperResolutionBackend: ModelDownloadableBackend {
             }
         }
         defer { polling.cancel() }
-        do { try await configuration.downloadConfigurationModel() }
-        catch { throw BackendPreparationError.unavailable(descriptor.id, .modelUnavailable(details: error.localizedDescription)) }
+        do {
+            try await withTaskCancellationHandler {
+                try await configuration.downloadConfigurationModel()
+            } onCancel: {
+                polling.cancel()
+            }
+        } catch {
+            try Task.checkCancellation()
+            throw BackendPreparationError.unavailable(descriptor.id, .modelUnavailable(details: error.localizedDescription))
+        }
+        try Task.checkCancellation()
         guard configuration.configurationModelStatus == .ready else {
             throw BackendPreparationError.unavailable(descriptor.id, .modelUnavailable(details: "the system download completed without reporting Ready"))
         }

@@ -30,6 +30,14 @@ feature-length 4K input/throughput and current sealed aggregate qualification
 remain unverified. A fresh 90-minute UHD-output job is running from a 160×96
 source. No publication or release is authorized.
 
+Local follow-up repairs Apple model retry while native download is still active
+and the movie-UTI selection filter. Real fresh-VM clear/retry and controlled
+network-failure/retry pass; the selected catalog/probe regression passes 31
+tests with two explicit fresh-model skips and zero compiler/runtime warnings.
+The private progressive phase candidate passes 24 workflows each on host and
+macOS 15.4. Field, vImage/MPS, source-preview, importer and fresh sealed-gate
+qualification remain active. The old native counts above remain snapshot-bound.
+
 ## Historical October 16 window-lifecycle verification
 
 The October 16 verification covered that source and window lifecycle checks.

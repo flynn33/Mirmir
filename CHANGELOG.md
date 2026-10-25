@@ -9,6 +9,14 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ### QA continuation — October 25, 2026
 
+- Repair real Apple model retry while a prior download is still active. The
+  identical fresh-VM test changes from three failed assertions to Ready/100%
+  with zero failures;22 ordinary catalog tests pass. Quality initialization and
+  distribution acquisition remain separate open requirements.
+- Allow content probing to validate selected files instead of excluding MKV,
+  ASF and VOB through the registered movie-UTI filter. Host/minimum-OS terminal
+  queries verify the filter gap; this does not qualify unfinished decoders.
+
 - Repair constant-size PCM buffer representation without changing payload,
   timing or attachments. A fresh 90-minute production workflow independently
   verifies all 129,600 video frames and 259,200,000 audio frames; `stsz` is20bytes.

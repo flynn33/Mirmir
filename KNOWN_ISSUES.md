@@ -82,6 +82,26 @@ privately; matching backend bytes alone does not qualify physical alignment.
 See [the continuation](docs/QA_FOLLOWUP_2026-10-25.md) for exact evidence and
 additional odd raw-carrier edge corruption found during broad-format work.
 
+## QA-007 — Apple model download retry and native quality initialization
+
+**Status:** Download clear/retry is repaired locally; quality initialization and
+full coherent qualification remain open.
+
+A real fresh macOS 26.6.2 download cleared at 26% then retried while Downloading
+ends with -19743 and 89% app progress although the native model is Ready. The
+backend started a second native download outside the SDK's documented
+DownloadRequired state. Waiting for an existing download and preserving
+cancellation changes the identical fresh-clone test to Ready/100%, zero failures;
+22 ordinary catalog tests also pass. A separate fresh-VM real network failure
+returns to DownloadRequired and succeeds on retry after its route is restored;
+the complete selected catalog/probe regression passes 31 tests with two explicit
+fresh-model skips. Store-installed acquisition remains unverified. The permanent network test requires
+MIRMIR_RUN_FRESH_APPLE_MODEL_DOWNLOAD_GATE=1 on a model-free environment.
+The internal native reason for -19743 is unknown; the SDK names it
+AssetDownloadFailed. A separate real native startSession failure-19730 persists
+on the macOS 26 VM, including a standalone control without the app. This is not
+a verified cause or repair of customer error 11. See the current QA continuation.
+
 ## MEDIA-001 — MP4 raw chapter list rejected during MOV finalization
 
 **Status:** Reproduced and repaired in local 1.7.2 (20) source

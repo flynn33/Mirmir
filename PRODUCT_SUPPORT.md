@@ -10,6 +10,11 @@ and byte-exact audio verification. Additional targeted oracles found chroma
 calibration and physical alignment defects; their fixes, broad-format
 integration and richer audio/metadata handling remain unfinished. These suite
 passes do not qualify those features or authorize release.
+New local download-lifecycle repairs pass actual fresh-VM clear/retry and
+network-failure/retry controls. File selection permits content validation when
+a common container has no registered movie UTI. New vImage/MPS chroma and
+odd-input preview findings remain release blockers; these are functional media
+checks performed from terminal without opening a panel or viewing the screen.
 The historical October 7, 2026 readback verifies the signed universal
 **1.7.0 (17)** repair installed and launched, with its exact executable,
 strict signature, native About
