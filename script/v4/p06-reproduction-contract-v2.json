@@ -11,7 +11,7 @@
     "runtimeLoadCheckRunnerSHA256": "85bd88ff2726e9f32a4443f93ce30c5a61a2686be55c5cd27044f0aff5c890bd",
     "runtimeLoadCheckSourceSHA256": "cefd336a6504aeae8074c8a8a01ec6a0fda21116cd05a5b67b5b614549fac0d6",
     "sourceIdentityToolSHA256": "6b5cc88f43dfed48870015e80ab12dfeaea9b80e4b9ebc6a7792bc8133c185f7",
-    "sourceProvenanceContractSHA256": "674a70e7d82f666ae1b13fb57609d37f29579f8804df35ba0eee7977a45387a2"
+    "sourceProvenanceContractSHA256": "0f5e0a60e838c62628dbab467473d06864894d46a89318597f318e0f8bec3239"
   },
   "cleanBuildCount": 2,
   "cleanBuildIDs": [
@@ -20,7 +20,7 @@
   ],
   "developmentArtifactDependencyCount": 0,
   "p05ProductionDependencyCount": 0,
-  "productionSourceCount": 399,
+  "productionSourceCount": 406,
   "requiredRuntimeArtifactRoles": [
     "benchmark_corpus_identity",
     "branch_aggregation",

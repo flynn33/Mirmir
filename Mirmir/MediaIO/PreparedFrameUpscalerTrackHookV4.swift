@@ -255,6 +255,7 @@ enum PreparedFrameUpscalerTrackHookV4 {
         preparedBackend: any PreparedFrameUpscaler,
         writerOutputSettings: [String: Any],
         declaredOutputFormats: [MediaTrackFormatDescriptorV4],
+        outputHDRMetadata: HDRFormatMetadataV4? = nil,
         nominalSourceFrameDuration: ExactRationalV4,
         outputPreferredTransform: CGAffineTransform? = nil,
         outputNaturalSize: CGSize? = nil,
@@ -276,6 +277,7 @@ enum PreparedFrameUpscalerTrackHookV4 {
                 preparedBackend.sourcePixelBufferAttributes.values,
             writerOutputSettings: writerOutputSettings,
             declaredOutputFormats: declaredOutputFormats,
+            outputHDRMetadata: outputHDRMetadata,
             outputPreferredTransform: outputPreferredTransform,
             outputNaturalSize: outputNaturalSize,
             outputTimingContract: .uniformlySubdivideSourceInterval(

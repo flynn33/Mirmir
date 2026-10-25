@@ -81,6 +81,7 @@ actor AVFoundationVideoFormatCalibratorV4 {
                 .writerFinishFailed(stableFailure(writer.error))
         }
 
+        try await contract.finalizeEncodedMetadata(at: url)
         let asset = AVURLAsset(
             url: url,
             options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]

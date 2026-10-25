@@ -7,6 +7,26 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+### QA continuation — October 25, 2026
+
+- Repair constant-size PCM buffer representation without changing payload,
+  timing or attachments. A fresh 90-minute production workflow independently
+  verifies all 129,600 video frames and 259,200,000 audio frames; `stsz` is20bytes.
+- Repair minimum-OS HDR ambient format metadata while retaining exact encoded
+  samples. Runtime7 non-UI suites pass 720 Release, 725 Debug,720 Rosetta and 720
+  macOS 15.4 tests, zero failures and 13 opt-in skips each.
+- Correct source-audio QA inventory to read the exact track range, and add
+  regressions for the actual qualification contract's missing/stale source locks.
+- Investigate native iTunes freeform loss, AAC gapless translation and H.264
+  wrapper verification. The frozen runtime8 native baseline includes these
+  repairs: 745 Release, 750 Debug, 745 Rosetta and 745 macOS 15.4 tests pass,
+  with zero failures and 13 opt-in skips each. All 404 Python checks, repeated
+  runtime/source bindings and the local universal archive audit pass.
+- Find additional Center calibration, Left chroma alignment and H.264 TopLeft
+  interpretation defects through independent media oracles. Private repairs,
+  broad-format production integration and multiple-audio gapless semantics
+  remain unfinished. Release remains blocked; all changes are local.
+
 ## [1.7.2] - 2026-10-24
 
 ### Fixed
@@ -25,8 +45,8 @@ do not publish, sign, notarize, or distribute the application automatically.
 - Remove per-byte Foundation formatting from canonical SHA digests and batch
   each sample-stream record into one bounded hash update, preserving v4.2
   fingerprint bytes. The feature-length AVI test exposed this PCM finalization
-  bottleneck; affected and full suites pass, while fresh feature-length output
-  verification is still pending.
+  bottleneck; affected/full suites pass. The October25 continuation above records
+  subsequent fresh feature-length verification and the separate PCM-table repair.
 - Extend independent format QA to check every displayed picture's exact clock
   and original moving-pattern position, with reordered/missing/duplicate tests.
 - Admit supported progressive MPEG-4 Part 2 and JFIF Motion JPEG sampling facts

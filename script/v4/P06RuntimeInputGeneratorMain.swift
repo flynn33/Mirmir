@@ -21,9 +21,23 @@ private enum P06RuntimeInputGeneratorMain {
             let options = try Options(
                 arguments: Array(CommandLine.arguments.dropFirst())
             )
+            let capture = try ASHP06LockedNaturalQualityEvidenceV4.captureImplementation()
+            let captureURL = options.repositoryRoot.appendingPathComponent(capture.repositoryRelativePath)
+            let historicalCapture: Data?
+            let values = try captureURL.resourceValues(forKeys: [.fileSizeKey])
+            if Int64(values.fileSize ?? -1) == capture.byteCount,
+               try ASHSHA256V4(rawData: Data(contentsOf: captureURL, options: .mappedIfSafe)) == capture.contentSHA256 {
+                historicalCapture = nil
+            } else {
+                historicalCapture = try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+                    capture, repositoryRoot: options.repositoryRoot,
+                    revision: ASHP06LockedNaturalQualityEvidenceV4.captureSourceRevision
+                )
+            }
             try ASHP06CanonicalRuntimeArtifactsV4
                 .validateLockedRepositoryInputs(
-                    repositoryRoot: options.repositoryRoot
+                    repositoryRoot: options.repositoryRoot,
+                    historicalNaturalQualityCapture: historicalCapture
                 )
             let metalLibrary = try Data(contentsOf: options.metalLibrary)
             let artifacts = try ASHP06CanonicalRuntimeArtifactsV4.make(

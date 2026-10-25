@@ -21,6 +21,149 @@ final class ASHV4SemanticArtifactTests: XCTestCase {
         }
     }
 
+    func testHistoricalLockedCaptureKeepsCurrentProductionSource() throws {
+        let original = Data("original capture bytes".utf8)
+        let fixture = try historicalCaptureFixture(original)
+        let identity = lockedCaptureIdentity(original)
+        let updated = Data("current production capture with a new strict guard".utf8)
+        try updated.write(to: fixture.source)
+        XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.validateLockedRepositoryInput(identity, at: fixture.source))
+        let historical = try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+            identity, repositoryRoot: fixture.repository, revision: fixture.revision,
+            gitExecutable: fixtureGitExecutable()
+        )
+        XCTAssertEqual(historical, original)
+        try ASHP06CanonicalRuntimeArtifactsV4.validateLockedRepositoryInput(identity, at: fixture.source, historical: historical)
+        XCTAssertEqual(try Data(contentsOf: fixture.source), updated)
+        XCTAssertNotEqual(ASHSHA256V4(rawData: updated), identity.contentSHA256)
+        let locked = try ASHP06LockedNaturalQualityEvidenceV4.captureImplementation()
+        XCTAssertEqual(locked.repositoryRelativePath, "Mirmir/App/MirmirApp.swift")
+        XCTAssertEqual(locked.byteCount, 343_095)
+        XCTAssertEqual(locked.contentSHA256.rawValue,
+                       "46654baec4279f4945051102c60b2f9638b1339213b638bed6c41706c30eb3dc")
+    }
+
+    func testHistoricalLockedCaptureRejectsWrongLengthHashAndFileMode() throws {
+        let original = Data("original capture bytes".utf8)
+        let identity = lockedCaptureIdentity(original)
+        for bytes in [original + [0], Data("changed! capture bytes".utf8)] {
+            let fixture = try historicalCaptureFixture(bytes)
+            XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+                identity, repositoryRoot: fixture.repository, revision: fixture.revision,
+                gitExecutable: fixtureGitExecutable()
+            ))
+        }
+        let symbolic = try historicalCaptureFixture(original, symbolic: true)
+        XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+            identity, repositoryRoot: symbolic.repository, revision: symbolic.revision,
+            gitExecutable: fixtureGitExecutable()
+        ))
+        let fixture = try historicalCaptureFixture(original)
+        for bytes in [original + [0], Data("changed! capture bytes".utf8)] {
+            XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.validateLockedRepositoryInput(
+                identity, at: fixture.source, historical: bytes
+            ))
+        }
+        try FileManager.default.removeItem(at: fixture.source)
+        try FileManager.default.createSymbolicLink(atPath: fixture.source.path,
+                                                  withDestinationPath: String(decoding: original, as: UTF8.self))
+        XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.validateLockedRepositoryInput(
+            identity, at: fixture.source, historical: original
+        ))
+    }
+
+    func testHistoricalLockedCaptureRequiresAvailableImmutableRevision() throws {
+        let original = Data("original capture bytes".utf8)
+        let fixture = try historicalCaptureFixture(original)
+        for revision in ["HEAD", "main", String(repeating: "f", count: 40)] {
+            XCTAssertThrowsError(try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+                lockedCaptureIdentity(original), repositoryRoot: fixture.repository, revision: revision,
+                gitExecutable: fixtureGitExecutable()
+            ))
+        }
+    }
+
+    func testHistoricalLockedCaptureIgnoresGitReplacementObjects() throws {
+        let original = Data("original capture bytes".utf8)
+        let fixture = try historicalCaptureFixture(original)
+        let originalBlob = try fixtureGit(["rev-parse", "\(fixture.revision):Capture.swift"], in: fixture.repository)
+        let replacement = fixture.repository.appendingPathComponent("replacement")
+        try Data("changed! capture bytes".utf8).write(to: replacement)
+        let replacementBlob = try fixtureGit(["hash-object", "-w", replacement.path], in: fixture.repository)
+        _ = try fixtureGit(["replace", originalBlob, replacementBlob], in: fixture.repository)
+        XCTAssertEqual(try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+            lockedCaptureIdentity(original), repositoryRoot: fixture.repository, revision: fixture.revision,
+            gitExecutable: fixtureGitExecutable()
+        ), original)
+    }
+
+    private func lockedCaptureIdentity(_ bytes: Data) -> ASHP06LockedFileIdentityV4 {
+        ASHP06LockedFileIdentityV4(repositoryRelativePath: "Capture.swift", byteCount: Int64(bytes.count),
+                                  contentSHA256: ASHSHA256V4(rawData: bytes))
+    }
+
+    private func historicalCaptureFixture(_ bytes: Data, symbolic: Bool = false) throws
+        -> (repository: URL, source: URL, revision: String) {
+        let repository = temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: repository, withIntermediateDirectories: false)
+        _ = try fixtureGit(["init", "-q", "--object-format=sha1"], in: repository)
+        let source = repository.appendingPathComponent("Capture.swift")
+        if symbolic {
+            try FileManager.default.createSymbolicLink(atPath: source.path,
+                withDestinationPath: String(decoding: bytes, as: UTF8.self))
+        } else { try bytes.write(to: source) }
+        _ = try fixtureGit(["add", "--", "Capture.swift"], in: repository)
+        _ = try fixtureGit(["-c", "user.name=Mirmir QA", "-c", "user.email=qa@example.invalid",
+                            "-c", "commit.gpgSign=false", "-c", "core.hooksPath=/dev/null",
+                            "commit", "-q", "-m", "bounded historical capture fixture"], in: repository)
+        return (repository, source, try fixtureGit(["rev-parse", "HEAD"], in: repository))
+    }
+
+    @discardableResult
+    private func fixtureGit(_ arguments: [String], in repository: URL) throws -> String {
+        let process = Process()
+        process.executableURL = try fixtureGitExecutable()
+        process.currentDirectoryURL = repository
+        process.arguments = arguments
+        let output = Pipe()
+        process.standardOutput = output
+        let errorOutput = Pipe()
+        process.standardError = errorOutput
+        try process.run()
+        let bytes = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        let errorBytes = errorOutput.fileHandleForReading.readDataToEndOfFile()
+        guard process.terminationReason == .exit, process.terminationStatus == 0 else {
+            throw ASHP06RuntimeBundleV4Error.invalidBuildInput(
+                "test Git fixture command failed: argv=\(arguments) status=\(process.terminationStatus) "
+                    + "reason=\(process.terminationReason.rawValue) stderr=\(String(decoding: errorBytes, as: UTF8.self)) "
+                    + "stdout=\(String(decoding: bytes, as: UTF8.self))"
+            )
+        }
+        return String(decoding: bytes, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func fixtureGitExecutable() throws -> URL {
+        var candidates: [URL] = []
+        if let developer = ProcessInfo.processInfo.environment["DEVELOPER_DIR"] {
+            candidates.append(URL(fileURLWithPath: developer).appendingPathComponent("usr/bin/git"))
+        }
+        var ancestor = Bundle(for: XCTestCase.self).bundleURL
+        while ancestor.path != "/" {
+            candidates.append(ancestor.appendingPathComponent("usr/bin/git"))
+            candidates.append(ancestor.appendingPathComponent("Developer/usr/bin/git"))
+            ancestor.deleteLastPathComponent()
+        }
+        candidates.append(URL(fileURLWithPath: "/Library/Developer/CommandLineTools/usr/bin/git"))
+        for candidate in candidates {
+            let resolved = candidate.resolvingSymlinksInPath()
+            if resolved.path != "/usr/bin/git", FileManager.default.isExecutableFile(atPath: resolved.path) {
+                return resolved
+            }
+        }
+        throw ASHP06RuntimeBundleV4Error.invalidBuildInput("actual developer Git executable unavailable for historical capture tests")
+    }
+
     func testSHA256EncodingMatchesPublishedVectors() {
         for (input, expected) in [
             ("", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),

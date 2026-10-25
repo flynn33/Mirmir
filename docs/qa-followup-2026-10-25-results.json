@@ -1,0 +1,962 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-25",
+  "version": "1.7.2",
+  "build": "20",
+  "sourceCheckpointCommit": "052c95ea682d92efe260ba4e2e9e59868f9410c3",
+  "qaStatus": "release_blocked",
+  "releaseQualified": false,
+  "goalCompletionClaimed": false,
+  "publicationPerformed": false,
+  "minimumOS": {
+    "runtimeManifestIdentity": "33ef468066be2aac90a48aec6a8f9a41656d58a0c294c47a4bc2b5822e8d82c2",
+    "sourceRevision": "3b48a4c3f60526cbbb6ba66b4ab2238ffd8b77679eda4673acb09ffb35143dfb",
+    "OS": "macOS15.4(24E248)",
+    "architecture": "arm64",
+    "hardware": "isolated headless Apple Silicon VM",
+    "exitCode": 0,
+    "timedOut": false,
+    "native": {
+      "total": 699,
+      "passed": 686,
+      "skipped": 13,
+      "failed": 0
+    },
+    "swift": {
+      "total": 59,
+      "passed": 59
+    },
+    "total": 758,
+    "passed": 745,
+    "failed": 0,
+    "skipped": 13,
+    "excludedUIAbsent": true,
+    "failures": [],
+    "resultSHA256": "4ca1b22f8101a476912cdf80f8a809135d3c8d2920e7e0b9cb42b2190c3d3692",
+    "runtime": "runtime8-final",
+    "evidenceRoot": "output/resumed-qa-2026-10-25/runtime8-final-macos154",
+    "sourceAndBinaryTransferVerification": "pre-transfer.json and activate-guest.py retained in same folder",
+    "doesNotResolveNewTargetedChromaDefects": true,
+    "guestSourceBinaryVerificationSHA256": "01a9a732b97ebb4819737419c99104171f953a0d679848f60e843f57f3cfdb75",
+    "verifiedSourceFiles": 2394,
+    "appExecutableSHA256": "153cb38f7613bf6b68c9c68693bc7d614d7f73d9db960d1c165d01a68c865914",
+    "testExecutableSHA256": "c7f8891115fe837afa7c43bab8132ee7d3fed42fe0ea3f4b31cfc24d52211b5c"
+  },
+  "pcm": {
+    "oversizedTableReproduced": true,
+    "diagnosticRewriteIsProductionFix": false,
+    "freshRepairedFullWorkflowPassed": true,
+    "evidenceRoot": "output/resumed-qa-2026-10-25/audio-loss",
+    "focusedQualification": {
+      "scope": "Historical focused PCM qualification; combined runtime7 host/minimum-OS suites and fresh 90-minute workflow subsequently passed. Its original task exclusions below are retained as historical scope.",
+      "status": "focused_checks_passed",
+      "helperSHA256": "82c4a18664a699f0fb3d1c5b5782701f26febd4be3610d0a82735c0b3fb5dcb3",
+      "newRegressionTests": {
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0,
+        "result": "pcm-helper-focused-v2.xcresult"
+      },
+      "adjacentTests": {
+        "passed": 39,
+        "failed": 0,
+        "skipped": 1,
+        "skipReason": "Opt-in V3 end-to-end baseline capture requires MIRMIR_V4_BASELINE_DIR",
+        "result": "pcm-adjacent-regressions.xcresult"
+      },
+      "featureLengthPCMOnly": {
+        "buffers": 253125,
+        "compactedBuffers": 253125,
+        "frames": 259200000,
+        "normalizedSHA256": "3036566c36c7a334d0a51231f9fd7bedbe26729f8662b820618a0cd1101e6f6d",
+        "normalizedSizeEntries": 253125,
+        "output": "/private/tmp/mirmir-pcm-size-fixed-90m-20261025.mov",
+        "sourceSHA256": "3036566c36c7a334d0a51231f9fd7bedbe26729f8662b820618a0cd1101e6f6d",
+        "sourceSizeEntries": 259200000,
+        "wallSeconds": 7.8589640855789185
+      },
+      "independentDecodedS16SHA256": "3036566c36c7a334d0a51231f9fd7bedbe26729f8662b820618a0cd1101e6f6d",
+      "constantSizeTable": {
+        "path": "/moov/trak/mdia/minf/stbl/stsz",
+        "offset": 518400641,
+        "bytes": 20,
+        "sampleSize": 2,
+        "sampleCount": 259200000
+      },
+      "originalFailureEvidenceRetained": [
+        "pcm-helper-focused.xcresult",
+        "short-rounded-default.json",
+        "writer-controls-v2-stsz.json"
+      ],
+      "currentSourceComparison": "pcm-qualified-source-comparison.json",
+      "notVerifiedInThisTask": [
+        "Latest concurrent HDR edits combined with this helper",
+        "Fresh full 90-minute video workflow on rebuilt runtime",
+        "macOS15.4 or physicalIntel execution of these new changes",
+        "App Store installed distribution"
+      ]
+    },
+    "freshRepairedFullWorkflow": {
+      "sourceSHA256": "3adb639572315b1fe78cf64fc9a3317eae9a1120f24916045baacf8922f05d30",
+      "outputSHA256": "5e378dcbcabd3b76bf7885a970f7963e0af5aa7360b7dc3e36e44e454d63a431",
+      "videoFrames": 129600,
+      "allOriginalBarcodeOrdinalsInOrder": true,
+      "exact24fpsOutputClock": true,
+      "videoYPlaneSHA256": "35ce6589eada7186a913ed209e97950c190826678d33987c252b3da4010e442b",
+      "audio": {
+        "decodedBytes": 518400000,
+        "decodedFrames": 259200000,
+        "decodedPCM16LESHA256": "3036566c36c7a334d0a51231f9fd7bedbe26729f8662b820618a0cd1101e6f6d",
+        "exitCode": 0,
+        "stderr": ""
+      },
+      "outputRaster": [
+        320,
+        192
+      ],
+      "passed": true,
+      "evidenceRoot": "output/resumed-qa-2026-10-25/avi-feature-length-90m-runtime7"
+    }
+  },
+  "hdr": {
+    "minimumOSFailures": 0,
+    "productionRepairUnderQualification": false,
+    "evidenceRoot": "output/resumed-qa-2026-10-24/minimum-os-hdr-followup",
+    "historicalRuntime6MinimumOSFailures": 2,
+    "qualificationScope": "Runtime7 focused43/43 on host and minimum OS, plus complete non-UI suites on Release/Debug/Rosetta/macOS15.4. Subsequent source8 changes require fresh qualification."
+  },
+  "formatIntegration": {
+    "privatePrototype": true,
+    "productionBroadFormatQualificationPassed": false,
+    "evidenceRoot": "output/resumed-qa-2026-10-25/software-workflow-continuation",
+    "privateCompletedShortWorkflows": 15,
+    "allSevenCPUvsMetalDecodedVideoAndAudioPairsEqual": true,
+    "newBoundaryFinding": "Private RGB8 conversion qualified on source8,phase build01 has17workflows,phase API build02 has16writerchecks+2RGBworkflows. New depth and odd raw delivery remain private under qualification; no root production integration.",
+    "privateRGBQualification": {
+      "sourceSnapshot": "/private/tmp/Mirmir-software-source8-rgb8-qualified-20261025",
+      "actualDependencyVariant": "optimized universal; not strict-scalar",
+      "cpuAndMetalDurableWorkflowsPassed": 2,
+      "framesPerWorkflow": 72,
+      "originalAACPackets": 142,
+      "allOriginalAACPacketsAndDecodedPCMExact": true,
+      "cpuMetalDecodedVideoAndNativePCMEqual": true,
+      "priorSevenFormatFullWorkflowRerunOnThisSource": "15/15passed, separately retained independent video/audio checks",
+      "scope": "Private prototype only. Do not combine the earlier source6 matrix15 passes into a latest-source17-pass claim."
+    },
+    "privatePhaseQualification": {
+      "evidenceRoot": "output/resumed-qa-2026-10-25/software-workflow-continuation/chroma-phase-01",
+      "build01Workflows": 17,
+      "build01IndependentMediaChecks": 17,
+      "build01NativeAudioChecks": 14,
+      "build02WriterTests": 16,
+      "build02RGBWorkflows": 2,
+      "differentBuildsNotRelabeledAsOneAcceptance": true
+    },
+    "privateStrictScalarPackaging": {
+      "evidenceRoot": "output/resumed-qa-2026-10-25/software-packaging-01",
+      "embeddedLibraries": 5,
+      "shortWorkflowsPassed": 10,
+      "architectures": [
+        "nativearm64",
+        "Rosettax86_64"
+      ],
+      "minimumOSLibraryLoadVerified": true,
+      "libraryReplacementControlPassed": true,
+      "scope": "Older guard source7 only; not latest RGB/phase/depth/raw-delivery candidate."
+    }
+  },
+  "combinedRuntime7": {
+    "manifestIdentity": "6575fdee98d2a6677472588bb33142d02dbf7663586effb7cc167a85c26c4230",
+    "sourceRevision": "b5c66a77dcc4592fac556e9543d1957b6477c3cdb6945680b19f4a88d2e9efbc",
+    "builderSourceSHA256": "3a67851025c9f975769a31afb040d97ac84d4ae019ec74453d7f1d86a13ca51a",
+    "bootstrapCompleteBuildsIdentical": true,
+    "artifactPayloadsChanged": false,
+    "productionLoaderAccepted": true,
+    "tamperRejectionPassed": true,
+    "historicalEvidenceReferencesVerified": 304,
+    "canonicalSelfTestPassed": true,
+    "fullCombinedSuitesPassed": true,
+    "evidenceRoot": "output/resumed-qa-2026-10-25/combined-runtime7",
+    "finalPinBuildsAndProvenanceIdentical": true,
+    "rawProductionSourceManifestSHA256": "a12953e103f2449718dc2ada93246f945e88bab8361601fac0deaed40b6239eb",
+    "productionSourceCount": 404,
+    "releaseSuite": {
+      "devicesAndConfigurations": [
+        {
+          "device": {
+            "architecture": "arm64",
+            "deviceId": "00006040-0016283C11F8801C",
+            "deviceName": "My Mac",
+            "modelName": "MacBook Pro",
+            "osBuildNumber": "26A434",
+            "osVersion": "27.0.1",
+            "platform": "macOS"
+          },
+          "expectedFailures": 0,
+          "failedTests": 0,
+          "passedTests": 720,
+          "skippedTests": 13,
+          "testPlanConfiguration": {
+            "configurationId": "1",
+            "configurationName": "Test Scheme Action"
+          }
+        }
+      ],
+      "environmentDescription": "Mirmir \u00b7 Built with macOS 27.0.1",
+      "expectedFailures": 0,
+      "failedTests": 0,
+      "finishTime": 1792927628.197,
+      "passedTests": 720,
+      "result": "Passed",
+      "runtimeWarnings": [],
+      "skippedTests": 13,
+      "startTime": 1792927511.388,
+      "statistics": [],
+      "testFailures": [],
+      "title": "Test - Mirmir",
+      "topInsights": [
+        {
+          "category": "Longest Test Runs",
+          "impact": "52% of duration",
+          "text": "7 longest test runs with outlier durations exceeding 3.61s (three standard deviations)"
+        }
+      ],
+      "totalTestCount": 733
+    },
+    "minimumOSSuite": {
+      "runtimeManifestIdentity": "6575fdee98d2a6677472588bb33142d02dbf7663586effb7cc167a85c26c4230",
+      "sourceRevision": "b5c66a77dcc4592fac556e9543d1957b6477c3cdb6945680b19f4a88d2e9efbc",
+      "OS": "macOS15.4(24E248)",
+      "architecture": "arm64",
+      "hardware": "isolatedheadlessAppleSiliconVM",
+      "exitCode": 0,
+      "timedOut": false,
+      "native": {
+        "total": 674,
+        "passed": 661,
+        "skipped": 13,
+        "failed": 0
+      },
+      "swift": {
+        "total": 59,
+        "passed": 59
+      },
+      "excludedUIAbsent": true,
+      "failures": [],
+      "resultSHA256": "4ad91b3eff9e7649aa0d05af0de52d89b6625cfca8b074c4713e04dc485a9d8f"
+    },
+    "debugSuite": {
+      "devicesAndConfigurations": [
+        {
+          "device": {
+            "architecture": "arm64",
+            "deviceId": "00006040-0016283C11F8801C",
+            "deviceName": "My Mac",
+            "modelName": "MacBook Pro",
+            "osBuildNumber": "26A434",
+            "osVersion": "27.0.1",
+            "platform": "macOS"
+          },
+          "expectedFailures": 0,
+          "failedTests": 0,
+          "passedTests": 725,
+          "skippedTests": 13,
+          "testPlanConfiguration": {
+            "configurationId": "1",
+            "configurationName": "Test Scheme Action"
+          }
+        }
+      ],
+      "environmentDescription": "Mirmir \u00b7 Built with macOS 27.0.1",
+      "expectedFailures": 0,
+      "failedTests": 0,
+      "finishTime": 1792928408.482,
+      "passedTests": 725,
+      "result": "Passed",
+      "runtimeWarnings": [],
+      "skippedTests": 13,
+      "startTime": 1792927837.543,
+      "statistics": [],
+      "testFailures": [],
+      "title": "Test - Mirmir",
+      "topInsights": [
+        {
+          "category": "Longest Test Runs",
+          "impact": "74% of duration",
+          "text": "5 longest test runs with outlier durations exceeding 27.68s (three standard deviations)"
+        }
+      ],
+      "totalTestCount": 738
+    },
+    "rosettaSuite": {
+      "devicesAndConfigurations": [
+        {
+          "device": {
+            "architecture": "x86_64",
+            "deviceId": "00006040-0016283C11F8801C",
+            "deviceName": "My Mac",
+            "modelName": "MacBook Pro",
+            "osBuildNumber": "26A434",
+            "osVersion": "27.0.1",
+            "platform": "macOS"
+          },
+          "expectedFailures": 0,
+          "failedTests": 0,
+          "passedTests": 720,
+          "skippedTests": 13,
+          "testPlanConfiguration": {
+            "configurationId": "1",
+            "configurationName": "Test Scheme Action"
+          }
+        }
+      ],
+      "environmentDescription": "Mirmir \u00b7 Built with macOS 27.0.1",
+      "expectedFailures": 0,
+      "failedTests": 0,
+      "finishTime": 1792929035.368,
+      "passedTests": 720,
+      "result": "Passed",
+      "runtimeWarnings": [],
+      "skippedTests": 13,
+      "startTime": 1792928876.624,
+      "statistics": [],
+      "testFailures": [],
+      "title": "Test - Mirmir",
+      "topInsights": [
+        {
+          "category": "Longest Test Runs",
+          "impact": "57% of duration",
+          "text": "7 longest test runs with outlier durations exceeding 5.13s (three standard deviations)"
+        }
+      ],
+      "totalTestCount": 733
+    },
+    "scope": "Frozen runtime7 source snapshot only. New native metadata/H264/receipt repairs in the current working tree are not covered by these completed suites.",
+    "allocation8K": {
+      "exitCode": 0,
+      "elapsedSeconds": 63.655784208,
+      "scope": "One actualCPUReference4096x2160\u21928192x4320temporalframe plus Debugallocationcounters, not completedvideoencoding or isolatedthroughput"
+    },
+    "rosettaExecutionEvidence": "output/resumed-qa-2026-10-25/combined-runtime7/rosetta-execution-analysis.json"
+  },
+  "qualificationBindings": {
+    "status": "focused_and_affected_module_checks_passed",
+    "cause": "Actual production inventory locks were399 rather than404; the checked-in release contract omitted a P06 source-manifest hash required by validate_p06. Synthetic release fixtures injected that field, so existing unit tests missed the checked-in gap. Media fixture/capture and inventory source pins were also stale after current changes.",
+    "change": "Refreshed actual current locks; require P06 source count and manifest at eager contract validation; actual-closed-inventory and missing/malformed-lock regressions; no thresholds/evidence roles/frozen historical records altered.",
+    "fullPythonUnitModules": [
+      {
+        "command": "python3 script/v4/test_media_preservation_v4.py",
+        "passed": 44,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 0.077,
+        "log": "media-preservation-full.log"
+      },
+      {
+        "command": "python3 script/v4/test_capture_p06_reproduction_v4.py",
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 0.218,
+        "log": "p06-capture-full.log"
+      },
+      {
+        "command": "python3 script/v4/test_p06_reproduction_v4.py",
+        "passed": 13,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 0.543,
+        "log": "p06-reproduction-full.log"
+      },
+      {
+        "command": "python3 script/v4/test_release_qualification_v4.py",
+        "passed": 61,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 408.815,
+        "log": "release-qualification-full.log"
+      },
+      {
+        "command": "python3 script/v4/test_assemble_release_evidence_index_v4.py",
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 184.236,
+        "log": "evidence-assembly-full.log"
+      },
+      {
+        "command": "python3 script/v4/test_notarized_smoke_v4.py",
+        "passed": 20,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 0.03,
+        "log": "notarized-smoke-full.log"
+      },
+      {
+        "command": "python3 script/v4/test_packaged_candidate_evidence_v4.py",
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 4.536,
+        "log": "packaged-evidence-full.log"
+      },
+      {
+        "command": "python3 script/v4/test_prepare_release_candidate_v4.py",
+        "passed": 39,
+        "failed": 0,
+        "skipped": 0,
+        "seconds": 35.497,
+        "log": "prepare-candidate-full.log"
+      }
+    ],
+    "distinctPassingUnitTestsAcrossTheseModules": 202,
+    "focusedPassingCases": 13,
+    "focusedCasesIncludedInFullModules": true,
+    "newRegressionCases": 3,
+    "beforeFixFailingAssertions": 13,
+    "sourceCount": 404,
+    "sourceRevision": "b5c66a77dcc4592fac556e9543d1957b6477c3cdb6945680b19f4a88d2e9efbc",
+    "finalRawProductionManifestSHA256": "a12953e103f2449718dc2ada93246f945e88bab8361601fac0deaed40b6239eb",
+    "trustRootSHA256": "92c8033095eab5c7b98060b2076c4bfb56060ceee3c57e34afbb5f2e121d4625",
+    "finalFiles": [
+      {
+        "path": "script/v4/media-preservation-contract-v1.json",
+        "sha256": "0b1b6ccdffe2bd56c44dc0befb0753246bd48b7072dba8febd981ea13192c7c5"
+      },
+      {
+        "path": "script/v4/p06-reproduction-contract-v2.json",
+        "sha256": "07c058ade943f3725490234a7890a724d2984a5acf43369730b45c3078e50cef"
+      },
+      {
+        "path": "script/v4/release-qualification-contract-v1.json",
+        "sha256": "65aab28b8052e2f6d218068bd71fe4b64d79008e5d93c3a84401c84b088fbe4f"
+      },
+      {
+        "path": "script/v4/release-qualification-trust-root-v1.json",
+        "sha256": "92c8033095eab5c7b98060b2076c4bfb56060ceee3c57e34afbb5f2e121d4625"
+      },
+      {
+        "path": "script/v4/release_qualification_v4.py",
+        "sha256": "c4c0ab16f9e770f2e5644242db7d98453b45a403d4448aba2f1727ee1840649d"
+      },
+      {
+        "path": "script/v4/test_release_qualification_v4.py",
+        "sha256": "1f21c456f1b1b04b60e8801ab1a7a7d5cbcbff77af5d4f14bdd07c4338c1ebd4"
+      }
+    ],
+    "negativeEvidence": [
+      "current-pin-checks.log",
+      "new-regressions-before-fix.log",
+      "proposal.log"
+    ],
+    "coherentPointerDiffReceipt": "binding-refresh-applied.json",
+    "notEstablished": "These are unit checks and source lock validation. This does not establish complete actual eight-lane release evidence, physicalIntel, Store-installed behavior, or every product feature.",
+    "scope": "Final runtime8 current-source inventory406/raw manifest18f220... and current observer pins refreshed separately. Historical identities and thresholds remain unchanged. Final normal Python module rerun required.",
+    "finalTrustRootSHA256": "7f46259e7ff2378fea27e94edd543169cac98405c16f5fb2b637a11ab605db60"
+  },
+  "newNativeITunesGaplessFailure": {
+    "status": "focused24_host_and_minimum_os_passed_final_combined_pending",
+    "error": "assetMetadataMismatch",
+    "NSErrorCode": 14,
+    "customerError11CauseEstablished": false,
+    "additionalMinimumOSFailure": "macOS15.4 writer also drops a custom iTunes freeform UserNote; exact raw metadata restoration is under test.",
+    "transcodeRequirement": "Recompute the technical gapless fields from actual AAC packets/edits and bind them in typed execution4.4 and queue2 receipts; legacy4.3/queue1 remain unchanged.",
+    "requiredUnfinishedCase": "Multiple source audio tracks plus globalSMPB requiringAAC transcode. Current single-audio typed ownership is intentionally not broadened without real source/consumer proof."
+  },
+  "historicalMinimumOSRuntime6": {
+    "sourceCommit": "052c95ea682d92efe260ba4e2e9e59868f9410c3",
+    "runtime": "runtime6",
+    "guestOS": "macOS 15.4 (24E248)",
+    "architecture": "arm64",
+    "hardware": "Apple Paravirtual GPU in isolated headless VM",
+    "exitCode": 1,
+    "timedOut": false,
+    "native": {
+      "total": 666,
+      "passed": 651,
+      "skipped": 13,
+      "failed": 2,
+      "failedTests": [
+        "AVFoundationTrackMigrationExecutorV4Tests/testDynamicHDRSegmentRoutePreservesNonzeroPrimaryStartEarlierAudioBoundaryGapAndTemporalReset",
+        "VideoWriterFormatContractV4Tests/testRealAVFoundationWritesReopensAndDecodesP010PQAndHLG"
+      ]
+    },
+    "swiftTesting": {
+      "total": 59,
+      "passed": 59,
+      "failed": 0,
+      "skipped": 0
+    },
+    "excludedUITests": [
+      "testWindowMenuReopensClosedMainWindowWithoutCreatingDuplicates",
+      "testUpscaleCompositionCannotMountCompletedComparisonPlayer"
+    ],
+    "excludedUITestsAbsentFromExecutionLog": true,
+    "resultFile": "output/resumed-qa-2026-10-25/minimum-os-qualification/guest-complete-non-ui-runtime6-result.json",
+    "resultSHA256": "fe7de928f48b9707eafbc8d8665553b813806e63c7e4bfbd4ec921cecddba089",
+    "sourceTransferVerification": "output/resumed-qa-2026-10-25/minimum-os-qualification/guest-source-verification.json",
+    "binaryReadbackComparison": "output/resumed-qa-2026-10-25/minimum-os-qualification/guest-complete-non-ui-binary-comparison.json"
+  },
+  "historicalMinimumOSRuntime6SummarySHA256": "37991d4797b9209a0fcdc061e54f2f56d7edae4dc42b7dd2b8ee83882e919fe7",
+  "nativeAVCWrapperRepair": {
+    "status": "focused_pass_combined_pending",
+    "regressionTests": {
+      "arm64Passed": 7,
+      "rosettaPassed": 7,
+      "failed": 0
+    },
+    "actualSourceWriterPairs": 5,
+    "durableGraphFingerprintsUnchanged": true,
+    "evidence": "output/resumed-qa-2026-10-25/native-avc-wrapper-followup/focused-wrapper-qualification-v3.json"
+  },
+  "currentWorkingTreeQualification": {
+    "runtimeLabel": "runtime8_frozen_native_baseline",
+    "qualified": false,
+    "reason": "Complete frozen-baseline native Release/Debug/Rosetta/macOS15.4 suites,404 Python tests,reproducible bindings and local universal archive pass. Additional targeted oracles reproduce Center calibration failure39,Left physical chroma misalignment,H264 TopLeft CoreMedia alias,and odd native raw-decoder edge corruption. Private fixes and broad-format integration remain unfinished; these suite passes are not release acceptance.",
+    "lockedLaneNegativeTests": {
+      "passed": 4,
+      "failed": 0,
+      "evidence": "output/resumed-qa-2026-10-25/gapless-receipt-qualification/locked-lane-negative-tests-v3.log"
+    },
+    "manifestIdentity": "33ef468066be2aac90a48aec6a8f9a41656d58a0c294c47a4bc2b5822e8d82c2",
+    "sourceRevision": "3b48a4c3f60526cbbb6ba66b4ab2238ffd8b77679eda4673acb09ffb35143dfb",
+    "builderSourceSHA256": "53d202b8ac01dfe5f3b1fac486a64aff6b7a7bb1e5096c6622fbf86943523c41",
+    "rawSourceManifestSHA256": "18f22004725fbc549990554e013778568e4e5ba0515301ba2e1b269e28817e81",
+    "productionSourceCount": 406,
+    "postPinIndependentBuildsByteIdentical": true
+  },
+  "writerAdmissionMinimumOSControl": {
+    "cases": 60,
+    "guestAllCanAdd": true,
+    "guestAllCanApply": true,
+    "guestMatchesHost": true,
+    "guestPreamble": "ProductName:\t\tmacOS\nProductVersion:\t\t15.4\nBuildVersion:\t\t24E248\nfd977a2b16b9fde390cb3ee9303e4545ceadd7fd6886c92706d2b1c21c057615  /private/tmp/mirmir-code11-writer-probe-20261025\n",
+    "guestExitCode": 0,
+    "hostExitCode": 0,
+    "scope": "Writer input admission only; no encoding or customer incident reproduction. Separate60 controls across H264/HEVC/ProRes422,320x180/3840x2160,clock/size/language/metadata settings."
+  },
+  "queueAACTranslationFocused": {
+    "passed": 57,
+    "skipped": 1,
+    "failed": 0,
+    "total": 58,
+    "newNativePublicationRecoveryScenarios": 3,
+    "rehashedForgeryScenarios": 11,
+    "evidence": "output/resumed-qa-2026-10-25/queue-aac-v2-regression/qualification-final.json",
+    "scope": "Build05; helper and executor changed after this test snapshot. Latest-source combined validation remains required."
+  },
+  "nativeITunesFocusedQualification": {
+    "status": "focused_native_itunes_checks_passed",
+    "originalFailure": "AVFoundationTrackMigrationExecutorV4Error.assetMetadataMismatch (code14), distinct from customer code11",
+    "results": {
+      "host": {
+        "selected": 24,
+        "passed": 24,
+        "failed": 0,
+        "skipped": 0,
+        "exactIdentifiers": true,
+        "log": "output/resumed-qa-2026-10-25/itunes-metadata-audit/final-focused-v5.log"
+      },
+      "macOS15.4": {
+        "selected": 24,
+        "passed": 24,
+        "failed": 0,
+        "skipped": 0,
+        "exactIdentifiers": true,
+        "log": "output/resumed-qa-2026-10-25/itunes-metadata-audit/guest-final-v5.log"
+      }
+    },
+    "cases": {
+      "nativeMigrationMethods": 6,
+      "helperMethods": 6,
+      "AVCMethods": 7,
+      "queuePublicationMethods": 4,
+      "additionalSyntheticRuntimeIntegrityMethod": 1
+    },
+    "frozenSourceSHA256": {
+      "Mirmir/MediaIO/MOViTunesGaplessMetadataV4.swift": "138a65b6ab7094f271aa8ff1543a61b23280536f1a7555e6c65a2e40909a5e97",
+      "Mirmir/MediaIO/AACGaplessMetadataTranslationV4.swift": "c172bd1760dec25bddf112277b595313ca7c976e1763d4421056594b2b89c274",
+      "Mirmir/MediaIO/AVFoundationTrackMigrationExecutorV4.swift": "e88baa37020c36dac7d24dc88d34bfded54bdb40ae608ac0b83205c8bb505ada",
+      "Mirmir/MediaIO/DeterministicV4MediaProcessingSession.swift": "4f8c8e3726dc21c22cf701012f1ed3490fd16d74cf8c5b9d2bf6e0c93f0974a5",
+      "Mirmir/Persistence/WorkflowApplicationQueueV4.swift": "10a03efbaa6cb15ba886eaeaf36a69a821730539d784e5fd8ce776266ee22ee4",
+      "MirmirTests/NativeAACMetadataMigrationV4Tests.swift": "abda8076db3577d3dc122659f5b21e623f695239bdc66402eb4b8d669b4dd4a2",
+      "MirmirTests/MOViTunesGaplessMetadataV4Tests.swift": "13774d585450773a2d326a7bc20615334c3054e666918a163f1d2564a74432cf",
+      "MirmirTests/WorkflowApplicationQueueV4Tests.swift": "0197f19c3e87a91311fcda10599a8e4c0442f75962bd764059c296dd9899d32c"
+    },
+    "physicalHeaderLayouts": 5,
+    "exactRollbackCancellationPoints": 64,
+    "sourceAndOutputFullMetadataCanonicalizer": "unchanged",
+    "unchangedMetadataRecordVersion": "execution v4.3 / queue1, optional field omitted",
+    "translatedMetadataRecordVersion": "execution v4.4 / queue2, mandatory typed translation ash.aac-gapless-metadata-translation.v4.1",
+    "unresolvedRequiredWork": [
+      "Global iTunSMPB with multiple source audio tracks requiring AAC transcode: ownership unqualified; current single-audio translation rejects it. Separate private native/independent consumer audit is required."
+    ],
+    "runtimeQualificationBoundary": "Coherent runtime7 functional snapshot with frozen new application metadata logic. Final runtime8 source binding and complete release qualification are root-owned and distinct."
+  },
+  "initialRuntime8": {
+    "manifestIdentity": "a2a121a90eec24c3d84b3fdf52510ad730750d06e3d2653970df0d760b14634b",
+    "sourceRevision": "f35078fc3953b628690c7487e37a72754e1cb50c063f7799364b1c222dd40eff",
+    "scope": "Before the signed-sandbox Git fixture correction; four setup failures in every full host suite. Not final-source acceptance.",
+    "release": {
+      "totalTestCount": 758,
+      "passedTests": 741,
+      "failedTests": 4,
+      "skippedTests": 13
+    },
+    "debug": {
+      "totalTestCount": 763,
+      "passedTests": 746,
+      "failedTests": 4,
+      "skippedTests": 13
+    },
+    "rosetta": {
+      "totalTestCount": 758,
+      "passedTests": 741,
+      "failedTests": 4,
+      "skippedTests": 13
+    }
+  },
+  "combinedRuntime8": {
+    "manifestIdentity": "33ef468066be2aac90a48aec6a8f9a41656d58a0c294c47a4bc2b5822e8d82c2",
+    "sourceRevision": "3b48a4c3f60526cbbb6ba66b4ab2238ffd8b77679eda4673acb09ffb35143dfb",
+    "builderSourceSHA256": "53d202b8ac01dfe5f3b1fac486a64aff6b7a7bb1e5096c6622fbf86943523c41",
+    "rawSourceManifestSHA256": "18f22004725fbc549990554e013778568e4e5ba0515301ba2e1b269e28817e81",
+    "productionSourceCount": 406,
+    "postPinIndependentBuildsByteIdentical": true,
+    "scope": "Frozen native baseline only; targeted chroma and broad-input qualification remains failed/unfinished.",
+    "allSelectedNonUISuitesPassed": true,
+    "suites": {
+      "release": {
+        "devicesAndConfigurations": [
+          {
+            "device": {
+              "architecture": "arm64",
+              "deviceId": "00006040-0016283C11F8801C",
+              "deviceName": "My Mac",
+              "modelName": "MacBook Pro",
+              "osBuildNumber": "26A434",
+              "osVersion": "27.0.1",
+              "platform": "macOS"
+            },
+            "expectedFailures": 0,
+            "failedTests": 0,
+            "passedTests": 745,
+            "skippedTests": 13,
+            "testPlanConfiguration": {
+              "configurationId": "1",
+              "configurationName": "Test Scheme Action"
+            }
+          }
+        ],
+        "environmentDescription": "Mirmir \u00b7 Built with macOS 27.0.1",
+        "expectedFailures": 0,
+        "failedTests": 0,
+        "finishTime": 1792935454.292,
+        "passedTests": 745,
+        "result": "Passed",
+        "runtimeWarnings": [],
+        "skippedTests": 13,
+        "startTime": 1792935309.449,
+        "statistics": [],
+        "testFailures": [],
+        "title": "Test - Mirmir",
+        "topInsights": [
+          {
+            "category": "Longest Test Runs",
+            "impact": "48% of duration",
+            "text": "6 longest test runs with outlier durations exceeding 4.50s (three standard deviations)"
+          }
+        ],
+        "totalTestCount": 758
+      },
+      "debug": {
+        "devicesAndConfigurations": [
+          {
+            "device": {
+              "architecture": "arm64",
+              "deviceId": "00006040-0016283C11F8801C",
+              "deviceName": "My Mac",
+              "modelName": "MacBook Pro",
+              "osBuildNumber": "26A434",
+              "osVersion": "27.0.1",
+              "platform": "macOS"
+            },
+            "expectedFailures": 0,
+            "failedTests": 0,
+            "passedTests": 750,
+            "skippedTests": 13,
+            "testPlanConfiguration": {
+              "configurationId": "1",
+              "configurationName": "Test Scheme Action"
+            }
+          }
+        ],
+        "environmentDescription": "Mirmir \u00b7 Built with macOS 27.0.1",
+        "expectedFailures": 0,
+        "failedTests": 0,
+        "finishTime": 1792935813.265,
+        "passedTests": 750,
+        "result": "Passed",
+        "runtimeWarnings": [],
+        "skippedTests": 13,
+        "startTime": 1792935203.574,
+        "statistics": [],
+        "testFailures": [],
+        "title": "Test - Mirmir",
+        "topInsights": [
+          {
+            "category": "Longest Test Runs",
+            "impact": "70% of duration",
+            "text": "5 longest test runs with outlier durations exceeding 27.57s (three standard deviations)"
+          }
+        ],
+        "totalTestCount": 763
+      },
+      "rosetta": {
+        "devicesAndConfigurations": [
+          {
+            "device": {
+              "architecture": "x86_64",
+              "deviceId": "00006040-0016283C11F8801C",
+              "deviceName": "My Mac",
+              "modelName": "MacBook Pro",
+              "osBuildNumber": "26A434",
+              "osVersion": "27.0.1",
+              "platform": "macOS"
+            },
+            "expectedFailures": 0,
+            "failedTests": 0,
+            "passedTests": 745,
+            "skippedTests": 13,
+            "testPlanConfiguration": {
+              "configurationId": "1",
+              "configurationName": "Test Scheme Action"
+            }
+          }
+        ],
+        "environmentDescription": "Mirmir \u00b7 Built with macOS 27.0.1",
+        "expectedFailures": 0,
+        "failedTests": 0,
+        "finishTime": 1792935551.227,
+        "passedTests": 745,
+        "result": "Passed",
+        "runtimeWarnings": [],
+        "skippedTests": 13,
+        "startTime": 1792935356.314,
+        "statistics": [],
+        "testFailures": [],
+        "title": "Test - Mirmir",
+        "topInsights": [
+          {
+            "category": "Longest Test Runs",
+            "impact": "51% of duration",
+            "text": "6 longest test runs with outlier durations exceeding 6.07s (three standard deviations)"
+          }
+        ],
+        "totalTestCount": 758
+      },
+      "minimumOS": {
+        "runtimeManifestIdentity": "33ef468066be2aac90a48aec6a8f9a41656d58a0c294c47a4bc2b5822e8d82c2",
+        "sourceRevision": "3b48a4c3f60526cbbb6ba66b4ab2238ffd8b77679eda4673acb09ffb35143dfb",
+        "OS": "macOS15.4(24E248)",
+        "architecture": "arm64",
+        "hardware": "isolated headless Apple Silicon VM",
+        "exitCode": 0,
+        "timedOut": false,
+        "native": {
+          "total": 699,
+          "passed": 686,
+          "skipped": 13,
+          "failed": 0
+        },
+        "swift": {
+          "total": 59,
+          "passed": 59
+        },
+        "total": 758,
+        "passed": 745,
+        "failed": 0,
+        "skipped": 13,
+        "excludedUIAbsent": true,
+        "failures": [],
+        "resultSHA256": "4ca1b22f8101a476912cdf80f8a809135d3c8d2920e7e0b9cb42b2190c3d3692",
+        "runtime": "runtime8-final",
+        "evidenceRoot": "output/resumed-qa-2026-10-25/runtime8-final-macos154",
+        "sourceAndBinaryTransferVerification": "pre-transfer.json and activate-guest.py retained in same folder",
+        "doesNotResolveNewTargetedChromaDefects": true,
+        "guestSourceBinaryVerificationSHA256": "01a9a732b97ebb4819737419c99104171f953a0d679848f60e843f57f3cfdb75",
+        "verifiedSourceFiles": 2394,
+        "appExecutableSHA256": "153cb38f7613bf6b68c9c68693bc7d614d7f73d9db960d1c165d01a68c865914",
+        "testExecutableSHA256": "c7f8891115fe837afa7c43bab8132ee7d3fed42fe0ea3f4b31cfc24d52211b5c"
+      }
+    },
+    "python": {
+      "v4Commands": 23,
+      "v4Tests": 387,
+      "additional": [
+        {
+          "log": "python-version-final.log",
+          "testCount": 9,
+          "passed": true,
+          "logSHA256": "ca18ffc8e8fdc6b71e49e9b4fd64e04661daa3243fb767d57a64ce80ea2d7b63"
+        },
+        {
+          "log": "python-input-oracles-final.log",
+          "testCount": 8,
+          "passed": true,
+          "logSHA256": "698d16d7b93c4bd9707d3cfacda6fb1e0fea99ed0cda6e69bedc42772940540a"
+        }
+      ],
+      "totalCommands": 25,
+      "totalTests": 404,
+      "allPassed": true,
+      "sourceRevision": "3b48a4c3f60526cbbb6ba66b4ab2238ffd8b77679eda4673acb09ffb35143dfb"
+    },
+    "archive": {
+      "audit": "output/resumed-qa-2026-10-25/combined-runtime8/archive-final-audit.json",
+      "execution": {
+        "command": [
+          "xcodebuild",
+          "archive",
+          "-project",
+          "/private/tmp/Mirmir-combined8-final-qa-source-20261025/Mirmir.xcodeproj",
+          "-scheme",
+          "Mirmir",
+          "-configuration",
+          "Release",
+          "-destination",
+          "generic/platform=macOS",
+          "-archivePath",
+          "/private/tmp/Mirmir-input-qa-runtime8-final-20261025.xcarchive",
+          "-derivedDataPath",
+          "/private/tmp/Mirmir-runtime8-final-archive-derived-20261025",
+          "-jobs",
+          "4",
+          "ARCHS=arm64 x86_64",
+          "ONLY_ACTIVE_ARCH=NO"
+        ],
+        "sourceSnapshot": "/private/tmp/Mirmir-combined8-final-qa-source-20261025",
+        "startedAtUTC": "2026-10-25T13:38:56.141789+00:00",
+        "exitCode": 0,
+        "elapsedSeconds": 123.39601583299999,
+        "compilerWarnings": 0,
+        "compilerErrors": 0
+      },
+      "scope": "Local Apple Development-signed universal archive; no export/upload/Store execution/release."
+    },
+    "loaderAndTamperRejectionPassed": true,
+    "canonicalSelfTestPassed": true,
+    "historicalReferencesVerified": 304,
+    "verifiedSnapshotFiles": 2394,
+    "evidenceRoot": "output/resumed-qa-2026-10-25/combined-runtime8",
+    "localStoreExport": {
+      "evidenceRoot": "output/resumed-qa-2026-10-25/store-export-native-baseline-02",
+      "passed": true,
+      "signature": "Apple Distribution app, 3rd Party Mac Developer Installer package",
+      "sandbox": true,
+      "debuggingAllowed": false,
+      "profileUUID": "b586202f-a42c-4ebc-bcb2-78fa63fc6579",
+      "runtime13FilesExactBaseline": true,
+      "unsignedExecutablesByteIdentical": true,
+      "storeInstalledExecutionVerified": false,
+      "uploadOrReleasePerformed": false
+    }
+  },
+  "targetedChromaFindings": [
+    {
+      "id": "native-center-calibration",
+      "observed": "Actual72-frame H264/HEVC CPU/Metal jobs process3segments then fail migration code39; calibration synthetic frame has no siting and encodesLeft while actualCenter frames retainCenter.",
+      "rootFixed": false,
+      "privateFix": "16host/minimumOS workflows complete, but Center-only patch causes TopLeft silent declaration regression; not integrated.",
+      "evidenceRoot": "output/resumed-qa-2026-10-25/native-chroma-phase"
+    },
+    {
+      "id": "h264-topleft-native-alias",
+      "observed": "Physical H264 SPS location2 is reopened/decoded asCenter by CoreMedia; endpoint encoder physical TopLeft remainscorrect. Bitstream-only72-frame control through privateCenter patch publishes SPS1 Center with codedsourcepictures unchanged.",
+      "rootFixed": false,
+      "privateFix": "Authenticated physical SPS reader/decoder-boundary correction under development; no bitstream rewrite.",
+      "evidenceRoot": "output/resumed-qa-2026-10-25/native-chroma-phase"
+    },
+    {
+      "id": "left-physical-chroma-geometry",
+      "observed": "Per-plane identical halfpixel plans ignore source/output siting.Independent physical Fraction oracles expose relative horizontal shifts0.5outputluma pixels at2x,1.5at4x;CPU andactualP06 Metalagree.",
+      "rootFixed": false,
+      "privateFix": "Phase-aware preparedUV geometry under development; existing historical evidence remains locked.",
+      "evidenceRoot": "output/resumed-qa-2026-10-25/chroma-geometry-independent-01"
+    },
+    {
+      "id": "odd-native-raw-carrier-edge",
+      "observed": "Odd31x19/31x20/32x19 native raw carriers duplicate previouslastluma row/column and truncatechroma;evencasesexact.",
+      "rootFixed": false,
+      "privateFix": "Bounded directrawsample unpacker under private qualification.",
+      "evidenceRoot": "output/resumed-qa-2026-10-25/software-workflow-continuation"
+    }
+  ],
+  "freshAppleModel": {
+    "evidenceRoot": "output/resumed-qa-2026-10-25/apple-model-fresh-vm-01",
+    "OS": "macOS26.6.2(25G83)",
+    "environment": "Fresh separate headless AppleParavirtual VM; noGPUoverride",
+    "productionNetworkAcquisitionPassed": true,
+    "actualNetworkBytes": 42695996,
+    "progressCallbacks": 36,
+    "configurationsReadyAfterAcquisition": true,
+    "alreadyReadyCallPassed": true,
+    "nativePreparePassed": false,
+    "processedFrames": 0,
+    "failureDomain": "VTFrameProcessorErrorDomain",
+    "failureCode": -19730,
+    "SDKMeaning": "VTFrameProcessorUnknownError",
+    "standaloneIdenticalBinaryReproducesNativeFailure": true,
+    "sameBinaryHostPhysicalM4ProSessionStartPassed": true,
+    "underlyingCause": "unknown;OSandphysical/virtualdevicebothdiffer",
+    "combinedTest": {
+      "executed": 1,
+      "failed": 1,
+      "skipped": 0
+    },
+    "customerError11CauseEstablished": false,
+    "physicalMacOS26ProcessingVerified": false,
+    "forcedRealNetworkCancellationOrFailureVerified": false
+  },
+  "multiAudioGapless": {
+    "evidenceRoot": "output/resumed-qa-2026-10-25/itunes-metadata-audit/multiaudio-ownership",
+    "wholeAssetPlannerControlsPassed": 12,
+    "productionMigrationCases": 48,
+    "completed": 24,
+    "failed": 24,
+    "failure": "AACGaplessMetadataTranslationV4.Failure.invalidTranslation, NSError0",
+    "externalRealProducerClones": 72,
+    "blindRestorationAndBlindLastOwnershipBothRejectedByEvidence": true,
+    "newPolicyImplemented": false,
+    "remainsRequiredRepair": true
+  },
+  "activeLongUHDOutput": {
+    "evidenceRoot": "output/resumed-qa-2026-10-25/avi-feature-length-4k-output-runtime8-final",
+    "runtime": "runtime8 frozen nativebaseline",
+    "inputRaster": [
+      160,
+      96
+    ],
+    "outputRaster": [
+      3840,
+      2160
+    ],
+    "durationSeconds": 5400,
+    "status": "running",
+    "completed": false,
+    "scope": "Low-resolution input andUHDoutput duration/finalization;not4Kinputorcomparativeperformance."
+  },
+  "remainingUnverifiedFeatures": [
+    "Root packaged broadformat integration and coherentlatestdependency/sourceprovenance",
+    "Center calibration,physicalLeftUVgeometry,H264TopLefttruth andProResphysicalchromasiting",
+    "Oddraster,additional10/12bit,untaggedcolor,HDR,alpha andricher track graphs through softwareimporter",
+    "Multipleaudio tracks withglobalSMPB andAACtranscode",
+    "Actualreportedcustomer/ownererror11trigger andcausalrepair",
+    "PhysicalIntelhardwareexecution",
+    "Storeinstalledcandidate sandbox/distribution andmodelacquisition",
+    "PhysicalmacOS26qualityprocessing andforcedrealnetworkcancel/failure",
+    "Featurelength4Kinput andisolatedwholemovieperformance",
+    "Historicalcompletecheckpointreplaywithoutoriginalsourcecurrentlyavailable",
+    "Currentcandidatesealedaggregatequality/performance/support/distributionqualification"
+  ]
+}

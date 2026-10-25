@@ -691,7 +691,7 @@ actor NativeMediaInputAssetResolverV4 {
                     sample = try Self.rebound(source, format: format, strategy: strategy,
                                               presentationClock: &presentationClock)
                 } else {
-                    sample = source
+                    sample = try UniformPCMSampleBufferV4.compactingSizes(in: source)
                 }
                 let bytes = CMSampleBufferGetDataBuffer(sample).map(CMBlockBufferGetDataLength) ?? 0
                 guard bytes <= Self.maximumPacketBytes,

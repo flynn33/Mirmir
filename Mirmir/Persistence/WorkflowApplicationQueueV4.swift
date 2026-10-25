@@ -247,12 +247,14 @@ struct WorkflowApplicationMigrationVerificationV4:
     Sendable
 {
     static let currentSchemaVersion: UInt16 = 1
+    static let translatedMetadataSchemaVersion: UInt16 = 2
 
     let schemaVersion: UInt16
     let sourceGraphSHA256: ASHSHA256V4
     let trackPlanSHA256: ASHSHA256V4
     let blueprintSHA256: ASHSHA256V4
     let sourceAssetMetadataSHA256: ASHSHA256V4
+    let aacGaplessMetadataTranslation: AACGaplessMetadataTranslationV4?
     let outputAssetMetadataSHA256: ASHSHA256V4
     let sourceChapterMetadataSHA256: ASHSHA256V4
     let outputChapterMetadataSHA256: ASHSHA256V4
@@ -270,7 +272,8 @@ struct WorkflowApplicationMigrationVerificationV4:
         outputChapterMetadataSHA256: ASHSHA256V4,
         outputGraphSHA256: ASHSHA256V4,
         semanticReportSHA256: ASHSHA256V4,
-        trackResults: [AVFoundationTrackMigrationTrackResultV4]
+        trackResults: [AVFoundationTrackMigrationTrackResultV4],
+        aacGaplessMetadataTranslation: AACGaplessMetadataTranslationV4? = nil
     ) throws {
         let sorted = trackResults.sorted { $0.trackID < $1.trackID }
         guard !sorted.isEmpty,
@@ -279,7 +282,9 @@ struct WorkflowApplicationMigrationVerificationV4:
             throw WorkflowApplicationQueueErrorV4
                 .publicationVerificationInvalid
         }
-        schemaVersion = Self.currentSchemaVersion
+        schemaVersion = aacGaplessMetadataTranslation == nil
+            ? Self.currentSchemaVersion : Self.translatedMetadataSchemaVersion
+        self.aacGaplessMetadataTranslation = aacGaplessMetadataTranslation
         self.sourceGraphSHA256 = sourceGraphSHA256
         self.trackPlanSHA256 = trackPlanSHA256
         self.blueprintSHA256 = blueprintSHA256
@@ -290,6 +295,24 @@ struct WorkflowApplicationMigrationVerificationV4:
         self.outputGraphSHA256 = outputGraphSHA256
         self.semanticReportSHA256 = semanticReportSHA256
         self.trackResults = sorted
+        guard try metadataIsConformant() else {
+            throw WorkflowApplicationQueueErrorV4.publicationVerificationInvalid
+        }
+    }
+
+    func metadataIsConformant() throws -> Bool {
+        if schemaVersion == Self.currentSchemaVersion {
+            return aacGaplessMetadataTranslation == nil
+                && sourceAssetMetadataSHA256 == outputAssetMetadataSHA256
+        }
+        guard schemaVersion == Self.translatedMetadataSchemaVersion,
+              let translation = aacGaplessMetadataTranslation else { return false }
+        try translation.validate()
+        return translation.identifiedPlan.planSHA256 == trackPlanSHA256
+            && translation.identifiedPlan.plan.sourceGraphSHA256 == sourceGraphSHA256
+            && translation.sourceAssetMetadataSHA256 == sourceAssetMetadataSHA256
+            && translation.outputAssetMetadataSHA256 == outputAssetMetadataSHA256
+            && trackResults.contains(where: { $0.trackID == translation.trackID && $0.action == .transcode })
     }
 
     init(_ result: AVFoundationTrackMigrationExecutionResultV4) throws {
@@ -312,7 +335,8 @@ struct WorkflowApplicationMigrationVerificationV4:
             outputChapterMetadataSHA256: result.outputChapterMetadataSHA256,
             outputGraphSHA256: outputGraphSHA256,
             semanticReportSHA256: reportSHA256,
-            trackResults: result.trackResults
+            trackResults: result.trackResults,
+            aacGaplessMetadataTranslation: result.aacGaplessMetadataTranslation
         )
     }
 }
@@ -1960,6 +1984,18 @@ private struct WorkflowApplicationOutputContractMaterialV4:
         outputCodec = request.outputCodec
         preserveAudio = request.preserveAudio
     }
+
+    init(ashPlanSHA256: ASHSHA256V4, trackPlanSHA256: ASHSHA256V4,
+         encodedFormatDescriptor: MediaTrackFormatDescriptorV4, request: UpscaleRequest) {
+        schemaVersion = Self.currentSchemaVersion
+        self.ashPlanSHA256 = ashPlanSHA256
+        self.trackPlanSHA256 = trackPlanSHA256
+        self.encodedFormatDescriptor = encodedFormatDescriptor
+        targetWidth = request.targetWidth
+        targetHeight = request.targetHeight
+        outputCodec = request.outputCodec
+        preserveAudio = request.preserveAudio
+    }
 }
 
 private struct WorkflowApplicationMediaContractMaterialV4:
@@ -2902,16 +2938,27 @@ extension WorkflowApplicationQueueV4 {
         _ intent: WorkflowApplicationPublicationIntentV4,
         finalized: WorkflowApplicationFinalizedOutputV4,
         activated: WorkflowActivatedUpscaleRequestV4
-    ) throws -> WorkflowApplicationPublicationStageV4 {
+    ) async throws -> WorkflowApplicationPublicationStageV4 {
         try activated.revalidateAll()
         let urls = try publicationURLs(intent: intent, activated: activated)
         guard finalized.destinationURL.standardizedFileURL == urls.staging else {
             throw WorkflowApplicationQueueErrorV4
                 .publicationBindingMismatch(intent.jobID)
         }
+        let translationFile: WorkflowApplicationPublicationFileV4?
+        if finalized.verification.aacGaplessMetadataTranslation != nil {
+            translationFile = try observePublicationFile(at: urls.staging)
+            try await verifyPublicationAACTranslation(finalized.verification,
+                activated: activated, outputURL: urls.staging)
+        } else { translationFile = nil }
         let result = try fileSystem.withExclusiveLock(
             at: publicationLockURL(jobID: intent.jobID)
         ) { transaction in
+            if let translationFile {
+                guard try observePublicationFile(at: urls.staging) == translationFile else {
+                    throw WorkflowApplicationQueueErrorV4.publicationVerificationInvalid
+                }
+            }
             let state = try requirePublicationState(
                 intent: intent,
                 transaction: transaction
@@ -2957,9 +3004,22 @@ extension WorkflowApplicationQueueV4 {
     func publishApplicationStagedOutput(
         _ intent: WorkflowApplicationPublicationIntentV4,
         activated: WorkflowActivatedUpscaleRequestV4
-    ) throws -> WorkflowApplicationPublicationReceiptV4 {
+    ) async throws -> WorkflowApplicationPublicationReceiptV4 {
         try activated.revalidateAll()
         let urls = try publicationURLs(intent: intent, activated: activated)
+        let checkedTranslationStage: WorkflowApplicationPublicationStageV4?
+        if let stage = try applicationPublicationState(jobID: intent.jobID)?.stage,
+           stage.body.migrationVerification.aacGaplessMetadataTranslation != nil {
+            let outputURL: URL
+            if try observePublicationFileIfPresent(at: urls.staging) == stage.body.stagedFile {
+                outputURL = urls.staging
+            } else if try observePublicationFileIfPresent(at: urls.final) == stage.body.stagedFile {
+                outputURL = urls.final
+            } else { throw WorkflowApplicationQueueErrorV4.publicationVerificationInvalid }
+            try await verifyPublicationAACTranslation(stage.body.migrationVerification,
+                activated: activated, outputURL: outputURL)
+            checkedTranslationStage = stage
+        } else { checkedTranslationStage = nil }
         let result = try fileSystem.withExclusiveLock(
             at: publicationLockURL(jobID: intent.jobID)
         ) { transaction in
@@ -2970,6 +3030,10 @@ extension WorkflowApplicationQueueV4 {
             guard let stage = state.stage else {
                 throw WorkflowApplicationQueueErrorV4
                     .publicationStageMissing(intent.jobID)
+            }
+            guard stage.body.migrationVerification.aacGaplessMetadataTranslation == nil
+                    || checkedTranslationStage == stage else {
+                throw WorkflowApplicationQueueErrorV4.publicationVerificationInvalid
             }
             if let receipt = state.receipt {
                 let final = try observePublicationFile(at: urls.final)
@@ -4582,6 +4646,40 @@ private extension WorkflowApplicationQueueV4 {
         )
     }
 
+    func verifyPublicationAACTranslation(
+        _ verification: WorkflowApplicationMigrationVerificationV4,
+        activated: WorkflowActivatedUpscaleRequestV4,
+        outputURL: URL
+    ) async throws {
+        guard try verification.metadataIsConformant(),
+              let translation = verification.aacGaplessMetadataTranslation,
+              activated.request.preserveAudio else {
+            throw WorkflowApplicationQueueErrorV4.publicationVerificationInvalid
+        }
+        let processedVideo = translation.identifiedPlan.plan.tracks.filter {
+            $0.source.kind == .video && $0.action == .process
+        }
+        guard processedVideo.count == 1,
+              let formats = processedVideo.first?.expectedOutput?.formatDescriptors,
+              formats.count == 1, let format = formats.first else {
+            throw WorkflowApplicationQueueErrorV4.publicationVerificationInvalid
+        }
+        let material = try WorkflowApplicationOutputContractMaterialV4(
+            ashPlanSHA256: ASHSHA256V4(activated.preparedPlanBinding.planID.rawValue),
+            trackPlanSHA256: translation.identifiedPlan.planSHA256,
+            encodedFormatDescriptor: format, request: activated.request)
+        let observedContract = try WorkflowOutputContractID(
+            WorkflowV4Validation.domainSeparatedSHA256(
+                domain: "Mirmir.WorkflowApplication.OutputContract.v1\0",
+                data: codec.canonicalData(material)))
+        guard observedContract == activated.preparedPlanBinding.outputContractID else {
+            throw WorkflowApplicationQueueErrorV4.publicationVerificationInvalid
+        }
+        try await translation.verifyMetadata(sourceURL: activated.request.inputURL,
+            outputURL: outputURL)
+        try activated.revalidateAll()
+    }
+
     func verifyPublicationIntent(
         _ intent: WorkflowApplicationPublicationIntentV4,
         specification: WorkflowJobSpecification,
@@ -4728,11 +4826,7 @@ private extension WorkflowApplicationQueueV4 {
                             .currentSchemaVersion,
                       decoded.body.intentHash == intent.bodyHash,
                       decoded.body.jobBinding == intent.body.jobBinding,
-                      verification.schemaVersion
-                        == WorkflowApplicationMigrationVerificationV4
-                            .currentSchemaVersion,
-                      verification.sourceAssetMetadataSHA256
-                        == verification.outputAssetMetadataSHA256,
+                      try verification.metadataIsConformant(),
                       verification.sourceChapterMetadataSHA256
                         == verification.outputChapterMetadataSHA256,
                       decoded.body.stagedFile.byteCount > 0,

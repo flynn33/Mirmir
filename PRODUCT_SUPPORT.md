@@ -1,8 +1,15 @@
 # Mirmir product support
 
-Current source identity: **Mirmir 1.7.2 (20)**. Release clearance remains on hold; see
-[the current QA record](docs/FINAL_QA_2026-10-24.md). The runtime source-identity
-check now passes. This does not establish packaged release qualification.
+Current source identity: **Mirmir 1.7.2 (20)**. Release clearance remains on hold;
+see [the current continuation](docs/QA_FOLLOWUP_2026-10-25.md). The completed
+runtime8 native baseline passes all selected non-UI suites: Release 745, Debug
+750, Rosetta 745 and macOS 15.4 745, each with zero failures and 13 opt-in skips.
+All 404 Python checks and the local universal archive audit pass. The runtime7
+fresh 90-minute production export passes full independent frame, exact-clock
+and byte-exact audio verification. Additional targeted oracles found chroma
+calibration and physical alignment defects; their fixes, broad-format
+integration and richer audio/metadata handling remain unfinished. These suite
+passes do not qualify those features or authorize release.
 The historical October 7, 2026 readback verifies the signed universal
 **1.7.0 (17)** repair installed and launched, with its exact executable,
 strict signature, native About

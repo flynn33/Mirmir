@@ -1185,7 +1185,7 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         )
         XCTAssertEqual(
             execution.receipt.hdr10PlusPreservation.rewrittenSampleCount,
-            0
+            TrackMigrationFixtureFactoryV4.hdrBoundaryFrameCount
         )
         XCTAssertEqual(
             execution.receipt.hdr10PlusPreservation.timelineMappingSHA256,
@@ -8519,6 +8519,9 @@ private enum TrackMigrationFixtureFactoryV4 {
                     ?? "HDR boundary writer did not finish."
             )
         }
+        try await AVFoundationHDRMetadataAdapterV4.finalizeEncodedHDRMetadata(
+            at: url, expectedByTrackOrdinal: [0: metadata]
+        )
     }
 
     private static func requireHDRBoundaryDecodedP010Legal(
@@ -8756,29 +8759,23 @@ private enum TrackMigrationFixtureFactoryV4 {
         let stagedURL = stagingRoot.appendingPathComponent("payload.mov")
         var published = false
         do {
-            if #available(macOS 26.0, *) {
-                do {
-                    try buildHDRBoundaryMutableMovie(
-                        videoAsset: videoAsset,
-                        sourceVideo: sourceVideo,
-                        videoFormat: videoFormat,
-                        sourceAudio: sourceAudio,
-                        audioRange: audioRange,
-                        outputURL: stagedURL,
-                        primaryStart: primaryStart,
-                        hdr10Plus: hdr10Plus
-                    )
-                } catch let fixtureError as TrackMigrationFixtureErrorV4 {
-                    throw fixtureError
-                } catch {
-                    throw TrackMigrationFixtureErrorV4.writer(
-                        "HDR boundary mutable-movie construction failed: "
-                            + diagnosticErrorChain(error)
-                    )
-                }
-            } else {
-                throw TrackMigrationFixtureErrorV4.invalidFixture(
-                    "HDR boundary mutable-movie fixture requires macOS 26."
+            do {
+                try buildHDRBoundaryMutableMovie(
+                    videoAsset: videoAsset,
+                    sourceVideo: sourceVideo,
+                    videoFormat: videoFormat,
+                    sourceAudio: sourceAudio,
+                    audioRange: audioRange,
+                    outputURL: stagedURL,
+                    primaryStart: primaryStart,
+                    hdr10Plus: hdr10Plus
+                )
+            } catch let fixtureError as TrackMigrationFixtureErrorV4 {
+                throw fixtureError
+            } catch {
+                throw TrackMigrationFixtureErrorV4.writer(
+                    "HDR boundary mutable-movie construction failed: "
+                        + diagnosticErrorChain(error)
                 )
             }
             try FileManager.default.setAttributes(
@@ -8835,7 +8832,6 @@ private enum TrackMigrationFixtureFactoryV4 {
         }
     }
 
-    @available(macOS 26.0, *)
     private static func buildHDRBoundaryMutableMovie(
         videoAsset: AVAsset,
         sourceVideo: AVAssetTrack,
@@ -8941,12 +8937,23 @@ private enum TrackMigrationFixtureFactoryV4 {
             } else {
                 expectedPresentation = expectedDecode
             }
-            let ready = CMReadySampleBuffer<CMSampleBuffer.DynamicContent>(
-                unsafeBuffer: rewritten.sampleBuffer
-            )
             let appended: (decodeTime: CMTime, presentationTime: CMTime)
             do {
-                appended = try destinationVideo.append(ready)
+                if #available(macOS 26.0, *) {
+                    let ready = CMReadySampleBuffer<CMSampleBuffer.DynamicContent>(
+                        unsafeBuffer: rewritten.sampleBuffer
+                    )
+                    appended = try destinationVideo.append(ready)
+                } else {
+                    var decode = CMTime.invalid
+                    var presentation = CMTime.invalid
+                    try destinationVideo.append(
+                        rewritten.sampleBuffer,
+                        decodeTime: &decode,
+                        presentationTime: &presentation
+                    )
+                    appended = (decode, presentation)
+                }
             } catch {
                 throw TrackMigrationFixtureErrorV4.writer(
                     "HDR boundary mutable-movie append failed at ordinal "
@@ -9053,7 +9060,6 @@ private enum TrackMigrationFixtureFactoryV4 {
         try requireOwnedMode(url, mode: 0o600)
     }
 
-    @available(macOS 26.0, *)
     private static func requireHDRBoundaryStorageBinding(
         movie: AVMutableMovie,
         track: AVMutableMovieTrack,

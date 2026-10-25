@@ -63,6 +63,7 @@ struct DeterministicV4PreparedAssetPlan: Sendable {
                 preparedBackend: backend,
                 writerOutputSettings: writerContract.outputSettings,
                 declaredOutputFormats: [encodedFormatDescriptor],
+                outputHDRMetadata: writerContract.hdrMetadata,
                 nominalSourceFrameDuration: nominalSourceFrameDuration,
                 outputPreferredTransform:
                     writerContract.geometry.avPreferredTransform,

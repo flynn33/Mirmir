@@ -17,22 +17,70 @@ These are required implementation repairs, not accepted format limitations.
 The reported error-11 incident remains open; improved logging does not
 establish a causal repair. See [the QA report](docs/FINAL_QA_2026-10-24.md).
 
-Updated for Mirmir 1.7.2 build 20 on October 24, 2026. These entries distinguish
+Updated for Mirmir 1.7.2 build 20 on October 25, 2026. These entries distinguish
 source repair from installed-product and full-media qualification. The historical
 October 7 readback confirms the signed **1.7.0 (17)** repair installed and
 launched, with the native About version/build and idle Metal route verified.
 The earlier October 7 1.6.0 (16) and October 6 1.5.0 (15) checks are historical.
 
-## QA-003 — Feature-length PCM finalization performance
+## QA-003 — Feature-length PCM finalization
 
-**Status:** Local repair passes affected/full suites; fresh feature-length output pending.
+**Status:** Repaired and qualified in the runtime7 snapshot.
 
-The new 90-minute AVI test exposed per-PCM-frame SHA hexadecimal formatting as
-the dominant sampled finalization cost. The repair retains exact fingerprints
-while replacing Foundation formatting and batching one bounded canonical record
-per hash update. Full Release/Debug/Rosetta suites and the universal archive pass.
-The preserved source5 run and fresh repaired source6 workflow are still active;
-full output verification and end-to-end timing are not yet established.
+The 90-minute AVI test exposed excessive per-frame hash formatting, then a
+1,036,800,020-byte explicit PCM size table that FFmpeg rejected. A separate
+defect truncated the test's source inventory at rounded global asset duration.
+The PCM helper retains payload, timing and attachment identity while expressing
+constant sizes once. The fresh runtime7 complete workflow passes independent
+full decoding: all 129,600 pictures at exact 24 fps and all 259,200,000 PCM16
+frames match the source; its size table is 20 bytes. This does not qualify 4K
+throughput or later source changes. See [the continuation](docs/QA_FOLLOWUP_2026-10-25.md).
+
+## QA-004 — Minimum macOS HDR ambient metadata
+
+**Status:** Repaired and qualified in the runtime7 snapshot.
+
+On macOS 15.4, PQ lost requested ambient metadata and HLG invented/replaced it.
+Cross-reading and physical HEVC/container inspection confirmed incorrect output
+bytes. The format-header repair preserves encoded samples, decoded pixels and
+strict metadata checks. Focused 43/43 tests pass on host and guest; the complete
+runtime7 minimum-OS suite passes 720 tests with zero failures and 13 opt-in skips.
+
+## QA-005 — Native iTunes metadata and H.264 wrapper verification
+
+**Status:** Single-audio repairs pass the frozen runtime8 native baseline;
+multiple-audio technical metadata remains unfinished.
+
+Native MOV/MP4/M4V export loses iTunes gapless metadata, and macOS 15.4 also loses
+a custom freeform note. Exact restoration must account for changed AAC priming
+when transcoding; blindly restoring the old technical value changes decoded
+audio. Typed translation and durable queue replay pass focused tests and the
+complete runtime8 host/minimum-OS suites. A separate
+H.264 wrapper-only stream mismatch has seven passing regressions on arm64 and
+Rosetta. Multiple-audio controls expose contradictory global gapless-hint
+semantics: neither blindly restoring the old tag nor deriving it from the last
+track preserves all consumer clocks and copied audio. No general repair has
+been integrated. These findings do not establish the cause
+of customer error 11. See [the continuation](docs/QA_FOLLOWUP_2026-10-25.md).
+
+## QA-006 — Chroma calibration, interpretation and physical alignment
+
+**Status:** Reproduced after the full native baseline suites; private repairs
+under qualification. These are release blockers.
+
+Actual Center H.264/HEVC jobs complete frame processing then fail final format
+verification because calibration encoded an untagged synthetic Left frame.
+The private Center fix alone exposes a silent TopLeft declaration regression:
+CoreMedia labels physical H.264 SPS location 2 as Center. The isolated encoder
+correctly writes TopLeft; authenticated source interpretation needs correction.
+
+An independent physical-coordinate oracle also shows that the current scaler
+shifts Left chroma relative to luma by 0.5 output luma pixels at 2× and 1.5 at 4×.
+CPU and the actual verified P06 Metal library agree on the incorrect geometry.
+Siting-aware UV coordinates and decoded-boundary metadata are being corrected
+privately; matching backend bytes alone does not qualify physical alignment.
+See [the continuation](docs/QA_FOLLOWUP_2026-10-25.md) for exact evidence and
+additional odd raw-carrier edge corruption found during broad-format work.
 
 ## MEDIA-001 — MP4 raw chapter list rejected during MOV finalization
 

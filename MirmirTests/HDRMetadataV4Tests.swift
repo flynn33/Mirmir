@@ -959,6 +959,180 @@ final class HDRMetadataV4Tests: XCTestCase {
         )
     }
 
+    func testEncodedAmbientCorrectionRetainsParameterSetsAndUnknownAtoms() throws {
+        let expected = try makeFormatMetadata(transfer: .pq)
+        let configuration = encodedAmbientBaseConfiguration()
+        let format = try encodedAmbientFormat(
+            metadata: expected, configuration: configuration,
+            ambient: nil
+        )
+        let corrected = try XCTUnwrap(
+            AVFoundationHDRMetadataAdapterV4.correctingEncodedAmbientEnvironment(
+                in: format, expected: expected
+            )
+        )
+        XCTAssertEqual(try AVFoundationHDRMetadataAdapterV4.probe(
+            formatDescription: corrected, decodedStorage: .p010VideoRange10Bit
+        ), expected)
+        let extensions = try XCTUnwrap(
+            CMFormatDescriptionGetExtensions(corrected) as NSDictionary?
+        )
+        let atoms = try XCTUnwrap(extensions[
+            kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms
+        ] as? NSDictionary)
+        XCTAssertEqual(atoms["test"] as? Data, Data([9, 8, 7, 6]))
+        let changed = try XCTUnwrap(atoms["hvcC"] as? Data)
+        XCTAssertEqual(Data(changed.prefix(22)), Data(configuration.prefix(22)))
+        XCTAssertEqual(changed[22], 4)
+        XCTAssertEqual(
+            Data(changed[23..<(23 + configuration.count - 23)]),
+            Data(configuration.dropFirst(23))
+        )
+        XCTAssertNil(try AVFoundationHDRMetadataAdapterV4
+            .correctingEncodedAmbientEnvironment(in: corrected, expected: expected))
+    }
+
+    func testEncodedAmbientCorrectionRemovesInventedDefaultAndPreservesOtherSEI()
+        throws {
+        let expected = try makeFormatMetadata(transfer: .hlg)
+        let wrong = try AmbientViewingEnvironmentV4(
+            ambientIlluminance: 3_140_000,
+            ambientLight: HDRChromaticityV4(x: 15_635, y: 16_450, label: "ambient")
+        )
+        let retained = Data([5, 4, 1, 2, 3, 4])
+        let mixed = makePrefixSEINAL(
+            messages: retained + Data([148, 8]) + wrong.payload
+        )
+        let sourceConfiguration = ambientConfiguration(appending: [mixed])
+        let source = try encodedAmbientFormat(
+            metadata: expected, configuration: sourceConfiguration,
+            ambient: wrong.payload
+        )
+        let corrected = try XCTUnwrap(
+            AVFoundationHDRMetadataAdapterV4.correctingEncodedAmbientEnvironment(
+                in: source, expected: expected
+            )
+        )
+        let extensions = try XCTUnwrap(
+            CMFormatDescriptionGetExtensions(corrected) as NSDictionary?
+        )
+        let atoms = try XCTUnwrap(extensions[
+            kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms
+        ] as? NSDictionary)
+        let ambient = try XCTUnwrap(
+            expected.staticMetadata.ambientViewingEnvironment?.payload
+        )
+        XCTAssertEqual(atoms["hvcC"] as? Data, ambientConfiguration(appending: [
+            makePrefixSEINAL(messages: retained),
+            makePrefixSEINAL(messages: Data([148, 8]) + ambient)
+        ]))
+
+        let absent = HDRFormatMetadataV4(
+            signal: expected.signal,
+            staticMetadata: HDRStaticMetadataV4(
+                masteringDisplayColorVolume: expected.staticMetadata.masteringDisplayColorVolume,
+                contentLightLevelInfo: expected.staticMetadata.contentLightLevelInfo,
+                ambientViewingEnvironment: nil
+            )
+        )
+        let removed = try XCTUnwrap(
+            AVFoundationHDRMetadataAdapterV4.correctingEncodedAmbientEnvironment(
+                in: source, expected: absent
+            )
+        )
+        XCTAssertEqual(try AVFoundationHDRMetadataAdapterV4.probe(
+            formatDescription: removed, decodedStorage: .p010VideoRange10Bit
+        ), absent)
+        XCTAssertNil(try AVFoundationHDRMetadataAdapterV4
+            .correctingEncodedAmbientEnvironment(in: removed, expected: absent))
+    }
+
+    func testEncodedAmbientCorrectionRejectsMalformedConfigurationAndOtherHDRChanges()
+        throws {
+        let expected = try makeFormatMetadata(transfer: .pq)
+        let configuration = encodedAmbientBaseConfiguration()
+        for length in 0..<configuration.count {
+            let format = try encodedAmbientFormat(
+                metadata: expected,
+                configuration: Data(configuration.prefix(length)), ambient: nil
+            )
+            XCTAssertThrowsError(try AVFoundationHDRMetadataAdapterV4
+                .correctingEncodedAmbientEnvironment(in: format, expected: expected),
+                "truncation \(length)")
+        }
+        let malformedSEI = makePrefixSEINAL(messages: Data([148, 7, 1, 2, 3, 4, 5, 6, 7]))
+        let format = try encodedAmbientFormat(
+            metadata: expected,
+            configuration: ambientConfiguration(appending: [malformedSEI]),
+            ambient: nil
+        )
+        XCTAssertThrowsError(try AVFoundationHDRMetadataAdapterV4
+            .correctingEncodedAmbientEnvironment(in: format, expected: expected))
+        let contradictory = HDRFormatMetadataV4(
+            signal: expected.signal,
+            staticMetadata: HDRStaticMetadataV4(
+                masteringDisplayColorVolume: nil,
+                contentLightLevelInfo: expected.staticMetadata.contentLightLevelInfo,
+                ambientViewingEnvironment: expected.staticMetadata.ambientViewingEnvironment
+            )
+        )
+        let otherMetadata = try encodedAmbientFormat(
+            metadata: contradictory, configuration: configuration, ambient: nil
+        )
+        XCTAssertThrowsError(try AVFoundationHDRMetadataAdapterV4
+            .correctingEncodedAmbientEnvironment(in: otherMetadata, expected: expected))
+        XCTAssertThrowsError(try AVFoundationHDRMetadataAdapterV4
+            .correctingEncodedAmbientEnvironment(
+                in: makeFormatDescription(metadata: expected), expected: expected
+            ))
+    }
+
+    private func encodedAmbientBaseConfiguration() -> Data {
+        // Real Main10 VPS/SPS/PPS from the retained minimum-OS control fixture.
+        let hex = "010220000000b000000000001ef000fcfdfafa00000b03a00001001840010c01ffff022000000300b0000003000003001e15c090a100010025420101022000000300b0000003000003001ea0142041c18c4b62057b916558735091009008a2000100084401c02cb8d45364"
+        var bytes = Data()
+        var index = hex.startIndex
+        while index < hex.endIndex {
+            let next = hex.index(index, offsetBy: 2)
+            bytes.append(UInt8(hex[index..<next], radix: 16)!)
+            index = next
+        }
+        return bytes
+    }
+
+    private func ambientConfiguration(appending nals: [Data]) -> Data {
+        var configuration = encodedAmbientBaseConfiguration()
+        configuration[22] = 4
+        configuration.append(0xA7)
+        configuration.append(UInt8(nals.count >> 8))
+        configuration.append(UInt8(nals.count & 255))
+        for nal in nals {
+            configuration.append(UInt8(nal.count >> 8))
+            configuration.append(UInt8(nal.count & 255))
+            configuration.append(nal)
+        }
+        return configuration
+    }
+
+    private func encodedAmbientFormat(
+        metadata: HDRFormatMetadataV4, configuration: Data, ambient: Data?
+    ) throws -> CMFormatDescription {
+        var extensions = AVFoundationHDRMetadataAdapterV4
+            .formatDescriptionExtensions(for: metadata)
+        extensions[kCMFormatDescriptionExtension_AmbientViewingEnvironment] = ambient
+        extensions[kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms] = [
+            "hvcC": configuration, "test": Data([9, 8, 7, 6])
+        ]
+        var format: CMVideoFormatDescription?
+        let status = CMVideoFormatDescriptionCreate(
+            allocator: kCFAllocatorDefault, codecType: kCMVideoCodecType_HEVC,
+            width: 64, height: 48, extensions: extensions as CFDictionary,
+            formatDescriptionOut: &format
+        )
+        XCTAssertEqual(status, noErr)
+        return try XCTUnwrap(format)
+    }
+
     private func makeFormatMetadata(
         transfer: HDRTransferFunctionV4
     ) throws -> HDRFormatMetadataV4 {

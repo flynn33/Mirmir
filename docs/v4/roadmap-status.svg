@@ -105,6 +105,6 @@
   <text class="gate-name" x="950" y="516">Evidence</text>
   <text class="gate-value" x="950" y="540">independent replay · PASSED</text>
 </g>
-  <text class="footer" x="44" y="591">Selected candidate_v4 · simulation source ce780af87107 · verified October 24, 2026</text>
+  <text class="footer" x="44" y="591">Selected candidate_v4 · simulation source ce780af87107 · verified October 25, 2026</text>
   <text class="footer" x="1156" y="591" text-anchor="end">Simulator only · no hardware/notarization/shipping/distribution</text>
 </svg>

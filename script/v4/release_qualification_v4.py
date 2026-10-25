@@ -8104,6 +8104,16 @@ def validate_contract(value: Any) -> dict[str, Any]:
             set(source_keys),
             role,
         )
+    require_integer(
+        contract.get("p06ProductionSourceCount"),
+        "release contract.p06ProductionSourceCount",
+        1,
+    )
+    require_hex(
+        contract.get("p06ProductionSourceManifestSHA256"),
+        64,
+        "release contract.p06ProductionSourceManifestSHA256",
+    )
     coverage = [
         require_string(value, f"mediaPreservationCoverage[{index}]")
         for index, value in enumerate(

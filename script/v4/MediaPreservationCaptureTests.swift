@@ -559,6 +559,9 @@ final class DeterministicEngineV4MediaPreservationCaptureTests: XCTestCase {
                     ?? "status=\(writer.status.rawValue)")
             )
         }
+        try await AVFoundationHDRMetadataAdapterV4.finalizeEncodedHDRMetadata(
+            at: url, expectedByTrackOrdinal: [0: formatMetadata]
+        )
     }
 
     private func remuxHDR10PlusPrefixSEI(
@@ -1210,6 +1213,9 @@ private extension TrackMigrationFixtureFactoryV4 {
                     ?? "Composite auxiliary writer did not finish."
             )
         }
+        try await AVFoundationHDRMetadataAdapterV4.finalizeEncodedHDRMetadata(
+            at: url, expectedByTrackOrdinal: [0: formatMetadata]
+        )
     }
 
     static func makeVideoWithLegibleMovie(at url: URL) async throws {

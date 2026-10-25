@@ -573,6 +573,8 @@ enum ASHP06LockedPerformanceGateV4 {
 /// records the exact natural sources, decoder, construction procedure, case
 /// inventory, and resulting artifact-set identity.
 enum ASHP06LockedNaturalQualityEvidenceV4 {
+    static let captureSourceRevision =
+        "47219b17961551230eec5203db470d166e205a7f"
     static let corpusID = "ash-v4-seven-cohort-locked-natural-v1"
     static let manifestByteCount: Int64 = 192_662
     static let manifestSHA256 = try! ASHSHA256V4(
@@ -1377,34 +1379,100 @@ enum ASHP06CanonicalRuntimeArtifactsV4 {
 
     static func validateLockedRepositoryInputs(
         repositoryRoot: URL,
+        historicalNaturalQualityCapture: Data? = nil,
         fileManager: FileManager = .default
     ) throws {
         let identities = try ASHP06LockedPerformanceGateV4.allLockedFiles
             + ASHP06LockedNaturalQualityEvidenceV4.allLockedFiles
             + ASHP06FixedPointSourceIdentityV4.allLockedFiles
             + [ASHP06VerificationSourceIdentityV4.executionPlan()]
+        let captureIdentity = try ASHP06LockedNaturalQualityEvidenceV4.captureImplementation()
         for identity in identities {
             let url = repositoryRoot.appendingPathComponent(
                 identity.repositoryRelativePath,
                 isDirectory: false
             )
-            let values = try url.resourceValues(
-                forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]
-            )
-            guard values.isRegularFile == true,
-                  values.isSymbolicLink != true,
-                  Int64(values.fileSize ?? -1) == identity.byteCount else {
-                throw ASHP06RuntimeBundleV4Error.invalidBuildInput(
-                    "locked input size/type mismatch: \(identity.repositoryRelativePath)"
-                )
-            }
-            let data = try Data(contentsOf: url, options: .mappedIfSafe)
-            guard ASHSHA256V4(rawData: data) == identity.contentSHA256 else {
-                throw ASHP06RuntimeBundleV4Error.invalidBuildInput(
-                    "locked input hash mismatch: \(identity.repositoryRelativePath)"
-                )
-            }
+            let historical = identity == captureIdentity
+                ? historicalNaturalQualityCapture : nil
+            try validateLockedRepositoryInput(identity, at: url, historical: historical)
         }
+    }
+
+    static func validateLockedRepositoryInput(
+        _ identity: ASHP06LockedFileIdentityV4,
+        at url: URL,
+        historical: Data? = nil
+    ) throws {
+        var inspectedURL = url
+        inspectedURL.removeAllCachedResourceValues()
+        let values = try inspectedURL.resourceValues(
+            forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]
+        )
+        guard values.isRegularFile == true, values.isSymbolicLink != true,
+              historical != nil || Int64(values.fileSize ?? -1) == identity.byteCount else {
+            throw ASHP06RuntimeBundleV4Error.invalidBuildInput(
+                "locked input size/type mismatch: \(identity.repositoryRelativePath)"
+            )
+        }
+        let data = try historical ?? Data(contentsOf: url, options: .mappedIfSafe)
+        guard Int64(data.count) == identity.byteCount else {
+            throw ASHP06RuntimeBundleV4Error.invalidBuildInput(
+                "locked input size/type mismatch: \(identity.repositoryRelativePath)"
+            )
+        }
+        guard ASHSHA256V4(rawData: data) == identity.contentSHA256 else {
+            throw ASHP06RuntimeBundleV4Error.invalidBuildInput(
+                "locked input hash mismatch: \(identity.repositoryRelativePath)"
+            )
+        }
+    }
+
+    /// Reads immutable evidence from its original commit while the production
+    /// source manifest continues to describe the current working source.
+    static func historicalLockedRepositoryInput(
+        _ identity: ASHP06LockedFileIdentityV4,
+        repositoryRoot: URL,
+        revision: String,
+        gitExecutable: URL = URL(fileURLWithPath: "/usr/bin/git")
+    ) throws -> Data {
+        func failure() -> ASHP06RuntimeBundleV4Error {
+            .invalidBuildInput("historical locked input unavailable or invalid: \(identity.repositoryRelativePath)")
+        }
+        guard revision.utf8.count == 40,
+              revision.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
+              !identity.repositoryRelativePath.hasPrefix("/"),
+              !identity.repositoryRelativePath.split(separator: "/").contains("..") else { throw failure() }
+        func git(_ arguments: [String]) throws -> Data {
+            let process = Process()
+            process.executableURL = gitExecutable
+            process.currentDirectoryURL = repositoryRoot
+            process.arguments = ["--no-replace-objects"] + arguments
+            let output = Pipe()
+            process.standardOutput = output
+            process.standardError = FileHandle.nullDevice
+            do { try process.run() } catch { throw failure() }
+            let data = output.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            guard process.terminationReason == .exit, process.terminationStatus == 0 else { throw failure() }
+            return data
+        }
+        let listing = try git(["ls-tree", "-z", revision, "--", identity.repositoryRelativePath])
+        let records = listing.split(separator: 0)
+        guard records.count == 1, let record = String(data: Data(records[0]), encoding: .utf8) else { throw failure() }
+        let fields = record.split(separator: "\t", omittingEmptySubsequences: false)
+        guard fields.count == 2, fields[1] == identity.repositoryRelativePath else { throw failure() }
+        let object = fields[0].split(separator: " ")
+        guard object.count == 3, ["100644", "100755"].contains(String(object[0])), object[1] == "blob",
+              object[2].utf8.count == 40,
+              object[2].utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else { throw failure() }
+        let blob = String(object[2])
+        let size = try git(["cat-file", "-s", blob])
+        guard Int64(String(decoding: size, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
+                == identity.byteCount else { throw failure() }
+        let data = try git(["cat-file", "blob", blob])
+        guard Int64(data.count) == identity.byteCount,
+              ASHSHA256V4(rawData: data) == identity.contentSHA256 else { throw failure() }
+        return data
     }
 
     private static func input<T: Encodable>(

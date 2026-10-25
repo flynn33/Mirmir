@@ -1,23 +1,34 @@
 # Deterministic engine v4 current qualification status
 
-Verified October 24, 2026.
+Verified October 25, 2026.
 
-The verified date covers the source-closure check and current native/Python QA.
-Release clearance remains on hold.
-Current source: **1.7.2 build 20**.
+**Release remains blocked.**
+Current source candidate: **1.7.2 build 20**.
 
-Native Debug passed 675 tests; the final native Release suite passed 674, and
-verified x86-64 Release passed 673. All have zero failures and 13 opt-in skips.
-Final affected-area reruns pass 51 tests each in Debug and x86-64 Release. All
-389 distinct Python tests have passing results after reviewed binding updates.
-Three fresh multitrack exports pass independent full-decode/audio/chapter checks.
-UI testing is excluded by the owner. Additional opt-in results and
-remaining release gates are recorded separately. See [the current QA record](../FINAL_QA_2026-10-24.md)
-for candidate tests and remaining release checks. The current P06 source closure
-passes after a reproducible rebuild. An October 24 x86-64 reproduction and
-writer-only pacing control isolated arrival-sensitive H.264 B-frame decisions.
-The new fixed ordering policy and regression results are documented in current
-QA; historical captures retain their original status and identity.
+The frozen runtime8 native baseline passes 745 native Release, 750 Debug, 745
+Rosetta and 745 macOS 15.4 non-UI tests, each with zero failures and 13 opt-in
+skips. All 404 Python checks and a local universal archive audit pass. The
+minimum-OS HDR repair passes strict metadata verification. The runtime7 fresh
+90-minute AVI workflow retains every original frame ordinal at exact 24 fps and
+all 259,200,000 PCM16 frames byte-for-byte; the PCM size table is 20 bytes.
+
+That baseline includes native freeform metadata, single-audio AAC gapless
+translation, H.264 wrapper and durable receipt repairs, with reproduced source
+bindings. Additional targeted checks found Center chroma calibration failure,
+Left chroma misalignment and a CoreMedia H.264 TopLeft interpretation mismatch.
+Those repairs remain private and under qualification. Private broad-format
+workflows do not establish packaged production support; depth/alpha, odd-raster
+delivery and richer track handling remain unfinished. The reported error-11
+cause remains unknown and requires investigation.
+
+See [the October 25 continuation](../QA_FOLLOWUP_2026-10-25.md) and
+[the full QA record](../FINAL_QA_2026-10-24.md). UI testing is excluded by the
+owner. Fresh Apple model network acquisition passed on a separate macOS 26 VM;
+subsequent native session creation failed with -19730 and zero processed frames.
+Physical macOS 26 quality processing, physical Intel, Store-installed behavior,
+feature-length 4K input/throughput and current sealed aggregate qualification
+remain unverified. A fresh 90-minute UHD-output job is running from a 160×96
+source. No publication or release is authorized.
 
 ## Historical October 16 window-lifecycle verification
 

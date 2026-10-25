@@ -789,6 +789,8 @@ struct DeterministicV4MediaExecutionReceiptV4: Codable, Equatable, Hashable,
     Sendable {
     static let currentSchemaID =
         "ash.deterministic-media-execution-receipt.v4.3"
+    static let translatedMetadataSchemaID =
+        "ash.deterministic-media-execution-receipt.v4.4"
 
     let schemaID: String
     let preparedBackendType: String
@@ -804,6 +806,7 @@ struct DeterministicV4MediaExecutionReceiptV4: Codable, Equatable, Hashable,
     let migrationPlanSHA256: ASHSHA256V4
     let migrationBlueprintSHA256: ASHSHA256V4
     let sourceAssetMetadataSHA256: ASHSHA256V4
+    let aacGaplessMetadataTranslation: AACGaplessMetadataTranslationV4?
     let outputAssetMetadataSHA256: ASHSHA256V4
     let sourceChapterMetadataSHA256: ASHSHA256V4
     let outputChapterMetadataSHA256: ASHSHA256V4
@@ -908,7 +911,17 @@ struct DeterministicV4MediaExecutionReceiptV4: Codable, Equatable, Hashable,
         }
         let enabledTracks = preparedPlan.sourceGraph.tracks.filter(\.enabled)
 
-        schemaID = Self.currentSchemaID
+        if let translation = migration.aacGaplessMetadataTranslation {
+            try translation.validate()
+            guard translation.identifiedPlan == preparedPlan.trackPlan,
+                  translation.sourceAssetMetadataSHA256 == migration.sourceAssetMetadataSHA256,
+                  translation.outputAssetMetadataSHA256 == migration.outputAssetMetadataSHA256 else {
+                throw DeterministicV4MediaExecutionReceiptError.semanticVerificationIdentityMismatch
+            }
+        }
+        schemaID = migration.aacGaplessMetadataTranslation == nil
+            ? Self.currentSchemaID : Self.translatedMetadataSchemaID
+        aacGaplessMetadataTranslation = migration.aacGaplessMetadataTranslation
         preparedBackendType = String(reflecting: type(of: preparedBackend))
         executor = preparedBackend.deterministicExecutor
         requestedBackendID = request.backendID
@@ -2401,6 +2414,12 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                 throw DeterministicV4MediaSegmentError.writerFailed
             }
             reader.cancelReading()
+            if case .opaque(let contract) = preparedPlan.videoDelivery {
+                try await contract.finalizeEncodedMetadata(
+                    at: segmentURL,
+                    cancellation: { try cancellation.check() }
+                )
+            }
 
             try decodedDurationLedger?.seal()
             let sealedHDRLedger = try await hdrLedger.seal(

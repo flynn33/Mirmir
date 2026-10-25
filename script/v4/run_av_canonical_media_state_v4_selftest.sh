@@ -22,6 +22,8 @@ xcrun swiftc \
     "$repo_root/Mirmir/MediaIO/NativeAVIMPEG4PresentationOrderV4.swift" \
     "$repo_root/Mirmir/MediaIO/NativeMediaInputAssetResolverV4.swift" \
     "$repo_root/Mirmir/MediaIO/NativeMediaInputVerificationV4.swift" \
+    "$repo_root/Mirmir/MediaIO/UniformPCMSampleBufferV4.swift" \
+    "$repo_root/Mirmir/MediaIO/MOViTunesGaplessMetadataV4.swift" \
     "$repo_root/script/v4/AVCanonicalMediaStateAdapterV4SelfTestMain.swift"
 
 "$test_root/av-canonical-media-state-v4-selftest"

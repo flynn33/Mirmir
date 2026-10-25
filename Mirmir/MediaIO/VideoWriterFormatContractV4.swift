@@ -544,6 +544,28 @@ struct VideoWriterFormatContractV4: Hashable, Sendable {
         )
     }
 
+    var hdrMetadata: HDRFormatMetadataV4? {
+        guard codec == .hevc, case .hdr(let metadata) = color else {
+            return nil
+        }
+        return metadata
+    }
+
+    /// Completes the encoded HDR contract after AVAssetWriter finishes, before
+    /// the caller's strict reopened-format verification and atomic publication.
+    func finalizeEncodedMetadata(
+        at url: URL,
+        trackOrdinal: Int = 0,
+        cancellation: () throws -> Void = {}
+    ) async throws {
+        guard let metadata = hdrMetadata else { return }
+        try await AVFoundationHDRMetadataAdapterV4.finalizeEncodedHDRMetadata(
+            at: url,
+            expectedByTrackOrdinal: [trackOrdinal: metadata],
+            cancellation: cancellation
+        )
+    }
+
     func verifyReopenedFormat(
         _ formatDescription: CMFormatDescription,
         preferredTransform: CGAffineTransform

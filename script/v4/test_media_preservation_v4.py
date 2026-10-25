@@ -87,7 +87,8 @@ def hdr_attachment(transfer: str, dynamic: list[dict[str, object]] | None = None
 
 
 class MediaRouteFixture:
-    def __init__(self, fixture_id: str = "rich-track-graph") -> None:
+    def __init__(self, fixture_id: str = "rich-track-graph", *,
+                 with_audio: bool = False) -> None:
         self.fixture_id = fixture_id
         self.runtime_manifest = identity("runtime-manifest")
         self.runtime_provenance = identity("runtime-provenance")
@@ -266,6 +267,33 @@ class MediaRouteFixture:
                     for index, alpha_sha in enumerate(alpha_frames)
                 ],
             }
+        if with_audio:
+            audio_id = "ash.media.track.audio.00000001.fixture"
+            audio_track = {"ordinal": 1, "stableID": audio_id,
+                           "kind": "audio", "enabled": True}
+            self.input_track[1] = audio_track
+            self.output_track[1] = copy.deepcopy(audio_track)
+            for side in ("input", "output"):
+                self.observations[side + "TrackObservation"]["enabledTrackCount"] = 2
+                self.observations[side + "Timing"][1] = copy.deepcopy(
+                    self.observations[side + "Timing"][0]
+                )
+                self.observations[side + "Attachments"][1] = {
+                    "alphaAssociation": None, "dynamicHDRSamples": []
+                }
+            audio_row = {"ordinal": 1, "stableID": audio_id,
+                         "kind": "audio", "action": "pass_through"}
+            for document in (self.preflight, self.receipt):
+                document["sourceAudioTrackCount"] = 1
+                document["plannedEnabledTrackCount"] = 2
+                document["plannedTracks"].append(copy.deepcopy(audio_row))
+            self.receipt["migratedTracks"].append({
+                "stableID": audio_id, "action": "pass_through",
+                "migratedSampleCount": 2,
+                "sourceSampleStreamSHA256": identity("audio-stream"),
+                "outputSampleStreamSHA256": identity("audio-stream"),
+            })
+
         self.route = {
             "schemaVersion": media.ROUTE_SCHEMA,
             "entryPoint":
@@ -290,8 +318,10 @@ class MediaRouteFixture:
             "repeatIndependentPreflight": copy.deepcopy(self.preflight),
             "executionReceipt": copy.deepcopy(self.receipt),
             "repeatExecutionReceipt": copy.deepcopy(self.receipt),
-            "inputEnabledTrackCount": 1,
-            "outputEnabledTrackCount": 1,
+            "inputEnabledTrackCount": self.observations[
+                "inputTrackObservation"]["enabledTrackCount"],
+            "outputEnabledTrackCount": self.observations[
+                "outputTrackObservation"]["enabledTrackCount"],
         }
         self.reseal()
 
@@ -406,6 +436,43 @@ class MediaPreservationV2Tests(unittest.TestCase):
     def testExactOpaqueFixtureRoutePasses(self) -> None:
         fixture = MediaRouteFixture()
         self.assertEqual(fixture.validate(), fixture.route["routeProofSHA256"])
+
+    def testGaplessTranslationCannotAuthorizeLockedAudioTranscode(self) -> None:
+        fixture = MediaRouteFixture(with_audio=True)
+        self.assertEqual(fixture.validate(), fixture.route["routeProofSHA256"])
+        audio = next(row for row in fixture.preflight["plannedTracks"]
+                     if row["kind"] == "audio")
+        for key in ("independentPreflight", "repeatIndependentPreflight",
+                    "executionReceipt", "repeatExecutionReceipt"):
+            next(row for row in fixture.route[key]["plannedTracks"]
+                 if row["stableID"] == audio["stableID"])["action"] = "transcode"
+        for key in ("executionReceipt", "repeatExecutionReceipt"):
+            receipt = fixture.route[key]
+            receipt["schemaID"] = "ash.deterministic-media-execution-receipt.v4.4"
+            next(row for row in receipt["migratedTracks"]
+                 if row["stableID"] == audio["stableID"])["action"] = "transcode"
+        fixture.reseal()
+        with self.assertRaisesRegex(media.EvidenceError, "planned actions differ"):
+            fixture.validate()
+
+    def testLockedLegacyReceiptRejectsGaplessExtensionAndNewSchema(self) -> None:
+        variants = [
+            (media.EXECUTION_RECEIPT_SCHEMA, True, None),
+            (media.EXECUTION_RECEIPT_SCHEMA, True, {}),
+            ("ash.deterministic-media-execution-receipt.v4.4", False, None),
+        ]
+        for schema, has_extension, extension in variants:
+            with self.subTest(schema=schema, extension=extension):
+                fixture = MediaRouteFixture()
+                self.assertEqual(fixture.validate(), fixture.route["routeProofSHA256"])
+                for key in ("executionReceipt", "repeatExecutionReceipt"):
+                    receipt = fixture.route[key]
+                    receipt["schemaID"] = schema
+                    if has_extension:
+                        receipt["aacGaplessMetadataTranslation"] = extension
+                fixture.reseal()
+                with self.assertRaises(media.EvidenceError):
+                    fixture.validate()
 
     def testExactAlphaFixtureRoutePasses(self) -> None:
         fixture = MediaRouteFixture("combined-alpha-geometry-straight")

@@ -307,12 +307,13 @@
     "videoToolboxCoverageGap": "native supported 4x Quality and 2x Low Latency exports passed; unsupported configurations still tested"
   },
   "openGates": [
-    "Customer error 11 domain, source, and triggering configuration remain unknown; no production reproduction",
-    "Universal-format claim is not established: import uses AVFoundation and explicit route contracts",
-    "Minimum macOS 15.4 and physical Intel hardware are untested; Rosetta is translated execution",
-    "Fresh Apple model network acquisition was not forced because the model was already Ready; application download lifecycle is tested with injected outcomes",
-    "Historical complete-checkpoint replay lacks an intact source snapshot; fresh durable export and saved assembly are tested",
-    "Feature-length throughput, isolated performance, sealed aggregate qualification, App Store export/upload and installed Store validation are not established"
+    "Owner/customer error-11 incident remains an open release blocker; exact triggering path has not been established",
+    "Required production broad-format importer/decoder/timing and preservation integration is unfinished; private15-workflow successes do not establish packaged product support, and RGB/depth/alpha/track boundary defects need repair",
+    "Runtime7 full non-UI Release/Debug/Rosetta/macOS15.4 suites pass; newer native metadata, AAC translation, H264 wrapper and queue receipt repairs require fresh combined qualification",
+    "Physical Intel and actual Store-installed distribution remain unverified",
+    "Fresh Apple model network acquisition remains unverified; injected lifecycle tests and an already-Ready model are separate",
+    "Historical complete-checkpoint replay requires an intact original source snapshot; fresh resume and saved assembly are separate",
+    "Feature-length4K throughput, isolated whole-movie performance and current sealed aggregate qualification remain unverified; the fresh runtime7 90-minute small-raster workflow is fully decoded and passes"
   ],
   "productionBuild": {
     "architectures": "x86_64 arm64",
@@ -351,7 +352,7 @@
     "tests": 389,
     "unresolvedFailures": 0
   },
-  "qaStatus": "passed_on_available_host_with_explicit_unverified_gates",
+  "qaStatus": "release_blocked",
   "releaseQualified": false,
   "runtime": {
     "builderSourceSHA256": "40aad241a07eda3f63919eed2b126eb7dc62777be9bd6520cf2b5a3c824c6dc9",
@@ -1853,5 +1854,22 @@
     "allDistinctPythonTestsHavePassingResults": 397,
     "featureLengthAVI": "Source5 slow run retained; fresh repaired source6 run active. No completed output at this checkpoint.",
     "reportedCustomerError11": "Open; this PCM performance defect does not establish its cause."
+  },
+  "october25Followup": {
+    "report": "docs/QA_FOLLOWUP_2026-10-25.md",
+    "results": "docs/qa-followup-2026-10-25-results.json",
+    "status": "release_blocked",
+    "nativeBaseline": "runtime8",
+    "passed": {
+      "release": 745,
+      "debug": 750,
+      "rosetta": 745,
+      "minimumOS": 745
+    },
+    "failed": 0,
+    "optInSkipsEach": 13,
+    "pythonTestsPassed": 404,
+    "targetedAdditionalChromaDefectsRemain": true,
+    "allFeaturesQualified": false
   }
 }

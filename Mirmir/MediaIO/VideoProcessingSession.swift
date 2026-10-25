@@ -925,7 +925,8 @@ private extension VideoProcessingSession {
                     writer: writer,
                     cancellation: cancellation
                 )
-                guard path.input.append(sample) else {
+                let writerSample = try UniformPCMSampleBufferV4.compactingSizes(in: sample)
+                guard path.input.append(writerSample) else {
                     throw MirmirError.writerFailed(
                         writer.error?.localizedDescription
                             ?? "the writer rejected an audio sample"

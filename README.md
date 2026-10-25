@@ -10,17 +10,23 @@ The AVI repair preserves original packet bytes and exact audio while deriving
 H.264 presentation order from its bitstream. Both tested AVI cases complete
 real CPU and Metal upscales with independent picture-order, clock and audio checks.
 
-**Release remains blocked.** Common input formats still fail, and the reported
-error-11 incident has no verified causal repair. The current all-feature QA goal
-remains active. The current full suites pass 714 Release, 719 Debug and 714
-Rosetta tests, with zero failures. The complete format gate passes 16 of 28
-workflows; six inputs still fail on both backends. A fresh 90-minute AVI job
-exposed slow PCM finalization. Its exact-byte repair passes the full suites,
-and a separate feature-length output check is underway. All 397 Python tests
-have passing results.
-See [`docs/FINAL_QA_2026-10-24.md`](docs/FINAL_QA_2026-10-24.md) for exact
-found/fixed/not-fixed outcomes and the scope of each checkpoint. UI testing is
-excluded by the owner. Source and wiki changes remain local; no release is authorized.
+**Release remains blocked.** Common input integration is unfinished, and the
+reported error-11 incident has no verified causal repair. The all-feature QA
+goal remains active. The frozen runtime8 native baseline passes 745 Release,
+750 Debug, 745 Rosetta and 745 macOS 15.4 non-UI tests, with zero failures and
+13 opt-in skips in each. Its 404 Python checks and local universal archive
+audit pass. The runtime7 fresh 90-minute AVI export retains all 129,600 frames
+and 259,200,000 audio samples, independently decoded and verified; the PCM size
+table is 20 bytes. The minimum-OS HDR repair also passes.
+
+Additional media oracles found native chroma calibration and physical chroma
+alignment defects outside those suites. Their repairs remain private and under
+test. A private broad-format importer completes additional workflows, but
+production integration, packaging and further depth/alpha/track work remain
+unfinished. See [the October 25
+follow-up](docs/QA_FOLLOWUP_2026-10-25.md) for found/fixed/not-fixed results and
+specific unverified features. UI testing is excluded by the owner. Source and
+wiki changes remain local; no release is authorized.
 
 Mirmir includes explicit deterministic CPU/Metal processing, supported Apple
 scaling frameworks, durable queues and recovery, independent comparison

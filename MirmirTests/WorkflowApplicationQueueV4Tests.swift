@@ -2613,6 +2613,141 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         }
     }
 
+    func testAACMetadataTranslationPublicationRecoversAndReplaysAfterRelaunch()
+        async throws {
+        for name in ["priming1024.mov", "leading-empty.mov", "internal-empty.mov"] {
+            let media = try await nativeAACPublicationMedia(name)
+            let context = try await makeTerminalPublicationContext(
+                sourceData: media.sourceData, preparedPlanBinding: media.binding,
+                targetWidth: media.width, targetHeight: media.height, outputCodec: .h264
+            )
+            defer { context.activated.close() }
+            let intent = try await context.queue.prepareApplicationPublication(
+                activated: context.activated, checkpoint: context.checkpoint
+            )
+            let staging = try await context.queue.applicationPublicationStagingURL(
+                intent, activated: context.activated
+            )
+            try FileManager.default.copyItem(at: media.result.destinationURL, to: staging)
+            let verification = try WorkflowApplicationMigrationVerificationV4(media.result)
+            XCTAssertEqual(verification.schemaVersion, 2)
+            XCTAssertTrue(try verification.metadataIsConformant())
+            XCTAssertNotEqual(verification.sourceAssetMetadataSHA256, verification.outputAssetMetadataSHA256)
+            _ = try await context.queue.recordApplicationStagedPublication(
+                intent, finalized: .init(destinationURL: staging, verification: verification),
+                activated: context.activated
+            )
+            await context.queue.injectProcessTerminationAfterApplicationPublicationRename()
+            do {
+                _ = try await context.queue.publishApplicationStagedOutput(intent, activated: context.activated)
+                XCTFail("Expected termination after the durable rename: \(name)")
+            } catch WorkflowApplicationQueueErrorV4.injectedPublicationTermination { }
+            context.activated.close()
+
+            let relaunched = try makeQueue(
+                fixture: context.fixture, resolver: context.resolver,
+                workerID: "application-worker-aac-metadata-replay"
+            )
+            let activation = await relaunched.activate(jobID: intent.jobID)
+            guard case .active(let activated) = activation else {
+                return XCTFail("Unable to reactivate translated publication: \(name)")
+            }
+            defer { activated.close() }
+            let recovered = try await relaunched.publishApplicationStagedOutput(intent, activated: activated)
+            let replayed = try await relaunched.publishApplicationStagedOutput(intent, activated: activated)
+            XCTAssertEqual(recovered, replayed)
+            XCTAssertTrue(try Data(contentsOf: context.outputURL) == Data(contentsOf: media.result.destinationURL))
+            XCTAssertFalse(staging.fileExists)
+            let state = try await relaunched.applicationPublicationState(jobID: intent.jobID)
+            XCTAssertTrue(state?.isPublished == true)
+            let proof = try XCTUnwrap(verification.aacGaplessMetadataTranslation)
+            try await proof.verifyMetadata(sourceURL: activated.request.inputURL, outputURL: context.outputURL)
+        }
+    }
+
+    func testAACMetadataTranslationRejectsRehashedPublicationForgeries()
+        async throws {
+        let media = try await nativeAACPublicationMedia("priming1024.mov")
+        let context = try await makeTerminalPublicationContext(
+            sourceData: media.sourceData, preparedPlanBinding: media.binding,
+            targetWidth: media.width, targetHeight: media.height, outputCodec: .h264
+        )
+        defer { context.activated.close() }
+        let intent = try await context.queue.prepareApplicationPublication(
+            activated: context.activated, checkpoint: context.checkpoint
+        )
+        let staging = try await context.queue.applicationPublicationStagingURL(intent, activated: context.activated)
+        try FileManager.default.copyItem(at: media.result.destinationURL, to: staging)
+        let verification = try WorkflowApplicationMigrationVerificationV4(media.result)
+        _ = try await context.queue.recordApplicationStagedPublication(
+            intent, finalized: .init(destinationURL: staging, verification: verification), activated: context.activated
+        )
+        let record = context.fixture.storeURL.appendingPathComponent("jobs")
+            .appendingPathComponent(intent.jobID.rawValue).appendingPathComponent("application-request-v4")
+            .appendingPathComponent("publication-v4").appendingPathComponent("publication-stage-v1.json")
+        let original = try Data(contentsOf: record)
+        let zero = String(repeating: "0", count: 64)
+        typealias Mutation = (inout [String: Any], inout [String: Any]) -> Void
+        let forgedPlan = try await nativeAACPublicationAlternatePlan(
+            media.result, sourceURL: context.activated.request.inputURL
+        )
+        let planObject = try JSONSerialization.jsonObject(with: JSONEncoder().encode(forgedPlan))
+        let changes: [(String, Mutation)] = [
+            ("version1-with-translation", { v, _ in v["schemaVersion"] = 1 }),
+            ("version2-without-proof", { v, _ in v.removeValue(forKey: "aacGaplessMetadataTranslation") }),
+            ("wrong-output-track", { _, p in p["outputTrackOrdinal"] = 0 }),
+            ("wrong-valid-frame-count", { _, p in p["validFrameCount"] = 143999 }),
+            ("stale-source-hint", { _, p in p["outputValue"] = p["sourceValue"] }),
+            ("wrong-source-entry-digest", { _, p in p["sourceEntrySHA256"] = zero }),
+            ("wrong-output-entry-digest", { _, p in p["outputEntrySHA256"] = zero }),
+            ("wrong-output-payload-digest", { _, p in p["encodedAudioPayloadSHA256"] = zero }),
+            ("rebound-source-metadata-digest", { v, p in
+                v["sourceAssetMetadataSHA256"] = zero; p["sourceAssetMetadataSHA256"] = zero
+            }),
+            ("rebound-output-metadata-digest", { v, p in
+                v["outputAssetMetadataSHA256"] = zero; p["outputAssetMetadataSHA256"] = zero
+            }),
+            ("valid-replanned-video-format", { v, p in
+                p["identifiedPlan"] = planObject; v["trackPlanSHA256"] = forgedPlan.planSHA256.rawValue
+            })
+        ]
+        for (name, mutate) in changes {
+            var document = try XCTUnwrap(try JSONSerialization.jsonObject(with: original) as? [String: Any])
+            var body = try XCTUnwrap(document["body"] as? [String: Any])
+            var changed = try XCTUnwrap(body["migrationVerification"] as? [String: Any])
+            var proof = try XCTUnwrap(changed["aacGaplessMetadataTranslation"] as? [String: Any])
+            mutate(&changed, &proof)
+            if changed["aacGaplessMetadataTranslation"] != nil { changed["aacGaplessMetadataTranslation"] = proof }
+            if name == "valid-replanned-video-format" {
+                let candidate = try JSONDecoder().decode(WorkflowApplicationMigrationVerificationV4.self,
+                    from: JSONSerialization.data(withJSONObject: changed, options: [.sortedKeys, .withoutEscapingSlashes]))
+                XCTAssertTrue(try candidate.metadataIsConformant(), "The forged plan is internally valid; its frozen request binding must reject it")
+            }
+            body["migrationVerification"] = changed
+            let bytes = try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys, .withoutEscapingSlashes])
+            document["body"] = body
+            document["bodyHash"] = WorkflowV4Validation.domainSeparatedSHA256(
+                domain: "Mirmir.WorkflowApplication.PublicationStage.v1\u{0}", data: bytes
+            )
+            try JSONSerialization.data(withJSONObject: document, options: [.sortedKeys, .withoutEscapingSlashes])
+                .write(to: record, options: .atomic)
+            do {
+                _ = try await context.queue.publishApplicationStagedOutput(intent, activated: context.activated)
+                XCTFail("Rehashed AAC publication forgery accepted: \(name)")
+            } catch let error as WorkflowApplicationQueueErrorV4 {
+                XCTAssertTrue(error == .publicationDocumentCorrupt(intent.jobID)
+                    || error == .publicationVerificationInvalid, "\(name): \(error)")
+            } catch let error as AACGaplessMetadataTranslationV4.Failure {
+                XCTAssertTrue(error == .outputMismatch || error == .metadataMismatch, "\(name): \(error)")
+            }
+            XCTAssertFalse(context.outputURL.fileExists, name)
+            XCTAssertEqual(try Data(contentsOf: staging), try Data(contentsOf: media.result.destinationURL), name)
+            try original.write(to: record, options: .atomic)
+        }
+        _ = try await context.queue.publishApplicationStagedOutput(intent, activated: context.activated)
+        XCTAssertTrue(context.outputURL.fileExists)
+    }
+
     func testPublicationCanonicalRecordTamperingFailsClosed() async throws {
         let context = try await makeTerminalPublicationContext()
         defer { context.activated.close() }
@@ -2991,6 +3126,36 @@ final class WorkflowApplicationQueueV4Tests: XCTestCase {
         XCTAssertTrue(resumedRecorder.snapshot.progressActivityCounts.allSatisfy { $0 > 0 })
         XCTAssertTrue(resumedRecorder.snapshot.progressPhases.contains(.finalizing))
         XCTAssertTrue(resumedRecorder.snapshot.progressPhases.contains(.completed))
+    }
+
+    func testAudioInventoryReadsExactTrackEndBeyondRoundedAVIAssetDuration() async throws {
+        let bundled = try XCTUnwrap(Bundle(for: Self.self).url(
+            forResource: "native-avi-mpeg4", withExtension: "avi"
+        ))
+        let fixture = try makeFixture(inputFileName: "short-header.avi")
+        var bytes = try Data(contentsOf: bundled)
+        let mainHeader = try XCTUnwrap(bytes.range(of: Data("avih".utf8)))
+        let microsecondsOffset = mainHeader.lowerBound + 8
+        // Change only the imprecise global estimate: stream clocks and the
+        // complete three-second audio payload remain the original fixture.
+        let microseconds: UInt32 = 40_000
+        withUnsafeBytes(of: microseconds.littleEndian) {
+            bytes.replaceSubrange(microsecondsOffset..<(microsecondsOffset + 4), with: $0)
+        }
+        try bytes.write(to: fixture.inputURL)
+        let asset = AVURLAsset(url: fixture.inputURL)
+        let duration = try await asset.load(.duration)
+        XCTAssertEqual(CMTimeCompare(duration, CMTime(value: 72, timescale: 25)), 0)
+        let tracks = try await asset.loadTracks(withMediaType: .audio)
+        let track = try XCTUnwrap(tracks.first)
+        let range = try await track.load(.timeRange)
+        XCTAssertEqual(CMTimeCompare(range.end, CMTime(value: 3, timescale: 1)), 0)
+        let inventory = try await decodedAudioInventory(url: fixture.inputURL)
+        XCTAssertEqual(inventory.count, 1)
+        XCTAssertEqual(inventory.first?.frameCount, 144_000)
+        XCTAssertEqual(inventory.first?.byteCount, 576_000)
+        let originalInventory = try await decodedAudioInventory(url: bundled)
+        XCTAssertEqual(inventory, originalInventory)
     }
 
     func testAVIPauseResumeRecreatesClearedDerivedInputForCPUAndMetal()
@@ -4554,6 +4719,9 @@ private extension WorkflowApplicationQueueV4Tests {
         var result: [DecodedAudioInventory] = []
         for track in try await asset.loadTracks(withMediaType: .audio) {
             let reader = try AVAssetReader(asset: asset)
+            // AVI's rounded asset duration can stop a default reader before
+            // the exact audio track end, making a complete export look short.
+            reader.timeRange = try await track.load(.timeRange)
             let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
                 AVFormatIDKey: kAudioFormatLinearPCM,
                 AVLinearPCMBitDepthKey: 32,
@@ -4909,12 +5077,14 @@ private extension WorkflowApplicationQueueV4Tests {
         )
     }
 
-    func preparedBinding() throws -> WorkflowVerifiedPreparedPlanBindingV4 {
+    func preparedBinding(
+        outputContractID: WorkflowOutputContractID? = nil
+    ) throws -> WorkflowVerifiedPreparedPlanBindingV4 {
         try WorkflowVerifiedPreparedPlanBindingV4(
             sourceIdentityID: WorkflowSourceIdentityID(
                 workflowApplicationDigest(1)
             ),
-            outputContractID: WorkflowOutputContractID(
+            outputContractID: try outputContractID ?? WorkflowOutputContractID(
                 workflowApplicationDigest(2)
             ),
             runtimeManifestID: WorkflowRuntimeManifestID(
@@ -4930,12 +5100,25 @@ private extension WorkflowApplicationQueueV4Tests {
         )
     }
 
-    func makeTerminalPublicationContext() async throws -> PublicationContext {
+    func makeTerminalPublicationContext(
+        sourceData: Data? = nil,
+        preparedPlanBinding: WorkflowVerifiedPreparedPlanBindingV4? = nil,
+        targetWidth: Int = 1_920,
+        targetHeight: Int = 1_080,
+        outputCodec: OutputCodec = .hevc
+    ) async throws -> PublicationContext {
         let fixture = try makeFixture()
+        if let sourceData { try sourceData.write(to: fixture.inputURL) }
         let resolver = WorkflowApplicationBookmarkResolverStubV4()
         let queue = try makeQueue(fixture: fixture, resolver: resolver)
-        let requested = request(fixture: fixture)
-        let binding = try preparedBinding()
+        let requested = UpscaleRequest(
+            inputURL: fixture.inputURL,
+            outputURL: fixture.outputDirectoryURL.appendingPathComponent("upscaled.mov"),
+            backendID: .mirmirDeterministicCPU,
+            targetWidth: targetWidth, targetHeight: targetHeight,
+            outputCodec: outputCodec, preserveAudio: true, overwriteExistingFile: true
+        )
+        let binding = try preparedPlanBinding ?? preparedBinding()
         let enqueued = try await queue.enqueue(
             request: requested,
             preparedPlanBinding: binding
@@ -5036,6 +5219,98 @@ private extension WorkflowApplicationQueueV4Tests {
             checkpoint: checkpoint,
             outputURL: requested.outputURL
         )
+    }
+
+    struct NativeAACPublicationMedia {
+        let sourceData: Data
+        let result: AVFoundationTrackMigrationExecutionResultV4
+        let binding: WorkflowVerifiedPreparedPlanBindingV4
+        let width: Int
+        let height: Int
+    }
+
+    struct NativeAACPublicationOutputMaterial: Encodable {
+        let schemaVersion: UInt16 = 1
+        let ashPlanSHA256: ASHSHA256V4
+        let trackPlanSHA256: ASHSHA256V4
+        let encodedFormatDescriptor: MediaTrackFormatDescriptorV4
+        let targetWidth: Int
+        let targetHeight: Int
+        let outputCodec: OutputCodec = .h264
+        let preserveAudio = true
+    }
+
+    func nativeAACPublicationMedia(_ name: String) async throws -> NativeAACPublicationMedia {
+        let folder = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "NativeAACMetadata", withExtension: nil))
+        let source = folder.appendingPathComponent(name)
+        let asset = AVURLAsset(url: source)
+        let graph = try await AVFoundationTrackGraphAdapterV4.probe(asset: asset)
+        let video = try XCTUnwrap(graph.tracks.first { $0.kind == .video })
+        let audio = try XCTUnwrap(graph.tracks.first { $0.kind == .audio })
+        let format = try XCTUnwrap(video.formatDescriptors.first)
+        let raster = try XCTUnwrap(format.videoRaster)
+        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+        let calibration = try await AVFoundationAACFormatCalibratorV4().calibrate(
+            asset: asset, track: XCTUnwrap(audioTracks.first), trackID: audio.identity.stableID
+        )
+        let plan = try MediaTrackGraphPlannerV4.makePlan(source: graph, request: .init(trackDirectives: [
+            .init(trackID: video.identity.stableID, action: .process,
+                  targetFormatDescriptors: video.formatDescriptors, dropConsent: nil),
+            .init(trackID: audio.identity.stableID, action: .transcode,
+                  targetFormatDescriptors: [calibration.targetFormat], dropConsent: nil)
+        ])).applyingTranscodePrimingDurations([audio.identity.stableID: calibration.encoderPrimingDuration])
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("mirmir-queue-aac-v2-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let replacement = directory.appendingPathComponent("video-replacement.mov")
+        try FileManager.default.copyItem(at: source, to: replacement)
+        let replacementMovie = AVMutableMovie(url: replacement)
+        let replacementTracks = try await replacementMovie.load(.tracks)
+        for track in replacementTracks where track.mediaType != .video {
+            replacementMovie.removeTrack(track)
+        }
+        try replacementMovie.writeHeader(to: replacement, fileType: .mov, options: .addMovieHeaderToDestination)
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(.init(
+            sourceURL: source, destinationURL: directory.appendingPathComponent("output.mov"), sourceGraph: graph,
+            identifiedPlan: plan, blueprint: AVFoundationTrackMigrationPlannerV4.makeBlueprint(source: graph, plan: plan),
+            nonVideoTranscodeHooks: [calibration.hook],
+            processedVideoReplacement: .init(trackID: video.identity.stableID, sourceURL: replacement)
+        ))
+        XCTAssertNotNil(result.aacGaplessMetadataTranslation)
+        let baseBinding = try preparedBinding()
+        let material = try NativeAACPublicationOutputMaterial(
+            ashPlanSHA256: ASHSHA256V4(baseBinding.planID.rawValue), trackPlanSHA256: plan.planSHA256,
+            encodedFormatDescriptor: format, targetWidth: Int(raster.width), targetHeight: Int(raster.height)
+        )
+        let outputContract = try WorkflowOutputContractID(WorkflowV4Validation.domainSeparatedSHA256(
+            domain: "Mirmir.WorkflowApplication.OutputContract.v1\u{0}",
+            data: WorkflowCanonicalCodec().canonicalData(material)
+        ))
+        return try NativeAACPublicationMedia(sourceData: Data(contentsOf: source), result: result,
+            binding: preparedBinding(outputContractID: outputContract), width: Int(raster.width), height: Int(raster.height))
+    }
+
+    func nativeAACPublicationAlternatePlan(
+        _ result: AVFoundationTrackMigrationExecutionResultV4,
+        sourceURL: URL
+    ) async throws -> MediaTrackGraphIdentifiedPlanV4 {
+        let proof = try XCTUnwrap(result.aacGaplessMetadataTranslation)
+        let graph = try await AVFoundationTrackGraphAdapterV4.probe(asset: AVURLAsset(url: sourceURL))
+        let video = try XCTUnwrap(graph.tracks.first { $0.kind == .video })
+        let audio = try XCTUnwrap(proof.identifiedPlan.plan.tracks.first { $0.source.kind == .audio })
+        let format = try XCTUnwrap(video.formatDescriptors.first)
+        let target = try MediaTrackFormatDescriptorV4(ordinal: format.ordinal, mediaTypeID: format.mediaTypeID,
+            mediaSubtypeID: format.mediaSubtypeID, canonicalFingerprint: ASHSHA256V4(workflowApplicationDigest(60)),
+            completeness: format.completeness, videoRaster: format.videoRaster)
+        let plan = try MediaTrackGraphPlannerV4.makePlan(source: graph, request: .init(trackDirectives: [
+            .init(trackID: video.identity.stableID, action: .process, targetFormatDescriptors: [target], dropConsent: nil),
+            .init(trackID: audio.source.identity.stableID, action: .transcode,
+                  targetFormatDescriptors: XCTUnwrap(audio.expectedOutput).formatDescriptors, dropConsent: nil)
+        ])).applyingTranscodePrimingDurations([
+            audio.source.identity.stableID: ExactRationalV4(Int64(proof.encoderPrimingFrameCount), Int64(proof.sampleRate))
+        ])
+        try plan.verify()
+        return plan
     }
 
     func publicationVerification()

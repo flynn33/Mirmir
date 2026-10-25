@@ -921,6 +921,7 @@ private struct MirmirPackagedMediaPreflightV4: Codable, Equatable,
               preparedBackendType == expectedType,
               receipt.schemaID
                 == DeterministicV4MediaExecutionReceiptV4.currentSchemaID,
+              receipt.aacGaplessMetadataTranslation == nil,
               receipt.preparedBackendType == preparedBackendType,
               receipt.executor == executor,
               receipt.requestedBackendID == requestedBackendID,

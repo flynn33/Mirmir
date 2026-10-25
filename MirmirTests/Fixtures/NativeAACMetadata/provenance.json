@@ -1,0 +1,68 @@
+{
+  "origin": "Synthetic testsrc2 video and 431 Hz mono sine, FFmpeg 8.1.2 H264/AAC; user title/comment and iTunes freeform controls inserted into existing ilst. Leading/internal edit controls retain original encoded media.",
+  "sourceAACPrimingFrames": 1024,
+  "sourceAACPacketCount": 142,
+  "sourceAACFramesPerPacket": 1024,
+  "sourceAACValidFrames": 144000,
+  "sourceAACRemainderFrames": 384,
+  "sampleRate": 48000,
+  "fixtures": [
+    {
+      "file": "priming1024.mov",
+      "SHA256": "e9e12390704a8c6ac310fda6ede67aec8515bbb968c7f440e4c6e2f30dd9d48f",
+      "bytes": 97602
+    },
+    {
+      "file": "priming1024.mp4",
+      "SHA256": "59637795f218b1bed022310a1e51fda869895f882ba46309c8bef2552437c2e5",
+      "bytes": 97497
+    },
+    {
+      "file": "priming1024.m4v",
+      "SHA256": "d1d92c12a6df7206949cf77600090d8cc868dd96ef8c3403f306a5b9c2452d92",
+      "bytes": 97479
+    },
+    {
+      "file": "leading-empty.mov",
+      "SHA256": "5004f12d55ca61d7fe00f1eb572246be2944b5b3d4aa27fc4159fb1ea998139d",
+      "bytes": 97614
+    },
+    {
+      "file": "internal-empty.mov",
+      "SHA256": "da8199ff153bc3d4c31de7e34b729df7d94fa8205eb0030e7e8fd629a22a6ba1",
+      "bytes": 97626
+    },
+    {
+      "file": "audio-longer.mov",
+      "SHA256": "21daa83c7810d46b8ff9b48ece3ce2fd11587e6b80bf434a6dd81d5cbc47f98a",
+      "bytes": 121397,
+      "sourceAACPrimingFrames": 1024,
+      "sourceAACPacketCount": 189,
+      "sourceAACValidFrames": 192000,
+      "sourceAACRemainderFrames": 512,
+      "videoDurationSeconds": 3,
+      "audioDurationSeconds": 4
+    },
+    {
+      "file": "no-smpb.mov",
+      "SHA256": "40acf39aece1a5602067a3c7ea3e5e583422eeb1af672ad7ce10c4a2c1806350",
+      "bytes": 97414,
+      "iTunesSMPB": "absent",
+      "customUserNote": "present"
+    },
+    {
+      "file": "no-smpb.mp4",
+      "SHA256": "cd36b8c97f3863787be31f2e5f4b51c3b9e838340e0f9452a1f1eb6bd64dc705",
+      "bytes": 97309,
+      "iTunesSMPB": "absent",
+      "customUserNote": "present"
+    },
+    {
+      "file": "no-smpb.m4v",
+      "SHA256": "47b616ed5e51f1f9b449bc608ca49f25b25e2f9fc36359b0c0662862da64cb75",
+      "bytes": 97291,
+      "iTunesSMPB": "absent",
+      "customUserNote": "present"
+    }
+  ]
+}
