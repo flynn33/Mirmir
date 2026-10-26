@@ -122,6 +122,182 @@ struct VideoProcessingSession: Sendable {
                 progress: progress
             ).result
         }
+        return try await processConventionalWholeAsset(
+            request: request, source: source, preparedBackend: preparedBackend,
+            cancellation: cancellation, progress: progress
+        )
+    }
+
+    private func processConventionalWholeAsset(
+        request: UpscaleRequest,
+        source: VideoInfo,
+        preparedBackend: any PreparedFrameUpscaler,
+        cancellation: ProcessingCancellation,
+        progress: @escaping ProgressHandler
+    ) async throws -> UpscaleResult {
+        let startedAt = Date()
+        // The primary encode remains a registered sibling artifact until the
+        // existing whole-asset executor has migrated and verified every lane.
+        let primaryArtifact = try AtomicOutputFile(
+            finalURL: request.outputURL,
+            overwriteExistingFile: request.overwriteExistingFile
+        )
+        defer { primaryArtifact.discard() }
+        let asset = try await NativeMediaInputAssetResolverV4.asset(
+            url: request.inputURL, cancellation: cancellation
+        )
+        let graph = try await AVFoundationTrackGraphAdapterV4.probe(asset: asset)
+        try cancellation.check()
+        guard let primaryOrdinal = graph.tracks.firstIndex(where: {
+            $0.kind == .video && $0.enabled
+        }) else { throw MirmirError.noEnabledVideoTrack }
+        let workingAsset: AVAsset
+        let workingRange: CMTimeRange
+        let declaredFullMedia: MediaExactTimeRangeV4?
+        if try AVFoundationTrackMigrationExecutorV4.usesNativeAVIIdentityTimeline(
+            asset: asset, graph: graph) {
+            let tracks = try await asset.load(.tracks)
+            guard tracks.count == graph.tracks.count else {
+                throw MirmirError.readerFailed("the source video inventory changed")
+            }
+            workingAsset = asset
+            workingRange = try await tracks[primaryOrdinal].load(.timeRange)
+            declaredFullMedia = nil
+        } else {
+            let movie = AVMutableMovie(url: asset.url,
+                options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
+            guard movie.tracks.count == graph.tracks.count else {
+                throw MirmirError.outputFinalizeFailed("the source video inventory changed")
+            }
+            let workingTrack = movie.tracks[primaryOrdinal]
+            let fullMedia = workingTrack.mediaPresentationTimeRange
+            guard fullMedia.start.isNumeric, fullMedia.duration.isNumeric,
+                  fullMedia.start.epoch == 0, fullMedia.duration.epoch == 0,
+                  fullMedia.start >= .zero, fullMedia.duration > .zero,
+                  !fullMedia.start.flags.contains(.hasBeenRounded),
+                  !fullMedia.duration.flags.contains(.hasBeenRounded) else {
+                throw MirmirError.readerFailed("the primary full-media range is not exact")
+            }
+            declaredFullMedia = try MediaExactTimeRangeV4(
+                start: ExactRationalV4(fullMedia.start.value, Int64(fullMedia.start.timescale)),
+                duration: ExactRationalV4(fullMedia.duration.value, Int64(fullMedia.duration.timescale)))
+            workingRange = CMTimeRange(start: .zero, duration: fullMedia.duration)
+            // Encode each stored media frame once. Movie edits are restored by
+            // the source-authenticated migration, including repeats and gaps.
+            workingTrack.removeTimeRange(workingTrack.timeRange)
+            guard workingTrack.insertMediaTimeRange(fullMedia, into: workingRange) else {
+                throw MirmirError.readerFailed("the primary media table could not be normalized")
+            }
+            workingAsset = movie
+        }
+        let primaryRequest = UpscaleRequest(
+            inputURL: request.inputURL,
+            outputURL: primaryArtifact.temporaryURL,
+            backendID: request.backendID,
+            targetWidth: request.targetWidth,
+            targetHeight: request.targetHeight,
+            outputCodec: request.outputCodec,
+            preserveAudio: false,
+            overwriteExistingFile: false
+        )
+        let primaryResult = try await processConventionalPrimary(
+            request: primaryRequest, source: source,
+            asset: workingAsset, processingRange: workingRange,
+            preparedBackend: preparedBackend, cancellation: cancellation,
+            progress: { update in
+                if update.phase != .completed { progress(update) }
+            }
+        )
+        let encoded = AVURLAsset(url: primaryArtifact.temporaryURL)
+        let encodedTracks = try await encoded.loadTracks(withMediaType: .video)
+        guard encodedTracks.count == 1, let encodedTrack = encodedTracks.first else {
+            throw MirmirError.outputFinalizeFailed("the primary encode has an unexpected video inventory")
+        }
+        let descriptions = try await encodedTrack.load(.formatDescriptions)
+        guard descriptions.count == 1, let description = descriptions.first else {
+            throw MirmirError.outputFinalizeFailed("the primary encode changes format descriptions")
+        }
+        let plan = try await DeterministicV4WholeAssetPlanner()
+            .prepareConventionalMigration(
+                request: request, asset: asset, graph: graph,
+                encodedDescriptor: AVFoundationTrackGraphAdapterV4
+                    .canonicalFormatDescriptor(description),
+                cancellation: cancellation
+            )
+        let migrationCancellation = AVFoundationTrackMigrationCancellationV4(upstream: cancellation)
+        let migrated: AVFoundationTrackMigrationExecutionResultV4
+        do {
+            migrated = try await AVFoundationTrackMigrationExecutorV4().execute(
+                .init(
+                    sourceURL: request.inputURL,
+                    destinationURL: request.outputURL,
+                    overwriteExistingFile: request.overwriteExistingFile,
+                    sourceGraph: graph,
+                    identifiedPlan: plan.trackPlan,
+                    blueprint: plan.blueprint,
+                    nonVideoTranscodeHooks: plan.nonVideoTranscodeHooks,
+                    processedVideoReplacement: .init(
+                        trackID: plan.primaryTrackID,
+                        sourceURL: primaryArtifact.temporaryURL,
+                        fullSourceMediaRange: declaredFullMedia
+                    )
+                ),
+                cancellation: migrationCancellation,
+                progress: { state in
+                    let phase: UpscalePhase
+                    switch state.stage {
+                    case .validating, .preparingReaderWriter: phase = .preparingReaderWriter
+                    case .migrating: phase = request.preserveAudio && source.hasAudio
+                        ? .processingAudio : .finalizing
+                    case .finalizing: phase = .finalizing
+                    case .verifying, .publishing, .completed: phase = .validatingOutput
+                    }
+                    progress(event(
+                        phase: phase, source: source,
+                        backendID: preparedBackend.actualBackendID,
+                        frameCount: primaryResult.processedFrameCount
+                    ))
+                }
+            )
+        } catch AVFoundationTrackMigrationExecutorV4Error.cancelled {
+            throw MirmirError.cancelled
+        }
+        let audioResult: AudioOutputResult = !request.preserveAudio ? .omitted
+            : !graph.tracks.contains(where: { $0.kind == .audio }) ? .absent
+            : plan.nonVideoTranscodeHooks.isEmpty ? .preserved : .transcoded
+        let finalDurationSeconds = migrated.outputGraph.tracks.map {
+            Double($0.timeRange.start.numerator) / Double($0.timeRange.start.denominator)
+                + Double($0.timeRange.duration.numerator) / Double($0.timeRange.duration.denominator)
+        }.max() ?? 0
+        progress(event(
+            phase: .completed, source: source,
+            backendID: preparedBackend.actualBackendID, fraction: 1,
+            frameCount: primaryResult.processedFrameCount,
+            processedTime: CMTime(seconds: finalDurationSeconds,
+                preferredTimescale: source.duration.timescale)
+        ))
+        return UpscaleResult(
+            outputURL: request.outputURL,
+            actualBackendID: primaryResult.actualBackendID,
+            encodedWidth: primaryResult.encodedWidth,
+            encodedHeight: primaryResult.encodedHeight,
+            durationSeconds: finalDurationSeconds,
+            outputCodec: request.outputCodec,
+            audioResult: audioResult,
+            processedFrameCount: primaryResult.processedFrameCount,
+            processingDurationSeconds: Date().timeIntervalSince(startedAt)
+        )
+    }
+
+    private func processConventionalPrimary(
+        request: UpscaleRequest,
+        source: VideoInfo,
+        asset: AVAsset,
+        processingRange: CMTimeRange,
+        preparedBackend: any PreparedFrameUpscaler,
+        cancellation: ProcessingCancellation,
+        progress: @escaping ProgressHandler
+    ) async throws -> UpscaleResult {
         if source.color.alphaModel != .none {
             throw DeterministicV4WholeAssetPlannerError
                 .alphaSourceRequiresProRes4444(request.outputCodec)
@@ -143,13 +319,14 @@ struct VideoProcessingSession: Sendable {
             backendID: preparedBackend.actualBackendID
         ))
 
-        let asset = try await NativeMediaInputAssetResolverV4.asset(
-            url: request.inputURL, cancellation: cancellation
-        )
         let tracks = try await asset.load(.tracks)
         let videoTracks = tracks.filter { $0.mediaType == .video }
-        guard let videoTrack = videoTracks.first else {
-            throw MirmirError.noVideoTrack
+        var primaryVideoTrack: AVAssetTrack?
+        for track in videoTracks where primaryVideoTrack == nil {
+            if try await track.load(.isEnabled) { primaryVideoTrack = track }
+        }
+        guard let videoTrack = primaryVideoTrack else {
+            throw MirmirError.noEnabledVideoTrack
         }
         let sourceVideoDescriptions = try await videoTrack.load(.formatDescriptions)
         let sourceAVCChromaDeclaration = try AVCChromaLocationV4.declaration(
@@ -168,6 +345,7 @@ struct VideoProcessingSession: Sendable {
         )
 
         let reader = try AVAssetReader(asset: asset)
+        reader.timeRange = processingRange
         let videoOutput = AVAssetReaderTrackOutput(
             track: videoTrack,
             outputSettings: preparedBackend.sourcePixelBufferAttributes.values
@@ -192,7 +370,8 @@ struct VideoProcessingSession: Sendable {
 
         let videoSettings = writerVideoSettings(
             request: request,
-            source: source
+            source: source,
+            requiresExactTemporalDurations: preparedBackend is any PreparedTemporalFrameUpscaler
         )
         guard writer.canApply(
             outputSettings: videoSettings,
@@ -269,6 +448,7 @@ struct VideoProcessingSession: Sendable {
             ))
             let frameCount = try await processVideo(
                 output: videoOutput,
+                presentationEnd: CMTimeRangeGetEnd(processingRange),
                 sourceAVCChromaDeclaration: sourceAVCChromaDeclaration,
                 sourceMPEG4Sampling: sourceMPEG4Sampling,
                 sourceJFIFSampling: sourceJFIFSampling,
@@ -285,7 +465,7 @@ struct VideoProcessingSession: Sendable {
             try await preparedBackend.finish()
             videoInput.markAsFinished()
             try await audioTask.value
-            writer.endSession(atSourceTime: source.duration)
+            writer.endSession(atSourceTime: CMTimeRangeGetEnd(processingRange))
 
             guard reader.status == .completed else {
                 throw MirmirError.readerFailed(
@@ -722,6 +902,7 @@ private extension VideoProcessingSession {
 
     func processVideo(
         output: AVAssetReaderTrackOutput,
+        presentationEnd: CMTime,
         sourceAVCChromaDeclaration: AVCChromaLocationV4.Declaration? = nil,
         sourceMPEG4Sampling: MPEG4ProgressiveSamplingV4? = nil,
         sourceJFIFSampling: JFIFVideoSamplingV4? = nil,
@@ -740,6 +921,45 @@ private extension VideoProcessingSession {
         var previousSourcePTS: CMTime?
         var previousOutputPTS: CMTime?
         let temporalBackend = backend as? any PreparedTemporalFrameUpscaler
+        var pendingTemporalFrame: TemporalOutputFrame?
+
+        // Retain one temporal output until its successor supplies an exact
+        // duration. The final frame ends at the normalized source-media end.
+        func appendTemporal(_ frame: TemporalOutputFrame, endingAt end: CMTime) async throws {
+            try cancellation.check()
+            let duration = CMTimeSubtract(end, frame.presentationTime)
+            guard duration.isNumeric, duration > .zero,
+                  !duration.flags.contains(.hasBeenRounded) else {
+                throw MirmirError.writerFailed("the temporal output duration is not exact")
+            }
+            var format: CMVideoFormatDescription?
+            let formatStatus = CMVideoFormatDescriptionCreateForImageBuffer(
+                allocator: kCFAllocatorDefault, imageBuffer: frame.pixelBuffer.value,
+                formatDescriptionOut: &format)
+            guard formatStatus == noErr, let format else {
+                throw MirmirError.writerFailed("the temporal output format could not be created (\(formatStatus))")
+            }
+            var timing = CMSampleTimingInfo(duration: duration,
+                presentationTimeStamp: frame.presentationTime, decodeTimeStamp: .invalid)
+            var sample: CMSampleBuffer?
+            let status = CMSampleBufferCreateReadyWithImageBuffer(
+                allocator: kCFAllocatorDefault, imageBuffer: frame.pixelBuffer.value,
+                formatDescription: format, sampleTiming: &timing, sampleBufferOut: &sample)
+            guard status == noErr, let sample else {
+                throw MirmirError.writerFailed("the temporal output sample could not be created (\(status))")
+            }
+            let backpressureStarted = timingStart()
+            try await waitUntilReady(input, reader: reader, writer: writer, cancellation: cancellation)
+            recordTiming(.writerBackpressure, frameIndex: outputFrameCount, startedAt: backpressureStarted)
+            let appendStarted = timingStart()
+            let appended = input.append(sample)
+            recordTiming(.writerAppend, frameIndex: outputFrameCount, startedAt: appendStarted)
+            guard appended else {
+                throw MirmirError.writerFailed(writer.error?.localizedDescription
+                    ?? "the video writer rejected temporal output frame \(outputFrameCount)")
+            }
+            outputFrameCount += 1
+        }
 
         while true {
             let readerStarted = timingStart()
@@ -846,6 +1066,14 @@ private extension VideoProcessingSession {
                         "backend output timestamps are not strictly increasing at output frame \(outputFrameCount)"
                     )
                 }
+                if temporalBackend != nil {
+                    if let pendingTemporalFrame {
+                        try await appendTemporal(pendingTemporalFrame, endingAt: outputFrame.presentationTime)
+                    }
+                    pendingTemporalFrame = outputFrame
+                    previousOutputPTS = outputFrame.presentationTime
+                    continue
+                }
                 let backpressureStarted = timingStart()
                 try await waitUntilReady(
                     input,
@@ -891,6 +1119,9 @@ private extension VideoProcessingSession {
             ))
         }
 
+        if let pendingTemporalFrame {
+            try await appendTemporal(pendingTemporalFrame, endingAt: presentationEnd)
+        }
         guard outputFrameCount > 0 else {
             throw MirmirError.readerFailed(
                 reader.error?.localizedDescription
@@ -994,13 +1225,19 @@ private extension VideoProcessingSession {
 
     func writerVideoSettings(
         request: UpscaleRequest,
-        source: VideoInfo
+        source: VideoInfo,
+        requiresExactTemporalDurations: Bool = false
     ) -> [String: Any] {
         var settings: [String: Any] = [
             AVVideoCodecKey: request.outputCodec.avVideoCodecType,
             AVVideoWidthKey: request.targetWidth,
             AVVideoHeightKey: request.targetHeight
         ]
+        if requiresExactTemporalDurations, request.outputCodec == .h264 || request.outputCodec == .hevc {
+            // Native reordered encoding discards a longer terminal image
+            // duration. Temporal cadence requires its explicit sample clock.
+            settings[AVVideoCompressionPropertiesKey] = [AVVideoAllowFrameReorderingKey: false]
+        }
         var color: [String: Any] = [:]
         if let primaries = source.color.colorPrimaries {
             color[AVVideoColorPrimariesKey] = primaries

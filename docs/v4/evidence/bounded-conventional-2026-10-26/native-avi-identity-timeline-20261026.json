@@ -1,0 +1,358 @@
+{
+  "observedAtUTC": "2026-10-26T10:06:40.540Z",
+  "method": "Public AVURLAsset URL initializer and synchronous track/segment properties through osascript Objective-C bridge; no video decoding or file mutation",
+  "rows": [
+    {
+      "file": "/Volumes/DockCase/GitHub/Mirmir/MirmirTests/Fixtures/legacy-mjpeg.avi",
+      "tracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1667510320,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "72",
+              "timescale": 24,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "segments": [
+            {
+              "empty": false,
+              "timeMapping": {
+                "source": {
+                  "start": {
+                    "value": "0",
+                    "timescale": 1,
+                    "flags": 1,
+                    "epoch": "0"
+                  },
+                  "duration": {
+                    "value": "72",
+                    "timescale": 24,
+                    "flags": 1,
+                    "epoch": "0"
+                  }
+                },
+                "target": {
+                  "start": {
+                    "value": "0",
+                    "timescale": 1,
+                    "flags": 1,
+                    "epoch": "0"
+                  },
+                  "duration": {
+                    "value": "72",
+                    "timescale": 24,
+                    "flags": 1,
+                    "epoch": "0"
+                  }
+                }
+              }
+            }
+          ],
+          "singleNonemptyIdentityMapping": true
+        },
+        {
+          "ordinal": 1,
+          "trackID": 1651978544,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "144000",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "segments": [
+            {
+              "empty": false,
+              "timeMapping": {
+                "source": {
+                  "start": {
+                    "value": "0",
+                    "timescale": 1,
+                    "flags": 1,
+                    "epoch": "0"
+                  },
+                  "duration": {
+                    "value": "144000",
+                    "timescale": 48000,
+                    "flags": 1,
+                    "epoch": "0"
+                  }
+                },
+                "target": {
+                  "start": {
+                    "value": "0",
+                    "timescale": 1,
+                    "flags": 1,
+                    "epoch": "0"
+                  },
+                  "duration": {
+                    "value": "144000",
+                    "timescale": 48000,
+                    "flags": 1,
+                    "epoch": "0"
+                  }
+                }
+              }
+            }
+          ],
+          "singleNonemptyIdentityMapping": true
+        }
+      ],
+      "sha256": "84bbeea8f1d66cf6137314ebf688dc938e8bd26110a1b0f64133d80122a7d143",
+      "nativeAVISignature": true
+    },
+    {
+      "file": "/Volumes/DockCase/GitHub/Mirmir/MirmirTests/Fixtures/native-avi-mpeg4.avi",
+      "tracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1667510320,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "72",
+              "timescale": 24,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "segments": [
+            {
+              "empty": false,
+              "timeMapping": {
+                "source": {
+                  "start": {
+                    "value": "0",
+                    "timescale": 1,
+                    "flags": 1,
+                    "epoch": "0"
+                  },
+                  "duration": {
+                    "value": "72",
+                    "timescale": 24,
+                    "flags": 1,
+                    "epoch": "0"
+                  }
+                },
+                "target": {
+                  "start": {
+                    "value": "0",
+                    "timescale": 1,
+                    "flags": 1,
+                    "epoch": "0"
+                  },
+                  "duration": {
+                    "value": "72",
+                    "timescale": 24,
+                    "flags": 1,
+                    "epoch": "0"
+                  }
+                }
+              }
+            }
+          ],
+          "singleNonemptyIdentityMapping": true
+        },
+        {
+          "ordinal": 1,
+          "trackID": 1651978544,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "144000",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "segments": [
+            {
+              "empty": false,
+              "timeMapping": {
+                "source": {
+                  "start": {
+                    "value": "0",
+                    "timescale": 1,
+                    "flags": 1,
+                    "epoch": "0"
+                  },
+                  "duration": {
+                    "value": "144000",
+                    "timescale": 48000,
+                    "flags": 1,
+                    "epoch": "0"
+                  }
+                },
+                "target": {
+                  "start": {
+                    "value": "0",
+                    "timescale": 1,
+                    "flags": 1,
+                    "epoch": "0"
+                  },
+                  "duration": {
+                    "value": "144000",
+                    "timescale": 48000,
+                    "flags": 1,
+                    "epoch": "0"
+                  }
+                }
+              }
+            }
+          ],
+          "singleNonemptyIdentityMapping": true
+        }
+      ],
+      "sha256": "5f9038641e87b0585081c17a0c2cbb306304fb3fa8ef1e72a884376b5a1f6aaa",
+      "nativeAVISignature": true
+    },
+    {
+      "file": "/Volumes/DockCase/GitHub/Mirmir/MirmirTests/Fixtures/native-avi-h264.avi",
+      "tracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1667510320,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "72",
+              "timescale": 24,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "segments": [
+            {
+              "empty": false,
+              "timeMapping": {
+                "source": {
+                  "start": {
+                    "value": "0",
+                    "timescale": 1,
+                    "flags": 1,
+                    "epoch": "0"
+                  },
+                  "duration": {
+                    "value": "72",
+                    "timescale": 24,
+                    "flags": 1,
+                    "epoch": "0"
+                  }
+                },
+                "target": {
+                  "start": {
+                    "value": "0",
+                    "timescale": 1,
+                    "flags": 1,
+                    "epoch": "0"
+                  },
+                  "duration": {
+                    "value": "72",
+                    "timescale": 24,
+                    "flags": 1,
+                    "epoch": "0"
+                  }
+                }
+              }
+            }
+          ],
+          "singleNonemptyIdentityMapping": true
+        },
+        {
+          "ordinal": 1,
+          "trackID": 1651978544,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "144000",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "segments": [
+            {
+              "empty": false,
+              "timeMapping": {
+                "source": {
+                  "start": {
+                    "value": "0",
+                    "timescale": 1,
+                    "flags": 1,
+                    "epoch": "0"
+                  },
+                  "duration": {
+                    "value": "144000",
+                    "timescale": 48000,
+                    "flags": 1,
+                    "epoch": "0"
+                  }
+                },
+                "target": {
+                  "start": {
+                    "value": "0",
+                    "timescale": 1,
+                    "flags": 1,
+                    "epoch": "0"
+                  },
+                  "duration": {
+                    "value": "144000",
+                    "timescale": 48000,
+                    "flags": 1,
+                    "epoch": "0"
+                  }
+                }
+              }
+            }
+          ],
+          "singleNonemptyIdentityMapping": true
+        }
+      ],
+      "sha256": "a1b37e4d16b63b3eca3c91109b58ebe5e2d3790923104c9f9bef91a9be462191",
+      "nativeAVISignature": true
+    }
+  ],
+  "probeScriptSHA256": "1330d01fa782097e277caa7eec3037ea94bb1cc4feb557dcd481d5e58ad4c75a"
+}

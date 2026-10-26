@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		C7D000000000000000000002 /* ConventionalWholeAssetV4 in Resources */ = {isa = PBXBuildFile; fileRef = C7D000000000000000000001 /* ConventionalWholeAssetV4 */; };
 		C6B000000000000000000008 /* ProRes422WorkingV4 in Resources */ = {isa = PBXBuildFile; fileRef = C6B000000000000000000007 /* ProRes422WorkingV4 */; };
 		C6B000000000000000000006 /* ProRes422WorkingFormatV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6B000000000000000000005 /* ProRes422WorkingFormatV4Tests.swift */; };
 		C6B000000000000000000004 /* ProRes422WorkingFormatV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6B000000000000000000003 /* ProRes422WorkingFormatV4.swift */; };
@@ -237,6 +238,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		C7D000000000000000000001 /* ConventionalWholeAssetV4 */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Fixtures/ConventionalWholeAssetV4; sourceTree = "<group>"; };
 		C6B000000000000000000007 /* ProRes422WorkingV4 */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Fixtures/ProRes422WorkingV4; sourceTree = "<group>"; };
 		C6B000000000000000000005 /* ProRes422WorkingFormatV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProRes422WorkingFormatV4Tests.swift; sourceTree = "<group>"; };
 		C6B000000000000000000003 /* ProRes422WorkingFormatV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProRes422WorkingFormatV4.swift; sourceTree = "<group>"; };
@@ -602,6 +604,7 @@
 				C57000000000000000000004 /* NativeAACMetadataMigrationV4Tests.swift */,
 				C57000000000000000000005 /* NativeAACMetadata */,
 				C6B000000000000000000007 /* ProRes422WorkingV4 */,
+				C7D000000000000000000001 /* ConventionalWholeAssetV4 */,
 				C55000000000000000000002 /* UniformPCMSampleBufferV4Tests.swift */,
 				C53000000000000000000004 /* NativeMediaInputAssetResolverV4Tests.swift */,
 				C53000000000000000000009 /* NativeAVIMPEG4PresentationOrderV4Tests.swift */,
@@ -966,6 +969,7 @@
 			files = (
 				C58000000000000000000005 /* NativeAACMetadata in Resources */,
 				C6B000000000000000000008 /* ProRes422WorkingV4 in Resources */,
+				C7D000000000000000000002 /* ConventionalWholeAssetV4 in Resources */,
 				F52000000000000000000001 /* raven-forge-site057-video-timing.mp4 in Resources */,
 				C54000000000000000000003 /* native-avi-mpeg4.avi in Resources */,
 				C54000000000000000000002 /* native-avi-h264.avi in Resources */,

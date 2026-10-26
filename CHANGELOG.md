@@ -7,6 +7,21 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+### Bounded export-preservation QA — October 26, 2026
+
+- Route conventional primary encodes through the existing whole-asset policy;
+  retain alternate video, legible tracks, metadata, groups and associations.
+- Preserve complete movie video media tables and selected-primary edit maps,
+  authenticate full-media replacements and retain legacy replacement guards.
+- Honor synchronous cancellation at atomic publication. Keep original AVI on a
+  proven identity reader and repair temporal H.264/HEVC terminal durations with
+  explicit frame clocks and disabled reordering only for temporal encoding.
+- Add 29 permanent regressions. Full non-UI Release: 844 passed, zero failures,
+  15 opt-in skips; zero warnings. Affected Rosetta/macOS 15.4 rosters each pass
+  167 with one expected opt-in skip. [Report and remaining defects](docs/BOUNDED_CONVENTIONAL_QA_2026-10-26.md).
+- Keep the all-feature goal active. Customer error 11, universal decoder routing,
+  structural dates and other listed acceptance gaps remain release blockers.
+
 ### QA continuation — October 25, 2026
 
 - Integrate physical chroma coordinates, authenticated AVC/JFIF source sampling,

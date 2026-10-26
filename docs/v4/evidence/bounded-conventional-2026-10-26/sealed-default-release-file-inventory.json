@@ -1,0 +1,26 @@
+{
+  "path": "/private/tmp/Mirmir-root-bounded-default-release-derived-20261025/Build/Products/Release/Mirmir.app",
+  "files": {
+    "Contents/Info.plist": "98d60b739cafd720e8fb8a52475c0ab7bcdca3df0e904e1a8f0749c60e24581b",
+    "Contents/MacOS/Mirmir": "5a6cfa4a65df5de82dd712e1b67df8985ace1e1814f9bde2bc65580900273a60",
+    "Contents/PkgInfo": "82502191c9484b04d685374f9879a0066069c49b8acae7a04b01d38d07e8eca0",
+    "Contents/Resources/ASH-Model-LICENSE.txt": "213910e1405c0866a1200da12f1dcd5a4f41ed3d4a82c9c78acf85e6f5f304a6",
+    "Contents/Resources/ASH-P06.bundle/artifacts/ash-p06.metallib": "ca1db9b7abe6c107010eb240d24b9244f69c6897c062d28fdbd4f42749ba36d9",
+    "Contents/Resources/ASH-P06.bundle/artifacts/benchmark_corpus_identity.json": "580068e27ba031fd0c6bede58f22ea4dc46b0c7ee2ffb6a77b2ae5791fb7695b",
+    "Contents/Resources/ASH-P06.bundle/artifacts/branch_aggregation.json": "a97e48db27cd66141d309ed293a070cd4ab8d7678dbeec445272fee3addca425",
+    "Contents/Resources/ASH-P06.bundle/artifacts/codeword_tables.json": "bd407f910f7668b2ca47d062ec7251af3e30e82bcd375259b02499b2c51a9100",
+    "Contents/Resources/ASH-P06.bundle/artifacts/core_certificate.json": "b3b0104d0fc5bc9f417993d4d34756bec5b608598490e693bed02d86a6acd7ae",
+    "Contents/Resources/ASH-P06.bundle/artifacts/measurement_contract.json": "7ffc93930fe4f4c21d7ac6cb43cfd1b7e0116ab39205d5df620a67a763d4fb9e",
+    "Contents/Resources/ASH-P06.bundle/artifacts/metal_compiler_contract.json": "1a9bd82d04a77442e576efd226505e1eafc21278ed47204c896782867a5ebfd7",
+    "Contents/Resources/ASH-P06.bundle/artifacts/metric_contract.json": "c726023a74cbbbe57e87c0d448f55e9b82f7caae92e892c6ef00d64f752fdc4e",
+    "Contents/Resources/ASH-P06.bundle/artifacts/operator_bank.json": "20878bced24d6ba08a896b2ad33ce3253e933662e38d78c9198603d592b5df0d",
+    "Contents/Resources/ASH-P06.bundle/artifacts/phase_coefficient_procedure.json": "7d9a9931bea9bea273eb387603624696f3b362e40ffcd0853d03f1fb8bd600e5",
+    "Contents/Resources/ASH-P06.bundle/artifacts/quality_corpus_identity.json": "861a0aff00201b04b5c7e84675beb82485feb9c6d3f23c0254c7078b54994327",
+    "Contents/Resources/ASH-P06.bundle/artifacts/verification_contract.json": "ae58b42f84940efe3a1852a16f4e385ab608d62cab0b53ca97069d74d6a72bf1",
+    "Contents/Resources/ASH-P06.bundle/runtime-manifest.json": "290c87c064a90055b1df147d9d6c9fc58029bff4890142654b60d60e33accb21",
+    "Contents/Resources/AppIcon.icns": "25b3073067e760ae7ff41d779e908d8e6aafebdaa22fb7214b4b032b4aaecd86",
+    "Contents/Resources/Assets.car": "b781f04ce99957b2c57d0a89db04735e8d35a4f2cdde96013fe18d1c16f4bf06",
+    "Contents/Resources/default.metallib": "f538d57e5968356d681d48657810bd6931ff0aabea734e421082b741e9fe83e9",
+    "Contents/_CodeSignature/CodeResources": "e41bfd938afe01f689b7b2d8e21ad5c0951481b2bb9469a7b094d0d97707a981"
+  }
+}

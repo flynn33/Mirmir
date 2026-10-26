@@ -4799,6 +4799,175 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
+    func testFullMediaReplacementRejectsShiftedDeclaredSourceRange() async throws {
+        try await assertFullMediaReplacementRejected(.shiftedSourceRange)
+    }
+
+    func testFullMediaReplacementRejectsWrongReplacementDuration() async throws {
+        try await assertFullMediaReplacementRejected(.wrongReplacementDuration)
+    }
+
+    func testFullMediaReplacementRejectsExtraEmptyReplacementSegment() async throws {
+        try await assertFullMediaReplacementRejected(.extraEmptySegment)
+    }
+
+    func testFullMediaReplacementRejectsScaledReplacementSegment() async throws {
+        try await assertFullMediaReplacementRejected(.scaledSegment)
+    }
+
+    private enum RejectedFullMediaReplacementFixture {
+        case shiftedSourceRange
+        case wrongReplacementDuration
+        case extraEmptySegment
+        case scaledSegment
+
+        var expectedReason: String? {
+            switch self {
+            case .shiftedSourceRange:
+                return "replacement_full_media_range_disagrees_with_source"
+            case .wrongReplacementDuration:
+                return "replacement_full_media_duration_mismatch"
+            case .extraEmptySegment:
+                // The serialized movie's duration is checked before topology.
+                return nil
+            case .scaledSegment:
+                return "replacement_timeline_is_not_exact"
+            }
+        }
+    }
+
+    private func assertFullMediaReplacementRejected(
+        _ invalid: RejectedFullMediaReplacementFixture
+    ) async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("full-media-rejection-source.mov")
+        let replacementURL = directory.url("full-media-rejection-replacement.mov")
+        let destinationURL = directory.url("full-media-rejection-existing.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL, includeAudioGroup: false
+        )
+        try await TrackMigrationFixtureFactoryV4.makeReencodedVideo(
+            source: sourceURL, at: replacementURL,
+            normalizePresentationToZero: true
+        )
+        let sourceMovie = AVMutableMovie(url: sourceURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
+        let sourceTrack = try XCTUnwrap(sourceMovie.tracks.first {
+            $0.mediaType == .video
+        })
+        let full = sourceTrack.mediaPresentationTimeRange
+        XCTAssertTrue(full.start.isNumeric)
+        XCTAssertTrue(full.duration.isNumeric)
+        XCTAssertGreaterThan(full.duration.value, 0)
+        let fullRange = try MediaExactTimeRangeV4(
+            start: ExactRationalV4(full.start.value, Int64(full.start.timescale)),
+            duration: ExactRationalV4(full.duration.value, Int64(full.duration.timescale))
+        )
+        let declaredRange: MediaExactTimeRangeV4
+        switch invalid {
+        case .shiftedSourceRange:
+            declaredRange = try MediaExactTimeRangeV4(
+                start: fullRange.start.adding(ExactRationalV4(1, 30)),
+                duration: fullRange.duration
+            )
+            XCTAssertNotEqual(declaredRange.start, fullRange.start)
+            XCTAssertEqual(declaredRange.duration, fullRange.duration)
+        default:
+            declaredRange = fullRange
+            let replacementMovie = AVMutableMovie(url: replacementURL,
+                options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
+            let track = try XCTUnwrap(replacementMovie.tracks.first)
+            XCTAssertEqual(replacementMovie.tracks.count, 1)
+            let media = track.mediaPresentationTimeRange
+            XCTAssertEqual(CMTimeCompare(media.duration, full.duration), 0)
+            let half = CMTimeMultiplyByRatio(media.duration, multiplier: 1, divisor: 2)
+            XCTAssertFalse(half.flags.contains(.hasBeenRounded))
+            XCTAssertGreaterThan(half.value, 0)
+            let sourceHalf = CMTimeRange(start: media.start, duration: half)
+            track.removeTimeRange(track.timeRange)
+            let targetDuration: CMTime
+            switch invalid {
+            case .scaledSegment: targetDuration = full.duration
+            default: targetDuration = half
+            }
+            let targetStart: CMTime
+            if case .extraEmptySegment = invalid {
+                track.insertEmptyTimeRange(CMTimeRange(start: .zero, duration: half))
+                targetStart = half
+            } else { targetStart = .zero }
+            XCTAssertTrue(track.insertMediaTimeRange(sourceHalf,
+                into: CMTimeRange(start: targetStart, duration: targetDuration)))
+            try replacementMovie.writeHeader(to: replacementURL, fileType: .mov,
+                options: .addMovieHeaderToDestination)
+
+            let editedReplacement = AVURLAsset(url: replacementURL,
+                options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
+            let editedTracks = try await editedReplacement.load(.tracks)
+            let editedTrack = try XCTUnwrap(editedTracks.first)
+            let segments = try await editedTrack.load(.segments)
+            let replacementDuration = try await editedReplacement.load(.duration)
+            switch invalid {
+            case .wrongReplacementDuration:
+                XCTAssertNotEqual(CMTimeCompare(replacementDuration, full.duration), 0)
+            case .extraEmptySegment:
+                XCTAssertTrue(segments.contains(where: \.isEmpty))
+                XCTAssertGreaterThan(segments.count, 1)
+            case .scaledSegment:
+                // Keep overall duration valid so rejection exercises scaled mapping.
+                XCTAssertEqual(CMTimeCompare(replacementDuration, full.duration), 0)
+                XCTAssertEqual(segments.count, 1)
+                let segment = try XCTUnwrap(segments.first)
+                XCTAssertFalse(segment.isEmpty)
+                XCTAssertNotEqual(CMTimeCompare(segment.timeMapping.source.duration,
+                    segment.timeMapping.target.duration), 0)
+            case .shiftedSourceRange: XCTFail("Unexpected shifted-range edit fixture")
+            }
+        }
+
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL))
+        let video = try XCTUnwrap(source.tracks.first { $0.kind == .video })
+        let replacement = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: replacementURL))
+        let replacementVideo = try XCTUnwrap(replacement.tracks.first)
+        let plan = try processingPlan(source: source, video: video,
+            targetFormats: replacementVideo.formatDescriptors)
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source, plan: plan)
+        let sourceBefore = try Data(contentsOf: sourceURL)
+        let replacementBefore = try Data(contentsOf: replacementURL)
+        let sentinel = Data("retain existing full-media destination".utf8)
+        try sentinel.write(to: destinationURL)
+        do {
+            _ = try await AVFoundationTrackMigrationExecutorV4().execute(.init(
+                sourceURL: sourceURL, destinationURL: destinationURL,
+                overwriteExistingFile: true, sourceGraph: source,
+                identifiedPlan: plan, blueprint: blueprint,
+                processedVideoReplacement: .init(trackID: video.identity.stableID,
+                    sourceURL: replacementURL, fullSourceMediaRange: declaredRange)
+            ))
+            XCTFail("Invalid full-media replacement must be rejected before publication")
+        } catch let error as AVFoundationTrackMigrationExecutorV4Error {
+            switch error {
+            case let .invalidProcessedVideoReplacement(trackID, reason):
+                XCTAssertEqual(trackID, video.identity.stableID)
+                if let expectedReason = invalid.expectedReason {
+                    XCTAssertEqual(reason, expectedReason)
+                }
+            default:
+                XCTFail("Expected invalidProcessedVideoReplacement, received \(error)")
+            }
+        } catch {
+            XCTFail("Expected typed invalidProcessedVideoReplacement, received \(error)")
+        }
+        XCTAssertEqual(try Data(contentsOf: destinationURL), sentinel)
+        XCTAssertEqual(try Data(contentsOf: sourceURL), sourceBefore)
+        XCTAssertEqual(try Data(contentsOf: replacementURL), replacementBefore)
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+
     func testProcessedVideoReplacementRebuildsExactLeadingEmptyEditTopology()
         async throws {
         let directory = try TrackMigrationFixtureDirectoryV4()
@@ -12056,5 +12225,1119 @@ private func XCTAssertThrowsErrorAsyncV4<T>(
         XCTFail("Expected an error.", file: file, line: line)
     } catch {
         handler(error)
+    }
+}
+
+
+final class ConventionalWholeAssetPreservationTests: XCTestCase {
+    func testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x() async throws {
+        let source = try await VideoProbe().probe(url: conventionalClockFixture())
+        let snapshot = await UpscaleBackendCatalog.live().snapshot(for: source,
+            targetSize: CGSize(width: 320, height: 192), environment: .current())
+        let methods: [UpscaleBackendID] = [.automatic, .metalFXSpatial,
+            .mpsLanczos, .mpsBilinear, .coreImageLanczos, .coreImageBicubic,
+            .vImageHighQuality, .vImageStandard, .videoToolboxPixelTransfer]
+        var rows: [[String: String]] = []
+        var exercised: Set<UpscaleBackendID> = []
+        for method in methods {
+            let selection = snapshot.resolution(for: method)
+            guard selection.availability == .available else {
+                rows.append(["requested": method.rawValue, "status": "unavailable",
+                             "reason": String(describing: selection.availability)])
+                continue
+            }
+            for preserveAudio in [true, false] {
+                let directory = try TrackMigrationFixtureDirectoryV4()
+                defer { directory.remove() }
+                let input = directory.url("2x-\(method.rawValue).mov")
+                try FileManager.default.copyItem(at: conventionalClockFixture(), to: input)
+                let result = try await checkPreservation(input: input,
+                    output: directory.url("2x-output.mov"), preserveAudio: preserveAudio,
+                    verifyStoredVideoTables: true, targetWidth: 320, targetHeight: 192,
+                    backendID: method)
+                rows.append(["requested": method.rawValue, "actual": result.actualBackendID.rawValue,
+                             "audio": String(preserveAudio), "status": "completed"])
+            }
+            exercised.insert(method)
+        }
+        for method in [UpscaleBackendID.vImageStandard, .vImageHighQuality,
+                                         .coreImageLanczos, .coreImageBicubic] {
+            XCTAssertTrue(exercised.contains(method), "Required CPU/CoreImage route was not exercised: \(method)")
+        }
+        let artifact = XCTAttachment(data: try JSONSerialization.data(withJSONObject: rows,
+            options: [.prettyPrinted, .sortedKeys]), uniformTypeIdentifier: "public.json")
+        artifact.name = "conventional-spatial-route-matrix.json"
+        artifact.lifetime = .keepAlways
+        add(artifact)
+    }
+
+    func testSharedMigrationCancellationAtPublicationPreservesDestination() async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let input = directory.url("cancel-migration-source.mov")
+        let output = directory.url("cancel-migration-existing.mov")
+        try FileManager.default.copyItem(at: conventionalClockFixture(), to: input)
+        let before = try Data(contentsOf: input), sentinel = Data("keep the existing destination".utf8)
+        try sentinel.write(to: output)
+        let graph = try await AVFoundationTrackGraphAdapterV4.probe(asset: AVURLAsset(url: input))
+        let plan = try MediaTrackGraphPlannerV4.makePlan(source: graph)
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(source: graph, plan: plan)
+        let cancellation = AVFoundationTrackMigrationCancellationV4()
+        let progress = TrackMigrationProgressRecorderV4()
+        do {
+            _ = try await AVFoundationTrackMigrationExecutorV4().execute(
+                .init(sourceURL: input, destinationURL: output, overwriteExistingFile: true,
+                      sourceGraph: graph, identifiedPlan: plan, blueprint: blueprint),
+                cancellation: cancellation, progress: { state in
+                    progress.record(state)
+                    if state.stage == .publishing { cancellation.cancel() }
+                })
+            XCTFail("Cancellation at publication must prevent replacing the destination.")
+        } catch let error as AVFoundationTrackMigrationExecutorV4Error {
+            XCTAssertEqual(error, .cancelled)
+        }
+        XCTAssertTrue(progress.snapshot().contains { $0.stage == .publishing })
+        XCTAssertFalse(progress.snapshot().contains { $0.stage == .completed })
+        XCTAssertEqual(try Data(contentsOf: output), sentinel)
+        XCTAssertEqual(try Data(contentsOf: input), before)
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(at: directory.rootURL,
+            includingPropertiesForKeys: nil).contains { $0.lastPathComponent.hasPrefix(".mirmir-") })
+    }
+
+    func testConventionalCancellationAtMigrationPublicationPreservesDestination() async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let input = directory.url("cancel-conventional-source.mov")
+        let output = directory.url("cancel-conventional-existing.mov")
+        try FileManager.default.copyItem(at: conventionalClockFixture(), to: input)
+        let before = try Data(contentsOf: input), sentinel = Data("keep the existing destination".utf8)
+        try sentinel.write(to: output)
+        let source = try await VideoProbe().probe(url: input)
+        let backend = try await UpscaleBackendCatalog.live().prepare(backendID: .vImageStandard,
+            request: .init(source: source, targetSize: CGSize(width: 128, height: 96)), environment: .current())
+        let cancellation = ProcessingCancellation(), boundary = ConventionalPublicationCancellationBoundaryV4()
+        do {
+            _ = try await VideoProcessingSession().process(
+                request: .init(inputURL: input, outputURL: output, backendID: .vImageStandard,
+                    targetWidth: 128, targetHeight: 96, outputCodec: .h264,
+                    preserveAudio: true, overwriteExistingFile: true),
+                source: source, preparedBackend: backend, cancellation: cancellation,
+                progress: { boundary.record($0, cancellation: cancellation) })
+            XCTFail("Conventional cancellation at publication must prevent replacing the destination.")
+        } catch let error as MirmirError {
+            XCTAssertEqual(error, .cancelled)
+        }
+        XCTAssertTrue(boundary.didRequestCancellation)
+        XCTAssertEqual(try Data(contentsOf: output), sentinel)
+        XCTAssertEqual(try Data(contentsOf: input), before)
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(at: directory.rootURL,
+            includingPropertiesForKeys: nil).contains { $0.lastPathComponent.hasPrefix(".mirmir-") })
+    }
+
+    func testStoredBFrameMediaTablesSurviveConventionalExport() async throws {
+        for preserveAudio in [true, false] {
+            let directory = try TrackMigrationFixtureDirectoryV4()
+            defer { directory.remove() }
+            let input = directory.url("stored-baseline.mov")
+            try FileManager.default.copyItem(at: conventionalClockFixture(), to: input)
+            try await checkPreservation(input: input, output: directory.url("stored-baseline-output.mov"),
+                preserveAudio: preserveAudio, verifyStoredVideoTables: true)
+        }
+    }
+
+    func testStoredBFrameMediaAndEditMapsSurviveConventionalExport() async throws {
+        for name in ["leading", "internal", "trailing", "discontinuous", "repeated", "trimmed", "scaled"] {
+            for preserveAudio in [true, false] {
+                let directory = try TrackMigrationFixtureDirectoryV4()
+                defer { directory.remove() }
+                let input = directory.url("stored-\(name).mov")
+                try FileManager.default.copyItem(at: conventionalClockFixture(), to: input)
+                let movie = AVMutableMovie(url: input,
+                    options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
+                let track = try XCTUnwrap(movie.tracks.first)
+                XCTAssertFalse(track.isEnabled)
+                let fullMedia = track.mediaPresentationTimeRange
+                XCTAssertEqual(fullMedia.start, CMTime(value: 1_024, timescale: 12_288))
+                XCTAssertEqual(fullMedia.duration, CMTime(value: 36_864, timescale: 12_288))
+                track.removeTimeRange(track.timeRange)
+                func range(_ start: Int64, _ duration: Int64) -> CMTimeRange {
+                    .init(start: CMTime(value: start, timescale: 12_288),
+                          duration: CMTime(value: duration, timescale: 12_288))
+                }
+                func media(_ start: Int64, _ duration: Int64, _ target: Int64,
+                           _ targetDuration: Int64? = nil) throws {
+                    guard track.insertMediaTimeRange(range(start, duration),
+                        into: range(target, targetDuration ?? duration)) else {
+                        throw NSError(domain: "ConventionalStoredTimingFixture", code: 1)
+                    }
+                }
+                switch name {
+                case "leading":
+                    track.insertEmptyTimeRange(range(0, 12_288))
+                    try media(1_024, 36_864, 12_288)
+                case "internal":
+                    try media(1_024, 18_432, 0)
+                    track.insertEmptyTimeRange(range(18_432, 12_288))
+                    try media(19_456, 18_432, 30_720)
+                case "trailing":
+                    try media(1_024, 36_864, 0)
+                    track.insertEmptyTimeRange(range(36_864, 12_288))
+                case "discontinuous":
+                    try media(1_024, 12_288, 0)
+                    try media(25_600, 12_288, 12_288)
+                case "repeated":
+                    try media(1_024, 12_288, 0)
+                    try media(1_024, 12_288, 12_288)
+                case "trimmed":
+                    try media(13_312, 12_288, 0)
+                case "scaled":
+                    try media(1_024, 12_288, 0, 24_576)
+                default: preconditionFailure("unknown fixture")
+                }
+                try movie.writeHeader(to: input, fileType: .mov, options: .addMovieHeaderToDestination)
+                try await checkPreservation(input: input, output: directory.url("stored-\(name)-output.mov"),
+                    preserveAudio: preserveAudio, verifyStoredVideoTables: true)
+            }
+        }
+    }
+
+    func testSelectedMovingPrimaryInternalEditPreservesWholeAsset() async throws {
+        let fixture = try conventionalClockFixture()
+        let fixtureBytes = try Data(contentsOf: fixture)
+        defer { XCTAssertEqual(try? Data(contentsOf: fixture), fixtureBytes) }
+        for preserveAudio in [true, false] {
+            let directory = try TrackMigrationFixtureDirectoryV4()
+            defer { directory.remove() }
+            let input = directory.url("selected-moving-internal.mov")
+            try FileManager.default.copyItem(at: fixture, to: input)
+            let movie = AVMutableMovie(url: input,
+                options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
+            let moving = try XCTUnwrap(movie.tracks.first)
+            let alternate = try XCTUnwrap(movie.tracks.dropFirst().first)
+            XCTAssertEqual(moving.mediaType, .video)
+            XCTAssertEqual(alternate.mediaType, .video)
+            moving.isEnabled = true
+            alternate.isEnabled = false
+            let full = moving.mediaPresentationTimeRange
+            XCTAssertEqual(full.start, CMTime(value: 1_024, timescale: 12_288))
+            XCTAssertEqual(full.duration, CMTime(value: 36_864, timescale: 12_288))
+            let half = CMTime(value: 18_432, timescale: 12_288)
+            let gap = CMTime(value: 12_288, timescale: 12_288)
+            moving.removeTimeRange(moving.timeRange)
+            XCTAssertTrue(moving.insertMediaTimeRange(.init(start: full.start, duration: half),
+                into: .init(start: .zero, duration: half)))
+            moving.insertEmptyTimeRange(.init(start: half, duration: gap))
+            XCTAssertTrue(moving.insertMediaTimeRange(
+                .init(start: CMTimeAdd(full.start, half), duration: half),
+                into: .init(start: CMTimeAdd(half, gap), duration: half)))
+            try movie.writeHeader(to: input, fileType: .mov, options: .addMovieHeaderToDestination)
+            try await checkPreservation(input: input, output: directory.url("selected-moving-output.mov"),
+                preserveAudio: preserveAudio, verifyStoredVideoTables: true)
+        }
+    }
+
+    func testSelectedMovingPrimaryLeadingEditPreservesFullMedia() async throws {
+        try await checkSelectedMovingPrimaryEdit("leading")
+    }
+
+    func testSelectedMovingPrimaryInternalEditPreservesFullMedia() async throws {
+        try await checkSelectedMovingPrimaryEdit("internal")
+    }
+
+    func testSelectedMovingPrimaryTrailingEditPreservesFullMedia() async throws {
+        try await checkSelectedMovingPrimaryEdit("trailing")
+    }
+
+    func testSelectedMovingPrimaryDiscontinuousEditPreservesFullMedia() async throws {
+        try await checkSelectedMovingPrimaryEdit("discontinuous")
+    }
+
+    func testSelectedMovingPrimaryRepeatedEditPreservesFullMedia() async throws {
+        try await checkSelectedMovingPrimaryEdit("repeated")
+    }
+
+    func testSelectedMovingPrimaryTrimmedEditPreservesFullMedia() async throws {
+        try await checkSelectedMovingPrimaryEdit("trimmed")
+    }
+
+    func testSelectedMovingPrimaryScaledEditPreservesFullMedia() async throws {
+        try await checkSelectedMovingPrimaryEdit("scaled")
+    }
+
+    private struct MovingPrimaryInputObservationV4: Sendable {
+        let frameIndex: Int
+        let presentationTime: CMTime
+        let rasterSHA256: String
+    }
+
+    // Records the actual pixels/timing sent into the real CPU scaler before
+    // lossy H.264 encoding. Source and encoded-output hashes are not comparable.
+    private actor MovingPrimaryRecordingUpscalerV4: PreparedFrameUpscaler {
+        nonisolated let sourcePixelBufferAttributes: PixelBufferAttributes
+        nonisolated let destinationPixelBufferAttributes: PixelBufferAttributes
+        nonisolated let actualBackendID: UpscaleBackendID
+        private let delegate: any PreparedFrameUpscaler
+        private var observations: [MovingPrimaryInputObservationV4] = []
+
+        init(delegate: any PreparedFrameUpscaler) {
+            self.delegate = delegate
+            sourcePixelBufferAttributes = delegate.sourcePixelBufferAttributes
+            destinationPixelBufferAttributes = delegate.destinationPixelBufferAttributes
+            actualBackendID = delegate.actualBackendID
+        }
+
+        func process(source: FramePixelBuffer, destination: FramePixelBuffer,
+                     timing: FrameTiming) async throws {
+            observations.append(.init(frameIndex: timing.frameIndex,
+                presentationTime: timing.presentationTime,
+                rasterSHA256: try Self.rasterSHA256(source.value)))
+            try await delegate.process(source: source, destination: destination, timing: timing)
+        }
+
+        func finish() async throws { try await delegate.finish() }
+
+        func snapshot() -> [MovingPrimaryInputObservationV4] { observations }
+
+        nonisolated static func rasterSHA256(_ buffer: CVPixelBuffer) throws -> String {
+            guard CVPixelBufferGetPixelFormatType(buffer) == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                  CVPixelBufferGetPlaneCount(buffer) == 2 else {
+                throw NSError(domain: "MovingPrimaryRegressionRaster", code: 1)
+            }
+            let status = CVPixelBufferLockBaseAddress(buffer, .readOnly)
+            guard status == kCVReturnSuccess else {
+                throw NSError(domain: "MovingPrimaryRegressionRaster", code: Int(status))
+            }
+            defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+            var bytes = Data()
+            for plane in 0..<2 {
+                let width = CVPixelBufferGetWidthOfPlane(buffer, plane)
+                let height = CVPixelBufferGetHeightOfPlane(buffer, plane)
+                let stride = CVPixelBufferGetBytesPerRowOfPlane(buffer, plane)
+                let activeRowBytes = width * (plane == 0 ? 1 : 2)
+                guard activeRowBytes <= stride,
+                      let base = CVPixelBufferGetBaseAddressOfPlane(buffer, plane) else {
+                    throw NSError(domain: "MovingPrimaryRegressionRaster", code: 2)
+                }
+                for row in 0..<height {
+                    bytes.append(base.advanced(by: row * stride).assumingMemoryBound(to: UInt8.self),
+                                 count: activeRowBytes)
+                }
+            }
+            return SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+        }
+    }
+
+    // An independent native decoder oracle. Mapping onto zero is deliberate:
+    // mapping the nonzero range onto itself exposed one extra decoded image in
+    // its leading empty interval in the retained public-API control evidence.
+    private func movingPrimaryFullMediaObservations(
+        at url: URL, readerSettings: [String: Any]
+    ) async throws -> (mediaRange: CMTimeRange, samples: [MovingPrimaryInputObservationV4], controls: Int) {
+        let movie = AVMutableMovie(url: url,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
+        let track = try XCTUnwrap(movie.tracks.first)
+        XCTAssertEqual(track.mediaType, .video)
+        let media = track.mediaPresentationTimeRange
+        let working = CMTimeRange(start: .zero, duration: media.duration)
+        track.removeTimeRange(track.timeRange)
+        XCTAssertTrue(track.insertMediaTimeRange(media, into: working))
+        let reader = try AVAssetReader(asset: movie)
+        reader.timeRange = working
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: readerSettings)
+        output.alwaysCopiesSampleData = true
+        XCTAssertTrue(reader.canAdd(output))
+        reader.add(output)
+        guard reader.startReading() else {
+            throw reader.error ?? NSError(domain: "MovingPrimaryRegressionReader", code: 1)
+        }
+        defer { reader.cancelReading() }
+        var samples: [MovingPrimaryInputObservationV4] = [], controls = 0
+        while let sample = output.copyNextSampleBuffer() {
+            if CMSampleBufferGetNumSamples(sample) == 0 {
+                controls += 1
+                continue
+            }
+            XCTAssertEqual(CMSampleBufferGetNumSamples(sample), 1)
+            let image = try XCTUnwrap(CMSampleBufferGetImageBuffer(sample))
+            samples.append(.init(frameIndex: samples.count,
+                presentationTime: CMSampleBufferGetPresentationTimeStamp(sample),
+                rasterSHA256: try MovingPrimaryRecordingUpscalerV4.rasterSHA256(image)))
+            guard samples.count <= 100 else {
+                throw NSError(domain: "MovingPrimaryRegressionReader", code: 2)
+            }
+        }
+        XCTAssertEqual(reader.status, .completed, String(describing: reader.error))
+        return (media, samples, controls)
+    }
+
+    private func checkSelectedMovingPrimaryEdit(
+        _ name: String, file: StaticString = #filePath, line: UInt = #line
+    ) async throws {
+        let fixture = try conventionalClockFixture()
+        let fixtureBytes = try Data(contentsOf: fixture)
+        defer { XCTAssertEqual(try? Data(contentsOf: fixture), fixtureBytes, file: file, line: line) }
+        for preserveAudio in [true, false] {
+            // Catch only the processing attempt below so failure of audio=true
+            // still exercises audio=false. Fixture/setup errors remain errors.
+            try await checkSelectedMovingPrimaryEditCase(name, preserveAudio: preserveAudio,
+                                                        file: file, line: line)
+        }
+    }
+
+    private func checkSelectedMovingPrimaryEditCase(
+        _ name: String, preserveAudio: Bool, file: StaticString, line: UInt
+    ) async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let input = directory.url("selected-moving-\(name)-audio-\(preserveAudio).mov")
+        let output = directory.url("selected-moving-output.mov")
+        try FileManager.default.copyItem(at: conventionalClockFixture(), to: input)
+        let movie = AVMutableMovie(url: input,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
+        XCTAssertGreaterThanOrEqual(movie.tracks.count, 2, file: file, line: line)
+        let moving = try XCTUnwrap(movie.tracks.first)
+        let staticAlternate = try XCTUnwrap(movie.tracks.dropFirst().first)
+        XCTAssertEqual(moving.mediaType, .video, file: file, line: line)
+        XCTAssertEqual(staticAlternate.mediaType, .video, file: file, line: line)
+        moving.isEnabled = true
+        staticAlternate.isEnabled = false
+        let fullMedia = moving.mediaPresentationTimeRange
+        XCTAssertEqual(fullMedia.start, CMTime(value: 1_024, timescale: 12_288), file: file, line: line)
+        XCTAssertEqual(fullMedia.duration, CMTime(value: 36_864, timescale: 12_288), file: file, line: line)
+        moving.removeTimeRange(moving.timeRange)
+        func offset(_ ticks: Int64) -> CMTime { CMTime(value: ticks, timescale: 12_288) }
+        func media(_ relativeStart: Int64, _ duration: Int64, _ target: Int64,
+                   _ targetDuration: Int64? = nil) throws {
+            let sourceRange = CMTimeRange(start: CMTimeAdd(fullMedia.start, offset(relativeStart)),
+                                          duration: offset(duration))
+            let targetRange = CMTimeRange(start: offset(target), duration: offset(targetDuration ?? duration))
+            guard moving.insertMediaTimeRange(sourceRange, into: targetRange) else {
+                throw NSError(domain: "SelectedMovingPrimaryRegressionFixture", code: 1)
+            }
+        }
+        switch name {
+        case "leading":
+            moving.insertEmptyTimeRange(.init(start: .zero, duration: offset(12_288)))
+            try media(0, 36_864, 12_288)
+        case "internal":
+            try media(0, 18_432, 0)
+            moving.insertEmptyTimeRange(.init(start: offset(18_432), duration: offset(12_288)))
+            try media(18_432, 18_432, 30_720)
+        case "trailing":
+            try media(0, 36_864, 0)
+            moving.insertEmptyTimeRange(.init(start: offset(36_864), duration: offset(12_288)))
+        case "discontinuous":
+            try media(0, 12_288, 0)
+            try media(24_576, 12_288, 12_288)
+        case "repeated":
+            try media(0, 12_288, 0)
+            try media(0, 12_288, 12_288)
+        case "trimmed":
+            try media(12_288, 12_288, 0)
+        case "scaled":
+            try media(0, 12_288, 0, 24_576)
+        default:
+            throw NSError(domain: "SelectedMovingPrimaryRegressionFixture", code: 2)
+        }
+        try movie.writeHeader(to: input, fileType: .mov, options: .addMovieHeaderToDestination)
+        let inputBytes = try Data(contentsOf: input)
+        let label = "\(name), audio=\(preserveAudio)"
+        defer {
+            XCTAssertEqual(try? Data(contentsOf: input), inputBytes, label, file: file, line: line)
+            let leftovers = (try? FileManager.default.contentsOfDirectory(
+                at: directory.rootURL, includingPropertiesForKeys: nil))?
+                .filter { $0.lastPathComponent.hasPrefix(".mirmir-") }
+            XCTAssertNotNil(leftovers, label, file: file, line: line)
+            XCTAssertTrue(leftovers?.isEmpty == true, label, file: file, line: line)
+        }
+        let sourceAsset = AVURLAsset(url: input)
+        let sourceGraph = try await AVFoundationTrackGraphAdapterV4.probe(asset: sourceAsset)
+        let primaryIndex = try XCTUnwrap(sourceGraph.tracks.firstIndex { $0.kind == .video && $0.enabled })
+        XCTAssertEqual(primaryIndex, 0, label, file: file, line: line)
+        XCTAssertFalse(sourceGraph.tracks[1].enabled, label, file: file, line: line)
+        let source = try await VideoProbe().probe(url: input)
+        let liveBackend = try await UpscaleBackendCatalog.live().prepare(backendID: .vImageStandard,
+            request: .init(source: source, targetSize: CGSize(width: 128, height: 96)), environment: .current())
+        let backend = MovingPrimaryRecordingUpscalerV4(delegate: liveBackend)
+        let expected = try await movingPrimaryFullMediaObservations(at: input,
+            readerSettings: backend.sourcePixelBufferAttributes.values)
+        XCTAssertEqual(CMTimeCompare(expected.mediaRange.start, fullMedia.start), 0, label, file: file, line: line)
+        XCTAssertEqual(CMTimeCompare(expected.mediaRange.duration, fullMedia.duration), 0, label, file: file, line: line)
+        XCTAssertEqual(expected.samples.count, 72, label, file: file, line: line)
+        XCTAssertEqual(expected.controls, 0, label, file: file, line: line)
+        XCTAssertEqual(Set(expected.samples.map(\.rasterSHA256)).count, 72, label, file: file, line: line)
+        for (index, sample) in expected.samples.enumerated() {
+            XCTAssertEqual(CMTimeCompare(sample.presentationTime, CMTime(value: Int64(index), timescale: 24)),
+                           0, label, file: file, line: line)
+        }
+        var result: UpscaleResult?
+        do {
+            result = try await VideoProcessingSession().process(
+                request: .init(inputURL: input, outputURL: output, backendID: .vImageStandard,
+                    targetWidth: 128, targetHeight: 96, outputCodec: .h264,
+                    preserveAudio: preserveAudio, overwriteExistingFile: false),
+                source: source, preparedBackend: backend, cancellation: ProcessingCancellation(),
+                progress: { _ in })
+        } catch {
+            XCTFail("Selected moving primary export failed (\(label)): \(error)", file: file, line: line)
+        }
+        let observed = await backend.snapshot()
+        XCTAssertEqual(observed.count, 72, label, file: file, line: line)
+        XCTAssertEqual(observed.map(\.frameIndex), Array(0..<72), label, file: file, line: line)
+        XCTAssertEqual(observed.map(\.rasterSHA256), expected.samples.map(\.rasterSHA256), label, file: file, line: line)
+        for (actual, reference) in zip(observed, expected.samples) {
+            XCTAssertEqual(CMTimeCompare(actual.presentationTime, reference.presentationTime),
+                           0, label, file: file, line: line)
+        }
+        guard let result else { return }
+        XCTAssertEqual(result.actualBackendID, .vImageStandard, label, file: file, line: line)
+        XCTAssertEqual(result.processedFrameCount, 72, label, file: file, line: line)
+        XCTAssertEqual(result.audioResult, preserveAudio ? .preserved : .omitted, label, file: file, line: line)
+        for (suffix, url) in [("source", input), ("output", output)] {
+            let attachment = XCTAttachment(contentsOfFile: url)
+            attachment.name = "selected-moving-\(name)-audio-\(preserveAudio)-\(suffix).mov"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        let outputAsset = AVURLAsset(url: output)
+        let outputGraph = try await AVFoundationTrackGraphAdapterV4.probe(asset: outputAsset)
+        let retained = sourceGraph.tracks.enumerated().filter { preserveAudio || $0.element.kind != .audio }
+        XCTAssertEqual(outputGraph.tracks.count, retained.count, label, file: file, line: line)
+        guard outputGraph.tracks.count == retained.count else { return }
+        let expectedTracks = retained.map { $0.element }
+        XCTAssertEqual(outputGraph.tracks.map(\.kind), expectedTracks.map(\.kind), label, file: file, line: line)
+        XCTAssertEqual(outputGraph.tracks.map(\.enabled), expectedTracks.map(\.enabled), label, file: file, line: line)
+        XCTAssertEqual(outputGraph.tracks.map(\.timeRange), expectedTracks.map(\.timeRange), label, file: file, line: line)
+        XCTAssertEqual(outputGraph.tracks.map(\.edits), expectedTracks.map(\.edits), label, file: file, line: line)
+        XCTAssertEqual(try storedVideoTables(Data(contentsOf: output), ordinal: 1),
+                       try storedVideoTables(inputBytes, ordinal: 1), label, file: file, line: line)
+        let outputTracks = try await outputAsset.load(.tracks)
+        let descriptions = try await outputTracks[0].load(.formatDescriptions)
+        let dimensions = CMVideoFormatDescriptionGetDimensions(try XCTUnwrap(descriptions.first))
+        XCTAssertEqual(dimensions.width, 128, label, file: file, line: line)
+        XCTAssertEqual(dimensions.height, 96, label, file: file, line: line)
+        let finalDuration = try await outputAsset.load(.duration)
+        XCTAssertEqual(result.durationSeconds, CMTimeGetSeconds(finalDuration), accuracy: 1e-9,
+                       label, file: file, line: line)
+
+        // The processed elementary stream must contain the entire source media
+        // once. Graph/edit equality alone cannot detect a trimmed/duplicated or
+        // retimed stored stream hidden behind the reconstructed movie edits.
+        let stored = try storedVideoTables(Data(contentsOf: output), ordinal: 0)
+        XCTAssertEqual(stored.sampleSizes.count, 72, label, file: file, line: line)
+        XCTAssertEqual(stored.decodeDurations.count, 72, label, file: file, line: line)
+        XCTAssertEqual(stored.compositionOffsets.count, 72, label, file: file, line: line)
+        let clock = try XCTUnwrap(Int32(exactly: stored.mediaTimescale))
+        var decodeTicks: Int64 = 0, presentationTimes: [CMTime] = []
+        for (duration, offset) in zip(stored.decodeDurations, stored.compositionOffsets) {
+            XCTAssertEqual(CMTimeCompare(CMTime(value: Int64(duration), timescale: clock),
+                                        CMTime(value: 1, timescale: 24)), 0, label, file: file, line: line)
+            presentationTimes.append(CMTime(value: decodeTicks + offset, timescale: clock))
+            decodeTicks += Int64(duration)
+        }
+        XCTAssertEqual(CMTimeCompare(CMTime(value: decodeTicks, timescale: clock), fullMedia.duration),
+                       0, label, file: file, line: line)
+        presentationTimes.sort { CMTimeCompare($0, $1) < 0 }
+        let firstPresentation = try XCTUnwrap(presentationTimes.first)
+        for (index, pts) in presentationTimes.enumerated() {
+            XCTAssertEqual(CMTimeCompare(CMTimeSubtract(pts, firstPresentation),
+                                        CMTime(value: Int64(index), timescale: 24)),
+                           0, label, file: file, line: line)
+        }
+        let finalMovie = AVMutableMovie(url: output,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
+        let finalMedia = try XCTUnwrap(finalMovie.tracks.first).mediaPresentationTimeRange
+        XCTAssertEqual(CMTimeCompare(finalMedia.start, fullMedia.start), 0, label, file: file, line: line)
+        XCTAssertEqual(CMTimeCompare(finalMedia.duration, fullMedia.duration), 0, label, file: file, line: line)
+    }
+
+    func testNativeMPEG4AVICompletesConventionalResolvedMovieExport() async throws {
+        try await checkConventionalFormatBoundary(fixture: "native-avi-mpeg4",
+            extension: "avi", codec: .h264, requiresDerivedMovie: true)
+    }
+
+    func testNativeH264AVICompletesConventionalResolvedMovieExport() async throws {
+        try await checkConventionalFormatBoundary(fixture: "native-avi-h264",
+            extension: "avi", codec: .h264, requiresDerivedMovie: true)
+    }
+
+    func testProgressiveJFIFMovieCompletesConventionalH264Export() async throws {
+        try await checkConventionalFormatBoundary(fixture: "legacy-mjpeg",
+            extension: "mov", codec: .h264, requiresDerivedMovie: false)
+    }
+
+    func testProgressiveJFIFMovieCompletesConventionalHEVCExport() async throws {
+        try await checkConventionalFormatBoundary(fixture: "legacy-mjpeg",
+            extension: "mov", codec: .hevc, requiresDerivedMovie: false)
+    }
+
+    func testProgressiveJFIFMovieCompletesConventionalProRes422Export() async throws {
+        try await checkConventionalFormatBoundary(fixture: "legacy-mjpeg",
+            extension: "mov", codec: .proRes422, requiresDerivedMovie: false)
+    }
+
+    private func checkConventionalFormatBoundary(
+        fixture name: String, extension fileExtension: String,
+        codec: OutputCodec, requiresDerivedMovie: Bool
+    ) async throws {
+        let fixture = try XCTUnwrap(Bundle(for: Self.self).url(
+            forResource: name, withExtension: fileExtension))
+        let fixtureBefore = try Data(contentsOf: fixture)
+        defer { XCTAssertEqual(try? Data(contentsOf: fixture), fixtureBefore) }
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let input = directory.url("\(name)-\(codec.rawValue).\(fileExtension)")
+        let output = directory.url("\(name)-\(codec.rawValue)-output.mov")
+        try FileManager.default.copyItem(at: fixture, to: input)
+        let inputBefore = try Data(contentsOf: input)
+        let resolved = try await NativeMediaInputAssetResolverV4.asset(url: input)
+        if requiresDerivedMovie {
+            XCTAssertNotEqual(resolved.url.standardizedFileURL, input.standardizedFileURL)
+        } else {
+            XCTAssertEqual(resolved.url.standardizedFileURL, input.standardizedFileURL)
+        }
+        let resolvedMovie = AVMutableMovie(url: resolved.url,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
+        XCTAssertEqual(resolvedMovie.tracks.count, 2)
+        let resolvedVideo = try await decodedFormatBoundaryLane(asset: resolved, type: .video)
+        XCTAssertEqual(resolvedVideo.sampleCount, 72)
+        let sourceAudio = try await decodedFormatBoundaryLane(
+            asset: AVURLAsset(url: input), type: .audio)
+        let resolvedAudio = try await decodedFormatBoundaryLane(asset: resolved, type: .audio)
+        XCTAssertEqual(sourceAudio.sampleCount, 144_000)
+        XCTAssertEqual(sourceAudio.bytes.count, 288_000)
+        XCTAssertEqual(resolvedAudio.sampleCount, sourceAudio.sampleCount)
+        XCTAssertEqual(resolvedAudio.bytes, sourceAudio.bytes)
+
+        let result = try await UpscaleCoordinator().process(.init(
+            inputURL: input, outputURL: output, backendID: .vImageStandard,
+            targetWidth: 128, targetHeight: 96, outputCodec: codec,
+            preserveAudio: true, overwriteExistingFile: false
+        ), progress: { _ in })
+        XCTAssertEqual(result.actualBackendID, .vImageStandard)
+        XCTAssertEqual(result.processedFrameCount, 72)
+        XCTAssertEqual(result.audioResult, .preserved)
+        XCTAssertEqual(result.durationSeconds, 3, accuracy: 0.000_001)
+        let destination = AVURLAsset(url: output,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
+        let tracks = try await destination.load(.tracks)
+        XCTAssertEqual(tracks.count, 2)
+        let video = try XCTUnwrap(tracks.first { $0.mediaType == .video })
+        XCTAssertEqual(tracks.filter { $0.mediaType == .video }.count, 1)
+        XCTAssertEqual(tracks.filter { $0.mediaType == .audio }.count, 1)
+        let formats = try await video.load(.formatDescriptions)
+        let format = try XCTUnwrap(formats.first)
+        let dimensions = CMVideoFormatDescriptionGetDimensions(format)
+        XCTAssertEqual(dimensions.width, 128)
+        XCTAssertEqual(dimensions.height, 96)
+        let expectedCodec: CMVideoCodecType
+        switch codec {
+        case .h264: expectedCodec = kCMVideoCodecType_H264
+        case .hevc: expectedCodec = kCMVideoCodecType_HEVC
+        case .proRes422: expectedCodec = kCMVideoCodecType_AppleProRes422
+        case .proRes4444:
+            XCTFail("This non-alpha fixture does not exercise ProRes 4444")
+            return
+        }
+        XCTAssertEqual(CMFormatDescriptionGetMediaSubType(format), expectedCodec)
+        let decodedVideo = try await decodedFormatBoundaryLane(asset: destination, type: .video)
+        let decodedAudio = try await decodedFormatBoundaryLane(asset: destination, type: .audio)
+        XCTAssertEqual(decodedVideo.sampleCount, 72)
+        XCTAssertEqual(decodedAudio.sampleCount, sourceAudio.sampleCount)
+        XCTAssertEqual(decodedAudio.bytes, sourceAudio.bytes)
+        for (label, url) in [("source", input), ("resolved", resolved.url), ("output", output)] {
+            let artifact = XCTAttachment(contentsOfFile: url)
+            artifact.name = "conventional-\(name)-\(codec.rawValue)-\(label).\(url.pathExtension)"
+            artifact.lifetime = .keepAlways
+            add(artifact)
+        }
+        XCTAssertEqual(try Data(contentsOf: input), inputBefore)
+        XCTAssertEqual(try Data(contentsOf: fixture), fixtureBefore)
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(at: directory.rootURL,
+            includingPropertiesForKeys: nil).contains { $0.lastPathComponent.hasPrefix(".mirmir-") })
+    }
+
+    private func decodedFormatBoundaryLane(asset: AVAsset, type: AVMediaType)
+        async throws -> (sampleCount: Int, bytes: Data) {
+        let tracks = try await asset.loadTracks(withMediaType: type)
+        XCTAssertEqual(tracks.count, 1)
+        let track = try XCTUnwrap(tracks.first)
+        let reader = try AVAssetReader(asset: asset)
+        let settings: [String: Any]
+        if type == .video {
+            settings = [kCVPixelBufferPixelFormatTypeKey as String:
+                Int(kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange)]
+        } else {
+            settings = [AVFormatIDKey: kAudioFormatLinearPCM,
+                AVLinearPCMBitDepthKey: 16, AVLinearPCMIsFloatKey: false,
+                AVLinearPCMIsBigEndianKey: false, AVLinearPCMIsNonInterleaved: false]
+        }
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: settings)
+        guard reader.canAdd(output) else {
+            throw NSError(domain: "ConventionalFormatBoundary", code: 1)
+        }
+        reader.add(output)
+        guard reader.startReading() else {
+            throw reader.error ?? NSError(domain: "ConventionalFormatBoundary", code: 2)
+        }
+        var sampleCount = 0
+        var bytes = Data()
+        while let sample = output.copyNextSampleBuffer() {
+            let count = CMSampleBufferGetNumSamples(sample)
+            guard count > 0 else { continue }
+            sampleCount += count
+            if type == .video {
+                XCTAssertEqual(count, 1)
+                XCTAssertNotNil(CMSampleBufferGetImageBuffer(sample))
+            } else {
+                let block = try XCTUnwrap(CMSampleBufferGetDataBuffer(sample))
+                let length = CMBlockBufferGetDataLength(block)
+                var chunk = Data(count: length)
+                let status = chunk.withUnsafeMutableBytes { raw in
+                    CMBlockBufferCopyDataBytes(block, atOffset: 0,
+                        dataLength: length, destination: raw.baseAddress!)
+                }
+                XCTAssertEqual(status, noErr)
+                bytes.append(chunk)
+            }
+        }
+        XCTAssertEqual(reader.status, .completed)
+        if reader.status != .completed {
+            throw reader.error ?? NSError(domain: "ConventionalFormatBoundary", code: 3)
+        }
+        return (sampleCount, bytes)
+    }
+
+
+    func testConventionalCPUTemporalTailPreservesFullMediaDuration() async throws {
+        try await checkCPUTemporalTail(codec: .h264)
+    }
+
+    func testConventionalCPUTemporalHEVCTailPreservesFullMediaDuration() async throws {
+        try await checkCPUTemporalTail(codec: .hevc)
+    }
+
+    func testConventionalCPUTemporalProResTailPreservesFullMediaDuration() async throws {
+        try await checkCPUTemporalTail(codec: .proRes422)
+    }
+
+    private func checkCPUTemporalTail(codec: OutputCodec) async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let input = directory.url("cpu-temporal-three-source-frames.mov")
+        let output = directory.url("cpu-temporal-five-output-frames.mov")
+        try await VideoProbeFixtureFactory.makeVideo(at: input, transform: .identity,
+            presentationTimes: [CMTime(value: 0, timescale: 30),
+                CMTime(value: 1, timescale: 30), CMTime(value: 2, timescale: 30)],
+            codec: .h264)
+        let sourceBytes = try Data(contentsOf: input)
+        let sourceMovie = AVMutableMovie(url: input,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
+        let sourceTrack = try XCTUnwrap(sourceMovie.tracks.first)
+        let sourceMedia = sourceTrack.mediaPresentationTimeRange
+        XCTAssertEqual(CMTimeCompare(sourceMedia.start, .zero), 0)
+        XCTAssertEqual(CMTimeCompare(sourceMedia.duration, CMTime(value: 1, timescale: 10)), 0)
+        XCTAssertEqual(try storedVideoTables(sourceBytes, ordinal: 0).sampleSizes.count, 3)
+        let source = try await VideoProbe().probe(url: input)
+        let live = try await UpscaleBackendCatalog.live().prepare(backendID: .vImageStandard,
+            request: .init(source: source, targetSize: CGSize(width: 128, height: 96)),
+            environment: .current())
+        let temporal = ConventionalCPUMidpointTimingProxyV4(delegate: live)
+        let result = try await VideoProcessingSession().process(
+            request: .init(inputURL: input, outputURL: output, backendID: .vImageStandard,
+                targetWidth: 128, targetHeight: 96, outputCodec: codec,
+                preserveAudio: false, overwriteExistingFile: false),
+            source: source, preparedBackend: temporal, cancellation: ProcessingCancellation(),
+            progress: { _ in })
+        XCTAssertEqual(result.actualBackendID, .vImageStandard)
+        XCTAssertEqual(result.processedFrameCount, 5)
+        XCTAssertEqual(result.durationSeconds, 0.1, accuracy: 1e-9)
+        let produced = await temporal.outputPresentationTimes()
+        XCTAssertEqual(produced.count, 5)
+        for (index, pts) in produced.enumerated() {
+            XCTAssertEqual(CMTimeCompare(pts, CMTime(value: Int64(index), timescale: 60)), 0)
+        }
+        let outputMovie = AVMutableMovie(url: output,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
+        let written = try XCTUnwrap(outputMovie.tracks.first)
+        let writtenMedia = written.mediaPresentationTimeRange
+        XCTAssertEqual(outputMovie.tracks.count, 1)
+        XCTAssertEqual(CMTimeCompare(writtenMedia.start, sourceMedia.start), 0)
+        XCTAssertEqual(CMTimeCompare(writtenMedia.duration, sourceMedia.duration), 0)
+        let stored = try storedVideoTables(Data(contentsOf: output), ordinal: 0)
+        XCTAssertEqual(stored.sampleSizes.count, 5)
+        XCTAssertEqual(stored.decodeDurations.count, 5)
+        XCTAssertEqual(stored.compositionOffsets.count, 5)
+        let scale = try XCTUnwrap(Int32(exactly: stored.mediaTimescale))
+        for (index, duration) in stored.decodeDurations.enumerated() {
+            let expected = CMTime(value: index == 4 ? 2 : 1, timescale: 60)
+            XCTAssertEqual(CMTimeCompare(CMTime(value: Int64(duration), timescale: scale), expected), 0)
+        }
+        XCTAssertTrue(stored.compositionOffsets.allSatisfy { $0 == 0 })
+        let decoded = try await decodedFormatBoundaryLane(asset: AVURLAsset(url: output), type: .video)
+        XCTAssertEqual(decoded.sampleCount, 5)
+        for (label, url) in [("source", input), ("output", output)] {
+            let artifact = XCTAttachment(contentsOfFile: url)
+            artifact.name = "cpu-temporal-tail-\(codec.rawValue)-\(label).mov"
+            artifact.lifetime = .keepAlways
+            add(artifact)
+        }
+        XCTAssertEqual(try Data(contentsOf: input), sourceBytes)
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(at: directory.rootURL,
+            includingPropertiesForKeys: nil).contains { $0.lastPathComponent.hasPrefix(".mirmir-") })
+    }
+
+    // Uses the real CPU spatial scaler for pixels; only the output clock is
+    // synthetic. No VideoToolbox interpolation session or model is requested.
+    private actor ConventionalCPUMidpointTimingProxyV4: PreparedTemporalFrameUpscaler {
+        nonisolated let sourcePixelBufferAttributes: PixelBufferAttributes
+        nonisolated let destinationPixelBufferAttributes: PixelBufferAttributes
+        nonisolated let actualBackendID: UpscaleBackendID
+        nonisolated let maximumOutputFramesPerInput = 2
+        private let delegate: any PreparedFrameUpscaler
+        private var previousPTS: CMTime?
+        private var producedPTS: [CMTime] = []
+
+        init(delegate: any PreparedFrameUpscaler) {
+            self.delegate = delegate
+            sourcePixelBufferAttributes = delegate.sourcePixelBufferAttributes
+            destinationPixelBufferAttributes = delegate.destinationPixelBufferAttributes
+            actualBackendID = delegate.actualBackendID
+        }
+
+        func process(source: FramePixelBuffer, destination: FramePixelBuffer,
+                     timing: FrameTiming) async throws {
+            try await delegate.process(source: source, destination: destination, timing: timing)
+        }
+
+        func processTemporal(source: FramePixelBuffer, destinations: [FramePixelBuffer],
+                             timing: FrameTiming) async throws -> [TemporalOutputFrame] {
+            guard destinations.count >= 2 else {
+                throw NSError(domain: "ConventionalCPUMidpointTimingProxy", code: 1)
+            }
+            try await delegate.process(source: source, destination: destinations[0], timing: timing)
+            let current = timing.presentationTime
+            defer { previousPTS = current }
+            guard let previousPTS else {
+                producedPTS.append(current)
+                return [.init(pixelBuffer: destinations[0], presentationTime: current)]
+            }
+            let delta = CMTimeSubtract(current, previousPTS)
+            guard delta.isNumeric, CMTimeCompare(delta, .zero) > 0 else {
+                throw NSError(domain: "ConventionalCPUMidpointTimingProxy", code: 2)
+            }
+            let midpoint = CMTimeAdd(previousPTS,
+                CMTimeMultiplyByRatio(delta, multiplier: 1, divisor: 2))
+            try await delegate.process(source: source, destination: destinations[1], timing: timing)
+            producedPTS.append(contentsOf: [midpoint, current])
+            return [.init(pixelBuffer: destinations[0], presentationTime: midpoint),
+                    .init(pixelBuffer: destinations[1], presentationTime: current)]
+        }
+
+        func finish() async throws { try await delegate.finish() }
+        func outputPresentationTimes() -> [CMTime] { producedPTS }
+    }
+
+
+    private func conventionalClockFixture() throws -> URL {
+        try XCTUnwrap(Bundle(for: Self.self).url(forResource: "disabled-first-bframes",
+            withExtension: "mov", subdirectory: "ConventionalWholeAssetV4"))
+    }
+
+    private struct StoredVideoSampleTables: Equatable {
+        let mediaTimescale: UInt32
+        let decodeDurations: [UInt32]
+        let compositionOffsets: [Int64]
+        let sampleSizes: [UInt32]
+    }
+
+    // Independent stored-table inventory. This reads bytes directly rather
+    // than using AVAssetReader's edit-adjusted timing view or production code.
+    private func storedVideoTables(_ data: Data, ordinal: Int) throws -> StoredVideoSampleTables {
+        struct Atom {
+            let kind: String
+            let body: Int
+            let end: Int
+        }
+        func invalid() -> NSError { .init(domain: "ConventionalStoredTimingInventory", code: 1) }
+        func u32(_ offset: Int) throws -> UInt32 {
+            guard offset >= 0, offset <= data.count - 4 else { throw invalid() }
+            return data[offset..<(offset + 4)].reduce(UInt32(0)) { ($0 << 8) | UInt32($1) }
+        }
+        func children(_ start: Int, _ end: Int) throws -> [Atom] {
+            guard start >= 0, end <= data.count, start <= end else { throw invalid() }
+            var result: [Atom] = [], position = start
+            while position < end {
+                guard end - position >= 8 else { throw invalid() }
+                let size = try u32(position)
+                var count = UInt64(size), header = 8
+                if size == 1 {
+                    guard end - position >= 16 else { throw invalid() }
+                    count = (UInt64(try u32(position + 8)) << 32) | UInt64(try u32(position + 12))
+                    header = 16
+                } else if size == 0 { count = UInt64(end - position) }
+                guard count >= UInt64(header), count <= UInt64(end - position) else { throw invalid() }
+                let atomEnd = position + Int(count)
+                result.append(.init(kind: String(decoding: data[(position + 4)..<(position + 8)], as: UTF8.self),
+                                    body: position + header, end: atomEnd))
+                position = atomEnd
+            }
+            return result
+        }
+        func one(_ nodes: [Atom], _ kind: String) throws -> Atom {
+            let matches = nodes.filter { $0.kind == kind }
+            guard matches.count == 1, let atom = matches.first else { throw invalid() }
+            return atom
+        }
+        let movie = try one(children(0, data.count), "moov")
+        let tracks = try children(movie.body, movie.end).filter { $0.kind == "trak" }
+        var videoMedia: [Atom] = []
+        for track in tracks {
+            let media = try one(children(track.body, track.end), "mdia")
+            let handler = try one(children(media.body, media.end), "hdlr")
+            guard handler.end - handler.body >= 12 else { throw invalid() }
+            if String(decoding: data[(handler.body + 8)..<(handler.body + 12)], as: UTF8.self) == "vide" {
+                videoMedia.append(media)
+            }
+        }
+        guard videoMedia.indices.contains(ordinal) else { throw invalid() }
+        let media = videoMedia[ordinal], mediaChildren = try children(media.body, media.end)
+        let header = try one(mediaChildren, "mdhd")
+        guard header.end - header.body >= 24, data[header.body] <= 1 else { throw invalid() }
+        let clock = try u32(header.body + (data[header.body] == 0 ? 12 : 20))
+        let info = try one(mediaChildren, "minf"), table = try one(children(info.body, info.end), "stbl")
+        let tables = try children(table.body, table.end)
+        let sizesAtom = try one(tables, "stsz")
+        guard sizesAtom.end - sizesAtom.body >= 12 else { throw invalid() }
+        let uniform = try u32(sizesAtom.body + 4), count = Int(try u32(sizesAtom.body + 8))
+        guard count <= 1_000 else { throw invalid() }
+        let sizes: [UInt32]
+        if uniform == 0 {
+            guard sizesAtom.end - sizesAtom.body == 12 + count * 4 else { throw invalid() }
+            sizes = try (0..<count).map { try u32(sizesAtom.body + 12 + $0 * 4) }
+        } else { sizes = [UInt32](repeating: uniform, count: count) }
+        func expanded(_ atom: Atom, signed: Bool) throws -> [Int64] {
+            guard atom.end - atom.body >= 8, data[atom.body] <= (signed ? 1 : 0) else { throw invalid() }
+            let entries = Int(try u32(atom.body + 4))
+            guard atom.end - atom.body == 8 + entries * 8, entries <= count else { throw invalid() }
+            var result: [Int64] = []
+            for index in 0..<entries {
+                let number = Int(try u32(atom.body + 8 + index * 8))
+                let word = try u32(atom.body + 12 + index * 8)
+                guard number > 0, number <= count - result.count else { throw invalid() }
+                let value = signed && data[atom.body] == 1 ? Int64(Int32(bitPattern: word)) : Int64(word)
+                result.append(contentsOf: repeatElement(value, count: number))
+            }
+            guard result.count == count else { throw invalid() }
+            return result
+        }
+        let durationValues = try expanded(one(tables, "stts"), signed: false)
+        let durations = try durationValues.map { value -> UInt32 in
+            guard let word = UInt32(exactly: value) else { throw invalid() }
+            return word
+        }
+        let composition = tables.filter { $0.kind == "ctts" }
+        guard composition.count <= 1, clock > 0 else { throw invalid() }
+        let offsets = try composition.first.map { try expanded($0, signed: true) } ?? [Int64](repeating: 0, count: count)
+        return .init(mediaTimescale: clock, decodeDurations: durations,
+                     compositionOffsets: offsets, sampleSizes: sizes)
+    }
+
+    func testRichMoviePreservesAlternateVideoAudioGroupsMetadataChaptersAndTimecode() async throws {
+        try await checkRichMovie(preserveAudio: true, disableFirstVideo: false)
+    }
+
+    func testExplicitAudioOmissionRetainsEveryOtherRichMovieLane() async throws {
+        try await checkRichMovie(preserveAudio: false, disableFirstVideo: false)
+    }
+
+    func testDisabledFirstVideoRemainsUnmodifiedAndFirstEnabledVideoIsScaled() async throws {
+        try await checkRichMovie(preserveAudio: true, disableFirstVideo: true)
+    }
+
+    func testSubtitleAndCaptionPacketsSurviveConventionalExport() async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let input = directory.url("legible-source.mov")
+        let videoURL = directory.url("legible-video.mov")
+        let legibleURL = directory.url("legible-only.mov")
+        try await TrackMigrationFixtureFactoryV4.makeLegibleMovie(at: legibleURL)
+        try await VideoProbeFixtureFactory.makeVideo(
+            at: videoURL, transform: .identity,
+            presentationTimes: (0..<8).map { CMTime(value: Int64($0), timescale: 30) })
+        XCTAssertTrue(FileManager.default.createFile(atPath: input.path, contents: Data()))
+        let movie = AVMutableMovie()
+        movie.timescale = 600
+        let storage = AVMediaDataStorage(url: input, options: nil)
+        movie.defaultMediaDataStorage = storage
+        let legible = AVURLAsset(url: legibleURL)
+        movie.metadata = try await legible.load(.metadata)
+        for asset in [AVURLAsset(url: videoURL), legible] {
+            for sourceTrack in try await asset.load(.tracks) {
+                let track = try XCTUnwrap(movie.addMutableTrack(
+                    withMediaType: sourceTrack.mediaType, copySettingsFrom: sourceTrack, options: nil))
+                track.mediaDataStorage = storage
+                try track.insertTimeRange(try await sourceTrack.load(.timeRange),
+                                          of: sourceTrack, at: .zero, copySampleData: true)
+            }
+        }
+        try movie.writeHeader(to: input, fileType: .mov, options: .addMovieHeaderToDestination)
+        let inputKinds = try await AVFoundationTrackGraphAdapterV4.probe(asset: AVURLAsset(url: input)).tracks.map(\.kind)
+        XCTAssertEqual(inputKinds.count, 3)
+        XCTAssertTrue(inputKinds.contains(.subtitle))
+        XCTAssertTrue(inputKinds.contains(.caption))
+        try await checkPreservation(input: input, output: directory.url("legible-output.mov"),
+                                    preserveAudio: true)
+    }
+
+    private func checkRichMovie(preserveAudio: Bool, disableFirstVideo: Bool) async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let input = directory.url("rich-source.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(at: input, includeAudioGroup: true)
+        if disableFirstVideo {
+            let movie = AVMutableMovie(url: input, options: nil)
+            let tracks = try await movie.loadTracks(withMediaType: .video)
+            let track = try XCTUnwrap(tracks.first)
+            track.isEnabled = false
+            try movie.writeHeader(to: input, fileType: .mov, options: .addMovieHeaderToDestination)
+            let reopened = try await AVURLAsset(url: input).loadTracks(withMediaType: .video)
+            let firstEnabled = try await XCTUnwrap(reopened.first).load(.isEnabled)
+            let secondEnabled = try await XCTUnwrap(reopened.last).load(.isEnabled)
+            XCTAssertFalse(firstEnabled)
+            XCTAssertTrue(secondEnabled)
+        }
+        try await checkPreservation(input: input, output: directory.url("rich-output.mov"),
+                                    preserveAudio: preserveAudio)
+    }
+
+    @discardableResult
+    private func checkPreservation(input: URL, output: URL, preserveAudio: Bool,
+                                   verifyStoredVideoTables: Bool = false,
+                                   targetWidth: Int = 128, targetHeight: Int = 96,
+                                   backendID: UpscaleBackendID = .vImageStandard) async throws -> UpscaleResult {
+        let beforeBytes = try Data(contentsOf: input)
+        let sourceAsset = AVURLAsset(url: input)
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(asset: sourceAsset)
+        let primaryIndex = try XCTUnwrap(source.tracks.firstIndex { $0.kind == .video && $0.enabled })
+        let result = try await UpscaleCoordinator().process(
+            .init(inputURL: input, outputURL: output, backendID: backendID,
+                  targetWidth: targetWidth, targetHeight: targetHeight, outputCodec: .h264,
+                  preserveAudio: preserveAudio, overwriteExistingFile: false), progress: { _ in })
+        if backendID.isConcreteBackend { XCTAssertEqual(result.actualBackendID, backendID) }
+        else { XCTAssertTrue(result.actualBackendID.isConcreteBackend) }
+        let destinationAsset = AVURLAsset(url: output)
+        let destination = try await AVFoundationTrackGraphAdapterV4.probe(asset: destinationAsset)
+        for (suffix, url) in [("source", input), ("output", output)] {
+            let name = "\(input.deletingPathExtension().lastPathComponent)-audio-\(preserveAudio)-\(suffix).mov"
+            let artifact = XCTAttachment(contentsOfFile: url)
+            artifact.name = name
+            artifact.lifetime = .keepAlways
+            add(artifact)
+        }
+        let retained = source.tracks.enumerated().filter { preserveAudio || $0.element.kind != .audio }
+        XCTAssertEqual(destination.tracks.count, retained.count)
+        guard destination.tracks.count == retained.count else { return result }
+        let sourceNativeTracks = try await sourceAsset.load(.tracks)
+        let outputNativeTracks = try await destinationAsset.load(.tracks)
+        for (outputIndex, original) in retained.enumerated() {
+            let expected = original.element, actual = destination.tracks[outputIndex]
+            XCTAssertEqual(actual.kind, expected.kind)
+            XCTAssertEqual(actual.enabled, expected.enabled)
+            XCTAssertEqual(actual.language, expected.language)
+            XCTAssertEqual(actual.roleIDs, expected.roleIDs)
+            XCTAssertEqual(actual.metadataFingerprint, expected.metadataFingerprint)
+            XCTAssertEqual(actual.timeRange, expected.timeRange)
+            XCTAssertEqual(actual.edits, expected.edits)
+            if original.offset != primaryIndex {
+                XCTAssertEqual(actual.formatDescriptors, expected.formatDescriptors)
+                let originalBytes = try encodedBytes(asset: sourceAsset, track: sourceNativeTracks[original.offset])
+                let outputBytes = try encodedBytes(asset: destinationAsset, track: outputNativeTracks[outputIndex])
+                XCTAssertFalse(originalBytes.isEmpty)
+                XCTAssertEqual(outputBytes, originalBytes)
+                if verifyStoredVideoTables && expected.kind == .video {
+                    let sourceOrdinal = source.tracks.prefix(original.offset).filter { $0.kind == .video }.count
+                    let outputOrdinal = destination.tracks.prefix(outputIndex).filter { $0.kind == .video }.count
+                    let before = try storedVideoTables(beforeBytes, ordinal: sourceOrdinal)
+                    let after = try storedVideoTables(Data(contentsOf: output), ordinal: outputOrdinal)
+                    XCTAssertEqual(before.sampleSizes.count, 72)
+                    XCTAssertEqual(after, before, "Stored video tables changed for \(input.lastPathComponent)")
+                }
+            } else {
+                let descriptions = try await outputNativeTracks[outputIndex].load(.formatDescriptions)
+                let dimensions = CMVideoFormatDescriptionGetDimensions(try XCTUnwrap(descriptions.first))
+                XCTAssertEqual(dimensions.width, Int32(targetWidth))
+                XCTAssertEqual(dimensions.height, Int32(targetHeight))
+            }
+        }
+        let beforeMetadata = try await commonMetadataValues(sourceAsset)
+        let afterMetadata = try await commonMetadataValues(destinationAsset)
+        XCTAssertFalse(beforeMetadata.isEmpty)
+        XCTAssertEqual(afterMetadata, beforeMetadata)
+        if preserveAudio {
+            XCTAssertEqual(destination.groups, source.groups)
+            XCTAssertEqual(destination.associations, source.associations)
+        } else {
+            XCTAssertFalse(destination.tracks.contains { $0.kind == .audio })
+        }
+        XCTAssertEqual(try Data(contentsOf: input), beforeBytes)
+        let leftovers = try FileManager.default.contentsOfDirectory(
+            at: input.deletingLastPathComponent(), includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix(".mirmir-") }
+        XCTAssertTrue(leftovers.isEmpty)
+        return result
+    }
+
+    private func commonMetadataValues(_ asset: AVAsset) async throws -> [String] {
+        var values: [String] = []
+        for item in try await asset.load(.commonMetadata) {
+            if let value = try await item.load(.stringValue) { values.append(value) }
+        }
+        return values.sorted()
+    }
+
+    private func encodedBytes(asset: AVAsset, track: AVAssetTrack) throws -> Data {
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
+        reader.add(output)
+        XCTAssertTrue(reader.startReading())
+        var result = Data()
+        while let sample = output.copyNextSampleBuffer() {
+            guard let block = CMSampleBufferGetDataBuffer(sample) else { continue }
+            let length = CMBlockBufferGetDataLength(block)
+            var bytes = [UInt8](repeating: 0, count: length)
+            XCTAssertEqual(CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: length,
+                                                    destination: &bytes), noErr)
+            result.append(contentsOf: bytes)
+        }
+        XCTAssertEqual(reader.status, .completed)
+        return result
+    }
+}
+
+private final class ConventionalPublicationCancellationBoundaryV4: @unchecked Sendable {
+    private let lock = NSLock()
+    private var migrationStarted = false
+    private var validationsAfterMigration = 0
+    private var requested = false
+
+    func record(_ progress: UpscaleProgress, cancellation: ProcessingCancellation) {
+        lock.lock()
+        if progress.phase == .processingAudio { migrationStarted = true }
+        if migrationStarted && progress.phase == .validatingOutput {
+            validationsAfterMigration += 1
+        }
+        // After the primary encode, the wrapper emits one validation event for
+        // migration verification and the next at its publication boundary.
+        let shouldCancel = !requested && validationsAfterMigration == 2
+        if shouldCancel { requested = true }
+        lock.unlock()
+        if shouldCancel { cancellation.cancel() }
+    }
+
+    var didRequestCancellation: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return requested
     }
 }

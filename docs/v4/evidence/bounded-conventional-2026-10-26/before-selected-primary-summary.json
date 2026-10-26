@@ -1,0 +1,52 @@
+{
+  "devicesAndConfigurations" : [
+    {
+      "device" : {
+        "architecture" : "arm64",
+        "deviceId" : "00006040-0016283C11F8801C",
+        "deviceName" : "My Mac",
+        "modelName" : "MacBook Pro",
+        "osBuildNumber" : "26A434",
+        "osVersion" : "27.0.1",
+        "platform" : "macOS"
+      },
+      "expectedFailures" : 0,
+      "failedTests" : 1,
+      "passedTests" : 0,
+      "skippedTests" : 0,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription" : "Mirmir · Built with macOS 27.0.1",
+  "expectedFailures" : 0,
+  "failedTests" : 1,
+  "finishTime" : 1793008633.25,
+  "passedTests" : 0,
+  "result" : "Failed",
+  "runtimeWarnings" : [
+
+  ],
+  "skippedTests" : 0,
+  "startTime" : 1793008569.638,
+  "statistics" : [
+
+  ],
+  "testFailures" : [
+    {
+      "failureText" : "failed: caught error: \"invalidProcessedVideoReplacement(av-track-1, reason: \"replacement_requires_authorized_media_mapping\")\"",
+      "targetName" : "MirmirTests",
+      "testIdentifier" : 1,
+      "testIdentifierString" : "ConventionalWholeAssetPreservationTests/testSelectedMovingPrimaryInternalEditPreservesWholeAsset()",
+      "testIdentifierURL" : "test://com.apple.xcode/Mirmir/MirmirTests/ConventionalWholeAssetPreservationTests/testSelectedMovingPrimaryInternalEditPreservesWholeAsset",
+      "testName" : "testSelectedMovingPrimaryInternalEditPreservesWholeAsset()"
+    }
+  ],
+  "title" : "Test - Mirmir",
+  "topInsights" : [
+
+  ],
+  "totalTestCount" : 1
+}

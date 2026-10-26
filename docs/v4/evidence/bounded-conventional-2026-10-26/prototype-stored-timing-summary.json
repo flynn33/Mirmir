@@ -1,0 +1,64 @@
+{
+  "devicesAndConfigurations" : [
+    {
+      "device" : {
+        "architecture" : "arm64",
+        "deviceId" : "00006040-0016283C11F8801C",
+        "deviceName" : "My Mac",
+        "modelName" : "MacBook Pro",
+        "osBuildNumber" : "26A434",
+        "osVersion" : "27.0.1",
+        "platform" : "macOS"
+      },
+      "expectedFailures" : 0,
+      "failedTests" : 2,
+      "passedTests" : 0,
+      "skippedTests" : 0,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription" : "Mirmir · Built with macOS 27.0.1",
+  "expectedFailures" : 0,
+  "failedTests" : 2,
+  "finishTime" : 1792969809.51,
+  "passedTests" : 0,
+  "result" : "Failed",
+  "runtimeWarnings" : [
+
+  ],
+  "skippedTests" : 0,
+  "startTime" : 1792969751.863,
+  "statistics" : [
+
+  ],
+  "testFailures" : [
+    {
+      "failureText" : "failed: caught error: \"sampleStreamDigestMismatch(trackID: av-track-2, expected: f941fc09ccb11dc60dd9eec249fe41c0ed3bb3b41ce68bfe45a325cee28ee9ff, actual: b0d760396a8946963e4ddb0d5b1b7001e487d01e6e73643a46cca2244b5565ee)\"",
+      "targetName" : "MirmirTests",
+      "testIdentifier" : 1,
+      "testIdentifierString" : "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaAndEditMapsSurviveConventionalExport()",
+      "testIdentifierURL" : "test://com.apple.xcode/Mirmir/MirmirTests/ConventionalWholeAssetPreservationTests/testStoredBFrameMediaAndEditMapsSurviveConventionalExport",
+      "testName" : "testStoredBFrameMediaAndEditMapsSurviveConventionalExport()"
+    },
+    {
+      "failureText" : "XCTAssertEqual failed: (\"StoredVideoSampleTables(mediaTimescale: 12288, decodeDurations: [512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 1536], compositionOffsets: [1024, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 1024, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 1536, 512, 1536, 512, 1024, 2048, 512, 512, 2560, 1024, 0, 512, 2048, 512, 512, 2560, 1024, 0, 512, 1024, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 1536, 512], sampleSizes: [2960, 1130, 494, 384, 374, 994, 530, 355, 332, 1093, 583, 406, 447, 605, 960, 622, 443, 376, 1126, 464, 351, 391, 1171, 396, 387, 385, 718, 596, 327, 389, 829, 539, 391, 318, 717, 381, 595, 382, 703, 905, 409, 410, 1035, 485, 378, 368, 981, 427, 426, 910, 562, 460, 439, 687, 989, 537, 386, 370, 996, 449, 389, 429, 982, 620, 397, 453, 993, 669, 459, 405, 898, 583])\") is not equal to (\"StoredVideoSampleTables(mediaTimescale: 12288, decodeDurations: [512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512], compositionOffsets: [1024, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 1024, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 1536, 512, 1536, 512, 1024, 2048, 512, 512, 2560, 1024, 0, 512, 2048, 512, 512, 2560, 1024, 0, 512, 1024, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 1536, 512], sampleSizes: [2960, 1130, 494, 384, 374, 994, 530, 355, 332, 1093, 583, 406, 447, 605, 960, 622, 443, 376, 1126, 464, 351, 391, 1171, 396, 387, 385, 718, 596, 327, 389, 829, 539, 391, 318, 717, 381, 595, 382, 703, 905, 409, 410, 1035, 485, 378, 368, 981, 427, 426, 910, 562, 460, 439, 687, 989, 537, 386, 370, 996, 449, 389, 429, 982, 620, 397, 453, 993, 669, 459, 405, 898, 583])\") - Stored video tables changed for stored-baseline.mov",
+      "targetName" : "MirmirTests",
+      "testIdentifier" : 2,
+      "testIdentifierString" : "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaTablesSurviveConventionalExport()",
+      "testIdentifierURL" : "test://com.apple.xcode/Mirmir/MirmirTests/ConventionalWholeAssetPreservationTests/testStoredBFrameMediaTablesSurviveConventionalExport",
+      "testName" : "testStoredBFrameMediaTablesSurviveConventionalExport()"
+    }
+  ],
+  "title" : "Test - Mirmir",
+  "topInsights" : [
+    {
+      "category" : "Common Failures",
+      "impact" : "50% of failures",
+      "text" : "2 runs of 1 test failed with XCTAssertEqual failed: (\"StoredVideoSampleTables(mediaTimescale: 12288, decodeDurations: [512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 1536], compositionOffsets: [1024, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 1024, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 1536, 512, 1536, 512, 1024, 2048, 512, 512, 2560, 1024, 0, 512, 2048, 512, 512, 2560, 1024, 0, 512, 1024, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 1536, 512], sampleSizes: [2960, 1130, 494, 384, 374, 994, 530, 355, 332, 1093, 583, 406, 447, 605, 960, 622, 443, 376, 1126, 464, 351, 391, 1171, 396, 387, 385, 718, 596, 327, 389, 829, 539, 391, 318, 717, 381, 595, 382, 703, 905, 409, 410, 1035, 485, 378, 368, 981, 427, 426, 910, 562, 460, 439, 687, 989, 537, 386, 370, 996, 449, 389, 429, 982, 620, 397, 453, 993, 669, 459, 405, 898, 583])\") is not equal to (\"StoredVideoSampleTables(mediaTimescale: 12288, decodeDurations: [512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512, 512], compositionOffsets: [1024, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 1024, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 1536, 512, 1536, 512, 1024, 2048, 512, 512, 2560, 1024, 0, 512, 2048, 512, 512, 2560, 1024, 0, 512, 1024, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 2560, 1024, 0, 512, 1536, 512], sampleSizes: [2960, 1130, 494, 384, 374, 994, 530, 355, 332, 1093, 583, 406, 447, 605, 960, 622, 443, 376, 1126, 464, 351, 391, 1171, 396, 387, 385, 718, 596, 327, 389, 829, 539, 391, 318, 717, 381, 595, 382, 703, 905, 409, 410, 1035, 485, 378, 368, 981, 427, 426, 910, 562, 460, 439, 687, 989, 537, 386, 370, 996, 449, 389, 429, 982, 620, 397, 453, 993, 669, 459, 405, 898, 583])\") - Stored video tables changed for stored-baseline.mov"
+    }
+  ],
+  "totalTestCount" : 2
+}

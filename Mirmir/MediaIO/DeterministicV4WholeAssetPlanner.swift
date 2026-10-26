@@ -303,7 +303,7 @@ actor DeterministicV4WholeAssetPlanner {
 
         let nonVideoPolicy = try await makeNonVideoPolicy(
             asset: asset,
-            pairings: pairings,
+            graphTracks: graph.tracks,
             preserveAudio: request.preserveAudio,
             cancellation: cancellation
         )
@@ -416,6 +416,70 @@ actor DeterministicV4WholeAssetPlanner {
             outputFrameCount: outputFrameCount
         )
     }
+
+    /// Shares the existing track-preservation policy with conventional frame
+    /// engines. Its primary format comes from the completed native encode;
+    /// this path does not create or impersonate an ASH execution plan.
+    func prepareConventionalMigration(
+        request: UpscaleRequest,
+        asset: AVAsset,
+        graph: MediaTrackGraphV4,
+        encodedDescriptor: MediaTrackFormatDescriptorV4,
+        cancellation: ProcessingCancellation
+    ) async throws -> ConventionalTrackMigrationPlanV4 {
+        try checkCancellation(cancellation)
+        guard let primary = graph.tracks.first(where: {
+            $0.enabled && $0.kind == .video
+        }) else {
+            throw DeterministicV4WholeAssetPlannerError.primaryVideoMissing
+        }
+        let policy = try await makeNonVideoPolicy(
+            asset: asset,
+            graphTracks: graph.tracks,
+            preserveAudio: request.preserveAudio,
+            cancellation: cancellation
+        )
+        let approval = ASHSHA256V4(rawData: Data([
+            "conventional-audio-omission-approval-v1",
+            try graph.canonicalSHA256.rawValue,
+            String(request.targetWidth), String(request.targetHeight),
+            request.outputCodec.rawValue, Self.audioOmissionReasonID
+        ].joined(separator: "|").utf8))
+        let graphRequest = try makeGraphRequest(
+            graph: graph,
+            primaryTrackID: primary.identity.stableID,
+            encodedDescriptor: encodedDescriptor,
+            preserveAudio: request.preserveAudio,
+            approvalSHA256: approval,
+            transcodeByGraphTrackID: policy.transcodeByGraphTrackID
+        )
+        let base = try MediaTrackGraphPlannerV4.makePlan(
+            source: graph, request: graphRequest
+        )
+        let plan = try base.applyingTranscodePrimingDurations(
+            policy.transcodeByGraphTrackID.mapValues(\.encoderPrimingDuration)
+        )
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: graph, plan: plan
+        )
+        guard !blueprint.hasIncompatibility else {
+            throw DeterministicV4WholeAssetPlannerError
+                .migrationBlueprintContainsIncompatibility
+        }
+        return ConventionalTrackMigrationPlanV4(
+            primaryTrackID: primary.identity.stableID,
+            trackPlan: plan,
+            blueprint: blueprint,
+            nonVideoTranscodeHooks: policy.hooks
+        )
+    }
+}
+
+struct ConventionalTrackMigrationPlanV4: Sendable {
+    let primaryTrackID: MediaTrackStableIDV4
+    let trackPlan: MediaTrackGraphIdentifiedPlanV4
+    let blueprint: AVFoundationTrackMigrationBlueprintV4
+    let nonVideoTranscodeHooks: [AVFoundationNonVideoTrackTranscodeHookV4]
 }
 
 private extension DeterministicV4WholeAssetPlanner {
@@ -520,14 +584,14 @@ private extension DeterministicV4WholeAssetPlanner {
 
     func makeNonVideoPolicy(
         asset: AVAsset,
-        pairings: [TrackPair],
+        graphTracks: [MediaTrackNodeV4],
         preserveAudio: Bool,
         cancellation: ProcessingCancellation? = nil
     ) async throws -> NonVideoPolicy {
         try checkCancellation(cancellation)
         let assetTracks = try await asset.load(.tracks)
         try checkCancellation(cancellation)
-        guard assetTracks.count == pairings.count else {
+        guard assetTracks.count == graphTracks.count else {
             throw DeterministicV4WholeAssetPlannerError
                 .canonicalAndTrackGraphInventoriesDiffer
         }
@@ -536,10 +600,10 @@ private extension DeterministicV4WholeAssetPlanner {
             MediaTrackStableIDV4: NonVideoTranscodeDecision
         ] = [:]
         var hooks: [AVFoundationNonVideoTrackTranscodeHookV4] = []
-        for (pairing, assetTrack) in zip(pairings, assetTracks) {
+        for (track, assetTrack) in zip(graphTracks, assetTracks) {
             try checkCancellation(cancellation)
-            guard pairing.graph.kind != .video else { continue }
-            if pairing.graph.kind == .audio, !preserveAudio {
+            guard track.kind != .video else { continue }
+            if track.kind == .audio, !preserveAudio {
                 // An explicitly approved audio omission wins over migration
                 // policy; do not decode or calibrate a lane that will not be
                 // present in the output.
@@ -547,22 +611,22 @@ private extension DeterministicV4WholeAssetPlanner {
             }
             if try await isMOVPassThroughCompatible(
                 assetTrack,
-                graphTrack: pairing.graph
+                graphTrack: track
             ) {
                 continue
             }
-            guard pairing.graph.kind == .audio else {
+            guard track.kind == .audio else {
                 throw DeterministicV4WholeAssetPlannerError
                     .nonVideoTrackRequiresExplicitTranscode(
-                        trackID: pairing.graph.identity.stableID,
-                        mediaSubtypeID: pairing.graph.formatDescriptors
+                        trackID: track.identity.stableID,
+                        mediaSubtypeID: track.formatDescriptors
                             .first?.mediaSubtypeID ?? "missing"
                     )
             }
             let calibration = try await audioFormatCalibrator.calibrate(
                 asset: asset,
                 track: assetTrack,
-                trackID: pairing.graph.identity.stableID,
+                trackID: track.identity.stableID,
                 cancellation: cancellation
             )
             let decision = NonVideoTranscodeDecision(
@@ -571,8 +635,8 @@ private extension DeterministicV4WholeAssetPlanner {
                 encoderPrimingDuration: calibration.encoderPrimingDuration,
                 hook: calibration.hook
             )
-            byCanonical[pairing.canonical.identity.ordinal] = decision
-            byGraph[pairing.graph.identity.stableID] = decision
+            byCanonical[track.identity.ordinal] = decision
+            byGraph[track.identity.stableID] = decision
             hooks.append(calibration.hook)
         }
         return NonVideoPolicy(

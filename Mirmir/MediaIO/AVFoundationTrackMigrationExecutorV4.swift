@@ -152,10 +152,15 @@ enum AVFoundationTrackMigrationExecutorV4Error: Error, Equatable, Sendable {
 struct AVFoundationProcessedVideoReplacementV4: Sendable {
     let trackID: MediaTrackStableIDV4
     let sourceURL: URL
+    // Opt-in normalized encode of the complete source media table. Legacy
+    // replacements retain their authorized single-edit timeline contract.
+    let fullSourceMediaRange: MediaExactTimeRangeV4?
 
-    init(trackID: MediaTrackStableIDV4, sourceURL: URL) {
+    init(trackID: MediaTrackStableIDV4, sourceURL: URL,
+         fullSourceMediaRange: MediaExactTimeRangeV4? = nil) {
         self.trackID = trackID
         self.sourceURL = sourceURL
+        self.fullSourceMediaRange = fullSourceMediaRange
     }
 }
 
@@ -163,6 +168,11 @@ final class AVFoundationTrackMigrationCancellationV4:
     NativeMediaInputCancellationV4, @unchecked Sendable {
     private let lock = NSLock()
     private var isCancelled = false
+    private let upstream: (any NativeMediaInputCancellationV4)?
+
+    init(upstream: (any NativeMediaInputCancellationV4)? = nil) {
+        self.upstream = upstream
+    }
 
     func cancel() {
         lock.lock()
@@ -177,6 +187,7 @@ final class AVFoundationTrackMigrationCancellationV4:
         if cancelled {
             throw CancellationError()
         }
+        try upstream?.check()
         try Task.checkCancellation()
     }
 
@@ -184,7 +195,11 @@ final class AVFoundationTrackMigrationCancellationV4:
         lock.lock()
         let cancelled = isCancelled
         lock.unlock()
-        return cancelled
+        if cancelled { return true }
+        do { try upstream?.check() }
+        catch is CancellationError { return true }
+        catch { return false }
+        return false
     }
 }
 
@@ -408,6 +423,27 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
     typealias ProgressHandler = @Sendable (
         AVFoundationTrackMigrationProgressV4
     ) -> Void
+
+    static func usesNativeAVIIdentityTimeline(
+        asset: AVURLAsset, graph: MediaTrackGraphV4
+    ) throws -> Bool {
+        let handle = try FileHandle(forReadingFrom: asset.url)
+        defer { try? handle.close() }
+        let header = try handle.read(upToCount: 12) ?? Data()
+        guard header.count == 12, header.prefix(4) == Data("RIFF".utf8),
+              header.suffix(4) == Data("AVI ".utf8) else { return false }
+        // AVI has no QuickTime movie edit table. Retain the native encoded
+        // reader only when its observed video mapping is exactly identity.
+        for track in graph.tracks where track.kind == .video {
+            guard track.timeRange.start == .zero, track.edits.count == 1,
+                  let edit = track.edits.first, !edit.isEmpty,
+                  edit.source == track.timeRange, edit.target == track.timeRange else {
+                throw AVFoundationTrackMigrationExecutorV4Error.unsupportedTrack(
+                    track.identity.stableID, reason: "avi_video_timeline_is_not_identity")
+            }
+        }
+        return true
+    }
 
     static func passThroughOutputFormatsMatchForQualification(
         source: [CMFormatDescription],
@@ -767,6 +803,8 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                 totalTrackCount: pipes.count,
                 progress: progress
             )
+            // The publication callback can synchronously request cancellation.
+            try cancellation.check()
             do {
                 try destination.publish()
             } catch {
@@ -912,6 +950,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         let requiresEditMapRebuild: Bool
         let replacementPresentationOffset: ExactRationalV4?
         let processedReplacementMediaStart: ExactRationalV4?
+        let fullSourceMediaRange: MediaExactTimeRangeV4?
         let sampleStreamTerminalPresentationEnd: CMTime?
         let verifiesEncodedSampleStream: Bool
         let accumulatesSourceStreamDuringDrain: Bool
@@ -996,10 +1035,11 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         let reader: AVAssetReader
     }
 
-    struct ScaledEditMediaTableContext {
+    struct UneditedMediaTableContext {
         let asset: AVMutableMovie
         let reader: AVAssetReader
         let trackByID: [MediaTrackStableIDV4: AVMutableMovieTrack]
+        let mediaRangeByID: [MediaTrackStableIDV4: MediaExactTimeRangeV4]
     }
 
     struct PassThroughStreamIdentityV4 {
@@ -1663,6 +1703,15 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     reason: "replacement_duration_is_invalid"
                 )
         }
+        if let full = declaration.fullSourceMediaRange {
+            guard full.start >= .zero, full.duration.isPositive,
+                  CMTimeCompare(duration, try cmTime(full.duration,
+                    trackID: declaration.trackID)) == 0 else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .invalidProcessedVideoReplacement(declaration.trackID,
+                        reason: "replacement_full_media_duration_mismatch")
+            }
+        }
         let reader: AVAssetReader
         do {
             reader = try AVAssetReader(asset: asset)
@@ -1678,12 +1727,12 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         )
     }
 
-    func makeScaledEditMediaTableContext(
+    func makeUneditedMediaTableContext(
         sourceAsset: AVAsset,
         sourceGraph: MediaTrackGraphV4,
-        scaledTrackIDs: Set<MediaTrackStableIDV4>
-    ) throws -> ScaledEditMediaTableContext? {
-        guard !scaledTrackIDs.isEmpty else { return nil }
+        mediaTableTrackIDs: Set<MediaTrackStableIDV4>
+    ) throws -> UneditedMediaTableContext? {
+        guard !mediaTableTrackIDs.isEmpty else { return nil }
         guard let urlAsset = sourceAsset as? AVURLAsset else {
             throw AVFoundationTrackMigrationExecutorV4Error
                 .sourceTrackInventoryMismatch
@@ -1700,13 +1749,17 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         var trackByID: [
             MediaTrackStableIDV4: AVMutableMovieTrack
         ] = [:]
+        var mediaRangeByID: [MediaTrackStableIDV4: MediaExactTimeRangeV4] = [:]
         for (node, track) in zip(sourceGraph.tracks, movieTracks) {
-            guard scaledTrackIDs.contains(node.identity.stableID) else {
+            guard mediaTableTrackIDs.contains(node.identity.stableID) else {
                 continue
             }
             let mediaRange = track.mediaPresentationTimeRange
             guard mediaRange.start.isNumeric,
                   mediaRange.duration.isNumeric,
+                  mediaRange.start.epoch == 0, mediaRange.duration.epoch == 0,
+                  !mediaRange.start.flags.contains(.hasBeenRounded),
+                  !mediaRange.duration.flags.contains(.hasBeenRounded),
                   mediaRange.duration.value > 0 else {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .unsupportedTrack(
@@ -1714,6 +1767,9 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                         reason: "scaled_edit_media_range_is_invalid"
                     )
             }
+            mediaRangeByID[node.identity.stableID] = try .init(
+                start: ExactRationalV4(mediaRange.start.value, Int64(mediaRange.start.timescale)),
+                duration: ExactRationalV4(mediaRange.duration.value, Int64(mediaRange.duration.timescale)))
             track.removeTimeRange(track.timeRange)
             guard track.insertMediaTimeRange(mediaRange, into: mediaRange) else {
                 throw AVFoundationTrackMigrationExecutorV4Error
@@ -1724,15 +1780,16 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             }
             trackByID[node.identity.stableID] = track
         }
-        guard trackByID.count == scaledTrackIDs.count else {
+        guard trackByID.count == mediaTableTrackIDs.count else {
             throw AVFoundationTrackMigrationExecutorV4Error
                 .sourceTrackInventoryMismatch
         }
         do {
-            return ScaledEditMediaTableContext(
+            return UneditedMediaTableContext(
                 asset: movie,
                 reader: try AVAssetReader(asset: movie),
-                trackByID: trackByID
+                trackByID: trackByID,
+                mediaRangeByID: mediaRangeByID
             )
         } catch {
             throw AVFoundationTrackMigrationExecutorV4Error
@@ -1846,8 +1903,22 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         let migrationByID = Dictionary(
             uniqueKeysWithValues: blueprint.tracks.map { ($0.trackID, $0) }
         )
-        let scaledTrackIDs: Set<MediaTrackStableIDV4> = Set(
+        let nativeAVI = try (sourceAsset as? AVURLAsset).map {
+            try Self.usesNativeAVIIdentityTimeline(asset: $0, graph: sourceGraph)
+        } ?? false
+        let mediaTableTrackIDs: Set<MediaTrackStableIDV4> = Set(
             plan.tracks.compactMap { planned -> MediaTrackStableIDV4? in
+                // Preserve an encoded video's media table once, then restore
+                // its declared edit map. Reader output timestamps already
+                // apply edits and can duplicate or omit underlying packets.
+                if replacement?.declaration.trackID == planned.source.identity.stableID,
+                   replacement?.declaration.fullSourceMediaRange != nil {
+                    return planned.source.identity.stableID
+                }
+                if planned.action == .passThrough, planned.source.kind == .video,
+                   !nativeAVI {
+                    return planned.source.identity.stableID
+                }
                 guard planned.expectedOutput?.edits.contains(where: { edit in
                     guard let source = edit.source else { return false }
                     return source.duration != edit.target.duration
@@ -1855,10 +1926,10 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 return planned.source.identity.stableID
             }
         )
-        let mediaTableContext = try makeScaledEditMediaTableContext(
+        let mediaTableContext = try makeUneditedMediaTableContext(
             sourceAsset: sourceAsset,
             sourceGraph: sourceGraph,
-            scaledTrackIDs: scaledTrackIDs
+            mediaTableTrackIDs: mediaTableTrackIDs
         )
         var pipes: [TrackPipe] = []
         for planned in plan.tracks {
@@ -1910,7 +1981,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             let verifiesEncodedSampleStream: Bool
             let verifiesDynamicHDRStream: Bool
             let passThroughFormatContract: PassThroughFormatContract?
-            let readsMediaTable = scaledTrackIDs.contains(id)
+            let readsMediaTable = mediaTableTrackIDs.contains(id)
             let readTrack = mediaTableContext?.trackByID[id] ?? sourceTrack
             let sourceStreamIdentity: PassThroughStreamIdentityV4?
             switch planned.action {
@@ -2133,28 +2204,45 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             let replacementPresentationOffset: ExactRationalV4?
             let processedReplacementMediaStart: ExactRationalV4?
             if let replacementForTrack {
-                let timelineMapping: DeterministicV4PrimaryTimelineMappingV4
-                do {
-                    timelineMapping = try .init(plannedPrimary: planned)
-                } catch {
-                    throw AVFoundationTrackMigrationExecutorV4Error
-                        .invalidProcessedVideoReplacement(
-                            id,
-                            reason:
-                                "replacement_requires_authorized_media_mapping"
-                        )
+                let mediaRange: MediaExactTimeRangeV4
+                if let full = replacementForTrack.declaration.fullSourceMediaRange {
+                    guard mediaTableContext?.mediaRangeByID[id] == full,
+                          planned.action == .process,
+                          planned.source.timeRange == planned.expectedOutput?.timeRange,
+                          planned.source.edits == planned.expectedOutput?.edits else {
+                        throw AVFoundationTrackMigrationExecutorV4Error
+                            .invalidProcessedVideoReplacement(id,
+                                reason: "replacement_full_media_range_disagrees_with_source")
+                    }
+                    let end = try full.start.adding(full.duration)
+                    for edit in planned.source.edits {
+                        if let range = edit.source {
+                            guard range.start >= full.start,
+                                  try range.start.adding(range.duration) <= end else {
+                                throw AVFoundationTrackMigrationExecutorV4Error
+                                    .invalidProcessedVideoReplacement(id,
+                                        reason: "replacement_edit_exceeds_full_media_range")
+                            }
+                        }
+                    }
+                    mediaRange = full
+                } else {
+                    do {
+                        mediaRange = try DeterministicV4PrimaryTimelineMappingV4(
+                            plannedPrimary: planned).mediaRange
+                    } catch {
+                        throw AVFoundationTrackMigrationExecutorV4Error
+                            .invalidProcessedVideoReplacement(id,
+                                reason: "replacement_requires_authorized_media_mapping")
+                    }
                 }
                 sampleStreamTerminalPresentationEnd = try cmTime(
-                    timelineMapping.mediaEnd,
-                    trackID: id
-                )
-                replacementPresentationOffset = try await Self
-                    .replacementPresentationOffset(
-                        track: replacementForTrack.track,
-                        timelineMapping: timelineMapping,
-                        trackID: id
-                    )
-                processedReplacementMediaStart = timelineMapping.mediaRange.start
+                    mediaRange.start.adding(mediaRange.duration), trackID: id)
+                replacementPresentationOffset = try await Self.replacementPresentationOffset(
+                    track: replacementForTrack.track, mediaRange: mediaRange,
+                    requiresNormalizedFullMedia: replacementForTrack.declaration.fullSourceMediaRange != nil,
+                    trackID: id)
+                processedReplacementMediaStart = mediaRange.start
             } else {
                 sampleStreamTerminalPresentationEnd = nil
                 replacementPresentationOffset = nil
@@ -2187,13 +2275,14 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 edits: expectedEdits,
                 preservedPCMSampleClockTimescales:
                     preservedPCMSampleClockTimescales,
-                requiresEditMapRebuild: containsScaledEdit
+                requiresEditMapRebuild: readsMediaTable || containsScaledEdit
                     || requiresTranscodeEditRebuild
                     || requiresReplacementEditRebuild,
                 replacementPresentationOffset:
                     replacementPresentationOffset,
                 processedReplacementMediaStart:
                     processedReplacementMediaStart,
+                fullSourceMediaRange: replacementForTrack?.declaration.fullSourceMediaRange,
                 sampleStreamTerminalPresentationEnd:
                     sampleStreamTerminalPresentationEnd,
                 verifiesEncodedSampleStream: verifiesEncodedSampleStream,
@@ -2942,6 +3031,21 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     continue
                 }
 
+                if pipes[index].writerInput.mediaType == .video,
+                   pipes[index].videoHook == nil, pipes[index].nonVideoHook == nil,
+                   CMSampleBufferGetNumSamples(sourceSample) == 0 {
+                    // These are reader edit/drain controls, not stored video
+                    // samples. Appending them can extend the final stts entry.
+                    guard CMSampleBufferGetTotalSampleSize(sourceSample) == 0,
+                          (CMSampleBufferGetDataBuffer(sourceSample).map { CMBlockBufferGetDataLength($0) } ?? 0) == 0 else {
+                        throw AVFoundationTrackMigrationExecutorV4Error
+                            .sampleStreamUnrepresentable(trackID: pipes[index].trackID,
+                                status: kCMSampleBufferError_BufferHasNoSampleSizes)
+                    }
+                    advanced = true
+                    continue
+                }
+
                 let outputSamples: [CMSampleBuffer]
                 if let hook = pipes[index].videoHook {
                     do {
@@ -3148,6 +3252,12 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 .sourceTrackInventoryMismatch
         }
 
+        let fullMediaOutputIDs = Set(pipes.enumerated().compactMap { ordinal, pipe in
+            pipe.fullSourceMediaRange == nil ? nil : outputGraph.tracks[ordinal].identity.stableID
+        })
+        let fullMediaOutput = try makeUneditedMediaTableContext(
+            sourceAsset: outputAsset, sourceGraph: outputGraph,
+            mediaTableTrackIDs: fullMediaOutputIDs)
         var digests: [MediaTrackStableIDV4: ASHSHA256V4] = [:]
         var observedToLogical: [
             MediaTrackStableIDV4: MediaTrackStableIDV4
@@ -3199,9 +3309,26 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     plannedEdits: pipe.edits,
                     observedEdits: observedNode.edits
                 )
+            let verificationAsset: AVAsset
+            let verificationTrack: AVAssetTrack
+            if let full = pipe.fullSourceMediaRange {
+                let observedID = observedNode.identity.stableID
+                guard fullMediaOutput?.mediaRangeByID[observedID] == full,
+                      let track = fullMediaOutput?.trackByID[observedID],
+                      let asset = fullMediaOutput?.asset else {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .invalidProcessedVideoReplacement(pipe.trackID,
+                            reason: "output_full_media_range_disagrees_with_source: expected=\(full), observed=\(String(describing: fullMediaOutput?.mediaRangeByID[observedID]))")
+                }
+                verificationAsset = asset
+                verificationTrack = track
+            } else {
+                verificationAsset = outputAsset
+                verificationTrack = outputTrack
+            }
             let reader: AVAssetReader
             do {
-                reader = try AVAssetReader(asset: outputAsset)
+                reader = try AVAssetReader(asset: verificationAsset)
             } catch {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .sampleStreamReadFailed(
@@ -3210,7 +3337,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     )
             }
             let output = AVAssetReaderTrackOutput(
-                track: outputTrack,
+                track: verificationTrack,
                 outputSettings: nil
             )
             output.alwaysCopiesSampleData = false
@@ -3568,7 +3695,8 @@ private extension AVFoundationTrackMigrationExecutorV4 {
 
     static func replacementPresentationOffset(
         track: AVAssetTrack,
-        timelineMapping: DeterministicV4PrimaryTimelineMappingV4,
+        mediaRange: MediaExactTimeRangeV4,
+        requiresNormalizedFullMedia: Bool,
         trackID: MediaTrackStableIDV4
     ) async throws -> ExactRationalV4? {
         let segments: [AVAssetTrackSegment]
@@ -3618,6 +3746,16 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     reason: "replacement_timeline_is_not_exact"
                 )
         }
+        if requiresNormalizedFullMedia {
+            let declaredDuration = try ExactRationalV4(source.duration.value,
+                Int64(source.duration.timescale))
+            guard segments.count == 1, target.start == .zero,
+                  declaredDuration == mediaRange.duration else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .invalidProcessedVideoReplacement(trackID,
+                        reason: "replacement_full_media_timeline_is_not_normalized")
+            }
+        }
         let replacementMediaStart: ExactRationalV4
         do {
             replacementMediaStart = try ExactRationalV4(
@@ -3633,7 +3771,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         }
         let offset: ExactRationalV4
         do {
-            offset = try timelineMapping.mediaRange.start.subtracting(
+            offset = try mediaRange.start.subtracting(
                 replacementMediaStart
             )
         } catch {

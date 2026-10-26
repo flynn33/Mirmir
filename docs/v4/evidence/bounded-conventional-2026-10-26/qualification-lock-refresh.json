@@ -1,0 +1,58 @@
+{
+  "policy": "Current code bindings only; no coverage, tolerance, acceptance, schema, baseline or historical lock changes",
+  "files": [
+    {
+      "path": "script/v4/p06-reproduction-contract-v2.json",
+      "afterSHA256": "d76f39b55a0fc94802ed78ca5c715496a2528efb262d373187403fbfbb5152ff",
+      "changes": []
+    },
+    {
+      "path": "script/v4/media-preservation-contract-v1.json",
+      "afterSHA256": "7db449d69e4492cf94796eccd75d4dbafcf2a3489ff2910af77f6403776e9ae5",
+      "changes": [
+        {
+          "path": "/capture/fixtureSourceSHA256",
+          "before": "fc15740df641207c2160b603763725ffd0232a4505eb6b817ef8870b5d0ea48d",
+          "after": "a59a03af3c9dcae7ce82054dd25b6649e616774eb05af7c9d6fe091b00116635"
+        }
+      ]
+    },
+    {
+      "path": "script/v4/release-qualification-contract-v1.json",
+      "afterSHA256": "592b4369b8b5a1792acf0848c0be21521c526de9de5ab28b141529cb478b8509",
+      "changes": [
+        {
+          "path": "/mediaPreservationLaneContractSHA256",
+          "before": "734e2fe0e8b4e2a1a45441b819dceda8703f304b8055b14c0b7ab344f789ed11",
+          "after": "7db449d69e4492cf94796eccd75d4dbafcf2a3489ff2910af77f6403776e9ae5"
+        },
+        {
+          "path": "/mediaPreservationLockedSources/fixtureSourceSHA256",
+          "before": "fc15740df641207c2160b603763725ffd0232a4505eb6b817ef8870b5d0ea48d",
+          "after": "a59a03af3c9dcae7ce82054dd25b6649e616774eb05af7c9d6fe091b00116635"
+        },
+        {
+          "path": "/p06ProductionSourceManifestSHA256",
+          "before": "db32257d858057d45a40d1f63643150933d203d429a1512ebc37cd1dbb5fd444",
+          "after": "11e28d26b992106d084b08d687095a5f2e100993d5bf29486d922c0ba528238c"
+        }
+      ]
+    },
+    {
+      "path": "script/v4/release-qualification-trust-root-v2.json",
+      "afterSHA256": "834c32e17f7c21bf0bea4106872238aaa57111ef3e1014396722f4e4d1d5be91",
+      "changes": [
+        {
+          "path": "/contract/sha256",
+          "before": "410a657a102a52f4b8913231b7e89625d32cb5050c4ba2f74c909a73800c7984",
+          "after": "592b4369b8b5a1792acf0848c0be21521c526de9de5ab28b141529cb478b8509"
+        },
+        {
+          "path": "/trustedToolSetSHA256",
+          "before": "0d6d0989065541cbec0cec41db50f4b81dda6c25eb30d7e8c0ca262ce1f9366f",
+          "after": "7161e18b2ad1fe7d0d15f5b2d95eb738f5dadaabebfba4c4b7778b09e07c90a1"
+        }
+      ]
+    }
+  ]
+}

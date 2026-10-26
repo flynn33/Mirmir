@@ -1,0 +1,176 @@
+{
+  "rows": [
+    {
+      "control": "h264-default",
+      "inputMethod": "adaptor",
+      "sourceMovieDuration": "1/10",
+      "sourceMediaDuration": "1/12",
+      "remuxMovieDuration": "1/12",
+      "remuxMediaDuration": "1/12",
+      "realSamples": 5,
+      "realTimingAndPayloadExactAcrossRemux": true,
+      "sourceStts": [
+        {
+          "samples": 5,
+          "duration": 10
+        }
+      ],
+      "remuxStts": [
+        {
+          "samples": 5,
+          "duration": 10
+        }
+      ],
+      "mediaTimescale": 600,
+      "sourceZeroControls": 4,
+      "source": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/native-tail-timing-control-20261026/adaptor.mov",
+      "remux": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/native-tail-timing-control-20261026/adaptor-real-remux.mov"
+    },
+    {
+      "control": "h264-default",
+      "inputMethod": "explicit-duration",
+      "sourceMovieDuration": "1/10",
+      "sourceMediaDuration": "1/12",
+      "remuxMovieDuration": "1/12",
+      "remuxMediaDuration": "1/12",
+      "realSamples": 5,
+      "realTimingAndPayloadExactAcrossRemux": true,
+      "sourceStts": [
+        {
+          "samples": 5,
+          "duration": 10
+        }
+      ],
+      "remuxStts": [
+        {
+          "samples": 5,
+          "duration": 10
+        }
+      ],
+      "mediaTimescale": 600,
+      "sourceZeroControls": 4,
+      "source": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/native-tail-timing-control-20261026/explicit-duration.mov",
+      "remux": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/native-tail-timing-control-20261026/explicit-duration-real-remux.mov"
+    },
+    {
+      "control": "h264-no-reordering",
+      "inputMethod": "adaptor",
+      "sourceMovieDuration": "1/10",
+      "sourceMediaDuration": "1/12",
+      "remuxMovieDuration": "1/12",
+      "remuxMediaDuration": "1/12",
+      "realSamples": 5,
+      "realTimingAndPayloadExactAcrossRemux": true,
+      "sourceStts": [
+        {
+          "samples": 5,
+          "duration": 10
+        }
+      ],
+      "remuxStts": [
+        {
+          "samples": 5,
+          "duration": 10
+        }
+      ],
+      "mediaTimescale": 600,
+      "sourceZeroControls": 4,
+      "source": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/native-tail-h264-no-reordering-control-20261026/adaptor.mov",
+      "remux": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/native-tail-h264-no-reordering-control-20261026/adaptor-real-remux.mov"
+    },
+    {
+      "control": "h264-no-reordering",
+      "inputMethod": "explicit-duration",
+      "sourceMovieDuration": "1/10",
+      "sourceMediaDuration": "1/10",
+      "remuxMovieDuration": "1/10",
+      "remuxMediaDuration": "1/10",
+      "realSamples": 5,
+      "realTimingAndPayloadExactAcrossRemux": true,
+      "sourceStts": [
+        {
+          "samples": 4,
+          "duration": 10
+        },
+        {
+          "samples": 1,
+          "duration": 20
+        }
+      ],
+      "remuxStts": [
+        {
+          "samples": 4,
+          "duration": 10
+        },
+        {
+          "samples": 1,
+          "duration": 20
+        }
+      ],
+      "mediaTimescale": 600,
+      "sourceZeroControls": 4,
+      "source": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/native-tail-h264-no-reordering-control-20261026/explicit-duration.mov",
+      "remux": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/native-tail-h264-no-reordering-control-20261026/explicit-duration-real-remux.mov"
+    },
+    {
+      "control": "hevc-no-reordering",
+      "inputMethod": "adaptor",
+      "sourceMovieDuration": "1/10",
+      "sourceMediaDuration": "1/12",
+      "remuxMovieDuration": "1/12",
+      "remuxMediaDuration": "1/12",
+      "realSamples": 5,
+      "realTimingAndPayloadExactAcrossRemux": true,
+      "sourceStts": [
+        {
+          "samples": 5,
+          "duration": 10
+        }
+      ],
+      "remuxStts": [
+        {
+          "samples": 5,
+          "duration": 10
+        }
+      ],
+      "mediaTimescale": 600,
+      "sourceZeroControls": 4,
+      "source": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/native-tail-hevc-no-reordering-control-20261026/adaptor.mov",
+      "remux": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/native-tail-hevc-no-reordering-control-20261026/adaptor-real-remux.mov"
+    },
+    {
+      "control": "hevc-no-reordering",
+      "inputMethod": "explicit-duration",
+      "sourceMovieDuration": "1/10",
+      "sourceMediaDuration": "1/10",
+      "remuxMovieDuration": "1/10",
+      "remuxMediaDuration": "1/10",
+      "realSamples": 5,
+      "realTimingAndPayloadExactAcrossRemux": true,
+      "sourceStts": [
+        {
+          "samples": 4,
+          "duration": 10
+        },
+        {
+          "samples": 1,
+          "duration": 20
+        }
+      ],
+      "remuxStts": [
+        {
+          "samples": 4,
+          "duration": 10
+        },
+        {
+          "samples": 1,
+          "duration": 20
+        }
+      ],
+      "mediaTimescale": 600,
+      "sourceZeroControls": 4,
+      "source": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/native-tail-hevc-no-reordering-control-20261026/explicit-duration.mov",
+      "remux": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/native-tail-hevc-no-reordering-control-20261026/explicit-duration-real-remux.mov"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "pairs": 16,
+  "nativeReads": 32,
+  "allChecksPass": true,
+  "failures": [],
+  "sourceSHA256": "9c22700b1818d8c3e0e7765f2c9c684091526b05cb46df58b4ac2c528fe5bdcf",
+  "executableSHA256": "eb46a11bb85fbec0574954ab6dd39aa0729b86224904f0561347f77114961fb9",
+  "reportSHA256": "2cdbe82b658b6e954c8ea2a9977cc7c1a5ca764f9abd2730a9f49be6b6d214b8"
+}

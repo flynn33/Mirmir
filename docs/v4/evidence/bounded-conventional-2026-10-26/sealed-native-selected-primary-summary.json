@@ -1,0 +1,32 @@
+{
+  "pairs": 16,
+  "nativeReads": 32,
+  "allChecksPass": true,
+  "failures": [],
+  "commands": [
+    {
+      "command": [
+        "xcrun",
+        "swiftc",
+        "-parse-as-library",
+        "-module-cache-path",
+        "/private/tmp/mirmir-primary-edit-reader-20261026/module-cache",
+        "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/sealed-native-selected-primary/SealedSelectedPrimaryNativePresentationReader.swift",
+        "-o",
+        "/private/tmp/MirmirSealedSelectedPrimaryNativePresentationReader-20261026"
+      ],
+      "exitCode": 0,
+      "seconds": 2.614342083
+    },
+    {
+      "command": [
+        "/private/tmp/MirmirSealedSelectedPrimaryNativePresentationReader-20261026"
+      ],
+      "exitCode": 0,
+      "seconds": 1.0804621669999999
+    }
+  ],
+  "sourceSHA256": "929f40c78001638fd347b0ef30103e23c5d08224f2cf34c0dfe9356d89db3a3b",
+  "executableSHA256": "f333c2a999e5a62420d914242feea0d23a48d708a2d26aa545e058016f320a98",
+  "reportSHA256": "e25b6b9abb4d72bdf216211322c0405ee96adf64695c00164551d19a772c697e"
+}

@@ -3,20 +3,20 @@
 ![Mirmir application icon](Mirmir/Assets.xcassets/AppIcon.appiconset/mirmir_icon_128x128@2x.png)
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
-The local **1.7.2 build 20** QA candidate now includes physical chroma,
-progressive JFIF MOV and native ProRes 422 working-format repairs. The checkout's
-optimized non-UI Release suite reports **815 passed, zero failures, 15 explicit opt-in skips (830 total)**. The default universal
-Release application builds and verifies with zero compiler warnings/errors.
-Bounded ProRes workflows pass on ARM, Rosetta and actual macOS 15.4, with
-independent complete 10-bit media, packet timing and exact audio checks.
+The local **1.7.2 build 20** QA candidate includes physical chroma, JFIF/ProRes
+working-format repairs and conventional whole-asset preservation, edited media,
+publication cancellation and temporal-tail fixes. The full optimized non-UI
+Release suite reports **844 passed, zero failures, 15 opt-in skips (859 total)**.
+The default universal Release application builds and verifies with zero warnings.
+The affected 168-case roster passes on Rosetta and actual macOS 15.4 (167 passed,
+one expected opt-in skip each), with independent packet, decode and PCM checks.
 
-**Release remains blocked.** Broad-format production decoding, reported
-customer error 11, conventional track/metadata loss and other listed acceptance
-gaps remain unresolved. Passing suites are not an all-feature certification.
-See [the bounded QA report](docs/BOUNDED_QA_2026-10-25.md) for found/fixed/not-fixed
-results and the exact unverified features, and [the earlier continuation](docs/QA_FOLLOWUP_2026-10-25.md)
-for historical evidence. UI testing is excluded. Work remains local; Jim handles
-notarization and App Store Connect.
+**Release remains blocked.** Reported customer error 11, universal-format decoder
+routing, creation dates and the exact remaining acceptance gaps are recorded in
+[the current bounded QA report](docs/BOUNDED_CONVENTIONAL_QA_2026-10-26.md).
+Passing suites are not an all-feature certification. [The previous checkpoint](docs/BOUNDED_QA_2026-10-25.md)
+and [earlier continuation](docs/QA_FOLLOWUP_2026-10-25.md) retain historical evidence.
+UI testing is excluded. Work remains local; Jim handles notarization and App Store Connect.
 
 Mirmir includes explicit deterministic CPU/Metal processing, supported Apple
 scaling frameworks, durable queues and recovery, independent comparison
