@@ -68,6 +68,10 @@ actor NativeMediaInputAssetResolverV4 {
         }
         deinit { try? handle.close(); released() }
     }
+    private final class SoftwareAsset { weak var asset: AVURLAsset?; init(_ asset: AVURLAsset) { self.asset = asset } }
+    private var softwareAssets: [URL: SoftwareAsset] = [:]
+    private var softwarePresentationAssets: [URL: SoftwareAsset] = [:]
+    private var softwareExpectedIdentity: ASHStreamingFileIdentityV4?
     private var reservedBytes: Int64 = 0
     private var activeResolutions = 0
     private final class VerifiedAsset {
@@ -175,6 +179,23 @@ actor NativeMediaInputAssetResolverV4 {
                                        sourceIdentity: sourceIdentity, revalidateSource: revalidateSource)
     }
 
+    static func presentationAsset(url: URL) async throws -> AVURLAsset {
+        try await shared.resolvedPresentationAsset(url: url)
+    }
+
+    private func resolvedPresentationAsset(url: URL) async throws -> AVURLAsset {
+        let processing = try await resolvedAsset(url: url)
+        guard OriginalSoftwareMediaContext.associated(with: processing) != nil else { return processing }
+        if let asset = softwarePresentationAssets[url]?.asset,
+           SoftwareVirtualCarrier.presentation(asset, belongsTo: processing),
+           try SoftwareVirtualCarrier.reuse(asset, cancellation: nil) {
+            return asset
+        }
+        let asset = try SoftwareVirtualCarrier.makePresentation(from: processing)
+        softwarePresentationAssets[url] = SoftwareAsset(asset)
+        return asset
+    }
+
     func resolvedAsset(
         url: URL,
         cancellation: (any NativeMediaInputCancellationV4)? = nil,
@@ -182,6 +203,33 @@ actor NativeMediaInputAssetResolverV4 {
         revalidateSource: Bool = false
     ) async throws -> AVURLAsset {
         try check(cancellation)
+        if let configured = ProcessInfo.processInfo.environment["MIRMIR_SOFTWARE_SOURCE_PATH"]
+            .map({ URL(fileURLWithPath: $0).standardizedFileURL }),
+           configured == url.standardizedFileURL
+            || (url.lastPathComponent == configured.lastPathComponent
+                && url.pathComponents.contains("source-snapshot-v4")) {
+            let expected = try softwareExpectedIdentity ?? ASHStreamingFileIdentityV4.read(url: configured)
+            softwareExpectedIdentity = expected
+            let selectedIdentity = try sourceIdentity ?? ASHStreamingFileIdentityV4.read(url: url)
+            guard expected.contentSHA256 == selectedIdentity.contentSHA256,
+                  expected.byteCount == selectedIdentity.byteCount else {
+                throw ProbeFailure("private software source snapshot differs from configured original")
+            }
+            if let asset = softwareAssets[url]?.asset,
+               let context = OriginalSoftwareMediaContext.associated(with: asset),
+               try SoftwareVirtualCarrier.reuse(asset, cancellation: cancellation) {
+                try context.originalProbe.file.verifyUnchanged(url: url)
+                if let sourceIdentity, sourceIdentity.contentSHA256 != context.sourceFacts.sourceHash {
+                    throw ProbeFailure("private software source identity changed")
+                }
+                return asset
+            }
+            let asset = try await SoftwareVirtualCarrier.make(
+                url: url, cancellation: cancellation, sourceIdentity: selectedIdentity
+            )
+            softwareAssets[url] = SoftwareAsset(asset)
+            return asset
+        }
         activeResolutions += 1
         defer { activeResolutions -= 1 }
         let operationRoot = cacheRoot
@@ -189,7 +237,8 @@ actor NativeMediaInputAssetResolverV4 {
         if revalidateSource, sourceIdentity == nil,
            try (verifiedAssets[url] != nil
                 || Self.aviStrategyHint(url) != nil
-                || UniversalContainerRemuxV4.containerFamily(url: url) != nil) {
+                || UniversalContainerRemuxV4.containerFamily(url: url) != nil
+                || softwareAssets[url] != nil) {
             admittedIdentity = try ASHStreamingFileIdentityV4.read(url: url)
         } else { admittedIdentity = sourceIdentity }
         if let admittedIdentity, let verified = verifiedAssets[url],
@@ -214,6 +263,13 @@ actor NativeMediaInputAssetResolverV4 {
                 cancellation: cancellation,
                 sourceIdentity: admittedIdentity,
                 operationRoot: operationRoot
+            )
+        }
+        if try await Self.shouldSoftwareDecode(url) {
+            return try await resolveSoftwareDecode(
+                url: url,
+                cancellation: cancellation,
+                sourceIdentity: admittedIdentity
             )
         }
         guard let hint = try Self.aviStrategyHint(url) else { return Self.nativeAsset(url) }
@@ -359,6 +415,20 @@ actor NativeMediaInputAssetResolverV4 {
 
     private static func shouldContainerRemux(_ url: URL) async throws -> Bool {
         guard try UniversalContainerRemuxV4.containerFamily(url: url) != nil else { return false }
+        if try await nativeOpensAuthoritatively(url) { return false }
+        let probe = try UniversalContainerRemuxV4.probe(url: url)
+        return probe.admissible
+    }
+
+    /// Remux-inadmissible containers that AVFoundation cannot open (VP9/WebM, WMV/ASF, …).
+    private static func shouldSoftwareDecode(_ url: URL) async throws -> Bool {
+        guard try UniversalContainerRemuxV4.containerFamily(url: url) != nil else { return false }
+        if try await nativeOpensAuthoritatively(url) { return false }
+        let probe = try UniversalContainerRemuxV4.probe(url: url)
+        return !probe.admissible
+    }
+
+    private static func nativeOpensAuthoritatively(_ url: URL) async throws -> Bool {
         let native = nativeAsset(url)
         do {
             let readable = try await native.load(.isReadable)
@@ -368,16 +438,37 @@ actor NativeMediaInputAssetResolverV4 {
                 let video = tracks.filter { $0.mediaType == .video }
                 if video.count == 1,
                    let description = try await video[0].load(.formatDescriptions).first {
-                    // Native already opens; keep the original container authoritative.
                     _ = description
-                    return false
+                    return true
                 }
             }
         } catch {
-            // Fall through to remux admission when AVFoundation cannot open the source.
+            return false
         }
-        let probe = try UniversalContainerRemuxV4.probe(url: url)
-        return probe.admissible
+        return false
+    }
+
+    private func resolveSoftwareDecode(
+        url: URL,
+        cancellation: (any NativeMediaInputCancellationV4)?,
+        sourceIdentity: ASHStreamingFileIdentityV4?
+    ) async throws -> AVURLAsset {
+        let identity = try sourceIdentity ?? ASHStreamingFileIdentityV4.read(url: url)
+        try identity.verifyUnchanged(url: url)
+        if let asset = softwareAssets[url]?.asset,
+           let context = OriginalSoftwareMediaContext.associated(with: asset),
+           try SoftwareVirtualCarrier.reuse(asset, cancellation: cancellation) {
+            try context.originalProbe.file.verifyUnchanged(url: url)
+            if identity.contentSHA256 != context.sourceFacts.sourceHash {
+                throw ProbeFailure("private software source identity changed")
+            }
+            return asset
+        }
+        let asset = try await SoftwareVirtualCarrier.make(
+            url: url, cancellation: cancellation, sourceIdentity: identity
+        )
+        softwareAssets[url] = SoftwareAsset(asset)
+        return asset
     }
 
     private func resolveContainerRemux(
