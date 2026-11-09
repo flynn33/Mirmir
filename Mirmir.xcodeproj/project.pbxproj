@@ -38,6 +38,9 @@
 		D7B000000000000000000020 /* SoftwareInputExpectedProvenance.json in Resources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000020 /* SoftwareInputExpectedProvenance.json */; };
 		D6B000000000000000000009 /* UniversalContainerRemuxV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6F00000000000000000000A /* UniversalContainerRemuxV4Tests.swift */; };
 		D7B000000000000000000030 /* SoftwareDecodeImporterV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000030 /* SoftwareDecodeImporterV4Tests.swift */; };
+		E9A100000000000000000002 /* MPEG4ASPAVIDecodeV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9A100000000000000000001 /* MPEG4ASPAVIDecodeV4Tests.swift */; };
+		E9A100000000000000000004 /* native-avi-mpeg4-asp.avi in Resources */ = {isa = PBXBuildFile; fileRef = E9A100000000000000000003 /* native-avi-mpeg4-asp.avi */; };
+		E9A100000000000000000006 /* native-avi-mpeg4-asp-b.avi in Resources */ = {isa = PBXBuildFile; fileRef = E9A100000000000000000005 /* native-avi-mpeg4-asp-b.avi */; };
 		D7B000000000000000000040 /* SoftwareDurableExportV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000040 /* SoftwareDurableExportV4Tests.swift */; };
 		D7B000000000000000000060 /* SoftwarePresentationThumbnailV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000060 /* SoftwarePresentationThumbnailV4Tests.swift */; };
 		D7B000000000000000000071 /* WMVAACMatroskaImporterV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000071 /* WMVAACMatroskaImporterV4Tests.swift */; };
@@ -300,6 +303,9 @@
 		D6F000000000000000000009 /* UniversalContainerRemuxV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalContainerRemuxV4.swift; sourceTree = "<group>"; };
 		D6F00000000000000000000A /* UniversalContainerRemuxV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalContainerRemuxV4Tests.swift; sourceTree = "<group>"; };
 		D7F000000000000000000030 /* SoftwareDecodeImporterV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareDecodeImporterV4Tests.swift; sourceTree = "<group>"; };
+		E9A100000000000000000001 /* MPEG4ASPAVIDecodeV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MPEG4ASPAVIDecodeV4Tests.swift; sourceTree = "<group>"; };
+		E9A100000000000000000003 /* native-avi-mpeg4-asp.avi */ = {isa = PBXFileReference; lastKnownFileType = file; path = "native-avi-mpeg4-asp.avi"; sourceTree = "<group>"; };
+		E9A100000000000000000005 /* native-avi-mpeg4-asp-b.avi */ = {isa = PBXFileReference; lastKnownFileType = file; path = "native-avi-mpeg4-asp-b.avi"; sourceTree = "<group>"; };
 		D7F000000000000000000040 /* SoftwareDurableExportV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareDurableExportV4Tests.swift; sourceTree = "<group>"; };
 		D7F000000000000000000060 /* SoftwarePresentationThumbnailV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwarePresentationThumbnailV4Tests.swift; sourceTree = "<group>"; };
 		D7F000000000000000000071 /* WMVAACMatroskaImporterV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WMVAACMatroskaImporterV4Tests.swift; sourceTree = "<group>"; };
@@ -742,6 +748,7 @@
 				C53000000000000000000004 /* NativeMediaInputAssetResolverV4Tests.swift */,
 				D6F00000000000000000000A /* UniversalContainerRemuxV4Tests.swift */,
 				D7F000000000000000000030 /* SoftwareDecodeImporterV4Tests.swift */,
+				E9A100000000000000000001 /* MPEG4ASPAVIDecodeV4Tests.swift */,
 				D7F000000000000000000040 /* SoftwareDurableExportV4Tests.swift */,
 				D7F000000000000000000060 /* SoftwarePresentationThumbnailV4Tests.swift */,
 				D7F000000000000000000071 /* WMVAACMatroskaImporterV4Tests.swift */,
@@ -805,6 +812,8 @@
 			children = (
 				F51000000000000000000001 /* raven-forge-site057-video-timing.mp4 */,
 				C53000000000000000000003 /* native-avi-mpeg4.avi */,
+				E9A100000000000000000003 /* native-avi-mpeg4-asp.avi */,
+				E9A100000000000000000005 /* native-avi-mpeg4-asp-b.avi */,
 				C53000000000000000000002 /* native-avi-h264.avi */,
 				C53000000000000000000007 /* native-avi-h264-display-order.json */,
 				F51000000000000000000004 /* legacy-mjpeg.avi */,
@@ -1154,6 +1163,8 @@
 				C7D000000000000000000002 /* ConventionalWholeAssetV4 in Resources */,
 				F52000000000000000000001 /* raven-forge-site057-video-timing.mp4 in Resources */,
 				C54000000000000000000003 /* native-avi-mpeg4.avi in Resources */,
+				E9A100000000000000000004 /* native-avi-mpeg4-asp.avi in Resources */,
+				E9A100000000000000000006 /* native-avi-mpeg4-asp-b.avi in Resources */,
 				C54000000000000000000002 /* native-avi-h264.avi in Resources */,
 				C54000000000000000000007 /* native-avi-h264-display-order.json in Resources */,
 				F52000000000000000000004 /* legacy-mjpeg.avi in Resources */,
@@ -1342,6 +1353,7 @@
 			files = (
 				D6B000000000000000000009 /* UniversalContainerRemuxV4Tests.swift in Sources */,
 				D7B000000000000000000030 /* SoftwareDecodeImporterV4Tests.swift in Sources */,
+				E9A100000000000000000002 /* MPEG4ASPAVIDecodeV4Tests.swift in Sources */,
 				D7B000000000000000000040 /* SoftwareDurableExportV4Tests.swift in Sources */,
 				D7B000000000000000000060 /* SoftwarePresentationThumbnailV4Tests.swift in Sources */,
 				D7B000000000000000000071 /* WMVAACMatroskaImporterV4Tests.swift in Sources */,
