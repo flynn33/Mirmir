@@ -7,6 +7,13 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+### Customer error 11 investigation — November 9, 2026
+
+- Re-checked mapped code-11 surfaces on My Mac Release. Protected CENC control still
+  maps to `Mirmir.MirmirError.protectedAsset` (code 11). Writer `canAdd` still never
+  refuses across 60 H.264/HEVC/ProRes controls. No customer-causal reproduction and no
+  product repair. See [the investigation note](docs/ERROR11_INVESTIGATION_2026-11-09.md).
+
 ### Bounded export-preservation QA — October 26, 2026
 
 - Route conventional primary encodes through the existing whole-asset policy;

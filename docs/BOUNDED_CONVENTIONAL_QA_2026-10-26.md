@@ -39,7 +39,7 @@ The initial extra-empty negative fixture lost its trailing empty segment on nati
 
 | Feature/case | What remains and why |
 | --- | --- |
-| Reported customer error 11 | **Unresolved release blocker.** The customer's exact failure has not been reproduced or causally identified. A protected-input NSError control does not establish the customer's cause or signal 11; no error-11 repair is claimed. |
+| Reported customer error 11 | **Unresolved release blocker.** Re-checked 2026-11-09 on My Mac: protected CENC still maps to `Mirmir.MirmirError` code 11; writer `canAdd` still never refuses (60/60). The customer's exact failure remains unreproduced. See [ERROR11_INVESTIGATION_2026-11-09.md](ERROR11_INVESTIGATION_2026-11-09.md). |
 | Deterministic universal-video support | **Unmet product claim and release blocker.** MKV, WebM/VP9, ASF/WMV, MPEG2 transport streams, MPEG4 ASP B/S pictures and broader JPEG inputs still need coherent production decoder routing and complete-media qualification. The private software importer is not wired into normal routing. This requires implementation, not a narrower restatement of the promise. |
 | Original OpenDML MJPEG AVI decode | Known native zero-frame/wrong-Huffman behavior remains. Encoded AVI preservation and two resolved AVI codec tests do not fix this decoder. |
 | Structural creation dates | Still change: **34 of 38** ordinary final outputs differ from their source movie creation date. Movie/track/media creation ownership has been investigated; no restoration/verification repair is included. Title/metadata graph passes do not cover structural dates. |
