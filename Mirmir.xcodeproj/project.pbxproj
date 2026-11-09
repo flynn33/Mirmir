@@ -15,6 +15,12 @@
 		C6A000000000000000000004 /* NativeThumbnailSignalConverterV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A000000000000000000003 /* NativeThumbnailSignalConverterV4Tests.swift */; };
 		C6A000000000000000000002 /* NativeThumbnailSignalConverterV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A000000000000000000001 /* NativeThumbnailSignalConverterV4.swift */; };
 		CA2600000000000000000002 /* JFIFVideoSamplingV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA2600000000000000000001 /* JFIFVideoSamplingV4.swift */; };
+		E8A100000000000000000002 /* JFIFImageIOWorkingRewriteV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A100000000000000000001 /* JFIFImageIOWorkingRewriteV4.swift */; };
+		E8A100000000000000000004 /* JFIFJPEGMatrixDecodeV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8A100000000000000000003 /* JFIFJPEGMatrixDecodeV4Tests.swift */; };
+		E8A100000000000000000006 /* mjpeg422.mov in Resources */ = {isa = PBXBuildFile; fileRef = E8A100000000000000000005 /* mjpeg422.mov */; };
+		E8A100000000000000000008 /* mjpeg444.mov in Resources */ = {isa = PBXBuildFile; fileRef = E8A100000000000000000007 /* mjpeg444.mov */; };
+		E8A10000000000000000000A /* mjpeg420-odd.mov in Resources */ = {isa = PBXBuildFile; fileRef = E8A100000000000000000009 /* mjpeg420-odd.mov */; };
+		E8A10000000000000000000C /* mjpeg422-ffmpeg.mov in Resources */ = {isa = PBXBuildFile; fileRef = E8A10000000000000000000B /* mjpeg422-ffmpeg.mov */; };
 		C59000000000000000000006 /* ChromaSitingGeometryV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C59000000000000000000005 /* ChromaSitingGeometryV4Tests.swift */; };
 		CA2600000000000000000004 /* JFIFVideoSamplingV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA2600000000000000000003 /* JFIFVideoSamplingV4Tests.swift */; };
 		C59000000000000000000004 /* AVCChromaLocationV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C59000000000000000000003 /* AVCChromaLocationV4Tests.swift */; };
@@ -247,6 +253,12 @@
 		C6A000000000000000000003 /* NativeThumbnailSignalConverterV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeThumbnailSignalConverterV4Tests.swift; sourceTree = "<group>"; };
 		C6A000000000000000000001 /* NativeThumbnailSignalConverterV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeThumbnailSignalConverterV4.swift; sourceTree = "<group>"; };
 		CA2600000000000000000001 /* JFIFVideoSamplingV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JFIFVideoSamplingV4.swift; sourceTree = "<group>"; };
+		E8A100000000000000000001 /* JFIFImageIOWorkingRewriteV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JFIFImageIOWorkingRewriteV4.swift; sourceTree = "<group>"; };
+		E8A100000000000000000003 /* JFIFJPEGMatrixDecodeV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JFIFJPEGMatrixDecodeV4Tests.swift; sourceTree = "<group>"; };
+		E8A100000000000000000005 /* mjpeg422.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = mjpeg422.mov; sourceTree = "<group>"; };
+		E8A100000000000000000007 /* mjpeg444.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = mjpeg444.mov; sourceTree = "<group>"; };
+		E8A100000000000000000009 /* mjpeg420-odd.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = "mjpeg420-odd.mov"; sourceTree = "<group>"; };
+		E8A10000000000000000000B /* mjpeg422-ffmpeg.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = "mjpeg422-ffmpeg.mov"; sourceTree = "<group>"; };
 		C59000000000000000000005 /* ChromaSitingGeometryV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChromaSitingGeometryV4Tests.swift; sourceTree = "<group>"; };
 		CA2600000000000000000003 /* JFIFVideoSamplingV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JFIFVideoSamplingV4Tests.swift; sourceTree = "<group>"; };
 		C59000000000000000000003 /* AVCChromaLocationV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVCChromaLocationV4Tests.swift; sourceTree = "<group>"; };
@@ -610,6 +622,7 @@
 				C55000000000000000000002 /* UniformPCMSampleBufferV4Tests.swift */,
 				C53000000000000000000004 /* NativeMediaInputAssetResolverV4Tests.swift */,
 				D7F0000000000000000000A0 /* OpenDMLJPEGNativeDecodeV4Tests.swift */,
+				E8A100000000000000000003 /* JFIFJPEGMatrixDecodeV4Tests.swift */,
 				C53000000000000000000009 /* NativeAVIMPEG4PresentationOrderV4Tests.swift */,
 				310000000000000000000017 /* SecurityScopedAccessTests.swift */,
 				31000000000000000000001D /* BackendCatalogTests.swift */,
@@ -664,6 +677,10 @@
 				C53000000000000000000007 /* native-avi-h264-display-order.json */,
 				F51000000000000000000004 /* legacy-mjpeg.avi */,
 				F51000000000000000000003 /* legacy-mjpeg.mov */,
+				E8A100000000000000000005 /* mjpeg422.mov */,
+				E8A100000000000000000007 /* mjpeg444.mov */,
+				E8A100000000000000000009 /* mjpeg420-odd.mov */,
+				E8A10000000000000000000B /* mjpeg422-ffmpeg.mov */,
 				F51000000000000000000002 /* legacy-mpeg4.mov */,
 			);
 			path = Fixtures;
@@ -677,6 +694,7 @@
 				C53000000000000000000001 /* NativeMediaInputAssetResolverV4.swift */,
 				C59000000000000000000001 /* AVCChromaLocationV4.swift */,
 				CA2600000000000000000001 /* JFIFVideoSamplingV4.swift */,
+				E8A100000000000000000001 /* JFIFImageIOWorkingRewriteV4.swift */,
 				C6B000000000000000000003 /* ProRes422WorkingFormatV4.swift */,
 				C6B000000000000000000001 /* ProRes422SourceFactsV4.swift */,
 				C57000000000000000000002 /* AACGaplessMetadataTranslationV4.swift */,
@@ -979,6 +997,10 @@
 				C54000000000000000000007 /* native-avi-h264-display-order.json in Resources */,
 				F52000000000000000000004 /* legacy-mjpeg.avi in Resources */,
 				F52000000000000000000003 /* legacy-mjpeg.mov in Resources */,
+				E8A100000000000000000006 /* mjpeg422.mov in Resources */,
+				E8A100000000000000000008 /* mjpeg444.mov in Resources */,
+				E8A10000000000000000000A /* mjpeg420-odd.mov in Resources */,
+				E8A10000000000000000000C /* mjpeg422-ffmpeg.mov in Resources */,
 				F52000000000000000000002 /* legacy-mpeg4.mov in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1028,6 +1050,7 @@
 				C54000000000000000000001 /* NativeMediaInputAssetResolverV4.swift in Sources */,
 				C59000000000000000000002 /* AVCChromaLocationV4.swift in Sources */,
 				CA2600000000000000000002 /* JFIFVideoSamplingV4.swift in Sources */,
+				E8A100000000000000000002 /* JFIFImageIOWorkingRewriteV4.swift in Sources */,
 				C6B000000000000000000004 /* ProRes422WorkingFormatV4.swift in Sources */,
 				C6B000000000000000000002 /* ProRes422SourceFactsV4.swift in Sources */,
 				C58000000000000000000002 /* AACGaplessMetadataTranslationV4.swift in Sources */,
@@ -1164,6 +1187,7 @@
 				C56000000000000000000002 /* UniformPCMSampleBufferV4Tests.swift in Sources */,
 				C54000000000000000000004 /* NativeMediaInputAssetResolverV4Tests.swift in Sources */,
 				D7B0000000000000000000A0 /* OpenDMLJPEGNativeDecodeV4Tests.swift in Sources */,
+				E8A100000000000000000004 /* JFIFJPEGMatrixDecodeV4Tests.swift in Sources */,
 				C54000000000000000000009 /* NativeAVIMPEG4PresentationOrderV4Tests.swift in Sources */,
 				320000000000000000000015 /* SecurityScopedAccessTests.swift in Sources */,
 				32000000000000000000001B /* BackendCatalogTests.swift in Sources */,
