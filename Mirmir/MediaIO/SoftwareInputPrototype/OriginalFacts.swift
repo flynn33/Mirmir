@@ -11,6 +11,116 @@ func span(_ v: MIBSpan) -> Data { v.size == 0 ? Data() : Data(bytes: v.data!, co
 func check(_ code: Int32, _ error: MIBError) throws { if code < 0 { throw ProbeFailure(cText(error.stage) + ": " + cText(error.message)) } }
 func hashBytes(_ value: String) throws -> [UInt8] { guard value.count == 64 else { throw ProbeFailure("invalid source hash") }; let a = Array(value.utf8); return try stride(from: 0, to: 64, by: 2).map { i in guard let n = UInt8(String(bytes: a[i..<i+2], encoding: .utf8)!, radix: 16) else { throw ProbeFailure("invalid source hash") }; return n } }
 func tupleArray<T, E>(_ v: T, _: E.Type) -> [E] { withUnsafeBytes(of: v) { Array($0.bindMemory(to: E.self)) } }
+
+/// Exact native Matroska CodecID bindings where CodecPrivate equals libav extradata.
+private let matroskaNativeCodecIDs: [String: String] = [
+    "h264": "V_MPEG4/ISO/AVC",
+    "vp9": "V_VP9",
+    "aac": "A_AAC",
+    "opus": "A_OPUS",
+]
+
+/// VFW FOURCC strings for codecs commonly wrapped as V_MS/VFW/FOURCC in Matroska.
+private let matroskaVFWFourCCs: [String: String] = [
+    "wmv1": "WMV1",
+    "wmv2": "WMV2",
+    "wmv3": "WMV3",
+    "wmvp": "WMVP",
+    "wvp2": "WVP2",
+    "mss1": "MSS1",
+    "mss2": "MSS2",
+]
+
+private func leUInt32(_ data: Data, _ offset: Int) -> UInt32? {
+    guard offset >= 0, data.count >= offset + 4 else { return nil }
+    return UInt32(data[offset])
+        | UInt32(data[offset + 1]) << 8
+        | UInt32(data[offset + 2]) << 16
+        | UInt32(data[offset + 3]) << 24
+}
+
+private func leInt32(_ data: Data, _ offset: Int) -> Int32? {
+    leUInt32(data, offset).map { Int32(bitPattern: $0) }
+}
+
+private func matroskaVFWExtradataCompatible(privateData: Data, biSize: Int, extradata: Data) -> Bool {
+    if extradata.isEmpty { return true }
+    if privateData == extradata { return true }
+    if biSize >= 40, biSize <= privateData.count {
+        let tail = privateData.suffix(from: biSize)
+        if Data(tail) == extradata { return true }
+    }
+    if extradata.count <= privateData.count,
+       privateData.suffix(extradata.count) == extradata {
+        return true
+    }
+    return false
+}
+
+private func matroskaVFWMatches(
+    track: MatroskaTrackEvidence,
+    codecName: String,
+    codecTag: UInt32,
+    width: Int32,
+    height: Int32,
+    extradata: Data
+) -> Bool {
+    guard track.codecID == "V_MS/VFW/FOURCC" else { return false }
+    let privateData = track.codecPrivate
+    guard let biSizeRaw = leUInt32(privateData, 0),
+          let biWidth = leInt32(privateData, 4),
+          let biHeight = leInt32(privateData, 8),
+          privateData.count >= 40 else { return false }
+    let biSize = Int(biSizeRaw)
+    guard biSize >= 40, biSize <= privateData.count else { return false }
+    let fourCC = Data(privateData[16..<20])
+    if width > 0, biWidth != width { return false }
+    if height > 0, abs(biHeight) != height { return false }
+    if let geometry = track.videoGeometry {
+        if width > 0, geometry.pixelWidth != UInt64(width) { return false }
+        if height > 0, geometry.pixelHeight != UInt64(height) { return false }
+    }
+    let tagFourCC = Data([
+        UInt8(truncatingIfNeeded: codecTag),
+        UInt8(truncatingIfNeeded: codecTag >> 8),
+        UInt8(truncatingIfNeeded: codecTag >> 16),
+        UInt8(truncatingIfNeeded: codecTag >> 24),
+    ])
+    let fourCCMatchesTag = codecTag != 0 && fourCC == tagFourCC
+    let fourCCMatchesName = matroskaVFWFourCCs[codecName].map { Data($0.utf8) == fourCC } ?? false
+    guard fourCCMatchesTag || fourCCMatchesName else { return false }
+    return matroskaVFWExtradataCompatible(
+        privateData: privateData, biSize: biSize, extradata: extradata
+    )
+}
+
+private func matroskaTrackMatches(
+    _ track: MatroskaTrackEvidence,
+    mediaType: Int32,
+    codecName: String,
+    codecTag: UInt32,
+    width: Int32,
+    height: Int32,
+    extradata: Data
+) -> Bool {
+    let expectedType: UInt64 = mediaType == 0 ? 1 : mediaType == 1 ? 2 : UInt64.max
+    guard track.type == expectedType else { return false }
+    if let codecID = matroskaNativeCodecIDs[codecName] {
+        return track.codecID == codecID && track.codecPrivate == extradata
+    }
+    if mediaType == 0 {
+        return matroskaVFWMatches(
+            track: track,
+            codecName: codecName,
+            codecTag: codecTag,
+            width: width,
+            height: height,
+            extradata: extradata
+        )
+    }
+    return false
+}
+
 struct RawTime: Codable, Equatable { let value: Int64; let numerator: Int32; let denominator: Int32
  init?(_ v: MIBTime) { guard v.valid != 0 else { return nil }; value = v.value; numerator = v.base.num; denominator = v.base.den }
  var seconds: ExactRationalV4 { get throws { try ExactRationalV4(value).multiplied(by: ExactRationalV4(Int64(numerator), Int64(denominator))) } }
@@ -105,12 +215,26 @@ final class OriginalProbe {
   var streams: [OriginalStream] = []; var boundUIDs = Set<String>()
   for i in 0..<asset.streams { var s = MIBStreamFacts(); try check(mib_stream_facts(source, i, &s, &error), error); var side: [RawSideData] = []
    for j in 0..<s.side_data_count { var v = MIBSideData(); try check(mib_stream_side_data(source, i, j, &v, &error), error); side.append(RawSideData(type: v.type, name: text(v.name), bytes: span(v.bytes))) }
-   let codec = text(s.codec_name); let extra = span(s.extradata); let names = ["h264":"V_MPEG4/ISO/AVC", "vp9":"V_VP9", "aac":"A_AAC", "opus":"A_OPUS"]
-   let matches = mte.filter { $0.type == (s.media_type == 0 ? 1 : s.media_type == 1 ? 2 : UInt64.max) && $0.codecID == names[codec] && $0.codecPrivate == extra }
+   let codec = text(s.codec_name); let extra = span(s.extradata)
+   let matches = mte.filter { matroskaTrackMatches($0, mediaType: s.media_type, codecName: codec, codecTag: s.codec_tag, width: s.width, height: s.height, extradata: extra) }
    let bound: MatroskaTrackEvidence?
-   if mte.isEmpty { bound = nil } else { guard matches.count == 1, boundUIDs.insert(matches[0].uid).inserted else { throw ProbeFailure("ambiguous original TrackEntry-to-libav mapping for ordinal \(i)") }; bound = matches[0] }
+   if mte.isEmpty { bound = nil } else {
+    guard matches.count == 1, boundUIDs.insert(matches[0].uid).inserted else {
+     throw ProbeFailure(
+      matches.isEmpty
+        ? "no original TrackEntry-to-libav mapping for ordinal \(i) codec \(codec)"
+        : "ambiguous original TrackEntry-to-libav mapping for ordinal \(i)"
+     )
+    }
+    bound = matches[0]
+   }
    let enabled: Bool?; let evidence: String
-   if let bound { enabled = bound.enabled; evidence = "original TrackEntry.FlagEnabled, explicit/default presence retained; unique type+CodecID+exact CodecPrivate binding" }
+   if let bound {
+    enabled = bound.enabled
+    evidence = bound.codecID == "V_MS/VFW/FOURCC"
+      ? "original TrackEntry.FlagEnabled, explicit/default presence retained; unique type+V_MS/VFW/FOURCC+FOURCC/geometry binding"
+      : "original TrackEntry.FlagEnabled, explicit/default presence retained; unique type+CodecID+exact CodecPrivate binding"
+   }
    else if text(asset.demuxer).contains("mov") { enabled = s.disposition & 1 != 0; evidence = "original MOV tkhd enabled mapped by official mov.c:5593 to AV_DISPOSITION_DEFAULT" }
    else if let value = nativeEnabled[s.media_type], sourceTypeCounts[s.media_type] == 1, [Int32(0), 1].contains(s.media_type) { enabled = value; evidence = "original URL AVAssetTrack.isEnabled; unique source media-type mapping" }
    else { enabled = nil; evidence = "unknown: bridge does not expose a proven original enabled semantic for this container" }
