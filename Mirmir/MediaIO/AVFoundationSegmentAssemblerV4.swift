@@ -542,6 +542,9 @@ struct AVFoundationSegmentAssemblyRequestV4: @unchecked Sendable {
     let destinationURL: URL
     let outputFileType: AVFileType
     let overwriteExistingFile: Bool
+    /// Authenticated source movie whose structural creation dates should
+    /// survive a standalone assembly final (no subsequent migration).
+    let structuralCreationDateSourceURL: URL?
 
     init(
         artifactRootURL: URL,
@@ -550,7 +553,8 @@ struct AVFoundationSegmentAssemblyRequestV4: @unchecked Sendable {
         outputTimelineStart: WorkflowMediaTimeV4,
         destinationURL: URL,
         outputFileType: AVFileType = .mov,
-        overwriteExistingFile: Bool = false
+        overwriteExistingFile: Bool = false,
+        structuralCreationDateSourceURL: URL? = nil
     ) {
         self.artifactRootURL = artifactRootURL
         self.segments = segments
@@ -559,6 +563,7 @@ struct AVFoundationSegmentAssemblyRequestV4: @unchecked Sendable {
         self.destinationURL = destinationURL
         self.outputFileType = outputFileType
         self.overwriteExistingFile = overwriteExistingFile
+        self.structuralCreationDateSourceURL = structuralCreationDateSourceURL
     }
 }
 
@@ -579,6 +584,9 @@ struct AVFoundationTransientSegmentAssemblyRequestV4: @unchecked Sendable {
     let destinationURL: URL
     let outputFileType: AVFileType
     let overwriteExistingFile: Bool
+    /// Authenticated source movie for structural creation-date restore when
+    /// this transient assembly is published without a later migration pass.
+    let structuralCreationDateSourceURL: URL?
 
     init(
         trustedRootURL: URL,
@@ -589,7 +597,8 @@ struct AVFoundationTransientSegmentAssemblyRequestV4: @unchecked Sendable {
         expectedEdits: [MediaTrackEditV4],
         destinationURL: URL,
         outputFileType: AVFileType = .mov,
-        overwriteExistingFile: Bool = false
+        overwriteExistingFile: Bool = false,
+        structuralCreationDateSourceURL: URL? = nil
     ) {
         self.trustedRootURL = trustedRootURL
         self.segments = segments
@@ -600,6 +609,7 @@ struct AVFoundationTransientSegmentAssemblyRequestV4: @unchecked Sendable {
         self.destinationURL = destinationURL
         self.outputFileType = outputFileType
         self.overwriteExistingFile = overwriteExistingFile
+        self.structuralCreationDateSourceURL = structuralCreationDateSourceURL
     }
 }
 
@@ -691,7 +701,9 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
             outputTimelineStart: outputTimelineStart,
             destinationURL: request.destinationURL,
             outputFileType: request.outputFileType,
-            overwriteExistingFile: request.overwriteExistingFile
+            overwriteExistingFile: request.overwriteExistingFile,
+            structuralCreationDateSourceURL:
+                request.structuralCreationDateSourceURL
         )
     }
 
@@ -793,7 +805,9 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
             expectedEdits: request.expectedEdits,
             destinationURL: request.destinationURL,
             outputFileType: request.outputFileType,
-            overwriteExistingFile: request.overwriteExistingFile
+            overwriteExistingFile: request.overwriteExistingFile,
+            structuralCreationDateSourceURL:
+                request.structuralCreationDateSourceURL
         )
     }
 
@@ -815,7 +829,8 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
         expectedEdits: [MediaTrackEditV4],
         destinationURL: URL,
         outputFileType: AVFileType,
-        overwriteExistingFile: Bool
+        overwriteExistingFile: Bool,
+        structuralCreationDateSourceURL: URL?
     ) async throws -> AVFoundationSegmentAssemblyResultV4 {
         guard assets.count == segments.count,
               identities.count == segments.count,
@@ -1183,6 +1198,10 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
             outputTimelineStart: outputTimelineStart,
             allowsIndependentDecodeRebasing: true
         )
+        try Self.restoreStructuralCreationDatesIfNeeded(
+            sourceURL: structuralCreationDateSourceURL,
+            into: destination.temporaryURL
+        )
         let outputSHA = try WorkflowSegmentCheckpointStoreV4.rawFileIdentity(
             destination.temporaryURL
         ).sha256
@@ -1315,7 +1334,8 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
         outputTimelineStart: CMTime,
         destinationURL: URL,
         outputFileType: AVFileType,
-        overwriteExistingFile: Bool
+        overwriteExistingFile: Bool,
+        structuralCreationDateSourceURL: URL?
     ) async throws -> AVFoundationSegmentAssemblyResultV4 {
         let composition = AVMutableComposition()
         let firstTracks = try await assets[0].load(.tracks)
@@ -1456,6 +1476,10 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
             mediaTimelineStart: mediaTimelineStart,
             outputTimelineStart: outputTimelineStart
         )
+        try Self.restoreStructuralCreationDatesIfNeeded(
+            sourceURL: structuralCreationDateSourceURL,
+            into: destination.temporaryURL
+        )
         let outputSHA = try WorkflowSegmentCheckpointStoreV4.rawFileIdentity(
             destination.temporaryURL
         ).sha256
@@ -1478,6 +1502,28 @@ struct AVFoundationSegmentAssemblerV4: Sendable {
                 .containerBytesNotContractual
             ]
         )
+    }
+
+    private static func restoreStructuralCreationDatesIfNeeded(
+        sourceURL: URL?,
+        into outputURL: URL
+    ) throws {
+        guard let sourceURL else { return }
+        do {
+            _ = try MOVStructuralCreationDatesV4.restoreFromSource(
+                sourceURL: sourceURL,
+                into: outputURL
+            )
+        } catch let error as MOVStructuralCreationDatesV4.Failure {
+            throw AVFoundationSegmentV4Error.exportFailed(
+                "structural creation-date restoration failed: \(error)"
+            )
+        } catch {
+            throw AVFoundationSegmentV4Error.exportFailed(
+                "structural creation-date restoration failed: "
+                    + String(describing: error)
+            )
+        }
     }
 
     private struct Descriptor {
