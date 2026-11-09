@@ -1079,7 +1079,7 @@ enum MirmirFramePreviewLoader {
             switch role {
             case .source:
                 guard let resolved = try? await NativeMediaInputAssetResolverV4
-                    .asset(url: url) else { return nil }
+                    .presentationAsset(url: url) else { return nil }
                 asset = resolved
             case .completedOutput:
                 asset = AVURLAsset(url: url)
@@ -1093,9 +1093,21 @@ enum MirmirFramePreviewLoader {
             let seconds = preferredTime.isFinite
                 ? max(0, preferredTime)
                 : 0
-            let time = CMTime(seconds: seconds, preferredTimescale: 600)
+            let time: CMTime
+            do {
+                time = try SoftwareVirtualCarrier.presentationFrameTime(
+                    in: asset, preferredSeconds: seconds
+                ) ?? CMTime(seconds: seconds, preferredTimescale: 600)
+            } catch {
+                return nil
+            }
             guard let result = try? await generator.image(at: time) else {
                 return nil
+            }
+            // Software presentation carriers already deliver display BGRA; keep
+            // the native signal-RGB converter for remux/native H.264/HEVC only.
+            if SoftwareVirtualCarrier.presentationPolicy(in: asset) != nil {
+                return result.image
             }
             do {
                 return try await NativeThumbnailSignalConverterV4.image(

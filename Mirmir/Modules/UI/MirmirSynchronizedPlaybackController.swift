@@ -161,7 +161,8 @@ private extension MirmirSynchronizedPlaybackController {
             let asset: AVURLAsset
             switch role {
             case .source:
-                asset = try await NativeMediaInputAssetResolverV4.asset(url: url)
+                asset = try await NativeMediaInputAssetResolverV4
+                    .presentationAsset(url: url)
             case .completedOutput:
                 asset = AVURLAsset(url: url)
             }
