@@ -27,8 +27,11 @@ actor NativeMediaInputAssetResolverV4 {
     enum Strategy: String, Codable, Sendable {
         case aviMPEG4 = "avi-mpeg4-presentation-v2"
         case aviH264 = "avi-h264-poc-presentation-v2"
+        /// OpenDML `dmb1`+`mjht` prefers external defaults over later in-band DHT.
+        /// Rewrite to ordinary JPEG so VT honors the packet Huffman tables.
+        case aviOpenDMLJPEG = "avi-opendml-jpeg-inband-huffman-v1"
 
-        static let allValues: [Self] = [.aviMPEG4, .aviH264]
+        static let allValues: [Self] = [.aviMPEG4, .aviH264, .aviOpenDMLJPEG]
         static var managedVersions: [String] {
             allValues.map(\.rawValue) + ["avi-mpeg4-sample-entry-v1", "avi-h264-annex-b-v1"]
         }
@@ -220,6 +223,7 @@ actor NativeMediaInputAssetResolverV4 {
         switch CMFormatDescriptionGetMediaSubType(description) {
         case 0x464d5034: strategy = .aviMPEG4 // FMP4
         case 0x48323634: strategy = .aviH264 // H264
+        case kCMVideoCodecType_JPEG_OpenDML: strategy = .aviOpenDMLJPEG
         default: return original
         }
         guard strategy == hint else { throw Self.failure("The AVI codec identity changed while opening the source.") }
@@ -367,6 +371,7 @@ actor NativeMediaInputAssetResolverV4 {
                     let codec = Data(bytes[(payload + 4)..<(payload + 8)])
                     if codec == Data("FMP4".utf8) { return .aviMPEG4 }
                     if codec == Data("H264".utf8) { return .aviH264 }
+                    if codec == Data("MJPG".utf8) { return .aviOpenDMLJPEG }
                 }
                 if tag == "LIST", size >= 4,
                    let result = scan(payload + 4, payload + Int(size), depth + 1) { return result }
@@ -432,7 +437,7 @@ actor NativeMediaInputAssetResolverV4 {
             throw Self.failure("The derived input cache content changed; remove this cache entry and retry.")
         }
         if verifiedDerived[output] == nil {
-            _ = try await validatePreservation(original, tracks: tracks)
+            _ = try await validatePreservation(original, tracks: tracks, strategy: strategy)
             let video = tracks.first { $0.mediaType == .video }!
             let canonical = try canonicalFormat(original, track: video, description: description,
                                                  strategy: strategy, cancellation: cancellation)
@@ -623,7 +628,7 @@ actor NativeMediaInputAssetResolverV4 {
         strategy: Strategy, output: URL, sourceBytes: Int64,
         cancellation: (any NativeMediaInputCancellationV4)?
     ) async throws {
-        let end = try await validatePreservation(asset, tracks: tracks)
+        let end = try await validatePreservation(asset, tracks: tracks, strategy: strategy)
         let video = tracks.first { $0.mediaType == .video }!
         let format = try canonicalFormat(asset, track: video, description: description,
                                          strategy: strategy, cancellation: cancellation)
@@ -722,7 +727,9 @@ actor NativeMediaInputAssetResolverV4 {
         completed = true
     }
 
-    private func validatePreservation(_ asset: AVAsset, tracks: [AVAssetTrack]) async throws -> CMTime {
+    private func validatePreservation(
+        _ asset: AVAsset, tracks: [AVAssetTrack], strategy: Strategy
+    ) async throws -> CMTime {
         guard (1...2).contains(tracks.count), tracks.filter({ $0.mediaType == .video }).count == 1,
               tracks.allSatisfy({ $0.mediaType == .video || $0.mediaType == .audio }),
               try await asset.load(.metadata).isEmpty,
@@ -754,8 +761,14 @@ actor NativeMediaInputAssetResolverV4 {
             guard formats.count == 1 else { throw Self.failure("AVI format changes cannot be normalized.") }
             if track.mediaType == .video {
                 let extensions = CMFormatDescriptionGetExtensions(formats[0]) as NSDictionary?
-                guard extensions == nil || extensions?.count == 0,
-                      try await track.load(.preferredVolume) == 1 else {
+                if strategy == .aviOpenDMLJPEG {
+                    try Self.validateOpenDMLSourceExtensions(extensions)
+                } else {
+                    guard extensions == nil || extensions?.count == 0 else {
+                        throw Self.failure("AVI container format metadata or video volume is outside the verified import contract.")
+                    }
+                }
+                guard try await track.load(.preferredVolume) == 1 else {
                     throw Self.failure("AVI container format metadata or video volume is outside the verified import contract.")
                 }
             }
@@ -813,6 +826,34 @@ actor NativeMediaInputAssetResolverV4 {
             guard code == noErr, let result else { throw failure("H.264 configuration is invalid (\(code)).") }
             return result
         }
+        if strategy == .aviOpenDMLJPEG {
+            guard CMFormatDescriptionGetMediaSubType(description) == kCMVideoCodecType_JPEG_OpenDML,
+                  let proof = try JFIFVideoSamplingV4.progressiveDeclaration(from: description) else {
+                throw failure("OpenDML MJPEG AVI requires one progressive JFIF full-raster field.")
+            }
+            try proof.validatePacket(firstPacket)
+            let dimensions = CMVideoFormatDescriptionGetDimensions(description)
+            guard dimensions.width == proof.width, dimensions.height == proof.height else {
+                throw failure("OpenDML MJPEG raster contradicts its JFIF declaration.")
+            }
+            // Drop OpenDML `mjht` defaults. Ordinary JPEG lets later in-band DHT
+            // definitions replace any earlier table, matching T.81 B.2.4.2.
+            let extensions = [
+                kCMFormatDescriptionExtension_FieldCount as String: 1
+            ] as CFDictionary
+            let code = CMVideoFormatDescriptionCreate(
+                allocator: kCFAllocatorDefault,
+                codecType: kCMVideoCodecType_JPEG,
+                width: dimensions.width,
+                height: dimensions.height,
+                extensions: extensions,
+                formatDescriptionOut: &result
+            )
+            guard code == noErr, let result else {
+                throw failure("OpenDML-to-JPEG sample entry is invalid (\(code)).")
+            }
+            return result
+        }
         let bytes = [UInt8](firstPacket)
         guard bytes.count >= 8 else { throw failure("MPEG-4 configuration is truncated.") }
         var end: Int?
@@ -833,6 +874,28 @@ actor NativeMediaInputAssetResolverV4 {
             extensions: extensions, formatDescriptionOut: &result)
         guard code == noErr, let result else { throw failure("MPEG-4 configuration is invalid (\(code)).") }
         return result
+    }
+
+    private static func validateOpenDMLSourceExtensions(_ extensions: NSDictionary?) throws {
+        guard let extensions else {
+            throw failure("OpenDML MJPEG AVI is missing its sample description extensions.")
+        }
+        guard let fieldCount = extensions[kCMFormatDescriptionExtension_FieldCount as String] as? NSNumber,
+              fieldCount.doubleValue == 1,
+              extensions[kCMFormatDescriptionExtension_FieldDetail as String] == nil else {
+            throw failure("OpenDML MJPEG normalization requires one progressive full-raster field.")
+        }
+        if let atoms = extensions[kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms as String] as? NSDictionary {
+            guard atoms.count <= 1 else {
+                throw failure("OpenDML MJPEG has unrecognized sample-description atoms.")
+            }
+            if let mjht = atoms["mjht"] {
+                guard let data = mjht as? Data, data.count >= 2, data.count <= 65_536,
+                      Int(data[data.startIndex]) * 256 + Int(data[data.startIndex + 1]) == data.count else {
+                    throw failure("OpenDML mjht Huffman atom framing is invalid.")
+                }
+            }
+        }
     }
 
     private static func descriptor(_ tag: UInt8, _ data: Data) -> Data {
@@ -907,6 +970,12 @@ actor NativeMediaInputAssetResolverV4 {
                     throw failure("H.264 parameter sets change within the AVI track.")
                 }
             }
+        } else if strategy == .aviOpenDMLJPEG {
+            guard CMFormatDescriptionGetMediaSubType(format) == kCMVideoCodecType_JPEG,
+                  let proof = try JFIFVideoSamplingV4.progressiveDeclaration(from: format) else {
+                throw failure("OpenDML JPEG working sample entry is not progressive JFIF.")
+            }
+            try proof.validatePacket(packet)
         } else {
             let bytes = [UInt8](packet)
             guard bytes.count >= 4 else { throw failure("MPEG-4 packet is truncated.") }

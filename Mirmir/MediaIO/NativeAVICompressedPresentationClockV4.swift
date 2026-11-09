@@ -6,6 +6,7 @@ import Foundation
 struct NativeAVICompressedPresentationClockV4 {
     private var h264: NativeAVIH264PresentationOrderV4?
     private var mpeg4: NativeAVIMPEG4PresentationOrderV4?
+    private var identityPresentation = false
     private var duration: CMTime?
     private var packetCount: Int64 = 0
     private var nextDisplayOrdinal: Int64 = 0
@@ -15,6 +16,11 @@ struct NativeAVICompressedPresentationClockV4 {
         switch strategy {
         case .aviH264: h264 = try NativeAVIH264PresentationOrderV4(format: format)
         case .aviMPEG4: mpeg4 = try NativeAVIMPEG4PresentationOrderV4(format: format)
+        case .aviOpenDMLJPEG:
+            guard CMFormatDescriptionGetMediaSubType(format) == kCMVideoCodecType_JPEG else {
+                throw Self.failure("OpenDML JPEG presentation requires the rewritten JPEG sample entry.")
+            }
+            identityPresentation = true
         }
     }
 
@@ -33,7 +39,9 @@ struct NativeAVICompressedPresentationClockV4 {
             throw Self.failure("AVI packet timing is not the verified zero-origin decode clock.")
         }
         let ordinal: Int64
-        if h264 != nil {
+        if identityPresentation {
+            ordinal = packetCount
+        } else if h264 != nil {
             ordinal = try h264!.displayOrdinal(packet: packet, decodeOrdinal: packetCount)
         } else if mpeg4 != nil {
             ordinal = try mpeg4!.displayOrdinal(packet: packet, decodeOrdinal: packetCount, duration: step)
