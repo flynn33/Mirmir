@@ -443,6 +443,10 @@ Notable changes are recorded in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## License and model notices
 
+Mirmir is free for personal use, education, and research under the
+[Mirmir Source License](LICENSE). This is not the MIT License. Commercial use
+requires separate written permission. See [LICENSING.md](LICENSING.md).
+
 Mirmir includes separately governed deterministic ASH model material. Its
 license is bundled at `Mirmir/Resources/Legal/ASH-Model-LICENSE.txt` and must
 remain present in application distributions.
