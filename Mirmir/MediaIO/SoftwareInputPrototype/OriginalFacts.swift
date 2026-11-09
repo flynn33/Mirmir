@@ -219,14 +219,25 @@ final class OriginalProbe {
    let matches = mte.filter { matroskaTrackMatches($0, mediaType: s.media_type, codecName: codec, codecTag: s.codec_tag, width: s.width, height: s.height, extradata: extra) }
    let bound: MatroskaTrackEvidence?
    if mte.isEmpty { bound = nil } else {
-    guard matches.count == 1, boundUIDs.insert(matches[0].uid).inserted else {
+    // Prefer a unique unbound TrackEntry. Identical CodecPrivate siblings
+    // (e.g. dual Opus) bind in EBML document order against remaining matches.
+    let unbound = matches.filter { !boundUIDs.contains($0.uid) }
+    let identicalSiblings = unbound.count > 1
+      && unbound.allSatisfy {
+        $0.codecID == unbound[0].codecID && $0.codecPrivate == unbound[0].codecPrivate
+      }
+    guard let chosen = unbound.first,
+          unbound.count == 1 || identicalSiblings,
+          boundUIDs.insert(chosen.uid).inserted else {
      throw ProbeFailure(
-      matches.isEmpty
-        ? "no original TrackEntry-to-libav mapping for ordinal \(i) codec \(codec)"
+      unbound.isEmpty
+        ? (matches.isEmpty
+          ? "no original TrackEntry-to-libav mapping for ordinal \(i) codec \(codec)"
+          : "ambiguous original TrackEntry-to-libav mapping for ordinal \(i)")
         : "ambiguous original TrackEntry-to-libav mapping for ordinal \(i)"
      )
     }
-    bound = matches[0]
+    bound = chosen
    }
    let enabled: Bool?; let evidence: String
    if let bound {
