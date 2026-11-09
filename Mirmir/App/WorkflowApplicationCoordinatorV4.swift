@@ -2973,8 +2973,9 @@ final class WorkflowSourceTrackProgressCursorV4: @unchecked Sendable {
     private(set) var nonTimedSampleBufferCount: UInt64 = 0
     let readerCreationCount: UInt64 = 1
 
-    init(asset: AVAsset, track: AVAssetTrack) throws {
+    init(asset: AVAsset, track: AVAssetTrack, selectedRange: CMTimeRange? = nil) throws {
         reader = try AVAssetReader(asset: asset)
+        if let selectedRange { reader.timeRange = selectedRange }
         output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
         output.alwaysCopiesSampleData = false
         guard reader.canAdd(output) else {
@@ -3193,7 +3194,7 @@ actor WorkflowDeterministicApplicationEngineV4:
                 .primarySourceSampleCount(
                     sourceURL: request.inputURL,
                     primaryTrackOrdinal: Int(
-                        plan.primaryGraphTrack.identity.ordinal
+                        plan.executionPrimaryGraphTrack.identity.ordinal
                     ),
                     cancellation: cancellation
                 )
@@ -3370,9 +3371,10 @@ actor WorkflowDeterministicApplicationEngineV4:
                     nonVideoTranscodeHooks:
                         prepared.plan.nonVideoTranscodeHooks,
                     processedVideoReplacement: .init(
-                        trackID: prepared.plan.primaryGraphTrack.identity.stableID,
+                        trackID: prepared.plan.executionPrimaryGraphTrack.identity.stableID,
                         sourceURL: assembledVideoURL
-                    )
+                    ),
+                    softwareExecution: prepared.plan.softwareExecution
                 ),
                 cancellation: migrationCancellation,
                 progress: { state in
@@ -3517,6 +3519,13 @@ extension WorkflowDeterministicApplicationEngineV4 {
                 )
         }
         reader.add(output)
+        if let context = OriginalSoftwareMediaContext.associated(with: asset),
+           context.timings.indices.contains(primaryTrackOrdinal),
+           let first = context.timings[primaryTrackOrdinal].selectedStart,
+           let end = context.timings[primaryTrackOrdinal].selectedEnd {
+            let selectedStart = try context.sharedOrigin.normalize(first).adding(SoftwareVirtualCarrier.sharedWorkingOffset(context))
+            reader.timeRange = CMTimeRange(start: try cm(selectedStart), duration: try cm(end.subtracting(first)))
+        }
         guard reader.startReading() else {
             throw WorkflowApplicationControllerErrorV4
                 .invalidAssembledOutput(
@@ -3600,9 +3609,9 @@ private extension WorkflowDeterministicApplicationEngineV4 {
     ) throws -> PreparedTimeline {
         let plannedPrimary = plan.trackPlan.plan.tracks.filter {
             $0.source.identity.stableID
-                == plan.primaryGraphTrack.identity.stableID
+                == plan.executionPrimaryGraphTrack.identity.stableID
         }
-        guard let primaryVideo = plan.primaryCanonicalTrack.video,
+        guard let primaryVideo = plan.executionPrimaryCanonicalTrack.video,
               plannedPrimary.count == 1,
               let planned = plannedPrimary.first,
               planned.action == .process,
@@ -3642,7 +3651,7 @@ private extension WorkflowDeterministicApplicationEngineV4 {
             assembly: WorkflowApplicationAssemblyTimelineDescriptorV4(
                 planID: binding.planID,
                 mediaTimelineStart: try workflowTime(
-                    planned.source.timeRange.start,
+                    plan.executionPrimaryPresentationStart,
                     jobID: jobID
                 ),
                 outputTimelineStart: try WorkflowMediaTimeV4(
@@ -3683,11 +3692,11 @@ private extension WorkflowDeterministicApplicationEngineV4 {
             }
         )
         var result: [WorkflowTrackProgressV4] = []
-        for node in prepared.plan.sourceGraph.tracks {
+        for node in prepared.plan.executionGraph.tracks {
             let id = node.identity.stableID.rawValue
             let kind = checkpointKind(node.kind)
             if node.identity.stableID
-                == prepared.plan.primaryGraphTrack.identity.stableID {
+                == prepared.plan.executionPrimaryGraphTrack.identity.stableID {
                 let priorOutput = previous[id]?.nextOutputSampleIndex ?? 0
                 result.append(try WorkflowTrackProgressV4(
                     trackID: id,
@@ -3741,7 +3750,7 @@ private extension WorkflowDeterministicApplicationEngineV4 {
             cancellation: cancellation
         )
         let assetTracks = try await asset.load(.tracks)
-        guard assetTracks.count == plan.sourceGraph.tracks.count else {
+        guard assetTracks.count == plan.executionGraph.tracks.count else {
             throw WorkflowApplicationControllerErrorV4
                 .invalidAssembledOutput("source track inventory changed")
         }
@@ -3749,9 +3758,9 @@ private extension WorkflowDeterministicApplicationEngineV4 {
             MediaTrackStableIDV4: WorkflowSourceTrackProgressCursorV4
         ] = [:]
         do {
-            for (node, track) in zip(plan.sourceGraph.tracks, assetTracks) {
+            for (node, track) in zip(plan.executionGraph.tracks, assetTracks) {
                 guard node.identity.stableID
-                        != plan.primaryGraphTrack.identity.stableID else {
+                        != plan.executionPrimaryGraphTrack.identity.stableID else {
                     continue
                 }
                 guard cursors[node.identity.stableID] == nil else {
@@ -3760,10 +3769,15 @@ private extension WorkflowDeterministicApplicationEngineV4 {
                             "source progress track identity was duplicated"
                         )
                 }
+                let selectedRange: CMTimeRange?
+                if let row = plan.softwareExecution?.policy.tracks.first(where: { $0.originalTrackID == node.identity.stableID }) {
+                    selectedRange = CMTimeRange(start: try cm(row.executionStart), duration: try cm(row.executionEnd.subtracting(row.executionStart)))
+                } else { selectedRange = nil }
                 cursors[node.identity.stableID] = try
                     WorkflowSourceTrackProgressCursorV4(
                         asset: asset,
-                        track: track
+                        track: track,
+                        selectedRange: selectedRange
                     )
             }
             return cursors

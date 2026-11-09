@@ -268,8 +268,23 @@ enum DeterministicConfigurationValidatorV4 {
             ))
         }
 
-        let bitDepth = color.bitDepth
-            ?? (color.dynamicRange == .hdr ? 10 : 8)
+        let bitDepth: Int
+        if let working = source.softwareWorkingVideoPolicy {
+            guard working.destinationRaster.width == Int64(sourceDimensions.width),
+                  working.destinationRaster.height == Int64(sourceDimensions.height),
+                  working.destinationChroma == .yuv420,
+                  working.destinationRange == (isFullRange ? .full : .video),
+                  [8, 10].contains(working.destinationBitDepth),
+                  (8...16).contains(color.bitDepth ?? 0),
+                  working.destinationBitDepth == (color.bitDepth == 8 ? 8 : 10),
+                  working.destinationFormatID == (working.destinationBitDepth == 8
+                    ? (isFullRange ? "420f" : "420v") : (isFullRange ? "xf20" : "x420")) else {
+                return .failure(.unsupportedPixelFormatOrBitDepth(details: "software working delivery differs from bound source depth/range/raster"))
+            }
+            bitDepth = Int(working.destinationBitDepth)
+        } else {
+            bitDepth = color.bitDepth ?? (color.dynamicRange == .hdr ? 10 : 8)
+        }
         let storage: PixelStorageV4
         switch (bitDepth, isFullRange) {
         case (8, false): storage = .nv12VideoRange8Bit
@@ -335,7 +350,8 @@ enum DeterministicConfigurationValidatorV4 {
             ))
         }
 
-        guard let authenticatedSiting = color.chromaSiting,
+        guard let authenticatedSiting = source.softwareWorkingVideoPolicy?.destinationSiting
+                ?? color.chromaSiting,
               let workingSiting = SpatialChromaSitingV4(
                 rawValue: authenticatedSiting.rawValue
               ) else {

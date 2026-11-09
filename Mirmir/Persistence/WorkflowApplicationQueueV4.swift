@@ -261,6 +261,11 @@ struct WorkflowApplicationMigrationVerificationV4:
     let outputGraphSHA256: ASHSHA256V4
     let semanticReportSHA256: ASHSHA256V4
     let trackResults: [AVFoundationTrackMigrationTrackResultV4]
+    let executionGraphSHA256: ASHSHA256V4?
+    let softwareExecutionPolicySHA256: ASHSHA256V4?
+    let originalSourceFactsSHA256: ASHSHA256V4?
+    let softwareMetadataIdentityScope: String?
+    let derivedAACMetadataVerification: SoftwareDerivedAACMetadataVerification?
 
     init(
         sourceGraphSHA256: ASHSHA256V4,
@@ -273,7 +278,12 @@ struct WorkflowApplicationMigrationVerificationV4:
         outputGraphSHA256: ASHSHA256V4,
         semanticReportSHA256: ASHSHA256V4,
         trackResults: [AVFoundationTrackMigrationTrackResultV4],
-        aacGaplessMetadataTranslation: AACGaplessMetadataTranslationV4? = nil
+        aacGaplessMetadataTranslation: AACGaplessMetadataTranslationV4? = nil,
+        executionGraphSHA256: ASHSHA256V4? = nil,
+        softwareExecutionPolicySHA256: ASHSHA256V4? = nil,
+        originalSourceFactsSHA256: ASHSHA256V4? = nil,
+        softwareMetadataIdentityScope: String? = nil,
+        derivedAACMetadataVerification: SoftwareDerivedAACMetadataVerification? = nil
     ) throws {
         let sorted = trackResults.sorted { $0.trackID < $1.trackID }
         guard !sorted.isEmpty,
@@ -282,6 +292,16 @@ struct WorkflowApplicationMigrationVerificationV4:
             throw WorkflowApplicationQueueErrorV4
                 .publicationVerificationInvalid
         }
+        let softwareFields = [executionGraphSHA256, softwareExecutionPolicySHA256, originalSourceFactsSHA256]
+        guard softwareFields.allSatisfy({ $0 == nil }) || softwareFields.allSatisfy({ $0 != nil }),
+              (executionGraphSHA256 != nil) == (softwareMetadataIdentityScope != nil) else {
+            throw WorkflowApplicationQueueErrorV4.publicationVerificationInvalid
+        }
+        self.executionGraphSHA256 = executionGraphSHA256
+        self.softwareExecutionPolicySHA256 = softwareExecutionPolicySHA256
+        self.originalSourceFactsSHA256 = originalSourceFactsSHA256
+        self.softwareMetadataIdentityScope = softwareMetadataIdentityScope
+        self.derivedAACMetadataVerification = derivedAACMetadataVerification
         schemaVersion = aacGaplessMetadataTranslation == nil
             ? Self.currentSchemaVersion : Self.translatedMetadataSchemaVersion
         self.aacGaplessMetadataTranslation = aacGaplessMetadataTranslation
@@ -301,11 +321,30 @@ struct WorkflowApplicationMigrationVerificationV4:
     }
 
     func metadataIsConformant() throws -> Bool {
+        let softwareFields = [executionGraphSHA256, softwareExecutionPolicySHA256, originalSourceFactsSHA256]
+        guard (softwareFields.allSatisfy({ $0 == nil }) && softwareMetadataIdentityScope == nil)
+                || (softwareFields.allSatisfy({ $0 != nil }) && softwareMetadataIdentityScope != nil) else {
+            return false
+        }
         if schemaVersion == Self.currentSchemaVersion {
-            return aacGaplessMetadataTranslation == nil
-                && sourceAssetMetadataSHA256 == outputAssetMetadataSHA256
+            guard aacGaplessMetadataTranslation == nil else { return false }
+            if let derived = derivedAACMetadataVerification {
+                guard derived.executionPolicy.originalGraphSHA256 == sourceGraphSHA256,
+                      derived.executionPolicy.originalFactsSHA256 == originalSourceFactsSHA256,
+                      let track = trackResults.first(where: { $0.trackID == derived.trackID }) else { return false }
+                return derived.verifies(
+                    source: sourceAssetMetadataSHA256,
+                    output: outputAssetMetadataSHA256,
+                    policy: softwareExecutionPolicySHA256,
+                    passThrough: track.action == .passThrough,
+                    sourceStreamSHA256: track.sourceSampleStreamSHA256,
+                    outputStreamSHA256: track.outputSampleStreamSHA256
+                )
+            }
+            return sourceAssetMetadataSHA256 == outputAssetMetadataSHA256
         }
         guard schemaVersion == Self.translatedMetadataSchemaVersion,
+              derivedAACMetadataVerification == nil,
               let translation = aacGaplessMetadataTranslation else { return false }
         try translation.validate()
         return translation.identifiedPlan.planSHA256 == trackPlanSHA256
@@ -336,7 +375,12 @@ struct WorkflowApplicationMigrationVerificationV4:
             outputGraphSHA256: outputGraphSHA256,
             semanticReportSHA256: reportSHA256,
             trackResults: result.trackResults,
-            aacGaplessMetadataTranslation: result.aacGaplessMetadataTranslation
+            aacGaplessMetadataTranslation: result.aacGaplessMetadataTranslation,
+            executionGraphSHA256: result.executionGraphSHA256,
+            softwareExecutionPolicySHA256: result.softwareExecutionPolicySHA256,
+            originalSourceFactsSHA256: result.originalSourceFactsSHA256,
+            softwareMetadataIdentityScope: result.softwareExecutionPolicySHA256 == nil ? nil : result.metadataIdentityScope,
+            derivedAACMetadataVerification: result.derivedAACMetadataVerification
         )
     }
 }
