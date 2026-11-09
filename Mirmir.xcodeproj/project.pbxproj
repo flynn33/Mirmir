@@ -37,12 +37,14 @@
 		D7B0000000000000000010 /* matroska_tracks.c in Sources */ = {isa = PBXBuildFile; fileRef = D7F0000000000000000010 /* matroska_tracks.c */; };
 		D7B000000000000000000020 /* SoftwareInputExpectedProvenance.json in Resources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000020 /* SoftwareInputExpectedProvenance.json */; };
 		D6B000000000000000000009 /* UniversalContainerRemuxV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6F00000000000000000000A /* UniversalContainerRemuxV4Tests.swift */; };
+		D6B0MPEGTS0000000000002 /* MPEGTSProductionV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6F0MPEGTS0000000000002 /* MPEGTSProductionV4Tests.swift */; };
 		D7B000000000000000000030 /* SoftwareDecodeImporterV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000030 /* SoftwareDecodeImporterV4Tests.swift */; };
 		D7B000000000000000000040 /* SoftwareDurableExportV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000040 /* SoftwareDurableExportV4Tests.swift */; };
 		D7B000000000000000000060 /* SoftwarePresentationThumbnailV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000060 /* SoftwarePresentationThumbnailV4Tests.swift */; };
 		D7B000000000000000000071 /* WMVAACMatroskaImporterV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000071 /* WMVAACMatroskaImporterV4Tests.swift */; };
 		D7B000000000000000000083 /* SoftwareMultiAudioExportV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000083 /* SoftwareMultiAudioExportV4Tests.swift */; };
 				D6B00000000000000000000A /* universal-h264-mkv.mkv in Resources */ = {isa = PBXBuildFile; fileRef = D6F00000000000000000000B /* universal-h264-mkv.mkv */; };
+		D6B0MPEGTS0000000000001 /* mpeg2-ts.ts in Resources */ = {isa = PBXBuildFile; fileRef = D6F0MPEGTS0000000000001 /* mpeg2-ts.ts */; };
 		D6B00000000000000000000B /* libavcodec.62.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D6F000000000000000000001 /* libavcodec.62.dylib */; };
 		D6B00000000000000000000C /* libavformat.62.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D6F000000000000000000002 /* libavformat.62.dylib */; };
 		D6B00000000000000000000D /* libavutil.60.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D6F000000000000000000003 /* libavutil.60.dylib */; };
@@ -299,6 +301,7 @@
 		D6F000000000000000000008 /* universal_container_remux.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = universal_container_remux.h; sourceTree = "<group>"; };
 		D6F000000000000000000009 /* UniversalContainerRemuxV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalContainerRemuxV4.swift; sourceTree = "<group>"; };
 		D6F00000000000000000000A /* UniversalContainerRemuxV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalContainerRemuxV4Tests.swift; sourceTree = "<group>"; };
+		D6F0MPEGTS0000000000002 /* MPEGTSProductionV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MPEGTSProductionV4Tests.swift; sourceTree = "<group>"; };
 		D7F000000000000000000030 /* SoftwareDecodeImporterV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareDecodeImporterV4Tests.swift; sourceTree = "<group>"; };
 		D7F000000000000000000040 /* SoftwareDurableExportV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareDurableExportV4Tests.swift; sourceTree = "<group>"; };
 		D7F000000000000000000060 /* SoftwarePresentationThumbnailV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwarePresentationThumbnailV4Tests.swift; sourceTree = "<group>"; };
@@ -320,6 +323,7 @@
 		D7F0000000000000000014 /* imports.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = imports.h; sourceTree = "<group>"; };
 		D7F000000000000000000020 /* SoftwareInputExpectedProvenance.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = SoftwareInputExpectedProvenance.json; sourceTree = "<group>"; };
 		D6F00000000000000000000B /* universal-h264-mkv.mkv */ = {isa = PBXFileReference; lastKnownFileType = file; path = "universal-h264-mkv.mkv"; sourceTree = "<group>"; };
+		D6F0MPEGTS0000000000001 /* mpeg2-ts.ts */ = {isa = PBXFileReference; lastKnownFileType = file; path = "mpeg2-ts.ts"; sourceTree = "<group>"; };
 		C7D000000000000000000001 /* ConventionalWholeAssetV4 */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Fixtures/ConventionalWholeAssetV4; sourceTree = "<group>"; };
 		C6B000000000000000000007 /* ProRes422WorkingV4 */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Fixtures/ProRes422WorkingV4; sourceTree = "<group>"; };
 		C6B000000000000000000005 /* ProRes422WorkingFormatV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProRes422WorkingFormatV4Tests.swift; sourceTree = "<group>"; };
@@ -741,12 +745,14 @@
 				C55000000000000000000002 /* UniformPCMSampleBufferV4Tests.swift */,
 				C53000000000000000000004 /* NativeMediaInputAssetResolverV4Tests.swift */,
 				D6F00000000000000000000A /* UniversalContainerRemuxV4Tests.swift */,
+				D6F0MPEGTS0000000000002 /* MPEGTSProductionV4Tests.swift */,
 				D7F000000000000000000030 /* SoftwareDecodeImporterV4Tests.swift */,
 				D7F000000000000000000040 /* SoftwareDurableExportV4Tests.swift */,
 				D7F000000000000000000060 /* SoftwarePresentationThumbnailV4Tests.swift */,
 				D7F000000000000000000071 /* WMVAACMatroskaImporterV4Tests.swift */,
 				D7F000000000000000000083 /* SoftwareMultiAudioExportV4Tests.swift */,
 				D6F00000000000000000000B /* universal-h264-mkv.mkv */,
+				D6F0MPEGTS0000000000001 /* mpeg2-ts.ts */,
 				D6F00000000000000000000C /* universal-vp9-webm.webm */,
 				D7F000000000000000000051 /* universal-wmv-aac-asf.asf */,
 				D7F000000000000000000070 /* universal-wmv-aac-mkv.mkv */,
@@ -1141,6 +1147,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D6B00000000000000000000A /* universal-h264-mkv.mkv in Resources */,
+				D6B0MPEGTS0000000000001 /* mpeg2-ts.ts in Resources */,
 				D6B000000000000000000010 /* universal-vp9-webm.webm in Resources */,
 				D7B000000000000000000051 /* universal-wmv-aac-asf.asf in Resources */,
 				D7B000000000000000000070 /* universal-wmv-aac-mkv.mkv in Resources */,
@@ -1341,6 +1348,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D6B000000000000000000009 /* UniversalContainerRemuxV4Tests.swift in Sources */,
+				D6B0MPEGTS0000000000002 /* MPEGTSProductionV4Tests.swift in Sources */,
 				D7B000000000000000000030 /* SoftwareDecodeImporterV4Tests.swift in Sources */,
 				D7B000000000000000000040 /* SoftwareDurableExportV4Tests.swift in Sources */,
 				D7B000000000000000000060 /* SoftwarePresentationThumbnailV4Tests.swift in Sources */,
