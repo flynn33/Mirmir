@@ -35,6 +35,86 @@ final class JFIFJPEGMatrixDecodeV4Tests: XCTestCase {
         try await assertDecodableProgressive420(asset, expectedFrames: 24)
     }
 
+    func testInterlacedMJPEGFieldCount2RewritesToProgressiveJFIF420() async throws {
+        let source = try XCTUnwrap(Bundle(for: Self.self).url(
+            forResource: "mjpeg-interlaced", withExtension: "mov"
+        ))
+        let raw = AVURLAsset(url: source)
+        let rawTracks = try await raw.loadTracks(withMediaType: .video)
+        let rawTrack = try XCTUnwrap(rawTracks.first)
+        let rawDescriptions = try await rawTrack.load(.formatDescriptions)
+        let rawDescription = try XCTUnwrap(rawDescriptions.first)
+        let rawExtensions = CMFormatDescriptionGetExtensions(rawDescription) as NSDictionary? ?? [:]
+        XCTAssertEqual(
+            (rawExtensions[kCMFormatDescriptionExtension_FieldCount as String] as? NSNumber)?.intValue,
+            2
+        )
+        XCTAssertEqual(
+            rawExtensions[kCMFormatDescriptionExtension_FieldDetail as String] as? String,
+            kCMFormatDescriptionFieldDetail_TemporalTopFirst as String
+        )
+        XCTAssertThrowsError(try JFIFVideoSamplingV4.progressiveDeclaration(from: rawDescription))
+        let rawFrames = try await decodedFrameCount(of: raw)
+        XCTAssertEqual(rawFrames, 12)
+        let needsRewrite = try await JFIFImageIOWorkingRewriteV4.needsRewrite(asset: raw)
+        XCTAssertTrue(needsRewrite)
+
+        let asset = try await NativeMediaInputAssetResolverV4.asset(url: source)
+        try await assertDecodableProgressive420(asset, expectedFrames: 12, width: 160, height: 120)
+        let info = try await VideoProbe().probe(url: source)
+        XCTAssertEqual(info.geometry.encodedSize?.width, 160)
+        XCTAssertEqual(info.geometry.encodedSize?.height, 120)
+        XCTAssertEqual(info.color.fieldCount, 1)
+    }
+
+    func testInterlacedMJPEGDurableCPUExportCompletesWithFrames() async throws {
+        let source = try XCTUnwrap(Bundle(for: Self.self).url(
+            forResource: "mjpeg-interlaced", withExtension: "mov"
+        ))
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mirmir-jpeg-ilace-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let info = try await VideoProbe().probe(url: source)
+        let size = try XCTUnwrap(info.geometry.encodedSize)
+        let output = root.appendingPathComponent("out.mov")
+        let queue = try WorkflowApplicationQueueV4(
+            trustedRootURL: root.appendingPathComponent("store"),
+            workerID: WorkflowWorkerIDV4("jpeg-ilace-worker"),
+            resolver: JPEGMatrixBookmarkResolverV4()
+        )
+        let coordinator = WorkflowApplicationCoordinatorV4(
+            queue: queue,
+            engine: WorkflowDeterministicApplicationEngineV4(
+                videoProbe: VideoProbe(),
+                backendCatalog: .live(),
+                runtimeEnvironment: .current()
+            ),
+            maximumInputFramesPerBoundary: 60
+        )
+        _ = try await coordinator.launch()
+        let outcome = try await coordinator.submit(
+            request: UpscaleRequest(
+                inputURL: source,
+                outputURL: output,
+                backendID: .mirmirDeterministicCPU,
+                targetWidth: Int(size.width) * 2,
+                targetHeight: Int(size.height) * 2,
+                outputCodec: .h264,
+                preserveAudio: false,
+                overwriteExistingFile: false
+            ),
+            progress: { _ in },
+            snapshot: { _ in }
+        )
+        guard case .completed(let completion) = outcome else {
+            return XCTFail("expected completed durable export, got \(outcome)")
+        }
+        XCTAssertEqual(completion.result.processedFrameCount, 12)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: output.path))
+    }
+
     func testOddRasterProgressiveJPEG420OpensAndDecodesNatively() async throws {
         let source = try XCTUnwrap(Bundle(for: Self.self).url(
             forResource: "mjpeg420-odd", withExtension: "mov"
