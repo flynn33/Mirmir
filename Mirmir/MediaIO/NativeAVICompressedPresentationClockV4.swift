@@ -15,6 +15,8 @@ struct NativeAVICompressedPresentationClockV4 {
         switch strategy {
         case .aviH264: h264 = try NativeAVIH264PresentationOrderV4(format: format)
         case .aviMPEG4: mpeg4 = try NativeAVIMPEG4PresentationOrderV4(format: format)
+        case .containerRemux:
+            throw Self.failure("Container remux does not use the AVI presentation clock.")
         }
     }
 

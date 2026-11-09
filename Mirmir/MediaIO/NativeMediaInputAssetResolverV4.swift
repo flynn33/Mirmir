@@ -27,8 +27,9 @@ actor NativeMediaInputAssetResolverV4 {
     enum Strategy: String, Codable, Sendable {
         case aviMPEG4 = "avi-mpeg4-presentation-v2"
         case aviH264 = "avi-h264-poc-presentation-v2"
+        case containerRemux = "container-bitstream-remux-v1"
 
-        static let allValues: [Self] = [.aviMPEG4, .aviH264]
+        static let allValues: [Self] = [.aviMPEG4, .aviH264, .containerRemux]
         static var managedVersions: [String] {
             allValues.map(\.rawValue) + ["avi-mpeg4-sample-entry-v1", "avi-h264-annex-b-v1"]
         }
@@ -186,7 +187,9 @@ actor NativeMediaInputAssetResolverV4 {
         let operationRoot = cacheRoot
         let admittedIdentity: ASHStreamingFileIdentityV4?
         if revalidateSource, sourceIdentity == nil,
-           try (verifiedAssets[url] != nil || Self.aviStrategyHint(url) != nil) {
+           try (verifiedAssets[url] != nil
+                || Self.aviStrategyHint(url) != nil
+                || UniversalContainerRemuxV4.containerFamily(url: url) != nil) {
             admittedIdentity = try ASHStreamingFileIdentityV4.read(url: url)
         } else { admittedIdentity = sourceIdentity }
         if let admittedIdentity, let verified = verifiedAssets[url],
@@ -204,6 +207,14 @@ actor NativeMediaInputAssetResolverV4 {
                 verifiedAssets.removeValue(forKey: url)
                 verifiedDerived.removeValue(forKey: verified.derivedURL)
             }
+        }
+        if try await Self.shouldContainerRemux(url) {
+            return try await resolveContainerRemux(
+                url: url,
+                cancellation: cancellation,
+                sourceIdentity: admittedIdentity,
+                operationRoot: operationRoot
+            )
         }
         guard let hint = try Self.aviStrategyHint(url) else { return Self.nativeAsset(url) }
         // Authenticate before AVFoundation can retain/copy container facts.
@@ -344,6 +355,223 @@ actor NativeMediaInputAssetResolverV4 {
             }
         }
         return AVURLAsset(url: url, options: options)
+    }
+
+    private static func shouldContainerRemux(_ url: URL) async throws -> Bool {
+        guard try UniversalContainerRemuxV4.containerFamily(url: url) != nil else { return false }
+        let native = nativeAsset(url)
+        do {
+            let readable = try await native.load(.isReadable)
+            let playable = try await native.load(.isPlayable)
+            if readable && playable {
+                let tracks = try await native.load(.tracks)
+                let video = tracks.filter { $0.mediaType == .video }
+                if video.count == 1,
+                   let description = try await video[0].load(.formatDescriptions).first {
+                    // Native already opens; keep the original container authoritative.
+                    _ = description
+                    return false
+                }
+            }
+        } catch {
+            // Fall through to remux admission when AVFoundation cannot open the source.
+        }
+        let probe = try UniversalContainerRemuxV4.probe(url: url)
+        return probe.admissible
+    }
+
+    private func resolveContainerRemux(
+        url: URL,
+        cancellation: (any NativeMediaInputCancellationV4)?,
+        sourceIdentity: ASHStreamingFileIdentityV4?,
+        operationRoot: URL
+    ) async throws -> AVURLAsset {
+        let identity = try sourceIdentity ?? ASHStreamingFileIdentityV4.read(url: url)
+        try identity.verifyUnchanged(url: url)
+        let probe = try UniversalContainerRemuxV4.probe(url: url)
+        guard probe.admissible else {
+            throw Self.failure("The source codecs require software decode; remux alone cannot admit them.")
+        }
+        let strategy = Strategy.containerRemux
+        try check(cancellation)
+        try prepareCacheRoot(operationRoot)
+        let key = identity.contentSHA256.rawValue + "-" + strategy.rawValue
+        let directory = operationRoot.appendingPathComponent(key, isDirectory: true)
+        do {
+            if let cached = try await cachedRemuxURL(directory, identity: identity, strategy: strategy, sourceURL: url) {
+                try identity.verifyUnchanged(url: url)
+                return try remember(sourceURL: url, identity: identity, derivedURL: cached.url, lease: cached.lease)
+            }
+        } catch {
+            if error is CancellationError { throw error }
+            guard try discardInactiveEntry(directory) else { throw error }
+        }
+        let reservation = identity.byteCount.multipliedReportingOverflow(by: 2)
+        guard !reservation.overflow else { throw Self.failure("Source size exceeds the import byte budget.") }
+        let budget = reservation.partialValue.addingReportingOverflow(1_048_576)
+        guard !budget.overflow else { throw Self.failure("Source size exceeds the import byte budget.") }
+        try reserveCacheSpace(budget.partialValue, at: operationRoot)
+        reservedBytes += budget.partialValue
+        defer { reservedBytes -= budget.partialValue }
+        let partial = operationRoot.appendingPathComponent(".partial-\(UUID().uuidString)", isDirectory: true)
+        let partialLease = try withNamespaceLock(operationRoot) {
+            guard mkdir(partial.path, 0o700) == 0 else {
+                throw Self.failure("Cannot create the private import staging directory.")
+            }
+            do {
+                let lease = try leaseFile(partial)
+                guard flock(lease.fileDescriptor, LOCK_EX | LOCK_NB) == 0 else {
+                    try? lease.close()
+                    throw Self.failure("Cannot reserve the private import staging directory.")
+                }
+                return lease
+            } catch {
+                try? Self.removeOwnedDirectory(partial)
+                throw error
+            }
+        }
+        activePartials.insert(partial)
+        defer {
+            activePartials.remove(partial)
+            try? withNamespaceLock(operationRoot) {
+                try Self.removeOwnedDirectory(partial)
+                try? partialLease.close()
+            }
+            try? partialLease.close()
+        }
+        let output = partial.appendingPathComponent("input.mov")
+        try UniversalContainerRemuxV4.remuxToMOV(input: url, output: output)
+        try check(cancellation)
+        try Self.clearContainerDates(output)
+        try await Self.verifyRemuxedAsset(Self.nativeAsset(output), expected: probe, cancellation: cancellation)
+        try Self.verifySourceContent(identity, url: url)
+        try Self.makeImmutable(output)
+        let derived = try ASHStreamingFileIdentityV4.read(url: output)
+        let manifest = Manifest(strategy: strategy,
+                                sourceSHA256: identity.contentSHA256.rawValue,
+                                sourceBytes: identity.byteCount,
+                                derivedSHA256: derived.contentSHA256.rawValue,
+                                derivedBytes: derived.byteCount)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        try encoder.encode(manifest).write(to: partial.appendingPathComponent("manifest.json"), options: .atomic)
+        try check(cancellation)
+        guard flock(partialLease.fileDescriptor, LOCK_SH | LOCK_NB) == 0 else {
+            throw Self.failure("Cannot publish the native import staging lease.")
+        }
+        var publishedOwnEntry = false
+        for _ in 0..<4 {
+            publishedOwnEntry = try withNamespaceLock(operationRoot) {
+                if FileManager.default.fileExists(atPath: directory.path) { return false }
+                try FileManager.default.moveItem(at: partial, to: directory)
+                return true
+            }
+            if publishedOwnEntry { break }
+            if let cached = try await cachedRemuxURL(directory, identity: identity, strategy: strategy, sourceURL: url) {
+                return try remember(sourceURL: url, identity: identity, derivedURL: cached.url, lease: cached.lease)
+            }
+            try check(cancellation)
+        }
+        guard publishedOwnEntry else { throw Self.failure("The derived cache kept changing during publication; retry import.") }
+        let published = directory.appendingPathComponent("input.mov")
+        verifiedDerived[published] = try ASHStreamingFileIdentityV4.read(url: published)
+        return try remember(sourceURL: url, identity: identity, derivedURL: published)
+    }
+
+    private func cachedRemuxURL(
+        _ directory: URL, identity: ASHStreamingFileIdentityV4, strategy: Strategy, sourceURL: URL
+    ) async throws -> CachedEntry? {
+        let acquired: FileHandle? = try withNamespaceLock(directory.deletingLastPathComponent()) {
+            guard FileManager.default.fileExists(atPath: directory.path) else { return nil }
+            guard Self.isOwnedDirectory(directory) else { throw Self.failure("The derived cache entry is unsafe.") }
+            let lease = try leaseFile(directory)
+            guard flock(lease.fileDescriptor, LOCK_SH | LOCK_NB) == 0 else {
+                try? lease.close()
+                throw Self.failure("The derived cache entry is being retired.")
+            }
+            return lease
+        }
+        guard let lease = acquired else { return nil }
+        var transferred = false
+        defer { if !transferred { try? lease.close() } }
+        let output = directory.appendingPathComponent("input.mov")
+        let manifestURL = directory.appendingPathComponent("manifest.json")
+        guard Self.isImmutableFile(output), Self.isOwnedRegularFile(manifestURL),
+              let size = try manifestURL.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+              size <= 4096,
+              let manifest = try? JSONDecoder().decode(Manifest.self, from: Data(contentsOf: manifestURL)),
+              manifest.strategy == strategy,
+              manifest.sourceSHA256 == identity.contentSHA256.rawValue,
+              manifest.sourceBytes == identity.byteCount else {
+            throw Self.failure("The derived input cache identity is invalid; remove this cache entry and retry.")
+        }
+        let derived: ASHStreamingFileIdentityV4
+        if let verified = verifiedDerived[output] {
+            try verified.verifyUnchanged(url: output)
+            derived = verified
+        } else {
+            derived = try ASHStreamingFileIdentityV4.read(url: output)
+        }
+        guard derived.contentSHA256.rawValue == manifest.derivedSHA256,
+              derived.byteCount == manifest.derivedBytes else {
+            throw Self.failure("The derived input cache content changed; remove this cache entry and retry.")
+        }
+        if verifiedDerived[output] == nil {
+            let probe = try UniversalContainerRemuxV4.probe(url: sourceURL)
+            try await Self.verifyRemuxedAsset(Self.nativeAsset(output), expected: probe, cancellation: nil)
+            try Self.verifySourceContent(identity, url: sourceURL)
+            try derived.verifyUnchanged(url: output)
+            guard Self.isImmutableFile(output) else { throw Self.failure("The derived input lost its immutable binding.") }
+        }
+        verifiedDerived[output] = derived
+        transferred = true
+        return CachedEntry(url: output, lease: lease)
+    }
+
+    private static func verifyRemuxedAsset(
+        _ asset: AVURLAsset,
+        expected: UniversalContainerRemuxV4.Probe,
+        cancellation: (any NativeMediaInputCancellationV4)?
+    ) async throws {
+        try cancellation?.check()
+        try Task.checkCancellation()
+        guard try await asset.load(.isReadable), try await asset.load(.isPlayable) else {
+            throw failure("The remuxed MOV is not readable/playable by AVFoundation.")
+        }
+        let tracks = try await asset.load(.tracks)
+        let video = tracks.filter { $0.mediaType == .video }
+        let audio = tracks.filter { $0.mediaType == .audio }
+        guard video.count == 1 else {
+            throw failure("The remuxed MOV must expose exactly one video track.")
+        }
+        if expected.hasAudio {
+            guard audio.count >= 1 else {
+                throw failure("The remuxed MOV dropped the source audio track.")
+            }
+        }
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(track: video[0], outputSettings: [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+        ])
+        output.alwaysCopiesSampleData = false
+        guard reader.canAdd(output) else {
+            throw failure("The remuxed MOV cannot decode video samples.")
+        }
+        reader.add(output)
+        guard reader.startReading() else {
+            throw failure(reader.error?.localizedDescription ?? "The remuxed MOV failed to start decoding.")
+        }
+        var frames = 0
+        while let sample = output.copyNextSampleBuffer() {
+            try cancellation?.check()
+            try Task.checkCancellation()
+            if CMSampleBufferGetNumSamples(sample) > 0 { frames += 1 }
+            if frames >= 1 { break }
+        }
+        guard frames >= 1 else {
+            throw failure("The remuxed MOV produced no decodable video frames.")
+        }
+        reader.cancelReading()
     }
 
     private static func aviStrategyHint(_ url: URL) throws -> Strategy? {

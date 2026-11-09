@@ -1,0 +1,10 @@
+{
+  "officialRelease": "8.1.2",
+  "buildCompleteForBothArchitectures": true,
+  "packageStructureAuditPassed": true,
+  "allTenCasesDecoded72VideoFrames": true,
+  "allSourceFrameClocksAndPacketOriginsMatchBaseline": true,
+  "allFiveVideoByteStreamsMatchAcrossArchitectures": true,
+  "allFiveAudioByteStreamsMatchAcrossArchitectures": false,
+  "scope": "Dependency build and direct C fixture tests only; no product integration, external distribution, approval, or license compliance certification."
+}

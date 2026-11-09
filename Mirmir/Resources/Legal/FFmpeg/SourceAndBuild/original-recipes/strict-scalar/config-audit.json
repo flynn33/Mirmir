@@ -1,0 +1,54 @@
+[
+  {
+    "architecture": "arm64",
+    "requiredDisabled": {
+      "CONFIG_GPL": 0,
+      "CONFIG_VERSION3": 0,
+      "CONFIG_NONFREE": 0,
+      "CONFIG_NETWORK": 0,
+      "CONFIG_AVDEVICE": 0,
+      "CONFIG_AVFILTER": 0,
+      "CONFIG_ENCODERS": 0,
+      "CONFIG_MUXERS": 0,
+      "CONFIG_HWACCELS": 0,
+      "CONFIG_PROTOCOLS": 0
+    },
+    "enabledExternalCONFIG_LIBMacros": {},
+    "enabledAppleSDKSupport": {
+      "CONFIG_ZLIB": 1,
+      "CONFIG_BZLIB": 1,
+      "CONFIG_ICONV": 1
+    },
+    "enabledBuiltInDecoders": 502,
+    "enabledBuiltInDemuxers": 354,
+    "enabledParsers": 67,
+    "enabledBSFs": 49,
+    "clangVersion": "Apple clang version 21.0.0 (clang-2100.3.34.2)"
+  },
+  {
+    "architecture": "x86_64",
+    "requiredDisabled": {
+      "CONFIG_GPL": 0,
+      "CONFIG_VERSION3": 0,
+      "CONFIG_NONFREE": 0,
+      "CONFIG_NETWORK": 0,
+      "CONFIG_AVDEVICE": 0,
+      "CONFIG_AVFILTER": 0,
+      "CONFIG_ENCODERS": 0,
+      "CONFIG_MUXERS": 0,
+      "CONFIG_HWACCELS": 0,
+      "CONFIG_PROTOCOLS": 0
+    },
+    "enabledExternalCONFIG_LIBMacros": {},
+    "enabledAppleSDKSupport": {
+      "CONFIG_ZLIB": 1,
+      "CONFIG_BZLIB": 1,
+      "CONFIG_ICONV": 1
+    },
+    "enabledBuiltInDecoders": 502,
+    "enabledBuiltInDemuxers": 354,
+    "enabledParsers": 67,
+    "enabledBSFs": 49,
+    "clangVersion": "Apple clang version 21.0.0 (clang-2100.3.34.2)"
+  }
+]

@@ -1,0 +1,6 @@
+/private/tmp/mirmir-libav-lgpl-universal-20261024/verification-python/pgpy/pgp.py:2389: UserWarning: TODO: Self-sigs verification is not yet working because self-sigs are not parsed!!!
+  warnings.warn("TODO: Self-sigs verification is not yet working because self-sigs are not parsed!!!")
+/private/tmp/mirmir-libav-lgpl-universal-20261024/verification-python/pgpy/pgp.py:2406: UserWarning: TODO: Revocation checks are not yet implemented!!!
+  warnings.warn("TODO: Revocation checks are not yet implemented!!!")
+/private/tmp/mirmir-libav-lgpl-universal-20261024/verification-python/pgpy/pgp.py:2407: UserWarning: TODO: Flags (s.a. `disabled`) checks are not yet implemented!!!
+  warnings.warn("TODO: Flags (s.a. `disabled`) checks are not yet implemented!!!")

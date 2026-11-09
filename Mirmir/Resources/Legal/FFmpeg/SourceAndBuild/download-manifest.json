@@ -1,0 +1,20 @@
+[
+  {
+    "url": "https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz",
+    "file": "ffmpeg-8.1.2.tar.xz",
+    "bytes": 11710924,
+    "sha256": "464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c"
+  },
+  {
+    "url": "https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz.asc",
+    "file": "ffmpeg-8.1.2.tar.xz.asc",
+    "bytes": 520,
+    "sha256": "0a0963fccd70597838073f3e31b20f4a4d8cc2b5e577472c9a5a1f22624246f8"
+  },
+  {
+    "url": "https://ffmpeg.org/ffmpeg-devel.asc",
+    "file": "ffmpeg-devel.asc",
+    "bytes": 1709,
+    "sha256": "397b3becedcd5a98769967ff1ff8501ddc89f8368b8f766e4701377d7dbaabe5"
+  }
+]

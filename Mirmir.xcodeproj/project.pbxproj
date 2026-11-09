@@ -7,6 +7,25 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+
+		D6B000000000000000000010 /* universal-vp9-webm.webm in Resources */ = {isa = PBXBuildFile; fileRef = D6F00000000000000000000C /* universal-vp9-webm.webm */; };
+		D6B000000000000000000011 /* universal-wmv-asf.asf in Resources */ = {isa = PBXBuildFile; fileRef = D6F00000000000000000000D /* universal-wmv-asf.asf */; };
+
+		D6B000000000000000000001 /* libavcodec.62.dylib in Embed FFmpeg */ = {isa = PBXBuildFile; fileRef = D6F000000000000000000001 /* libavcodec.62.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		D6B000000000000000000002 /* libavformat.62.dylib in Embed FFmpeg */ = {isa = PBXBuildFile; fileRef = D6F000000000000000000002 /* libavformat.62.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		D6B000000000000000000003 /* libavutil.60.dylib in Embed FFmpeg */ = {isa = PBXBuildFile; fileRef = D6F000000000000000000003 /* libavutil.60.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		D6B000000000000000000004 /* libswresample.6.dylib in Embed FFmpeg */ = {isa = PBXBuildFile; fileRef = D6F000000000000000000004 /* libswresample.6.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		D6B000000000000000000005 /* libswscale.9.dylib in Embed FFmpeg */ = {isa = PBXBuildFile; fileRef = D6F000000000000000000005 /* libswscale.9.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		D6B000000000000000000006 /* FFmpeg in Resources */ = {isa = PBXBuildFile; fileRef = D6F000000000000000000006 /* FFmpeg */; };
+		D6B000000000000000000007 /* universal_container_remux.c in Sources */ = {isa = PBXBuildFile; fileRef = D6F000000000000000000007 /* universal_container_remux.c */; };
+		D6B000000000000000000008 /* UniversalContainerRemuxV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6F000000000000000000009 /* UniversalContainerRemuxV4.swift */; };
+		D6B000000000000000000009 /* UniversalContainerRemuxV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6F00000000000000000000A /* UniversalContainerRemuxV4Tests.swift */; };
+		D6B00000000000000000000A /* universal-h264-mkv.mkv in Resources */ = {isa = PBXBuildFile; fileRef = D6F00000000000000000000B /* universal-h264-mkv.mkv */; };
+		D6B00000000000000000000B /* libavcodec.62.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D6F000000000000000000001 /* libavcodec.62.dylib */; };
+		D6B00000000000000000000C /* libavformat.62.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D6F000000000000000000002 /* libavformat.62.dylib */; };
+		D6B00000000000000000000D /* libavutil.60.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D6F000000000000000000003 /* libavutil.60.dylib */; };
+		D6B00000000000000000000E /* libswresample.6.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D6F000000000000000000004 /* libswresample.6.dylib */; };
+		D6B00000000000000000000F /* libswscale.9.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D6F000000000000000000005 /* libswscale.9.dylib */; };
 		C7D000000000000000000002 /* ConventionalWholeAssetV4 in Resources */ = {isa = PBXBuildFile; fileRef = C7D000000000000000000001 /* ConventionalWholeAssetV4 */; };
 		C6B000000000000000000008 /* ProRes422WorkingV4 in Resources */ = {isa = PBXBuildFile; fileRef = C6B000000000000000000007 /* ProRes422WorkingV4 */; };
 		C6B000000000000000000006 /* ProRes422WorkingFormatV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6B000000000000000000005 /* ProRes422WorkingFormatV4Tests.swift */; };
@@ -238,6 +257,21 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+
+		D6F00000000000000000000C /* universal-vp9-webm.webm */ = {isa = PBXFileReference; lastKnownFileType = file; path = "universal-vp9-webm.webm"; sourceTree = "<group>"; };
+		D6F00000000000000000000D /* universal-wmv-asf.asf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "universal-wmv-asf.asf"; sourceTree = "<group>"; };
+
+		D6F000000000000000000001 /* libavcodec.62.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libavcodec.62.dylib"; path = "Vendor/FFmpeg/strict-scalar-8.1.2/lib/libavcodec.62.dylib"; sourceTree = SOURCE_ROOT; };
+		D6F000000000000000000002 /* libavformat.62.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libavformat.62.dylib"; path = "Vendor/FFmpeg/strict-scalar-8.1.2/lib/libavformat.62.dylib"; sourceTree = SOURCE_ROOT; };
+		D6F000000000000000000003 /* libavutil.60.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libavutil.60.dylib"; path = "Vendor/FFmpeg/strict-scalar-8.1.2/lib/libavutil.60.dylib"; sourceTree = SOURCE_ROOT; };
+		D6F000000000000000000004 /* libswresample.6.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libswresample.6.dylib"; path = "Vendor/FFmpeg/strict-scalar-8.1.2/lib/libswresample.6.dylib"; sourceTree = SOURCE_ROOT; };
+		D6F000000000000000000005 /* libswscale.9.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libswscale.9.dylib"; path = "Vendor/FFmpeg/strict-scalar-8.1.2/lib/libswscale.9.dylib"; sourceTree = SOURCE_ROOT; };
+		D6F000000000000000000006 /* FFmpeg */ = {isa = PBXFileReference; lastKnownFileType = folder; name = FFmpeg; path = Mirmir/Resources/Legal/FFmpeg; sourceTree = SOURCE_ROOT; };
+		D6F000000000000000000007 /* universal_container_remux.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = universal_container_remux.c; sourceTree = "<group>"; };
+		D6F000000000000000000008 /* universal_container_remux.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = universal_container_remux.h; sourceTree = "<group>"; };
+		D6F000000000000000000009 /* UniversalContainerRemuxV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalContainerRemuxV4.swift; sourceTree = "<group>"; };
+		D6F00000000000000000000A /* UniversalContainerRemuxV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalContainerRemuxV4Tests.swift; sourceTree = "<group>"; };
+		D6F00000000000000000000B /* universal-h264-mkv.mkv */ = {isa = PBXFileReference; lastKnownFileType = file; path = "universal-h264-mkv.mkv"; sourceTree = "<group>"; };
 		C7D000000000000000000001 /* ConventionalWholeAssetV4 */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Fixtures/ConventionalWholeAssetV4; sourceTree = "<group>"; };
 		C6B000000000000000000007 /* ProRes422WorkingV4 */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Fixtures/ProRes422WorkingV4; sourceTree = "<group>"; };
 		C6B000000000000000000005 /* ProRes422WorkingFormatV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProRes422WorkingFormatV4Tests.swift; sourceTree = "<group>"; };
@@ -467,6 +501,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D6B00000000000000000000B /* libavcodec.62.dylib in Frameworks */,
+				D6B00000000000000000000C /* libavformat.62.dylib in Frameworks */,
+				D6B00000000000000000000D /* libavutil.60.dylib in Frameworks */,
+				D6B00000000000000000000E /* libswresample.6.dylib in Frameworks */,
+				D6B00000000000000000000F /* libswscale.9.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -480,9 +519,33 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+
+		D6A000000000000000000001 /* FFmpeg dependency */ = {
+			isa = PBXGroup;
+			children = (
+				D6F000000000000000000001 /* libavcodec.62.dylib */,
+				D6F000000000000000000002 /* libavformat.62.dylib */,
+				D6F000000000000000000003 /* libavutil.60.dylib */,
+				D6F000000000000000000004 /* libswresample.6.dylib */,
+				D6F000000000000000000005 /* libswscale.9.dylib */,
+				D6F000000000000000000006 /* FFmpeg */,
+			);
+			name = "FFmpeg dependency";
+			sourceTree = "<group>";
+		};
+		D6A000000000000000000002 /* UniversalContainerRemux */ = {
+			isa = PBXGroup;
+			children = (
+				D6F000000000000000000007 /* universal_container_remux.c */,
+				D6F000000000000000000008 /* universal_container_remux.h */,
+			);
+			path = UniversalContainerRemux;
+			sourceTree = "<group>";
+		};
 		100000000000000000000002 = {
 			isa = PBXGroup;
 			children = (
+				D6A000000000000000000001 /* FFmpeg dependency */,
 				100000000000000000000004 /* Mirmir */,
 				100000000000000000000008 /* MirmirTests */,
 				100000000000000000000003 /* Products */,
@@ -607,6 +670,10 @@
 				C7D000000000000000000001 /* ConventionalWholeAssetV4 */,
 				C55000000000000000000002 /* UniformPCMSampleBufferV4Tests.swift */,
 				C53000000000000000000004 /* NativeMediaInputAssetResolverV4Tests.swift */,
+				D6F00000000000000000000A /* UniversalContainerRemuxV4Tests.swift */,
+				D6F00000000000000000000B /* universal-h264-mkv.mkv */,
+				D6F00000000000000000000C /* universal-vp9-webm.webm */,
+				D6F00000000000000000000D /* universal-wmv-asf.asf */,
 				C53000000000000000000009 /* NativeAVIMPEG4PresentationOrderV4Tests.swift */,
 				310000000000000000000017 /* SecurityScopedAccessTests.swift */,
 				31000000000000000000001D /* BackendCatalogTests.swift */,
@@ -669,6 +736,8 @@
 		100000000000000000000009 /* MediaIO */ = {
 			isa = PBXGroup;
 			children = (
+				D6A000000000000000000002 /* UniversalContainerRemux */,
+				D6F000000000000000000009 /* UniversalContainerRemuxV4.swift */,
 				310000000000000000000013 /* VideoProbe.swift */,
 				C6A000000000000000000001 /* NativeThumbnailSignalConverterV4.swift */,
 				C53000000000000000000001 /* NativeMediaInputAssetResolverV4.swift */,
@@ -873,6 +942,25 @@
 		};
 /* End PBXGroup section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+
+		D6C000000000000000000001 /* Embed FFmpeg */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				D6B000000000000000000001 /* libavcodec.62.dylib in Embed FFmpeg */,
+				D6B000000000000000000002 /* libavformat.62.dylib in Embed FFmpeg */,
+				D6B000000000000000000003 /* libavutil.60.dylib in Embed FFmpeg */,
+				D6B000000000000000000004 /* libswresample.6.dylib in Embed FFmpeg */,
+				D6B000000000000000000005 /* libswscale.9.dylib in Embed FFmpeg */,
+			);
+			name = "Embed FFmpeg";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXNativeTarget section */
 		200000000000000000000001 /* Mirmir */ = {
 			isa = PBXNativeTarget;
@@ -881,6 +969,7 @@
 				400000000000000000000001 /* Sources */,
 				400000000000000000000002 /* Frameworks */,
 				400000000000000000000003 /* Resources */,
+				D6C000000000000000000001 /* Embed FFmpeg */,
 			);
 			buildRules = (
 			);
@@ -957,6 +1046,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D6B000000000000000000006 /* FFmpeg in Resources */,
 				32000000000000000000000D /* Assets.xcassets in Resources */,
 				32000000000000000000003E /* ASH-Model-LICENSE.txt in Resources */,
 				C42000000000000000000001 /* ASH-P06.bundle in Resources */,
@@ -967,6 +1057,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D6B00000000000000000000A /* universal-h264-mkv.mkv in Resources */,
+				D6B000000000000000000010 /* universal-vp9-webm.webm in Resources */,
+				D6B000000000000000000011 /* universal-wmv-asf.asf in Resources */,
 				C58000000000000000000005 /* NativeAACMetadata in Resources */,
 				C6B000000000000000000008 /* ProRes422WorkingV4 in Resources */,
 				C7D000000000000000000002 /* ConventionalWholeAssetV4 in Resources */,
@@ -987,6 +1080,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D6B000000000000000000007 /* universal_container_remux.c in Sources */,
+				D6B000000000000000000008 /* UniversalContainerRemuxV4.swift in Sources */,
 				D52000000000000000000001 /* MirmirDiagnosticConfiguration.swift in Sources */,
 				D52000000000000000000002 /* MirmirDiagnosticExport.swift in Sources */,
 				D52000000000000000000003 /* MirmirDiagnosticFileSystem.swift in Sources */,
@@ -1146,6 +1241,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D6B000000000000000000009 /* UniversalContainerRemuxV4Tests.swift in Sources */,
 				F72000000000000000000002 /* WorkflowQueueDispatcherV4SelfTestMain.swift in Sources */,
 				F72000000000000000000001 /* WorkflowDurableCoordinatorV4SelfTestMain.swift in Sources */,
 				32000000000000000000000E /* MirmirTests.swift in Sources */,
@@ -1320,6 +1416,11 @@
 		500000000000000000000004 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				HEADER_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/Vendor/FFmpeg/strict-scalar-8.1.2/include", "$(SRCROOT)/Mirmir");
+				LIBRARY_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/Vendor/FFmpeg/strict-scalar-8.1.2/lib");
+				OTHER_LDFLAGS = ("$(inherited)", "-lavformat", "-lavcodec", "-lavutil", "-lswresample", "-lswscale");
+				SWIFT_OBJC_BRIDGING_HEADER = "Mirmir/Mirmir-Bridging-Header.h";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Mirmir/Mirmir.entitlements;
 				CODE_SIGN_STYLE = Automatic;
@@ -1346,6 +1447,11 @@
 		500000000000000000000005 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				HEADER_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/Vendor/FFmpeg/strict-scalar-8.1.2/include", "$(SRCROOT)/Mirmir");
+				LIBRARY_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/Vendor/FFmpeg/strict-scalar-8.1.2/lib");
+				OTHER_LDFLAGS = ("$(inherited)", "-lavformat", "-lavcodec", "-lavutil", "-lswresample", "-lswscale");
+				SWIFT_OBJC_BRIDGING_HEADER = "Mirmir/Mirmir-Bridging-Header.h";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Mirmir/Mirmir.entitlements;
 				CODE_SIGN_STYLE = Automatic;
