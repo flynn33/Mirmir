@@ -1,0 +1,14 @@
+{
+  "schema": "foundation-python-observer-canonical-mismatch-v1",
+  "applicationResultExitCode": 0,
+  "nativeFoundationCanonicalBytesExact": true,
+  "sourceFunction": "script/v4/run_notarized_smoke_v4.py:observer_result",
+  "pythonFunction": "script/v4/notarized_smoke_v4.py:canonical_bytes",
+  "pureParserFailure": "shipping app emitted noncanonical prepare result",
+  "rawResultSHA256": "67c7629acf99968c1886ce9d9c2a7137e6b6911e8784cdc30d2f4c465e2b282b",
+  "sourceFloatLexeme": "0.56447100639343262",
+  "pythonRoundTripFloatLexeme": "0.5644710063934326",
+  "repositoryToolChanged": false,
+  "appLaunchedByReproduction": false,
+  "notaryOrStoreOperationPerformed": false
+}

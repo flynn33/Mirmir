@@ -1,0 +1,885 @@
+{
+  "sourceCommit": "c1dbe8509fdc06d3a8acd085008ccc00af98a013",
+  "project": "Mirmir.xcodeproj",
+  "remoteSwiftPackages": 0,
+  "shellBuildPhases": 0,
+  "trackedSymlinksOrSubmodules": 0,
+  "buildInputs": [
+    {
+      "reference": "MirmirTests/ASHV4SemanticArtifactTests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Upscaling/Deterministic/DeterministicMetalBackend.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/Diagnostics/MirmirDiagnosticConfiguration.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Upscaling/Deterministic/DeterministicEngineV4Support.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHCodePlaneNormalizerV2.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalSpatialRuntimeV3.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/RationalPresentationGeometryV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Domain/VideoInfo.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/BackendCatalogTests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/VideoWriterFormatContractV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "script/v4/WorkflowQueueDispatcherV4SelfTestMain.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/P010BufferAccessV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Persistence/WorkflowCanonicalCodec.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Upscaling/UpscaleCoordinator.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialDispatchV2.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Domain/UpscaleResult.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/MOViTunesGaplessMetadataV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/CanonicalMediaAVFoundationSupportV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/Fixtures/ProRes422WorkingV4",
+      "trackedFiles": 9
+    },
+    {
+      "reference": "Mirmir/MediaIO/NativeMediaInputVerificationV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Persistence/WorkflowSegmentCheckpointStoreV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/NativeThumbnailSignalConverterV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/RationalPresentationGeometryV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTTypesV3.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/Diagnostics/MirmirDiagnosticStore+Logging.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/Fixtures/legacy-mpeg4.mov",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/HDRMetadataV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/VideoProbeTests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/AVCChromaLocationV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Upscaling/Backends/VTPixelTransferScaler.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalLibraryValidatorV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UI/Views/MirmirCompletedComparisonPlaybackView.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHMeasurementExtractorV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialReferencePipelineV2.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalRuntimeMonitorV3.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/MirmirDiagnosticStoreTests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/App/MirmirViewModel.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Resources/ASH-P06.bundle",
+      "trackedFiles": 13
+    },
+    {
+      "reference": "MirmirTests/WorkflowDurableCoordinatorV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/WorkflowApplicationQueueV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Domain/VideoColorInfo.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/FixedPointKernelV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/ASHCoreV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/OutputMediaValidator.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/MirmirProcessingActivityTests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHCanonicalJSONV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Upscaling/AutomaticBackendSelector.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Persistence/WorkflowCacheLocationV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/WorkflowQueueDispatcherV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Upscaling/Deterministic/DeterministicCPUBackend.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/MOViTunesGaplessMetadataV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASHTemporalReconstructionV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/ProRes422WorkingFormatV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/Fixtures/native-avi-mpeg4.avi",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/ASHMeasurementContractV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/MetalRendering/MetalCommandBufferCompletionBridge.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHCoreCertificateV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/Diagnostics/MirmirDiagnosticJournalModels.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/Alpha4444FixedPointScalerV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHVideoAnalyzerV2.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Platform/SecurityScopedAccess.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/SpatialScalePlanV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/App/MirmirWorkspaceSupport.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Domain/BackendAvailability.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/Support/SyntheticNV12PixelBuffer.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/AVFoundationVideoFormatCalibratorV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UI/MirmirSynchronizedPlaybackTimeline.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHDiagnosticEnvelopeV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/DeterministicDeinterlacerV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/WorkflowEventJournalTests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Upscaling/Backends/MPSScaler.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/App/MirmirApp.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/UniformPCMSampleBufferV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Resources/Legal/ASH-Model-LICENSE.txt",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Persistence/WorkflowDurableCoordinatorV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Persistence/WorkflowApplicationQueueV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Assets.xcassets",
+      "trackedFiles": 15
+    },
+    {
+      "reference": "Mirmir/MediaIO/AVFoundationTrackMigrationExecutorV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/FixedPointMetalKernelsV4.metal",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UI/Theme/MirmirTheme.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/NativeAVIMPEG4PresentationOrderV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Domain/WorkflowJob.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Domain/OutputSettings.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/Diagnostics/MirmirDiagnosticValues.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalSpatialRuntimePreparationV3.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/FixedPointPixelBufferScalerV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Platform/RuntimeEnvironment.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Persistence/WorkflowSecurityScopedBookmarkStoreV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Upscaling/Backends/VTLowLatencySuperResolutionScaler.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/AVFoundationTrackGraphAdapterV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/ProRes422WorkingFormatV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/NativeMediaInputAssetResolverV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHMeasurementContractV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/MetalRendering/MetalRenderingService.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/Diagnostics/MirmirDiagnosticExport.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Upscaling/Deterministic/PreparedDeterministicV4Upscaler.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialRuntimeConfigurationV2.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Domain/VideoGeometry.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalSpatialKernelsV3.metal",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/AlphaProcessingV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Domain/UpscaleRequest.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Upscaling/Backends/VImageScaler.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/PreparedFrameUpscalerTrackHookV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHRuntimeManifestV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/HDRMetadataV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Upscaling/Deterministic/DeterministicReferenceSupport.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Persistence/WorkflowEventJournal.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/VideoProcessingSessionTests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/AlphaVideoWriterContractV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Support/MirmirError.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/NativeAACMetadataMigrationV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/AVCanonicalMediaStateAdapterV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/App/MirmirWorkspaceRootView.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/NativeAVICompressedPresentationClockV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/WorkflowSegmentCheckpointStoreV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTBinaryFormatV3.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/AlphaProcessingV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/Diagnostics/MirmirDiagnosticStore+Persistence.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/Fixtures/legacy-mjpeg.mov",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/DeterministicDeinterlacerV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/SecurityScopedAccessTests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/DeterministicV4WholeAssetPlanner.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Upscaling/Backends/MetalFXScaler.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/ProRes422SourceFactsV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/ASHV4SemanticArtifactTestSupport.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/PixelBufferSignalCodecV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHChromaSitingV2.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/PixelLayoutV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalSpatialFrameEncoderV3.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Domain/AppState.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Upscaling/UpscaleBackendCatalog.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/VideoWriterFormatContractV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "script/v4/WorkflowDurableCoordinatorV4SelfTestMain.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/FixedPointMetalExecutorV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/ASHDepthFourBranchProgramV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/VideoProcessingSession.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHAnalysisGridV2.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/AACGaplessMetadataTranslationV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/ASHTemporalReconstructionV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/NativeMediaInputAssetResolverV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/AVFoundationSegmentAssemblerV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalDevelopmentRuntimeV3.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/PixelLayoutV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/Diagnostics/MirmirDiagnosticRecord.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/Fixtures/raven-forge-site057-video-timing.mp4",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Support/FourCC.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/FixedPointKernelV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Domain/UpscaleProgress.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UI/MirmirSynchronizedPlaybackController.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHP06RuntimeBundleV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/P010BufferAccessV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHNV12FrameCodec.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Domain/MediaTrackGraphV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Upscaling/Backends/CoreImageScaler.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/App/RootView.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/UniformPCMSampleBufferV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UI/Views/MirmirSettingsViews.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/DeterministicCPUBackendTests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/JFIFVideoSamplingV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Persistence/WorkflowPartialArtifactReconcilerV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/App/WorkflowApplicationCoordinatorV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/MirmirTests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/AVFoundationTrackMigrationExecutorV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/SpatialScalePlanV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/Fixtures/ConventionalWholeAssetV4",
+      "trackedFiles": 2
+    },
+    {
+      "reference": "MirmirTests/NativeAVIMPEG4PresentationOrderV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalFrameResourceRingV3.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Domain/WorkflowState.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/AtomicOutputFile.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Domain/CanonicalMediaStateV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/App/MirmirProcessingActivity.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Upscaling/FrameUpscaler.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Persistence/WorkflowQueueDispatcherV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/ChromaSitingGeometryV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Upscaling/Backends/VTInterpolationSpatialScaler.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/MediaTrackGraphV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/Fixtures/native-avi-h264.avi",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHDepthFourBranchProgramV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHCoreV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/MetalRendering/DefaultMetalRenderingService.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/Diagnostics/MirmirDiagnosticFileSystem.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/ASHMeasurementExtractorV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialOperatorBankV2.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/VideoProbe.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/DeterministicMetalBackendTests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/WorkflowReducerTests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Domain/UpscaleBackendID.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/VImageScalerTests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/AVFoundationVideoFormatCalibratorV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHExecutionPlanV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UI/MirmirCompletedPlaybackTypes.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/AVFoundationHDRMetadataAdapterV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHUpscaleBackend.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Platform/WorkflowDurableFileSystem.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Upscaling/Backends/NV12ScalerSupport.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/JFIFVideoSamplingV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/Alpha4444FixedPointScalerV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Support/Log.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/Fixtures/NativeAACMetadata",
+      "trackedFiles": 10
+    },
+    {
+      "reference": "MirmirTests/AVCanonicalMediaStateAdapterV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/App/MirmirUpscaleWorkspace.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/FixedPointMetalExecutorV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/NativeThumbnailSignalConverterV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/Fixtures/native-avi-h264-display-order.json",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalSpatialRuntimeSupportV3.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/Diagnostics/MirmirDiagnosticStore.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Domain/WorkflowEvent.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/Fixtures/legacy-mjpeg.avi",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Modules/UpscalerEngine/FixedPointPixelBufferScalerV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Domain/BackendDescriptor.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/MediaIO/DeterministicV4MediaProcessingSession.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/AVCChromaLocationV4Tests.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Upscaling/Backends/VTHighQualitySuperResolutionScaler.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "Mirmir/Domain/MediaTrackGraphPlannerV4.swift",
+      "trackedFiles": 1
+    },
+    {
+      "reference": "MirmirTests/AVCVisualSampleEntryV4Tests.swift",
+      "trackedFiles": 1
+    }
+  ],
+  "allProjectBuildInputsTrackedOrAppleSDK": true,
+  "missingOrExternalInputs": [],
+  "gitLFSFilters": false,
+  "auditorSHA256": "701fea788371b30d0f9b7d865db654b14c2b09f7dc4824e81e818af00ec52569"
+}

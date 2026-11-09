@@ -303,6 +303,22 @@ their reasons without silently selecting a different method.
 
 ## Build and run
 
+All application build inputs, including the bundled ASH runtime, are tracked in
+this repository. There are no remote Swift packages, submodules, LFS pointers or
+download build phases. A clean committed checkout builds universal Release with
+package resolution and updates disabled. The verified compiler is Xcode 27 with
+the macOS SDK; earlier Xcode versions were not rerun in this checkpoint.
+
+To verify a checkout without signing credentials or package fetches:
+
+```bash
+xcodebuild build -project Mirmir.xcodeproj -scheme Mirmir \
+  -configuration Release -destination 'generic/platform=macOS' \
+  -disableAutomaticPackageResolution -skipPackageUpdates \
+  ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO
+```
+
+
 Open `Mirmir.xcodeproj` in Xcode and run the `Mirmir` scheme, or use:
 
 ```bash
