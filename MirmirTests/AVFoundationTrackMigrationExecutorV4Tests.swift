@@ -13280,6 +13280,24 @@ final class ConventionalWholeAssetPreservationTests: XCTestCase {
         } else {
             XCTAssertFalse(destination.tracks.contains { $0.kind == .audio })
         }
+        // Ordinary 34/38 corpus check: structural movie creation must survive
+        // conventional finals (migration executor restore).
+        let sourceCreation = try await sourceAsset.load(.creationDate)
+        let outputCreation = try await destinationAsset.load(.creationDate)
+        let sourceCreationDate = try await sourceCreation?.load(.dateValue)
+        let outputCreationDate = try await outputCreation?.load(.dateValue)
+        XCTAssertEqual(
+            outputCreationDate,
+            sourceCreationDate,
+            "Structural creation date diverged for \(input.lastPathComponent)"
+        )
+        if let sourceSnapshot = try MOVStructuralCreationDatesV4.capture(from: input),
+           let outputSnapshot = try MOVStructuralCreationDatesV4.capture(from: output) {
+            XCTAssertEqual(outputSnapshot.movie, sourceSnapshot.movie)
+            if sourceSnapshot.tracks.count == outputSnapshot.tracks.count {
+                XCTAssertEqual(outputSnapshot.tracks, sourceSnapshot.tracks)
+            }
+        }
         XCTAssertEqual(try Data(contentsOf: input), beforeBytes)
         let leftovers = try FileManager.default.contentsOfDirectory(
             at: input.deletingLastPathComponent(), includingPropertiesForKeys: nil)

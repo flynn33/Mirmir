@@ -71,6 +71,142 @@ final class MOVStructuralCreationDatesV4Tests: XCTestCase {
         )
     }
 
+    func testRestoreFromSourceAfterWriteHeaderPreservesDates() throws {
+        let fixture = try XCTUnwrap(Bundle(for: Self.self).url(
+            forResource: "legacy-mjpeg", withExtension: "mov"
+        ))
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mirmir-creation-writeheader-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let sourceURL = directory.appendingPathComponent("dated-source.mov")
+        let rewrittenURL = directory.appendingPathComponent("rewritten.mov")
+        try FileManager.default.copyItem(at: fixture, to: sourceURL)
+
+        let baseline = try XCTUnwrap(try MOVStructuralCreationDatesV4.capture(from: sourceURL))
+        let owned = MOVStructuralCreationDatesV4.Snapshot(
+            movie: .init(creation: knownCreation, modification: knownModification),
+            tracks: baseline.tracks.enumerated().map { index, _ in
+                .init(
+                    trackHeader: .init(
+                        creation: knownCreation &+ UInt64(index + 1),
+                        modification: knownModification &+ UInt64(index + 1)
+                    ),
+                    mediaHeader: .init(
+                        creation: knownCreation &+ UInt64(10 + index),
+                        modification: knownModification &+ UInt64(10 + index)
+                    )
+                )
+            }
+        )
+        let identityMapping = Dictionary(uniqueKeysWithValues: owned.tracks.indices.map { ($0, $0) })
+        try MOVStructuralCreationDatesV4.restore(owned, into: sourceURL, outputToSourceTrack: identityMapping)
+
+        // Simulate MediaPipeline/AVFoundation export-time rewrite: zero the
+        // structural dates on a same-inventory copy, then restore from source.
+        try FileManager.default.copyItem(at: sourceURL, to: rewrittenURL)
+        let zeroed = MOVStructuralCreationDatesV4.Snapshot(
+            movie: .init(creation: 0, modification: 0),
+            tracks: owned.tracks.map { _ in
+                .init(
+                    trackHeader: .init(creation: 0, modification: 0),
+                    mediaHeader: .init(creation: 0, modification: 0)
+                )
+            }
+        )
+        try MOVStructuralCreationDatesV4.restore(
+            zeroed,
+            into: rewrittenURL,
+            outputToSourceTrack: identityMapping
+        )
+        XCTAssertEqual(try MOVStructuralCreationDatesV4.capture(from: rewrittenURL)?.movie.creation, 0)
+
+        let restored = try XCTUnwrap(
+            try MOVStructuralCreationDatesV4.restoreFromSource(
+                sourceURL: sourceURL,
+                into: rewrittenURL
+            )
+        )
+        XCTAssertEqual(restored.movie.creation, knownCreation)
+        try MOVStructuralCreationDatesV4.verify(
+            owned,
+            in: rewrittenURL,
+            outputToSourceTrack: identityMapping
+        )
+    }
+
+    func testRestoreFromSourceMovieOnlyWhenTrackInventoriesDiverge() throws {
+        let fixture = try XCTUnwrap(Bundle(for: Self.self).url(
+            forResource: "legacy-mjpeg", withExtension: "mov"
+        ))
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mirmir-creation-diverge-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let sourceURL = directory.appendingPathComponent("dated-source.mov")
+        let outputURL = directory.appendingPathComponent("fewer-tracks.mov")
+        try FileManager.default.copyItem(at: fixture, to: sourceURL)
+
+        let baseline = try XCTUnwrap(try MOVStructuralCreationDatesV4.capture(from: sourceURL))
+        XCTAssertGreaterThanOrEqual(baseline.tracks.count, 2)
+        let owned = MOVStructuralCreationDatesV4.Snapshot(
+            movie: .init(creation: knownCreation, modification: knownModification),
+            tracks: baseline.tracks.enumerated().map { index, _ in
+                .init(
+                    trackHeader: .init(
+                        creation: knownCreation &+ UInt64(index + 1),
+                        modification: knownModification &+ UInt64(index + 1)
+                    ),
+                    mediaHeader: .init(
+                        creation: knownCreation &+ UInt64(10 + index),
+                        modification: knownModification &+ UInt64(10 + index)
+                    )
+                )
+            }
+        )
+        let identityMapping = Dictionary(uniqueKeysWithValues: owned.tracks.indices.map { ($0, $0) })
+        try MOVStructuralCreationDatesV4.restore(owned, into: sourceURL, outputToSourceTrack: identityMapping)
+
+        try FileManager.default.copyItem(at: sourceURL, to: outputURL)
+        let movie = try XCTUnwrap(AVMutableMovie(url: outputURL, options: nil))
+        let removable = try XCTUnwrap(movie.tracks.last)
+        movie.removeTrack(removable)
+        try movie.writeHeader(
+            to: outputURL,
+            fileType: .mov,
+            options: .addMovieHeaderToDestination
+        )
+        let reduced = try XCTUnwrap(try MOVStructuralCreationDatesV4.capture(from: outputURL))
+        XCTAssertEqual(reduced.tracks.count, owned.tracks.count - 1)
+        let zeroedTracks = Dictionary(
+            uniqueKeysWithValues: reduced.tracks.indices.map { ($0, $0) }
+        )
+        try MOVStructuralCreationDatesV4.restore(
+            MOVStructuralCreationDatesV4.Snapshot(
+                movie: .init(creation: 0, modification: 0),
+                tracks: reduced.tracks.map { _ in
+                    .init(
+                        trackHeader: .init(creation: 0, modification: 0),
+                        mediaHeader: .init(creation: 0, modification: 0)
+                    )
+                }
+            ),
+            into: outputURL,
+            outputToSourceTrack: zeroedTracks
+        )
+
+        _ = try MOVStructuralCreationDatesV4.restoreFromSource(
+            sourceURL: sourceURL,
+            into: outputURL
+        )
+        let after = try XCTUnwrap(try MOVStructuralCreationDatesV4.capture(from: outputURL))
+        XCTAssertEqual(after.movie, owned.movie)
+        // Track dates stay cleared when inventories diverge; only movie
+        // ownership is restored without an explicit ordinal map.
+        XCTAssertEqual(after.tracks[0].trackHeader.creation, 0)
+        XCTAssertNotEqual(after.tracks[0].trackHeader.creation, owned.tracks[0].trackHeader.creation)
+    }
+
     func testMigrationExecutorPreservesStructuralCreationDates() async throws {
         let fixture = try XCTUnwrap(Bundle(for: Self.self).url(
             forResource: "legacy-mjpeg", withExtension: "mov"

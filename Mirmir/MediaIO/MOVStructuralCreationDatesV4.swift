@@ -58,11 +58,13 @@ enum MOVStructuralCreationDatesV4 {
     }
 
     /// Writes captured dates into an unpublished MOV/MP4. `outputToSourceTrack`
-    /// maps each output `trak` ordinal onto a source track ordinal.
+    /// maps output `trak` ordinals onto source track ordinals. When
+    /// `requireCompleteTrackCoverage` is true every output track must be mapped.
     static func restore(
         _ snapshot: Snapshot,
         into url: URL,
         outputToSourceTrack: [Int: Int],
+        requireCompleteTrackCoverage: Bool = true,
         cancellation: () throws -> Void = {}
     ) throws {
         let file = try MovieFile(url: url.resolvingSymlinksInPath(), writable: true)
@@ -72,13 +74,19 @@ enum MOVStructuralCreationDatesV4 {
         let children = try file.children(movie.body, movie.end)
         try writeDates(snapshot.movie, file: file, node: try unique("mvhd", in: children))
         let outputTracks = children.filter { $0.type == "trak" }
-        guard Set(outputToSourceTrack.keys) == Set(outputTracks.indices) else {
-            throw Failure.trackInventoryMismatch
+        if requireCompleteTrackCoverage {
+            guard Set(outputToSourceTrack.keys) == Set(outputTracks.indices) else {
+                throw Failure.trackInventoryMismatch
+            }
+        } else {
+            guard outputToSourceTrack.keys.allSatisfy({ outputTracks.indices.contains($0) }) else {
+                throw Failure.trackInventoryMismatch
+            }
         }
         for (ordinal, trak) in outputTracks.enumerated() {
             try cancellation()
-            guard let sourceOrdinal = outputToSourceTrack[ordinal],
-                  snapshot.tracks.indices.contains(sourceOrdinal) else {
+            guard let sourceOrdinal = outputToSourceTrack[ordinal] else { continue }
+            guard snapshot.tracks.indices.contains(sourceOrdinal) else {
                 throw Failure.trackInventoryMismatch
             }
             let source = snapshot.tracks[sourceOrdinal]
@@ -95,12 +103,19 @@ enum MOVStructuralCreationDatesV4 {
     static func verify(
         _ snapshot: Snapshot,
         in url: URL,
-        outputToSourceTrack: [Int: Int]
+        outputToSourceTrack: [Int: Int],
+        requireCompleteTrackCoverage: Bool = true
     ) throws {
         guard let actual = try capture(from: url) else { throw Failure.invalidFile }
         guard actual.movie == snapshot.movie else { throw Failure.trackInventoryMismatch }
-        guard Set(outputToSourceTrack.keys) == Set(actual.tracks.indices) else {
-            throw Failure.trackInventoryMismatch
+        if requireCompleteTrackCoverage {
+            guard Set(outputToSourceTrack.keys) == Set(actual.tracks.indices) else {
+                throw Failure.trackInventoryMismatch
+            }
+        } else {
+            guard outputToSourceTrack.keys.allSatisfy({ actual.tracks.indices.contains($0) }) else {
+                throw Failure.trackInventoryMismatch
+            }
         }
         for (ordinal, sourceOrdinal) in outputToSourceTrack {
             guard snapshot.tracks.indices.contains(sourceOrdinal),
@@ -109,6 +124,42 @@ enum MOVStructuralCreationDatesV4 {
                 throw Failure.trackInventoryMismatch
             }
         }
+    }
+
+    /// Restores source structural dates onto a finished MOV/MP4 after an
+    /// AVFoundation header rewrite. When track inventories match, restores
+    /// movie + every track/media header via identity mapping. When inventories
+    /// diverge, restores only the movie header (track dates need an explicit
+    /// ordinal map from a planner).
+    @discardableResult
+    static func restoreFromSource(
+        sourceURL: URL,
+        into outputURL: URL,
+        cancellation: () throws -> Void = {}
+    ) throws -> Snapshot? {
+        guard let snapshot = try capture(from: sourceURL) else { return nil }
+        guard let output = try capture(from: outputURL) else { throw Failure.invalidFile }
+        let inventoriesMatch = snapshot.tracks.count == output.tracks.count
+        let mapping: [Int: Int]
+        if inventoriesMatch {
+            mapping = Dictionary(uniqueKeysWithValues: snapshot.tracks.indices.map { ($0, $0) })
+        } else {
+            mapping = [:]
+        }
+        try restore(
+            snapshot,
+            into: outputURL,
+            outputToSourceTrack: mapping,
+            requireCompleteTrackCoverage: inventoriesMatch,
+            cancellation: cancellation
+        )
+        try verify(
+            snapshot,
+            in: outputURL,
+            outputToSourceTrack: mapping,
+            requireCompleteTrackCoverage: inventoriesMatch
+        )
+        return snapshot
     }
 
     static func foundationDate(fromQuickTimeSeconds value: UInt64) -> Date? {
