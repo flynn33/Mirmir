@@ -13,22 +13,58 @@ final class SoftwareDurableExportV4Tests: XCTestCase {
 
     func testVP9WebMDurableCPUExportPreservesAudio() async throws {
         try await runDurableCPUExport(
-            resource: "universal-vp9-webm", ext: "webm", codec: .hevc, preserveAudio: true
+            resource: "universal-vp9-webm",
+            ext: "webm",
+            codec: .hevc,
+            preserveAudio: true,
+            expectedAudioResult: .transcoded
         )
     }
 
     func testWMVASFDurableCPUExportPreservesAudio() async throws {
         try await runDurableCPUExport(
-            resource: "universal-wmv-asf", ext: "asf", codec: .h264, preserveAudio: true
+            resource: "universal-wmv-asf",
+            ext: "asf",
+            codec: .h264,
+            preserveAudio: true,
+            expectedAudioResult: .transcoded
+        )
+    }
+
+    func testVP9AACMatroskaPreservesOriginalAACPackets() async throws {
+        try await runDurableCPUExport(
+            resource: "universal-vp9-aac-mkv",
+            ext: "mkv",
+            codec: .hevc,
+            preserveAudio: true,
+            expectedAudioResult: .preserved
+        )
+    }
+
+    func testWMVAACASFPreservesOriginalAACPackets() async throws {
+        try await runDurableCPUExport(
+            resource: "universal-wmv-aac-asf",
+            ext: "asf",
+            codec: .h264,
+            preserveAudio: true,
+            expectedAudioResult: .preserved
         )
     }
 
     private func runDurableCPUExport(
-        resource: String, ext: String, codec: OutputCodec, preserveAudio: Bool = false
+        resource: String,
+        ext: String,
+        codec: OutputCodec,
+        preserveAudio: Bool = false,
+        expectedAudioResult: AudioOutputResult? = nil
     ) async throws {
         do {
             try await performDurableCPUExport(
-                resource: resource, ext: ext, codec: codec, preserveAudio: preserveAudio
+                resource: resource,
+                ext: ext,
+                codec: codec,
+                preserveAudio: preserveAudio,
+                expectedAudioResult: expectedAudioResult
             )
         } catch {
             NSLog("SOFTWARE_DURABLE_EXPORT_FAILURE \(resource): \(String(reflecting: error))")
@@ -37,7 +73,11 @@ final class SoftwareDurableExportV4Tests: XCTestCase {
     }
 
     private func performDurableCPUExport(
-        resource: String, ext: String, codec: OutputCodec, preserveAudio: Bool
+        resource: String,
+        ext: String,
+        codec: OutputCodec,
+        preserveAudio: Bool,
+        expectedAudioResult: AudioOutputResult?
     ) async throws {
         let source = try XCTUnwrap(Bundle(for: Self.self).url(
             forResource: resource, withExtension: ext
@@ -91,7 +131,9 @@ final class SoftwareDurableExportV4Tests: XCTestCase {
         }
         XCTAssertEqual(completion.result.processedFrameCount, Int(frameCount))
         XCTAssertEqual(completion.result.actualBackendID, .mirmirDeterministicCPU)
-        if preserveAudio {
+        if let expectedAudioResult {
+            XCTAssertEqual(completion.result.audioResult, expectedAudioResult)
+        } else if preserveAudio {
             XCTAssertNotEqual(completion.result.audioResult, .omitted)
         } else {
             XCTAssertEqual(completion.result.audioResult, .omitted)
