@@ -272,6 +272,16 @@ actor NativeMediaInputAssetResolverV4 {
                 sourceIdentity: admittedIdentity
             )
         }
+        // MPEG-4 ASP B/S-VOP AVI is outside the verified native VT presentation
+        // contract on Apple Silicon (-8969). Route those AVI sources through the
+        // software importer; Simple/ASP I/P AVI remains on aviMPEG4 remux.
+        if try await Self.aviMPEG4RequiresSoftwareDecode(url) {
+            return try await resolveSoftwareDecode(
+                url: url,
+                cancellation: cancellation,
+                sourceIdentity: admittedIdentity
+            )
+        }
         guard let hint = try Self.aviStrategyHint(url) else { return Self.nativeAsset(url) }
         // Authenticate before AVFoundation can retain/copy container facts.
         let identity = try admittedIdentity ?? ASHStreamingFileIdentityV4.read(url: url)
@@ -426,6 +436,42 @@ actor NativeMediaInputAssetResolverV4 {
         if try await nativeOpensAuthoritatively(url) { return false }
         let probe = try UniversalContainerRemuxV4.probe(url: url)
         return !probe.admissible
+    }
+
+    /// True when an FMP4 AVI carries B-VOP or S-VOP pictures that the native
+    /// MPEG-4 AVI remux/presentation contract cannot qualify for VT decode.
+    static func aviMPEG4RequiresSoftwareDecode(_ url: URL) async throws -> Bool {
+        guard try aviStrategyHint(url) == .aviMPEG4 else { return false }
+        let asset = nativeAsset(url)
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        guard tracks.count == 1, let track = tracks.first else { return false }
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
+        guard reader.canAdd(output) else { return false }
+        reader.add(output)
+        defer { reader.cancelReading() }
+        guard reader.startReading() else { return false }
+        var inspected = 0
+        while let sample = output.copyNextSampleBuffer() {
+            guard CMSampleBufferGetNumSamples(sample) > 0,
+                  let block = CMSampleBufferGetDataBuffer(sample) else { continue }
+            let length = CMBlockBufferGetDataLength(block)
+            guard length > 0, length <= 64 * 1024 * 1024 else { return false }
+            var bytes = Data(count: length)
+            let status = bytes.withUnsafeMutableBytes {
+                CMBlockBufferCopyDataBytes(
+                    block, atOffset: 0, dataLength: length, destination: $0.baseAddress!
+                )
+            }
+            guard status == noErr else { return false }
+            if NativeAVIMPEG4PresentationOrderV4.containsBSVOP(bytes) {
+                return true
+            }
+            inspected += 1
+            // A full IPBB group is enough to decide; keep the probe bounded.
+            if inspected >= 24 { break }
+        }
+        return false
     }
 
     private static func nativeOpensAuthoritatively(_ url: URL) async throws -> Bool {

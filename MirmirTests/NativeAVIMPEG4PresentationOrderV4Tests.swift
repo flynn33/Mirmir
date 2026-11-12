@@ -18,13 +18,17 @@ final class NativeAVIMPEG4PresentationOrderV4Tests: XCTestCase {
     func testBAndSpriteVOPsAreExplicitlyOutsideQualifiedNativeDecoder() async throws {
         let source = try await packets()
         for type in [2, 3] {
+            let packet = vop(type: type)
+            XCTAssertTrue(NativeAVIMPEG4PresentationOrderV4.containsBSVOP(packet))
             var order = try NativeAVIMPEG4PresentationOrderV4(format: source.format)
             XCTAssertThrowsError(try order.displayOrdinal(
-                packet: vop(type: type), decodeOrdinal: 0, duration: step
+                packet: packet, decodeOrdinal: 0, duration: step
             )) { error in
                 XCTAssertTrue(error.localizedDescription.contains("B/S-VOP"))
             }
         }
+        XCTAssertFalse(NativeAVIMPEG4PresentationOrderV4.containsBSVOP(vop(type: 0)))
+        XCTAssertFalse(NativeAVIMPEG4PresentationOrderV4.containsBSVOP(vop(type: 1)))
     }
 
     func testGapInEncodedVOPClockIsRejected() async throws {
