@@ -16,6 +16,13 @@ struct VideoProbe: VideoProbing {
             let asset = try await NativeMediaInputAssetResolverV4.asset(
                 url: url, revalidateSource: true
             )
+            if let original = OriginalSoftwareMediaContext.associated(with: asset),
+               var info = original.typedProjection.videoInfo {
+                try Task.checkCancellation()
+                try original.originalProbe.file.verifyUnchanged(url: url)
+                info.softwareWorkingVideoPolicy = original.workingDecodePolicy?.tracks.first
+                return info
+            }
             let (
                 duration,
                 isPlayable,
@@ -313,26 +320,43 @@ extension VideoProbe {
             .compactMap { $0 }
             .contains { hdrTransfers.contains($0) }
 
+        let mpegFamily = [kCMVideoCodecType_MPEG1Video, kCMVideoCodecType_MPEG2Video]
+            .contains(codec)
+        let bt709 = kCMFormatDescriptionTransferFunction_ITU_R_709_2 as String
+        let qualifiedTransfer = transferFunction
+            ?? (mpegFamily && !hasHDRTransfer
+                && !hasMasteringDisplayMetadata
+                && !hasContentLightLevelMetadata
+                && !mediaCharacteristics.contains(.containsHDRVideo)
+                ? bt709 : nil)
+        let qualifiedPrimaries = colorPrimaries
+            ?? (mpegFamily && qualifiedTransfer == bt709
+                ? (kCMFormatDescriptionColorPrimaries_ITU_R_709_2 as String) : nil)
+        let qualifiedMatrix = yCbCrMatrix
+            ?? (mpegFamily && qualifiedTransfer == bt709
+                ? (kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2 as String) : nil)
+
         let dynamicRange: VideoDynamicRange
         if mediaCharacteristics.contains(.containsHDRVideo)
             || hasHDRTransfer
             || hasMasteringDisplayMetadata
             || hasContentLightLevelMetadata {
             dynamicRange = .hdr
-        } else if let transferFunction,
-                  sdrTransfers.contains(transferFunction) {
+        } else if let qualifiedTransfer,
+                  sdrTransfers.contains(qualifiedTransfer) {
             dynamicRange = .sdr
         } else {
             dynamicRange = .unknown
         }
 
         return VideoColorInfo(
-            colorPrimaries: colorPrimaries,
-            transferFunction: transferFunction,
-            yCbCrMatrix: yCbCrMatrix,
+            colorPrimaries: qualifiedPrimaries,
+            transferFunction: qualifiedTransfer,
+            yCbCrMatrix: qualifiedMatrix,
             bitDepth: isProRes422(codec)
                 ? 10 : positiveInteger(extensions[.bitsPerComponent])
-                    ?? legacySampling.map { Int($0.bitDepth) },
+                    ?? legacySampling.map { Int($0.bitDepth) }
+                    ?? (mpegFamily ? 8 : nil),
             pixelFormat: nil,
             isFullRange: booleanValue(extensions[.fullRangeVideo])
                 ?? legacySampling?.fullRange ?? defaultFullRange(for: codec),
@@ -345,7 +369,7 @@ extension VideoProbe {
             dynamicRange: dynamicRange,
             chromaSiting: codec == kCMVideoCodecType_JPEG_OpenDML ? nil
                 : legacySampling?.nativeWorkingJFIFDeclaration != nil ? .center
-                : mpeg4Sampling != nil ? .left
+                : mpeg4Sampling != nil || mpegFamily ? .left
                 : codec == kCMVideoCodecType_H264
                     ? try AVCChromaLocationV4.declaration(from: description)?.location
                     : AVCChromaLocationV4.canonicalLocation(
@@ -365,10 +389,13 @@ extension VideoProbe {
 private extension VideoProbe {
     static func defaultFullRange(for codec: FourCharCode) -> Bool? {
         // H.264/H.265 Annex E defines an omitted video_full_range_flag as 0.
+        // MPEG-1/2 likewise treat an absent colour_description / full-range
+        // declaration as limited/"tv" range (ISO/IEC 13818-2; FFmpeg color_range=tv).
         // This agrees with the canonical planner's compressed YCbCr default.
         switch codec {
         case kCMVideoCodecType_H264, kCMVideoCodecType_HEVC,
              kCMVideoCodecType_DolbyVisionHEVC,
+             kCMVideoCodecType_MPEG1Video, kCMVideoCodecType_MPEG2Video,
              kCMVideoCodecType_AppleProRes422,
              kCMVideoCodecType_AppleProRes422HQ,
              kCMVideoCodecType_AppleProRes422LT,

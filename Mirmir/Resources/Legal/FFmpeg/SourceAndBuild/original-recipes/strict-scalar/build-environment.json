@@ -1,0 +1,15 @@
+{
+  "sdk": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk",
+  "environmentOverrides": {
+    "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+    "LC_ALL": "C",
+    "LANG": "C",
+    "ZERO_AR_DATE": "1",
+    "SOURCE_DATE_EPOCH": "1781664539",
+    "MACOSX_DEPLOYMENT_TARGET": "15.4",
+    "SDKROOT": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
+  },
+  "parallelArchitectures": 2,
+  "makeJobsPerArchitecture": 4,
+  "configurationIntent": "LGPL2.1-or-later software decoders/demuxers/parsers and swscale/swresample only; no external Homebrew dependencies, network, protocols, programs, encoders, muxers, devices, filters or hardware accelerators."
+}

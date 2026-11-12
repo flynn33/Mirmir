@@ -11,8 +11,10 @@ The default universal Release application builds and verifies with zero warnings
 The affected 168-case roster passes on Rosetta and actual macOS 15.4 (167 passed,
 one expected opt-in skip each), with independent packet, decode and PCM checks.
 
-**Release remains blocked.** Reported customer error 11, universal-format decoder
-routing, creation dates and the exact remaining acceptance gaps are recorded in
+**Release remains blocked.** Reported customer error 11 is still open (not
+causally reproduced). Remux-admissible Matroska/H.264 routing landed; VP9/WMV
+software decode, broader JPEG, creation dates and the exact remaining acceptance
+gaps are recorded in
 [the current bounded QA report](docs/BOUNDED_CONVENTIONAL_QA_2026-10-26.md).
 Passing suites are not an all-feature certification. [The previous checkpoint](docs/BOUNDED_QA_2026-10-25.md)
 and [earlier continuation](docs/QA_FOLLOWUP_2026-10-25.md) retain historical evidence.

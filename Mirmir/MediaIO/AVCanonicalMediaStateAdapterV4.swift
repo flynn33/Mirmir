@@ -167,6 +167,11 @@ struct AVCanonicalMediaStateAdapterV4: Sendable {
         let asset = try await NativeMediaInputAssetResolverV4.asset(
             url: request.url, sourceIdentity: fileIdentity
         )
+        if let original = OriginalSoftwareMediaContext.associated(with: asset) {
+            return try original.canonicalProbe(
+                request: request, fileIdentity: fileIdentity
+            )
+        }
         let assetTracks: [AVAssetTrack]
         do {
             assetTracks = try await asset.load(.tracks)
@@ -722,6 +727,7 @@ private extension AVCanonicalMediaStateAdapterV4 {
         let color = try colorState(
             extensions,
             decodedColor: decodedColor,
+            subtype: subtype,
             root: root,
             observations: &observations
         )
@@ -973,6 +979,10 @@ private extension AVCanonicalMediaStateAdapterV4 {
             FourCharCode(bitPattern: Int32(bigEndianASCII("ap4x"))): 12
         ]
         if let bitDepth = known[subtype] { return bitDepth }
+        if [kCMVideoCodecType_MPEG1Video, kCMVideoCodecType_MPEG2Video].contains(subtype) {
+            // Main Profile MPEG-1/2 is an 8-bit YCbCr contract.
+            return 8
+        }
         if subtype == kCMVideoCodecType_H264,
            let semantics = h264Semantics(description) {
             return semantics.bitDepth
@@ -1022,6 +1032,10 @@ private extension AVCanonicalMediaStateAdapterV4 {
         if ["fourcc-61706368", "fourcc-6170636e", "fourcc-61706373",
             "fourcc-6170636f"].contains(code) {
             return .yuv422
+        }
+        if [kCMVideoCodecType_MPEG1Video, kCMVideoCodecType_MPEG2Video].contains(subtype) {
+            // Main Profile MPEG-1/2 is 4:2:0.
+            return .yuv420
         }
         if subtype == kCMVideoCodecType_H264,
            let semantics = h264Semantics(description) {
@@ -1150,6 +1164,19 @@ private extension AVCanonicalMediaStateAdapterV4 {
                 kCMVideoCodecType_AppleProRes422LT,
                 kCMVideoCodecType_AppleProRes422Proxy
             ].contains(subtype)
+            // MPEG-1/2 4:2:0 uses left/co-sited chroma when the container omits
+            // an explicit chroma_location tag (same contract as progressive MPEG-4).
+            if [kCMVideoCodecType_MPEG1Video, kCMVideoCodecType_MPEG2Video].contains(subtype) {
+                observations.append(
+                    observation(
+                        severity: .warning,
+                        code: .missingRequiredValue,
+                        path: "\(root).chroma_siting",
+                        value: "absent; qualified MPEG-1/2 4:2:0 left/co-sited"
+                    )
+                )
+                return .left
+            }
             observations.append(
                 observation(
                     severity: proRes422 || decodedLegacySampling ? .warning : .unsupported,
@@ -1223,9 +1250,20 @@ private extension AVCanonicalMediaStateAdapterV4 {
     func colorState(
         _ extensions: NSDictionary,
         decodedColor: [String: String],
+        subtype: FourCharCode,
         root: String,
         observations: inout [CanonicalMediaObservationV4]
     ) throws -> CanonicalColorStateV4 {
+        let mpegFamily = [kCMVideoCodecType_MPEG1Video, kCMVideoCodecType_MPEG2Video]
+            .contains(subtype)
+        let mpeg709Defaults: [String: String] = [
+            kCMFormatDescriptionExtension_ColorPrimaries as String:
+                kCMFormatDescriptionColorPrimaries_ITU_R_709_2 as String,
+            kCMFormatDescriptionExtension_TransferFunction as String:
+                kCMFormatDescriptionTransferFunction_ITU_R_709_2 as String,
+            kCMFormatDescriptionExtension_YCbCrMatrix as String:
+                kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2 as String
+        ]
         func colorString(_ key: CFString, name: String) -> String {
             if let value = extensions[key as String] as? String { return value }
             if let value = decodedColor[key as String] {
@@ -1236,6 +1274,17 @@ private extension AVCanonicalMediaStateAdapterV4 {
                     value: "absent; decoder resolved \(value)"
                 ))
                 return value
+            }
+            if mpegFamily, let qualified = mpeg709Defaults[key as String] {
+                observations.append(
+                    observation(
+                        severity: .warning,
+                        code: .missingRequiredValue,
+                        path: "\(root).color.\(name)",
+                        value: "absent; qualified MPEG-1/2 SDR rendering default \(qualified)"
+                    )
+                )
+                return qualified
             }
             observations.append(
                 observation(
