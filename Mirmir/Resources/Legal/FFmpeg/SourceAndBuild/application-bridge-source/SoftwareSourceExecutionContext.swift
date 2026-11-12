@@ -97,7 +97,7 @@ struct SoftwareDerivedAACMetadataVerification: Codable, Equatable, Sendable {
 struct SoftwareSourceExecutionPolicy: Codable, Equatable, Sendable {
     static let identityDomain = "mirmir-software-source-execution-policy-v3"
     static let videoClockContract = "all original frame PTS and positive durations must be exact or adjacent original-clock ticks of firstPTS+n/fps; processed duration is complete count/fps; raw source end and missing durations retained separately"
-    static let audioClockContract = "one shared offset; complete audible sample counter anchored to original eligible PTS; original skips/raw clocks/terminal missing PTS retained; proven original AAC and PCM16 packets pass through; incompatible decoded audio is explicitly transcoded with zero-based encoded media and original target offset; one original AAC track requires a separately bound derived packet-table hint"
+    static let audioClockContract = "one shared offset; complete audible sample counter anchored to original eligible PTS; original skips/raw clocks/terminal missing PTS retained; proven original AAC and PCM16 packets pass through; incompatible decoded audio is explicitly transcoded with zero-based encoded media and original target offset; exactly one original packet-AAC track binds a derived file-global iTunSMPB packet-table hint; multiple original packet-AAC tracks remain packet pass-through without that file-global hint"
     let schemaID: String
     let originalSourceSHA256: ASHSHA256V4
     let originalFactsSHA256: ASHSHA256V4
@@ -238,12 +238,17 @@ struct SoftwareSourceExecutionContext: Codable, Equatable, Sendable {
             $0.audioSampleRate != nil && !$0.requiresAudioTranscode
                 && originalCanonicalMedia.tracks[Int($0.originalOrdinal)].codecID == "libav-codec-\($0.sourceCodecID)-aac"
         }
-        guard (policy.derivedAACPacketTableMetadata != nil) == !originalPacketAACRows.isEmpty else {
+        // File-global iTunSMPB can own exactly one packet-AAC clock. Zero AAC →
+        // no hint; one AAC → required hint; multiple AAC → omit the global hint
+        // and keep every original AAC stream as packet pass-through.
+        let expectsDerivedAACHint = originalPacketAACRows.count == 1
+        guard (policy.derivedAACPacketTableMetadata != nil) == expectsDerivedAACHint else {
             throw ProbeFailure("original AAC explicit packet table hint inventory")
         }
         if let hint = policy.derivedAACPacketTableMetadata {
-            let audio = policy.tracks.filter { $0.audioSampleRate != nil }
-            guard audio.count == 1, let row = audio.first,
+            // File-global iTunSMPB can describe exactly one original packet-AAC
+            // track even when sibling non-AAC audio tracks are present and transcoded.
+            guard originalPacketAACRows.count == 1, let row = originalPacketAACRows.first,
                   row.originalOrdinal == hint.sourceOrdinal,
                   !row.requiresAudioTranscode,
                   row.nativeOriginalAudioPacketStreamSHA256 == hint.originalPacketStreamSHA256,
@@ -534,13 +539,14 @@ struct SoftwareSourceExecutionContext: Codable, Equatable, Sendable {
                 && context.sourceFacts.streams[Int($0.originalOrdinal)].codecName == "aac"
         }
         let derivedAACMetadata: SoftwareDerivedAACPacketTableMetadata?
-        if let row = packetAACRows.first {
-            guard packetAACRows.count == 1,
-                  rows.filter({ $0.audioSampleRate != nil }).count == 1,
-                  let digest = row.nativeOriginalAudioPacketStreamSHA256,
-                  let valid = row.audibleAudioSamples else {
-                throw ProbeFailure("file-global AAC packet table hint requires exactly one original audio track")
-            }
+        if packetAACRows.count == 1,
+           let row = packetAACRows.first,
+           let digest = row.nativeOriginalAudioPacketStreamSHA256,
+           let valid = row.audibleAudioSamples {
+            // One file-global packet-table hint is legal only when exactly one
+            // original audio track is packet-AAC. Sibling non-AAC audio may be
+            // transcoded. Multiple original AAC tracks keep packet pass-through
+            // without inventing a single shared iTunSMPB ownership.
             let timeline = context.timings[Int(row.originalOrdinal)]
             derivedAACMetadata = SoftwareDerivedAACPacketTableMetadata(
                 sourceOrdinal: row.originalOrdinal,
@@ -549,7 +555,9 @@ struct SoftwareSourceExecutionContext: Codable, Equatable, Sendable {
                 primingSamples: timeline.skipStart,
                 remainderSamples: timeline.skipEnd, validSamples: valid
             )
-        } else { derivedAACMetadata = nil }
+        } else {
+            derivedAACMetadata = nil
+        }
         let policy = SoftwareSourceExecutionPolicy(
             schemaID: "mirmir.software-source-execution.v3",
             originalSourceSHA256: context.sourceFacts.sourceHash,
