@@ -10,6 +10,7 @@
 
 		D6B000000000000000000010 /* universal-vp9-webm.webm in Resources */ = {isa = PBXBuildFile; fileRef = D6F00000000000000000000C /* universal-vp9-webm.webm */; };
 		D7B000000000000000000051 /* universal-wmv-aac-asf.asf in Resources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000051 /* universal-wmv-aac-asf.asf */; };
+		D7B000000000000000000070 /* universal-wmv-aac-mkv.mkv in Resources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000070 /* universal-wmv-aac-mkv.mkv */; };
 		D7B000000000000000000050 /* universal-vp9-aac-mkv.mkv in Resources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000050 /* universal-vp9-aac-mkv.mkv */; };
 		D6B000000000000000000011 /* universal-wmv-asf.asf in Resources */ = {isa = PBXBuildFile; fileRef = D6F00000000000000000000D /* universal-wmv-asf.asf */; };
 
@@ -36,6 +37,7 @@
 		D7B000000000000000000030 /* SoftwareDecodeImporterV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000030 /* SoftwareDecodeImporterV4Tests.swift */; };
 		D7B000000000000000000040 /* SoftwareDurableExportV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000040 /* SoftwareDurableExportV4Tests.swift */; };
 		D7B000000000000000000060 /* SoftwarePresentationThumbnailV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000060 /* SoftwarePresentationThumbnailV4Tests.swift */; };
+		D7B000000000000000000071 /* WMVAACMatroskaImporterV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000071 /* WMVAACMatroskaImporterV4Tests.swift */; };
 		D6B00000000000000000000A /* universal-h264-mkv.mkv in Resources */ = {isa = PBXBuildFile; fileRef = D6F00000000000000000000B /* universal-h264-mkv.mkv */; };
 		D6B00000000000000000000B /* libavcodec.62.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D6F000000000000000000001 /* libavcodec.62.dylib */; };
 		D6B00000000000000000000C /* libavformat.62.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D6F000000000000000000002 /* libavformat.62.dylib */; };
@@ -276,6 +278,7 @@
 
 		D6F00000000000000000000C /* universal-vp9-webm.webm */ = {isa = PBXFileReference; lastKnownFileType = file; path = "universal-vp9-webm.webm"; sourceTree = "<group>"; };
 		D7F000000000000000000051 /* universal-wmv-aac-asf.asf */ = {isa = PBXFileReference; lastKnownFileType = file; path = universal-wmv-aac-asf.asf; sourceTree = "<group>"; };
+		D7F000000000000000000070 /* universal-wmv-aac-mkv.mkv */ = {isa = PBXFileReference; lastKnownFileType = file; path = universal-wmv-aac-mkv.mkv; sourceTree = "<group>"; };
 		D7F000000000000000000050 /* universal-vp9-aac-mkv.mkv */ = {isa = PBXFileReference; lastKnownFileType = file; path = universal-vp9-aac-mkv.mkv; sourceTree = "<group>"; };
 		D6F00000000000000000000D /* universal-wmv-asf.asf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "universal-wmv-asf.asf"; sourceTree = "<group>"; };
 
@@ -292,6 +295,7 @@
 		D7F000000000000000000030 /* SoftwareDecodeImporterV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareDecodeImporterV4Tests.swift; sourceTree = "<group>"; };
 		D7F000000000000000000040 /* SoftwareDurableExportV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwareDurableExportV4Tests.swift; sourceTree = "<group>"; };
 		D7F000000000000000000060 /* SoftwarePresentationThumbnailV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoftwarePresentationThumbnailV4Tests.swift; sourceTree = "<group>"; };
+		D7F000000000000000000071 /* WMVAACMatroskaImporterV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WMVAACMatroskaImporterV4Tests.swift; sourceTree = "<group>"; };
 		D7F0000000000000000001 /* ASFOriginalHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASFOriginalHeader.swift; sourceTree = "<group>"; };
 		D7F0000000000000000002 /* OriginalFacts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OriginalFacts.swift; sourceTree = "<group>"; };
 		D7F0000000000000000003 /* OriginalSoftwareMediaContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OriginalSoftwareMediaContext.swift; sourceTree = "<group>"; };
@@ -732,9 +736,11 @@
 				D7F000000000000000000030 /* SoftwareDecodeImporterV4Tests.swift */,
 				D7F000000000000000000040 /* SoftwareDurableExportV4Tests.swift */,
 				D7F000000000000000000060 /* SoftwarePresentationThumbnailV4Tests.swift */,
+				D7F000000000000000000071 /* WMVAACMatroskaImporterV4Tests.swift */,
 				D6F00000000000000000000B /* universal-h264-mkv.mkv */,
 				D6F00000000000000000000C /* universal-vp9-webm.webm */,
 				D7F000000000000000000051 /* universal-wmv-aac-asf.asf */,
+				D7F000000000000000000070 /* universal-wmv-aac-mkv.mkv */,
 				D7F000000000000000000050 /* universal-vp9-aac-mkv.mkv */,
 				D6F00000000000000000000D /* universal-wmv-asf.asf */,
 				C53000000000000000000009 /* NativeAVIMPEG4PresentationOrderV4Tests.swift */,
@@ -1125,6 +1131,7 @@
 				D6B00000000000000000000A /* universal-h264-mkv.mkv in Resources */,
 				D6B000000000000000000010 /* universal-vp9-webm.webm in Resources */,
 				D7B000000000000000000051 /* universal-wmv-aac-asf.asf in Resources */,
+				D7B000000000000000000070 /* universal-wmv-aac-mkv.mkv in Resources */,
 				D7B000000000000000000050 /* universal-vp9-aac-mkv.mkv in Resources */,
 				D6B000000000000000000011 /* universal-wmv-asf.asf in Resources */,
 				C58000000000000000000005 /* NativeAACMetadata in Resources */,
@@ -1322,6 +1329,7 @@
 				D7B000000000000000000030 /* SoftwareDecodeImporterV4Tests.swift in Sources */,
 				D7B000000000000000000040 /* SoftwareDurableExportV4Tests.swift in Sources */,
 				D7B000000000000000000060 /* SoftwarePresentationThumbnailV4Tests.swift in Sources */,
+				D7B000000000000000000071 /* WMVAACMatroskaImporterV4Tests.swift in Sources */,
 				F72000000000000000000002 /* WorkflowQueueDispatcherV4SelfTestMain.swift in Sources */,
 				F72000000000000000000001 /* WorkflowDurableCoordinatorV4SelfTestMain.swift in Sources */,
 				32000000000000000000000E /* MirmirTests.swift in Sources */,
