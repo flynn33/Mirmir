@@ -11,8 +11,10 @@ The default universal Release application builds and verifies with zero warnings
 The affected 168-case roster passes on Rosetta and actual macOS 15.4 (167 passed,
 one expected opt-in skip each), with independent packet, decode and PCM checks.
 
-**Release remains blocked.** Reported customer error 11, universal-format decoder
-routing, creation dates and the exact remaining acceptance gaps are recorded in
+**Release remains blocked.** Reported customer error 11 is still open (not
+causally reproduced). Remux-admissible Matroska/H.264 routing landed; VP9/WMV
+software decode, broader JPEG, creation dates and the exact remaining acceptance
+gaps are recorded in
 [the current bounded QA report](docs/BOUNDED_CONVENTIONAL_QA_2026-10-26.md).
 Passing suites are not an all-feature certification. [The previous checkpoint](docs/BOUNDED_QA_2026-10-25.md)
 and [earlier continuation](docs/QA_FOLLOWUP_2026-10-25.md) retain historical evidence.
@@ -302,6 +304,22 @@ an Apple-managed model download. The application reports unavailable routes and
 their reasons without silently selecting a different method.
 
 ## Build and run
+
+All application build inputs, including the bundled ASH runtime, are tracked in
+this repository. There are no remote Swift packages, submodules, LFS pointers or
+download build phases. A clean committed checkout builds universal Release with
+package resolution and updates disabled. The verified compiler is Xcode 27 with
+the macOS SDK; earlier Xcode versions were not rerun in this checkpoint.
+
+To verify a checkout without signing credentials or package fetches:
+
+```bash
+xcodebuild build -project Mirmir.xcodeproj -scheme Mirmir \
+  -configuration Release -destination 'generic/platform=macOS' \
+  -disableAutomaticPackageResolution -skipPackageUpdates \
+  ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO
+```
+
 
 Open `Mirmir.xcodeproj` in Xcode and run the `Mirmir` scheme, or use:
 

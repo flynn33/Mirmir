@@ -1,0 +1,21 @@
+This private Mirmir QA candidate dynamically links FFmpeg 8.1.2.
+FFmpeg is copyright its respective contributors and is licensed here under
+GNU LGPL version 2.1 or later. The included upstream LICENSE.md and
+COPYING.LGPLv2.1 preserve its notices and terms. This package disables GPL,
+version3, nonfree, network, external library autodetection, encoders and muxers.
+The strict-scalar configuration additionally disables assembly and floating
+point contraction. No universal audio byte determinism claim is made.
+
+Corresponding unmodified FFmpeg source archive, authenticated signature/key,
+exact strict-scalar rebuild recipes, configurations, header and expected build-input binary hashes are included in
+SourceAndBuild/. The complete authenticated source archive also retains each
+source file's individual copyright and license notice. Its computed SHA256 is
+464beb5e7bf0c311e68b45ae2f04e9cc2af88851abb4082231742a74d97b524c.
+Upstream source: https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz
+Upstream license information: https://ffmpeg.org/legal.html
+
+FFmpeg component permissions are governed by its applicable licenses and are
+separate from Mirmir's application terms and draft research-source license.
+No Mirmir EULA or source license has been adopted or changed by this private
+QA package. A local signed replacement test does not establish the
+technical replacement behavior of a Store-installed copy or Store acceptance.

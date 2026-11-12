@@ -2,13 +2,27 @@ import AVFoundation
 import Foundation
 
 /// ISO/IEC 14496-2, §6.3.5: non-B VOPs advance the preceding decoded
-/// reference time base. B-VOPs use a different reference time base and are
-/// excluded until the native decoder can qualify that presentation path.
+/// reference time base. B-VOPs use a different reference time base; native AVI
+/// remux keeps the I/P-only contract. AVI sources that carry B/S-VOPs are routed
+/// to the software importer instead of this presentation clock.
 struct NativeAVIMPEG4PresentationOrderV4 {
     private let configuration: VOL
     private var timeBase: Int64 = 0
     private var origin: Int64?
     private var packetCount: Int64 = 0
+
+    /// True when the packet contains a B-VOP (type 2) or S-VOP (type 3).
+    static func containsBSVOP(_ packet: Data) -> Bool {
+        guard let headers = try? headers(packet) else { return false }
+        for header in headers where header.code == 0xb6 {
+            var bits = Bits(header.payload)
+            guard let type = try? bits.read(2), type == 2 || type == 3 else {
+                continue
+            }
+            return true
+        }
+        return false
+    }
 
     init(format: CMVideoFormatDescription) throws {
         let bytes = try NativeMediaInputVerificationV4.mpeg4Configuration(format)

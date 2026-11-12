@@ -1088,6 +1088,103 @@ final class WorkflowSegmentCheckpointStoreV4Tests: XCTestCase {
         )
     }
 
+    func testStandaloneSegmentAssemblyPreservesStructuralCreationDates() async throws {
+        let fixture = try makeFixture()
+        let segment = fixture.root.appendingPathComponent("segment.mov")
+        let datedSource = fixture.root.appendingPathComponent("dated-source.mov")
+        // Four samples so a single terminal checkpoint can mark isComplete
+        // (publicationRequest treats nextSample == 4 as complete).
+        try await writeSegment(
+            to: segment,
+            colors: [(21, 34, 55), (34, 55, 89), (55, 89, 144), (89, 144, 233)]
+        )
+        try FileManager.default.copyItem(at: segment, to: datedSource)
+
+        let baseline = try XCTUnwrap(try MOVStructuralCreationDatesV4.capture(from: datedSource))
+        let knownCreation: UInt64 = 3_660_779_045 // 2020-01-02T03:04:05Z
+        let knownModification: UInt64 = 3_660_779_100
+        let owned = MOVStructuralCreationDatesV4.Snapshot(
+            movie: .init(creation: knownCreation, modification: knownModification),
+            tracks: baseline.tracks.enumerated().map { index, track in
+                .init(
+                    trackHeader: .init(
+                        creation: knownCreation &+ UInt64(index + 1),
+                        modification: knownModification &+ UInt64(index + 1)
+                    ),
+                    mediaHeader: .init(
+                        creation: knownCreation &+ UInt64(10 + index),
+                        modification: knownModification &+ UInt64(10 + index)
+                    ),
+                    handlerType: track.handlerType
+                )
+            }
+        )
+        let identity = Dictionary(uniqueKeysWithValues: owned.tracks.indices.map { ($0, $0) })
+        try MOVStructuralCreationDatesV4.restore(
+            owned,
+            into: datedSource,
+            outputToSourceTrack: identity
+        )
+
+        let setup = try await makeRunningCoordinator(fixture: fixture)
+        let store = try WorkflowSegmentCheckpointStoreV4(rootURL: fixture.store)
+        let publication = try await store.publishBoundary(
+            publicationRequest(
+                checkpoint: 0,
+                sourceURL: segment,
+                existing: [],
+                start: 0,
+                end: 4,
+                nextStart: nil,
+                nextSample: 4
+            ),
+            using: setup.claim,
+            temporalCheckpoint: Data("creation-date-assembly".utf8)
+        )
+        let committed = try await setup.coordinator.commitCheckpoint(
+            publication.draft,
+            using: setup.claim
+        )
+        let assembledWithoutSource = fixture.output.appendingPathComponent(
+            "assembled-export-stamped.mov"
+        )
+        _ = try await AVFoundationSegmentAssemblerV4().assemble(.init(
+            artifactRootURL: fixture.store,
+            segments: committed.document.body.segments,
+            mediaTimelineStart: try WorkflowMediaTimeV4(value: 0, timescale: 30),
+            outputTimelineStart: try WorkflowMediaTimeV4(value: 0, timescale: 1),
+            destinationURL: assembledWithoutSource
+        ))
+        let stamped = try XCTUnwrap(
+            try MOVStructuralCreationDatesV4.capture(from: assembledWithoutSource)
+        )
+        XCTAssertNotEqual(stamped.movie.creation, knownCreation)
+
+        let assembledWithSource = fixture.output.appendingPathComponent(
+            "assembled-source-dated.mov"
+        )
+        _ = try await AVFoundationSegmentAssemblerV4().assemble(.init(
+            artifactRootURL: fixture.store,
+            segments: committed.document.body.segments,
+            mediaTimelineStart: try WorkflowMediaTimeV4(value: 0, timescale: 30),
+            outputTimelineStart: try WorkflowMediaTimeV4(value: 0, timescale: 1),
+            destinationURL: assembledWithSource,
+            structuralCreationDateSourceURL: datedSource
+        ))
+        try MOVStructuralCreationDatesV4.verify(
+            owned,
+            in: assembledWithSource,
+            outputToSourceTrack: identity
+        )
+        let outputAsset = AVURLAsset(url: assembledWithSource)
+        let creationItem = try await outputAsset.load(.creationDate)
+        let creationDate = try await creationItem?.load(.dateValue)
+        XCTAssertEqual(
+            creationDate,
+            MOVStructuralCreationDatesV4.foundationDate(fromQuickTimeSeconds: knownCreation)
+        )
+    }
+
     func testTamperedOpaqueStateIsContainedBeforeBackendRestore() async throws {
         let fixture = try makeFixture()
         let source = fixture.root.appendingPathComponent("source.mov")

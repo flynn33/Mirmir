@@ -1,0 +1,31 @@
+{
+  "sourceCommit": "c1dbe8509fdc06d3a8acd085008ccc00af98a013",
+  "cloneMethod": "Independent shallow Git clone of committed objects; no working-tree/untracked files copied",
+  "repository": "/private/tmp/Mirmir-clean-checkout-c1dbe8509-20261026",
+  "command": [
+    "xcodebuild",
+    "build",
+    "-project",
+    "/private/tmp/Mirmir-clean-checkout-c1dbe8509-20261026/Mirmir.xcodeproj",
+    "-scheme",
+    "Mirmir",
+    "-configuration",
+    "Release",
+    "-derivedDataPath",
+    "/private/tmp/Mirmir-clean-checkout-derived-20261026",
+    "-destination",
+    "generic/platform=macOS",
+    "-disableAutomaticPackageResolution",
+    "-skipPackageUpdates",
+    "-clonedSourcePackagesDirPath",
+    "/private/tmp/Mirmir-clean-checkout-empty-packages-20261026",
+    "ARCHS=arm64 x86_64",
+    "ONLY_ACTIVE_ARCH=NO",
+    "CODE_SIGNING_ALLOWED=NO"
+  ],
+  "exitCode": 0,
+  "seconds": 97.06405612500001,
+  "warningLines": 0,
+  "errorLines": 0,
+  "purpose": "Verify repository-contained build inputs without package fetches or signing credentials; signed default build verified separately"
+}

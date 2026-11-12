@@ -988,10 +988,23 @@ private extension MediaTrackNodeV4 {
             }
             guard let outputSource = output.source,
                   outputSource.duration == output.target.duration,
-                  let priming = try? outputSource.start.subtracting(
-                      output.target.start
-                  ),
-                  priming >= .zero else {
+                  outputSource.start >= .zero else {
+                return false
+            }
+            // Classic AAC encoder priming shares one timeline with the target
+            // (source.start == target.start + priming). Software multi-audio
+            // carriers may keep zero-based encoded media while the target still
+            // carries a shared presentation offset after a leading empty edit.
+            let priming: ExactRationalV4
+            if let classic = try? outputSource.start.subtracting(
+                output.target.start
+            ), classic >= .zero {
+                priming = classic
+            } else if let originalSource = source.source,
+                      originalSource.start == .zero,
+                      originalSource.duration == source.target.duration {
+                priming = outputSource.start
+            } else {
                 return false
             }
             if let observedPriming {

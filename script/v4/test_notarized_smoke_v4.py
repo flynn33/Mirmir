@@ -627,6 +627,28 @@ class NotarizedSmokeTests(unittest.TestCase):
         with self.assertRaisesRegex(runner.NotarizedSmokeCaptureError, "invalid prepare result marker"):
             runner.observer_result(line, "prepare")
 
+    def test_foundation_canonical_accepts_retained_app_float_lexeme(self) -> None:
+        retained = (
+            SCRIPT_DIRECTORY.parents[1]
+            / "docs/v4/evidence/bounded-conventional-2026-10-26/default-app-headless/prepare-result-raw.json"
+        )
+        raw = retained.read_bytes()
+        self.assertNotEqual(smoke.canonical_bytes(smoke.load_json_bytes(raw, "retained")), raw)
+        smoke.require_foundation_canonical(raw, "retained prepare result")
+        line = b"MIRMIR_V4_NOTARIZED_SMOKE_RESULT " + __import__("base64").b64encode(raw) + b"\n"
+        self.assertEqual(runner.observer_result(line, "prepare"), raw)
+
+    def test_foundation_canonical_rejects_python_reserialized_app_result(self) -> None:
+        retained = (
+            SCRIPT_DIRECTORY.parents[1]
+            / "docs/v4/evidence/bounded-conventional-2026-10-26/default-app-headless/prepare-result-raw.json"
+        )
+        raw = retained.read_bytes()
+        pythonized = smoke.canonical_bytes(smoke.load_json_bytes(raw, "retained"))
+        self.assertNotEqual(pythonized, raw)
+        with self.assertRaisesRegex(smoke.NotarizedSmokeError, "not Foundation-canonical"):
+            smoke.require_foundation_canonical(pythonized, "pythonized prepare result")
+
     def test_runner_uses_phase_specific_canonical_optional_key(self) -> None:
         candidate = {
             "appBundleSHA256": "a" * 64,

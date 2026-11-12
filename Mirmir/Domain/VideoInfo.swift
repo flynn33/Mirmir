@@ -19,6 +19,7 @@ struct VideoInfo: Equatable, Sendable {
     let fileSizeBytes: Int64?
     let color: VideoColorInfo
     var proRes422SourceFacts: ProRes422SourceFactsV4? = nil
+    var softwareWorkingVideoPolicy: OriginalSoftwareWorkingVideoPolicy? = nil
 
     var filename: String {
         url.lastPathComponent

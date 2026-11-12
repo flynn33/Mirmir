@@ -802,6 +802,10 @@ struct DeterministicV4MediaExecutionReceiptV4: Codable, Equatable, Hashable,
     let runtimeProvenanceSHA256: ASHSHA256V4
     let trackPlanSHA256: ASHSHA256V4
     let sourceGraphSHA256: ASHSHA256V4
+    let executionGraphSHA256: ASHSHA256V4?
+    let softwareExecutionPolicySHA256: ASHSHA256V4?
+    let originalSourceFactsSHA256: ASHSHA256V4?
+    let softwareMetadataIdentityScope: String?
     let migrationSourceGraphSHA256: ASHSHA256V4
     let migrationPlanSHA256: ASHSHA256V4
     let migrationBlueprintSHA256: ASHSHA256V4
@@ -847,7 +851,9 @@ struct DeterministicV4MediaExecutionReceiptV4: Codable, Equatable, Hashable,
                 .actualBackendIdentityMismatch
         }
         let sourceGraphSHA256 = try preparedPlan.sourceGraph.canonicalSHA256
-        guard migration.sourceGraphSHA256 == sourceGraphSHA256 else {
+        guard migration.sourceGraphSHA256 == sourceGraphSHA256,
+              migration.executionGraphSHA256 == (try preparedPlan.softwareExecution?.executionGraph.canonicalSHA256),
+              migration.softwareExecutionPolicySHA256 == (try preparedPlan.softwareExecution?.policySHA256) else {
             throw DeterministicV4MediaExecutionReceiptError
                 .sourceGraphIdentityMismatch
         }
@@ -869,7 +875,7 @@ struct DeterministicV4MediaExecutionReceiptV4: Codable, Equatable, Hashable,
         case .boundedSegmentPrefixSEI:
             let primaryRows = preparedPlan.trackPlan.plan.tracks.filter {
                 $0.source.identity.stableID
-                    == preparedPlan.primaryGraphTrack.identity.stableID
+                    == preparedPlan.executionPrimaryGraphTrack.identity.stableID
             }
             guard primaryRows.count == 1,
                   let primaryRow = primaryRows.first,
@@ -909,7 +915,7 @@ struct DeterministicV4MediaExecutionReceiptV4: Codable, Equatable, Hashable,
             throw DeterministicV4MediaExecutionReceiptError
                 .outputGraphIdentityMismatch
         }
-        let enabledTracks = preparedPlan.sourceGraph.tracks.filter(\.enabled)
+        let enabledTracks = preparedPlan.executionGraph.tracks.filter(\.enabled)
 
         if let translation = migration.aacGaplessMetadataTranslation {
             try translation.validate()
@@ -933,6 +939,10 @@ struct DeterministicV4MediaExecutionReceiptV4: Codable, Equatable, Hashable,
             .runtimeProvenanceSHA256
         trackPlanSHA256 = preparedPlan.trackPlan.planSHA256
         self.sourceGraphSHA256 = sourceGraphSHA256
+        executionGraphSHA256 = migration.executionGraphSHA256
+        softwareExecutionPolicySHA256 = migration.softwareExecutionPolicySHA256
+        originalSourceFactsSHA256 = migration.originalSourceFactsSHA256
+        softwareMetadataIdentityScope = migration.softwareExecutionPolicySHA256 == nil ? nil : migration.metadataIdentityScope
         migrationSourceGraphSHA256 = migration.sourceGraphSHA256
         migrationPlanSHA256 = migration.planSHA256
         migrationBlueprintSHA256 = migration.blueprintSHA256
@@ -944,7 +954,7 @@ struct DeterministicV4MediaExecutionReceiptV4: Codable, Equatable, Hashable,
         semanticVerificationSHA256 = try migration.verificationReport
             .canonicalSHA256
         primaryTrackOrdinal = Int(
-            preparedPlan.primaryGraphTrack.identity.ordinal
+            preparedPlan.executionPrimaryGraphTrack.identity.ordinal
         )
         plannedTracks = preparedPlan.trackPlan.plan.tracks.map {
             DeterministicV4MediaPlannedTrackReceiptV4(
@@ -1444,7 +1454,7 @@ struct DeterministicV4MediaProcessingSession: Sendable {
             )
             preparedPlanForCleanup = preparedPlan
             try cancellation.check()
-            guard let primaryVideo = preparedPlan.primaryCanonicalTrack.video
+            guard let primaryVideo = preparedPlan.executionPrimaryCanonicalTrack.video
             else {
                 throw DeterministicV4WholeAssetPlannerError
                     .primaryVideoMissing
@@ -1483,7 +1493,7 @@ struct DeterministicV4MediaProcessingSession: Sendable {
             }
             let plannedPrimaryRows = preparedPlan.trackPlan.plan.tracks.filter {
                 $0.source.identity.stableID
-                    == preparedPlan.primaryGraphTrack.identity.stableID
+                    == preparedPlan.executionPrimaryGraphTrack.identity.stableID
             }
             guard plannedPrimaryRows.count == 1,
                   let plannedPrimary = plannedPrimaryRows.first,
@@ -1498,7 +1508,7 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                 )
             let segmentBoundaryTimescale = try Self
                 .segmentBoundaryTimescale(
-                    for: preparedPlan.primaryGraphTrack.timebase
+                    for: preparedPlan.executionPrimaryGraphTrack.timebase
                 )
             let primaryMediaTimelineStart = try Self.workflowTime(
                 primaryTimelineMapping.mediaRange.start,
@@ -1680,7 +1690,8 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                         expectedEdits: plannedPrimaryOutput.edits,
                         destinationURL: assembledVideoURL,
                         outputFileType: .mov,
-                        overwriteExistingFile: false
+                        overwriteExistingFile: false,
+                        structuralCreationDateSourceURL: request.inputURL
                     )
                 )
             guard assembly.segmentCount == directSegmentFacts.count else {
@@ -1733,10 +1744,11 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                         nonVideoTranscodeHooks:
                             preparedPlan.nonVideoTranscodeHooks,
                         processedVideoReplacement: .init(
-                            trackID: preparedPlan.primaryGraphTrack.identity
+                            trackID: preparedPlan.executionPrimaryGraphTrack.identity
                                 .stableID,
                             sourceURL: assembledVideoURL
-                        )
+                        ),
+                        softwareExecution: preparedPlan.softwareExecution
                     ),
                     cancellation: migrationCancellation,
                     progress: { state in
@@ -1755,10 +1767,10 @@ struct DeterministicV4MediaProcessingSession: Sendable {
             try verifyFinalPrimaryTimeline(
                 graph: migration.outputGraph,
                 expected: plannedPrimaryOutput,
-                stableID: preparedPlan.primaryGraphTrack.identity.stableID
+                stableID: preparedPlan.executionPrimaryGraphTrack.identity.stableID
             )
             let primaryOrdinal = Int(
-                preparedPlan.primaryGraphTrack.identity.ordinal
+                preparedPlan.executionPrimaryGraphTrack.identity.ordinal
             )
             try await verifyHDR10PlusScratchLedgers(
                 at: request.outputURL,
@@ -1784,12 +1796,12 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                 expectedWidth: request.targetWidth,
                 expectedHeight: request.targetHeight,
                 expectedAudioTopology: AudioTopologyV4(
-                    graph: preparedPlan.sourceGraph,
+                    graph: preparedPlan.executionGraph,
                     preservingAudio: request.preserveAudio
                 )
             )
             let primaryResult = migration.trackResults.first {
-                $0.trackID == preparedPlan.primaryGraphTrack.identity.stableID
+                $0.trackID == preparedPlan.executionPrimaryGraphTrack.identity.stableID
             }
             let frameCount = Int(clamping:
                 primaryResult?.migratedSampleCount ?? 0
@@ -1894,7 +1906,7 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                         trackPlanSHA256:
                             preparedPlan.trackPlan.planSHA256,
                         primaryTrackID:
-                            preparedPlan.primaryGraphTrack.identity.stableID
+                            preparedPlan.executionPrimaryGraphTrack.identity.stableID
                     )
         }
         let progressOffset = cmTime(try workflowTime(
@@ -1906,7 +1918,7 @@ struct DeterministicV4MediaProcessingSession: Sendable {
         )
         let tracks = try await asset.load(.tracks)
         let primaryOrdinal = Int(
-            preparedPlan.primaryGraphTrack.identity.ordinal
+            preparedPlan.executionPrimaryGraphTrack.identity.ordinal
         )
         guard tracks.indices.contains(primaryOrdinal),
               tracks[primaryOrdinal].mediaType == .video else {
@@ -1915,13 +1927,15 @@ struct DeterministicV4MediaProcessingSession: Sendable {
         let sourceTrack = tracks[primaryOrdinal]
         let sourceTrackAdmittedTimeRange = try await sourceTrack
             .load(.timeRange)
-        let primaryTimebase = preparedPlan.primaryGraphTrack.timebase
+        let primaryTimebase = preparedPlan.executionPrimaryGraphTrack.timebase
         let segmentBoundaryTimescale = try Self.segmentBoundaryTimescale(
             for: primaryTimebase
         )
         let hook = try preparedPlan.makeProcessingHook(
             backend: preparedBackend,
+            workingAsset: asset,
             startingFrameIndex: startingInputFrameIndex,
+            maximumInputFrames: maximumInputFrames,
             finishBackendAtEnd: false,
             recordAlphaForFinalVerification:
                 recordAlphaForFinalVerification
@@ -1965,12 +1979,15 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                     asset: asset,
                     track: sourceTrack,
                     decodedOutputSettings: hook.readerOutputSettings,
+                    readsRawSoftwareReferences: hook.readsRawSoftwareWorkingSamples,
+                    prepareRawSoftwareSource: hook.prepareRawSoftwareSource,
                     canonicalDynamicHDRIsAbsent:
-                        preparedPlan.primaryCanonicalTrack.video?
+                        preparedPlan.executionPrimaryCanonicalTrack.video?
                             .color.dynamicHDRMetadata.isEmpty == true,
                     nominalSourceFrameDuration:
                         preparedPlan.nominalSourceFrameDuration,
-                    startTime: startTime,
+                    startTime: try startTime ?? (preparedPlan.softwareExecution == nil
+                        ? nil : Self.workflowTime(preparedPlan.executionPrimaryPresentationStart, timescale: segmentBoundaryTimescale)),
                     maximumInputFrames: maximumInputFrames,
                     timelineMapping: timelineMapping,
                     cancellation: cancellation
@@ -2009,10 +2026,9 @@ struct DeterministicV4MediaProcessingSession: Sendable {
         } catch {
             throw DeterministicV4MediaSegmentError.readerCreationFailed
         }
-        let readerOutput = AVAssetReaderTrackOutput(
-            track: sourceTrack,
-            outputSettings: hook.readerOutputSettings
-        )
+        let readerOutput: AVAssetReaderOutput = hook.readsRawSoftwareWorkingSamples
+            ? AVAssetReaderSampleReferenceOutput(track: sourceTrack)
+            : AVAssetReaderTrackOutput(track: sourceTrack, outputSettings: hook.readerOutputSettings)
         readerOutput.alwaysCopiesSampleData = true
         guard reader.canAdd(readerOutput) else {
             throw DeterministicV4MediaSegmentError.readerRejectedTrack
@@ -2035,6 +2051,9 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                     .nonContiguousBoundary
             }
             reader.timeRange = CMTimeRange(start: start, duration: remaining)
+        } else if startTime == nil, preparedPlan.softwareExecution != nil {
+            reader.timeRange = CMTimeRange(start: try cm(preparedPlan.executionPrimaryPresentationStart),
+                duration: .positiveInfinity)
         }
 
         let writer: AVAssetWriter
@@ -2110,9 +2129,14 @@ struct DeterministicV4MediaProcessingSession: Sendable {
         do {
             while inputCount < maximumInputFrames {
                 try cancellation.check()
-                guard let decodedSample = readerOutput.copyNextSampleBuffer() else {
+                guard let deliveredSample = readerOutput.copyNextSampleBuffer() else {
                     break
                 }
+                if CMSampleBufferGetNumSamples(deliveredSample) == 0 {
+                    if hook.readsRawSoftwareWorkingSamples { try SoftwareVirtualCarrier.accountReferenceControl(deliveredSample, asset: asset, reader: reader) }
+                    continue
+                }
+                let decodedSample = try hook.prepareRawSoftwareSource?(.init(sampleBuffer: deliveredSample)).sampleBuffer ?? deliveredSample
                 let sourceSampleCount = CMSampleBufferGetNumSamples(
                     decodedSample
                 )
@@ -2156,8 +2180,7 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                     }
                     let authoritativePresentationTime = try Self
                         .nominalDecodedPresentationTime(
-                            plannedStart: preparedPlan.primaryGraphTrack
-                                .timeRange.start,
+                            plannedStart: preparedPlan.executionPrimaryPresentationStart,
                             nominalSourceFrameDuration:
                                 preparedPlan.nominalSourceFrameDuration,
                             frameIndex: frameIndex.partialValue
@@ -2226,6 +2249,11 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                         HDRDynamicMetadataV4(hdr10Plus: sourceHDR10Plus),
                         to: sourceSample
                     )
+                }
+                if preparedPlan.softwareExecution != nil,
+                   case .opaque(let contract) = preparedPlan.videoDelivery,
+                   let workingBuffer = CMSampleBufferGetImageBuffer(sourceSample) {
+                    contract.applyChromaSiting(to: workingBuffer)
                 }
                 let outputs = try await hook.processTemporal(
                     AVFoundationVideoSampleV4(sampleBuffer: sourceSample)
@@ -2306,8 +2334,13 @@ struct DeterministicV4MediaProcessingSession: Sendable {
             var nextPresentationTime: CMTime?
             var nextAdmittedPresentationTime: CMTime?
             if inputCount == maximumInputFrames {
-                while let candidate = readerOutput.copyNextSampleBuffer() {
+                while let deliveredCandidate = readerOutput.copyNextSampleBuffer() {
                     try cancellation.check()
+                    if CMSampleBufferGetNumSamples(deliveredCandidate) == 0 {
+                        if hook.readsRawSoftwareWorkingSamples { try SoftwareVirtualCarrier.accountReferenceControl(deliveredCandidate, asset: asset, reader: reader) }
+                        continue
+                    }
+                    let candidate = try hook.prepareRawSoftwareSource?(.init(sampleBuffer: deliveredCandidate)).sampleBuffer ?? deliveredCandidate
                     let sampleCount = CMSampleBufferGetNumSamples(candidate)
                     if sampleCount == 0 { continue }
                     guard sampleCount == 1 else {
@@ -2325,8 +2358,7 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                         }
                         let exactNextPresentation = try Self
                             .nominalDecodedPresentationTime(
-                                plannedStart: preparedPlan.primaryGraphTrack
-                                    .timeRange.start,
+                                plannedStart: preparedPlan.executionPrimaryPresentationStart,
                                 nominalSourceFrameDuration:
                                     preparedPlan.nominalSourceFrameDuration,
                                 frameIndex: frameIndex.partialValue
@@ -2873,8 +2905,11 @@ private extension DeterministicV4MediaProcessingSession {
         cancellation: ProcessingCancellation,
         progress: @escaping ProgressHandler
     ) async throws -> AVFoundationTrackMigrationExecutionResultV4 {
+        let workingAsset = preparedPlan.softwareExecution == nil ? nil
+            : try await NativeMediaInputAssetResolverV4.asset(url: request.inputURL)
         let hook = try preparedPlan.makeProcessingHook(
             backend: preparedBackend,
+            workingAsset: workingAsset,
             finishBackendAtEnd: false,
             recordAlphaForFinalVerification: true
         )
@@ -2905,7 +2940,8 @@ private extension DeterministicV4MediaProcessingSession {
                     blueprint: preparedPlan.migrationBlueprint,
                     videoProcessingHooks: [hook],
                     nonVideoTranscodeHooks:
-                        preparedPlan.nonVideoTranscodeHooks
+                        preparedPlan.nonVideoTranscodeHooks,
+                    softwareExecution: preparedPlan.softwareExecution
                 ),
                 cancellation: migrationCancellation,
                 progress: { state in
@@ -2949,13 +2985,13 @@ private extension DeterministicV4MediaProcessingSession {
             expectedWidth: request.targetWidth,
             expectedHeight: request.targetHeight,
             expectedAudioTopology: AudioTopologyV4(
-                graph: preparedPlan.sourceGraph,
+                graph: preparedPlan.executionGraph,
                 preservingAudio: request.preserveAudio
             )
         )
         try cancellation.check()
         let primaryResult = migration.trackResults.first {
-            $0.trackID == preparedPlan.primaryGraphTrack.identity.stableID
+            $0.trackID == preparedPlan.executionPrimaryGraphTrack.identity.stableID
         }
         let frameCount = Int(clamping:
             primaryResult?.migratedSampleCount ?? 0
@@ -3515,6 +3551,8 @@ private extension DeterministicV4MediaProcessingSession {
         asset: AVURLAsset,
         track: AVAssetTrack,
         decodedOutputSettings: [String: Any],
+        readsRawSoftwareReferences: Bool = false,
+        prepareRawSoftwareSource: (@Sendable (AVFoundationVideoSampleV4) throws -> AVFoundationVideoSampleV4)? = nil,
         canonicalDynamicHDRIsAbsent: Bool,
         nominalSourceFrameDuration: ExactRationalV4,
         startTime: WorkflowMediaTimeV4?,
@@ -3528,10 +3566,14 @@ private extension DeterministicV4MediaProcessingSession {
             kVTDecompressionPropertyKey_PropagatePerFrameHDRDisplayMetadata
                 as String: true
         ]
-        let decodedOutput = AVAssetReaderTrackOutput(
-            track: track,
-            outputSettings: decodedSettings
-        )
+        if readsRawSoftwareReferences {
+            guard canonicalDynamicHDRIsAbsent, timelineMapping == nil, prepareRawSoftwareSource != nil else {
+                throw ProbeFailure("raw working reference preflight requires the qualified absent-dynamic-HDR nominal-clock policy")
+            }
+        }
+        let decodedOutput: AVAssetReaderOutput = readsRawSoftwareReferences
+            ? AVAssetReaderSampleReferenceOutput(track: track)
+            : AVAssetReaderTrackOutput(track: track, outputSettings: decodedSettings)
         decodedOutput.alwaysCopiesSampleData = false
         guard decodedReader.canAdd(decodedOutput) else {
             throw DeterministicV4MediaSegmentError.readerRejectedTrack
@@ -3571,8 +3613,13 @@ private extension DeterministicV4MediaProcessingSession {
         var decodedCadenceDurations: [CMTime] = []
         var firstSelectionPresentationTime: CMTime?
         while decodedTimes.count < maximumInputFrames,
-              let decodedSample = decodedOutput.copyNextSampleBuffer() {
+              let deliveredSample = decodedOutput.copyNextSampleBuffer() {
             try cancellation.check()
+            if CMSampleBufferGetNumSamples(deliveredSample) == 0 {
+                if readsRawSoftwareReferences { try SoftwareVirtualCarrier.accountReferenceControl(deliveredSample, asset: asset, reader: decodedReader) }
+                continue
+            }
+            let decodedSample = try prepareRawSoftwareSource?(.init(sampleBuffer: deliveredSample)).sampleBuffer ?? deliveredSample
             let sampleCount = CMSampleBufferGetNumSamples(decodedSample)
             if sampleCount == 0 { continue }
             guard sampleCount == 1 else {
@@ -3629,8 +3676,13 @@ private extension DeterministicV4MediaProcessingSession {
         }
         if timelineMapping == nil,
            decodedTimes.count == maximumInputFrames {
-            while let lookaheadSample = decodedOutput.copyNextSampleBuffer() {
+            while let deliveredLookahead = decodedOutput.copyNextSampleBuffer() {
                 try cancellation.check()
+                if CMSampleBufferGetNumSamples(deliveredLookahead) == 0 {
+                    if readsRawSoftwareReferences { try SoftwareVirtualCarrier.accountReferenceControl(deliveredLookahead, asset: asset, reader: decodedReader) }
+                    continue
+                }
+                let lookaheadSample = try prepareRawSoftwareSource?(.init(sampleBuffer: deliveredLookahead)).sampleBuffer ?? deliveredLookahead
                 let sampleCount = CMSampleBufferGetNumSamples(lookaheadSample)
                 if sampleCount == 0 { continue }
                 guard sampleCount == 1 else {

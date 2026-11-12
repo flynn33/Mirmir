@@ -261,6 +261,11 @@ struct WorkflowApplicationMigrationVerificationV4:
     let outputGraphSHA256: ASHSHA256V4
     let semanticReportSHA256: ASHSHA256V4
     let trackResults: [AVFoundationTrackMigrationTrackResultV4]
+    let executionGraphSHA256: ASHSHA256V4?
+    let softwareExecutionPolicySHA256: ASHSHA256V4?
+    let originalSourceFactsSHA256: ASHSHA256V4?
+    let softwareMetadataIdentityScope: String?
+    let derivedAACMetadataVerification: SoftwareDerivedAACMetadataVerification?
 
     init(
         sourceGraphSHA256: ASHSHA256V4,
@@ -273,7 +278,12 @@ struct WorkflowApplicationMigrationVerificationV4:
         outputGraphSHA256: ASHSHA256V4,
         semanticReportSHA256: ASHSHA256V4,
         trackResults: [AVFoundationTrackMigrationTrackResultV4],
-        aacGaplessMetadataTranslation: AACGaplessMetadataTranslationV4? = nil
+        aacGaplessMetadataTranslation: AACGaplessMetadataTranslationV4? = nil,
+        executionGraphSHA256: ASHSHA256V4? = nil,
+        softwareExecutionPolicySHA256: ASHSHA256V4? = nil,
+        originalSourceFactsSHA256: ASHSHA256V4? = nil,
+        softwareMetadataIdentityScope: String? = nil,
+        derivedAACMetadataVerification: SoftwareDerivedAACMetadataVerification? = nil
     ) throws {
         let sorted = trackResults.sorted { $0.trackID < $1.trackID }
         guard !sorted.isEmpty,
@@ -282,6 +292,16 @@ struct WorkflowApplicationMigrationVerificationV4:
             throw WorkflowApplicationQueueErrorV4
                 .publicationVerificationInvalid
         }
+        let softwareFields = [executionGraphSHA256, softwareExecutionPolicySHA256, originalSourceFactsSHA256]
+        guard softwareFields.allSatisfy({ $0 == nil }) || softwareFields.allSatisfy({ $0 != nil }),
+              (executionGraphSHA256 != nil) == (softwareMetadataIdentityScope != nil) else {
+            throw WorkflowApplicationQueueErrorV4.publicationVerificationInvalid
+        }
+        self.executionGraphSHA256 = executionGraphSHA256
+        self.softwareExecutionPolicySHA256 = softwareExecutionPolicySHA256
+        self.originalSourceFactsSHA256 = originalSourceFactsSHA256
+        self.softwareMetadataIdentityScope = softwareMetadataIdentityScope
+        self.derivedAACMetadataVerification = derivedAACMetadataVerification
         schemaVersion = aacGaplessMetadataTranslation == nil
             ? Self.currentSchemaVersion : Self.translatedMetadataSchemaVersion
         self.aacGaplessMetadataTranslation = aacGaplessMetadataTranslation
@@ -301,11 +321,30 @@ struct WorkflowApplicationMigrationVerificationV4:
     }
 
     func metadataIsConformant() throws -> Bool {
+        let softwareFields = [executionGraphSHA256, softwareExecutionPolicySHA256, originalSourceFactsSHA256]
+        guard (softwareFields.allSatisfy({ $0 == nil }) && softwareMetadataIdentityScope == nil)
+                || (softwareFields.allSatisfy({ $0 != nil }) && softwareMetadataIdentityScope != nil) else {
+            return false
+        }
         if schemaVersion == Self.currentSchemaVersion {
-            return aacGaplessMetadataTranslation == nil
-                && sourceAssetMetadataSHA256 == outputAssetMetadataSHA256
+            guard aacGaplessMetadataTranslation == nil else { return false }
+            if let derived = derivedAACMetadataVerification {
+                guard derived.executionPolicy.originalGraphSHA256 == sourceGraphSHA256,
+                      derived.executionPolicy.originalFactsSHA256 == originalSourceFactsSHA256,
+                      let track = trackResults.first(where: { $0.trackID == derived.trackID }) else { return false }
+                return derived.verifies(
+                    source: sourceAssetMetadataSHA256,
+                    output: outputAssetMetadataSHA256,
+                    policy: softwareExecutionPolicySHA256,
+                    passThrough: track.action == .passThrough,
+                    sourceStreamSHA256: track.sourceSampleStreamSHA256,
+                    outputStreamSHA256: track.outputSampleStreamSHA256
+                )
+            }
+            return sourceAssetMetadataSHA256 == outputAssetMetadataSHA256
         }
         guard schemaVersion == Self.translatedMetadataSchemaVersion,
+              derivedAACMetadataVerification == nil,
               let translation = aacGaplessMetadataTranslation else { return false }
         try translation.validate()
         return translation.identifiedPlan.planSHA256 == trackPlanSHA256
@@ -336,7 +375,12 @@ struct WorkflowApplicationMigrationVerificationV4:
             outputGraphSHA256: outputGraphSHA256,
             semanticReportSHA256: reportSHA256,
             trackResults: result.trackResults,
-            aacGaplessMetadataTranslation: result.aacGaplessMetadataTranslation
+            aacGaplessMetadataTranslation: result.aacGaplessMetadataTranslation,
+            executionGraphSHA256: result.executionGraphSHA256,
+            softwareExecutionPolicySHA256: result.softwareExecutionPolicySHA256,
+            originalSourceFactsSHA256: result.originalSourceFactsSHA256,
+            softwareMetadataIdentityScope: result.softwareExecutionPolicySHA256 == nil ? nil : result.metadataIdentityScope,
+            derivedAACMetadataVerification: result.derivedAACMetadataVerification
         )
     }
 }
@@ -564,6 +608,7 @@ private struct WorkflowApplicationPreparedBindingMaterialV4:
     let backendRevisionID: WorkflowBackendRevisionID
     let mediaContractID: WorkflowMediaContractID
     let resolvedBackendID: UpscaleBackendID
+    let softwareExecutionPolicySHA256: ASHSHA256V4?
 
     init(
         sourceIdentityID: WorkflowSourceIdentityID,
@@ -573,7 +618,8 @@ private struct WorkflowApplicationPreparedBindingMaterialV4:
         workflowBackendID: WorkflowBackendID,
         backendRevisionID: WorkflowBackendRevisionID,
         mediaContractID: WorkflowMediaContractID,
-        resolvedBackendID: UpscaleBackendID
+        resolvedBackendID: UpscaleBackendID,
+        softwareExecutionPolicySHA256: ASHSHA256V4? = nil
     ) {
         schemaVersion = Self.currentSchemaVersion
         self.sourceIdentityID = sourceIdentityID
@@ -584,6 +630,7 @@ private struct WorkflowApplicationPreparedBindingMaterialV4:
         self.backendRevisionID = backendRevisionID
         self.mediaContractID = mediaContractID
         self.resolvedBackendID = resolvedBackendID
+        self.softwareExecutionPolicySHA256 = softwareExecutionPolicySHA256
     }
 }
 
@@ -607,6 +654,7 @@ struct WorkflowVerifiedPreparedPlanBindingV4:
     let backendRevisionID: WorkflowBackendRevisionID
     let mediaContractID: WorkflowMediaContractID
     let resolvedBackendID: UpscaleBackendID
+    let softwareExecutionPolicySHA256: ASHSHA256V4?
     let runtimeBindingID: WorkflowRuntimeBindingID
 
     init(
@@ -618,6 +666,7 @@ struct WorkflowVerifiedPreparedPlanBindingV4:
         backendRevisionID: WorkflowBackendRevisionID,
         mediaContractID: WorkflowMediaContractID,
         resolvedBackendID: UpscaleBackendID,
+        softwareExecutionPolicySHA256: ASHSHA256V4? = nil,
         expectedRuntimeBindingID: WorkflowRuntimeBindingID? = nil
     ) throws {
         guard resolvedBackendID.isConcreteBackend else {
@@ -631,7 +680,8 @@ struct WorkflowVerifiedPreparedPlanBindingV4:
             workflowBackendID: workflowBackendID,
             backendRevisionID: backendRevisionID,
             mediaContractID: mediaContractID,
-            resolvedBackendID: resolvedBackendID
+            resolvedBackendID: resolvedBackendID,
+            softwareExecutionPolicySHA256: softwareExecutionPolicySHA256
         )
         let computed = try Self.bindingID(for: material)
         if let expectedRuntimeBindingID,
@@ -649,6 +699,7 @@ struct WorkflowVerifiedPreparedPlanBindingV4:
         self.backendRevisionID = backendRevisionID
         self.mediaContractID = mediaContractID
         self.resolvedBackendID = resolvedBackendID
+        self.softwareExecutionPolicySHA256 = softwareExecutionPolicySHA256
         runtimeBindingID = computed
     }
 
@@ -663,6 +714,7 @@ struct WorkflowVerifiedPreparedPlanBindingV4:
         case mediaContractID
         case resolvedBackendID
         case runtimeBindingID
+        case softwareExecutionPolicySHA256
     }
 
     init(from decoder: Decoder) throws {
@@ -711,6 +763,10 @@ struct WorkflowVerifiedPreparedPlanBindingV4:
                 UpscaleBackendID.self,
                 forKey: .resolvedBackendID
             ),
+            softwareExecutionPolicySHA256: container.decodeIfPresent(
+                ASHSHA256V4.self,
+                forKey: .softwareExecutionPolicySHA256
+            ),
             expectedRuntimeBindingID: container.decode(
                 WorkflowRuntimeBindingID.self,
                 forKey: .runtimeBindingID
@@ -739,6 +795,7 @@ struct WorkflowVerifiedPreparedPlanBindingV4:
             backendRevisionID: backendRevisionID,
             mediaContractID: mediaContractID,
             resolvedBackendID: resolvedBackendID,
+            softwareExecutionPolicySHA256: softwareExecutionPolicySHA256,
             expectedRuntimeBindingID: runtimeBindingID
         )
     }
@@ -2009,8 +2066,18 @@ private struct WorkflowApplicationMediaContractMaterialV4:
     let canonicalMediaSHA256: ASHSHA256V4
     let sourceGraphSHA256: ASHSHA256V4
     let trackPlanSHA256: ASHSHA256V4
+    let executionCanonicalMediaSHA256: ASHSHA256V4?
+    let executionGraphSHA256: ASHSHA256V4?
+    let softwareExecutionPolicySHA256: ASHSHA256V4?
 
     init(preparedPlan: DeterministicV4PreparedAssetPlan) throws {
+        try preparedPlan.softwareExecution?.verifyIntegrity()
+        executionCanonicalMediaSHA256 = try preparedPlan.softwareExecution?
+            .executionCanonicalMedia.canonicalSHA256
+        executionGraphSHA256 = try preparedPlan.softwareExecution?
+            .executionGraph.canonicalSHA256
+        softwareExecutionPolicySHA256 = try preparedPlan.softwareExecution?
+            .policySHA256
         schemaVersion = Self.currentSchemaVersion
         canonicalMediaSHA256 = try preparedPlan.canonicalMedia.canonicalSHA256
         sourceGraphSHA256 = try preparedPlan.sourceGraph.canonicalSHA256
@@ -2087,7 +2154,9 @@ extension WorkflowApplicationQueueV4 {
                     data: codec.canonicalData(mediaMaterial)
                 )
             ),
-            resolvedBackendID: resolvedBackendID
+            resolvedBackendID: resolvedBackendID,
+            softwareExecutionPolicySHA256: try preparedPlan.softwareExecution?
+                .policySHA256
         )
     }
 
@@ -2551,7 +2620,8 @@ extension WorkflowApplicationQueueV4 {
         _ checkpoint: WorkflowCheckpointDocumentV4,
         timeline: WorkflowApplicationAssemblyTimelineDescriptorV4,
         destinationURL: URL,
-        overwriteExistingFile: Bool
+        overwriteExistingFile: Bool,
+        structuralCreationDateSourceURL: URL? = nil
     ) async throws -> AVFoundationSegmentAssemblyResultV4 {
         let jobBinding = checkpoint.body.compatibility.jobBinding
         let mediaTimelineStart = CMTime(
@@ -2584,7 +2654,8 @@ extension WorkflowApplicationQueueV4 {
             outputTimelineStart: timeline.outputTimelineStart,
             destinationURL: destinationURL,
             outputFileType: .mov,
-            overwriteExistingFile: overwriteExistingFile
+            overwriteExistingFile: overwriteExistingFile,
+            structuralCreationDateSourceURL: structuralCreationDateSourceURL
         ))
     }
 }
@@ -4818,6 +4889,36 @@ private extension WorkflowApplicationQueueV4 {
                     )
                 )
                 let verification = decoded.body.migrationVerification
+                if let derived = verification.derivedAACMetadataVerification {
+                    let request = try codec.decodeCanonical(
+                        WorkflowApplicationRequestDocumentV4.self,
+                        from: transaction.readRegularFile(
+                            requestDocumentURL(jobID: jobID),
+                            maximumBytes: Self.maximumRequestDocumentBytes
+                        )
+                    )
+                    let binding = try request.body.preparedPlanBinding
+                        .revalidated()
+                    guard request.schemaVersion
+                            == WorkflowApplicationRequestDocumentV4
+                                .currentSchemaVersion,
+                          request.body.schemaVersion
+                            == WorkflowApplicationRequestBodyV4
+                                .currentSchemaVersion,
+                          request.body.specification.binding
+                            == intent.body.jobBinding,
+                          try makeRequestDocument(request.body) == request,
+                          binding.runtimeBindingID
+                            == intent.body.jobBinding.runtimeBindingID,
+                          binding.planID == intent.body.jobBinding.planID,
+                          binding.softwareExecutionPolicySHA256
+                            == derived.executionPolicySHA256,
+                          verification.softwareExecutionPolicySHA256
+                            == binding.softwareExecutionPolicySHA256 else {
+                        throw WorkflowApplicationQueueErrorV4
+                            .publicationDocumentCorrupt(jobID)
+                    }
+                }
                 guard decoded.schemaVersion
                         == WorkflowApplicationPublicationStageV4
                             .currentSchemaVersion,

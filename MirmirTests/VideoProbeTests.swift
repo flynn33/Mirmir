@@ -303,18 +303,18 @@ final class VideoProbeTests: XCTestCase {
         for ext in ["mov", "avi"] {
             let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "legacy-mjpeg", withExtension: ext))
             let info = try await VideoProbe().probe(url: url)
-            // Source JFIF ownership is also valid in OpenDML, but its native
-            // decoder has not qualified as an identity working delivery.
-            XCTAssertEqual(info.color.chromaSiting, ext == "mov" ? .center : nil, ext)
+            // OpenDML AVI is rewritten to ordinary JPEG by the native importer so
+            // in-band Huffman tables win and working JFIF delivery is qualified.
+            XCTAssertEqual(info.color.chromaSiting, .center, ext)
             XCTAssertEqual(info.color.fieldCount, 1, ext)
-            let asset = AVURLAsset(url: url)
+            let asset = try await NativeMediaInputAssetResolverV4.asset(url: url)
             let tracks = try await asset.loadTracks(withMediaType: .video)
             let track = try XCTUnwrap(tracks.first)
             let descriptions = try await track.load(.formatDescriptions)
             let facts = try XCTUnwrap(LegacyVideoSamplingFacts.resolve(
                 asset: asset, track: track, descriptions: descriptions))
             XCTAssertNotNil(facts.jfifDeclaration, ext)
-            XCTAssertEqual(facts.nativeWorkingJFIFDeclaration != nil, ext == "mov", ext)
+            XCTAssertNotNil(facts.nativeWorkingJFIFDeclaration, ext)
             let projection = try await AVCanonicalMediaStateAdapterV4().probe(.init(
                 url: url, bookmarkReference: "jfif-phase-fixture",
                 bookmarkDocumentSHA256: ASHSHA256V4(rawData: Data("fixture".utf8))))
@@ -327,11 +327,7 @@ final class VideoProbeTests: XCTestCase {
             for backend: UpscaleBackendID in [.mirmirDeterministicCPU, .mirmirDeterministicMetal] {
                 let availability = await catalog.availability(for: backend, source: info,
                     targetSize: CGSize(width: 320, height: 192), environment: .current())
-                if ext == "mov" {
-                    XCTAssertEqual(availability, .available, "\(ext): \(backend)")
-                } else {
-                    XCTAssertFalse(availability.isRunnable, "The OpenDML decoder needs separate qualification.")
-                }
+                XCTAssertEqual(availability, .available, "\(ext): \(backend)")
             }
         }
     }

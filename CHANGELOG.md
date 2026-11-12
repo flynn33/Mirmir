@@ -14,6 +14,24 @@ do not publish, sign, notarize, or distribute the application automatically.
   refuses across 60 H.264/HEVC/ProRes controls. No customer-causal reproduction and no
   product repair. See [the investigation note](docs/ERROR11_INVESTIGATION_2026-11-09.md).
 
+### Universal container remux routing — November 9, 2026
+
+- Admit remux-admissible containers (native-decodable video/audio bitstreams in
+  Matroska/WebM/ASF/MPEG-TS) through a deterministic MOV remux when AVFoundation
+  cannot open the original. Vendor FFmpeg strict-scalar packages now include the
+  file protocol and mov/mp4 muxers for bitstream copy only (no encoders).
+- H.264+AAC Matroska fixtures remux and decode on My Mac Release. VP9/WebM and
+  WMV/ASF remain inadmissible for remux-only routing and still need the software
+  decode importer. Customer error 11 is unchanged and not claimed fixed.
+
+### Release-capture harness — November 9, 2026
+
+- Validate shipping-app notarized-smoke observer results with Foundation
+  `JSONSerialization` canonical bytes instead of a Python float round-trip.
+  Retained prepare-result evidence and harness unit tests pass; locked
+  evaluator/runner hashes were refreshed. This does not close product release
+  blockers such as customer error 11 or universal decoder routing.
+
 ### Bounded export-preservation QA — October 26, 2026
 
 - Route conventional primary encodes through the existing whole-asset policy;
@@ -23,11 +41,15 @@ do not publish, sign, notarize, or distribute the application automatically.
 - Honor synchronous cancellation at atomic publication. Keep original AVI on a
   proven identity reader and repair temporal H.264/HEVC terminal durations with
   explicit frame clocks and disabled reordering only for temporal encoding.
+- Verify the exact default development app on host/macOS 15.4 through actual
+  two-process CPU pause/recover execution, without XCTest/DYLD injection. A clean
+  checkout also builds universal Release without package fetches or warnings.
 - Add 29 permanent regressions. Full non-UI Release: 844 passed, zero failures,
   15 opt-in skips; zero warnings. Affected Rosetta/macOS 15.4 rosters each pass
   167 with one expected opt-in skip. [Report and remaining defects](docs/BOUNDED_CONVENTIONAL_QA_2026-10-26.md).
-- Keep the all-feature goal active. Customer error 11, universal decoder routing,
-  structural dates and other listed acceptance gaps remain release blockers.
+- Keep the all-feature goal active. Customer error 11, remaining universal
+  decoder gaps (VP9/WMV/software decode, broader JPEG), structural dates and
+  other listed acceptance gaps remain release blockers.
 
 ### QA continuation — October 25, 2026
 
