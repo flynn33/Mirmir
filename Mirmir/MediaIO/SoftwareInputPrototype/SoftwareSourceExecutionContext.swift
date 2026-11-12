@@ -78,7 +78,9 @@ struct SoftwareDerivedAACMetadataVerification: Codable, Equatable, Sendable {
               policy == executionPolicySHA256,
               (try? executionPolicy.canonicalSHA256) == executionPolicySHA256,
               executionPolicy.derivedAACPacketTableMetadata == hint,
-              executionPolicy.tracks.filter({ $0.audioSampleRate != nil }).count == 1,
+              executionPolicy.tracks.filter({
+                  $0.audioSampleRate != nil && !$0.requiresAudioTranscode
+              }).filter({ $0.originalOrdinal == hint.sourceOrdinal }).count == 1,
               let row = executionPolicy.tracks.first(where: { $0.originalTrackID == trackID }),
               row.originalOrdinal == hint.sourceOrdinal,
               row.nativeOriginalAudioPacketStreamSHA256 == hint.originalPacketStreamSHA256,
@@ -242,8 +244,9 @@ struct SoftwareSourceExecutionContext: Codable, Equatable, Sendable {
             throw ProbeFailure("original AAC explicit packet table hint inventory")
         }
         if let hint = policy.derivedAACPacketTableMetadata {
-            let audio = policy.tracks.filter { $0.audioSampleRate != nil }
-            guard audio.count == 1, let row = audio.first,
+            // File-global iTunSMPB can describe exactly one original packet-AAC
+            // track even when sibling audio tracks are present and transcoded.
+            guard originalPacketAACRows.count == 1, let row = originalPacketAACRows.first,
                   row.originalOrdinal == hint.sourceOrdinal,
                   !row.requiresAudioTranscode,
                   row.nativeOriginalAudioPacketStreamSHA256 == hint.originalPacketStreamSHA256,
@@ -535,11 +538,13 @@ struct SoftwareSourceExecutionContext: Codable, Equatable, Sendable {
         }
         let derivedAACMetadata: SoftwareDerivedAACPacketTableMetadata?
         if let row = packetAACRows.first {
+            // One file-global packet-table hint is legal only when exactly one
+            // original audio track is packet-AAC. Sibling non-AAC audio may be
+            // transcoded; multiple original AAC tracks remain unqualified.
             guard packetAACRows.count == 1,
-                  rows.filter({ $0.audioSampleRate != nil }).count == 1,
                   let digest = row.nativeOriginalAudioPacketStreamSHA256,
                   let valid = row.audibleAudioSamples else {
-                throw ProbeFailure("file-global AAC packet table hint requires exactly one original audio track")
+                throw ProbeFailure("file-global AAC packet table hint requires exactly one original packet-AAC track")
             }
             let timeline = context.timings[Int(row.originalOrdinal)]
             derivedAACMetadata = SoftwareDerivedAACPacketTableMetadata(

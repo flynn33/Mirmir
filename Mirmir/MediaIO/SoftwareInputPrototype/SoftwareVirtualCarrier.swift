@@ -59,10 +59,16 @@ final class SoftwareVirtualCarrier: NSObject, AVAssetResourceLoaderDelegate, @un
         let linkedCancellation = SoftwareCarrierCancellation(cancellation)
         let raw = try await OriginalSoftwareMediaContext.make(url: url, cancellation: linkedCancellation, sourceIdentity: sourceIdentity)
         guard let state = raw.typedProjection.state else { throw ProbeFailure("missing original state") }
-        guard raw.sourceFacts.streams.filter({ $0.mediaType == 0 }).count == 1,
-              raw.sourceFacts.streams.filter({ $0.mediaType == 1 }).count <= 1 else {
-            throw ProbeFailure("private software workflow qualifies one video and at most one audio track; original alternate-track migration not qualified")
+        let videoCount = raw.sourceFacts.streams.filter({ $0.mediaType == 0 }).count
+        let audioCount = raw.sourceFacts.streams.filter({ $0.mediaType == 1 }).count
+        guard videoCount == 1 else {
+            throw ProbeFailure("private software workflow qualifies exactly one video track")
         }
+        guard audioCount <= 7 else {
+            throw ProbeFailure("private software workflow exceeds qualified multi-audio inventory")
+        }
+        // Independent audio tracks are admitted. Alternate-group rewrite of
+        // original Matroska/ASF language/role topology remains out of scope.
         let workingOffset = try Self.sharedWorkingOffset(raw)
         let policies = try raw.sourceFacts.streams.filter { $0.mediaType == 0 }.map { stream in
             guard Int(stream.ordinal) < raw.timings.count,
