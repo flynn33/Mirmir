@@ -7,6 +7,14 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+### Release-capture harness — November 9, 2026
+
+- Validate shipping-app notarized-smoke observer results with Foundation
+  `JSONSerialization` canonical bytes instead of a Python float round-trip.
+  Retained prepare-result evidence and harness unit tests pass; locked
+  evaluator/runner hashes were refreshed. This does not close product release
+  blockers such as customer error 11 or universal decoder routing.
+
 ### Bounded export-preservation QA — October 26, 2026
 
 - Route conventional primary encodes through the existing whole-asset policy;
@@ -16,6 +24,9 @@ do not publish, sign, notarize, or distribute the application automatically.
 - Honor synchronous cancellation at atomic publication. Keep original AVI on a
   proven identity reader and repair temporal H.264/HEVC terminal durations with
   explicit frame clocks and disabled reordering only for temporal encoding.
+- Verify the exact default development app on host/macOS 15.4 through actual
+  two-process CPU pause/recover execution, without XCTest/DYLD injection. A clean
+  checkout also builds universal Release without package fetches or warnings.
 - Add 29 permanent regressions. Full non-UI Release: 844 passed, zero failures,
   15 opt-in skips; zero warnings. Affected Rosetta/macOS 15.4 rosters each pass
   167 with one expected opt-in skip. [Report and remaining defects](docs/BOUNDED_CONVENTIONAL_QA_2026-10-26.md).

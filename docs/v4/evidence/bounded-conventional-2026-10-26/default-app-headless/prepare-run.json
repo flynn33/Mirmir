@@ -1,0 +1,15 @@
+{
+  "scope": "development-signed headless workflow smoke; not notarized or distribution qualification",
+  "startedAtUTC": "2026-10-26T10:52:42Z",
+  "finishedAtUTC": "2026-10-26T10:52:51Z",
+  "returnCode": 0,
+  "timedOut": false,
+  "executableSHA256": "5a6cfa4a65df5de82dd712e1b67df8985ace1e1814f9bde2bc65580900273a60",
+  "requestSHA256": "48d7e0d8ca460f5abcaae29c704aff14765b345186a6193ccbc55cefa2faa147",
+  "sourceCommit": "c1dbe8509fdc06d3a8acd085008ccc00af98a013",
+  "runtimeSourceRevision": "e87a528c98d2c2cdd8eff76747746f2b39fda20b943940f0db64b2f79c0680ff",
+  "notarizedProof": false,
+  "distributionQualification": false,
+  "appSourceAndTestsModifiedByRunner": false,
+  "resultValidationError": "observer result is not canonical"
+}

@@ -1,0 +1,65 @@
+{
+  "scope": "development-signed headless workflow smoke; not notarized or distribution qualification",
+  "privateFallbackCodeSyntaxParsed": true,
+  "retainedOriginalPrepareProvenanceValidated": true,
+  "committedSourceVerification": {
+    "sourceCount": 411,
+    "sourceRevision": "e87a528c98d2c2cdd8eff76747746f2b39fda20b943940f0db64b2f79c0680ff",
+    "commitVerified": true
+  },
+  "actualArchiveSHA256": "dd19f636bef97a0f63711e2063364b328c58c791d63d03a1bd6a32542d0d16aa",
+  "actualArchivePath": "/private/tmp/mirmir-default-app-headless-smoke-plan-20261026/default-development-app.zip",
+  "executableSHA256": "5a6cfa4a65df5de82dd712e1b67df8985ace1e1814f9bde2bc65580900273a60",
+  "reviewedInputs": {
+    "repository": "/Volumes/DockCase/GitHub/Mirmir",
+    "files": {
+      "sourceManifest": {
+        "path": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/sealed-source-manifest.json",
+        "sha256": "11e28d26b992106d084b08d687095a5f2e100993d5bf29486d922c0ba528238c"
+      },
+      "runtimeBinding": {
+        "path": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/sealed-source-runtime-binding.json",
+        "sha256": "8d9afb75fbdf72edf0d24f8315c742d1fbd9c2fadae17204d1284343aafd9cba"
+      },
+      "appFileInventory": {
+        "path": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/sealed-default-release-file-inventory.json",
+        "sha256": "5b636c11769acf02357416bc936e37ce753524672df4d62379d843344f484b86"
+      },
+      "laneContract": {
+        "path": "/Volumes/DockCase/GitHub/Mirmir/script/v4/notarized-smoke-contract-v1.json",
+        "sha256": "7022e6fac7beeaf59d383a96365af93018f85d2b00f86d68e45e4ba059bc5b04"
+      },
+      "releaseContract": {
+        "path": "/Volumes/DockCase/GitHub/Mirmir/script/v4/release-qualification-contract-v1.json",
+        "sha256": "592b4369b8b5a1792acf0848c0be21521c526de9de5ab28b141529cb478b8509"
+      }
+    }
+  },
+  "phaseOneResultSHA256": "67c7629acf99968c1886ce9d9c2a7137e6b6911e8784cdc30d2f4c465e2b282b",
+  "fallbackProvenance": {
+    "explicitRetainedSource": "/private/tmp/mirmir-default-app-headless-smoke-plan-20261026/sealed-execution/prepare-stdout.txt",
+    "explicitRetainedSourceSHA256": "8620ab06d60b4e31f9fde09a2e9fd9316f9f965768aa37c686a9c7045b2ded4e",
+    "originalPrepareStdoutSHA256": "8620ab06d60b4e31f9fde09a2e9fd9316f9f965768aa37c686a9c7045b2ded4e",
+    "originalPrepareRunSHA256": "f0536640b516f1ba53e596fd3c87cb49c837125c11b403c4bbfadd6b0e350daf",
+    "originalPrepareInvocationSHA256": "3154ab0abe431dd0fd2d62d176184483d77eb9348b939e0203dc3c1b6d180fe6",
+    "phaseOneResultSHA256": "67c7629acf99968c1886ce9d9c2a7137e6b6911e8784cdc30d2f4c465e2b282b"
+  },
+  "externalLiveFileEqualityVerified": false,
+  "externalLiveFileReadError": {
+    "path": "/Users/jimdaley/Library/Containers/com.mirmir.app/Data/Library/Application Support/MirmirQualificationV4/notarized-smoke/499680ee-48b8-4f89-b13e-ebf2d6a0c8fe/prepare-result.json",
+    "errno": 1,
+    "error": "[Errno 1] Operation not permitted: '/Users/jimdaley/Library/Containers/com.mirmir.app/Data/Library/Application Support/MirmirQualificationV4/notarized-smoke/499680ee-48b8-4f89-b13e-ebf2d6a0c8fe/prepare-result.json'"
+  },
+  "completePrepareClaim": false,
+  "appOwnedPhaseOneSealAuthenticationPending": true,
+  "mismatchedSourceCommitRejected": "observer result/request identity differs: sourceCommit",
+  "originalPrepareArtifactsUnchanged": true,
+  "recoverRequestGeneratedByThisCheck": false,
+  "appLaunchedByThisCheck": false,
+  "notarizedProof": false,
+  "privateSourcesSHA256": {
+    "build_smoke_request.py": "bdde8d83681780788dbcc81758058674a589a9c75e12dcb7ec19a50d6b980d39",
+    "invoke_reviewed_smoke.py": "c9e2f7bbe34f945cc3755e7b2bbb1f42a777bb0c20e4d9ab44acda226eb8fe6f",
+    "foundation_canonical_json.swift": "4ea8fab983a642738d65f8a50845cbc228d940d0f8e9916e144d752d3a96bf6d"
+  }
+}

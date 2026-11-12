@@ -83,14 +83,14 @@
   "capture": {
     "appInvocationTimeoutSeconds": 900,
     "buildConfiguration": "Release",
-    "evaluatorSHA256": "12cae408a52e5dc9b87f1d3afd50f90935c40cd69fa9b066fcf0d4dc2b4c7e30",
+    "evaluatorSHA256": "cb3b524f1f8fe157ce66c680eb0ee3fc40af8edb478cdf05f2c02c0e1f491012",
     "maximumCaptureAgeSeconds": 3600,
     "maximumNotarySubmissionAgeSeconds": 604800,
     "maximumSandboxEvidenceBytes": 536870912,
     "observerSourcePath": "Mirmir/App/MirmirApp.swift",
     "observerSourceSHA256": "2db1fb1543ba09cc572ece316cf5664e700a7a752d4bee516159400092f4c6ea",
     "qualificationNamespace": "MirmirQualificationV4/notarized-smoke",
-    "runnerSHA256": "ffad88657112d7a39bb259589a66d1cc267c87c3db7e041aa938b20e3880bbce"
+    "runnerSHA256": "69f9647bffcf4542d786ff7f1b7c91526fd5ac11f41233889c2fdb6e6214e640"
   },
   "codeSigning": {
     "forbiddenEntitlement": "com.apple.security.get-task-allow",

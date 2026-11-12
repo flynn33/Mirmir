@@ -25,6 +25,7 @@ Package.resolved
 *.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
 .pytest_cache/
 .mirmir-build/
+script/v4/foundation-module-cache/
 
 # Coverage / profiling
 *.profraw
