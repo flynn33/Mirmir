@@ -16,6 +16,13 @@ struct VideoProbe: VideoProbing {
             let asset = try await NativeMediaInputAssetResolverV4.asset(
                 url: url, revalidateSource: true
             )
+            if let original = OriginalSoftwareMediaContext.associated(with: asset),
+               var info = original.typedProjection.videoInfo {
+                try Task.checkCancellation()
+                try original.originalProbe.file.verifyUnchanged(url: url)
+                info.softwareWorkingVideoPolicy = original.workingDecodePolicy?.tracks.first
+                return info
+            }
             let (
                 duration,
                 isPlayable,

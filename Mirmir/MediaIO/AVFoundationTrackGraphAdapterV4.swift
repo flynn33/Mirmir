@@ -139,6 +139,11 @@ enum AVFoundationTrackGraphAdapterV4 {
     }
 
     static func probe(asset: AVAsset) async throws -> MediaTrackGraphV4 {
+        if let original = OriginalSoftwareMediaContext.associated(with: asset),
+           let graph = original.typedProjection.graph {
+            try Task.checkCancellation()
+            return graph
+        }
         let assetTracks = try await asset.load(.tracks)
         var trackIDMap: [Int32: MediaTrackStableIDV4] = [:]
         for (offset, track) in assetTracks.enumerated() {

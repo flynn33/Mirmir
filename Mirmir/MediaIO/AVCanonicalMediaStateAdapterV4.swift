@@ -167,6 +167,11 @@ struct AVCanonicalMediaStateAdapterV4: Sendable {
         let asset = try await NativeMediaInputAssetResolverV4.asset(
             url: request.url, sourceIdentity: fileIdentity
         )
+        if let original = OriginalSoftwareMediaContext.associated(with: asset) {
+            return try original.canonicalProbe(
+                request: request, fileIdentity: fileIdentity
+            )
+        }
         let assetTracks: [AVAssetTrack]
         do {
             assetTracks = try await asset.load(.tracks)

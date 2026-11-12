@@ -52,16 +52,32 @@ struct DeterministicV4PreparedAssetPlan: Sendable {
     let nonVideoTranscodeHooks: [
         AVFoundationNonVideoTrackTranscodeHookV4
     ]
+    // Original facts retain their identity. Software delivery has a separately
+    // named, integrity-bound execution projection.
+    var softwareExecution: SoftwareSourceExecutionContext? = nil
+    var executionCanonicalMedia: CanonicalMediaStateV4 { softwareExecution?.executionCanonicalMedia ?? canonicalMedia }
+    var executionGraph: MediaTrackGraphV4 { softwareExecution?.executionGraph ?? sourceGraph }
+    var executionPrimaryCanonicalTrack: CanonicalMediaTrackV4 {
+        executionCanonicalMedia.tracks.first { $0.identity == primaryCanonicalTrack.identity } ?? primaryCanonicalTrack
+    }
+    var executionPrimaryGraphTrack: MediaTrackNodeV4 {
+        executionGraph.tracks.first { $0.identity == primaryGraphTrack.identity } ?? primaryGraphTrack
+    }
+    var executionPrimaryPresentationStart: ExactRationalV4 {
+        softwareExecution?.policy.tracks.first { $0.originalTrackID == primaryGraphTrack.identity.stableID }?.executionStart ?? primaryGraphTrack.timeRange.start
+    }
 
     func makeProcessingHook(
         backend: any PreparedFrameUpscaler,
+        workingAsset: AVAsset? = nil,
         startingFrameIndex: Int = 0,
+        maximumInputFrames: Int? = nil,
         finishBackendAtEnd: Bool = true,
         recordAlphaForFinalVerification: Bool = true
     ) throws -> AVFoundationVideoTrackProcessingHookV4 {
         switch videoDelivery {
         case .opaque(let writerContract):
-            return try PreparedFrameUpscalerTrackHookV4.make(
+            let base = try PreparedFrameUpscalerTrackHookV4.make(
                 trackID: primaryGraphTrack.identity.stableID,
                 preparedBackend: backend,
                 writerOutputSettings: writerContract.outputSettings,
@@ -80,6 +96,45 @@ struct DeterministicV4PreparedAssetPlan: Sendable {
                 startingFrameIndex: startingFrameIndex,
                 finishBackendAtEnd: finishBackendAtEnd
             )
+            guard softwareExecution != nil else { return base }
+            guard let video = executionPrimaryCanonicalTrack.video, let workingAsset else {
+                throw ProbeFailure("missing bound raw working video")
+            }
+            let metal = backend.destinationPixelBufferAttributes.values[
+                kCVPixelBufferMetalCompatibilityKey as String] as? Bool ?? false
+            guard let total = softwareExecution?.policy.tracks.first(where: {
+                $0.originalTrackID == primaryGraphTrack.identity.stableID
+            })?.videoFrameCount, let totalFrames = Int(exactly: total),
+                  startingFrameIndex >= 0, startingFrameIndex <= totalFrames else {
+                throw ProbeFailure("working reference segment has invalid frame bounds")
+            }
+            var endFrame = totalFrames
+            if let maximumInputFrames {
+                let (limit, overflow) = startingFrameIndex.addingReportingOverflow(maximumInputFrames)
+                guard maximumInputFrames > 0, !overflow, limit < Int.max else { throw ProbeFailure("working reference frame scope overflows") }
+                endFrame = min(totalFrames, limit + 1) // One authorized cadence lookahead.
+            }
+            let allowedFrames = startingFrameIndex..<endFrame
+            let prepare: @Sendable (AVFoundationVideoSampleV4) throws -> AVFoundationVideoSampleV4 = { raw in
+                let sample = try SoftwareRawWorkingVideo.unpack(raw.sampleBuffer, asset: workingAsset,
+                    video: video, allowedFrames: allowedFrames, metalCompatible: metal)
+                if let buffer = CMSampleBufferGetImageBuffer(sample) { writerContract.applyChromaSiting(to: buffer) }
+                return .init(sampleBuffer: sample)
+            }
+            return AVFoundationVideoTrackProcessingHookV4(trackID: base.trackID,
+                readerOutputSettings: base.readerOutputSettings,
+                readsRawSoftwareWorkingSamples: true,
+                prepareRawSoftwareSource: prepare,
+                writerOutputSettings: base.writerOutputSettings,
+                declaredOutputFormats: base.declaredOutputFormats,
+                outputHDRMetadata: base.outputHDRMetadata,
+                outputPreferredTransform: base.outputPreferredTransform,
+                outputNaturalSize: base.outputNaturalSize,
+                outputTimingContract: base.outputTimingContract,
+                processTemporal: { raw in
+                    let prepared = CMSampleBufferGetImageBuffer(raw.sampleBuffer) == nil ? try prepare(raw) : raw
+                    return try await base.processTemporal(prepared)
+                }, finish: base.finish)
         case .alpha(let delivery):
             return try delivery.makeProcessingHook(
                 trackID: primaryGraphTrack.identity.stableID,
@@ -245,16 +300,24 @@ actor DeterministicV4WholeAssetPlanner {
             scanDynamicHDRMetadata: true
         ))
         try checkCancellation(cancellation)
-        let canonicalMedia = try canonicalProbe.requireAdmittedState()
+        let originalCanonicalMedia = try canonicalProbe.requireAdmittedState()
         let asset = try await NativeMediaInputAssetResolverV4.asset(
             url: request.inputURL, cancellation: cancellation
         )
         let physicalTracks = try await asset.load(.tracks)
         let physicalTrackCount = physicalTracks.count
         try checkCancellation(cancellation)
-        let graph = try await AVFoundationTrackGraphAdapterV4.probe(
+        let originalGraph = try await AVFoundationTrackGraphAdapterV4.probe(
             asset: asset
         )
+        let softwareExecution: SoftwareSourceExecutionContext?
+        if let context = OriginalSoftwareMediaContext.associated(with: asset) {
+            softwareExecution = try await .make(originalCanonicalMedia: originalCanonicalMedia,
+                originalGraph: originalGraph, context: context, asset: asset)
+            try softwareExecution?.verifyIntegrity()
+        } else { softwareExecution = nil }
+        let canonicalMedia = softwareExecution?.executionCanonicalMedia ?? originalCanonicalMedia
+        let graph = softwareExecution?.executionGraph ?? originalGraph
         try checkCancellation(cancellation)
         let pairings = try reconcile(
             canonicalMedia: canonicalMedia,
@@ -268,6 +331,13 @@ actor DeterministicV4WholeAssetPlanner {
         }
         guard let sourceVideo = primaryPair.canonical.video else {
             throw DeterministicV4WholeAssetPlannerError.primaryVideoMissing
+        }
+        guard let originalPrimaryCanonical = originalCanonicalMedia.tracks.first(where: { $0.identity == primaryPair.canonical.identity }),
+              let originalPrimaryGraph = originalGraph.tracks.first(where: {
+                  $0.identity.ordinal == primaryPair.graph.identity.ordinal
+                    && $0.identity.stableID == primaryPair.graph.identity.stableID
+              }) else {
+            throw DeterministicV4WholeAssetPlannerError.canonicalAndTrackGraphInventoriesDiffer
         }
 
         guard let primaryIndex = pairings.firstIndex(where: {
@@ -305,16 +375,21 @@ actor DeterministicV4WholeAssetPlanner {
             asset: asset,
             graphTracks: graph.tracks,
             preserveAudio: request.preserveAudio,
-            cancellation: cancellation
+            cancellation: cancellation,
+            softwareOriginalPacketTrackIDs: Set(softwareExecution?.policy.tracks.filter {
+                $0.audioSampleRate != nil && !$0.requiresAudioTranscode
+            }.map(\.originalTrackID) ?? [])
         )
         try checkCancellation(cancellation)
 
         let videoDelivery = try await prepareVideoDelivery(
             request: request,
-            video: sourceVideo,
+            video: originalCanonicalMedia.tracks.first { $0.identity.ordinal == primaryPair.canonical.identity.ordinal }?.video ?? sourceVideo,
             backend: backend,
             outputFrameCount: (backend as? any PreparedTemporalFrameUpscaler)?
-                .maximumOutputFramesPerInput ?? 1
+                .maximumOutputFramesPerInput ?? 1,
+            workingDecodePolicy: OriginalSoftwareMediaContext.associated(with: asset)?
+                .workingDecodePolicy?.tracks.first { $0.sourceOrdinal == Int32(primaryPair.canonical.identity.ordinal) }
         )
         let encodedDescriptor: MediaTrackFormatDescriptorV4
         switch videoDelivery {
@@ -358,11 +433,14 @@ actor DeterministicV4WholeAssetPlanner {
             source: graph,
             request: graphRequest
         )
-        let trackPlan = try baseTrackPlan.applyingTranscodePrimingDurations(
+        let primedTrackPlan = try baseTrackPlan.applyingTranscodePrimingDurations(
             nonVideoPolicy.transcodeByGraphTrackID.mapValues(
                 \.encoderPrimingDuration
             )
         )
+        let trackPlan = try softwareExecution?.adjustingAudioTranscodeMediaOrigins(
+            in: primedTrackPlan
+        ) ?? primedTrackPlan
         let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
             source: graph,
             plan: trackPlan
@@ -379,13 +457,13 @@ actor DeterministicV4WholeAssetPlanner {
         )
 
         return DeterministicV4PreparedAssetPlan(
-            canonicalMedia: canonicalMedia,
+            canonicalMedia: originalCanonicalMedia,
             ashPlan: ashPlan,
-            sourceGraph: graph,
+            sourceGraph: originalGraph,
             trackPlan: trackPlan,
             migrationBlueprint: blueprint,
-            primaryCanonicalTrack: primaryPair.canonical,
-            primaryGraphTrack: primaryPair.graph,
+            primaryCanonicalTrack: originalPrimaryCanonical,
+            primaryGraphTrack: originalPrimaryGraph,
             videoDelivery: videoDelivery,
             encodedFormatDescriptor: encodedDescriptor,
             sourceAVCChromaDeclaration: sourceAVCChromaDeclaration,
@@ -396,7 +474,8 @@ actor DeterministicV4WholeAssetPlanner {
                 minimumFrameDuration: source.minimumFrameDuration,
                 fallbackTimebase: primaryPair.graph.timebase
             ),
-            nonVideoTranscodeHooks: nonVideoPolicy.hooks
+            nonVideoTranscodeHooks: nonVideoPolicy.hooks,
+            softwareExecution: softwareExecution
         )
     }
 
@@ -407,13 +486,15 @@ actor DeterministicV4WholeAssetPlanner {
         request: UpscaleRequest,
         video: CanonicalVideoStateV4,
         backend: any PreparedDeterministicV4RuntimePlanningBackend,
-        outputFrameCount: Int
+        outputFrameCount: Int,
+        workingDecodePolicy: OriginalSoftwareWorkingVideoPolicy? = nil
     ) async throws -> DeterministicV4VideoDeliveryPlan {
         try await makeVideoDelivery(
             request: request,
             video: video,
             backend: backend,
-            outputFrameCount: outputFrameCount
+            outputFrameCount: outputFrameCount,
+            workingDecodePolicy: workingDecodePolicy
         )
     }
 
@@ -586,7 +667,8 @@ private extension DeterministicV4WholeAssetPlanner {
         asset: AVAsset,
         graphTracks: [MediaTrackNodeV4],
         preserveAudio: Bool,
-        cancellation: ProcessingCancellation? = nil
+        cancellation: ProcessingCancellation? = nil,
+        softwareOriginalPacketTrackIDs: Set<MediaTrackStableIDV4> = []
     ) async throws -> NonVideoPolicy {
         try checkCancellation(cancellation)
         let assetTracks = try await asset.load(.tracks)
@@ -609,7 +691,10 @@ private extension DeterministicV4WholeAssetPlanner {
                 // present in the output.
                 continue
             }
-            if try await isMOVPassThroughCompatible(
+            let softwareContext = OriginalSoftwareMediaContext.associated(with: asset)
+            let preservesOriginalAudio = softwareOriginalPacketTrackIDs.contains(track.identity.stableID)
+            if (softwareContext == nil || preservesOriginalAudio),
+               try await isMOVPassThroughCompatible(
                 assetTrack,
                 graphTrack: track
             ) {
@@ -918,7 +1003,8 @@ private extension DeterministicV4WholeAssetPlanner {
         request: UpscaleRequest,
         video: CanonicalVideoStateV4,
         backend: any PreparedDeterministicV4RuntimePlanningBackend,
-        outputFrameCount: Int
+        outputFrameCount: Int,
+        workingDecodePolicy: OriginalSoftwareWorkingVideoPolicy? = nil
     ) async throws -> DeterministicV4VideoDeliveryPlan {
         guard video.pixel.alphaModel != .unknown else {
             throw DeterministicV4WholeAssetPlannerError
@@ -941,7 +1027,8 @@ private extension DeterministicV4WholeAssetPlanner {
                 outputFrameCount: outputFrameCount,
                 workingChromaSiting: opaque.deterministicChromaGeometry.flatMap {
                     CanonicalChromaSitingV4(rawValue: $0.target.rawValue)
-                }
+                },
+                workingDecodePolicy: workingDecodePolicy
             ))
         }
 
@@ -1031,7 +1118,8 @@ private extension DeterministicV4WholeAssetPlanner {
         video: CanonicalVideoStateV4,
         storage: PixelStorageV4,
         outputFrameCount: Int,
-        workingChromaSiting: CanonicalChromaSitingV4? = nil
+        workingChromaSiting: CanonicalChromaSitingV4? = nil,
+        workingDecodePolicy: OriginalSoftwareWorkingVideoPolicy? = nil
     ) throws -> VideoWriterFormatContractV4 {
         let codec: VideoWriterCodecV4
         switch request.outputCodec {
@@ -1042,9 +1130,20 @@ private extension DeterministicV4WholeAssetPlanner {
             throw DeterministicV4WholeAssetPlannerError
                 .proRes4444RequiresAlphaSource
         }
-        try validate(pixel: video.pixel, storage: storage)
+        if let policy = workingDecodePolicy {
+            guard policy.sourceVideoSHA256 == (try ASHCanonicalJSONV4.hash(video, domain: "mirmir-original-video-semantics-v1")),
+                  ["mirmir-opaque-yuv-rational420-raw-biplanar-delivery", "mirmir-rgb8-rational420-raw-biplanar-delivery"].contains(policy.converterID),
+                  policy.converterVersion == "2",
+                  policy.destinationRaster == video.encodedRaster, policy.destinationBitDepth == storage.signalBitDepth,
+                  policy.destinationChroma == .yuv420, policy.destinationRange == (storage.codeRange == .video ? .video : .full),
+                  video.pixel.alphaModel == .none else {
+                throw DeterministicV4WholeAssetPlannerError.unsupportedSourcePixelContract(video.pixel.formatID)
+            }
+        } else {
+            try validate(pixel: video.pixel, storage: storage)
+        }
         let geometry = try sourceGeometry(video)
-        let color = try writerColor(video.color, storage: storage)
+        let color = try writerColor(workingDecodePolicy?.destinationColor ?? video.color, storage: storage)
         let containsDynamicHDR = !video.color.dynamicHDRMetadata.isEmpty
         return try VideoWriterFormatContractV4(
             codec: codec,
@@ -1063,7 +1162,8 @@ private extension DeterministicV4WholeAssetPlanner {
                     ? .replicateSourceSceneMetadataAcrossFieldNormalization
                     : .preserveSourceSceneMetadataAcrossSpatialResampling,
             chromaSiting: codec == .proRes422 ? nil
-                : workingChromaSiting ?? video.pixel.fieldChromaSiting?.top
+                : workingDecodePolicy?.destinationSiting
+                    ?? workingChromaSiting ?? video.pixel.fieldChromaSiting?.top
                     ?? (video.pixel.chromaSiting == .unknown
                         || video.pixel.chromaSiting == .notApplicable
                         ? nil : video.pixel.chromaSiting)
