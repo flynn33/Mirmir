@@ -2620,7 +2620,8 @@ extension WorkflowApplicationQueueV4 {
         _ checkpoint: WorkflowCheckpointDocumentV4,
         timeline: WorkflowApplicationAssemblyTimelineDescriptorV4,
         destinationURL: URL,
-        overwriteExistingFile: Bool
+        overwriteExistingFile: Bool,
+        structuralCreationDateSourceURL: URL? = nil
     ) async throws -> AVFoundationSegmentAssemblyResultV4 {
         let jobBinding = checkpoint.body.compatibility.jobBinding
         let mediaTimelineStart = CMTime(
@@ -2653,7 +2654,8 @@ extension WorkflowApplicationQueueV4 {
             outputTimelineStart: timeline.outputTimelineStart,
             destinationURL: destinationURL,
             outputFileType: .mov,
-            overwriteExistingFile: overwriteExistingFile
+            overwriteExistingFile: overwriteExistingFile,
+            structuralCreationDateSourceURL: structuralCreationDateSourceURL
         ))
     }
 }

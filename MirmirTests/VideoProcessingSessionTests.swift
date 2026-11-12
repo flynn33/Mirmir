@@ -599,22 +599,28 @@ final class VideoProcessingSessionTests: XCTestCase {
     func testVideoToolboxSuperResolutionContractsRunOrReportExactUnavailability() async throws {
         let fixtures = try TemporaryFixtureDirectory()
         defer { fixtures.remove() }
+        // Quality VT documents a single supported scale (4×). Use a source that
+        // admits both quality 4× and low-latency 2× rather than the default
+        // 64×48→128×96 pair, which can never exercise quality processing.
         let inputURL = fixtures.url(for: "vt-super-resolution-input.mov")
-        try await VideoProbeFixtureFactory.makeVideo(at: inputURL, transform: .identity)
-        let source = try await VideoProbe().probe(url: inputURL)
-        let target = CGSize(width: 128, height: 96)
-        let catalog = UpscaleBackendCatalog.live()
-        let snapshot = await catalog.snapshot(
-            for: source,
-            targetSize: target,
-            environment: .current()
+        try await VideoProbeFixtureFactory.makeVideo(
+            at: inputURL, transform: .identity, width: 256, height: 144
         )
+        let source = try await VideoProbe().probe(url: inputURL)
+        let catalog = UpscaleBackendCatalog.live()
 
-        for backendID in [
-            UpscaleBackendID.videoToolboxSuperResolutionQuality,
-            .videoToolboxSuperResolutionLowLatency
+        for (backendID, scale) in [
+            (UpscaleBackendID.videoToolboxSuperResolutionQuality, 4),
+            (.videoToolboxSuperResolutionLowLatency, 2)
         ] {
-            let availability = try XCTUnwrap(snapshot.entry(for: backendID)?.availability)
+            let targetWidth = 256 * scale
+            let targetHeight = 144 * scale
+            let availability = await catalog.availability(
+                for: backendID,
+                source: source,
+                targetSize: CGSize(width: targetWidth, height: targetHeight),
+                environment: .current()
+            )
             let capability = XCTAttachment(string: "\(backendID.rawValue): \(availability.statusText)")
             capability.name = "VideoToolbox runtime capability"
             capability.lifetime = .keepAlways
@@ -627,8 +633,8 @@ final class VideoProcessingSessionTests: XCTestCase {
                         inputURL: inputURL,
                         outputURL: outputURL,
                         backendID: backendID,
-                        targetWidth: 128,
-                        targetHeight: 96,
+                        targetWidth: targetWidth,
+                        targetHeight: targetHeight,
                         outputCodec: .h264,
                         preserveAudio: false,
                         overwriteExistingFile: false
@@ -637,6 +643,7 @@ final class VideoProcessingSessionTests: XCTestCase {
                 )
                 XCTAssertEqual(result.actualBackendID, backendID)
                 XCTAssertEqual(result.processedFrameCount, 3)
+                XCTAssertGreaterThan(result.processedFrameCount, 0)
             case .modelDownloadRequired:
                 XCTAssertEqual(backendID, .videoToolboxSuperResolutionQuality)
                 XCTAssertTrue(availability.statusText.contains("Model download required"))

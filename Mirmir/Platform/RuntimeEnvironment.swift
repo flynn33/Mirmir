@@ -249,6 +249,13 @@ struct SystemBackendCapabilityProbe: BackendCapabilityProbing {
 
         switch configuration.configurationModelStatus {
         case .ready:
+            // Model Ready is not enough: guests with Ready models still fail
+            // VTFrameProcessor.startSession with VTFrameProcessorErrorDomain/-19730
+            // and produce zero processed frames. Probe the session before advertising
+            // availability so covered hosts fail closed instead of failing mid-job.
+            if let reason = VTQualitySessionAdmissionV4.startSessionFailure(configuration) {
+                return .unavailable(reason: reason)
+            }
             return .available
         case .downloadRequired:
             return .modelDownloadRequired(progress: nil)

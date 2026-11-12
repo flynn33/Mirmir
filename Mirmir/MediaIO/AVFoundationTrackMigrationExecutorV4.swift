@@ -755,6 +755,13 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                 pipes: pipes,
                 cancellation: cancellation
             )
+            try restoreStructuralCreationDates(
+                sourceURL: request.sourceURL,
+                sourceGraph: request.sourceGraph,
+                outputURL: destination.temporaryURL,
+                pipes: pipes,
+                cancellation: cancellation
+            )
             let expectedAssetMetadataSHA256 = aacGaplessMetadataTranslation?
                 .outputAssetMetadataSHA256 ?? sourceAuxiliaryMetadata.assetMetadataSHA256
 
@@ -1455,6 +1462,46 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     || (0x61...0x7a).contains($0)
             }
         }
+    }
+
+    func restoreStructuralCreationDates(
+        sourceURL: URL,
+        sourceGraph: MediaTrackGraphV4,
+        outputURL: URL,
+        pipes: [TrackPipe],
+        cancellation: AVFoundationTrackMigrationCancellationV4
+    ) throws {
+        try cancellation.check()
+        guard let snapshot = try MOVStructuralCreationDatesV4.capture(from: sourceURL) else {
+            return
+        }
+        guard snapshot.tracks.count == sourceGraph.tracks.count else {
+            throw AVFoundationTrackMigrationExecutorV4Error.sourceTrackInventoryMismatch
+        }
+        var sourceOrdinalByID: [MediaTrackStableIDV4: Int] = [:]
+        for (ordinal, track) in sourceGraph.tracks.enumerated() {
+            guard sourceOrdinalByID.updateValue(ordinal, forKey: track.identity.stableID) == nil else {
+                throw AVFoundationTrackMigrationExecutorV4Error.sourceTrackInventoryMismatch
+            }
+        }
+        var outputToSourceTrack: [Int: Int] = [:]
+        for (ordinal, pipe) in pipes.enumerated() {
+            guard let sourceOrdinal = sourceOrdinalByID[pipe.trackID] else {
+                throw AVFoundationTrackMigrationExecutorV4Error.sourceTrackInventoryMismatch
+            }
+            outputToSourceTrack[ordinal] = sourceOrdinal
+        }
+        try MOVStructuralCreationDatesV4.restore(
+            snapshot,
+            into: outputURL,
+            outputToSourceTrack: outputToSourceTrack,
+            cancellation: { try cancellation.check() }
+        )
+        try MOVStructuralCreationDatesV4.verify(
+            snapshot,
+            in: outputURL,
+            outputToSourceTrack: outputToSourceTrack
+        )
     }
 
     func finalizeGaplessMetadata(

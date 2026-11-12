@@ -253,6 +253,18 @@ enum NativeMediaInputVerificationV4 {
             guard try h264Configuration(expected) == h264Configuration(format) else {
                 throw failure("The normalized input changed H.264 decoder configuration.")
             }
+        } else if strategy == .aviOpenDMLJPEG {
+            guard CMFormatDescriptionGetMediaSubType(format) == kCMVideoCodecType_JPEG,
+                  CMFormatDescriptionGetMediaSubType(expected) == kCMVideoCodecType_JPEG else {
+                throw failure("The normalized OpenDML input did not publish ordinary JPEG.")
+            }
+            let sourceAtoms = (CMFormatDescriptionGetExtensions(expected) as NSDictionary?)?
+                .object(forKey: kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms) as? NSDictionary
+            let outputAtoms = (CMFormatDescriptionGetExtensions(format) as NSDictionary?)?
+                .object(forKey: kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms) as? NSDictionary
+            guard sourceAtoms?["mjht"] == nil, outputAtoms?["mjht"] == nil else {
+                throw failure("The normalized OpenDML input retained an external Huffman atom.")
+            }
         } else {
             guard try mpeg4Configuration(expected) == mpeg4Configuration(format) else {
                 throw failure("The normalized input changed MPEG-4 decoder configuration.")

@@ -25,7 +25,11 @@ struct VTHighQualitySuperResolutionBackend: ModelDownloadableBackend {
                 return .unavailable(reason: .unsupportedPixelFormatOrBitDepth(details: "this quality model does not report 64RGBAHalf as a supported native frame format"))
             }
             switch configuration.configurationModelStatus {
-            case .ready: return .available
+            case .ready:
+                if let reason = VTQualitySessionAdmissionV4.startSessionFailure(configuration) {
+                    return .unavailable(reason: reason)
+                }
+                return .available
             case .downloadRequired: return .modelDownloadRequired(progress: nil)
             case .downloading:
                 return .modelDownloadRequired(progress: Double(configuration.configurationModelPercentageAvailable))
@@ -135,6 +139,28 @@ private struct BackendUnavailableReasonBox: Error {
     init(_ value: BackendUnavailableReason) { self.value = value }
 }
 
+/// Admits quality VideoToolbox only when a ready model can actually start a
+/// `VTFrameProcessor` session. Historical Ready+`-19730` hosts otherwise look
+/// available and then process zero frames.
+@available(macOS 26.0, *)
+enum VTQualitySessionAdmissionV4 {
+    static func startSessionFailure(
+        _ configuration: VTSuperResolutionScalerConfiguration
+    ) -> BackendUnavailableReason? {
+        let processor = VTFrameProcessor()
+        do {
+            try processor.startSession(configuration: configuration)
+            processor.endSession()
+            return nil
+        } catch {
+            let ns = error as NSError
+            return .appleAPIUnsupported(
+                details: "VTFrameProcessor.startSession failed (\(ns.domain) \(ns.code)): \(ns.localizedDescription)"
+            )
+        }
+    }
+}
+
 @available(macOS 26.0, *)
 actor PreparedVTHighQualitySuperResolutionScaler: PreparedFrameUpscaler {
     nonisolated let sourcePixelBufferAttributes: PixelBufferAttributes
@@ -168,7 +194,12 @@ actor PreparedVTHighQualitySuperResolutionScaler: PreparedFrameUpscaler {
         )
         bridge = try VTQualityColorBridge()
         do { try processor.startSession(configuration: nativeConfiguration) }
-        catch { throw nv12.processingError("quality VTFrameProcessor session start failed: \(error.localizedDescription)") }
+        catch {
+            let ns = error as NSError
+            throw nv12.processingError(
+                "quality VTFrameProcessor session start failed (\(ns.domain) \(ns.code)): \(ns.localizedDescription)"
+            )
+        }
     }
 
     deinit { if !finished { processor.endSession() } }

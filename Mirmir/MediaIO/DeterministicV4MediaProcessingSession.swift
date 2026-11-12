@@ -1690,7 +1690,8 @@ struct DeterministicV4MediaProcessingSession: Sendable {
                         expectedEdits: plannedPrimaryOutput.edits,
                         destinationURL: assembledVideoURL,
                         outputFileType: .mov,
-                        overwriteExistingFile: false
+                        overwriteExistingFile: false,
+                        structuralCreationDateSourceURL: request.inputURL
                     )
                 )
             guard assembly.segmentCount == directSegmentFacts.count else {
