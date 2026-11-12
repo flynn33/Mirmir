@@ -85,6 +85,7 @@
 		320000000000000000000024 /* VideoProcessingSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000024 /* VideoProcessingSession.swift */; };
 		320000000000000000000025 /* UpscaleCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000025 /* UpscaleCoordinator.swift */; };
 		320000000000000000000026 /* VideoProcessingSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000026 /* VideoProcessingSessionTests.swift */; };
+		C8A000000000000000000002 /* VTQualityProcessingV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8A000000000000000000001 /* VTQualityProcessingV4Tests.swift */; };
 		320000000000000000000027 /* NV12ScalerSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000027 /* NV12ScalerSupport.swift */; };
 		320000000000000000000028 /* MPSScaler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000028 /* MPSScaler.swift */; };
 		320000000000000000000029 /* CoreImageScaler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000029 /* CoreImageScaler.swift */; };
@@ -330,6 +331,7 @@
 		310000000000000000000024 /* VideoProcessingSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoProcessingSession.swift; sourceTree = "<group>"; };
 		310000000000000000000025 /* UpscaleCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscaleCoordinator.swift; sourceTree = "<group>"; };
 		310000000000000000000026 /* VideoProcessingSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoProcessingSessionTests.swift; sourceTree = "<group>"; };
+		C8A000000000000000000001 /* VTQualityProcessingV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VTQualityProcessingV4Tests.swift; sourceTree = "<group>"; };
 		310000000000000000000027 /* NV12ScalerSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NV12ScalerSupport.swift; sourceTree = "<group>"; };
 		310000000000000000000028 /* MPSScaler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MPSScaler.swift; sourceTree = "<group>"; };
 		310000000000000000000029 /* CoreImageScaler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreImageScaler.swift; sourceTree = "<group>"; };
@@ -636,6 +638,7 @@
 				31000000000000000000001F /* VImageScalerTests.swift */,
 				C6A000000000000000000003 /* NativeThumbnailSignalConverterV4Tests.swift */,
 				310000000000000000000026 /* VideoProcessingSessionTests.swift */,
+				C8A000000000000000000001 /* VTQualityProcessingV4Tests.swift */,
 				31000000000000000000003F /* DeterministicCPUBackendTests.swift */,
 				31000000000000000000004E /* DeterministicMetalBackendTests.swift */,
 				B41000000000000000000009 /* ASHCoreV4Tests.swift */,
@@ -1207,6 +1210,7 @@
 				32000000000000000000001E /* SyntheticNV12PixelBuffer.swift in Sources */,
 				C6A000000000000000000004 /* NativeThumbnailSignalConverterV4Tests.swift in Sources */,
 				320000000000000000000026 /* VideoProcessingSessionTests.swift in Sources */,
+				C8A000000000000000000002 /* VTQualityProcessingV4Tests.swift in Sources */,
 				32000000000000000000003F /* DeterministicCPUBackendTests.swift in Sources */,
 				32000000000000000000004E /* DeterministicMetalBackendTests.swift in Sources */,
 				B42000000000000000000009 /* ASHCoreV4Tests.swift in Sources */,
