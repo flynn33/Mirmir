@@ -21,6 +21,8 @@ struct NativeAVICompressedPresentationClockV4 {
                 throw Self.failure("OpenDML JPEG presentation requires the rewritten JPEG sample entry.")
             }
             identityPresentation = true
+        case .jpegImageIOProgressive420:
+            throw Self.failure("JPEG ImageIO working rewrite does not use the AVI presentation clock.")
         }
     }
 

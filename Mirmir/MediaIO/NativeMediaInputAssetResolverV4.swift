@@ -30,8 +30,13 @@ actor NativeMediaInputAssetResolverV4 {
         /// OpenDML `dmb1`+`mjht` prefers external defaults over later in-band DHT.
         /// Rewrite to ordinary JPEG so VT honors the packet Huffman tables.
         case aviOpenDMLJPEG = "avi-opendml-jpeg-inband-huffman-v1"
+        /// Progressive JFIF 4:2:2 / 4:4:4 cannot be decoded by VideoToolbox.
+        /// ImageIO-decode and re-encode as progressive 4:2:0 JPEG for native work.
+        case jpegImageIOProgressive420 = "jpeg-imageio-progressive420-v1"
 
-        static let allValues: [Self] = [.aviMPEG4, .aviH264, .aviOpenDMLJPEG]
+        static let allValues: [Self] = [
+            .aviMPEG4, .aviH264, .aviOpenDMLJPEG, .jpegImageIOProgressive420
+        ]
         static var managedVersions: [String] {
             allValues.map(\.rawValue) + ["avi-mpeg4-sample-entry-v1", "avi-h264-annex-b-v1"]
         }
@@ -208,6 +213,16 @@ actor NativeMediaInputAssetResolverV4 {
                 verifiedDerived.removeValue(forKey: verified.derivedURL)
             }
         }
+        let originalProbe = Self.nativeAsset(url)
+        if try await JFIFImageIOWorkingRewriteV4.needsRewrite(asset: originalProbe) {
+            let identity = try admittedIdentity ?? ASHStreamingFileIdentityV4.read(url: url)
+            try identity.verifyUnchanged(url: url)
+            return try await resolveJPEGImageIORewrite(
+                url: url,
+                identity: identity,
+                cancellation: cancellation
+            )
+        }
         guard let hint = try Self.aviStrategyHint(url) else { return Self.nativeAsset(url) }
         // Authenticate before AVFoundation can retain/copy container facts.
         let identity = try admittedIdentity ?? ASHStreamingFileIdentityV4.read(url: url)
@@ -324,6 +339,198 @@ actor NativeMediaInputAssetResolverV4 {
         let published = directory.appendingPathComponent("input.mov")
         verifiedDerived[published] = try ASHStreamingFileIdentityV4.read(url: published)
         return try remember(sourceURL: url, identity: identity, derivedURL: published)
+    }
+
+    private func resolveJPEGImageIORewrite(
+        url: URL,
+        identity: ASHStreamingFileIdentityV4,
+        cancellation: (any NativeMediaInputCancellationV4)?
+    ) async throws -> AVURLAsset {
+        let strategy = Strategy.jpegImageIOProgressive420
+        try identity.verifyUnchanged(url: url)
+        try check(cancellation)
+        let operationRoot = cacheRoot
+        try prepareCacheRoot(operationRoot)
+        let key = identity.contentSHA256.rawValue + "-" + strategy.rawValue
+        let directory = operationRoot.appendingPathComponent(key, isDirectory: true)
+        let original = Self.nativeAsset(url)
+        do {
+            if let cached = try await cachedJPEGImageIOURL(
+                directory,
+                identity: identity,
+                strategy: strategy,
+                sourceURL: url
+            ) {
+                try identity.verifyUnchanged(url: url)
+                return try remember(
+                    sourceURL: url,
+                    identity: identity,
+                    derivedURL: cached.url,
+                    lease: cached.lease
+                )
+            }
+        } catch {
+            if error is CancellationError { throw error }
+            guard try discardInactiveEntry(directory) else { throw error }
+        }
+        let reservation = identity.byteCount.multipliedReportingOverflow(by: 3)
+        guard !reservation.overflow else {
+            throw Self.failure("Source size exceeds the import byte budget.")
+        }
+        let budget = reservation.partialValue.addingReportingOverflow(1_048_576)
+        guard !budget.overflow else {
+            throw Self.failure("Source size exceeds the import byte budget.")
+        }
+        try reserveCacheSpace(budget.partialValue, at: operationRoot)
+        reservedBytes += budget.partialValue
+        defer { reservedBytes -= budget.partialValue }
+        let partial = operationRoot.appendingPathComponent(
+            ".partial-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let partialLease = try withNamespaceLock(operationRoot) {
+            guard mkdir(partial.path, 0o700) == 0 else {
+                throw Self.failure("Cannot create the private import staging directory.")
+            }
+            do {
+                let lease = try leaseFile(partial)
+                guard flock(lease.fileDescriptor, LOCK_EX | LOCK_NB) == 0 else {
+                    try? lease.close()
+                    throw Self.failure("Cannot reserve the private import staging directory.")
+                }
+                return lease
+            } catch {
+                try? Self.removeOwnedDirectory(partial)
+                throw error
+            }
+        }
+        activePartials.insert(partial)
+        defer {
+            activePartials.remove(partial)
+            try? withNamespaceLock(operationRoot) {
+                try Self.removeOwnedDirectory(partial)
+                try? partialLease.close()
+            }
+            try? partialLease.close()
+        }
+        let output = partial.appendingPathComponent("input.mov")
+        do {
+            try await JFIFImageIOWorkingRewriteV4.rewrite(
+                asset: original,
+                to: output,
+                cancellation: { try check(cancellation) }
+            )
+        } catch let error as JFIFImageIOWorkingRewriteV4.Failure {
+            throw Self.failure("JPEG ImageIO working rewrite failed: \(error)")
+        }
+        try check(cancellation)
+        try Self.clearContainerDates(output)
+        try Self.verifySourceContent(identity, url: url)
+        try Self.makeImmutable(output)
+        let derived = try ASHStreamingFileIdentityV4.read(url: output)
+        let manifest = Manifest(
+            strategy: strategy,
+            sourceSHA256: identity.contentSHA256.rawValue,
+            sourceBytes: identity.byteCount,
+            derivedSHA256: derived.contentSHA256.rawValue,
+            derivedBytes: derived.byteCount
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        try encoder.encode(manifest).write(
+            to: partial.appendingPathComponent("manifest.json"),
+            options: .atomic
+        )
+        try check(cancellation)
+        guard flock(partialLease.fileDescriptor, LOCK_SH | LOCK_NB) == 0 else {
+            throw Self.failure("Cannot publish the native import staging lease.")
+        }
+        var publishedOwnEntry = false
+        for _ in 0..<4 {
+            publishedOwnEntry = try withNamespaceLock(operationRoot) {
+                if FileManager.default.fileExists(atPath: directory.path) { return false }
+                try FileManager.default.moveItem(at: partial, to: directory)
+                return true
+            }
+            if publishedOwnEntry { break }
+            if let cached = try await cachedJPEGImageIOURL(
+                directory,
+                identity: identity,
+                strategy: strategy,
+                sourceURL: url
+            ) {
+                return try remember(
+                    sourceURL: url,
+                    identity: identity,
+                    derivedURL: cached.url,
+                    lease: cached.lease
+                )
+            }
+            try check(cancellation)
+        }
+        guard publishedOwnEntry else {
+            throw Self.failure("The derived cache kept changing during publication; retry import.")
+        }
+        let published = directory.appendingPathComponent("input.mov")
+        verifiedDerived[published] = try ASHStreamingFileIdentityV4.read(url: published)
+        return try remember(sourceURL: url, identity: identity, derivedURL: published)
+    }
+
+    private func cachedJPEGImageIOURL(
+        _ directory: URL,
+        identity: ASHStreamingFileIdentityV4,
+        strategy: Strategy,
+        sourceURL: URL
+    ) async throws -> CachedEntry? {
+        let acquired: FileHandle? = try withNamespaceLock(directory.deletingLastPathComponent()) {
+            guard FileManager.default.fileExists(atPath: directory.path) else { return nil }
+            guard Self.isOwnedDirectory(directory) else {
+                throw Self.failure("The derived cache entry is unsafe.")
+            }
+            let lease = try leaseFile(directory)
+            guard flock(lease.fileDescriptor, LOCK_SH | LOCK_NB) == 0 else {
+                try? lease.close()
+                throw Self.failure("The derived cache entry is being retired.")
+            }
+            return lease
+        }
+        guard let lease = acquired else { return nil }
+        var transferred = false
+        defer { if !transferred { try? lease.close() } }
+        let output = directory.appendingPathComponent("input.mov")
+        let manifestURL = directory.appendingPathComponent("manifest.json")
+        guard Self.isImmutableFile(output), Self.isOwnedRegularFile(manifestURL),
+              let size = try manifestURL.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+              size <= 4096,
+              let manifest = try? JSONDecoder().decode(
+                  Manifest.self,
+                  from: Data(contentsOf: manifestURL)
+              ),
+              manifest.strategy == strategy,
+              manifest.sourceSHA256 == identity.contentSHA256.rawValue,
+              manifest.sourceBytes == identity.byteCount else {
+            throw Self.failure(
+                "The derived input cache identity is invalid; remove this cache entry and retry."
+            )
+        }
+        let derived = try ASHStreamingFileIdentityV4.read(url: output)
+        guard derived.contentSHA256.rawValue == manifest.derivedSHA256,
+              derived.byteCount == manifest.derivedBytes else {
+            throw Self.failure("The derived JPEG working rewrite identity is invalid.")
+        }
+        // Re-open must still decode and qualify as progressive JFIF 4:2:0.
+        let asset = Self.nativeAsset(output)
+        guard try await JFIFImageIOWorkingRewriteV4.needsRewrite(asset: asset) == false,
+              try await asset.loadTracks(withMediaType: .video).count == 1,
+              let track = try await asset.loadTracks(withMediaType: .video).first,
+              let description = try await track.load(.formatDescriptions).first,
+              CMFormatDescriptionGetMediaSubType(description) == kCMVideoCodecType_JPEG,
+              try JFIFVideoSamplingV4.progressiveDeclaration(from: description) != nil else {
+            throw Self.failure("Cached JPEG working rewrite is no longer progressive JFIF 4:2:0.")
+        }
+        verifiedDerived[output] = derived
+        transferred = true
+        return CachedEntry(url: output, lease: lease)
     }
 
     private func remember(sourceURL: URL, identity: ASHStreamingFileIdentityV4, derivedURL: URL, lease: FileHandle? = nil) throws -> AVURLAsset {
