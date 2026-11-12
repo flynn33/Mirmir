@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 
 		D6B000000000000000000010 /* universal-vp9-webm.webm in Resources */ = {isa = PBXBuildFile; fileRef = D6F00000000000000000000C /* universal-vp9-webm.webm */; };
+		D7B000000000000000000051 /* universal-wmv-aac-asf.asf in Resources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000051 /* universal-wmv-aac-asf.asf */; };
+		D7B000000000000000000050 /* universal-vp9-aac-mkv.mkv in Resources */ = {isa = PBXBuildFile; fileRef = D7F000000000000000000050 /* universal-vp9-aac-mkv.mkv */; };
 		D6B000000000000000000011 /* universal-wmv-asf.asf in Resources */ = {isa = PBXBuildFile; fileRef = D6F00000000000000000000D /* universal-wmv-asf.asf */; };
 
 		D6B000000000000000000001 /* libavcodec.62.dylib in Embed FFmpeg */ = {isa = PBXBuildFile; fileRef = D6F000000000000000000001 /* libavcodec.62.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
@@ -272,6 +274,8 @@
 /* Begin PBXFileReference section */
 
 		D6F00000000000000000000C /* universal-vp9-webm.webm */ = {isa = PBXFileReference; lastKnownFileType = file; path = "universal-vp9-webm.webm"; sourceTree = "<group>"; };
+		D7F000000000000000000051 /* universal-wmv-aac-asf.asf */ = {isa = PBXFileReference; lastKnownFileType = file; path = universal-wmv-aac-asf.asf; sourceTree = "<group>"; };
+		D7F000000000000000000050 /* universal-vp9-aac-mkv.mkv */ = {isa = PBXFileReference; lastKnownFileType = file; path = universal-vp9-aac-mkv.mkv; sourceTree = "<group>"; };
 		D6F00000000000000000000D /* universal-wmv-asf.asf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "universal-wmv-asf.asf"; sourceTree = "<group>"; };
 
 		D6F000000000000000000001 /* libavcodec.62.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libavcodec.62.dylib"; path = "Vendor/FFmpeg/strict-scalar-8.1.2/lib/libavcodec.62.dylib"; sourceTree = SOURCE_ROOT; };
@@ -727,6 +731,8 @@
 				D7F000000000000000000040 /* SoftwareDurableExportV4Tests.swift */,
 				D6F00000000000000000000B /* universal-h264-mkv.mkv */,
 				D6F00000000000000000000C /* universal-vp9-webm.webm */,
+				D7F000000000000000000051 /* universal-wmv-aac-asf.asf */,
+				D7F000000000000000000050 /* universal-vp9-aac-mkv.mkv */,
 				D6F00000000000000000000D /* universal-wmv-asf.asf */,
 				C53000000000000000000009 /* NativeAVIMPEG4PresentationOrderV4Tests.swift */,
 				310000000000000000000017 /* SecurityScopedAccessTests.swift */,
@@ -1115,6 +1121,8 @@
 			files = (
 				D6B00000000000000000000A /* universal-h264-mkv.mkv in Resources */,
 				D6B000000000000000000010 /* universal-vp9-webm.webm in Resources */,
+				D7B000000000000000000051 /* universal-wmv-aac-asf.asf in Resources */,
+				D7B000000000000000000050 /* universal-vp9-aac-mkv.mkv in Resources */,
 				D6B000000000000000000011 /* universal-wmv-asf.asf in Resources */,
 				C58000000000000000000005 /* NativeAACMetadata in Resources */,
 				C6B000000000000000000008 /* ProRes422WorkingV4 in Resources */,

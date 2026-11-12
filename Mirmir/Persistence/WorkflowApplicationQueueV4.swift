@@ -608,6 +608,7 @@ private struct WorkflowApplicationPreparedBindingMaterialV4:
     let backendRevisionID: WorkflowBackendRevisionID
     let mediaContractID: WorkflowMediaContractID
     let resolvedBackendID: UpscaleBackendID
+    let softwareExecutionPolicySHA256: ASHSHA256V4?
 
     init(
         sourceIdentityID: WorkflowSourceIdentityID,
@@ -617,7 +618,8 @@ private struct WorkflowApplicationPreparedBindingMaterialV4:
         workflowBackendID: WorkflowBackendID,
         backendRevisionID: WorkflowBackendRevisionID,
         mediaContractID: WorkflowMediaContractID,
-        resolvedBackendID: UpscaleBackendID
+        resolvedBackendID: UpscaleBackendID,
+        softwareExecutionPolicySHA256: ASHSHA256V4? = nil
     ) {
         schemaVersion = Self.currentSchemaVersion
         self.sourceIdentityID = sourceIdentityID
@@ -628,6 +630,7 @@ private struct WorkflowApplicationPreparedBindingMaterialV4:
         self.backendRevisionID = backendRevisionID
         self.mediaContractID = mediaContractID
         self.resolvedBackendID = resolvedBackendID
+        self.softwareExecutionPolicySHA256 = softwareExecutionPolicySHA256
     }
 }
 
@@ -651,6 +654,7 @@ struct WorkflowVerifiedPreparedPlanBindingV4:
     let backendRevisionID: WorkflowBackendRevisionID
     let mediaContractID: WorkflowMediaContractID
     let resolvedBackendID: UpscaleBackendID
+    let softwareExecutionPolicySHA256: ASHSHA256V4?
     let runtimeBindingID: WorkflowRuntimeBindingID
 
     init(
@@ -662,6 +666,7 @@ struct WorkflowVerifiedPreparedPlanBindingV4:
         backendRevisionID: WorkflowBackendRevisionID,
         mediaContractID: WorkflowMediaContractID,
         resolvedBackendID: UpscaleBackendID,
+        softwareExecutionPolicySHA256: ASHSHA256V4? = nil,
         expectedRuntimeBindingID: WorkflowRuntimeBindingID? = nil
     ) throws {
         guard resolvedBackendID.isConcreteBackend else {
@@ -675,7 +680,8 @@ struct WorkflowVerifiedPreparedPlanBindingV4:
             workflowBackendID: workflowBackendID,
             backendRevisionID: backendRevisionID,
             mediaContractID: mediaContractID,
-            resolvedBackendID: resolvedBackendID
+            resolvedBackendID: resolvedBackendID,
+            softwareExecutionPolicySHA256: softwareExecutionPolicySHA256
         )
         let computed = try Self.bindingID(for: material)
         if let expectedRuntimeBindingID,
@@ -693,6 +699,7 @@ struct WorkflowVerifiedPreparedPlanBindingV4:
         self.backendRevisionID = backendRevisionID
         self.mediaContractID = mediaContractID
         self.resolvedBackendID = resolvedBackendID
+        self.softwareExecutionPolicySHA256 = softwareExecutionPolicySHA256
         runtimeBindingID = computed
     }
 
@@ -707,6 +714,7 @@ struct WorkflowVerifiedPreparedPlanBindingV4:
         case mediaContractID
         case resolvedBackendID
         case runtimeBindingID
+        case softwareExecutionPolicySHA256
     }
 
     init(from decoder: Decoder) throws {
@@ -755,6 +763,10 @@ struct WorkflowVerifiedPreparedPlanBindingV4:
                 UpscaleBackendID.self,
                 forKey: .resolvedBackendID
             ),
+            softwareExecutionPolicySHA256: container.decodeIfPresent(
+                ASHSHA256V4.self,
+                forKey: .softwareExecutionPolicySHA256
+            ),
             expectedRuntimeBindingID: container.decode(
                 WorkflowRuntimeBindingID.self,
                 forKey: .runtimeBindingID
@@ -783,6 +795,7 @@ struct WorkflowVerifiedPreparedPlanBindingV4:
             backendRevisionID: backendRevisionID,
             mediaContractID: mediaContractID,
             resolvedBackendID: resolvedBackendID,
+            softwareExecutionPolicySHA256: softwareExecutionPolicySHA256,
             expectedRuntimeBindingID: runtimeBindingID
         )
     }
@@ -2053,8 +2066,18 @@ private struct WorkflowApplicationMediaContractMaterialV4:
     let canonicalMediaSHA256: ASHSHA256V4
     let sourceGraphSHA256: ASHSHA256V4
     let trackPlanSHA256: ASHSHA256V4
+    let executionCanonicalMediaSHA256: ASHSHA256V4?
+    let executionGraphSHA256: ASHSHA256V4?
+    let softwareExecutionPolicySHA256: ASHSHA256V4?
 
     init(preparedPlan: DeterministicV4PreparedAssetPlan) throws {
+        try preparedPlan.softwareExecution?.verifyIntegrity()
+        executionCanonicalMediaSHA256 = try preparedPlan.softwareExecution?
+            .executionCanonicalMedia.canonicalSHA256
+        executionGraphSHA256 = try preparedPlan.softwareExecution?
+            .executionGraph.canonicalSHA256
+        softwareExecutionPolicySHA256 = try preparedPlan.softwareExecution?
+            .policySHA256
         schemaVersion = Self.currentSchemaVersion
         canonicalMediaSHA256 = try preparedPlan.canonicalMedia.canonicalSHA256
         sourceGraphSHA256 = try preparedPlan.sourceGraph.canonicalSHA256
@@ -2131,7 +2154,9 @@ extension WorkflowApplicationQueueV4 {
                     data: codec.canonicalData(mediaMaterial)
                 )
             ),
-            resolvedBackendID: resolvedBackendID
+            resolvedBackendID: resolvedBackendID,
+            softwareExecutionPolicySHA256: try preparedPlan.softwareExecution?
+                .policySHA256
         )
     }
 
@@ -4862,6 +4887,36 @@ private extension WorkflowApplicationQueueV4 {
                     )
                 )
                 let verification = decoded.body.migrationVerification
+                if let derived = verification.derivedAACMetadataVerification {
+                    let request = try codec.decodeCanonical(
+                        WorkflowApplicationRequestDocumentV4.self,
+                        from: transaction.readRegularFile(
+                            requestDocumentURL(jobID: jobID),
+                            maximumBytes: Self.maximumRequestDocumentBytes
+                        )
+                    )
+                    let binding = try request.body.preparedPlanBinding
+                        .revalidated()
+                    guard request.schemaVersion
+                            == WorkflowApplicationRequestDocumentV4
+                                .currentSchemaVersion,
+                          request.body.schemaVersion
+                            == WorkflowApplicationRequestBodyV4
+                                .currentSchemaVersion,
+                          request.body.specification.binding
+                            == intent.body.jobBinding,
+                          try makeRequestDocument(request.body) == request,
+                          binding.runtimeBindingID
+                            == intent.body.jobBinding.runtimeBindingID,
+                          binding.planID == intent.body.jobBinding.planID,
+                          binding.softwareExecutionPolicySHA256
+                            == derived.executionPolicySHA256,
+                          verification.softwareExecutionPolicySHA256
+                            == binding.softwareExecutionPolicySHA256 else {
+                        throw WorkflowApplicationQueueErrorV4
+                            .publicationDocumentCorrupt(jobID)
+                    }
+                }
                 guard decoded.schemaVersion
                         == WorkflowApplicationPublicationStageV4
                             .currentSchemaVersion,

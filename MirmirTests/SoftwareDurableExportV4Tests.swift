@@ -11,11 +11,61 @@ final class SoftwareDurableExportV4Tests: XCTestCase {
         try await runDurableCPUExport(resource: "universal-wmv-asf", ext: "asf", codec: .h264)
     }
 
+    func testVP9WebMDurableCPUExportPreservesAudio() async throws {
+        try await runDurableCPUExport(
+            resource: "universal-vp9-webm",
+            ext: "webm",
+            codec: .hevc,
+            preserveAudio: true,
+            expectedAudioResult: .transcoded
+        )
+    }
+
+    func testWMVASFDurableCPUExportPreservesAudio() async throws {
+        try await runDurableCPUExport(
+            resource: "universal-wmv-asf",
+            ext: "asf",
+            codec: .h264,
+            preserveAudio: true,
+            expectedAudioResult: .transcoded
+        )
+    }
+
+    func testVP9AACMatroskaPreservesOriginalAACPackets() async throws {
+        try await runDurableCPUExport(
+            resource: "universal-vp9-aac-mkv",
+            ext: "mkv",
+            codec: .hevc,
+            preserveAudio: true,
+            expectedAudioResult: .preserved
+        )
+    }
+
+    func testWMVAACASFPreservesOriginalAACPackets() async throws {
+        try await runDurableCPUExport(
+            resource: "universal-wmv-aac-asf",
+            ext: "asf",
+            codec: .h264,
+            preserveAudio: true,
+            expectedAudioResult: .preserved
+        )
+    }
+
     private func runDurableCPUExport(
-        resource: String, ext: String, codec: OutputCodec
+        resource: String,
+        ext: String,
+        codec: OutputCodec,
+        preserveAudio: Bool = false,
+        expectedAudioResult: AudioOutputResult? = nil
     ) async throws {
         do {
-            try await performDurableCPUExport(resource: resource, ext: ext, codec: codec)
+            try await performDurableCPUExport(
+                resource: resource,
+                ext: ext,
+                codec: codec,
+                preserveAudio: preserveAudio,
+                expectedAudioResult: expectedAudioResult
+            )
         } catch {
             NSLog("SOFTWARE_DURABLE_EXPORT_FAILURE \(resource): \(String(reflecting: error))")
             throw error
@@ -23,7 +73,11 @@ final class SoftwareDurableExportV4Tests: XCTestCase {
     }
 
     private func performDurableCPUExport(
-        resource: String, ext: String, codec: OutputCodec
+        resource: String,
+        ext: String,
+        codec: OutputCodec,
+        preserveAudio: Bool,
+        expectedAudioResult: AudioOutputResult?
     ) async throws {
         let source = try XCTUnwrap(Bundle(for: Self.self).url(
             forResource: resource, withExtension: ext
@@ -65,7 +119,7 @@ final class SoftwareDurableExportV4Tests: XCTestCase {
                 targetWidth: Int(size.width) * 2,
                 targetHeight: Int(size.height) * 2,
                 outputCodec: codec,
-                preserveAudio: false,
+                preserveAudio: preserveAudio,
                 overwriteExistingFile: false
             ),
             progress: { _ in },
@@ -77,17 +131,67 @@ final class SoftwareDurableExportV4Tests: XCTestCase {
         }
         XCTAssertEqual(completion.result.processedFrameCount, Int(frameCount))
         XCTAssertEqual(completion.result.actualBackendID, .mirmirDeterministicCPU)
-        XCTAssertEqual(completion.result.audioResult, .omitted)
+        if let expectedAudioResult {
+            XCTAssertEqual(completion.result.audioResult, expectedAudioResult)
+        } else if preserveAudio {
+            XCTAssertNotEqual(completion.result.audioResult, .omitted)
+        } else {
+            XCTAssertEqual(completion.result.audioResult, .omitted)
+        }
         XCTAssertTrue(FileManager.default.fileExists(atPath: output.path))
 
         let outputAsset = AVURLAsset(url: output)
         let videoTracks = try await outputAsset.loadTracks(withMediaType: .video)
         XCTAssertEqual(videoTracks.count, 1)
         let audioTracks = try await outputAsset.loadTracks(withMediaType: .audio)
-        XCTAssertTrue(audioTracks.isEmpty)
+        if preserveAudio {
+            XCTAssertEqual(audioTracks.count, 1)
+        } else {
+            XCTAssertTrue(audioTracks.isEmpty)
+        }
+        if let audio = audioTracks.first {
+            let descs = try await audio.load(.formatDescriptions)
+            let range = try await audio.load(.timeRange)
+            let asbd = descs.first.flatMap { CMAudioFormatDescriptionGetStreamBasicDescription($0)?.pointee }
+            let stats = try Self.decodedAudioStatistics(of: outputAsset, track: audio)
+            NSLog("SOFTWARE_PRESERVE_AUDIO \(resource): result=\(completion.result.audioResult) fmt=\(asbd?.mFormatID ?? 0) sr=\(asbd?.mSampleRate ?? 0) ch=\(asbd?.mChannelsPerFrame ?? 0) start=\(range.start.seconds) dur=\(range.duration.seconds) frames=\(stats.frames) rms=\(stats.rms)")
+            XCTAssertEqual(asbd?.mFormatID, kAudioFormatMPEG4AAC)
+            XCTAssertGreaterThan(stats.frames, 0)
+            XCTAssertGreaterThan(stats.rms, 0.001, "preserved audio must not be silent")
+        }
         let snapshot = try await queue.queueSnapshot()
         XCTAssertEqual(snapshot.items.count, 1)
         XCTAssertTrue(snapshot.items.allSatisfy { $0.lifecycle == .completed })
+    }
+}
+
+extension SoftwareDurableExportV4Tests {
+    static func decodedAudioStatistics(
+        of asset: AVAsset, track: AVAssetTrack
+    ) throws -> (frames: Int, rms: Double) {
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true,
+            AVLinearPCMIsBigEndianKey: false,
+            AVLinearPCMIsNonInterleaved: false,
+        ])
+        reader.add(output)
+        guard reader.startReading() else { throw reader.error ?? CocoaError(.fileReadUnknown) }
+        var frames = 0
+        var sumSquares = 0.0
+        var count = 0
+        while let buffer = output.copyNextSampleBuffer() {
+            frames += CMSampleBufferGetNumSamples(buffer)
+            guard let block = CMSampleBufferGetDataBuffer(buffer) else { continue }
+            let length = CMBlockBufferGetDataLength(block)
+            var data = [Float](repeating: 0, count: length / MemoryLayout<Float>.size)
+            data.withUnsafeMutableBytes { _ = CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: length, destination: $0.baseAddress!) }
+            for v in data { sumSquares += Double(v) * Double(v) }
+            count += data.count
+        }
+        return (frames, count > 0 ? (sumSquares / Double(count)).squareRoot() : 0)
     }
 }
 
