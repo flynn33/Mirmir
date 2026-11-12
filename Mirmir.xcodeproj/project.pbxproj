@@ -21,6 +21,7 @@
 		E8A100000000000000000008 /* mjpeg444.mov in Resources */ = {isa = PBXBuildFile; fileRef = E8A100000000000000000007 /* mjpeg444.mov */; };
 		E8A10000000000000000000A /* mjpeg420-odd.mov in Resources */ = {isa = PBXBuildFile; fileRef = E8A100000000000000000009 /* mjpeg420-odd.mov */; };
 		E8A10000000000000000000C /* mjpeg422-ffmpeg.mov in Resources */ = {isa = PBXBuildFile; fileRef = E8A10000000000000000000B /* mjpeg422-ffmpeg.mov */; };
+		E8A10000000000000000000E /* mjpeg-interlaced.mov in Resources */ = {isa = PBXBuildFile; fileRef = E8A10000000000000000000D /* mjpeg-interlaced.mov */; };
 		C59000000000000000000006 /* ChromaSitingGeometryV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C59000000000000000000005 /* ChromaSitingGeometryV4Tests.swift */; };
 		CA2600000000000000000004 /* JFIFVideoSamplingV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA2600000000000000000003 /* JFIFVideoSamplingV4Tests.swift */; };
 		C59000000000000000000004 /* AVCChromaLocationV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C59000000000000000000003 /* AVCChromaLocationV4Tests.swift */; };
@@ -261,6 +262,7 @@
 		E8A100000000000000000007 /* mjpeg444.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = mjpeg444.mov; sourceTree = "<group>"; };
 		E8A100000000000000000009 /* mjpeg420-odd.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = "mjpeg420-odd.mov"; sourceTree = "<group>"; };
 		E8A10000000000000000000B /* mjpeg422-ffmpeg.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = "mjpeg422-ffmpeg.mov"; sourceTree = "<group>"; };
+		E8A10000000000000000000D /* mjpeg-interlaced.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = "mjpeg-interlaced.mov"; sourceTree = "<group>"; };
 		C59000000000000000000005 /* ChromaSitingGeometryV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChromaSitingGeometryV4Tests.swift; sourceTree = "<group>"; };
 		CA2600000000000000000003 /* JFIFVideoSamplingV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JFIFVideoSamplingV4Tests.swift; sourceTree = "<group>"; };
 		C59000000000000000000003 /* AVCChromaLocationV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVCChromaLocationV4Tests.swift; sourceTree = "<group>"; };
@@ -686,6 +688,7 @@
 				E8A100000000000000000007 /* mjpeg444.mov */,
 				E8A100000000000000000009 /* mjpeg420-odd.mov */,
 				E8A10000000000000000000B /* mjpeg422-ffmpeg.mov */,
+				E8A10000000000000000000D /* mjpeg-interlaced.mov */,
 				F51000000000000000000002 /* legacy-mpeg4.mov */,
 			);
 			path = Fixtures;
@@ -1007,6 +1010,7 @@
 				E8A100000000000000000008 /* mjpeg444.mov in Resources */,
 				E8A10000000000000000000A /* mjpeg420-odd.mov in Resources */,
 				E8A10000000000000000000C /* mjpeg422-ffmpeg.mov in Resources */,
+				E8A10000000000000000000E /* mjpeg-interlaced.mov in Resources */,
 				F52000000000000000000002 /* legacy-mpeg4.mov in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

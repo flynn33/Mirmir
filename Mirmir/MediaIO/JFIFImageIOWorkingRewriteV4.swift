@@ -6,20 +6,28 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
-/// Turns JFIF Motion JPEG with native-inadmissible chroma (4:2:2 / 4:4:4) into
-/// an ordinary progressive-field 4:2:0 JPEG MOV that VideoToolbox can decode.
-/// Packets are ImageIO-decoded and re-encoded as JFIF 4:2:0; presentation timing
-/// and exact frame count are preserved. This is a working-delivery rewrite, not
-/// a claim that VT natively owns 4:2:2/4:4:4 JPEG.
+/// Turns JFIF Motion JPEG that the progressive native path cannot admit —
+/// 4:2:2 / 4:4:4 chroma, or interlaced `FieldCount=2` — into an ordinary
+/// progressive-field 4:2:0 JPEG MOV. Packets are ImageIO-decoded and re-encoded
+/// as JFIF 4:2:0 with `FieldCount=1`; presentation timing and exact frame count
+/// are preserved. This is a working-delivery rewrite, not a claim that VT
+/// natively owns 4:2:2/4:4:4 or interlaced JPEG as progressive JFIF.
 enum JFIFImageIOWorkingRewriteV4 {
     enum Failure: Error, Equatable {
         case unsupported(String)
         case io(String)
     }
 
-    /// Returns true when the first video packet is JFIF 4:2:2 or 4:4:4 under a
-    /// JPEG / OpenDML sample entry with one full-raster field (or an omitted
-    /// FieldCount that is not paired/interlaced).
+    private static let supportedInterlacedFieldDetails: Set<String> = [
+        kCMFormatDescriptionFieldDetail_TemporalTopFirst as String,
+        kCMFormatDescriptionFieldDetail_TemporalBottomFirst as String,
+        kCMFormatDescriptionFieldDetail_SpatialFirstLineEarly as String,
+        kCMFormatDescriptionFieldDetail_SpatialFirstLineLate as String
+    ]
+
+    /// Returns true when the first video packet needs the ImageIO working
+    /// rewrite: JFIF 4:2:2/4:4:4 under a progressive field declaration, or any
+    /// classified JFIF sampling under an interlaced `FieldCount=2` declaration.
     static func needsRewrite(asset: AVAsset) async throws -> Bool {
         let tracks = try await asset.loadTracks(withMediaType: .video)
         guard tracks.count == 1, let track = tracks.first else { return false }
@@ -32,20 +40,38 @@ enum JFIFImageIOWorkingRewriteV4 {
             return false
         }
         let extensions = CMFormatDescriptionGetExtensions(description) as NSDictionary? ?? [:]
-        // Interlaced / paired JPEG (FieldCount=2 or FieldDetail set) stays
-        // unqualified. Missing FieldCount is common on ffmpeg remuxes and is
-        // treated as one full-raster field when FieldDetail is absent.
+        let interlaced: Bool
         if let fieldCount = extensions[kCMFormatDescriptionExtension_FieldCount as String] as? NSNumber {
-            guard fieldCount.doubleValue == 1,
-                  extensions[kCMFormatDescriptionExtension_FieldDetail as String] == nil else {
+            if fieldCount.doubleValue == 1 {
+                guard extensions[kCMFormatDescriptionExtension_FieldDetail as String] == nil else {
+                    return false
+                }
+                interlaced = false
+            } else if fieldCount.doubleValue == 2 {
+                guard let detail = extensions[kCMFormatDescriptionExtension_FieldDetail as String] as? String,
+                      supportedInterlacedFieldDetails.contains(detail) else {
+                    return false
+                }
+                interlaced = true
+            } else {
                 return false
             }
-        } else if extensions[kCMFormatDescriptionExtension_FieldDetail as String] != nil {
-            return false
+        } else {
+            // Missing FieldCount is common on ffmpeg remuxes and is treated as
+            // one full-raster field when FieldDetail is absent.
+            guard extensions[kCMFormatDescriptionExtension_FieldDetail as String] == nil else {
+                return false
+            }
+            interlaced = false
         }
         guard let packet = try firstCompressedPacket(asset: asset, track: track),
               let sampling = chromaSubsampling(packet) else {
             return false
+        }
+        if interlaced {
+            // Progressive JFIF admission rejects FieldCount=2. Rewrite any
+            // classified JFIF sampling onto a progressive-field 4:2:0 entry.
+            return sampling == .yuv420 || sampling == .yuv422 || sampling == .yuv444
         }
         // Canonical JFIF (chroma 0x11) and ffmpeg-equivalent MCU factorizations
         // (e.g. Y=0x22/Cb=0x12 for 4:2:2) both need the ImageIO rewrite path.
