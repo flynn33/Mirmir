@@ -424,17 +424,28 @@ actor NativeMediaInputAssetResolverV4 {
     }
 
     private static func shouldContainerRemux(_ url: URL) async throws -> Bool {
-        guard try UniversalContainerRemuxV4.containerFamily(url: url) != nil else { return false }
-        if try await nativeOpensAuthoritatively(url) { return false }
+        guard let family = try UniversalContainerRemuxV4.containerFamily(url: url) else { return false }
         let probe = try UniversalContainerRemuxV4.probe(url: url)
+        // MPEG-2 Transport Stream must not remux: product remux yields inflated
+        // AVFoundation decode (73 vs 72) and a stretched duration on this fixture.
+        if family == "mpegts", probe.videoCodecName == "mpeg2video" {
+            return false
+        }
+        if try await nativeOpensAuthoritatively(url) { return false }
         return probe.admissible
     }
 
-    /// Remux-inadmissible containers that AVFoundation cannot open (VP9/WebM, WMV/ASF, …).
+    /// Remux-inadmissible containers that AVFoundation cannot open (VP9/WebM, WMV/ASF, …),
+    /// plus MPEG-2 Transport Stream (native opens on some hosts but fails durable cadence).
     private static func shouldSoftwareDecode(_ url: URL) async throws -> Bool {
-        guard try UniversalContainerRemuxV4.containerFamily(url: url) != nil else { return false }
-        if try await nativeOpensAuthoritatively(url) { return false }
+        guard let family = try UniversalContainerRemuxV4.containerFamily(url: url) else { return false }
         let probe = try UniversalContainerRemuxV4.probe(url: url)
+        // Prefer software for mpeg2video-in-mpegts: native PTS offsets fail the
+        // durable nominal cadence lattice; remux is unsafe (see remux gate above).
+        if family == "mpegts", probe.videoCodecName == "mpeg2video" {
+            return true
+        }
+        if try await nativeOpensAuthoritatively(url) { return false }
         return !probe.admissible
     }
 
