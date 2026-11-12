@@ -33,6 +33,7 @@
 		C5C000000000000000000001 /* AVCVisualSampleEntryV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B000000000000000000001 /* AVCVisualSampleEntryV4Tests.swift */; };
 		C56000000000000000000002 /* UniformPCMSampleBufferV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C55000000000000000000002 /* UniformPCMSampleBufferV4Tests.swift */; };
 		C54000000000000000000004 /* NativeMediaInputAssetResolverV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C53000000000000000000004 /* NativeMediaInputAssetResolverV4Tests.swift */; };
+		D7B0000000000000000000A0 /* OpenDMLJPEGNativeDecodeV4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7F0000000000000000000A0 /* OpenDMLJPEGNativeDecodeV4Tests.swift */; };
 		C54000000000000000000003 /* native-avi-mpeg4.avi in Resources */ = {isa = PBXBuildFile; fileRef = C53000000000000000000003 /* native-avi-mpeg4.avi */; };
 		C54000000000000000000002 /* native-avi-h264.avi in Resources */ = {isa = PBXBuildFile; fileRef = C53000000000000000000002 /* native-avi-h264.avi */; };
 		C54000000000000000000001 /* NativeMediaInputAssetResolverV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = C53000000000000000000001 /* NativeMediaInputAssetResolverV4.swift */; };
@@ -264,6 +265,7 @@
 		C5B000000000000000000001 /* AVCVisualSampleEntryV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVCVisualSampleEntryV4Tests.swift; sourceTree = "<group>"; };
 		C55000000000000000000002 /* UniformPCMSampleBufferV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniformPCMSampleBufferV4Tests.swift; sourceTree = "<group>"; };
 		C53000000000000000000004 /* NativeMediaInputAssetResolverV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMediaInputAssetResolverV4Tests.swift; sourceTree = "<group>"; };
+		D7F0000000000000000000A0 /* OpenDMLJPEGNativeDecodeV4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenDMLJPEGNativeDecodeV4Tests.swift; sourceTree = "<group>"; };
 		C53000000000000000000003 /* native-avi-mpeg4.avi */ = {isa = PBXFileReference; lastKnownFileType = file; path = "native-avi-mpeg4.avi"; sourceTree = "<group>"; };
 		C53000000000000000000002 /* native-avi-h264.avi */ = {isa = PBXFileReference; lastKnownFileType = file; path = "native-avi-h264.avi"; sourceTree = "<group>"; };
 		C53000000000000000000001 /* NativeMediaInputAssetResolverV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMediaInputAssetResolverV4.swift; sourceTree = "<group>"; };
@@ -607,6 +609,7 @@
 				C7D000000000000000000001 /* ConventionalWholeAssetV4 */,
 				C55000000000000000000002 /* UniformPCMSampleBufferV4Tests.swift */,
 				C53000000000000000000004 /* NativeMediaInputAssetResolverV4Tests.swift */,
+				D7F0000000000000000000A0 /* OpenDMLJPEGNativeDecodeV4Tests.swift */,
 				C53000000000000000000009 /* NativeAVIMPEG4PresentationOrderV4Tests.swift */,
 				310000000000000000000017 /* SecurityScopedAccessTests.swift */,
 				31000000000000000000001D /* BackendCatalogTests.swift */,
@@ -1160,6 +1163,7 @@
 				C58000000000000000000004 /* NativeAACMetadataMigrationV4Tests.swift in Sources */,
 				C56000000000000000000002 /* UniformPCMSampleBufferV4Tests.swift in Sources */,
 				C54000000000000000000004 /* NativeMediaInputAssetResolverV4Tests.swift in Sources */,
+				D7B0000000000000000000A0 /* OpenDMLJPEGNativeDecodeV4Tests.swift in Sources */,
 				C54000000000000000000009 /* NativeAVIMPEG4PresentationOrderV4Tests.swift in Sources */,
 				320000000000000000000015 /* SecurityScopedAccessTests.swift in Sources */,
 				32000000000000000000001B /* BackendCatalogTests.swift in Sources */,
