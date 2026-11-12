@@ -1369,7 +1369,8 @@ private extension RecoveryQualificationProducerV4 {
             ),
             destinationURL: assembled,
             outputFileType: .mov,
-            overwriteExistingFile: false
+            overwriteExistingFile: false,
+            structuralCreationDateSourceURL: sourceMovie
         ))
         // The interrupted path leaves the complete assembly in place and
         // reopens it exactly as a replacement process would.
@@ -4459,7 +4460,8 @@ private extension WorkflowApplicationCoordinatorV4 {
                     checkpoint,
                     timeline: assemblyTimeline,
                     destinationURL: assembledVideoURL,
-                    overwriteExistingFile: false
+                    overwriteExistingFile: false,
+                    structuralCreationDateSourceURL: activated.request.inputURL
                 )
                 try throwIfActiveControlFailed()
                 let finalized = try await engine.finalizePreparedOutput(
@@ -5201,7 +5203,8 @@ private extension WorkflowApplicationCoordinatorV4 {
                     checkpoint,
                     timeline: assemblyTimeline,
                     destinationURL: assembledVideoURL,
-                    overwriteExistingFile: false
+                    overwriteExistingFile: false,
+                    structuralCreationDateSourceURL: activated.request.inputURL
                 )
                 guard let cancellation = active?.cancellation else {
                     throw WorkflowApplicationControllerErrorV4.noActiveJob

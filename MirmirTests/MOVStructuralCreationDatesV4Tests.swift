@@ -31,7 +31,7 @@ final class MOVStructuralCreationDatesV4Tests: XCTestCase {
 
         let owned = MOVStructuralCreationDatesV4.Snapshot(
             movie: .init(creation: knownCreation, modification: knownModification),
-            tracks: baseline.tracks.enumerated().map { index, _ in
+            tracks: baseline.tracks.enumerated().map { index, track in
                 .init(
                     trackHeader: .init(
                         creation: knownCreation &+ UInt64(index + 1),
@@ -40,7 +40,8 @@ final class MOVStructuralCreationDatesV4Tests: XCTestCase {
                     mediaHeader: .init(
                         creation: knownCreation &+ UInt64(10 + index),
                         modification: knownModification &+ UInt64(10 + index)
-                    )
+                    ),
+                    handlerType: track.handlerType
                 )
             }
         )
@@ -52,10 +53,11 @@ final class MOVStructuralCreationDatesV4Tests: XCTestCase {
         try MOVStructuralCreationDatesV4.restore(
             MOVStructuralCreationDatesV4.Snapshot(
                 movie: .init(creation: 0, modification: 0),
-                tracks: owned.tracks.map { _ in
+                tracks: owned.tracks.map { track in
                     .init(
                         trackHeader: .init(creation: 0, modification: 0),
-                        mediaHeader: .init(creation: 0, modification: 0)
+                        mediaHeader: .init(creation: 0, modification: 0),
+                        handlerType: track.handlerType
                     )
                 }
             ),
@@ -86,7 +88,7 @@ final class MOVStructuralCreationDatesV4Tests: XCTestCase {
         let baseline = try XCTUnwrap(try MOVStructuralCreationDatesV4.capture(from: sourceURL))
         let owned = MOVStructuralCreationDatesV4.Snapshot(
             movie: .init(creation: knownCreation, modification: knownModification),
-            tracks: baseline.tracks.enumerated().map { index, _ in
+            tracks: baseline.tracks.enumerated().map { index, track in
                 .init(
                     trackHeader: .init(
                         creation: knownCreation &+ UInt64(index + 1),
@@ -95,7 +97,8 @@ final class MOVStructuralCreationDatesV4Tests: XCTestCase {
                     mediaHeader: .init(
                         creation: knownCreation &+ UInt64(10 + index),
                         modification: knownModification &+ UInt64(10 + index)
-                    )
+                    ),
+                    handlerType: track.handlerType
                 )
             }
         )
@@ -107,10 +110,11 @@ final class MOVStructuralCreationDatesV4Tests: XCTestCase {
         try FileManager.default.copyItem(at: sourceURL, to: rewrittenURL)
         let zeroed = MOVStructuralCreationDatesV4.Snapshot(
             movie: .init(creation: 0, modification: 0),
-            tracks: owned.tracks.map { _ in
+            tracks: owned.tracks.map { track in
                 .init(
                     trackHeader: .init(creation: 0, modification: 0),
-                    mediaHeader: .init(creation: 0, modification: 0)
+                    mediaHeader: .init(creation: 0, modification: 0),
+                    handlerType: track.handlerType
                 )
             }
         )
@@ -151,7 +155,7 @@ final class MOVStructuralCreationDatesV4Tests: XCTestCase {
         XCTAssertGreaterThanOrEqual(baseline.tracks.count, 2)
         let owned = MOVStructuralCreationDatesV4.Snapshot(
             movie: .init(creation: knownCreation, modification: knownModification),
-            tracks: baseline.tracks.enumerated().map { index, _ in
+            tracks: baseline.tracks.enumerated().map { index, track in
                 .init(
                     trackHeader: .init(
                         creation: knownCreation &+ UInt64(index + 1),
@@ -160,7 +164,8 @@ final class MOVStructuralCreationDatesV4Tests: XCTestCase {
                     mediaHeader: .init(
                         creation: knownCreation &+ UInt64(10 + index),
                         modification: knownModification &+ UInt64(10 + index)
-                    )
+                    ),
+                    handlerType: track.handlerType
                 )
             }
         )
@@ -184,10 +189,11 @@ final class MOVStructuralCreationDatesV4Tests: XCTestCase {
         try MOVStructuralCreationDatesV4.restore(
             MOVStructuralCreationDatesV4.Snapshot(
                 movie: .init(creation: 0, modification: 0),
-                tracks: reduced.tracks.map { _ in
+                tracks: reduced.tracks.map { track in
                     .init(
                         trackHeader: .init(creation: 0, modification: 0),
-                        mediaHeader: .init(creation: 0, modification: 0)
+                        mediaHeader: .init(creation: 0, modification: 0),
+                        handlerType: track.handlerType
                     )
                 }
             ),
@@ -201,10 +207,11 @@ final class MOVStructuralCreationDatesV4Tests: XCTestCase {
         )
         let after = try XCTUnwrap(try MOVStructuralCreationDatesV4.capture(from: outputURL))
         XCTAssertEqual(after.movie, owned.movie)
-        // Track dates stay cleared when inventories diverge; only movie
-        // ownership is restored without an explicit ordinal map.
-        XCTAssertEqual(after.tracks[0].trackHeader.creation, 0)
-        XCTAssertNotEqual(after.tracks[0].trackHeader.creation, owned.tracks[0].trackHeader.creation)
+        // Divergent inventories align by hdlr type; retained video keeps source
+        // track/media dates even when a later audio lane was dropped.
+        XCTAssertEqual(after.tracks[0].handlerType, owned.tracks[0].handlerType)
+        XCTAssertEqual(after.tracks[0].trackHeader, owned.tracks[0].trackHeader)
+        XCTAssertEqual(after.tracks[0].mediaHeader, owned.tracks[0].mediaHeader)
     }
 
     func testMigrationExecutorPreservesStructuralCreationDates() async throws {
@@ -222,7 +229,7 @@ final class MOVStructuralCreationDatesV4Tests: XCTestCase {
         let baseline = try XCTUnwrap(try MOVStructuralCreationDatesV4.capture(from: sourceURL))
         let owned = MOVStructuralCreationDatesV4.Snapshot(
             movie: .init(creation: knownCreation, modification: knownModification),
-            tracks: baseline.tracks.enumerated().map { index, _ in
+            tracks: baseline.tracks.enumerated().map { index, track in
                 .init(
                     trackHeader: .init(
                         creation: knownCreation &+ UInt64(index + 1),
@@ -231,7 +238,8 @@ final class MOVStructuralCreationDatesV4Tests: XCTestCase {
                     mediaHeader: .init(
                         creation: knownCreation &+ UInt64(10 + index),
                         modification: knownModification &+ UInt64(10 + index)
-                    )
+                    ),
+                    handlerType: track.handlerType
                 )
             }
         )

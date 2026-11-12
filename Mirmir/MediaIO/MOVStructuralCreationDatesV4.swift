@@ -15,6 +15,18 @@ enum MOVStructuralCreationDatesV4 {
     struct TrackDates: Equatable, Sendable {
         let trackHeader: HeaderDates
         let mediaHeader: HeaderDates
+        /// QuickTime `hdlr` handler type (`vide`, `soun`, …).
+        let handlerType: String
+
+        init(
+            trackHeader: HeaderDates,
+            mediaHeader: HeaderDates,
+            handlerType: String = ""
+        ) {
+            self.trackHeader = trackHeader
+            self.mediaHeader = mediaHeader
+            self.handlerType = handlerType
+        }
     }
 
     struct Snapshot: Equatable, Sendable {
@@ -50,7 +62,12 @@ enum MOVStructuralCreationDatesV4 {
             let mdia = try unique("mdia", in: trackChildren)
             let mediaChildren = try file.children(mdia.body, mdia.end)
             let mdhd = try dates(file, node: try unique("mdhd", in: mediaChildren))
-            tracks.append(TrackDates(trackHeader: tkhd, mediaHeader: mdhd))
+            let handler = try handlerType(file, node: try unique("hdlr", in: mediaChildren))
+            tracks.append(TrackDates(
+                trackHeader: tkhd,
+                mediaHeader: mdhd,
+                handlerType: handler
+            ))
         }
         guard !tracks.isEmpty else { throw Failure.invalidFile }
         try file.requireUnchangedExtent()
@@ -120,17 +137,17 @@ enum MOVStructuralCreationDatesV4 {
         for (ordinal, sourceOrdinal) in outputToSourceTrack {
             guard snapshot.tracks.indices.contains(sourceOrdinal),
                   actual.tracks.indices.contains(ordinal),
-                  actual.tracks[ordinal] == snapshot.tracks[sourceOrdinal] else {
+                  datesMatch(actual.tracks[ordinal], snapshot.tracks[sourceOrdinal]) else {
                 throw Failure.trackInventoryMismatch
             }
         }
     }
 
     /// Restores source structural dates onto a finished MOV/MP4 after an
-    /// AVFoundation header rewrite. When track inventories match, restores
-    /// movie + every track/media header via identity mapping. When inventories
-    /// diverge, restores only the movie header (track dates need an explicit
-    /// ordinal map from a planner).
+    /// AVFoundation header rewrite. Matching inventories use identity mapping.
+    /// Divergent inventories align by `hdlr` handler type order so retained
+    /// video/audio/etc. lanes keep source track/media dates; unmapped output
+    /// tracks (for example newly authored metadata) keep export-time stamps.
     @discardableResult
     static func restoreFromSource(
         sourceURL: URL,
@@ -139,33 +156,56 @@ enum MOVStructuralCreationDatesV4 {
     ) throws -> Snapshot? {
         guard let snapshot = try capture(from: sourceURL) else { return nil }
         guard let output = try capture(from: outputURL) else { throw Failure.invalidFile }
-        let inventoriesMatch = snapshot.tracks.count == output.tracks.count
         let mapping: [Int: Int]
-        if inventoriesMatch {
+        if snapshot.tracks.count == output.tracks.count {
             mapping = Dictionary(uniqueKeysWithValues: snapshot.tracks.indices.map { ($0, $0) })
         } else {
-            mapping = [:]
+            mapping = mediaTypeAlignedMapping(source: snapshot, output: output)
         }
+        let complete = mapping.count == output.tracks.count
         try restore(
             snapshot,
             into: outputURL,
             outputToSourceTrack: mapping,
-            requireCompleteTrackCoverage: inventoriesMatch,
+            requireCompleteTrackCoverage: complete,
             cancellation: cancellation
         )
         try verify(
             snapshot,
             in: outputURL,
             outputToSourceTrack: mapping,
-            requireCompleteTrackCoverage: inventoriesMatch
+            requireCompleteTrackCoverage: complete
         )
         return snapshot
+    }
+
+    /// First-unclaimed source track of each matching `hdlr` type.
+    static func mediaTypeAlignedMapping(
+        source: Snapshot,
+        output: Snapshot
+    ) -> [Int: Int] {
+        var usedSources = Set<Int>()
+        var mapping: [Int: Int] = [:]
+        for (outputOrdinal, outputTrack) in output.tracks.enumerated() {
+            guard !outputTrack.handlerType.isEmpty else { continue }
+            guard let sourceOrdinal = source.tracks.indices.first(where: {
+                !usedSources.contains($0)
+                    && source.tracks[$0].handlerType == outputTrack.handlerType
+            }) else { continue }
+            mapping[outputOrdinal] = sourceOrdinal
+            usedSources.insert(sourceOrdinal)
+        }
+        return mapping
     }
 
     static func foundationDate(fromQuickTimeSeconds value: UInt64) -> Date? {
         guard value != 0 else { return nil }
         guard value >= quickTimeEpochToUnix else { return nil }
         return Date(timeIntervalSince1970: TimeInterval(value - quickTimeEpochToUnix))
+    }
+
+    private static func datesMatch(_ lhs: TrackDates, _ rhs: TrackDates) -> Bool {
+        lhs.trackHeader == rhs.trackHeader && lhs.mediaHeader == rhs.mediaHeader
     }
 
     private static func admitsQuickTimeISO(_ file: MovieFile) throws -> Bool {
@@ -200,6 +240,16 @@ enum MOVStructuralCreationDatesV4 {
             creation: uint(bytes, 0, width),
             modification: uint(bytes, width, width)
         )
+    }
+
+    private static func handlerType(_ file: MovieFile, node: Node) throws -> String {
+        // version(1) + flags(3) + pre_defined(4) + handler_type(4)
+        guard node.end - node.body >= 12 else { throw Failure.malformedAtom }
+        let bytes = try file.read(node.body + 8, 4)
+        guard let type = String(data: bytes, encoding: .isoLatin1), type.count == 4 else {
+            throw Failure.malformedAtom
+        }
+        return type
     }
 
     private static func writeDates(
