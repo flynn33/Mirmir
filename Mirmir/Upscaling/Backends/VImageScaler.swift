@@ -145,6 +145,9 @@ actor PreparedVImageScaler: PreparedFrameUpscaler {
     private let configuration: VImagePreparationConfiguration
     private let functions: any VImageScalingFunctions
     private var temporaryStorage: VImageTemporaryStorage?
+    private var chromaSourceStorage: VImageTemporaryStorage?
+    private var chromaDestinationStorage: VImageTemporaryStorage?
+    private var chromaWarpTemporaryStorage: VImageTemporaryStorage?
     private var isFinished = false
 
     init(
@@ -227,10 +230,14 @@ actor PreparedVImageScaler: PreparedFrameUpscaler {
         try VImageColorAttachments.rejectUnsupportedHDRSignal(in: source)
         try VImageGeometryAttachments.validateSupportedGeometry(in: source)
 
+        let chromaTranslation = try NV12FrameAttachments.chromaScaleTranslation(
+            from: source,
+            scaleX: Double(configuration.targetWidth) / Double(configuration.sourceWidth),
+            scaleY: Double(configuration.targetHeight) / Double(configuration.sourceHeight),
+            backendID: actualBackendID, frameIndex: timing.frameIndex)
         try scaleLockedBuffers(
-            source: source,
-            destination: destination,
-            timing: timing
+            source: source, destination: destination, timing: timing,
+            chromaTranslation: chromaTranslation
         )
         try Task.checkCancellation()
         VImageColorAttachments.copy(from: source, to: destination)
@@ -241,13 +248,17 @@ actor PreparedVImageScaler: PreparedFrameUpscaler {
             return
         }
         temporaryStorage = nil
+        chromaSourceStorage = nil
+        chromaDestinationStorage = nil
+        chromaWarpTemporaryStorage = nil
         isFinished = true
     }
 
     private func scaleLockedBuffers(
         source: CVPixelBuffer,
         destination: CVPixelBuffer,
-        timing: FrameTiming
+        timing: FrameTiming,
+        chromaTranslation: (x: Double, y: Double)
     ) throws {
         let sourceLockStatus = CVPixelBufferLockBaseAddress(source, .readOnly)
         guard sourceLockStatus == kCVReturnSuccess else {
@@ -294,13 +305,13 @@ actor PreparedVImageScaler: PreparedFrameUpscaler {
                 timing: timing
             )
             try Task.checkCancellation()
-            try scalePlane(
-                source: source,
-                destination: destination,
-                plane: 1,
-                function: .cbCr8,
-                timing: timing
-            )
+            if chromaTranslation.x == 0, chromaTranslation.y == 0 {
+                try scalePlane(source: source, destination: destination,
+                    plane: 1, function: .cbCr8, timing: timing)
+            } else {
+                try scaleSitedChroma(source: source, destination: destination,
+                    translation: chromaTranslation, timing: timing)
+            }
         } catch {
             processingError = error
         }
@@ -349,6 +360,63 @@ actor PreparedVImageScaler: PreparedFrameUpscaler {
                 operation: .unlock,
                 status: sourceUnlockStatus
             )
+        }
+    }
+
+    private func scaleSitedChroma(
+        source: CVPixelBuffer, destination: CVPixelBuffer,
+        translation: (x: Double, y: Double), timing: FrameTiming
+    ) throws {
+        let sw = configuration.sourceWidth / 2, sh = configuration.sourceHeight / 2
+        let dw = configuration.targetWidth / 2, dh = configuration.targetHeight / 2
+        if chromaSourceStorage == nil {
+            let sourceStorage = try VImageTemporaryStorage(byteCount: sw * sh, backendID: actualBackendID)
+            let destinationStorage = try VImageTemporaryStorage(byteCount: dw * dh, backendID: actualBackendID)
+            chromaSourceStorage = sourceStorage
+            chromaDestinationStorage = destinationStorage
+        }
+        guard let sourceScratch = chromaSourceStorage?.pointer,
+              let targetScratch = chromaDestinationStorage?.pointer,
+              let sourceBase = CVPixelBufferGetBaseAddressOfPlane(source, 1),
+              let targetBase = CVPixelBufferGetBaseAddressOfPlane(destination, 1) else {
+            throw MirmirError.backendProcessingFailed(backendID: actualBackendID,
+                frameIndex: timing.frameIndex, details: "chroma affine storage is unavailable")
+        }
+        var input = vImage_Buffer(data: sourceScratch, height: vImagePixelCount(sh), width: vImagePixelCount(sw), rowBytes: sw)
+        var output = vImage_Buffer(data: targetScratch, height: vImagePixelCount(dh), width: vImagePixelCount(dw), rowBytes: dw)
+        // vImage affine coordinates start at the bottom left; CV rows start at the top.
+        var transform = vImage_AffineTransform(a: Float(dw) / Float(sw), b: 0, c: 0,
+            d: Float(dh) / Float(sh), tx: Float(translation.x), ty: -Float(translation.y))
+        let flags = configuration.mode.resamplingFlags
+        let required = vImageAffineWarp_Planar8(&input, &output, nil, &transform, 0,
+            flags | vImage_Flags(kvImageGetTempBufferSize))
+        guard required >= 0 else {
+            throw MirmirError.backendProcessingFailed(backendID: actualBackendID,
+                frameIndex: timing.frameIndex, details: "chroma affine storage query failed (\(required))")
+        }
+        if required > (chromaWarpTemporaryStorage?.byteCount ?? 0) {
+            chromaWarpTemporaryStorage = try VImageTemporaryStorage(byteCount: required, backendID: actualBackendID)
+        }
+        let sourceStride = CVPixelBufferGetBytesPerRowOfPlane(source, 1)
+        let targetStride = CVPixelBufferGetBytesPerRowOfPlane(destination, 1)
+        let sourceBytes = sourceBase.assumingMemoryBound(to: UInt8.self)
+        let targetBytes = targetBase.assumingMemoryBound(to: UInt8.self)
+        let planarSource = sourceScratch.assumingMemoryBound(to: UInt8.self)
+        let planarTarget = targetScratch.assumingMemoryBound(to: UInt8.self)
+        for component in 0..<2 {
+            try Task.checkCancellation()
+            for y in 0..<sh { for x in 0..<sw {
+                planarSource[y * sw + x] = sourceBytes[y * sourceStride + x * 2 + component]
+            } }
+            let status = vImageAffineWarp_Planar8(&input, &output,
+                chromaWarpTemporaryStorage?.pointer, &transform, 0, flags)
+            guard status == kvImageNoError else {
+                throw MirmirError.backendProcessingFailed(backendID: actualBackendID,
+                    frameIndex: timing.frameIndex, details: "vImageAffineWarp_Planar8 failed (\(status))")
+            }
+            for y in 0..<dh { for x in 0..<dw {
+                targetBytes[y * targetStride + x * 2 + component] = planarTarget[y * dw + x]
+            } }
         }
     }
 
@@ -529,8 +597,10 @@ private final class VImageTemporaryStorage: @unchecked Sendable {
     // and release. The unchecked boundary is therefore confined to this
     // allocation owner rather than the actor's isolated state or deinitializer.
     let pointer: UnsafeMutableRawPointer?
+    let byteCount: Int
 
     init(byteCount: Int, backendID: UpscaleBackendID) throws {
+        self.byteCount = byteCount
         guard byteCount > 0 else {
             pointer = nil
             return
@@ -690,6 +760,12 @@ struct VImagePreparationConfiguration: Equatable, Sendable {
                     details: "The source reports \(FourCC.string(from: reportedPixelFormat) ?? String(reportedPixelFormat)); the explicit range contract requires \(FourCC.string(from: pixelFormat) ?? String(pixelFormat))"
                 )
             )
+        }
+
+        if let fieldCount = source.color.fieldCount, fieldCount != 1 {
+            return .unavailable(.unsupportedPixelFormatOrBitDepth(
+                details: "This spatial adapter accepts progressive video; the source declares \(fieldCount) fields per frame"
+            ))
         }
 
         return .valid(

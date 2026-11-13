@@ -1,0 +1,1152 @@
+{
+  "attachmentSchemaVersion": "mirmir-ash-v4-canonical-semantics-v2",
+  "boundedTemporalCaseID": "nv12-video-forced-tiled-temporal-16x12-to-32x24",
+  "buildConfiguration": "Release",
+  "captureSchemaVersion": "mirmir-ash-v4-cpu-metal-parity-capture-v3",
+  "cases": [
+    {
+      "association": "none",
+      "checkpointBoundaries": [
+        0
+      ],
+      "coverage": [
+        "nv12_video_range",
+        "odd_legal_dimensions",
+        "stride_padding_adversary",
+        "arbitrary_rational_phase",
+        "temporal_history",
+        "temporal_reset",
+        "scene_cut",
+        "checkpoint_resume",
+        "exact_timing_semantics",
+        "exact_attachment_semantics",
+        "repeat_execution",
+        "cross_process"
+      ],
+      "frames": [
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "moving_edge_0",
+          "presentationTime": {
+            "timescale": 30000,
+            "value": 0
+          },
+          "topToken": null
+        },
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "moving_edge_1",
+          "presentationTime": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "topToken": null
+        },
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "moving_edge_2",
+          "presentationTime": {
+            "timescale": 30000,
+            "value": 2002
+          },
+          "topToken": null
+        },
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "scene_cut_white",
+          "presentationTime": {
+            "timescale": 30000,
+            "value": 3003
+          },
+          "topToken": null
+        }
+      ],
+      "id": "nv12-video-temporal-odd-7x5-to-13x9",
+      "kind": "pixel_temporal",
+      "scanMode": "progressive",
+      "sourceHeight": 5,
+      "sourceWidth": 7,
+      "stateExpectations": [
+        {
+          "cadenceID": "progressive",
+          "classification": null,
+          "dominance": null,
+          "historyGeneration": 1,
+          "inputOrdinal": 0
+        },
+        {
+          "cadenceID": "progressive",
+          "classification": null,
+          "dominance": null,
+          "historyGeneration": 1,
+          "inputOrdinal": 2
+        },
+        {
+          "cadenceID": "progressive",
+          "classification": null,
+          "dominance": null,
+          "historyGeneration": 2,
+          "inputOrdinal": 3
+        }
+      ],
+      "storage": "nv12_video_range_8",
+      "targetHeight": 9,
+      "targetWidth": 13
+    },
+    {
+      "association": "none",
+      "checkpointBoundaries": [
+        1,
+        3
+      ],
+      "coverage": [
+        "bounded_tiled_temporal_path",
+        "tiled_allocation_contract",
+        "tiled_checkpoint_schema",
+        "temporal_tile_schedule",
+        "tile_schedule",
+        "seek_reset"
+      ],
+      "frames": [
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "moving_edge_0",
+          "presentationTime": {
+            "timescale": 30000,
+            "value": 0
+          },
+          "topToken": null
+        },
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "moving_edge_1",
+          "presentationTime": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "topToken": null
+        },
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "moving_edge_2",
+          "presentationTime": {
+            "timescale": 30000,
+            "value": 2002
+          },
+          "topToken": null
+        },
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "periodic_phase_0",
+          "presentationTime": {
+            "timescale": 30000,
+            "value": 3003
+          },
+          "temporalResetReason": "seek",
+          "topToken": null
+        },
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "periodic_phase_1",
+          "presentationTime": {
+            "timescale": 30000,
+            "value": 4004
+          },
+          "topToken": null
+        }
+      ],
+      "id": "nv12-video-forced-tiled-temporal-16x12-to-32x24",
+      "kind": "pixel_temporal",
+      "scanMode": "progressive",
+      "sourceHeight": 12,
+      "sourceWidth": 16,
+      "stateExpectations": [
+        {
+          "cadenceID": "progressive",
+          "classification": null,
+          "dominance": null,
+          "historyGeneration": 1,
+          "inputOrdinal": 2
+        },
+        {
+          "cadenceID": "progressive",
+          "classification": null,
+          "dominance": null,
+          "historyGeneration": 2,
+          "inputOrdinal": 3
+        },
+        {
+          "cadenceID": "progressive",
+          "classification": null,
+          "dominance": null,
+          "historyGeneration": 2,
+          "inputOrdinal": 4
+        }
+      ],
+      "storage": "nv12_video_range_8",
+      "targetHeight": 24,
+      "targetWidth": 32
+    },
+    {
+      "association": "none",
+      "checkpointBoundaries": [
+        1
+      ],
+      "coverage": [
+        "repeated_pattern"
+      ],
+      "frames": [
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "periodic_phase_0",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 0
+          },
+          "topToken": null
+        },
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "periodic_phase_1",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 1
+          },
+          "topToken": null
+        },
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "periodic_phase_0",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 2
+          },
+          "topToken": null
+        },
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "periodic_phase_1",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 3
+          },
+          "topToken": null
+        }
+      ],
+      "id": "nv12-video-periodic-ambiguous-8x6-to-15x11",
+      "kind": "pixel_temporal",
+      "scanMode": "progressive",
+      "sourceHeight": 6,
+      "sourceWidth": 8,
+      "stateExpectations": [
+        {
+          "cadenceID": "progressive",
+          "classification": null,
+          "dominance": null,
+          "historyGeneration": 1,
+          "inputOrdinal": 0
+        },
+        {
+          "cadenceID": "progressive",
+          "classification": null,
+          "dominance": null,
+          "historyGeneration": 1,
+          "inputOrdinal": 3
+        }
+      ],
+      "storage": "nv12_video_range_8",
+      "targetHeight": 11,
+      "targetWidth": 15
+    },
+    {
+      "association": "none",
+      "checkpointBoundaries": [],
+      "coverage": [
+        "nv12_full_range"
+      ],
+      "frames": [
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 24,
+            "value": 1
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "rational_detail",
+          "presentationTime": {
+            "timescale": 24,
+            "value": 0
+          },
+          "topToken": null
+        }
+      ],
+      "id": "nv12-full-rational-5x3-to-11x7",
+      "kind": "pixel_spatial",
+      "scanMode": "progressive",
+      "sourceHeight": 3,
+      "sourceWidth": 5,
+      "stateExpectations": [],
+      "storage": "nv12_full_range_8",
+      "targetHeight": 7,
+      "targetWidth": 11
+    },
+    {
+      "association": "none",
+      "checkpointBoundaries": [],
+      "coverage": [
+        "p010_video_range"
+      ],
+      "frames": [
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 24,
+            "value": 1
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "pq_static_dynamic",
+          "pattern": "rational_detail",
+          "presentationTime": {
+            "timescale": 24,
+            "value": 0
+          },
+          "topToken": null
+        }
+      ],
+      "id": "p010-video-hdr-rational-5x3-to-9x7",
+      "kind": "pixel_spatial",
+      "scanMode": "progressive",
+      "sourceHeight": 3,
+      "sourceWidth": 5,
+      "stateExpectations": [],
+      "storage": "p010_video_range_10",
+      "targetHeight": 7,
+      "targetWidth": 9
+    },
+    {
+      "association": "none",
+      "checkpointBoundaries": [],
+      "coverage": [
+        "p010_full_range",
+        "hdr_attachment_semantics"
+      ],
+      "frames": [
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 24000,
+            "value": 1001
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "hlg_static_dynamic",
+          "pattern": "rational_detail",
+          "presentationTime": {
+            "timescale": 24000,
+            "value": 0
+          },
+          "topToken": null
+        }
+      ],
+      "id": "p010-full-hlg-rational-7x5-to-13x9",
+      "kind": "pixel_spatial",
+      "scanMode": "progressive",
+      "sourceHeight": 5,
+      "sourceWidth": 7,
+      "stateExpectations": [],
+      "storage": "p010_full_range_10",
+      "targetHeight": 9,
+      "targetWidth": 13
+    },
+    {
+      "association": "none",
+      "checkpointBoundaries": [],
+      "coverage": [
+        "interlaced_tff",
+        "double_rate_field_timing",
+        "combing_reconstruction",
+        "interlaced_scene_cut",
+        "progressive_attachment_normalization"
+      ],
+      "frames": [
+        {
+          "bottomToken": 2,
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "fieldDetail": "temporal_top_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "topToken": 1
+        },
+        {
+          "bottomToken": 4,
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "fieldDetail": "temporal_top_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30000,
+            "value": 2002
+          },
+          "topToken": 3
+        },
+        {
+          "bottomToken": 6,
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "fieldDetail": "temporal_top_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30000,
+            "value": 3003
+          },
+          "topToken": 5
+        },
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "fieldDetail": "temporal_top_first",
+          "hdrProfile": "none",
+          "pattern": "scene_cut_white",
+          "presentationTime": {
+            "timescale": 30000,
+            "value": 4004
+          },
+          "topToken": null
+        }
+      ],
+      "id": "nv12-video-interlaced-tff-combing-8x6-to-13x9",
+      "kind": "pixel_interlaced_temporal",
+      "scanMode": "interlaced_tff",
+      "sourceHeight": 6,
+      "sourceWidth": 8,
+      "stateExpectations": [
+        {
+          "cadenceID": "interlaced_tff_double_rate",
+          "classification": "interlaced",
+          "dominance": "top_field_first",
+          "historyGeneration": 2,
+          "inputOrdinal": 0
+        },
+        {
+          "cadenceID": "interlaced_tff_double_rate",
+          "classification": "interlaced",
+          "dominance": "top_field_first",
+          "historyGeneration": 4,
+          "inputOrdinal": 3
+        }
+      ],
+      "storage": "nv12_video_range_8",
+      "targetHeight": 9,
+      "targetWidth": 13
+    },
+    {
+      "association": "none",
+      "checkpointBoundaries": [
+        10
+      ],
+      "coverage": [
+        "interlaced_bff",
+        "telecine_3_2",
+        "cadence_transition"
+      ],
+      "frames": [
+        {
+          "bottomToken": 2,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 0
+          },
+          "topToken": 1
+        },
+        {
+          "bottomToken": 4,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 1
+          },
+          "topToken": 3
+        },
+        {
+          "bottomToken": 4,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 2
+          },
+          "topToken": 5
+        },
+        {
+          "bottomToken": 8,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 3
+          },
+          "topToken": 7
+        },
+        {
+          "bottomToken": 10,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 4
+          },
+          "topToken": 7
+        },
+        {
+          "bottomToken": 12,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 5
+          },
+          "topToken": 11
+        },
+        {
+          "bottomToken": 14,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 6
+          },
+          "topToken": 13
+        },
+        {
+          "bottomToken": 14,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 7
+          },
+          "topToken": 15
+        },
+        {
+          "bottomToken": 18,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 8
+          },
+          "topToken": 17
+        },
+        {
+          "bottomToken": 20,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 9
+          },
+          "topToken": 17
+        },
+        {
+          "bottomToken": 22,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 10
+          },
+          "topToken": 21
+        },
+        {
+          "bottomToken": 24,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 11
+          },
+          "topToken": 21
+        },
+        {
+          "bottomToken": 26,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 12
+          },
+          "topToken": 25
+        },
+        {
+          "bottomToken": 28,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 13
+          },
+          "topToken": 27
+        },
+        {
+          "bottomToken": 30,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 14
+          },
+          "topToken": 29
+        },
+        {
+          "bottomToken": 32,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 15
+          },
+          "topToken": 31
+        },
+        {
+          "bottomToken": 34,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 16
+          },
+          "topToken": 33
+        },
+        {
+          "bottomToken": 36,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 17
+          },
+          "topToken": 35
+        },
+        {
+          "bottomToken": 38,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 18
+          },
+          "topToken": 37
+        },
+        {
+          "bottomToken": 40,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 19
+          },
+          "topToken": 39
+        },
+        {
+          "bottomToken": 42,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 20
+          },
+          "topToken": 41
+        },
+        {
+          "bottomToken": 44,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 21
+          },
+          "topToken": 43
+        }
+      ],
+      "id": "p010-full-interlaced-bff-telecine-resume-16x12-to-29x21",
+      "kind": "pixel_interlaced_temporal",
+      "scanMode": "interlaced_bff",
+      "sourceHeight": 12,
+      "sourceWidth": 16,
+      "stateExpectations": [
+        {
+          "cadenceID": "telecine_3_2_bff_double_rate",
+          "classification": "telecine_3_2",
+          "dominance": "bottom_field_first",
+          "historyGeneration": 4,
+          "inputOrdinal": 10
+        },
+        {
+          "cadenceID": "mixed_bff_double_rate",
+          "classification": "mixed",
+          "dominance": "bottom_field_first",
+          "historyGeneration": 5,
+          "inputOrdinal": 11
+        },
+        {
+          "cadenceID": "interlaced_bff_double_rate",
+          "classification": "interlaced",
+          "dominance": "bottom_field_first",
+          "historyGeneration": 7,
+          "inputOrdinal": 21
+        }
+      ],
+      "storage": "p010_full_range_10",
+      "targetHeight": 21,
+      "targetWidth": 29
+    },
+    {
+      "association": "none",
+      "checkpointBoundaries": [],
+      "coverage": [
+        "dominance_transition"
+      ],
+      "frames": [
+        {
+          "bottomToken": 2,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_top_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 0
+          },
+          "topToken": 1
+        },
+        {
+          "bottomToken": 4,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_top_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 1
+          },
+          "topToken": 3
+        },
+        {
+          "bottomToken": 6,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 2
+          },
+          "topToken": 5
+        },
+        {
+          "bottomToken": 8,
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "fieldDetail": "temporal_bottom_first",
+          "hdrProfile": "none",
+          "pattern": "field_pair",
+          "presentationTime": {
+            "timescale": 30,
+            "value": 3
+          },
+          "topToken": 7
+        }
+      ],
+      "id": "nv12-video-dominance-transition-tff-to-bff-8x6-to-13x9",
+      "kind": "pixel_interlaced_temporal",
+      "scanMode": "interlaced_tff",
+      "sourceHeight": 6,
+      "sourceWidth": 8,
+      "stateExpectations": [
+        {
+          "cadenceID": "interlaced_tff_double_rate",
+          "classification": "interlaced",
+          "dominance": "top_field_first",
+          "historyGeneration": 2,
+          "inputOrdinal": 1
+        },
+        {
+          "cadenceID": "interlaced_bff_double_rate",
+          "classification": "interlaced",
+          "dominance": "bottom_field_first",
+          "historyGeneration": 3,
+          "inputOrdinal": 2
+        }
+      ],
+      "storage": "nv12_video_range_8",
+      "targetHeight": 9,
+      "targetWidth": 13
+    },
+    {
+      "association": "straight",
+      "checkpointBoundaries": [],
+      "coverage": [
+        "alpha_straight"
+      ],
+      "frames": [
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 24,
+            "value": 1
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "transparent_edge",
+          "presentationTime": {
+            "timescale": 24,
+            "value": 0
+          },
+          "topToken": null
+        }
+      ],
+      "id": "alpha-straight-bgra8-5x3-to-11x7",
+      "kind": "alpha_spatial",
+      "scanMode": "progressive",
+      "sourceHeight": 3,
+      "sourceWidth": 5,
+      "stateExpectations": [],
+      "storage": "bgra8",
+      "targetHeight": 7,
+      "targetWidth": 11
+    },
+    {
+      "association": "premultiplied",
+      "checkpointBoundaries": [],
+      "coverage": [
+        "alpha_premultiplied"
+      ],
+      "frames": [
+        {
+          "bottomToken": null,
+          "duration": {
+            "timescale": 24,
+            "value": 1
+          },
+          "fieldDetail": "none",
+          "hdrProfile": "none",
+          "pattern": "transparent_edge",
+          "presentationTime": {
+            "timescale": 24,
+            "value": 0
+          },
+          "topToken": null
+        }
+      ],
+      "id": "alpha-premultiplied-argb16-5x3-to-9x7",
+      "kind": "alpha_spatial",
+      "scanMode": "progressive",
+      "sourceHeight": 3,
+      "sourceWidth": 5,
+      "stateExpectations": [],
+      "storage": "argb16_big_endian",
+      "targetHeight": 7,
+      "targetWidth": 9
+    }
+  ],
+  "comparison": "exact_visible_plane_attachment_timeline_checkpoint_and_resume_bytes",
+  "crossProcessCaptureCount": 2,
+  "gateID": "deterministic-engine-v4-cpu-metal-byte-parity",
+  "parityCoverage": [
+    "nv12_video_range",
+    "nv12_full_range",
+    "p010_video_range",
+    "p010_full_range",
+    "alpha_straight",
+    "alpha_premultiplied",
+    "hdr_attachment_semantics",
+    "odd_legal_dimensions",
+    "stride_padding_adversary",
+    "arbitrary_rational_phase",
+    "temporal_history",
+    "temporal_reset",
+    "seek_reset",
+    "repeated_pattern",
+    "scene_cut",
+    "interlaced_tff",
+    "interlaced_bff",
+    "double_rate_field_timing",
+    "combing_reconstruction",
+    "telecine_3_2",
+    "cadence_transition",
+    "dominance_transition",
+    "interlaced_scene_cut",
+    "checkpoint_resume",
+    "exact_timing_semantics",
+    "exact_attachment_semantics",
+    "progressive_attachment_normalization",
+    "repeat_execution",
+    "cross_process",
+    "bounded_tiled_temporal_path",
+    "tiled_allocation_contract",
+    "tiled_checkpoint_schema",
+    "temporal_tile_schedule",
+    "tile_schedule"
+  ],
+  "releaseRuntime": {
+    "bundleRepositoryPath": "Mirmir/Resources/ASH-P06.bundle",
+    "requiredReleaseStatus": "release_qualified",
+    "runtimeID": "ash-p06-deterministic-v4",
+    "trustRootSourceRepositoryPath": "Mirmir/Upscaling/Deterministic/DeterministicEngineV4Support.swift"
+  },
+  "repeatExecutionCount": 2,
+  "reportSchemaVersion": "mirmir-ash-v4-cpu-metal-parity-report-v3",
+  "runArtifactSchemaVersion": "mirmir-ash-v4-cpu-metal-parity-run-v3",
+  "schedulePairs": [
+    {
+      "spatialSchedule": "row_major",
+      "temporalSchedule": "raster"
+    },
+    {
+      "spatialSchedule": "reverse",
+      "temporalSchedule": "reverse_raster"
+    },
+    {
+      "spatialSchedule": "even_then_odd",
+      "temporalSchedule": "even_then_odd"
+    }
+  ],
+  "schemaVersion": "mirmir-ash-v4-cpu-metal-parity-contract-v3",
+  "temporalTilePolicy": {
+    "maximumFrameHeight": 64,
+    "maximumFrameWidth": 64,
+    "policyID": "ash.release.parity.tiles.8x8-halo5-max64-v1",
+    "searchHalo": 5,
+    "tileHeight": 8,
+    "tileWidth": 8
+  },
+  "tileSchedules": [
+    "row_major",
+    "reverse",
+    "even_then_odd"
+  ],
+  "tools": {
+    "captureSourceSHA256": "2db1fb1543ba09cc572ece316cf5664e700a7a752d4bee516159400092f4c6ea",
+    "chromaGeometryValidatorSHA256": "4364e6fc52a42ee2dd2b3f4c76a70b56f81a32bcceddee6ec38ae5a56ab628bf",
+    "evaluatorSHA256": "7699b76c7fbb36a2d03684967e7491807699c3c371cc97a1cf804a3d465176e3",
+    "runnerSHA256": "87a42e33fd3ec76292f5c7e85d806b1c1d9082ecda7f10c5b377fd88f2e15556"
+  }
+}

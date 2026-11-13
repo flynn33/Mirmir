@@ -458,12 +458,16 @@ def stage_quality_corpus(manifest: Path, destination: Path) -> Path:
 def stage_parity_contract(contract: Path, destination: Path) -> Path:
     contract = safe_regular(contract, "parity contract")
     value = require_mapping(load_json(contract, "parity contract"), "parity contract")
-    require(
-        value.get("schemaVersion") == "mirmir-ash-v4-cpu-metal-parity-contract-v2",
-        "parity contract schema differs",
-    )
+    schema = value.get("schemaVersion")
+    require(schema in {"mirmir-ash-v4-cpu-metal-parity-contract-v2", "mirmir-ash-v4-cpu-metal-parity-contract-v3"},
+            "parity contract schema differs")
+    phase2 = schema == "mirmir-ash-v4-cpu-metal-parity-contract-v3"
+    if phase2:
+        tools = require_mapping(value.get("tools"), "parity contract tools")
+        require_exact_keys(tools, {"captureSourceSHA256", "evaluatorSHA256", "runnerSHA256", "chromaGeometryValidatorSHA256"}, "parity contract tools")
+        for key, value in tools.items(): require_hex(value, (64,), f"parity contract {key}")
     destination.mkdir(parents=True, exist_ok=False, mode=0o700)
-    staged = destination / "cpu-metal-parity-contract-v2.json"
+    staged = destination / ("cpu-metal-parity-contract-v3.json" if phase2 else "cpu-metal-parity-contract-v2.json")
     copy_regular(contract, staged, "parity contract")
     return staged
 
@@ -893,6 +897,7 @@ def validate_observer_result(
     request: Mapping[str, Any],
     executable: Path,
     capture_root: Path,
+    expected_manifest_schema: str | None = None,
 ) -> dict[str, Any]:
     result = require_mapping(load_json_bytes(result_bytes, "observer result"), "observer result")
     require(result_bytes == canonical_bytes(result), "observer result is not canonical JSON")
@@ -1003,6 +1008,11 @@ def validate_observer_result(
         "capture manifest descriptor differs",
     )
     captured = require_mapping(load_json(manifest_path, "capture manifest"), "capture manifest")
+    if expected_manifest_schema is not None:
+        require(
+            captured.get("schemaVersion") == expected_manifest_schema,
+            "capture manifest and contract schema profiles differ",
+        )
     require(
         captured.get("evidenceRequestSHA256") == result["requestSHA256"],
         "capture manifest request identity differs",
@@ -1072,6 +1082,17 @@ def capture_exact_candidate(
     contract_sha = sha256_file(contract)
     recovery_producer_source: bytes | None = None
     recovery_producer_source_sha: str | None = None
+    expected_manifest_schema: str | None = None
+    if lane == "quality":
+        contract_value = require_mapping(load_json(contract, "quality contract"), "quality contract")
+        schema = contract_value.get("schemaVersion")
+        require(schema in {"mirmir-ash-v4-quality-gate-contract-v1", "mirmir-ash-v4-quality-gate-contract-v2"},
+                "quality contract schema differs")
+        expected_manifest_schema = (
+            "mirmir-ash-v4-quality-candidate-capture-v2"
+            if schema == "mirmir-ash-v4-quality-gate-contract-v2"
+            else "mirmir-ash-v4-quality-candidate-capture-v1"
+        )
     if lane == "parity":
         contract_value = require_mapping(load_json(contract, "parity contract"), "parity contract")
         contract_tools = require_mapping(contract_value.get("tools"), "parity contract tools")
@@ -1079,6 +1100,15 @@ def capture_exact_candidate(
             contract_tools.get("captureSourceSHA256") == observer_source_sha,
             "parity contract is not bound to the packaged observer source",
         )
+        if contract_value.get("schemaVersion") == "mirmir-ash-v4-cpu-metal-parity-contract-v3":
+            require_exact_keys(contract_tools, {"captureSourceSHA256", "evaluatorSHA256", "runnerSHA256", "chromaGeometryValidatorSHA256"}, "parity contract tools")
+            for key, relative in {
+                "evaluatorSHA256": "script/v4/cpu_metal_parity_v4.py",
+                "runnerSHA256": "script/v4/run_cpu_metal_parity_v4.sh",
+                "chromaGeometryValidatorSHA256": "script/v4/chroma_geometry_v4.py",
+            }.items():
+                require(contract_tools[key] == sha256_bytes(committed_bytes(repository, candidate["sourceCommit"], relative)),
+                    f"parity contract candidate source differs: {key}")
     elif lane == "recovery":
         contract_value = require_mapping(
             load_json(contract, "recovery contract"), "recovery contract"
@@ -1279,7 +1309,7 @@ def capture_exact_candidate(
         result_bytes = parse_observer_stdout(process.stdout)
         live_capture = qualification_root / "capture"
         result = validate_observer_result(
-            result_bytes, request, executable, live_capture
+            result_bytes, request, executable, live_capture, expected_manifest_schema
         )
         tree = capture_tree(live_capture)
 
@@ -1515,6 +1545,18 @@ def validate_capture_binding(
     manifest = require_mapping(
         load_json(capture / manifest_name, "capture manifest"), "capture manifest"
     )
+    if record["lane"] == "quality":
+        contract_value = require_mapping(load_json(paths["contract"], "quality contract"), "quality contract")
+        schema = contract_value.get("schemaVersion")
+        require(schema in {"mirmir-ash-v4-quality-gate-contract-v1", "mirmir-ash-v4-quality-gate-contract-v2"},
+                "quality contract schema differs")
+        expected_manifest_schema = (
+            "mirmir-ash-v4-quality-candidate-capture-v2"
+            if schema == "mirmir-ash-v4-quality-gate-contract-v2"
+            else "mirmir-ash-v4-quality-candidate-capture-v1"
+        )
+        require(manifest.get("schemaVersion") == expected_manifest_schema,
+                "capture manifest and contract schema profiles differ")
     require(
         manifest.get("packagedCandidateIdentity") == observed_package
         and manifest.get("evidenceRequestSHA256") == record["requestSHA256"],

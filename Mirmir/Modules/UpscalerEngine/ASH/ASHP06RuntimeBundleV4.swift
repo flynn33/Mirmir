@@ -573,6 +573,8 @@ enum ASHP06LockedPerformanceGateV4 {
 /// records the exact natural sources, decoder, construction procedure, case
 /// inventory, and resulting artifact-set identity.
 enum ASHP06LockedNaturalQualityEvidenceV4 {
+    static let captureSourceRevision =
+        "47219b17961551230eec5203db470d166e205a7f"
     static let corpusID = "ash-v4-seven-cohort-locked-natural-v1"
     static let manifestByteCount: Int64 = 192_662
     static let manifestSHA256 = try! ASHSHA256V4(
@@ -634,8 +636,8 @@ enum ASHP06LockedNaturalQualityEvidenceV4 {
     static func captureImplementation() throws -> ASHP06LockedFileIdentityV4 {
         try identity(
             "Mirmir/App/MirmirApp.swift",
-            342_264,
-            "9fcf2009a18385524f65644cf13e744a0cdd58550808bc43089dff4f12f98a84"
+            343_095,
+            "46654baec4279f4945051102c60b2f9638b1339213b638bed6c41706c30eb3dc"
         )
     }
 
@@ -990,8 +992,8 @@ enum ASHP06FixedPointSourceIdentityV4 {
     static func spatialScalePlan() throws -> ASHP06LockedFileIdentityV4 {
         try identity(
             "Mirmir/Modules/UpscalerEngine/SpatialScalePlanV4.swift",
-            10_953,
-            "04eb8a6d960e8cbf95ab98d3b3f1baf5bb3826741dfb2dc242de1bda9ca5774e"
+            21_225,
+            "15995cfe2bbf384e85622c5b60b002ca4b66dfcddead3f9b7922d11ce930a16a"
         )
     }
 
@@ -1074,9 +1076,9 @@ struct ASHP06PhaseCoefficientProcedureArtifactV4: Codable, Equatable,
                 .expectedSchemaID,
             artifactRole:
                 ASHRuntimeArtifactRoleV4.phaseCoefficientProcedure.rawValue,
-            kernelContractID: FixedPointCoefficientCompilerV4.procedureID,
+            kernelContractID: SpatialChromaGeometryV4.kernelContractID,
             coordinateProcedureID:
-                "pixel-center-2j-plus-1-times-s-minus-t-over-2t-v1",
+                SpatialChromaGeometryV4.coordinateProcedureID,
             coefficientProcedureID: FixedPointCoefficientCompilerV4.procedureID,
             spatialScalePlanSource:
                 try ASHP06FixedPointSourceIdentityV4.spatialScalePlan(),
@@ -1137,9 +1139,9 @@ enum ASHP06VerificationSourceIdentityV4 {
         ASHP06LockedFileIdentityV4(
             repositoryRelativePath:
                 "Mirmir/Modules/UpscalerEngine/ASH/ASHExecutionPlanV4.swift",
-            byteCount: 20_377,
+            byteCount: 20_371,
             contentSHA256: try ASHSHA256V4(
-                "f84ef84e038ecade76a550f9ca235913b109c8b9d47bbefff9e7578d9e50a0f2"
+                "341baec33cb2822bd1e7790f1312d33f19058e21feae1ddba5e699838a220e5b"
             )
         )
     }
@@ -1377,34 +1379,142 @@ enum ASHP06CanonicalRuntimeArtifactsV4 {
 
     static func validateLockedRepositoryInputs(
         repositoryRoot: URL,
+        historicalNaturalQualityCapture: Data? = nil,
+        historicalNaturalQualityMetric: Data? = nil,
+        historicalNaturalQualityRunner: Data? = nil,
+        historicalNaturalQualityCorpusBuilder: Data? = nil,
         fileManager: FileManager = .default
     ) throws {
         let identities = try ASHP06LockedPerformanceGateV4.allLockedFiles
             + ASHP06LockedNaturalQualityEvidenceV4.allLockedFiles
             + ASHP06FixedPointSourceIdentityV4.allLockedFiles
             + [ASHP06VerificationSourceIdentityV4.executionPlan()]
+        let captureIdentity = try ASHP06LockedNaturalQualityEvidenceV4.captureImplementation()
+        let metricIdentity = try ASHP06LockedNaturalQualityEvidenceV4.metricImplementation()
+        let runnerIdentity = try ASHP06LockedNaturalQualityEvidenceV4.runnerImplementation()
+        let corpusBuilderIdentity = try ASHP06LockedNaturalQualityEvidenceV4.corpusBuilder()
         for identity in identities {
             let url = repositoryRoot.appendingPathComponent(
                 identity.repositoryRelativePath,
                 isDirectory: false
             )
-            let values = try url.resourceValues(
-                forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]
-            )
-            guard values.isRegularFile == true,
-                  values.isSymbolicLink != true,
-                  Int64(values.fileSize ?? -1) == identity.byteCount else {
-                throw ASHP06RuntimeBundleV4Error.invalidBuildInput(
-                    "locked input size/type mismatch: \(identity.repositoryRelativePath)"
-                )
+            let historical: Data?
+            if identity == captureIdentity {
+                historical = historicalNaturalQualityCapture
+            } else if identity == metricIdentity {
+                historical = historicalNaturalQualityMetric
+            } else if identity == runnerIdentity {
+                historical = historicalNaturalQualityRunner
+            } else if identity == corpusBuilderIdentity {
+                historical = historicalNaturalQualityCorpusBuilder
+            } else {
+                historical = nil
             }
-            let data = try Data(contentsOf: url, options: .mappedIfSafe)
-            guard ASHSHA256V4(rawData: data) == identity.contentSHA256 else {
-                throw ASHP06RuntimeBundleV4Error.invalidBuildInput(
-                    "locked input hash mismatch: \(identity.repositoryRelativePath)"
-                )
-            }
+            try validateLockedRepositoryInput(identity, at: url, historical: historical)
         }
+    }
+
+    /// Checks the current regular file without substituting historical bytes.
+    /// The generator chooses the four explicitly historical NaturalQuality
+    /// references; a mismatch in any other input is never an automatic fallback.
+    static func lockedRepositoryInputMatches(
+        _ identity: ASHP06LockedFileIdentityV4,
+        at url: URL
+    ) throws -> Bool {
+        var inspectedURL = url
+        inspectedURL.removeAllCachedResourceValues()
+        let values = try inspectedURL.resourceValues(
+            forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]
+        )
+        guard values.isRegularFile == true, values.isSymbolicLink != true else {
+            throw ASHP06RuntimeBundleV4Error.invalidBuildInput(
+                "locked input size/type mismatch: \(identity.repositoryRelativePath)"
+            )
+        }
+        guard Int64(values.fileSize ?? -1) == identity.byteCount else { return false }
+        return try ASHSHA256V4(rawData: Data(contentsOf: url, options: .mappedIfSafe))
+            == identity.contentSHA256
+    }
+
+    static func validateLockedRepositoryInput(
+        _ identity: ASHP06LockedFileIdentityV4,
+        at url: URL,
+        historical: Data? = nil
+    ) throws {
+        var inspectedURL = url
+        inspectedURL.removeAllCachedResourceValues()
+        let values = try inspectedURL.resourceValues(
+            forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]
+        )
+        guard values.isRegularFile == true, values.isSymbolicLink != true,
+              historical != nil || Int64(values.fileSize ?? -1) == identity.byteCount else {
+            throw ASHP06RuntimeBundleV4Error.invalidBuildInput(
+                "locked input size/type mismatch: \(identity.repositoryRelativePath)"
+            )
+        }
+        let data = try historical ?? Data(contentsOf: url, options: .mappedIfSafe)
+        guard Int64(data.count) == identity.byteCount else {
+            throw ASHP06RuntimeBundleV4Error.invalidBuildInput(
+                "locked input size/type mismatch: \(identity.repositoryRelativePath)"
+            )
+        }
+        guard ASHSHA256V4(rawData: data) == identity.contentSHA256 else {
+            throw ASHP06RuntimeBundleV4Error.invalidBuildInput(
+                "locked input hash mismatch: \(identity.repositoryRelativePath)"
+            )
+        }
+    }
+
+    /// Reads immutable evidence from its original commit while the production
+    /// source manifest continues to describe the current working source.
+    static func historicalLockedRepositoryInput(
+        _ identity: ASHP06LockedFileIdentityV4,
+        repositoryRoot: URL,
+        revision: String,
+        gitExecutable: URL = URL(fileURLWithPath: "/usr/bin/git"),
+        expectedGitMode: String? = nil
+    ) throws -> Data {
+        func failure() -> ASHP06RuntimeBundleV4Error {
+            .invalidBuildInput("historical locked input unavailable or invalid: \(identity.repositoryRelativePath)")
+        }
+        guard revision.utf8.count == 40,
+              revision.utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }),
+              !identity.repositoryRelativePath.hasPrefix("/"),
+              !identity.repositoryRelativePath.split(separator: "/").contains("..") else { throw failure() }
+        func git(_ arguments: [String]) throws -> Data {
+            let process = Process()
+            process.executableURL = gitExecutable
+            process.currentDirectoryURL = repositoryRoot
+            process.arguments = ["--no-replace-objects"] + arguments
+            let output = Pipe()
+            process.standardOutput = output
+            process.standardError = FileHandle.nullDevice
+            do { try process.run() } catch { throw failure() }
+            let data = output.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            guard process.terminationReason == .exit, process.terminationStatus == 0 else { throw failure() }
+            return data
+        }
+        let listing = try git(["ls-tree", "-z", revision, "--", identity.repositoryRelativePath])
+        let records = listing.split(separator: 0)
+        guard records.count == 1, let record = String(data: Data(records[0]), encoding: .utf8) else { throw failure() }
+        let fields = record.split(separator: "\t", omittingEmptySubsequences: false)
+        guard fields.count == 2, fields[1] == identity.repositoryRelativePath else { throw failure() }
+        let object = fields[0].split(separator: " ")
+        guard object.count == 3, ["100644", "100755"].contains(String(object[0])), object[1] == "blob",
+              object[2].utf8.count == 40,
+              object[2].utf8.allSatisfy({ (48...57).contains($0) || (97...102).contains($0) }) else { throw failure() }
+        guard expectedGitMode == nil || expectedGitMode == String(object[0]) else {
+            throw failure()
+        }
+        let blob = String(object[2])
+        let size = try git(["cat-file", "-s", blob])
+        guard Int64(String(decoding: size, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
+                == identity.byteCount else { throw failure() }
+        let data = try git(["cat-file", "blob", blob])
+        guard Int64(data.count) == identity.byteCount,
+              ASHSHA256V4(rawData: data) == identity.contentSHA256 else { throw failure() }
+        return data
     }
 
     private static func input<T: Encodable>(
@@ -1735,6 +1845,31 @@ enum ASHP06RuntimeBundleLoaderV4 {
         metalLibraryValidator: any ASHMetalLibraryValidatingV4,
         fileManager: FileManager = .default
     ) throws -> ASHVerifiedRuntimeBundleV4 {
+        let runtime = try loadForCPU(
+            at: bundleURL,
+            trustPolicy: trustPolicy,
+            fileManager: fileManager
+        )
+        do {
+            try metalLibraryValidator.validateExecutableMetalLibrary(
+                runtime.artifactData(for: .metalLibrary)
+            )
+        } catch {
+            throw ASHP06RuntimeBundleV4Error.metalLibraryValidationFailed(
+                String(describing: error)
+            )
+        }
+        return runtime
+    }
+
+    /// Verifies the complete runtime, including Metal artifact bytes and their
+    /// cross-bindings, without requiring a GPU to execute the CPU backend.
+    /// Metal callers use `load` to also check executable compatibility.
+    static func loadForCPU(
+        at bundleURL: URL,
+        trustPolicy: ASHRuntimeTrustPolicyV4,
+        fileManager: FileManager = .default
+    ) throws -> ASHVerifiedRuntimeBundleV4 {
         let requestedBundle = bundleURL.standardizedFileURL
         let bundleValues = try requestedBundle.resourceValues(
             forKeys: [.isDirectoryKey, .isSymbolicLinkKey]
@@ -1858,15 +1993,6 @@ enum ASHP06RuntimeBundleLoaderV4 {
                 role: descriptor.role,
                 releaseStatus: manifest.releaseStatus
             )
-            if descriptor.role == .metalLibrary {
-                do {
-                    try metalLibraryValidator.validateExecutableMetalLibrary(data)
-                } catch {
-                    throw ASHP06RuntimeBundleV4Error.metalLibraryValidationFailed(
-                        String(describing: error)
-                    )
-                }
-            }
             loaded[descriptor.role] = data
         }
         let inputs = loaded.map {

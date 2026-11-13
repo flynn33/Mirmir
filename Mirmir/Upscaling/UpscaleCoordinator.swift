@@ -1,6 +1,6 @@
 import Foundation
 
-final class ProcessingCancellation: @unchecked Sendable {
+final class ProcessingCancellation: NativeMediaInputCancellationV4, @unchecked Sendable {
     private let lock = NSLock()
     private var cancelled = false
 
@@ -126,7 +126,12 @@ actor UpscaleCoordinator {
                 details: "the prepared adapter reported \(prepared.actualBackendID.rawValue), so the explicit job was stopped instead of falling back"
             )
         }
-        try cancellation.check()
+        do {
+            try cancellation.check()
+        } catch {
+            try? await prepared.finish()
+            throw error
+        }
 
         return try await processingSession.process(
             request: request,

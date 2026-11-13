@@ -1035,7 +1035,6 @@ final class DeterministicMetalBackendTests: XCTestCase {
         var performanceRecords: [BaselinePerformanceRecord] = []
         var cpuImplementationVersion: String?
         var metalImplementationVersion: String?
-        var frameIndex = 0
 
         for pixelFormat in [
             kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
@@ -1045,6 +1044,7 @@ final class DeterministicMetalBackendTests: XCTestCase {
             let sourceInfo = makeSourceInfo(pixelFormat: pixelFormat)
 
             for route in ASHSpatialRouteV2.allCases {
+                var frameIndex = 0
                 let target = CGSize(
                     width: try route.destinationExtent(for: sourceWidth),
                     height: try route.destinationExtent(for: sourceHeight)
@@ -1400,7 +1400,8 @@ final class DeterministicMetalBackendTests: XCTestCase {
                 alphaModel: alphaModel,
                 hasMasteringDisplayMetadata: false,
                 hasContentLightLevelMetadata: false,
-                dynamicRange: .sdr
+                dynamicRange: .sdr,
+                chromaSiting: alphaModel == .none ? .left : .notApplicable
             )
         )
     }

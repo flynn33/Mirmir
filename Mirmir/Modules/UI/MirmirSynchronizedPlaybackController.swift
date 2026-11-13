@@ -158,7 +158,14 @@ private extension MirmirSynchronizedPlaybackController {
         }
 
         do {
-            let asset = AVURLAsset(url: url)
+            let asset: AVURLAsset
+            switch role {
+            case .source:
+                asset = try await NativeMediaInputAssetResolverV4
+                    .presentationAsset(url: url)
+            case .completedOutput:
+                asset = AVURLAsset(url: url)
+            }
             let isPlayable = try await asset.load(.isPlayable)
             guard isPlayable else {
                 throw MirmirCompletedPlaybackError.notPlayable(role: role)

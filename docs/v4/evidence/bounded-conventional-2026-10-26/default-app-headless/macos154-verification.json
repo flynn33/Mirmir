@@ -1,0 +1,43 @@
+{
+  "actualSystem": "ProductName:\t\tmacOS\nProductVersion:\t\t15.4\nBuildVersion:\t\t24E248\n",
+  "allPass": true,
+  "appOwnedLivePhaseOneSealAuthenticated": true,
+  "architecture": "arm64",
+  "completed": true,
+  "crossPhaseStateAndDirectArtifactsEqual": true,
+  "decodedSemanticEqualityVerified": true,
+  "defaultAppFiles": 21,
+  "differentProcessIDs": true,
+  "distributionQualification": false,
+  "embeddedProductionRuntimePathVerified": true,
+  "error": null,
+  "everyDefaultAppFileUnchanged": true,
+  "executableSHA256": "5a6cfa4a65df5de82dd712e1b67df8985ace1e1814f9bde2bc65580900273a60",
+  "externalContainerReadAttempted": false,
+  "frameCount": 12,
+  "noDYLDOrXCTestEnvironment": true,
+  "notarizedProof": false,
+  "originalZIP_SHA256": "dd19f636bef97a0f63711e2063364b328c58c791d63d03a1bd6a32542d0d16aa",
+  "prepareChecks": {
+    "deterministicCPUProcess": true,
+    "durableCheckpointPause": true,
+    "productionP06Load": true,
+    "realMediaProbe": true,
+    "sandboxIsolation": true,
+    "shippingExecutableIdentity": true,
+    "userQueueUntouched": true
+  },
+  "recoverChecks": {
+    "checkpointResumeCompleted": true,
+    "decodedSemanticEquality": true,
+    "durableQueueReopened": true,
+    "phaseOneSealReplayVerified": true,
+    "productionP06Load": true,
+    "sandboxIsolation": true,
+    "shippingExecutableIdentity": true,
+    "userQueueUntouched": true
+  },
+  "resultArchiveSHA256": "7cb10fea8d0d3509b7a05b0a35e498e8ffb92a15725dbabf908697169e82c109",
+  "scope": "development-signed default-app headless workflow smoke on actual macOS 15.4; not notarized or distribution qualification",
+  "sourceCommit": "c1dbe8509fdc06d3a8acd085008ccc00af98a013"
+}

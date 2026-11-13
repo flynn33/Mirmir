@@ -20,6 +20,8 @@ struct VideoColorInfo: Equatable, Sendable {
     let hasMasteringDisplayMetadata: Bool
     let hasContentLightLevelMetadata: Bool
     let dynamicRange: VideoDynamicRange
+    var chromaSiting: CanonicalChromaSitingV4? = nil
+    var chromaSitingBottomField: CanonicalChromaSitingV4? = nil
 
     static let unknown = VideoColorInfo(
         colorPrimaries: nil,

@@ -4,6 +4,7 @@
 
 Mirmir is a native macOS video upscaler built for explicit, local processing.
 
+
 The current marketing version and build number are recorded in [`VERSION`](VERSION) and [`BUILD_NUMBER`](BUILD_NUMBER), then synchronized with Xcode. Release packaging, signing, notarization, and publication remain deliberate operator actions.
 
 ## Table of contents
@@ -23,10 +24,15 @@ The current marketing version and build number are recorded in [`VERSION`](VERSI
 
 ## Current release
 
-**Version 1.7.1 build 19** adds **Window > Show Main Window** (**Command-0**) to reopen the workspace after closing it or bring it forward when already open. Native menu lifecycle verification passed; see [`docs/WINDOW_LIFECYCLE.md`](docs/WINDOW_LIFECYCLE.md) for the review issue and verification results and procedure.
+**Version 1.7.2 build 20** is the current QA candidate on `main` after merging `codex/final-release-qa`. It carries physical chroma / JFIF / ProRes working-format repairs, conventional whole-asset preservation, universal remux + software-decode admission (Matroska/H.264 remux; VP9/WebM and WMV/ASF software paths), JPEG/MJPEG matrix admission, structural creation-date restoration, MPEG-TS software routing, VT quality fail-closed admission, and multi packet-AAC without inventing file-global `iTunSMPB`.
 
-This patch retains:
+The full optimized non-UI Release suite on the QA tip reported **844 passed, zero failures, 15 opt-in skips (859 total)**. The default universal Release application builds and verifies with zero warnings. Rosetta and macOS 15.4 roster checks passed as recorded in [`docs/BOUNDED_CONVENTIONAL_QA_2026-10-26.md`](docs/BOUNDED_CONVENTIONAL_QA_2026-10-26.md). Passing suites are not an all-feature certification.
 
+**Release remains blocked.** Reported customer error 11 is still open (not causally reproduced); see [`docs/ERROR11_INVESTIGATION_2026-11-09.md`](docs/ERROR11_INVESTIGATION_2026-11-09.md). P06 sealed aggregates, Store, and Intel remain Jim-owned. UI testing is excluded. Jim handles notarization and App Store Connect.
+
+This candidate retains:
+
+- The 1.7.1 **Window > Show Main Window** (**Command-0**) workspace restore
 - The 1.7.0 deterministic finish-stage assembly and whole-asset migration repairs
 - Bounded parallel spatial conditioning on both deterministic routes
 
@@ -34,9 +40,9 @@ Workers own disjoint row stripes and bounded scratch; immutable boundary rows pr
 
 At 3840×1632, the measured spatial-stage median fell from 91.325 to 10.248 ms with 14 workers across five alternating pairs after warmup—an **8.91×** improvement with identical pixels and controls. This measures that stage; full-movie completion time remains unqualified. See [`docs/DETERMINISTIC_SPATIAL_PARALLELISM.md`](docs/DETERMINISTIC_SPATIAL_PARALLELISM.md) for implementation, strict parity coverage, and verification limits, and [`docs/v4/CURRENT_QUALIFICATION_STATUS.md`](docs/v4/CURRENT_QUALIFICATION_STATUS.md) for current results and remaining qualification work.
 
-### What 1.7.1 build 19 carries forward
+### What 1.7.2 build 20 carries forward
 
-Version 1.7.1 build 19:
+Version 1.7.2 build 20:
 
 - Carries the deterministic ASH P06 CPU and Metal engine beside the supported Apple scaling frameworks
 - Preserves the completed simulator-only M7 candidate selection
@@ -44,6 +50,8 @@ Version 1.7.1 build 19:
 - Keeps every backend choice, preservation decision, and fallback boundary visible
 - Separates live Upscale processing from the independent Compare player
 - Permits authenticated failed jobs to resume from their last verified nonterminal checkpoint
+- Admits remux-admissible containers via deterministic MOV remux and remux-inadmissible VP9/WMV via software decode
+- Restores structural `mvhd`/`tkhd`/`mdhd` creation dates on migrated, MediaPipeline, and SegmentAssembler finals
 
 Settings can place the durable job cache on user-selected storage and remove inactive job data without touching completed destination movies.
 
@@ -64,23 +72,48 @@ See [the repair details](docs/DETERMINISTIC_FINALIZATION_REPAIR.md) and [portabl
 
 ## Highlights
 
-- Midnight Nordic interface with an interactive before-and-after comparison viewer for completed jobs.
-- Branded Dashboard and About surfaces with live, app-specific CPU, memory, and disk telemetry plus truthful explicit Metal-route activity.
-- Deterministic CPU and Metal ASH P06 routes for arbitrary integral target dimensions, with one canonical fixed-point plan and no silent backend substitution.
-- Native 8-bit NV12 and 10-bit P010/HDR processing, field-aware deinterlacing, rational sample-aspect/clean-aperture geometry, and ProRes 4444 alpha output.
-- State-conditioned spatial reconstruction plus bounded, motion-compensated temporal history with deterministic checkpoint restoration, parallel spatial stripes, and parallel motion block searches. Frames and history stay ordered; active processing remains protected from App Nap.
-- Explicit Apple-native choices using VideoToolbox, MetalFX, Metal Performance Shaders, Core Image, Accelerate/vImage, and pixel transfer where available.
-- HEVC, H.264, Apple ProRes 422, and alpha-capable Apple ProRes 4444 output in a QuickTime movie container.
-- Ordered video, audio, subtitle, caption, chapter, timecode, timed-metadata, and auxiliary tracks are planned explicitly and preserved or transcoded according to a verified whole-asset plan.
-- When audio preservation is enabled, conventional and Deterministic v4 jobs keep every source audio track and validate language, enabled/default state, and alternate-group topology, including one-member audible selection groups, after writing.
-- Durable bookmark-backed batch jobs survive relaunch. Pause/resume uses segment and temporal checkpoints; launch recovery contains corrupt work and reconciles registered partial artifacts.
-- Settings can place the durable job cache on a user-selected local folder, mounted drive, or mounted share. Users can delete individual jobs, delete finished or unfinished jobs in bulk, or clear all inactive job and temporary cache data without deleting completed output movies.
-- Output is semantically validated before atomic publication; cancellation, failure, and crash recovery account for temporary artifacts explicitly.
-- A single persistent development journal records backend selection, media geometry and format, exact sample timing, durable checkpoint state, disk and volume facts, opened audio topology, nested errors, source locations, and bounded process telemetry. Diagnostics exports the journal as JSON or Markdown and the current process's available unified logs as JSON.
 
-## Product boundaries
+- Midnight Nordic interface with an interactive before-and-after comparison
+  viewer for completed jobs.
+- Branded Dashboard and About surfaces with live, app-specific CPU, memory, and
+  disk telemetry plus truthful explicit Metal-route activity.
+- Deterministic CPU and Metal ASH P06 routes for arbitrary integral target
+  dimensions within the selected codec's raster constraints, with one canonical
+  fixed-point plan and no silent backend substitution. Opaque HEVC/H.264/ProRes
+  422 output requires even dimensions; ProRes 4444 alpha supports odd dimensions.
+- Native 8-bit NV12 and 10-bit P010/HDR processing, field-aware deinterlacing,
+  rational sample-aspect/clean-aperture geometry, and ProRes 4444 alpha output.
+- State-conditioned spatial reconstruction plus bounded, motion-compensated
+  temporal history with deterministic checkpoint restoration, parallel spatial
+  stripes, and parallel motion block searches. Frames and history stay ordered;
+  active processing remains protected from App Nap.
+- Explicit Apple-native choices using VideoToolbox, MetalFX, Metal Performance
+  Shaders, Core Image, Accelerate/vImage, and pixel transfer where available.
+- HEVC, H.264, Apple ProRes 422, and alpha-capable Apple ProRes 4444 output in
+  a QuickTime movie container.
+- Ordered video, audio, subtitle, caption, chapter, timecode, timed-metadata,
+  and auxiliary tracks are planned explicitly and preserved or transcoded
+  according to a verified whole-asset plan.
+- When audio preservation is enabled, conventional and Deterministic v4 jobs
+  keep every source audio track and validate language, enabled/default state,
+  and alternate-group topology, including one-member audible selection groups,
+  after writing.
+- Durable bookmark-backed batch jobs survive relaunch. Pause/resume uses
+  segment and temporal checkpoints; launch recovery contains corrupt work and
+  reconciles registered partial artifacts.
+- Settings can place the durable job cache on a user-selected local folder,
+  mounted drive, or mounted share. Users can delete individual jobs, delete
+  finished or unfinished jobs in bulk, or clear all inactive job and temporary
+  cache data without deleting completed output movies.
+- Output is semantically validated before atomic publication; cancellation,
+  failure, and crash recovery account for temporary artifacts explicitly.
+- A single persistent development journal records backend selection, media
+  geometry and format, exact sample timing, durable checkpoint state, disk and
+  volume facts, opened audio topology, nested errors, source locations, and
+  bounded process telemetry. Diagnostics exports the journal as JSON or
+  Markdown and the current process's available unified logs as JSON.
 
-Version 1.7.1 keeps these product boundaries explicit:
+Version 1.7.2 keeps these product boundaries explicit:
 
 - Deterministic resource allocation is not a first-release target. It is excluded from version 1.4.0 rather than treated as unfinished release work.
 - A user-selected regular source may have multiple hard links; the queue still creates and validates a private single-link snapshot.
@@ -223,6 +256,22 @@ Physical hardware, external devices, notarization, shipping, and distribution ar
 Some VideoToolbox enhancement routes require macOS 26 or later and may require an Apple-managed model download. The application reports unavailable routes and their reasons without silently selecting a different method.
 
 ## Build and run
+
+All application build inputs, including the bundled ASH runtime, are tracked in
+this repository. There are no remote Swift packages, submodules, LFS pointers or
+download build phases. A clean committed checkout builds universal Release with
+package resolution and updates disabled. The verified compiler is Xcode 27 with
+the macOS SDK; earlier Xcode versions were not rerun in this checkpoint.
+
+To verify a checkout without signing credentials or package fetches:
+
+```bash
+xcodebuild build -project Mirmir.xcodeproj -scheme Mirmir \
+  -configuration Release -destination 'generic/platform=macOS' \
+  -disableAutomaticPackageResolution -skipPackageUpdates \
+  ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO
+```
+
 
 Open `Mirmir.xcodeproj` in Xcode and run the `Mirmir` scheme, or use:
 

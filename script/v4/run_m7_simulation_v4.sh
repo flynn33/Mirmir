@@ -90,8 +90,8 @@ CANDIDATE_LOG="$WORK/candidate-xcodebuild.log"
 mkdir -p "$PROJECT" "$CAPTURE"
 git -C "$REPOSITORY" archive --format=tar "$SOURCE_COMMIT" | tar -xf - -C "$PROJECT"
 
-CANONICAL_CONTRACT="$PROJECT/script/v4/quality-gate-contract-v1.json"
-CONTRACT="$WORK/quality-gate-contract-v1.json"
+CANONICAL_CONTRACT="$PROJECT/script/v4/quality-gate-contract-v2.json"
+CONTRACT="$WORK/quality-gate-contract-v2.json"
 SELECTION_CONTRACT="$PROJECT/script/v4/m7-simulation-selection-contract-v1.json"
 QUALITY_TOOL="$PROJECT/script/v4/quality_gate_v4.py"
 SELECTION_TOOL="$PROJECT/script/v4/select_simulated_candidate_v4.py"
@@ -432,13 +432,14 @@ shutil.copyfile(capture_path, output / "capture-manifest.json")
 shutil.copyfile(candidate_log, output / "candidate-xcodebuild.log")
 PY
 
-cp "$CONTRACT" "$OUTPUT/quality-gate-contract-v1.json"
-cp "$CANONICAL_CONTRACT" "$OUTPUT/quality-gate-canonical-contract-v1.json"
+cp "$CONTRACT" "$OUTPUT/quality-gate-contract-v2.json"
+cp "$CANONICAL_CONTRACT" "$OUTPUT/quality-gate-canonical-contract-v2.json"
 cp "$SELECTION_CONTRACT" "$OUTPUT/m7-simulation-selection-contract-v1.json"
 mkdir "$OUTPUT/bindings"
 for relative in \
   derive_m7_quality_contract_v4.py \
   quality_gate_v4.py \
+  chroma_geometry_v4.py \
   p05_baseline_v4.py \
   P05QualityBaselineCaptureTests.swift \
   p05-baseline-source-manifest-v1.json \
@@ -449,7 +450,7 @@ for relative in \
 done
 cp "$CANONICAL_CAPTURE_SOURCE" "$OUTPUT/bindings/QualityGateCaptureTests.swift"
 cp "$CAPTURE_SOURCE" "$OUTPUT/bindings/QualityGateCaptureTests.injected.swift"
-cp "$CANONICAL_CONTRACT" "$OUTPUT/bindings/quality-gate-contract-v1.json"
+cp "$CANONICAL_CONTRACT" "$OUTPUT/bindings/quality-gate-contract-v2.json"
 cp "$CAPTURE_BINDING" "$OUTPUT/m7-capture-binding.json"
 cp "$SIMULATOR_ENVIRONMENT" "$OUTPUT/simulator-environment.json"
 cp "$P05_DISCOVERY" "$OUTPUT/p05-discovery.json"
@@ -487,14 +488,14 @@ PY
 
 write_seal
 python3 "$OUTPUT/bindings/quality_gate_v4.py" verify \
-  --contract "$OUTPUT/quality-gate-contract-v1.json" \
+  --contract "$OUTPUT/quality-gate-contract-v2.json" \
   --report "$OUTPUT/quality-gate-report.json"
 python3 "$OUTPUT/bindings/select_simulated_candidate_v4.py" select \
   --contract "$OUTPUT/m7-simulation-selection-contract-v1.json" \
-  --quality-contract "$OUTPUT/quality-gate-contract-v1.json" \
+  --quality-contract "$OUTPUT/quality-gate-contract-v2.json" \
   --quality-report "$OUTPUT/quality-gate-report.json" \
   --capture-binding "$OUTPUT/m7-capture-binding.json" \
-  --canonical-quality-contract "$OUTPUT/quality-gate-canonical-contract-v1.json" \
+  --canonical-quality-contract "$OUTPUT/quality-gate-canonical-contract-v2.json" \
   --p05-discovery "$OUTPUT/p05-discovery.json" \
   --p05-binding "$OUTPUT/m7-p05-toolchain-binding.json" \
   --output "$OUTPUT/m7-simulation-selection-report.json"
@@ -541,21 +542,21 @@ Path(sys.argv[2]).write_text("\n".join(lines) + "\n", encoding="utf-8")
 PY
 write_seal
 python3 "$OUTPUT/bindings/quality_gate_v4.py" verify \
-  --contract "$OUTPUT/quality-gate-contract-v1.json" \
+  --contract "$OUTPUT/quality-gate-contract-v2.json" \
   --report "$OUTPUT/quality-gate-report.json"
 python3 "$OUTPUT/bindings/select_simulated_candidate_v4.py" verify \
   --contract "$OUTPUT/m7-simulation-selection-contract-v1.json" \
-  --quality-contract "$OUTPUT/quality-gate-contract-v1.json" \
+  --quality-contract "$OUTPUT/quality-gate-contract-v2.json" \
   --quality-report "$OUTPUT/quality-gate-report.json" \
   --capture-binding "$OUTPUT/m7-capture-binding.json" \
-  --canonical-quality-contract "$OUTPUT/quality-gate-canonical-contract-v1.json" \
+  --canonical-quality-contract "$OUTPUT/quality-gate-canonical-contract-v2.json" \
   --p05-discovery "$OUTPUT/p05-discovery.json" \
   --p05-binding "$OUTPUT/m7-p05-toolchain-binding.json" \
   --output "$OUTPUT/m7-simulation-selection-report.json"
 python3 "$OUTPUT/bindings/derive_m7_quality_contract_v4.py" \
-  --canonical "$OUTPUT/quality-gate-canonical-contract-v1.json" \
+  --canonical "$OUTPUT/quality-gate-canonical-contract-v2.json" \
   --discovery "$OUTPUT/p05-discovery.json" \
-  --output "$OUTPUT/quality-gate-contract-v1.json" \
+  --output "$OUTPUT/quality-gate-contract-v2.json" \
   --binding "$OUTPUT/m7-p05-toolchain-binding.json" \
   --verify
 

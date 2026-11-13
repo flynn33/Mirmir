@@ -1,18 +1,19 @@
 # Mirmir product support
 
-Current source identity: **Mirmir 1.7.1 (19)**. Native main-window menu lifecycle
-verification passed; see [window lifecycle](docs/WINDOW_LIFECYCLE.md).
-The historical October 7, 2026 readback verifies the signed universal
-**1.7.0 (17)** repair installed and launched, with its exact executable,
-strict signature, native About
-version/build, and idle Metal route confirmed. Earlier installed-version
-checks are historical. Source publication and binary distribution remain
-separate actions.
+Current source identity: **Mirmir 1.7.2 (20)**. **Release remains blocked.**
+The integrated bounded candidate's optimized non-UI Release suite reports
+815 passed, zero failures, 15 explicit opt-in skips (830 total); default universal Release builds/signs without warnings.
+Physical chroma, progressive JFIF MOV and native ProRes 422 working-delivery
+repairs have bounded evidence. Broader production decoder admission, reported
+error 11, conventional track/title/date/timing defects and current aggregate
+qualification remain open. See [the exact findings and unverified features](docs/BOUNDED_QA_2026-10-25.md).
+Earlier counts in [the continuation](docs/QA_FOLLOWUP_2026-10-25.md) describe
+historical snapshots. Jim handles notarization and Store distribution.
 
 The retained 1.7.0 beta evidence has exact serial/parallel spatial-stage parity
 and an isolated 8.91× spatial speedup at 3840×1632. Its version-aligned Debug and
 Release suites passed, while an earlier strict decoded H.264 parity incident
-remains unexplained and the packaged runtime source-identity gate remains open.
+remains unexplained. The October 24 source-identity repair is recorded separately.
 See [known issues](KNOWN_ISSUES.md) and
 [current qualification](docs/v4/CURRENT_QUALIFICATION_STATUS.md).
 
@@ -31,11 +32,38 @@ through security-scoped bookmarks, builds an explicit whole-asset plan, and
 publishes a semantically verified QuickTime movie atomically. An explicit
 backend selection is never replaced by a different scaler after failure.
 
+## Input admission
+
+The current implementation uses native decoding plus a verified AVI sample-entry
+projection for the supported FMP4/H264 cases. This still leaves common input
+failures; broad input support is a required release repair. A filename extension
+alone is not authoritative. Verified RIFF/AVI content supplies the public MIME
+override when needed, including AVI bytes stored under a `.mov` name.
+
+Omitted color tags are resolved from an actual decoded frame; explicit tags are
+preserved. H.264/HEVC use their defined video-range default when the range flag
+is absent. ProRes 422 deterministic processing reads native v216 and explicitly converts
+progressive adjacent rows or rows within each physical field into 10-bit P010
+working 4:2:0. Original encoded facts remain separate. Unknown or
+contradictory declarations still fail with an explanation.
+
+Supported MPEG-4 Part 2 and JFIF Motion JPEG 4:2:0 sampling comes from bitstream
+headers. The tested progressive JFIF420 MOV and supported FMP4/H264 AVI fixtures
+complete production exports. OpenDML MJPEG AVI remains blocked by native
+decoder failures; its source-header proof alone does not qualify decoding. The new AVI projection retains original
+packet payloads, PCM and exact track ends, with H264 presentation order derived
+from its bitstream. Its initial verified contract admits progressive H264 POC0
+and MPEG4 I/P pictures with one video and optional PCM audio; other POC/field
+modes, MPEG4 ASP B/S decoding and richer AVI metadata remain open compatibility
+work. MKV, WebM, ASF, MJPEG 4:2:2/4:4:4 and MPEG2 transport streams also require
+production repairs and completed output verification. See
+[the QA report](docs/FINAL_QA_2026-10-24.md).
+
 ## Implemented backends
 
 | Backend | Current contract |
 | --- | --- |
-| Mirmir Deterministic — CPU Reference | Explicit ASH P06 selection. Shared fixed-point spatial and temporal reconstruction, arbitrary integral upscale geometry, supported opaque and alpha formats, verified runtime assets, and no Apple fallback. |
+| Mirmir Deterministic — CPU Reference | Explicit ASH P06 selection. Shared fixed-point spatial and temporal reconstruction, arbitrary integral upscale geometry, supported opaque and alpha formats, verified runtime assets, and no Apple fallback. CPU loading authenticates Metal artifact bytes without requiring a Metal device or executable library. |
 | Mirmir Deterministic — Metal Accelerated | Explicit ASH P06 selection. Executes the same canonical plan, coefficient tables, rounding, clamps, and temporal policy as CPU; preparation fails closed if the bundled runtime or Metal library does not verify. It never substitutes CPU execution. |
 | VideoToolbox Super Resolution — Quality | macOS 26 or later, dimensions/factors reported by the current API, and an explicit system-model download when VideoToolbox reports it is required. |
 | VideoToolbox Super Resolution — Low Latency | macOS 26 or later and only dimensions/factors/pixel formats accepted by the current API. |
@@ -50,6 +78,11 @@ Automatic uses one fixed documented order and considers spatial-only Apple
 backends. It excludes both Deterministic routes and Smooth Motion.
 Consequently, Automatic does not select deterministic v4 for opaque H.264
 input.
+
+Opaque HEVC, H.264 and ProRes 422 output requires even encoded width and height.
+The view model and writer contract enforce this before publication. ProRes 4444
+alpha permits odd dimensions: resumed QA completed a 160×96 to 321×193 production
+workflow and independently decoded all 72 frames with alpha-capable output.
 
 ## Timing correction and large-media boundary
 
@@ -90,7 +123,7 @@ and found 241 video frames and 470 audio packets in both the source and output.
 The output is
 `/Users/jimdaley/Desktop/Mirmir-1.4.3-Build12-Evidence/83-final-real-source-production-1024-green/durable-workflow-run/durable-workflow-output.mov`.
 This historical 1.4.3 short-source result does not complete DV4-002 or qualify
-the current 1.7.1 source or a later installed application.
+the current 1.7.2 source or a later installed application.
 
 VideoToolbox methods fail closed when the exact source, target, or scale
 geometry is unsupported. Automatic pre-scale and post-scale geometry

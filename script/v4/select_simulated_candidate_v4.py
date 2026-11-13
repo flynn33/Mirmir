@@ -241,7 +241,14 @@ def build_selection(
     p05_binding_sha256: str,
 ) -> dict[str, Any]:
     validate_contract(contract)
-    require(report.get("schemaVersion") == "mirmir-ash-v4-quality-report-v1", "unsupported quality report")
+    report_schema = report.get("schemaVersion")
+    require(
+        report_schema in {
+            "mirmir-ash-v4-quality-report-v1",
+            "mirmir-ash-v4-quality-report-v2",
+        },
+        "unsupported quality report",
+    )
     corpus = report.get("corpus")
     require(isinstance(corpus, dict), "quality report corpus is absent")
     require(
@@ -257,6 +264,18 @@ def build_selection(
     require(isinstance(timings, dict) and set(timings) == set(variants), "timing variant set differs")
 
     quality = load_quality_module()
+    if report_schema == "mirmir-ash-v4-quality-report-v2":
+        try:
+            quality.require_quality_contract_profile(report.get("contract"), True)
+        except SystemExit as error:
+            raise SelectionError(str(error)) from error
+        identities = report.get("identities")
+        require(isinstance(identities, dict), "quality report identities are absent")
+        require(
+            identities.get("chromaGeometryValidatorSHA256")
+            == sha256(Path(quality.chroma.__file__)),
+            "quality chroma geometry validator identity differs",
+        )
     metrics, clips_by_cohort = report_metrics(report, variants)
     weights = {
         item["id"]: require_number(item["weight"], f"weight.{item['id']}")
@@ -495,7 +514,17 @@ def validate_p05_derivation(
     discovery_path = discovery_path.resolve(strict=True)
     quality_contract_path = quality_contract_path.resolve(strict=True)
     binding_path = binding_path.resolve(strict=True)
-    repository_contract_path = Path(__file__).with_name("quality-gate-contract-v1.json")
+    canonical_contract = load_json(canonical_path, "canonical quality contract")
+    schema = canonical_contract.get("schemaVersion")
+    require(
+        schema in {"mirmir-ash-v4-quality-gate-contract-v1", "mirmir-ash-v4-quality-gate-contract-v2"},
+        "canonical quality contract schema differs",
+    )
+    repository_contract_path = Path(__file__).with_name(
+        "quality-gate-contract-v2.json"
+        if schema == "mirmir-ash-v4-quality-gate-contract-v2"
+        else "quality-gate-contract-v1.json"
+    )
     require(
         repository_contract_path.is_file() and not repository_contract_path.is_symlink(),
         "repository quality contract is absent or unsafe",

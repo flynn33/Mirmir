@@ -77,6 +77,11 @@ struct NV12ScalerConfiguration: Equatable, Sendable {
                 details: "The source reports \(FourCC.string(from: reported) ?? String(reported)); its range contract requires \(FourCC.string(from: pixelFormat) ?? String(pixelFormat))"
             ))
         }
+        if let fieldCount = source.color.fieldCount, fieldCount != 1 {
+            return .unavailable(.unsupportedPixelFormatOrBitDepth(
+                details: "This spatial adapter accepts progressive video; the source declares \(fieldCount) fields per frame"
+            ))
+        }
         return .valid(NV12ScalerConfiguration(
             backendID: backendID,
             pixelFormat: pixelFormat,
@@ -138,6 +143,29 @@ struct NV12ScalerConfiguration: Equatable, Sendable {
 }
 
 enum NV12FrameAttachments {
+    static func chromaScaleTranslation(
+        from source: CVPixelBuffer, scaleX: Double, scaleY: Double,
+        backendID: UpscaleBackendID, frameIndex: Int
+    ) throws -> (x: Double, y: Double) {
+        let top = CVBufferCopyAttachment(source, kCVImageBufferChromaLocationTopFieldKey, nil)
+        let bottom = CVBufferCopyAttachment(source, kCVImageBufferChromaLocationBottomFieldKey, nil)
+        // Retain the existing untagged-buffer behavior; this supplies no phase proof.
+        guard top != nil || bottom != nil else { return (0, 0) }
+        do {
+            let siting = try ASHNV12FrameCodec.chromaSiting(for: source)
+            if let bottom, (bottom as? String) != (top as? String) {
+                throw UpscalerEngineError.strategyFailed("spatial scaling requires one common chroma location")
+            }
+            // Framework coordinates center each component plane. Translate UV so
+            // its physical luma coordinates retain the declared sample location.
+            return ((scaleX - 1) * Double(siting.horizontalLumaOffsetNumerator - 1) / 4,
+                    (scaleY - 1) * Double(siting.verticalLumaOffsetNumerator - 1) / 4)
+        } catch {
+            throw MirmirError.backendProcessingFailed(backendID: backendID,
+                frameIndex: frameIndex, details: error.localizedDescription)
+        }
+    }
+
     static func copy(from source: CVPixelBuffer, to destination: CVPixelBuffer) {
         let keys: [CFString] = [
             kCVImageBufferColorPrimariesKey,

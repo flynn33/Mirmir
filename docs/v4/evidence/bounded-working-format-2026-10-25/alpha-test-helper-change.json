@@ -1,0 +1,7 @@
+{
+  "path": "/Volumes/DockCase/GitHub/Mirmir/MirmirTests/Alpha4444FixedPointScalerV4Tests.swift",
+  "beforeSHA256": "e0c48672dfdf4857d2ca5afe7a6f39c9caf5e990d1bc2c1942ce7837c3cd9502",
+  "afterSHA256": "f239a5d39987a712c8b4ab08d3fe44879d480e74d680e1e4b7413c3536d77aa3",
+  "scope": "Test helper only: compiled application library replaces runtime source-checkout read; production sources/runtime unchanged",
+  "observedWait": "root-live-alpha-sample.txt shows Foundation String file read in __open; no TCC denial log was captured"
+}

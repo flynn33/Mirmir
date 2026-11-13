@@ -65,7 +65,7 @@ enum ASHRuntimeArtifactRoleV4: String, Codable, CaseIterable, Comparable,
         case .operatorBank:
             "ash.p06.operator-bank.v1"
         case .phaseCoefficientProcedure:
-            "ash.p06.phase-coefficient-procedure.v1"
+            "ash.p06.phase-coefficient-procedure.v2"
         case .qualityCorpusIdentity:
             "ash.p06.quality-corpus-identity.v1"
         case .verificationContract:

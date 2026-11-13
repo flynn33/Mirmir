@@ -1,0 +1,6 @@
+{
+  "variant": "strict-scalar-8.1.2-remux",
+  "base": "strict-scalar-8.1.2",
+  "added": ["protocol=file", "muxer=mov", "muxer=mp4"],
+  "intent": "Bitstream remux of native-decodable codecs into MOV for AVFoundation admission"
+}

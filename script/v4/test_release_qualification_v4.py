@@ -5690,6 +5690,44 @@ class CentralMediaRouteV2Tests(unittest.TestCase):
         fixture = media_fixture_module.MediaRouteFixture()
         self.assertEqual(self.validate(fixture), fixture.route["routeProofSHA256"])
 
+    def testGaplessTranslationCannotAuthorizeLockedAudioTranscode(self) -> None:
+        fixture = media_fixture_module.MediaRouteFixture(with_audio=True)
+        self.assertEqual(self.validate(fixture), fixture.route["routeProofSHA256"])
+        audio = next(row for row in fixture.preflight["plannedTracks"]
+                     if row["kind"] == "audio")
+        for key in ("independentPreflight", "repeatIndependentPreflight",
+                    "executionReceipt", "repeatExecutionReceipt"):
+            next(row for row in fixture.route[key]["plannedTracks"]
+                 if row["stableID"] == audio["stableID"])["action"] = "transcode"
+        for key in ("executionReceipt", "repeatExecutionReceipt"):
+            receipt = fixture.route[key]
+            receipt["schemaID"] = "ash.deterministic-media-execution-receipt.v4.4"
+            next(row for row in receipt["migratedTracks"]
+                 if row["stableID"] == audio["stableID"])["action"] = "transcode"
+        fixture.reseal()
+        with self.assertRaisesRegex(qualification.QualificationError,
+                                    "whole-asset plan actions differ"):
+            self.validate(fixture)
+
+    def testLockedLegacyReceiptRejectsGaplessExtensionAndNewSchema(self) -> None:
+        variants = [
+            (qualification.MEDIA_EXECUTION_RECEIPT_SCHEMA, True, None),
+            (qualification.MEDIA_EXECUTION_RECEIPT_SCHEMA, True, {}),
+            ("ash.deterministic-media-execution-receipt.v4.4", False, None),
+        ]
+        for schema, has_extension, extension in variants:
+            with self.subTest(schema=schema, extension=extension):
+                fixture = media_fixture_module.MediaRouteFixture()
+                self.assertEqual(self.validate(fixture), fixture.route["routeProofSHA256"])
+                for key in ("executionReceipt", "repeatExecutionReceipt"):
+                    receipt = fixture.route[key]
+                    receipt["schemaID"] = schema
+                    if has_extension:
+                        receipt["aacGaplessMetadataTranslation"] = extension
+                fixture.reseal()
+                with self.assertRaises(qualification.QualificationError):
+                    self.validate(fixture)
+
     def testExactAlphaFixtureRoutePasses(self) -> None:
         fixture = media_fixture_module.MediaRouteFixture(
             "combined-alpha-geometry-straight"
@@ -5928,6 +5966,29 @@ class ReleaseContractInvariantTests(unittest.TestCase):
             self.contract,
         )
 
+    def testP06ProductionSourceCountAndManifestAreRequiredEagerly(self) -> None:
+        for field in (
+            "p06ProductionSourceCount",
+            "p06ProductionSourceManifestSHA256",
+        ):
+            with self.subTest(field=field):
+                missing = copy.deepcopy(self.contract)
+                missing.pop(field, None)
+                with self.assertRaisesRegex(qualification.QualificationError, field):
+                    qualification.validate_contract(missing)
+
+    def testP06ProductionSourceCountAndManifestRejectMalformedValues(self) -> None:
+        for field, values in (
+            ("p06ProductionSourceCount", (0, -1, True, "404")),
+            ("p06ProductionSourceManifestSHA256", (None, "", "g" * 64, "1" * 63)),
+        ):
+            for value in values:
+                with self.subTest(field=field, value=value):
+                    malformed = copy.deepcopy(self.contract)
+                    malformed[field] = value
+                    with self.assertRaisesRegex(qualification.QualificationError, field):
+                        qualification.validate_contract(malformed)
+
     def testEveryLaneSHAAndSourceMapIsRequired(self) -> None:
         for role, (lane_field, sources_field, _) in (
             qualification.RELEASE_LANE_LOCKS.items()
@@ -6042,6 +6103,39 @@ class ReleaseContractInvariantTests(unittest.TestCase):
 
 
 class CheckedInReleaseLockTests(unittest.TestCase):
+    def testP06SourceLocksMatchTheActualClosedProductionInventory(self) -> None:
+        repository = SCRIPT_DIRECTORY.parent.parent
+        spec = importlib.util.spec_from_file_location(
+            "p06_actual_source_identity_for_release_lock_tests",
+            SCRIPT_DIRECTORY / "p06_source_identity_v4.py",
+        )
+        assert spec is not None and spec.loader is not None
+        source_identity = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(source_identity)
+        manifest = source_identity.build_manifest(
+            repository,
+            SCRIPT_DIRECTORY / "p06-source-provenance-v1.json",
+        )
+        contract = json.loads(
+            (SCRIPT_DIRECTORY / "release-qualification-contract-v1.json").read_text()
+        )
+        lane = json.loads(
+            (SCRIPT_DIRECTORY / "p06-reproduction-contract-v2.json").read_text()
+        )
+        with self.subTest(binding="lane_source_count"):
+            self.assertEqual(lane["productionSourceCount"], manifest["sourceCount"])
+        with self.subTest(binding="release_source_count"):
+            self.assertEqual(contract["p06ProductionSourceCount"], manifest["sourceCount"])
+        with self.subTest(binding="release_source_manifest"):
+            self.assertEqual(
+                contract.get("p06ProductionSourceManifestSHA256"),
+                source_identity.sha256_bytes(source_identity.canonical_bytes(manifest)),
+            )
+        runtime = json.loads(
+            (repository / "Mirmir/Resources/ASH-P06.bundle/runtime-manifest.json").read_text()
+        )
+        self.assertEqual(manifest["sourceRevision"], runtime["provenance"]["sourceRevision"])
+
     def testStableLaneAndToolLocksMatchCanonicalFiles(self) -> None:
         contract = json.loads(
             (SCRIPT_DIRECTORY / "release-qualification-contract-v1.json").read_text()
@@ -6072,7 +6166,7 @@ class CheckedInReleaseLockTests(unittest.TestCase):
 
         locked_lane(
             "qualityLaneContractSHA256",
-            "script/v4/quality-gate-release-contract-v1.json",
+            "script/v4/quality-gate-release-contract-v2.json",
         )
         locked_sources(
             "qualityLockedSources",
@@ -6082,10 +6176,11 @@ class CheckedInReleaseLockTests(unittest.TestCase):
                 ),
                 "metricToolSHA256": "script/v4/quality_gate_v4.py",
                 "observerSourceSHA256": "Mirmir/App/MirmirApp.swift",
+                "chromaGeometryValidatorSHA256": "script/v4/chroma_geometry_v4.py",
             },
         )
         quality_contract = json.loads(
-            (SCRIPT_DIRECTORY / "quality-gate-release-contract-v1.json").read_text()
+            (SCRIPT_DIRECTORY / "quality-gate-release-contract-v2.json").read_text()
         )
         frozen_quality_baseline = dict(quality_contract["frozenP05Baseline"])
         frozen_quality_baseline.pop("sourceManifestPath")
@@ -6099,7 +6194,7 @@ class CheckedInReleaseLockTests(unittest.TestCase):
         self.assertEqual(
             contract["qualityCorpusLock"]["releaseLockSHA256"],
             qualification.sha256(
-                SCRIPT_DIRECTORY / "natural-quality-corpus-lock-v1.json"
+                SCRIPT_DIRECTORY / "natural-quality-corpus-lock-v2.json"
             ),
         )
 
@@ -6228,7 +6323,7 @@ class CheckedInReleaseLockTests(unittest.TestCase):
 
         locked_lane(
             "parityLaneContractSHA256",
-            "script/v4/cpu-metal-parity-contract-v2.json",
+            "script/v4/cpu-metal-parity-contract-v3.json",
         )
         locked_sources(
             "parityLockedSources",
@@ -6236,6 +6331,7 @@ class CheckedInReleaseLockTests(unittest.TestCase):
                 "captureSourceSHA256": "Mirmir/App/MirmirApp.swift",
                 "evaluatorSHA256": "script/v4/cpu_metal_parity_v4.py",
                 "runnerSHA256": "script/v4/run_cpu_metal_parity_v4.sh",
+                "chromaGeometryValidatorSHA256": "script/v4/chroma_geometry_v4.py",
             },
         )
 
@@ -6343,7 +6439,7 @@ class CheckedInReleaseLockTests(unittest.TestCase):
     def testCheckedInTrustRootEstablishesExternalTrust(self) -> None:
         contract_path = SCRIPT_DIRECTORY / "release-qualification-contract-v1.json"
         trust_root_path = (
-            SCRIPT_DIRECTORY / "release-qualification-trust-root-v1.json"
+            SCRIPT_DIRECTORY / "release-qualification-trust-root-v2.json"
         )
         trust = qualification.establish_external_trust(
             trust_root_path,

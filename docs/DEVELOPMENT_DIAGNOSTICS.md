@@ -1,6 +1,12 @@
 # Development diagnostics
 
-Current source identity: **Mirmir 1.7.1 (19)**.
+Current source identity: **Mirmir 1.7.2 (20)**.
+
+Writer refusal at either deterministic output-writer configuration boundary now
+records the output codec, dimensions, writer status, and settings admissibility.
+`DeterministicV4MediaSegmentError.writerRejectedTrack` retains code 11 and adds
+an actionable description. Numeric code 11 alone is not a unique diagnosis:
+retain the error domain and nested frames when collecting a report.
 
 Mirmir's development diagnostic system is the existing module at
 `Mirmir/Modules/Diagnostics`. It owns one persistent journal,

@@ -1,10 +1,131 @@
 # Mirmir accepted limitations and follow-up work
 
-Updated for Mirmir 1.7.1 build 19 on October 16, 2026. These entries distinguish
+Current local checkpoint: [bounded QA report](docs/BOUNDED_QA_2026-10-25.md).
+The chroma, progressive JFIF MOV and native ProRes 422 working-format repairs
+are integrated and their bounded checks pass. Remaining entries are release
+blockers, not accepted exceptions; historical private-status text below is
+superseded by the report's exact case boundaries.
+
+## QA-002 — Broad input support and reported error 11 remain release blockers
+
+**Status:** Open; these defects are not accepted release limitations.
+
+Resumed QA repaired omitted metadata, legacy sampling, durable audio, CPU
+runtime admission and supported FMP4/H264 AVI imports. The two AVI fixtures now
+complete real CPU and Metal workflows with correct picture order and exact
+audio. H.264 MKV, Motion JPEG 4:2:2/4:4:4 MOV, MPEG-2 transport streams,
+VP9 WebM and WMV ASF still need production importer/decoder/timing repairs.
+MPEG4 ASP B-frame AVI also fails native decoder creation. Additional H264 POC/
+field modes and richer AVI track/metadata graphs remain unverified compatibility
+requirements. The native MPEG2 reader returns 70 real frames where independent
+decoding returns 72; admitting its range alone would conceal missing frames.
+These are required implementation repairs, not accepted format limitations.
+The reported error-11 incident remains open; improved logging does not
+establish a causal repair. See [the QA report](docs/FINAL_QA_2026-10-24.md).
+
+Updated for Mirmir 1.7.2 build 20 on October 25, 2026. These entries distinguish
 source repair from installed-product and full-media qualification. The historical
 October 7 readback confirms the signed **1.7.0 (17)** repair installed and
 launched, with the native About version/build and idle Metal route verified.
 The earlier October 7 1.6.0 (16) and October 6 1.5.0 (15) checks are historical.
+
+## QA-003 — Feature-length PCM finalization
+
+**Status:** Repaired and qualified in the runtime7 snapshot.
+
+The 90-minute AVI test exposed excessive per-frame hash formatting, then a
+1,036,800,020-byte explicit PCM size table that FFmpeg rejected. A separate
+defect truncated the test's source inventory at rounded global asset duration.
+The PCM helper retains payload, timing and attachment identity while expressing
+constant sizes once. The fresh runtime7 complete workflow passes independent
+full decoding: all 129,600 pictures at exact 24 fps and all 259,200,000 PCM16
+frames match the source; its size table is 20 bytes. This does not qualify 4K
+throughput or later source changes. See [the continuation](docs/QA_FOLLOWUP_2026-10-25.md).
+
+## QA-004 — Minimum macOS HDR ambient metadata
+
+**Status:** Repaired and qualified in the runtime7 snapshot.
+
+On macOS 15.4, PQ lost requested ambient metadata and HLG invented/replaced it.
+Cross-reading and physical HEVC/container inspection confirmed incorrect output
+bytes. The format-header repair preserves encoded samples, decoded pixels and
+strict metadata checks. Focused 43/43 tests pass on host and guest; the complete
+runtime7 minimum-OS suite passes 720 tests with zero failures and 13 opt-in skips.
+
+## QA-005 — Native iTunes metadata and H.264 wrapper verification
+
+**Status:** Single-audio repairs pass the frozen runtime8 native baseline;
+multiple-audio technical metadata remains unfinished.
+
+Native MOV/MP4/M4V export loses iTunes gapless metadata, and macOS 15.4 also loses
+a custom freeform note. Exact restoration must account for changed AAC priming
+when transcoding; blindly restoring the old technical value changes decoded
+audio. Typed translation and durable queue replay pass focused tests and the
+complete runtime8 host/minimum-OS suites. A separate
+H.264 wrapper-only stream mismatch has seven passing regressions on arm64 and
+Rosetta. Multiple-audio controls expose contradictory global gapless-hint
+semantics: neither blindly restoring the old tag nor deriving it from the last
+track preserves all consumer clocks and copied audio. No general repair has
+been integrated. These findings do not establish the cause
+of customer error 11. See [the continuation](docs/QA_FOLLOWUP_2026-10-25.md).
+
+## QA-006 — Chroma calibration, interpretation and physical alignment
+
+**Status:** Reproduced after the full native baseline suites; private repairs
+under qualification. These are release blockers.
+
+Actual Center H.264/HEVC jobs complete frame processing then fail final format
+verification because calibration encoded an untagged synthetic Left frame.
+The private Center fix alone exposes a silent TopLeft declaration regression:
+CoreMedia labels physical H.264 SPS location 2 as Center. The isolated encoder
+correctly writes TopLeft; authenticated source interpretation needs correction.
+
+An independent physical-coordinate oracle also shows that the current scaler
+shifts Left chroma relative to luma by 0.5 output luma pixels at 2× and 1.5 at 4×.
+CPU and the actual verified P06 Metal library agree on the incorrect geometry.
+Siting-aware UV coordinates and decoded-boundary metadata are being corrected
+privately; matching backend bytes alone does not qualify physical alignment.
+See [the continuation](docs/QA_FOLLOWUP_2026-10-25.md) for exact evidence and
+additional odd raw-carrier edge corruption found during broad-format work.
+
+## QA-007 — Apple model download retry and native quality initialization
+
+**Status:** Download clear/retry is repaired locally; quality initialization and
+full coherent qualification remain open.
+
+A real fresh macOS 26.6.2 download cleared at 26% then retried while Downloading
+ends with -19743 and 89% app progress although the native model is Ready. The
+backend started a second native download outside the SDK's documented
+DownloadRequired state. Waiting for an existing download and preserving
+cancellation changes the identical fresh-clone test to Ready/100%, zero failures;
+22 ordinary catalog tests also pass. A separate fresh-VM real network failure
+returns to DownloadRequired and succeeds on retry after its route is restored;
+the complete selected catalog/probe regression passes 31 tests with two explicit
+fresh-model skips. Store-installed acquisition remains unverified. The permanent network test requires
+MIRMIR_RUN_FRESH_APPLE_MODEL_DOWNLOAD_GATE=1 on a model-free environment.
+The internal native reason for -19743 is unknown; the SDK names it
+AssetDownloadFailed. A separate real native startSession failure-19730 persists
+on the macOS 26 VM, including a standalone control without the app. This is not
+a verified cause or repair of customer error 11. See the current QA continuation.
+
+## MEDIA-001 — MP4 raw chapter list rejected during MOV finalization
+
+**Status:** Reproduced and repaired in local 1.7.2 (20) source
+
+The production HEVC MP4 workflow rejected finalization because the MOV writer
+silently dropped raw ISO `chpl` asset metadata. The migration adapter now emits
+the byte-identical item in the QuickTime userdata namespace and compares its
+canonical identity. Payload, language, type, identifier and omission mutations
+still fail. See [final QA](docs/FINAL_QA_2026-10-24.md) for before/after evidence.
+
+## PROCESS-001 — Prepared backend not finished on early failure
+
+**Status:** Reproduced and repaired in local 1.7.2 (20) source
+
+Cancellation after asynchronous preparation and output setup rejection occurred
+outside the cleanup path. The coordinator releases the backend before session
+ownership transfers; the session catches setup as well as processing failures.
+Tests require cleanup and preservation of an existing destination.
 
 ## UI-001 — Main window cannot be reopened after closing
 
@@ -41,41 +162,37 @@ whole-movie throughput remain separate qualification work.
 
 ## PARITY-001 — Intermittent Release decoded H.264 mismatch
 
-**Status:** Open beta qualification defect; cause unknown
+**Status:** Encoder-arrival sensitivity reproduced and source repair verified in 1.7.2 (20)
 
-The October 7 spatial candidate's full native Release suite retained one
-failure in strict CPU/Metal decoded-frame parity. All 156 pre-encoder frames
-match, while decoded ordinals 125–148 and 154 differ. Four subsequent traced
-repeats match. These observations do not establish the cause or a repair;
-the strict assertion and captured evidence remain intact. Debug passed 635
-tests with zero failures and six opt-in skips; Release passed 630 with one
-failure and five opt-in skips before the version-only alignment.
+The October 24 x86-64 run reproduced failures on 66-, 156-, and 157-frame jobs
+while all traced pre-encoder pixels and presentation timing matched. A separate
+writer-only control re-encoded the same frames and timestamps with fast versus
+40 ms-delayed delivery. Default H.264 encoding changed B/P-frame decisions and
+decoded pixels. Disabling frame reordering made both control outputs identical.
 
-The spatial-stage benchmark and forced parallel pixel tests do not close this
-end-to-end codec qualification issue. The fresh version-aligned Debug suite
-passed 635 tests and Release passed 630, each with zero failures and six skips;
-both report no runtime warnings. These passing runs do not identify or repair
-the earlier incident. The saved full-job finalization repair in DV4-003 does
-not identify this separate parity cause or qualify a fresh full GPU run.
+The deterministic H.264 writer now sets `AVVideoAllowFrameReorderingKey=false`.
+The new arrival-pacing regression fails before that change and passes afterward
+in Debug, native Release, and x86-64 Release. Existing strict CPU/Metal assertions
+remain intact. See [final QA](docs/FINAL_QA_2026-10-24.md) for completed-suite
+results, repeats, and release limits. The policy affects compression efficiency;
+it does not claim fixed output size or whole-movie throughput.
+
+The retained October 7 failure had 156 equal pre-encoder frames and different
+decoded ordinals 125–148 and 154. Its original evidence remains unchanged in
+`docs/v4/evidence/spatial-parallelism-2026-10-07/OPEN_QUALIFICATION.md`. Earlier
+green repetitions did not identify the cause; the new controlled pacing
+reproduction provides the evidence for this repair.
 
 ## PROV-001 — Packaged runtime source closure
 
-**Status:** Open source-identity gate
+**Status:** Current source closure passes; packaged release qualification remains separate
 
-`repository_identity_v4.verify_runtime_bundle` still rejects the source closure
-with exit 2. The attempted runtime producer separately stopped at stale frozen
-capture-observer source/size locks: 16 of 17 checks passed. Runtime assets, trust
-constants, and historical evidence were retained unchanged. The development
-quality replay is explicitly unsealed and does not replace a newly bound
-runtime candidate. See the
-[current qualification status](docs/v4/CURRENT_QUALIFICATION_STATUS.md).
-
-The publication Python audit also reproduces
-`test_v2_contract_pins_current_capture_tools`: the reproduction contract's
-source-provenance digest differs from the unchanged file. The contract,
-provenance, and assertion were already present in the preceding committed
-tree. This is retained as a failing helper check; sealed bindings and strict
-assertions were not weakened.
+The October 24 repair audits the changed capture observer, updates its frozen
+source binding, and rebuilds the P06 runtime twice with byte-identical output.
+`repository_identity_v4.py --repository .` passes for the candidate. Historical
+captures are not relabeled as new evidence. Qualification contract/tool pins
+and the aggregate trust root were refreshed together after producer review.
+See [current QA](docs/FINAL_QA_2026-10-24.md) for the checks and remaining gates.
 
 ## PERF-002 — Spatial-stage speedup and whole-movie throughput
 

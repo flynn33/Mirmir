@@ -47,10 +47,57 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
         let referenceSHA256: String
     }
 
+    private struct QualityChromaGeometryEvidence: Codable {
+        let schemaVersion: String
+        let recipePolicyID: String
+        let coordinateProcedureID: String
+        let kernelContractID: String
+        let sourceSiting: String
+        let outputSiting: String
+        let planSchemaVersion: Int
+        let sourceLumaWidth: Int
+        let sourceLumaHeight: Int
+        let targetLumaWidth: Int
+        let targetLumaHeight: Int
+        let scalePlanSHA256: String
+        let kernelIRSHA256: String
+
+        init(configuration: DeterministicPreparedConfigurationV4) throws {
+            guard let geometry = configuration.chromaGeometry,
+                  geometry.source == .center, geometry.target == .center else {
+                throw NSError(domain: "MirmirQualityPhase", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Quality geometry is not authenticated Center."])
+            }
+            let plan = try SpatialScalePlanV4(
+                sourceLumaWidth: configuration.sourceWidth,
+                sourceLumaHeight: configuration.sourceHeight,
+                targetLumaWidth: configuration.targetWidth,
+                targetLumaHeight: configuration.targetHeight,
+                chromaGeometry: geometry,
+                borderRule: .reflect101
+            )
+            let kernel = try FixedPointKernelIRV4(scalePlan: plan)
+            schemaVersion = "mirmir-ash-v4-quality-chroma-geometry-v1"
+            recipePolicyID = "quality-box-source-reference-center-v1"
+            coordinateProcedureID = SpatialChromaGeometryV4.coordinateProcedureID
+            kernelContractID = SpatialChromaGeometryV4.kernelContractID
+            sourceSiting = geometry.source.rawValue
+            outputSiting = geometry.target.rawValue
+            planSchemaVersion = SpatialScalePlanV4.subsampledSchemaVersion
+            sourceLumaWidth = configuration.sourceWidth
+            sourceLumaHeight = configuration.sourceHeight
+            targetLumaWidth = configuration.targetWidth
+            targetLumaHeight = configuration.targetHeight
+            scalePlanSHA256 = ASHSHA256V4(rawData: try ASHCanonicalJSONV4.encode(plan)).rawValue
+            kernelIRSHA256 = ASHSHA256V4(rawData: try ASHCanonicalJSONV4.encode(kernel)).rawValue
+        }
+    }
+
     private struct CaptureCase: Codable {
         let id: String
         let outputs: [String: String]
         let milliseconds: [String: Double]
+        let chromaGeometry: QualityChromaGeometryEvidence
     }
 
     private struct CaptureManifest: Codable {
@@ -61,6 +108,7 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
         let sourceTreeIdentitySHA256: String
         let candidateBackendID: String
         let candidateImplementationVersion: String
+        let fixedPointKernelID: String
         let runtimeManifestSHA256: String
         let runtimeSourceRevision: String
         let productionRuntimeLocked: Bool
@@ -114,7 +162,8 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
                 sourceHeight: sourceHeight,
                 targetWidth: targetWidth,
                 targetHeight: targetHeight,
-                borderRule: .reflect101
+                borderRule: .reflect101,
+                chromaGeometry: SpatialChromaGeometryV4(source: .center, target: .center)
             )
             self.measurementContract = try runtime.measurementContract()
             self.program = try runtime.branchProgram()
@@ -122,7 +171,8 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
                 rawData: Data(
                     "ash-v4-quality-ablation|\(storage.rawValue)|"
                         .appending("\(sourceWidth)x\(sourceHeight)|")
-                        .appending("\(targetWidth)x\(targetHeight)").utf8
+                        .appending("\(targetWidth)x\(targetHeight)|")
+                        .appending(SpatialChromaGeometryV4(source: .center, target: .center).identity).utf8
                 )
             )
             self.history = try ASHTemporalHistoryV4(capacity: 3)
@@ -630,12 +680,18 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
                 sourceHeight: first.sourceHeight,
                 targetWidth: first.targetWidth,
                 targetHeight: first.targetHeight,
-                scanMode: .progressive
+                scanMode: .progressive,
+                chromaGeometry: SpatialChromaGeometryV4(source: .center, target: .center)
             )
             let candidate = try PreparedDeterministicV4Upscaler(
                 configuration: configuration,
                 runtime: runtime
             )
+            guard candidate.deterministicConfiguration.fixedPointKernelID
+                    == SpatialChromaGeometryV4.kernelContractID else {
+                throw NSError(domain: "MirmirQualityPhase", code: 2,
+                    userInfo: [NSLocalizedDescriptionKey: "Quality candidate used the legacy kernel contract."])
+            }
             let pipelines: [Variant: AblationPipeline] = [
                 .candidateV4: try AblationPipeline(
                     mode: .full,
@@ -756,14 +812,15 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
                 captures.append(CaptureCase(
                     id: record.id,
                     outputs: outputs,
-                    milliseconds: milliseconds
+                    milliseconds: milliseconds,
+                    chromaGeometry: try QualityChromaGeometryEvidence(configuration: configuration)
                 ))
             }
             try await candidate.finish()
         }
         XCTAssertTrue(fullMirrorIdentityPass)
         let manifest = CaptureManifest(
-            schemaVersion: "mirmir-ash-v4-quality-candidate-capture-v1",
+            schemaVersion: "mirmir-ash-v4-quality-candidate-capture-v2",
             contractSHA256: expectedContract,
             corpusManifestSHA256: ASHSHA256V4(rawData: corpusData).rawValue,
             sourceCommit: setting(
@@ -778,6 +835,7 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
             ),
             candidateBackendID: "mirmir_deterministic_cpu",
             candidateImplementationVersion: ASHRuntimeManifestV4.runtimeIdentity,
+            fixedPointKernelID: SpatialChromaGeometryV4.kernelContractID,
             runtimeManifestSHA256: runtime.manifestSHA256.rawValue,
             runtimeSourceRevision: runtime.manifest.provenance.sourceRevision,
             productionRuntimeLocked: productionRuntimeLocked,
@@ -815,10 +873,16 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
                 sourceHeight: first.sourceHeight,
                 targetWidth: first.targetWidth,
                 targetHeight: first.targetHeight,
-                scanMode: .progressive
+                scanMode: .progressive,
+                chromaGeometry: SpatialChromaGeometryV4(source: .center, target: .center)
             ),
             runtime: runtime
         )
+        guard candidate.deterministicConfiguration.fixedPointKernelID
+                == SpatialChromaGeometryV4.kernelContractID else {
+            throw NSError(domain: "MirmirQualityPhase", code: 2,
+                userInfo: [NSLocalizedDescriptionKey: "Quality warmup used the legacy kernel contract."])
+        }
         let warmupPipelines = try [
             AblationMode.full,
             .uniformPriors,
@@ -936,7 +1000,13 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
         CVBufferSetAttachment(
             buffer,
             kCVImageBufferChromaLocationTopFieldKey,
-            kCVImageBufferChromaLocation_Left,
+            kCVImageBufferChromaLocation_Center,
+            .shouldPropagate
+        )
+        CVBufferSetAttachment(
+            buffer,
+            kCVImageBufferChromaLocationBottomFieldKey,
+            kCVImageBufferChromaLocation_Center,
             .shouldPropagate
         )
         CVBufferSetAttachment(

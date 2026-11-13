@@ -4,6 +4,397 @@ import XCTest
 @testable import Mirmir
 
 final class VideoProbeTests: XCTestCase {
+    func testMPEG4DecodedPhaseNormalizationPreservesPixelsAndAttachmentModes() throws {
+        let source = try XCTUnwrap(MPEG4ProgressiveSamplingV4.declaration(from: makeMPEG4SamplingDescription()))
+        for mode: CVAttachmentMode? in [nil, .shouldPropagate, .shouldNotPropagate] {
+            let buffer = try SyntheticNV12PixelBuffer.make(width: 160, height: 96)
+            try SyntheticNV12PixelBuffer.fill(buffer, luma: 37, cb: 71, cr: 199)
+            CVBufferSetAttachment(buffer, "qa.opaque.propagated" as CFString, Data([1, 2, 3]) as CFData, .shouldPropagate)
+            CVBufferSetAttachment(buffer, "qa.opaque.local" as CFString, Data([4, 5, 6]) as CFData, .shouldNotPropagate)
+            if let mode {
+                CVBufferSetAttachment(buffer, kCVImageBufferChromaLocationTopFieldKey,
+                                      kCVImageBufferChromaLocation_Left, mode)
+                CVBufferSetAttachment(buffer, kCVImageBufferChromaLocationBottomFieldKey,
+                                      kCVImageBufferChromaLocation_Left, mode)
+            }
+            let bytes = try mpeg4BufferBytes(buffer)
+            let metadata = mpeg4BufferAttachments(buffer)
+            try MPEG4ProgressiveSamplingV4.normalizeDecodedBuffer(buffer, source: source)
+            XCTAssertEqual(try mpeg4BufferBytes(buffer), bytes)
+            if mode == nil {
+                let expected = metadata[0].mutableCopy() as! NSMutableDictionary
+                expected[kCVImageBufferChromaLocationTopFieldKey as String] = kCVImageBufferChromaLocation_Left
+                XCTAssertEqual(mpeg4BufferAttachments(buffer), [expected, metadata[1]])
+                XCTAssertNil(CVBufferCopyAttachment(buffer, kCVImageBufferChromaLocationBottomFieldKey, nil))
+            } else {
+                XCTAssertEqual(mpeg4BufferAttachments(buffer), metadata)
+            }
+            let once = mpeg4BufferAttachments(buffer)
+            try MPEG4ProgressiveSamplingV4.normalizeDecodedBuffer(buffer, source: source)
+            XCTAssertEqual(try mpeg4BufferBytes(buffer), bytes)
+            XCTAssertEqual(mpeg4BufferAttachments(buffer), once)
+        }
+    }
+
+    func testMPEG4DecodedContradictionsFailBeforeAnyMutation() throws {
+        let source = try XCTUnwrap(MPEG4ProgressiveSamplingV4.declaration(from: makeMPEG4SamplingDescription()))
+        let contradictions: [(CFString, CFTypeRef)] = [
+            (kCVImageBufferChromaLocationTopFieldKey, kCVImageBufferChromaLocation_Center),
+            (kCVImageBufferChromaLocationBottomFieldKey, kCVImageBufferChromaLocation_Center),
+            (kCVImageBufferChromaLocationTopFieldKey, NSNumber(value: 1)),
+            (kCVImageBufferChromaLocationBottomFieldKey, "DV420" as CFString),
+            (kCVImageBufferFieldCountKey, NSNumber(value: 2)),
+            (kCVImageBufferFieldCountKey, "1" as CFString),
+            (kCVImageBufferFieldDetailKey, kCVImageBufferFieldDetailTemporalTopFirst),
+            (kCVImageBufferChromaSubsamplingKey, kCVImageBufferChromaSubsampling_422),
+            (kCMFormatDescriptionExtension_FullRangeVideo, kCFBooleanTrue)
+        ]
+        for (key, value) in contradictions {
+            let buffer = try SyntheticNV12PixelBuffer.make(width: 160, height: 96)
+            try SyntheticNV12PixelBuffer.fill(buffer, luma: 37, cb: 71, cr: 199)
+            CVBufferSetAttachment(buffer, "qa.opaque" as CFString, Data([7, 8, 9]) as CFData, .shouldPropagate)
+            CVBufferSetAttachment(buffer, key, value, .shouldNotPropagate)
+            let bytes = try mpeg4BufferBytes(buffer), metadata = mpeg4BufferAttachments(buffer)
+            XCTAssertThrowsError(try MPEG4ProgressiveSamplingV4.normalizeDecodedBuffer(buffer, source: source), key as String)
+            XCTAssertEqual(try mpeg4BufferBytes(buffer), bytes)
+            XCTAssertEqual(mpeg4BufferAttachments(buffer), metadata)
+            try MPEG4ProgressiveSamplingV4.normalizeDecodedBuffer(buffer, source: nil)
+            XCTAssertEqual(try mpeg4BufferBytes(buffer), bytes)
+            XCTAssertEqual(mpeg4BufferAttachments(buffer), metadata)
+        }
+        for (width, height, format) in [
+            (162, 96, kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange),
+            (160, 98, kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange),
+            (160, 96, kCVPixelFormatType_420YpCbCr8BiPlanarFullRange),
+            (160, 96, kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange)
+        ] {
+            let buffer = try SyntheticNV12PixelBuffer.make(width: width, height: height, pixelFormat: format)
+            let metadata = mpeg4BufferAttachments(buffer), bytes = try mpeg4BufferBytes(buffer)
+            XCTAssertThrowsError(try MPEG4ProgressiveSamplingV4.normalizeDecodedBuffer(buffer, source: source))
+            XCTAssertEqual(mpeg4BufferAttachments(buffer), metadata)
+            XCTAssertEqual(try mpeg4BufferBytes(buffer), bytes)
+        }
+    }
+
+    private func mpeg4BufferBytes(_ buffer: CVPixelBuffer) throws -> Data {
+        XCTAssertEqual(CVPixelBufferLockBaseAddress(buffer, .readOnly), kCVReturnSuccess)
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        var bytes = Data()
+        for plane in 0..<CVPixelBufferGetPlaneCount(buffer) {
+            let address = try XCTUnwrap(CVPixelBufferGetBaseAddressOfPlane(buffer, plane))
+            bytes.append(Data(bytes: address, count: CVPixelBufferGetBytesPerRowOfPlane(buffer, plane)
+                * CVPixelBufferGetHeightOfPlane(buffer, plane)))
+        }
+        return bytes
+    }
+
+    private func mpeg4BufferAttachments(_ buffer: CVPixelBuffer) -> [NSDictionary] {
+        [.shouldPropagate, .shouldNotPropagate].map {
+            (CVBufferCopyAttachments(buffer, $0) as NSDictionary?) ?? [:]
+        }
+    }
+
+    func testMPEG4ProgressiveSamplingRequiresCompleteVOLAndDescriptorBounds() throws {
+        let esds = mpeg4SamplingESDS
+        let configuration = try XCTUnwrap(MPEG4ProgressiveSamplingV4.decoderConfiguration(esds))
+        let proof = try XCTUnwrap(MPEG4ProgressiveSamplingV4.parse(configuration))
+        XCTAssertEqual(proof.width, 160)
+        XCTAssertEqual(proof.height, 96)
+        XCTAssertFalse(proof.fullRange)
+        XCTAssertEqual(proof.sourceConfiguration, configuration)
+        XCTAssertEqual(MPEG4ProgressiveSamplingV4.parse(configuration), proof)
+        for length in 0..<esds.count {
+            XCTAssertNil(MPEG4ProgressiveSamplingV4.decoderConfiguration(esds.prefix(length)), "ESDS prefix \(length)")
+        }
+        let layer = try XCTUnwrap(configuration.range(of: Data([0, 0, 1, 0x20]))).lowerBound
+        let end = try XCTUnwrap(configuration.range(of: Data([0, 0, 1, 0xb2]))).lowerBound
+        for length in 0..<end {
+            XCTAssertNil(MPEG4ProgressiveSamplingV4.parse(configuration.prefix(length)), "VOL prefix \(length)")
+        }
+        let withoutUserData = try XCTUnwrap(MPEG4ProgressiveSamplingV4.parse(configuration.prefix(end)))
+        XCTAssertEqual(withoutUserData.width, proof.width)
+        XCTAssertEqual(withoutUserData.height, proof.height)
+        XCTAssertEqual(withoutUserData.fullRange, proof.fullRange)
+        XCTAssertEqual(withoutUserData.sourceConfiguration, Data(configuration.prefix(end)))
+        XCTAssertNotEqual(withoutUserData.sourceConfiguration, proof.sourceConfiguration)
+        XCTAssertNil(MPEG4ProgressiveSamplingV4.parse(configuration + configuration[layer..<end]))
+        XCTAssertNil(MPEG4ProgressiveSamplingV4.parse(Data([0, 0, 1, 0, 0, 1])))
+        XCTAssertNil(MPEG4ProgressiveSamplingV4.parse(Data(repeating: 0, count: 1_048_577)))
+        XCTAssertNil(MPEG4ProgressiveSamplingV4.decoderConfiguration(Data(repeating: 0, count: 1_048_577)))
+        XCTAssertNil(MPEG4ProgressiveSamplingV4.parse(Data((0..<1_025).flatMap { _ in [UInt8(0), 0, 1, 0xb2] })))
+        for bit in [8, 22, 76, 78, 79] {
+            var unsupported = configuration
+            unsupported[layer + 4 + bit / 8] ^= 1 << (7 - bit % 8)
+            XCTAssertNil(MPEG4ProgressiveSamplingV4.parse(unsupported), "unsupported VOL bit \(bit)")
+        }
+        var badStuffing = configuration
+        badStuffing[end - 1] ^= 1
+        XCTAssertNil(MPEG4ProgressiveSamplingV4.parse(badStuffing))
+        XCTAssertNil(MPEG4ProgressiveSamplingV4.decoderConfiguration(
+            Data([0, 0, 0, 0]) + mpeg4Descriptor(3, Data([0, 1, 0])
+                + mpeg4Descriptor(6, configuration))))
+        var badFlags = esds
+        badFlags[0] = 1
+        XCTAssertNil(MPEG4ProgressiveSamplingV4.decoderConfiguration(badFlags))
+        var badLength = esds
+        badLength[8] += 1
+        XCTAssertNil(MPEG4ProgressiveSamplingV4.decoderConfiguration(badLength))
+    }
+
+    func testMPEG4ProgressiveSamplingCrossBindsContainerDeclarations() throws {
+        let correct = try makeMPEG4SamplingDescription()
+        let proof = try XCTUnwrap(MPEG4ProgressiveSamplingV4.declaration(from: correct))
+        XCTAssertEqual(proof.width, 160)
+        XCTAssertEqual(proof.height, 96)
+        XCTAssertFalse(proof.fullRange)
+        XCTAssertEqual(try MPEG4ProgressiveSamplingV4.declaration(from: [correct]), proof)
+        XCTAssertThrowsError(try MPEG4ProgressiveSamplingV4.declaration(from: [correct, correct]))
+        XCTAssertNil(try MPEG4ProgressiveSamplingV4.declaration(from: []))
+        XCTAssertThrowsError(try MPEG4ProgressiveSamplingV4.declaration(
+            from: makeMPEG4SamplingDescription(width: 162)))
+        XCTAssertThrowsError(try MPEG4ProgressiveSamplingV4.declaration(
+            from: makeMPEG4SamplingDescription(height: 98)))
+        let contradictions: [(CFString, Any)] = [
+            (kCMFormatDescriptionExtension_BitsPerComponent, 10),
+            (kCMFormatDescriptionExtension_BitsPerComponent, "8"),
+            (kCMFormatDescriptionExtension_FullRangeVideo, true),
+            (kCMFormatDescriptionExtension_FieldCount, 2),
+            (kCMFormatDescriptionExtension_FieldDetail, kCMFormatDescriptionFieldDetail_TemporalTopFirst),
+            (kCMFormatDescriptionExtension_ChromaLocationTopField, kCMFormatDescriptionChromaLocation_Center),
+            (kCMFormatDescriptionExtension_ChromaLocationBottomField, kCMFormatDescriptionChromaLocation_Center),
+            (kCVImageBufferChromaSubsamplingKey, kCVImageBufferChromaSubsampling_422)
+        ]
+        for (key, value) in contradictions {
+            let description = try makeMPEG4SamplingDescription(extra: [key as String: value])
+            XCTAssertThrowsError(try MPEG4ProgressiveSamplingV4.declaration(from: description), key as String)
+        }
+        let explicit = try makeMPEG4SamplingDescription(extra: [
+            kCMFormatDescriptionExtension_FieldCount as String: 1,
+            kCMFormatDescriptionExtension_BitsPerComponent as String: 8,
+            kCMFormatDescriptionExtension_FullRangeVideo as String: false,
+            kCMFormatDescriptionExtension_ChromaLocationTopField as String: kCMFormatDescriptionChromaLocation_Left,
+            kCMFormatDescriptionExtension_ChromaLocationBottomField as String: kCMFormatDescriptionChromaLocation_Left,
+            kCVImageBufferChromaSubsamplingKey as String: kCVImageBufferChromaSubsampling_420
+        ])
+        XCTAssertEqual(try MPEG4ProgressiveSamplingV4.declaration(from: explicit), proof)
+    }
+
+    func testMPEG4ProgressiveSamplingRetainsExplicitBitstreamRange() throws {
+        let configuration = try XCTUnwrap(MPEG4ProgressiveSamplingV4.decoderConfiguration(mpeg4SamplingESDS))
+        let visual = try XCTUnwrap(configuration.range(of: Data([0, 0, 1, 0xb5]))).upperBound
+        let next = try XCTUnwrap(configuration.range(of: Data([0, 0, 1, 0]), in: visual..<configuration.count)).lowerBound
+        var fullRange = configuration
+        // identifier=1, verid=1, priority=1, visual_type=video,
+        // video_signal_type=1, video_format=5, full_range=1, color_description=0.
+        fullRange.replaceSubrange(visual..<next, with: [0x89, 0x1d, 0x9f])
+        let proof = try XCTUnwrap(MPEG4ProgressiveSamplingV4.parse(fullRange))
+        XCTAssertEqual(proof.width, 160)
+        XCTAssertEqual(proof.height, 96)
+        XCTAssertTrue(proof.fullRange)
+        XCTAssertEqual(proof.sourceConfiguration, fullRange)
+        let esds = Data([0, 0, 0, 0]) + mpeg4Descriptor(3, Data([0, 1, 0])
+            + mpeg4Descriptor(4, Data([0x20, 0x11] + Array(repeating: 0, count: 11))
+                + mpeg4Descriptor(5, fullRange)) + mpeg4Descriptor(6, Data([2])))
+        let description = try makeMPEG4SamplingDescription(esds: esds,
+            extra: [kCMFormatDescriptionExtension_FullRangeVideo as String: true])
+        XCTAssertEqual(try MPEG4ProgressiveSamplingV4.declaration(from: description)?.fullRange, true)
+        let rangeProof = try XCTUnwrap(MPEG4ProgressiveSamplingV4.declaration(from: description))
+        let buffer = try SyntheticNV12PixelBuffer.make(width: 160, height: 96,
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange)
+        try SyntheticNV12PixelBuffer.fill(buffer, luma: 37, cb: 71, cr: 199)
+        let bytes = try mpeg4BufferBytes(buffer)
+        try MPEG4ProgressiveSamplingV4.normalizeDecodedBuffer(buffer, source: rangeProof)
+        XCTAssertEqual(try mpeg4BufferBytes(buffer), bytes)
+        XCTAssertEqual(CVBufferCopyAttachment(buffer, kCVImageBufferChromaLocationTopFieldKey, nil) as? String,
+                       kCVImageBufferChromaLocation_Left as String)
+        XCTAssertThrowsError(try MPEG4ProgressiveSamplingV4.declaration(
+            from: makeMPEG4SamplingDescription(esds: esds,
+                extra: [kCMFormatDescriptionExtension_FullRangeVideo as String: false])))
+    }
+
+    func testMPEG4ActualMoviesBindCodecLatticeToProbeAndCanonicalSource() async throws {
+        for (name, suffix) in [("legacy-mpeg4", "mov"), ("native-avi-mpeg4", "avi")] {
+            let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: name, withExtension: suffix))
+            let info = try await VideoProbe().probe(url: url)
+            XCTAssertEqual(info.color.chromaSiting, .left, name)
+            XCTAssertEqual(info.color.fieldCount, 1, name)
+            let projection = try await AVCanonicalMediaStateAdapterV4().probe(.init(
+                url: url, bookmarkReference: "mpeg4-phase-fixture",
+                bookmarkDocumentSHA256: ASHSHA256V4(rawData: Data("fixture".utf8))))
+            XCTAssertEqual(projection.admission, .admitted, "\(name): \(projection.blockingObservations)")
+            let video = try XCTUnwrap(projection.state.tracks.compactMap(\.video).first)
+            XCTAssertEqual(video.pixel.chromaSiting, .left, name)
+            XCTAssertEqual(video.scan.fieldCount, 1, name)
+            let catalog = UpscaleBackendCatalog.live()
+            for backend: UpscaleBackendID in [.mirmirDeterministicCPU, .mirmirDeterministicMetal] {
+                let availability = await catalog.availability(for: backend, source: info,
+                    targetSize: CGSize(width: 320, height: 192), environment: .current())
+                XCTAssertEqual(availability, .available, "\(name): \(backend)")
+            }
+        }
+    }
+
+    private var mpeg4SamplingESDS: Data {
+        Data(base64Encoded: "AAAAAAOAgIBPAAEABICAgEEgEQAAAAAIeRgACHkYBYCAgC8AAAGwAQAAAbWJEwAAAQAAAAEgAMSNiADFBQQMFEMAAAGyTGF2YzYyLjI4LjEwMgaAgIABAg==")!
+    }
+
+    private func makeMPEG4SamplingDescription(
+        width: Int32 = 160, height: Int32 = 96,
+        esds: Data? = nil, extra: [String: Any] = [:]
+    ) throws -> CMVideoFormatDescription {
+        var extensions = extra
+        extensions[kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms as String] = ["esds": esds ?? mpeg4SamplingESDS]
+        var description: CMVideoFormatDescription?
+        let status = CMVideoFormatDescriptionCreate(allocator: kCFAllocatorDefault,
+            codecType: kCMVideoCodecType_MPEG4Video, width: width, height: height,
+            extensions: extensions as CFDictionary, formatDescriptionOut: &description)
+        XCTAssertEqual(status, noErr)
+        return try XCTUnwrap(description)
+    }
+
+    private func mpeg4Descriptor(_ tag: UInt8, _ payload: Data) -> Data {
+        var count = payload.count
+        var length = [UInt8(count & 127)]
+        count >>= 7
+        while count > 0 { length.insert(UInt8(count & 127) | 128, at: 0); count >>= 7 }
+        return Data([tag] + length) + payload
+    }
+
+    func testMissingFileAndDirectoryStayInsideProbeErrorBoundary() async throws {
+        let directory = try TemporaryFixtureDirectory()
+        defer { directory.remove() }
+        let missing = directory.url(for: "missing-input.mov")
+        let folder = directory.url(for: "selected-folder")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
+        for url in [missing, folder] {
+            do {
+                _ = try await VideoProbe().probe(url: url)
+                XCTFail("An unavailable local video must not probe successfully.")
+            } catch let error as MirmirError {
+                guard case .probeFailed(let message) = error else {
+                    return XCTFail("Expected a contextual probe failure, got \(error).")
+                }
+                XCTAssertTrue(message.contains(url.lastPathComponent))
+            } catch {
+                XCTFail("The probe boundary leaked a raw file error: \(error).")
+            }
+        }
+    }
+
+    func testOpenDMLSourceTagsDoNotQualifyItsNativeWorkingDelivery() throws {
+        for location in [kCMFormatDescriptionChromaLocation_Center, kCMFormatDescriptionChromaLocation_Left] {
+            var description: CMVideoFormatDescription?
+            XCTAssertEqual(CMVideoFormatDescriptionCreate(allocator: kCFAllocatorDefault,
+                codecType: kCMVideoCodecType_JPEG_OpenDML, width: 160, height: 96,
+                extensions: [kCMFormatDescriptionExtension_FieldCount as String: 1,
+                    kCMFormatDescriptionExtension_ChromaLocationTopField as String: location,
+                    kCMFormatDescriptionExtension_ChromaLocationBottomField as String: location] as CFDictionary,
+                formatDescriptionOut: &description), noErr)
+            let format = try XCTUnwrap(description)
+            let color = try VideoProbe.colorInfo(description: format, from: format.extensions,
+                codec: kCMVideoCodecType_JPEG_OpenDML, alphaModel: .none,
+                mediaCharacteristics: [], decodedColor: [:], legacySampling: nil)
+            XCTAssertNil(color.chromaSiting)
+            XCTAssertNil(color.chromaSitingBottomField)
+        }
+    }
+
+    func testJFIFMoviesBindCenteredSamplingToProbeAndCanonicalSource() async throws {
+        for ext in ["mov", "avi"] {
+            let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "legacy-mjpeg", withExtension: ext))
+            let info = try await VideoProbe().probe(url: url)
+            // OpenDML AVI is rewritten to ordinary JPEG by the native importer so
+            // in-band Huffman tables win and working JFIF delivery is qualified.
+            XCTAssertEqual(info.color.chromaSiting, .center, ext)
+            XCTAssertEqual(info.color.fieldCount, 1, ext)
+            let asset = try await NativeMediaInputAssetResolverV4.asset(url: url)
+            let tracks = try await asset.loadTracks(withMediaType: .video)
+            let track = try XCTUnwrap(tracks.first)
+            let descriptions = try await track.load(.formatDescriptions)
+            let facts = try XCTUnwrap(LegacyVideoSamplingFacts.resolve(
+                asset: asset, track: track, descriptions: descriptions))
+            XCTAssertNotNil(facts.jfifDeclaration, ext)
+            XCTAssertNotNil(facts.nativeWorkingJFIFDeclaration, ext)
+            let projection = try await AVCanonicalMediaStateAdapterV4().probe(.init(
+                url: url, bookmarkReference: "jfif-phase-fixture",
+                bookmarkDocumentSHA256: ASHSHA256V4(rawData: Data("fixture".utf8))))
+            XCTAssertEqual(projection.admission, .admitted, "\(ext): \(projection.blockingObservations)")
+            let video = try XCTUnwrap(projection.state.tracks.compactMap(\.video).first)
+            XCTAssertEqual(video.pixel.chromaSiting, .center, ext)
+            XCTAssertEqual(video.pixel.chromaSubsampling, .yuv420, ext)
+            XCTAssertEqual(video.scan.fieldCount, 1, ext)
+            let catalog = UpscaleBackendCatalog.live()
+            for backend: UpscaleBackendID in [.mirmirDeterministicCPU, .mirmirDeterministicMetal] {
+                let availability = await catalog.availability(for: backend, source: info,
+                    targetSize: CGSize(width: 320, height: 192), environment: .current())
+                XCTAssertEqual(availability, .available, "\(ext): \(backend)")
+            }
+        }
+    }
+
+    func testReadableLegacyMoviesReachBothDeterministicBackends() async throws {
+        for (name, fullRange) in [("legacy-mpeg4", false), ("legacy-mjpeg", true)] {
+            let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: name, withExtension: "mov"))
+            let info = try await VideoProbe().probe(url: url)
+            XCTAssertEqual(info.color.bitDepth, 8, name)
+            XCTAssertEqual(info.color.isFullRange, fullRange, name)
+            XCTAssertEqual(info.color.dynamicRange, .sdr, name)
+            let catalog = UpscaleBackendCatalog.live()
+            for backend: UpscaleBackendID in [.mirmirDeterministicCPU, .mirmirDeterministicMetal] {
+                let availability = await catalog.availability(
+                    for: backend, source: info,
+                    targetSize: CGSize(width: 320, height: 192), environment: .current()
+                )
+                XCTAssertEqual(availability, .available, "\(name): \(backend)")
+            }
+        }
+    }
+
+    func testLegacyHeaderParsersRejectTruncationAndMissingSamplingEvidence() throws {
+        for length in 0..<16 {
+            XCTAssertNil(LegacyVideoSamplingFacts.jpeg(Data(repeating: 0xff, count: length)))
+            XCTAssertNil(LegacyVideoSamplingFacts.mpeg4(Data(repeating: 0, count: length)))
+        }
+        // A valid JPEG SOF without its JFIF color/range declaration is insufficient.
+        let sof: [UInt8] = [0xff, 0xd8, 0xff, 0xc0, 0, 17, 8, 0, 96, 0, 160, 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1]
+        XCTAssertNil(LegacyVideoSamplingFacts.jpeg(Data(sof)))
+        let jfif: [UInt8] = [0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0, 1, 2, 0, 0, 1, 0, 1, 0, 0]
+        let valid = Data(jfif + sof.dropFirst(2))
+        XCTAssertEqual(LegacyVideoSamplingFacts.jpeg(valid), .init(bitDepth: 8, fullRange: true, subsampling: .yuv420))
+        for length in 0..<valid.count {
+            XCTAssertNil(LegacyVideoSamplingFacts.jpeg(valid.prefix(length)), "truncated at \(length)")
+        }
+        var highPrecision = valid
+        highPrecision[24] = 12
+        XCTAssertNil(LegacyVideoSamplingFacts.jpeg(highPrecision))
+    }
+
+    func testMPEG4HeaderAdmissionRetainsRangeAndRejectsUnsupportedVOLFields() async throws {
+        let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "legacy-mpeg4", withExtension: "mov"))
+        let tracks = try await AVURLAsset(url: url).loadTracks(withMediaType: .video)
+        let description = try await XCTUnwrap(tracks.first).load(.formatDescriptions)[0]
+        let extensions = try XCTUnwrap(CMFormatDescriptionGetExtensions(description) as NSDictionary?)
+        let atoms = try XCTUnwrap(extensions["SampleDescriptionExtensionAtoms"] as? NSDictionary)
+        let esds = try XCTUnwrap(atoms["esds"] as? Data)
+        let vol = try XCTUnwrap(esds.range(of: Data([0, 0, 1, 0x20]))).upperBound
+        // Bind these bit mutations to the actual fixture header, including its
+        // progressive, eight-bit 4:2:0 VOL and 24 fps clock.
+        XCTAssertEqual(Array(esds[vol..<(vol + 10)]), [0, 0xc4, 0x8d, 0x88, 0, 0xc5, 5, 4, 0x0c, 0x14])
+        XCTAssertEqual(LegacyVideoSamplingFacts.mpeg4(esds), .init(bitDepth: 8, fullRange: false, subsampling: .yuv420))
+        for length in 0..<(vol + 10) {
+            XCTAssertNil(LegacyVideoSamplingFacts.mpeg4(esds.prefix(length)), "truncated at \(length)")
+        }
+        for bit in [8, 22, 76, 78, 79] {
+            var unsupported = esds
+            unsupported[vol + bit / 8] ^= 1 << (7 - bit % 8)
+            XCTAssertNil(LegacyVideoSamplingFacts.mpeg4(unsupported), "unsupported VOL bit \(bit)")
+        }
+        let visualObject = try XCTUnwrap(esds.range(of: Data([0, 0, 1, 0xb5]))).upperBound
+        var explicitFullRange = esds
+        explicitFullRange.replaceSubrange(visualObject..<(visualObject + 2), with: [0x89, 0x1d, 0x80])
+        XCTAssertEqual(LegacyVideoSamplingFacts.mpeg4(explicitFullRange), .init(bitDepth: 8, fullRange: true, subsampling: .yuv420))
+    }
+
     func testProbesSDRLandscapeWithAudio() async throws {
         let fixtures = try TemporaryFixtureDirectory()
         defer { fixtures.remove() }
@@ -83,6 +474,56 @@ final class VideoProbeTests: XCTestCase {
         XCTAssertNotNil(info.estimatedFrameCount)
     }
 
+    func testUnreadableUntaggedFrameRetainsDecoderFailureReason() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let url = fixtures.url(for: "damaged-untagged.mov")
+        try await VideoProbeFixtureFactory.makeVideo(
+            at: url, transform: .identity, includeColorProperties: false
+        )
+        var bytes = try Data(contentsOf: url)
+        func integer(_ offset: Int, _ length: Int) -> UInt64 {
+            bytes[offset..<(offset + length)].reduce(0) { ($0 << 8) | UInt64($1) }
+        }
+        var offset = 0
+        var corrupted = false
+        while offset + 8 <= bytes.count {
+            let size32 = integer(offset, 4)
+            let header = size32 == 1 ? 16 : 8
+            let size = size32 == 1 ? Int(integer(offset + 8, 8))
+                : size32 == 0 ? bytes.count - offset : Int(size32)
+            guard size >= header, offset + size <= bytes.count else {
+                throw VideoProbeFixtureError.failure("Invalid generated movie atom.")
+            }
+            if bytes[(offset + 4)..<(offset + 8)] == Data("mdat".utf8) {
+                bytes.replaceSubrange((offset + header)..<(offset + size), with: repeatElement(UInt8(0), count: size - header))
+                corrupted = true
+                break
+            }
+            offset += size
+        }
+        XCTAssertTrue(corrupted)
+        try bytes.write(to: url)
+        let asset = AVURLAsset(url: url)
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(tracks.first)
+        let descriptions = try await track.load(.formatDescriptions)
+        let reason: String
+        do {
+            _ = try VideoDecodedColorResolver.resolve(asset: asset, track: track, descriptions: descriptions)
+            return XCTFail("The damaged frame must fail decoder color resolution.")
+        } catch AVCanonicalMediaStateAdapterV4Error.avFoundationLoadFailed(let path, let detail) {
+            XCTAssertEqual(path, "video.decoded_color")
+            reason = detail
+        }
+        do {
+            _ = try await VideoProbe().probe(url: url)
+            XCTFail("The damaged source must fail probing.")
+        } catch MirmirError.probeFailed(let detail) {
+            XCTAssertEqual(detail, reason)
+        }
+    }
+
     func testRejectsValidAudioOnlyAsset() async throws {
         let fixtures = try TemporaryFixtureDirectory()
         defer { fixtures.remove() }
@@ -135,19 +576,21 @@ enum VideoProbeFixtureError: LocalizedError {
 }
 
 enum VideoProbeFixtureFactory {
-    private static let width = 64
-    private static let height = 48
     private static let frameRate: CMTimeScale = 30
     private static let frameCount: CMTimeValue = 3
 
     static func makeVideo(
         at url: URL,
         transform: CGAffineTransform,
-        presentationTimes: [CMTime]? = nil
+        presentationTimes: [CMTime]? = nil,
+        includeColorProperties: Bool = true,
+        codec: AVVideoCodecType = .h264,
+        width: Int = 64,
+        height: Int = 48
     ) async throws {
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
-        let videoSettings: [String: Any] = [
-            AVVideoCodecKey: AVVideoCodecType.h264,
+        var videoSettings: [String: Any] = [
+            AVVideoCodecKey: codec,
             AVVideoWidthKey: width,
             AVVideoHeightKey: height,
             AVVideoColorPropertiesKey: [
@@ -156,6 +599,9 @@ enum VideoProbeFixtureFactory {
                 AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
             ]
         ]
+        if !includeColorProperties {
+            videoSettings.removeValue(forKey: AVVideoColorPropertiesKey)
+        }
         let input = AVAssetWriterInput(
             mediaType: .video,
             outputSettings: videoSettings
@@ -226,6 +672,11 @@ enum VideoProbeFixtureFactory {
                 )
             }
             fill(pixelBuffer: pixelBuffer, frameIndex: frameIndex)
+            if !includeColorProperties {
+                CVBufferRemoveAttachment(pixelBuffer, kCVImageBufferColorPrimariesKey)
+                CVBufferRemoveAttachment(pixelBuffer, kCVImageBufferTransferFunctionKey)
+                CVBufferRemoveAttachment(pixelBuffer, kCVImageBufferYCbCrMatrixKey)
+            }
             guard adaptor.append(
                 pixelBuffer,
                 withPresentationTime: presentationTime

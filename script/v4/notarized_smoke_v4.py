@@ -122,6 +122,49 @@ def canonical_bytes(value: Any) -> bytes:
     ).encode("utf-8")
 
 
+FOUNDATION_CANONICALIZER = SCRIPT_DIRECTORY / "foundation_canonical_json.swift"
+FOUNDATION_MODULE_CACHE = SCRIPT_DIRECTORY / "foundation-module-cache"
+
+
+def foundation_canonical_bytes(raw: bytes, label: str = "observer result") -> bytes:
+    """Re-canonicalize app-emitted JSON with Foundation JSONSerialization.
+
+    Shipping-app observer results are produced with
+    ``JSONSerialization.data(..., options: [.sortedKeys, .withoutEscapingSlashes])``.
+    Python ``json.dumps`` can emit a different Double lexeme for the same
+    IEEE value (for example ``0.56447100639343262`` vs ``0.5644710063934326``),
+    so Python round-trips must not decide whether an app result is canonical.
+    """
+    import subprocess
+
+    require(FOUNDATION_CANONICALIZER.is_file(), f"missing Foundation canonicalizer at {FOUNDATION_CANONICALIZER}")
+    FOUNDATION_MODULE_CACHE.mkdir(parents=True, exist_ok=True)
+    try:
+        process = subprocess.run(
+            [
+                "/usr/bin/swift",
+                "-module-cache-path",
+                str(FOUNDATION_MODULE_CACHE),
+                str(FOUNDATION_CANONICALIZER),
+            ],
+            input=raw,
+            capture_output=True,
+            timeout=60,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise NotarizedSmokeError(f"cannot Foundation-canonicalize {label}: {error}") from error
+    if process.returncode != 0:
+        detail = process.stderr.decode("utf-8", errors="replace").strip() or f"exit {process.returncode}"
+        raise NotarizedSmokeError(f"Foundation canonicalization failed for {label}: {detail}")
+    return process.stdout
+
+
+def require_foundation_canonical(raw: bytes, label: str) -> None:
+    require(bool(raw), f"{label} is empty")
+    require(foundation_canonical_bytes(raw, label) == raw, f"{label} is not Foundation-canonical JSON")
+
+
 def pretty_bytes(value: Any) -> bytes:
     return (
         json.dumps(
@@ -817,7 +860,8 @@ def decode_observer_invocation(
     request = require_mapping(load_json_bytes(request_bytes, f"observer {phase} request"), f"observer {phase} request")
     result = require_mapping(load_json_bytes(result_bytes, f"observer {phase} result"), f"observer {phase} result")
     require(request_bytes == canonical_bytes(request), f"observer {phase} request is noncanonical")
-    require(result_bytes == canonical_bytes(result), f"observer {phase} result is noncanonical")
+    # App-owned results use Foundation number text; do not Python-reserialize them.
+    require_foundation_canonical(result_bytes, f"observer {phase} result")
     request_keys = {"schemaVersion", "phase", "requestID", "nonce", "generatedAtUTC", "laneContractSHA256", "releaseContractSHA256", "applicationArchiveSHA256", "sourceCommit", "bundleIdentifier", "productVersion", "productBuild", "runtimeManifestSHA256", "runtimeManifestFileSHA256", "expectedExecutableSHA256"}
     if phase == "recover":
         request_keys.add("phaseOneResultSHA256")

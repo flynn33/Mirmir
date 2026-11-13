@@ -1,0 +1,1780 @@
+{
+  "outputs": [
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x()",
+      "case": "2x-automatic-audio-false",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "56bb25f15c775f97fc9effeaf37cdc5144fcaee658d19d36a5c5c64092b8e421",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          320,
+          192
+        ],
+        "decodedPictureSHA256": "0b4a238499c5162be676a350416f61fecdb911b9557ae107c9c92c2fa63872a7"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:43.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x()",
+      "case": "2x-automatic-audio-true",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "5d37827382662d69a7acefcb48c8a07c519ba60cef5d546f48ba0a4eba90baf3",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "audio2PCMExact": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          320,
+          192
+        ],
+        "decodedPictureSHA256": "0b4a238499c5162be676a350416f61fecdb911b9557ae107c9c92c2fa63872a7"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        },
+        {
+          "sourceStream": 2,
+          "outputStream": 2,
+          "decodedPCMBytes": 577536,
+          "PCMByteExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:43.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x()",
+      "case": "2x-coreImageBicubic-audio-false",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "b3b1c4e6622307c4db89a112e70aca387d6a9fb12324cfac6c674e68131ec476",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          320,
+          192
+        ],
+        "decodedPictureSHA256": "d48bb416349d5c694b68c0d529533832987acad3272deba1cfe93dcc96cda3e3"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:46.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x()",
+      "case": "2x-coreImageBicubic-audio-true",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "184dfd9f2fd235bddcd85c6ae753a19b5151fd2b91008ea3b005f1e3c15dd7fa",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "audio2PCMExact": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          320,
+          192
+        ],
+        "decodedPictureSHA256": "d48bb416349d5c694b68c0d529533832987acad3272deba1cfe93dcc96cda3e3"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        },
+        {
+          "sourceStream": 2,
+          "outputStream": 2,
+          "decodedPCMBytes": 577536,
+          "PCMByteExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:46.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x()",
+      "case": "2x-coreImageLanczos-audio-false",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "67bc11a3eb3f607e257a4fb29b0e9bf1c545d53879802820a76a327c3b1223a3",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          320,
+          192
+        ],
+        "decodedPictureSHA256": "d48bb416349d5c694b68c0d529533832987acad3272deba1cfe93dcc96cda3e3"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:45.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x()",
+      "case": "2x-coreImageLanczos-audio-true",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "1ce6db2f1faa325665b35c6bab7832e5adb621d4f5b28ca73a5bafc3cdd630d3",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "audio2PCMExact": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          320,
+          192
+        ],
+        "decodedPictureSHA256": "d48bb416349d5c694b68c0d529533832987acad3272deba1cfe93dcc96cda3e3"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        },
+        {
+          "sourceStream": 2,
+          "outputStream": 2,
+          "decodedPCMBytes": 577536,
+          "PCMByteExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:45.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x()",
+      "case": "2x-metalFXSpatial-audio-false",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "c2d45e11159e62c2562f4d6dd79027091d7ee897c482c09aec7e0ef2521bfae8",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          320,
+          192
+        ],
+        "decodedPictureSHA256": "21a9c4972d19263dd8a9418a70d9d4327466af47dc9d28972863ab5c374ab31a"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:44.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x()",
+      "case": "2x-metalFXSpatial-audio-true",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "3d0f9fd199cb85240bb83be72305f875ff7f3be9e16539ded2d2689e859c3b99",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "audio2PCMExact": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          320,
+          192
+        ],
+        "decodedPictureSHA256": "21a9c4972d19263dd8a9418a70d9d4327466af47dc9d28972863ab5c374ab31a"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        },
+        {
+          "sourceStream": 2,
+          "outputStream": 2,
+          "decodedPCMBytes": 577536,
+          "PCMByteExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:44.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x()",
+      "case": "2x-mpsBilinear-audio-false",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "fb9328ce932c68aa68be70afb00ffe25847ae851c52d6e3c0db5583bc1450ebd",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          320,
+          192
+        ],
+        "decodedPictureSHA256": "d48bb416349d5c694b68c0d529533832987acad3272deba1cfe93dcc96cda3e3"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:45.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x()",
+      "case": "2x-mpsBilinear-audio-true",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "b97ca92da43a6ada4148cc69c61f6b52a25956b8d044f71556ae61de5e7563dc",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "audio2PCMExact": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          320,
+          192
+        ],
+        "decodedPictureSHA256": "d48bb416349d5c694b68c0d529533832987acad3272deba1cfe93dcc96cda3e3"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        },
+        {
+          "sourceStream": 2,
+          "outputStream": 2,
+          "decodedPCMBytes": 577536,
+          "PCMByteExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:45.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x()",
+      "case": "2x-mpsLanczos-audio-false",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "6a06879ce074e518e096720cb253f9968836acfa8f0fc9b6efbf1be011800084",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          320,
+          192
+        ],
+        "decodedPictureSHA256": "d48bb416349d5c694b68c0d529533832987acad3272deba1cfe93dcc96cda3e3"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:44.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x()",
+      "case": "2x-mpsLanczos-audio-true",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "25b0c849467c11933dcd68163737d887774a7d2c03e5559ee86a4619c0282a5e",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "audio2PCMExact": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          320,
+          192
+        ],
+        "decodedPictureSHA256": "d48bb416349d5c694b68c0d529533832987acad3272deba1cfe93dcc96cda3e3"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        },
+        {
+          "sourceStream": 2,
+          "outputStream": 2,
+          "decodedPCMBytes": 577536,
+          "PCMByteExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:44.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x()",
+      "case": "2x-vImageHighQuality-audio-false",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "e6619abe3d62c8e98e15bdef07f6afb1f7de07d79258d40967e1531ef7a70e70",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          320,
+          192
+        ],
+        "decodedPictureSHA256": "d48bb416349d5c694b68c0d529533832987acad3272deba1cfe93dcc96cda3e3"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:46.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x()",
+      "case": "2x-vImageHighQuality-audio-true",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "ddf02ec0e044bc02563735d373c400f10dda0f40247494a1c2ca3d6f91739f43",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "audio2PCMExact": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          320,
+          192
+        ],
+        "decodedPictureSHA256": "d48bb416349d5c694b68c0d529533832987acad3272deba1cfe93dcc96cda3e3"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        },
+        {
+          "sourceStream": 2,
+          "outputStream": 2,
+          "decodedPCMBytes": 577536,
+          "PCMByteExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:46.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x()",
+      "case": "2x-vImageStandard-audio-false",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "c3ed9115b71d4ebaac6d996856363b1626c7ca3f80682b85b89ab57d3072f1ec",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          320,
+          192
+        ],
+        "decodedPictureSHA256": "d48bb416349d5c694b68c0d529533832987acad3272deba1cfe93dcc96cda3e3"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:47.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x()",
+      "case": "2x-vImageStandard-audio-true",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "f32521f3ef44d5d1a6b3ba150ca7a2bb08e0a6ecc74630c64f714a21b633b052",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "audio2PCMExact": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          320,
+          192
+        ],
+        "decodedPictureSHA256": "d48bb416349d5c694b68c0d529533832987acad3272deba1cfe93dcc96cda3e3"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        },
+        {
+          "sourceStream": 2,
+          "outputStream": 2,
+          "decodedPCMBytes": 577536,
+          "PCMByteExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:47.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x()",
+      "case": "2x-videoToolboxPixelTransfer-audio-false",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "b6ac5decb739e720248514737da6c9fb922033b584c6a630b72a1429f34107e7",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          320,
+          192
+        ],
+        "decodedPictureSHA256": "d48bb416349d5c694b68c0d529533832987acad3272deba1cfe93dcc96cda3e3"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:47.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x()",
+      "case": "2x-videoToolboxPixelTransfer-audio-true",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "b1c5977c3bc745b51936b6c5726058087a1a213d9ad3036d96f4f856c0a319d9",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "audio2PCMExact": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          320,
+          192
+        ],
+        "decodedPictureSHA256": "d48bb416349d5c694b68c0d529533832987acad3272deba1cfe93dcc96cda3e3"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        },
+        {
+          "sourceStream": 2,
+          "outputStream": 2,
+          "decodedPCMBytes": 577536,
+          "PCMByteExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:47.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testDisabledFirstVideoRemainsUnmodifiedAndFirstEnabledVideoIsScaled()",
+      "case": "rich-source-audio-true",
+      "instance": "0",
+      "sourceSHA256": "73c39d690568e02f71852d4825bce266dbdd7585c306a2191844526aebdbdd6d",
+      "outputSHA256": "140d7ebe828b173988ed853d1138732b7e484c77d0d8dce9e7a62f8accd45cf4",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "audio2PCMExact": true,
+        "audio3PCMExact": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 8,
+        "outputPackets": 8,
+        "decodedFrames": 8,
+        "expectedStep": "1/30",
+        "storedPacketDurations": [
+          "1/30"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "90260c0066a37147ee0871aaa7925c0906305f58ea9a12fd8e5a4c4bea751b27"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 8,
+          "outputStoredPackets": 8,
+          "allPayloadSizePTSDTSDurationExact": true
+        },
+        {
+          "sourceStream": 2,
+          "outputStream": 2,
+          "decodedPCMBytes": 48000,
+          "PCMByteExact": true
+        },
+        {
+          "sourceStream": 3,
+          "outputStream": 3,
+          "decodedPCMBytes": 48000,
+          "PCMByteExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2026-10-26T10:45:48.000000Z",
+        "output": "2026-10-26T10:45:48.000000Z",
+        "equal": true
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testExplicitAudioOmissionRetainsEveryOtherRichMovieLane()",
+      "case": "rich-source-audio-false",
+      "instance": "0",
+      "sourceSHA256": "460f29ba8f7907453af11a3625b0f662fa8af7de3aeb1d93d30eae90159be504",
+      "outputSHA256": "0f13978936d7dac06147d476e6ccadcddc1ac25de9b8d0ad247580d36673de5a",
+      "checks": {
+        "trackCountAndOrder": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "untouchedVideo1StoredPacketIdentity": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 8,
+        "outputPackets": 8,
+        "decodedFrames": 8,
+        "expectedStep": "1/30",
+        "storedPacketDurations": [
+          "1/30"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "753782ffac03eddfa8f672ddcdc0fb22f5227b8146a2350cefeff710143730de"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 1,
+          "outputStream": 1,
+          "storedPackets": 8,
+          "outputStoredPackets": 8,
+          "allPayloadSizePTSDTSDurationExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2026-10-26T10:45:48.000000Z",
+        "output": "2026-10-26T10:45:48.000000Z",
+        "equal": true
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testRichMoviePreservesAlternateVideoAudioGroupsMetadataChaptersAndTimecode()",
+      "case": "rich-source-audio-true",
+      "instance": "0",
+      "sourceSHA256": "2a82183c81a6d1a3ac6ea778a94b48980876cfe91b18c100cce3b87b509a3835",
+      "outputSHA256": "e90ea43253c166a03e9445eead09dad56b6431809f68958f809ee1da2ba5464a",
+      "checks": {
+        "trackCountAndOrder": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "untouchedVideo1StoredPacketIdentity": true,
+        "audio2PCMExact": true,
+        "audio3PCMExact": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 8,
+        "outputPackets": 8,
+        "decodedFrames": 8,
+        "expectedStep": "1/30",
+        "storedPacketDurations": [
+          "1/30"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "753782ffac03eddfa8f672ddcdc0fb22f5227b8146a2350cefeff710143730de"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 1,
+          "outputStream": 1,
+          "storedPackets": 8,
+          "outputStoredPackets": 8,
+          "allPayloadSizePTSDTSDurationExact": true
+        },
+        {
+          "sourceStream": 2,
+          "outputStream": 2,
+          "decodedPCMBytes": 48000,
+          "PCMByteExact": true
+        },
+        {
+          "sourceStream": 3,
+          "outputStream": 3,
+          "decodedPCMBytes": 48000,
+          "PCMByteExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2026-10-26T10:45:51.000000Z",
+        "output": "2026-10-26T10:45:51.000000Z",
+        "equal": true
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaAndEditMapsSurviveConventionalExport()",
+      "case": "stored-discontinuous-audio-false",
+      "instance": "0",
+      "sourceSHA256": "0882ea08f8e0deaff7dfd19ad56f5da1a813630e6bfa6a13bbec7a0051141338",
+      "outputSHA256": "fe23f86d6b9948e3b7024f0af2eb2bf7b68ee772c51178038682d646bcc09b7e",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "014953ff1f08fc47ad67f8c02b45ee5758ffd5bffcd54518cfdbbe58e0cf8eed"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:56.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaAndEditMapsSurviveConventionalExport()",
+      "case": "stored-discontinuous-audio-true",
+      "instance": "0",
+      "sourceSHA256": "0882ea08f8e0deaff7dfd19ad56f5da1a813630e6bfa6a13bbec7a0051141338",
+      "outputSHA256": "cb2b58229c71928294c4ede8d843851e165463381d5e97fe2e9beefb1c02cf3f",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "audio2PCMExact": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "014953ff1f08fc47ad67f8c02b45ee5758ffd5bffcd54518cfdbbe58e0cf8eed"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        },
+        {
+          "sourceStream": 2,
+          "outputStream": 2,
+          "decodedPCMBytes": 577536,
+          "PCMByteExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:56.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaAndEditMapsSurviveConventionalExport()",
+      "case": "stored-internal-audio-false",
+      "instance": "0",
+      "sourceSHA256": "7d2a57d98488713c81606086a2b73cbf8bc100afad3d4e7451fc4e42b01fbd75",
+      "outputSHA256": "6356f04b231ed119c1504a514668359f3aeb1b12d4322cb81880267bcb77f0da",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "014953ff1f08fc47ad67f8c02b45ee5758ffd5bffcd54518cfdbbe58e0cf8eed"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:56.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaAndEditMapsSurviveConventionalExport()",
+      "case": "stored-internal-audio-true",
+      "instance": "0",
+      "sourceSHA256": "7d2a57d98488713c81606086a2b73cbf8bc100afad3d4e7451fc4e42b01fbd75",
+      "outputSHA256": "1d8376da0b5dbeb9922d33ccde1f5f40e7c1f417a387db0700dd3914783dc874",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "audio2PCMExact": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "014953ff1f08fc47ad67f8c02b45ee5758ffd5bffcd54518cfdbbe58e0cf8eed"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        },
+        {
+          "sourceStream": 2,
+          "outputStream": 2,
+          "decodedPCMBytes": 577536,
+          "PCMByteExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:55.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaAndEditMapsSurviveConventionalExport()",
+      "case": "stored-leading-audio-false",
+      "instance": "0",
+      "sourceSHA256": "0ef88cf3db58e426b2ab5cb8357f87fd13be9e27762dc27da66d79527ee38620",
+      "outputSHA256": "bf660a0d5432046a87695e83bd911b098ba8f4a779797650f061f505a67c21e9",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "014953ff1f08fc47ad67f8c02b45ee5758ffd5bffcd54518cfdbbe58e0cf8eed"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:55.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaAndEditMapsSurviveConventionalExport()",
+      "case": "stored-leading-audio-true",
+      "instance": "0",
+      "sourceSHA256": "0ef88cf3db58e426b2ab5cb8357f87fd13be9e27762dc27da66d79527ee38620",
+      "outputSHA256": "f5c62ab05a0f318dde976adc20becb60c705bd6a72ad2e1cff6e9985b2921448",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "audio2PCMExact": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "014953ff1f08fc47ad67f8c02b45ee5758ffd5bffcd54518cfdbbe58e0cf8eed"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        },
+        {
+          "sourceStream": 2,
+          "outputStream": 2,
+          "decodedPCMBytes": 577536,
+          "PCMByteExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:55.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaAndEditMapsSurviveConventionalExport()",
+      "case": "stored-repeated-audio-false",
+      "instance": "0",
+      "sourceSHA256": "901ffe9b45c55ab27329a5e7e9f4b67bc5a3b913d86d4da27a236e394bcd51e3",
+      "outputSHA256": "d2aa3ea2c3948fc16ead413eed4d6a9b152563c84dbbe260741a824a810ac0b3",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "014953ff1f08fc47ad67f8c02b45ee5758ffd5bffcd54518cfdbbe58e0cf8eed"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:57.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaAndEditMapsSurviveConventionalExport()",
+      "case": "stored-repeated-audio-true",
+      "instance": "0",
+      "sourceSHA256": "9e5c2fbc4dddbf723c9f543610979980a680302d083c5961d7f7a1651666c8af",
+      "outputSHA256": "0d291e4d4c77f89ba90cb39554f229708b241c26325a530591c0c16f148e8f0f",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "audio2PCMExact": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "014953ff1f08fc47ad67f8c02b45ee5758ffd5bffcd54518cfdbbe58e0cf8eed"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        },
+        {
+          "sourceStream": 2,
+          "outputStream": 2,
+          "decodedPCMBytes": 577536,
+          "PCMByteExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:57.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaAndEditMapsSurviveConventionalExport()",
+      "case": "stored-scaled-audio-false",
+      "instance": "0",
+      "sourceSHA256": "168c4b33d37cfe57c07f79bdffa41d617940d326e64395858b79e63b78c74e17",
+      "outputSHA256": "9fdc54a6b0236b3fe3d79f72afe7186bfa4ef5b7d72bc71eddcdc7b3f945a6de",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "014953ff1f08fc47ad67f8c02b45ee5758ffd5bffcd54518cfdbbe58e0cf8eed"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:58.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaAndEditMapsSurviveConventionalExport()",
+      "case": "stored-scaled-audio-true",
+      "instance": "0",
+      "sourceSHA256": "168c4b33d37cfe57c07f79bdffa41d617940d326e64395858b79e63b78c74e17",
+      "outputSHA256": "0261bc18852357743b16322669fc884663fbd8e53ebd2138f747255d3612fbbf",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "audio2PCMExact": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "014953ff1f08fc47ad67f8c02b45ee5758ffd5bffcd54518cfdbbe58e0cf8eed"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        },
+        {
+          "sourceStream": 2,
+          "outputStream": 2,
+          "decodedPCMBytes": 577536,
+          "PCMByteExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:57.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaAndEditMapsSurviveConventionalExport()",
+      "case": "stored-trailing-audio-false",
+      "instance": "0",
+      "sourceSHA256": "5f50ee57d2efcd457b97134983171cf99a47c7d2b67ef7204cbcf011ec260a15",
+      "outputSHA256": "8ea7c8ee5178fff1428fa2a81bf39abf925e215d14991ad42a17facec1cffa9a",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "014953ff1f08fc47ad67f8c02b45ee5758ffd5bffcd54518cfdbbe58e0cf8eed"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:56.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaAndEditMapsSurviveConventionalExport()",
+      "case": "stored-trailing-audio-true",
+      "instance": "0",
+      "sourceSHA256": "5f50ee57d2efcd457b97134983171cf99a47c7d2b67ef7204cbcf011ec260a15",
+      "outputSHA256": "aefa1a37b9690428e8caaee5248124f07471b0bdcbaa8d6fd0d09a90b8a3c386",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "audio2PCMExact": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "014953ff1f08fc47ad67f8c02b45ee5758ffd5bffcd54518cfdbbe58e0cf8eed"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        },
+        {
+          "sourceStream": 2,
+          "outputStream": 2,
+          "decodedPCMBytes": 577536,
+          "PCMByteExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:56.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaAndEditMapsSurviveConventionalExport()",
+      "case": "stored-trimmed-audio-false",
+      "instance": "0",
+      "sourceSHA256": "956084a7559c01465b48f82d86e746cd5ef891f70d32f8669d0d1cfe6fe892b7",
+      "outputSHA256": "18ffd0245dad8cb8b9e2b3f64ab6f3b6e36f9b2ade6fbe8a208330aa908c9040",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "014953ff1f08fc47ad67f8c02b45ee5758ffd5bffcd54518cfdbbe58e0cf8eed"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:57.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaAndEditMapsSurviveConventionalExport()",
+      "case": "stored-trimmed-audio-true",
+      "instance": "0",
+      "sourceSHA256": "956084a7559c01465b48f82d86e746cd5ef891f70d32f8669d0d1cfe6fe892b7",
+      "outputSHA256": "4ae7f9043a1d7e38dc83fe2c5ee36090619d7bc0357ea9506fb2a9f6291ebca6",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "audio2PCMExact": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "014953ff1f08fc47ad67f8c02b45ee5758ffd5bffcd54518cfdbbe58e0cf8eed"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        },
+        {
+          "sourceStream": 2,
+          "outputStream": 2,
+          "decodedPCMBytes": 577536,
+          "PCMByteExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:57.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaTablesSurviveConventionalExport()",
+      "case": "stored-baseline-audio-false",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "492a1ed17872fb713f8287cb8c7bbe1fc0c7a93eeafbe1181b3d4220ce36c62f",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "014953ff1f08fc47ad67f8c02b45ee5758ffd5bffcd54518cfdbbe58e0cf8eed"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:58.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaTablesSurviveConventionalExport()",
+      "case": "stored-baseline-audio-true",
+      "instance": "0",
+      "sourceSHA256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+      "outputSHA256": "18c7a7276b4b64334f55c48129520342218d27535c0b80aa58875b0e58119ae4",
+      "checks": {
+        "trackCountAndOrder": true,
+        "untouchedVideo0StoredPacketIdentity": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "audio2PCMExact": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 72,
+        "outputPackets": 72,
+        "decodedFrames": 72,
+        "expectedStep": "1/24",
+        "storedPacketDurations": [
+          "1/24"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "014953ff1f08fc47ad67f8c02b45ee5758ffd5bffcd54518cfdbbe58e0cf8eed"
+      },
+      "preservedLanes": [
+        {
+          "sourceStream": 0,
+          "outputStream": 0,
+          "storedPackets": 72,
+          "outputStoredPackets": 72,
+          "allPayloadSizePTSDTSDurationExact": true
+        },
+        {
+          "sourceStream": 2,
+          "outputStream": 2,
+          "decodedPCMBytes": 577536,
+          "PCMByteExact": true
+        }
+      ],
+      "creationDateCheck": {
+        "source": "2020-01-02T03:04:05.000000Z",
+        "output": "2026-10-26T10:45:58.000000Z",
+        "equal": false
+      }
+    },
+    {
+      "test": "ConventionalWholeAssetPreservationTests/testSubtitleAndCaptionPacketsSurviveConventionalExport()",
+      "case": "legible-source-audio-true",
+      "instance": "0",
+      "sourceSHA256": "16249d23e63a6fe0e08b8ec1ecf3cfcdf02b09e70809b89e2d656bb693fc5874",
+      "outputSHA256": "35b915860cd1c7fc339ae266b47865aee470871e94c4afe464ac780ae97b6c4d",
+      "checks": {
+        "trackCountAndOrder": true,
+        "processedPresentationClockExact": true,
+        "processedStoredPacketDurationsExact": true,
+        "processedCompleteDecodedFrameCount": true,
+        "titlePreserved": true
+      },
+      "processedPrimary": {
+        "sourceFrames": 8,
+        "outputPackets": 8,
+        "decodedFrames": 8,
+        "expectedStep": "1/30",
+        "storedPacketDurations": [
+          "1/30"
+        ],
+        "raster": [
+          128,
+          96
+        ],
+        "decodedPictureSHA256": "2b79917ba3fd93a8cfa6dc560ca8598cee270f782108b4366ab460e723f3053e"
+      },
+      "preservedLanes": [],
+      "creationDateCheck": {
+        "source": "2026-10-26T10:45:58.000000Z",
+        "output": "2026-10-26T10:45:58.000000Z",
+        "equal": true
+      }
+    }
+  ],
+  "trackAndTimingChecksPass": true,
+  "allMeasuredCreationDatesPass": false,
+  "allMeasuredChecksPass": false,
+  "checkerSHA256": "35227c37d2ab2a2d79bd954040ca61e424c73d5291ec49c747a0fbf868e64ebb"
+}

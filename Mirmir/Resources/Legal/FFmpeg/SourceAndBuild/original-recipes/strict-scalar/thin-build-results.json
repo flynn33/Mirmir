@@ -1,0 +1,12 @@
+[
+  {
+    "architecture": "arm64",
+    "state": "complete",
+    "elapsedSeconds": 73.70206713676453
+  },
+  {
+    "architecture": "x86_64",
+    "state": "complete",
+    "elapsedSeconds": 68.91871905326843
+  }
+]

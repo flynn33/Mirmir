@@ -120,6 +120,45 @@ def identity_arguments() -> dict[str, str]:
 
 
 class SimulatedCandidateSelectionTests(unittest.TestCase):
+    def test_accepts_phase2_report_with_exact_loaded_validator(self) -> None:
+        value = report()
+        value["schemaVersion"] = "mirmir-ash-v4-quality-report-v2"
+        current = json.loads(MODULE_PATH.with_name("quality-gate-contract-v2.json").read_text())
+        value["contract"].update(
+            schemaVersion=current["schemaVersion"],
+            corpusConstruction=current["corpusConstruction"],
+        )
+        value["identities"]["chromaGeometryValidatorSHA256"] = selector.sha256(
+            MODULE_PATH.with_name("chroma_geometry_v4.py")
+        )
+        result = selector.build_selection(
+            contract(), value, **identity_arguments()
+        )
+        self.assertEqual(result["selectedCandidateID"], "candidate_v4")
+        self.assertEqual(
+            result,
+            selector.build_selection(contract(), report(), **identity_arguments()),
+        )
+
+    def test_rejects_missing_or_foreign_phase2_validator(self) -> None:
+        for identity in (None, "0" * 64):
+            value = report()
+            value["schemaVersion"] = "mirmir-ash-v4-quality-report-v2"
+            current = json.loads(MODULE_PATH.with_name("quality-gate-contract-v2.json").read_text())
+            value["contract"].update(
+                schemaVersion=current["schemaVersion"],
+                corpusConstruction=current["corpusConstruction"],
+            )
+            if identity is not None:
+                value["identities"]["chromaGeometryValidatorSHA256"] = identity
+            with self.subTest(identity=identity):
+                with self.assertRaisesRegex(
+                    selector.SelectionError, "validator identity differs"
+                ):
+                    selector.build_selection(
+                        contract(), value, **identity_arguments()
+                    )
+
     def test_selects_highest_confidence_quality_after_thresholds(self) -> None:
         result = selector.build_selection(
             contract(),

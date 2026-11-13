@@ -1,0 +1,100 @@
+{
+  "scope": "Bounded source/test evidence, not all-feature release acceptance",
+  "files": [
+    {
+      "sourceEvidenceRelativePath": "release-v5-focused-test-summary.json",
+      "file": "release-v5-focused-test-summary.json",
+      "sha256": "710ded6f444f3a30cb2b5b28253b7f5ae7be42450257928fd229e52018368829"
+    },
+    {
+      "sourceEvidenceRelativePath": "release-v5-rosetta-test-summary.json",
+      "file": "release-v5-rosetta-test-summary.json",
+      "sha256": "c3d9fcb42b4170d797b0d603d27b5bfde2eaf3a323de21e99b9eaac79dd3dff6"
+    },
+    {
+      "sourceEvidenceRelativePath": "minimum-os-v5-verification.json",
+      "file": "minimum-os-v5-verification.json",
+      "sha256": "affd27f618d2e7bf17a4da4f2b62e6231a67ac25bc5277db6e7712b6b85e7212"
+    },
+    {
+      "sourceEvidenceRelativePath": "independent-transport-three-environments.json",
+      "file": "independent-transport-three-environments.json",
+      "sha256": "6b7da934fba13fd31e5d6c74d36a0390fddca840c1c4ee1fa833890de3604f08"
+    },
+    {
+      "sourceEvidenceRelativePath": "release-independent-media.json",
+      "file": "release-independent-media.json",
+      "sha256": "039ba65217d022b28997b245c8aca8c09d5f63af92ef62a4bed16485f227d000"
+    },
+    {
+      "sourceEvidenceRelativePath": "runtime-repetition-prores-source01.json",
+      "file": "runtime-repetition-prores-source01.json",
+      "sha256": "e6c8b9afa7956ff2fc7514669e0c163ce2831f260c7d6a4e036fa078f97969ef"
+    },
+    {
+      "sourceEvidenceRelativePath": "post-install-source-manifest-prores-source01.json",
+      "file": "post-install-source-manifest-prores-source01.json",
+      "sha256": "db32257d858057d45a40d1f63643150933d203d429a1512ebc37cd1dbb5fd444"
+    },
+    {
+      "sourceEvidenceRelativePath": "qualification-lock-refresh.json",
+      "file": "qualification-lock-refresh.json",
+      "sha256": "3885e65a6b439ba247ccdbdd3b043e071879aa08f5cbe38e4568b282254e80ec"
+    },
+    {
+      "sourceEvidenceRelativePath": "alpha-test-helper-change.json",
+      "file": "alpha-test-helper-change.json",
+      "sha256": "2b9b958f4afe3d18449a11dc075bfbba56414547883d94bfaddbc13c864763db"
+    },
+    {
+      "sourceEvidenceRelativePath": "root-tool-regression-current/receipt.json",
+      "file": "root-tool-regression-current--receipt.json",
+      "sha256": "154d215d820f9c9ddcd30c98981eab026aae50ae98a7283b646de088df8bff77"
+    },
+    {
+      "sourceEvidenceRelativePath": "tool-regression-first/historical/receipt.json",
+      "file": "tool-regression-first--historical--receipt.json",
+      "sha256": "2022c05a54228e3f8937de93160d2dc97586e3158da83d444c0b24445d23c04e"
+    },
+    {
+      "sourceEvidenceRelativePath": "root-v2-release-build-for-testing-command.json",
+      "file": "root-v2-release-build-for-testing-command.json",
+      "sha256": "48a92da4cd815a1fa950851bd9643fb04bb42ac306d8e100af6cb906095facca"
+    },
+    {
+      "sourceEvidenceRelativePath": "root-v2-alpha-focused-test-summary.json",
+      "file": "root-v2-alpha-focused-test-summary.json",
+      "sha256": "b92aec115ce31015feee7cd323dcaf1831dea74f534cb25eeaf53c0121fb3a4e"
+    },
+    {
+      "sourceEvidenceRelativePath": "root-v2-release-full-non-ui-command.json",
+      "file": "root-v2-release-full-non-ui-command.json",
+      "sha256": "2ff979869c86a485fecd205c1ecc98bdc8bc14c222cd7adf35a11af14c2e883c"
+    },
+    {
+      "sourceEvidenceRelativePath": "root-v2-release-full-non-ui-test-summary.json",
+      "file": "root-v2-release-full-non-ui-test-summary.json",
+      "sha256": "4cd253d44a7aa27b2d0f87b76524e7a27dd39232526033759484a853268c9ccd"
+    },
+    {
+      "sourceEvidenceRelativePath": "root-opt-in-skips.json",
+      "file": "root-opt-in-skips.json",
+      "sha256": "4c797c2c33e2ab6c36b421e0855709dc1d1c98e8af91767af5662afefafe7b8d"
+    },
+    {
+      "sourceEvidenceRelativePath": "root-default-release-build-command.json",
+      "file": "root-default-release-build-command.json",
+      "sha256": "e6a0d613aaa98dc81315fbe1f0b3a85a0b83e1a65b93a96eea162eed564a722d"
+    },
+    {
+      "sourceEvidenceRelativePath": "root-default-release-signature-command.json",
+      "file": "root-default-release-signature-command.json",
+      "sha256": "34072175be90b765e62e3621f7cfed9033d5bcf512426c21880133ef6c45a786"
+    },
+    {
+      "sourceEvidenceRelativePath": "root-default-release-identity.json",
+      "file": "root-default-release-identity.json",
+      "sha256": "e7e12f5887ec9895f630b7d106b9e4d726a39ba8195a86d06a9b2db3ee02565b"
+    }
+  ]
+}

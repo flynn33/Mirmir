@@ -67,6 +67,7 @@ extension AVFoundationMediaSession {
                 throw MediaPipelineError.writerFailed(writer.error)
             }
             try await assembleFinalOutput()
+            try restoreStructuralCreationDatesAfterAssembly()
             try removeMigrationArtifactsAfterAssembly()
             removeStagingFileAfterAssembly()
 
@@ -252,6 +253,31 @@ extension AVFoundationMediaSession {
             throw MediaPipelineError.finalMuxFailed(
                 outputProfile.url,
                 error
+            )
+        }
+    }
+
+    /// AVMutableMovie.writeHeader stamps export-time creation/modification.
+    /// Restore the authenticated source movie/track/media dates onto the
+    /// unpublished final before verification/publication.
+    private func restoreStructuralCreationDatesAfterAssembly() throws {
+        try checkCancellation()
+        do {
+            _ = try MOVStructuralCreationDatesV4.restoreFromSource(
+                sourceURL: sourceProfile.url,
+                into: outputTransaction.temporaryURL,
+                cancellation: { try checkCancellation() }
+            )
+        } catch let error as MOVStructuralCreationDatesV4.Failure {
+            throw MediaPipelineError.metadataPreservationFailed(
+                "structural creation-date restoration failed: \(error)"
+            )
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw MediaPipelineError.metadataPreservationFailed(
+                "structural creation-date restoration failed: "
+                    + String(describing: error)
             )
         }
     }

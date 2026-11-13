@@ -1,0 +1,83 @@
+{
+  "scope": "development-signed headless workflow smoke; not notarized or distribution qualification",
+  "app": "/private/tmp/Mirmir-root-bounded-default-release-derived-20261025/Build/Products/Release/Mirmir.app",
+  "executable": "/private/tmp/Mirmir-root-bounded-default-release-derived-20261025/Build/Products/Release/Mirmir.app/Contents/MacOS/Mirmir",
+  "executableSHA256": "5a6cfa4a65df5de82dd712e1b67df8985ace1e1814f9bde2bc65580900273a60",
+  "bundleIdentifier": "com.mirmir.app",
+  "productVersion": "1.7.2",
+  "productBuild": "20",
+  "runtimeManifestSHA256": "a3d936ac7a1ede1dccf268f0b997a901c933f5cd5058e8ff68807fea93969197",
+  "runtimeManifestFileSHA256": "290c87c064a90055b1df147d9d6c9fc58029bff4890142654b60d60e33accb21",
+  "runtimeSourceRevision": "e87a528c98d2c2cdd8eff76747746f2b39fda20b943940f0db64b2f79c0680ff",
+  "embeddedRuntimeReleaseStatusDeclaration": "release_qualified",
+  "signatureAuthorities": [
+    "Apple Development: James Daley (FW94K6ZY57)",
+    "Apple Worldwide Developer Relations Certification Authority",
+    "Apple Root CA"
+  ],
+  "signatureDisplay": "Executable=/private/tmp/Mirmir-root-bounded-default-release-derived-20261025/Build/Products/Release/Mirmir.app/Contents/MacOS/Mirmir\nIdentifier=com.mirmir.app\nFormat=app bundle with Mach-O universal (x86_64 arm64)\nCodeDirectory v=20500 size=41658 flags=0x10000(runtime) hashes=1291+7 location=embedded\nVersionPlatform=1\nVersionMin=984064\nVersionSDK=1769472\nHash type=sha256 size=32\nCandidateCDHash sha256=fdcf9574a7e7397687e85401776ab784f3647ddb\nCandidateCDHashFull sha256=fdcf9574a7e7397687e85401776ab784f3647ddb8877cb7e3d31293e0f890332\nHash choices=sha256\nCMSDigest=fdcf9574a7e7397687e85401776ab784f3647ddb8877cb7e3d31293e0f890332\nCMSDigestType=2\nExecutable Segment base=0\nExecutable Segment limit=9224192\nExecutable Segment flags=0x1\nPage size=16384\nCDHash=fdcf9574a7e7397687e85401776ab784f3647ddb\nSignature size=4779\nAuthority=Apple Development: James Daley (FW94K6ZY57)\nAuthority=Apple Worldwide Developer Relations Certification Authority\nAuthority=Apple Root CA\nSigned Time=Oct 26, 2026 at 5:42:07\u202fAM\nInfo.plist entries=35\nTeamIdentifier=9AQ2C2838M\nRuntime Version=27.0.0\nSealed Resources version=2 rules=13 files=17\nInternal requirements count=1 size=176\nTotal signatures=1\nChosen signature=1\n",
+  "entitlements": {
+    "com.apple.security.app-sandbox": true,
+    "com.apple.security.files.bookmarks.app-scope": true,
+    "com.apple.security.files.user-selected.read-write": true,
+    "com.apple.security.get-task-allow": true
+  },
+  "releaseProvenanceClaims": {
+    "MirmirV4BuildConfiguration": "",
+    "MirmirV4BuildProvenanceSchema": "",
+    "MirmirV4ReleaseConfigurationSHA256": "",
+    "MirmirV4RuntimeArtifactSetSHA256": "",
+    "MirmirV4RuntimeManifestFileSHA256": "",
+    "MirmirV4RuntimeManifestSHA256": "",
+    "MirmirV4RuntimeSourceRevision": "",
+    "MirmirV4SourceCommit": "",
+    "MirmirV4SourceTreeIdentitySHA256": ""
+  },
+  "laneContract": "/Volumes/DockCase/GitHub/Mirmir/script/v4/notarized-smoke-contract-v1.json",
+  "laneContractSHA256": "7022e6fac7beeaf59d383a96365af93018f85d2b00f86d68e45e4ba059bc5b04",
+  "releaseContract": "/Volumes/DockCase/GitHub/Mirmir/script/v4/release-qualification-contract-v1.json",
+  "releaseContractSHA256": "592b4369b8b5a1792acf0848c0be21521c526de9de5ab28b141529cb478b8509",
+  "sourceManifest": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/sealed-source-manifest.json",
+  "sourceManifestFileSHA256": "11e28d26b992106d084b08d687095a5f2e100993d5bf29486d922c0ba528238c",
+  "binding": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/sealed-source-runtime-binding.json",
+  "bindingFileSHA256": "8d9afb75fbdf72edf0d24f8315c742d1fbd9c2fadae17204d1284343aafd9cba",
+  "fileInventory": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/sealed-default-release-file-inventory.json",
+  "fileInventorySHA256": "5b636c11769acf02357416bc936e37ce753524672df4d62379d843344f484b86",
+  "reviewedInputs": {
+    "repository": "/Volumes/DockCase/GitHub/Mirmir",
+    "files": {
+      "sourceManifest": {
+        "path": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/sealed-source-manifest.json",
+        "sha256": "11e28d26b992106d084b08d687095a5f2e100993d5bf29486d922c0ba528238c"
+      },
+      "runtimeBinding": {
+        "path": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/sealed-source-runtime-binding.json",
+        "sha256": "8d9afb75fbdf72edf0d24f8315c742d1fbd9c2fadae17204d1284343aafd9cba"
+      },
+      "appFileInventory": {
+        "path": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/sealed-default-release-file-inventory.json",
+        "sha256": "5b636c11769acf02357416bc936e37ce753524672df4d62379d843344f484b86"
+      },
+      "laneContract": {
+        "path": "/Volumes/DockCase/GitHub/Mirmir/script/v4/notarized-smoke-contract-v1.json",
+        "sha256": "7022e6fac7beeaf59d383a96365af93018f85d2b00f86d68e45e4ba059bc5b04"
+      },
+      "releaseContract": {
+        "path": "/Volumes/DockCase/GitHub/Mirmir/script/v4/release-qualification-contract-v1.json",
+        "sha256": "592b4369b8b5a1792acf0848c0be21521c526de9de5ab28b141529cb478b8509"
+      }
+    }
+  },
+  "notarizationAssessed": false,
+  "distributionSigningAssessed": false,
+  "independentReleaseQualificationAssessed": false,
+  "sourceVerification": {
+    "sourceCount": 411,
+    "sourceRevision": "e87a528c98d2c2cdd8eff76747746f2b39fda20b943940f0db64b2f79c0680ff",
+    "commitVerified": true
+  },
+  "applicationArchive": "/private/tmp/mirmir-default-app-headless-smoke-plan-20261026/default-development-app.zip",
+  "applicationArchiveSHA256": "dd19f636bef97a0f63711e2063364b328c58c791d63d03a1bd6a32542d0d16aa",
+  "sourceCommit": "c1dbe8509fdc06d3a8acd085008ccc00af98a013",
+  "expectedQualificationRoot": "/Users/jimdaley/Library/Containers/com.mirmir.app/Data/Library/Application Support/MirmirQualificationV4/notarized-smoke/499680ee-48b8-4f89-b13e-ebf2d6a0c8fe"
+}

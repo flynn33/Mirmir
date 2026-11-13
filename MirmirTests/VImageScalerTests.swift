@@ -4,10 +4,74 @@ import CoreMedia
 import CoreVideo
 import Darwin
 import Foundation
+import Metal
+import MetalPerformanceShaders
 import XCTest
 @testable import Mirmir
 
 final class VImageScalerTests: XCTestCase {
+    func testExplicitInterlacedAndInvalidCountsRejectBeforeNativePreparation() async throws {
+        let catalog = UpscaleBackendCatalog.live()
+        let backends: [UpscaleBackendID] = [
+            .mpsLanczos, .mpsBilinear, .coreImageLanczos, .coreImageBicubic,
+            .vImageHighQuality, .vImageStandard, .videoToolboxPixelTransfer
+        ]
+        for fieldCount in [2, 0, -1] {
+            let source = makeVImageVideoInfo(fieldCount: fieldCount)
+            for backend in backends {
+                let availability = await catalog.availability(
+                    for: backend, source: source,
+                    targetSize: CGSize(width: 8, height: 8),
+                    environment: availableVImageEnvironment
+                )
+                guard case .unavailable(.unsupportedPixelFormatOrBitDepth) = availability else {
+                    XCTFail("Unexpected field-count admission for \(backend): \(availability)")
+                    continue
+                }
+                do {
+                    _ = try await catalog.prepare(
+                        backendID: backend,
+                        request: BackendPreparationRequest(
+                            source: source, targetSize: CGSize(width: 8, height: 8)
+                        ),
+                        environment: availableVImageEnvironment
+                    )
+                    XCTFail("Preparation accepted field count \(fieldCount) for \(backend)")
+                } catch let BackendPreparationError.unavailable(actual, reason) {
+                    XCTAssertEqual(actual, backend)
+                    guard case .unsupportedPixelFormatOrBitDepth = reason else {
+                        XCTFail("Unexpected field-count rejection: \(reason)")
+                        continue
+                    }
+                }
+            }
+            let snapshot = await catalog.snapshot(
+                for: source, targetSize: CGSize(width: 8, height: 8),
+                environment: availableVImageEnvironment
+            )
+            XCTAssertNil(snapshot.automaticProposal)
+        }
+    }
+
+    func testFieldGuardPreservesAbsentMetadataAndProgressiveAdmission() async throws {
+        for fieldCount: Int? in [nil, 1] {
+            let source = makeVImageVideoInfo(fieldCount: fieldCount)
+            guard case .valid = NV12ScalerConfiguration.validate(
+                source: source, targetSize: CGSize(width: 8, height: 8),
+                backendID: .mpsLanczos
+            ) else {
+                XCTFail("Field guard changed absent/progressive metadata admission")
+                continue
+            }
+            let backend = try XCTUnwrap(VImageBackend(mode: .standard))
+            let availability = await backend.availability(
+                for: source, targetSize: CGSize(width: 8, height: 8),
+                environment: availableVImageEnvironment
+            )
+            XCTAssertEqual(availability, .available)
+        }
+    }
+
     func testModesExposeExactIDsAndDocumentedFlags() {
         XCTAssertEqual(VImageScalingMode.standard.backendID, .vImageStandard)
         XCTAssertEqual(
@@ -1237,6 +1301,7 @@ private func makeVImageVideoInfo(
     range: NV12Range? = .video,
     dynamicRange: VideoDynamicRange = .sdr,
     bitDepth: Int? = 8,
+    fieldCount: Int? = 1,
     cleanAperture: CGRect? = nil,
     pixelAspectRatio: VideoPixelAspectRatio? = VideoPixelAspectRatio(
         horizontalSpacing: 1,
@@ -1273,7 +1338,7 @@ private func makeVImageVideoInfo(
             bitDepth: bitDepth,
             pixelFormat: range?.pixelFormat,
             isFullRange: range?.isFullRange,
-            fieldCount: 1,
+            fieldCount: fieldCount,
             fieldDetail: nil,
             alphaModel: .none,
             hasMasteringDisplayMetadata: false,
@@ -1576,6 +1641,271 @@ private final class RecordingVImageFunctions: VImageScalingFunctions,
                     }
                 )
             )
+        }
+    }
+}
+
+final class FrameworkChromaPhysicalLocationTests: XCTestCase {
+    func testVImagePhysicalLocationsScalesAndEdges() async throws {
+        try await verifyPhysicalLocations(backends: [.vImageStandard, .vImageHighQuality])
+    }
+
+    func testMPSPhysicalLocationsScalesAndEdges() async throws {
+        guard let device = MTLCreateSystemDefaultDevice(), MPSSupportsMTLDevice(device) else {
+            throw XCTSkip("This host has no MPS-capable Metal device")
+        }
+        try await verifyPhysicalLocations(backends: [.mpsBilinear, .mpsLanczos])
+    }
+
+    func testUnsupportedAndConflictingLocationsRejectBeforeWritingAndPermitRetry() async throws {
+        var backends: [UpscaleBackendID] = [.vImageStandard, .vImageHighQuality]
+        if let device = MTLCreateSystemDefaultDevice(), MPSSupportsMTLDevice(device) {
+            backends += [.mpsBilinear, .mpsLanczos]
+        }
+        let format = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        for backend in backends {
+            let prepared: any PreparedFrameUpscaler
+            if let mode = VImageScalingMode(backendID: backend) {
+                prepared = try PreparedVImageScaler(configuration: VImagePreparationConfiguration(mode: mode,
+                    pixelFormat: format, sourceWidth: 32, sourceHeight: 32, targetWidth: 64, targetHeight: 64))
+            } else {
+                prepared = try PreparedMPSScaler(configuration: NV12ScalerConfiguration(backendID: backend,
+                    pixelFormat: format, sourceWidth: 32, sourceHeight: 32, targetWidth: 64, targetHeight: 64),
+                    mode: try XCTUnwrap(MPSScalingMode(backendID: backend)))
+            }
+            let source = try buffer(32, 32, pixelFormat: format)
+            let destination = try buffer(64, 64, pixelFormat: format)
+            for image in [source, destination] {
+                CVPixelBufferLockBaseAddress(image, [])
+                for plane in 0..<2 {
+                    memset(CVPixelBufferGetBaseAddressOfPlane(image, plane)!, 0xA7,
+                        CVPixelBufferGetBytesPerRowOfPlane(image, plane) * CVPixelBufferGetHeightOfPlane(image, plane))
+                }
+                CVPixelBufferUnlockBaseAddress(image, [])
+            }
+            let sourceBefore = storage(source)
+            let destinationBefore = storage(destination)
+            let invalid: [(CFString?, CFString?)] = [
+                (kCVImageBufferChromaLocation_DV420, nil),
+                (nil, kCVImageBufferChromaLocation_Left),
+                (kCVImageBufferChromaLocation_Left, kCVImageBufferChromaLocation_Center),
+            ]
+            for (top, bottom) in invalid {
+                CVBufferRemoveAttachment(source, kCVImageBufferChromaLocationTopFieldKey)
+                CVBufferRemoveAttachment(source, kCVImageBufferChromaLocationBottomFieldKey)
+                if let top { CVBufferSetAttachment(source, kCVImageBufferChromaLocationTopFieldKey, top, .shouldPropagate) }
+                if let bottom { CVBufferSetAttachment(source, kCVImageBufferChromaLocationBottomFieldKey, bottom, .shouldPropagate) }
+                do {
+                    try await prepared.process(source: source, destination: destination, timing: testFrameTiming)
+                    XCTFail("\(backend.rawValue) accepted a contradictory/unknown phase")
+                } catch let MirmirError.backendProcessingFailed(actual, frameIndex, _) {
+                    XCTAssertEqual(actual, backend)
+                    XCTAssertEqual(frameIndex, testFrameTiming.frameIndex)
+                }
+                XCTAssertEqual(sourceBefore, storage(source))
+                XCTAssertEqual(destinationBefore, storage(destination))
+                XCTAssertEqual(CVBufferCopyAttachment(source, kCVImageBufferChromaLocationTopFieldKey, nil) as? String, top as String?)
+                XCTAssertEqual(CVBufferCopyAttachment(source, kCVImageBufferChromaLocationBottomFieldKey, nil) as? String, bottom as String?)
+            }
+            for key in [kCVImageBufferChromaLocationTopFieldKey, kCVImageBufferChromaLocationBottomFieldKey] {
+                CVBufferSetAttachment(source, key, kCVImageBufferChromaLocation_Left, .shouldPropagate)
+            }
+            try await prepared.process(source: source, destination: destination, timing: testFrameTiming)
+            XCTAssertEqual(sourceBefore, storage(source))
+            XCTAssertTrue(try visible(destination).allSatisfy { $0.allSatisfy { $0 == 0xA7 } })
+            try await prepared.finish()
+        }
+    }
+
+    func testCoreImageCubicImpulseResponseMatchesDeclaredFamily() async throws {
+        for fullRange in [false, true] {
+            let format = fullRange ? kCVPixelFormatType_420YpCbCr8BiPlanarFullRange : kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+            for (width, height) in [(48, 48), (64, 64), (128, 96)] {
+                let prepared = PreparedCoreImageScaler(configuration: NV12ScalerConfiguration(backendID: .coreImageBicubic,
+                    pixelFormat: format, sourceWidth: 32, sourceHeight: 32, targetWidth: width, targetHeight: height), mode: .bicubic)
+                let source = try buffer(32, 32, pixelFormat: format)
+                let destination = try buffer(width, height, pixelFormat: format)
+                CVPixelBufferLockBaseAddress(source, [])
+                for plane in 0..<2 {
+                    let bytes = CVPixelBufferGetBaseAddressOfPlane(source, plane)!.assumingMemoryBound(to: UInt8.self)
+                    let stride = CVPixelBufferGetBytesPerRowOfPlane(source, plane)
+                    for y in 0..<CVPixelBufferGetHeightOfPlane(source, plane) {
+                        for x in 0..<CVPixelBufferGetWidthOfPlane(source, plane) {
+                            if plane == 0 { bytes[y*stride+x] = 110 }
+                            else {
+                                bytes[y*stride+2*x] = x == 8 && y == 8 ? 224 : 128
+                                bytes[y*stride+2*x+1] = y == 8 ? 224 : 128
+                            }
+                        }
+                    }
+                }
+                CVPixelBufferUnlockBaseAddress(source, [])
+                for key in [kCVImageBufferChromaLocationTopFieldKey, kCVImageBufferChromaLocationBottomFieldKey] {
+                    CVBufferSetAttachment(source, key, kCVImageBufferChromaLocation_Center, .shouldPropagate)
+                }
+                let before = storage(source)
+                try await prepared.process(source: source, destination: destination, timing: testFrameTiming)
+                XCTAssertEqual(before, storage(source))
+                let actual = try visible(destination)
+                XCTAssertTrue(actual[0].allSatisfy { $0 == 110 })
+                for y in 0..<(height/2) {
+                    let py = (Double(y)+0.5)*32/Double(height)-0.5
+                    let wy = cubicWeight(py-8)
+                    for x in 0..<(width/2) {
+                        let px = (Double(x)+0.5)*32/Double(width)-0.5
+                        let wx = cubicWeight(px-8)
+                        XCTAssertLessThanOrEqual(abs(Double(actual[1][y*width+2*x]) - (128+96*wx*wy)), 1)
+                        XCTAssertLessThanOrEqual(abs(Double(actual[1][y*width+2*x+1]) - (128+96*wy)), 1)
+                    }
+                }
+                try await prepared.finish()
+            }
+        }
+    }
+
+    private func storage(_ buffer: CVPixelBuffer) -> [Data] {
+        CVPixelBufferLockBaseAddress(buffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        return (0..<2).map { plane in
+            Data(bytes: CVPixelBufferGetBaseAddressOfPlane(buffer, plane)!,
+                count: CVPixelBufferGetBytesPerRowOfPlane(buffer, plane) * CVPixelBufferGetHeightOfPlane(buffer, plane))
+        }
+    }
+
+    func testCoreImagePhysicalLocationsScalesAndEdges() async throws {
+        try await verifyPhysicalLocations(backends: [.coreImageLanczos, .coreImageBicubic])
+    }
+
+    // Independent two-parameter cubic reference for the backend's unchanged B=0,C=3/4.
+    // This sharper cubic family is not an exact affine-ramp interpolant at every phase.
+    private func cubicWeight(_ distance: Double) -> Double {
+        let x = abs(distance), c = 0.75
+        if x < 1 { return ((12 - 6*c)*x*x*x + (-18 + 6*c)*x*x + 6) / 6 }
+        if x < 2 { return (-6*c*x*x*x + 30*c*x*x - 48*c*x + 24*c) / 6 }
+        return 0
+    }
+
+    private func cubicReference(_ input: Data, sourceUVPosition: Double, component: Int) -> Double {
+        let first = Int(floor(sourceUVPosition)) - 1
+        return (first..<(first + 4)).reduce(0.0) { value, index in
+            let clamped = min(15, max(0, index))
+            let offset = component == 0 ? 8 * 32 + clamped * 2 : clamped * 32 + 17
+            return value + Double(input[offset]) * cubicWeight(sourceUVPosition - Double(index))
+        }
+    }
+
+    private func verifyPhysicalLocations(backends: [UpscaleBackendID]) async throws {
+        let sites: [(String, CFString, Int, Int)] = [
+            ("left", kCVImageBufferChromaLocation_Left, 0, 1),
+            ("center", kCVImageBufferChromaLocation_Center, 1, 1),
+            ("top_left", kCVImageBufferChromaLocation_TopLeft, 0, 0),
+            ("top", kCVImageBufferChromaLocation_Top, 1, 0),
+            ("bottom_left", kCVImageBufferChromaLocation_BottomLeft, 0, 2),
+            ("bottom", kCVImageBufferChromaLocation_Bottom, 1, 2)]
+        for backend in backends {
+            for fullRange in [false, true] {
+                for (tw, th) in [(48, 48), (64, 64), (128, 96)] {
+                    let pixelFormat = fullRange ? kCVPixelFormatType_420YpCbCr8BiPlanarFullRange : kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+                    let prepared: any PreparedFrameUpscaler
+                    if let mode = VImageScalingMode(backendID: backend) {
+                        prepared = try PreparedVImageScaler(configuration: VImagePreparationConfiguration(mode: mode, pixelFormat: pixelFormat, sourceWidth: 32, sourceHeight: 32, targetWidth: tw, targetHeight: th))
+                    } else if let mode = CoreImageScalingMode(backendID: backend) {
+                        prepared = PreparedCoreImageScaler(configuration: NV12ScalerConfiguration(backendID: backend,
+                            pixelFormat: pixelFormat, sourceWidth: 32, sourceHeight: 32, targetWidth: tw, targetHeight: th), mode: mode)
+                    } else {
+                        prepared = try PreparedMPSScaler(configuration: NV12ScalerConfiguration(backendID: backend, pixelFormat: pixelFormat, sourceWidth: 32, sourceHeight: 32, targetWidth: tw, targetHeight: th), mode: try XCTUnwrap(MPSScalingMode(backendID: backend)))
+                    }
+                    let destination = try buffer(tw, th, pixelFormat: pixelFormat)
+                    for (index, site) in sites.enumerated() {
+                        let source = try buffer(32, 32, pixelFormat: pixelFormat)
+                        let slope = fullRange ? 8 : 6, baseCode = fullRange ? 4 : 24
+                        CVPixelBufferLockBaseAddress(source, [])
+                        for plane in 0..<2 {
+                            let base = CVPixelBufferGetBaseAddressOfPlane(source, plane)!.assumingMemoryBound(to: UInt8.self)
+                            let stride = CVPixelBufferGetBytesPerRowOfPlane(source, plane)
+                            for y in 0..<CVPixelBufferGetHeightOfPlane(source, plane) {
+                                for x in 0..<CVPixelBufferGetWidthOfPlane(source, plane) {
+                                    if plane == 0 { base[y * stride + x] = 110 }
+                                    else {
+                                        base[y * stride + x * 2] = UInt8(baseCode + slope * (2 * x) + slope * site.2 / 2)
+                                        base[y * stride + x * 2 + 1] = UInt8(baseCode + slope * (2 * y) + slope * site.3 / 2)
+                                    }
+                                }
+                            }
+                        }
+                        CVPixelBufferUnlockBaseAddress(source, [])
+                        for (key, value) in [(kCVImageBufferColorPrimariesKey, kCVImageBufferColorPrimaries_ITU_R_709_2), (kCVImageBufferTransferFunctionKey, kCVImageBufferTransferFunction_ITU_R_709_2), (kCVImageBufferYCbCrMatrixKey, kCVImageBufferYCbCrMatrix_ITU_R_709_2), (kCVImageBufferChromaLocationTopFieldKey, site.1), (kCVImageBufferChromaLocationBottomFieldKey, site.1)] {
+                            CVBufferSetAttachment(source, key, value, .shouldPropagate)
+                        }
+                        CVBufferSetAttachment(source, kCVImageBufferFieldCountKey, 1 as CFNumber, .shouldPropagate)
+                        CVPixelBufferLockBaseAddress(destination, [])
+                        for plane in 0..<2 { memset(CVPixelBufferGetBaseAddressOfPlane(destination, plane)!, 0xD3, CVPixelBufferGetBytesPerRowOfPlane(destination, plane) * CVPixelBufferGetHeightOfPlane(destination, plane)) }
+                        CVPixelBufferUnlockBaseAddress(destination, [])
+                        let before = try visible(source)
+                        try await prepared.process(source: source, destination: destination, timing: FrameTiming(frameIndex: index, presentationTime: CMTime(value: Int64(index), timescale: 24), duration: CMTime(value: 1, timescale: 24)))
+                        let after = try visible(source), rendered = try visible(destination)
+                        XCTAssertEqual(before, after)
+                        XCTAssertTrue(rendered[0].allSatisfy { $0 == 110 })
+                        var paddingUntouched = true
+                        CVPixelBufferLockBaseAddress(destination, .readOnly)
+                        for plane in 0..<2 {
+                            let stride = CVPixelBufferGetBytesPerRowOfPlane(destination, plane)
+                            let active = CVPixelBufferGetWidthOfPlane(destination, plane) * (plane == 0 ? 1 : 2)
+                            let bytes = CVPixelBufferGetBaseAddressOfPlane(destination, plane)!.assumingMemoryBound(to: UInt8.self)
+                            for y in 0..<CVPixelBufferGetHeightOfPlane(destination, plane) { for x in active..<stride { if bytes[y * stride + x] != 0xD3 { paddingUntouched = false } } }
+                        }
+                        CVPixelBufferUnlockBaseAddress(destination, .readOnly)
+                        XCTAssertTrue(paddingUntouched)
+                        XCTAssertEqual(CVBufferCopyAttachment(destination, kCVImageBufferChromaLocationTopFieldKey, nil) as? String, site.1 as String)
+                        XCTAssertEqual(CVBufferCopyAttachment(destination, kCVImageBufferChromaLocationBottomFieldKey, nil) as? String, site.1 as String)
+                        // Independent physical luma coordinates. Keep the comparison
+                        // rational until the final one-code Apple-filter quantization bound.
+                        var compared = 0
+                        for y in 0..<(th / 2) {
+                            let yNumerator = (4 * y + site.3 + 1) * 32 - th
+                            let yDenominator = 2 * th
+                            let sourceY = (Double(yNumerator) / Double(yDenominator) - Double(site.3) / 2) / 2
+                            guard (5...10).contains(sourceY) else { continue }
+                            for x in 0..<(tw / 2) {
+                                let xNumerator = (4 * x + site.2 + 1) * 32 - tw
+                                let xDenominator = 2 * tw
+                                let sourceX = (Double(xNumerator) / Double(xDenominator) - Double(site.2) / 2) / 2
+                                guard (5...10).contains(sourceX) else { continue }
+                                let cb = Int(rendered[1][y * tw + 2 * x])
+                                let cr = Int(rendered[1][y * tw + 2 * x + 1])
+                                if backend == .coreImageBicubic {
+                                    XCTAssertLessThanOrEqual(abs(Double(cb) - cubicReference(before[1], sourceUVPosition: sourceX, component: 0)), 1)
+                                    XCTAssertLessThanOrEqual(abs(Double(cr) - cubicReference(before[1], sourceUVPosition: sourceY, component: 1)), 1)
+                                } else {
+                                    XCTAssertLessThanOrEqual(abs((cb - baseCode) * xDenominator - slope * xNumerator), xDenominator,
+                                        "\(backend.rawValue) \(site.0) \(tw)x\(th) Cb at \(x),\(y)")
+                                    XCTAssertLessThanOrEqual(abs((cr - baseCode) * yDenominator - slope * yNumerator), yDenominator,
+                                        "\(backend.rawValue) \(site.0) \(tw)x\(th) Cr at \(x),\(y)")
+                                }
+                                compared += 2
+                            }
+                        }
+                        XCTAssertGreaterThan(compared, 0)
+                    }
+                    try await prepared.finish()
+                    try await prepared.finish()
+                }
+            }
+        }
+    }
+    private func buffer(_ width: Int, _ height: Int, pixelFormat: OSType) throws -> CVPixelBuffer {
+        var value: CVPixelBuffer?
+        let result = CVPixelBufferCreate(kCFAllocatorDefault, width, height, pixelFormat, [kCVPixelBufferIOSurfacePropertiesKey: [:], kCVPixelBufferMetalCompatibilityKey: true] as CFDictionary, &value)
+        XCTAssertEqual(result, kCVReturnSuccess)
+        return try XCTUnwrap(value)
+    }
+    private func visible(_ buffer: CVPixelBuffer) throws -> [Data] {
+        CVPixelBufferLockBaseAddress(buffer, .readOnly);defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        return (0..<2).map { plane in
+            let base = CVPixelBufferGetBaseAddressOfPlane(buffer, plane)!, stride = CVPixelBufferGetBytesPerRowOfPlane(buffer, plane), count = CVPixelBufferGetWidthOfPlane(buffer, plane) * (plane == 0 ? 1 : 2)
+            var result = Data()
+            for y in 0..<CVPixelBufferGetHeightOfPlane(buffer, plane) { result.append(Data(bytes: base.advanced(by:y * stride), count:count)) }
+            return result
         }
     }
 }

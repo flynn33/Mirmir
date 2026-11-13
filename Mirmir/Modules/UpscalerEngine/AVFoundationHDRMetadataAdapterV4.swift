@@ -468,7 +468,7 @@ enum AVFoundationHDRMetadataAdapterV4 {
         }
         var properties: [String: Any] = [
             kVTCompressionPropertyKey_HDRMetadataInsertionMode as String:
-                kVTHDRMetadataInsertionMode_Auto
+                kVTHDRMetadataInsertionMode_None
         ]
         if let mastering = metadata.staticMetadata.masteringDisplayColorVolume {
             properties[
@@ -490,6 +490,378 @@ enum AVFoundationHDRMetadataAdapterV4 {
             ] = true
         }
         return properties
+    }
+
+    /// VideoToolbox on macOS 15.4 can omit the requested ambient environment
+    /// or manufacture an HLG default. Encoder insertion is disabled below;
+    /// restore the declared value in the compressed format, without changing
+    /// any coded picture, other SEI message, or unrelated format extension.
+    static func correctingEncodedAmbientEnvironment(
+        in format: CMFormatDescription,
+        expected: HDRFormatMetadataV4
+    ) throws -> CMFormatDescription? {
+        guard CMFormatDescriptionGetMediaType(format) == kCMMediaType_Video,
+              CMFormatDescriptionGetMediaSubType(format)
+                == kCMVideoCodecType_HEVC,
+              let observed = try probe(
+                formatDescription: format,
+                decodedStorage: expected.signal.storage
+              ),
+              observed.signal == expected.signal,
+              observed.staticMetadata.masteringDisplayColorVolume
+                == expected.staticMetadata.masteringDisplayColorVolume,
+              observed.staticMetadata.contentLightLevelInfo
+                == expected.staticMetadata.contentLightLevelInfo,
+              let sourceExtensions = CMFormatDescriptionGetExtensions(format),
+              let atoms = (sourceExtensions as NSDictionary)[
+                kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms
+              ] as? NSDictionary,
+              let configuration = atoms["hvcC"] as? Data else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "encoded HDR contract differs outside the ambient environment"
+            )
+        }
+        let ambient = expected.staticMetadata.ambientViewingEnvironment?.payload
+        let correctedConfiguration = try correctingAmbientConfiguration(
+            configuration, ambient: ambient
+        )
+        guard correctedConfiguration != configuration
+                || observed.staticMetadata.ambientViewingEnvironment
+                    != expected.staticMetadata.ambientViewingEnvironment else {
+            return nil
+        }
+        let extensions = (sourceExtensions as NSDictionary).mutableCopy()
+            as! NSMutableDictionary
+        let correctedAtoms = atoms.mutableCopy() as! NSMutableDictionary
+        correctedAtoms["hvcC"] = correctedConfiguration
+        correctedAtoms.removeObject(forKey: "amve")
+        extensions[
+            kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms
+        ] = correctedAtoms
+        extensions.removeObject(
+            forKey: kCMFormatDescriptionExtension_VerbatimSampleDescription
+        )
+        extensions.removeObject(
+            forKey: kCMFormatDescriptionExtension_VerbatimISOSampleEntry
+        )
+        if let ambient {
+            extensions[kCMFormatDescriptionExtension_AmbientViewingEnvironment]
+                = ambient
+        } else {
+            extensions.removeObject(
+                forKey: kCMFormatDescriptionExtension_AmbientViewingEnvironment
+            )
+        }
+        let dimensions = CMVideoFormatDescriptionGetDimensions(format)
+        var corrected: CMVideoFormatDescription?
+        let status = CMVideoFormatDescriptionCreate(
+            allocator: kCFAllocatorDefault,
+            codecType: kCMVideoCodecType_HEVC,
+            width: dimensions.width,
+            height: dimensions.height,
+            extensions: extensions,
+            formatDescriptionOut: &corrected
+        )
+        guard status == noErr, let corrected else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "ambient format creation failed with status \(status)"
+            )
+        }
+        return corrected
+    }
+
+    /// Operates only on a caller-owned encoded temporary output. The caller's
+    /// existing atomic publication and semantic verification remain mandatory.
+    /// AVMutableMovie replaces the selected format descriptions in its header;
+    /// it retains every track's existing media table and encoded payload.
+    @discardableResult
+    static func finalizeEncodedHDRMetadata(
+        at url: URL,
+        fileType: AVFileType = .mov,
+        expectedByTrackOrdinal: [Int: HDRFormatMetadataV4],
+        cancellation: () throws -> Void = {}
+    ) async throws -> Bool {
+        guard !expectedByTrackOrdinal.isEmpty else { return false }
+        try cancellation()
+        let movie = AVMutableMovie(
+            url: url,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let tracks = try await movie.load(.tracks)
+        var changes: [
+            (AVMutableMovieTrack, CMFormatDescription, CMFormatDescription)
+        ] = []
+        for ordinal in expectedByTrackOrdinal.keys.sorted() {
+            try cancellation()
+            guard tracks.indices.contains(ordinal),
+                  tracks[ordinal].mediaType == .video,
+                  let expected = expectedByTrackOrdinal[ordinal] else {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "encoded HDR track ordinal is invalid"
+                )
+            }
+            let track = tracks[ordinal]
+            let formats = try await track.load(.formatDescriptions)
+            guard !formats.isEmpty else {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "encoded HDR track has no format descriptions"
+                )
+            }
+            for format in formats {
+                if let corrected = try correctingEncodedAmbientEnvironment(
+                    in: format, expected: expected
+                ) {
+                    changes.append((track, format, corrected))
+                }
+            }
+            // A header correction cannot hide a contradictory in-band SEI.
+            // None-mode encoders emit no ambient SEI on the qualified systems.
+            let reader = try AVAssetReader(asset: movie)
+            let output = AVAssetReaderTrackOutput(
+                track: track, outputSettings: nil
+            )
+            reader.timeRange = try await track.load(.timeRange)
+            guard reader.canAdd(output) else {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "encoded HDR ambient reader rejected its track"
+                )
+            }
+            reader.add(output)
+            guard reader.startReading() else {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "encoded HDR ambient reader did not start"
+                )
+            }
+            defer {
+                if reader.status == .reading { reader.cancelReading() }
+            }
+            while let sample = output.copyNextSampleBuffer() {
+                try cancellation()
+                if CMSampleBufferGetNumSamples(sample) == 0 { continue }
+                let layout = try compressedHEVCSampleLayout(sample)
+                for nal in try lengthPrefixedHEVCNALUnits(
+                    layout.bytes, width: layout.nalUnitHeaderLength
+                ) {
+                    let type = (nal[0] >> 1) & 0x3F
+                    guard type == 39 || type == 40 else { continue }
+                    let messages = try hevcSEIMessages(
+                        in: removeHEVCEmulationPrevention(Data(nal.dropFirst(2)))
+                    )
+                    for message in messages where message.type == 148 {
+                        guard message.payload == expected.staticMetadata
+                            .ambientViewingEnvironment?.payload else {
+                            throw HDRMetadataV4Error.contradictoryMetadata(
+                                "encoded sample carries a different ambient environment"
+                            )
+                        }
+                    }
+                }
+            }
+            guard reader.status == .completed else {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "encoded HDR ambient reader did not complete"
+                )
+            }
+        }
+        guard !changes.isEmpty else { return false }
+        try cancellation()
+        for (track, original, corrected) in changes {
+            track.replaceFormatDescription(original, with: corrected)
+        }
+        try movie.writeHeader(
+            to: url, fileType: fileType,
+            options: .addMovieHeaderToDestination
+        )
+        try cancellation()
+        return true
+    }
+
+    private struct HEVCConfigurationArray {
+        let header: UInt8
+        var nals: [Data]
+    }
+
+    private static func correctingAmbientConfiguration(
+        _ configuration: Data, ambient: Data?
+    ) throws -> Data {
+        guard configuration.count >= 23, configuration[0] == 1 else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "ambient correction requires a complete hvcC configuration"
+            )
+        }
+        var offset = 23
+        func readUInt16() throws -> Int {
+            guard offset <= configuration.count - 2 else {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "hvcC length is truncated"
+                )
+            }
+            let value = Int(configuration[offset]) << 8
+                | Int(configuration[offset + 1])
+            offset += 2
+            return value
+        }
+        var arrays: [HEVCConfigurationArray] = []
+        var observedAmbient: [Data] = []
+        for _ in 0..<Int(configuration[22]) {
+            guard offset < configuration.count else {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "hvcC array is truncated"
+                )
+            }
+            let header = configuration[offset]
+            offset += 1
+            let count = try readUInt16()
+            var nals: [Data] = []
+            for _ in 0..<count {
+                let length = try readUInt16()
+                guard length >= 2, length <= configuration.count - offset else {
+                    throw HDRMetadataV4Error.contradictoryMetadata(
+                        "hvcC NAL is truncated"
+                    )
+                }
+                let nal = Data(configuration[offset..<(offset + length)])
+                offset += length
+                guard nal[0] & 0x80 == 0, nal[1] & 0x07 != 0,
+                      (nal[0] >> 1) & 0x3F == header & 0x3F else {
+                    throw HDRMetadataV4Error.contradictoryMetadata(
+                        "hvcC NAL header differs from its array"
+                    )
+                }
+                if header & 0x3F == 39 || header & 0x3F == 40 {
+                    let messages = try hevcSEIMessages(
+                        in: removeHEVCEmulationPrevention(Data(nal.dropFirst(2)))
+                    )
+                    let ambientMessages = messages.filter { $0.type == 148 }
+                    for message in ambientMessages {
+                        _ = try AmbientViewingEnvironmentV4(
+                            payload: message.payload
+                        )
+                        observedAmbient.append(message.payload)
+                    }
+                    if ambientMessages.isEmpty {
+                        nals.append(nal)
+                    } else {
+                        let retained = messages.filter { $0.type != 148 }
+                        if !retained.isEmpty {
+                            nals.append(makeHEVCSEINAL(
+                                retained, header: Data(nal.prefix(2))
+                            ))
+                        }
+                    }
+                } else {
+                    nals.append(nal)
+                }
+            }
+            if !nals.isEmpty {
+                arrays.append(HEVCConfigurationArray(header: header, nals: nals))
+            }
+        }
+        guard offset == configuration.count else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "hvcC configuration has trailing data"
+            )
+        }
+        if observedAmbient == ambient.map({ [$0] }) ?? [] {
+            return configuration
+        }
+        if let ambient {
+            let nal = makeHEVCSEINAL(
+                [HEVCSEIMessage(type: 148, payload: ambient)],
+                header: Data([0x4E, 0x01])
+            )
+            if let prefix = arrays.firstIndex(where: { $0.header & 0x3F == 39 }) {
+                arrays[prefix].nals.append(nal)
+            } else {
+                arrays.append(HEVCConfigurationArray(header: 0xA7, nals: [nal]))
+            }
+        }
+        guard arrays.count <= 255 else {
+            throw HDRMetadataV4Error.contradictoryMetadata(
+                "ambient hvcC array count overflows"
+            )
+        }
+        var result = Data(configuration.prefix(22))
+        result.append(UInt8(arrays.count))
+        func appendUInt16(_ value: Int) throws {
+            guard (0...65535).contains(value) else {
+                throw HDRMetadataV4Error.contradictoryMetadata(
+                    "ambient hvcC NAL size overflows"
+                )
+            }
+            result.append(UInt8(value >> 8))
+            result.append(UInt8(value & 0xFF))
+        }
+        for array in arrays {
+            result.append(array.header)
+            try appendUInt16(array.nals.count)
+            for nal in array.nals {
+                try appendUInt16(nal.count)
+                result.append(nal)
+            }
+        }
+        return result
+    }
+
+    private static func lengthPrefixedHEVCNALUnits(
+        _ bytes: Data, width: Int
+    ) throws -> [Data] {
+        guard (1...4).contains(width) else {
+            throw HDRMetadataV4Error.contradictoryMetadata("invalid HEVC NAL width")
+        }
+        var offset = 0
+        var result: [Data] = []
+        while offset < bytes.count {
+            guard width <= bytes.count - offset else {
+                throw HDRMetadataV4Error.contradictoryMetadata("truncated HEVC NAL prefix")
+            }
+            var size = 0
+            for byte in bytes[offset..<(offset + width)] {
+                size = size * 256 + Int(byte)
+            }
+            offset += width
+            guard size >= 2, size <= bytes.count - offset else {
+                throw HDRMetadataV4Error.contradictoryMetadata("truncated HEVC NAL")
+            }
+            let nal = Data(bytes[offset..<(offset + size)])
+            guard nal[0] & 0x80 == 0, nal[1] & 0x07 != 0 else {
+                throw HDRMetadataV4Error.contradictoryMetadata("invalid HEVC NAL header")
+            }
+            result.append(nal)
+            offset += size
+        }
+        return result
+    }
+
+    private static func makeHEVCSEINAL(
+        _ messages: [HEVCSEIMessage], header: Data
+    ) -> Data {
+        var rbsp = Data()
+        func appendExtended(_ value: Int) {
+            var remaining = value
+            while remaining >= 255 {
+                rbsp.append(255)
+                remaining -= 255
+            }
+            rbsp.append(UInt8(remaining))
+        }
+        for message in messages {
+            appendExtended(message.type)
+            appendExtended(message.payload.count)
+            rbsp.append(message.payload)
+        }
+        rbsp.append(0x80)
+        var result = header
+        var zeros = 0
+        for byte in rbsp {
+            if zeros >= 2, byte <= 3 {
+                result.append(3)
+                zeros = 0
+            }
+            result.append(byte)
+            zeros = byte == 0 ? zeros + 1 : 0
+        }
+        return result
     }
 
     private struct AttachmentSnapshot {
@@ -1042,9 +1414,26 @@ enum AVFoundationHDRMetadataAdapterV4 {
         return rbsp
     }
 
+    private struct HEVCSEIMessage {
+        let type: Int
+        let payload: Data
+    }
+
     private static func hdr10PlusPayloads(
         in rbsp: Data
     ) throws -> [HDR10PlusMetadataV4] {
+        try hevcSEIMessages(in: rbsp).compactMap { message in
+            guard message.type == 4,
+                  message.payload.starts(with: [
+                    0xB5, 0x00, 0x3C, 0x00, 0x01, 0x04
+                  ]) else { return nil }
+            return try HDR10PlusMetadataV4(ituTT35Payload: message.payload)
+        }
+    }
+
+    private static func hevcSEIMessages(
+        in rbsp: Data
+    ) throws -> [HEVCSEIMessage] {
         guard rbsp.last == 0x80 else {
             throw HDRMetadataV4Error.contradictoryMetadata(
                 "HEVC SEI RBSP trailing bits differ"
@@ -1052,7 +1441,7 @@ enum AVFoundationHDRMetadataAdapterV4 {
         }
         let messageEnd = rbsp.index(before: rbsp.endIndex)
         var index = rbsp.startIndex
-        var result: [HDR10PlusMetadataV4] = []
+        var result: [HEVCSEIMessage] = []
 
         func extendedValue(_ label: String) throws -> Int {
             var value = 0
@@ -1094,14 +1483,7 @@ enum AVFoundationHDRMetadataAdapterV4 {
             }
             let end = index + payloadSize
             let payload = Data(rbsp[index..<end])
-            if payloadType == 4,
-               payload.starts(with: [
-                   0xB5, 0x00, 0x3C, 0x00, 0x01, 0x04
-               ]) {
-                result.append(
-                    try HDR10PlusMetadataV4(ituTT35Payload: payload)
-                )
-            }
+            result.append(HEVCSEIMessage(type: payloadType, payload: payload))
             index = end
         }
         return result

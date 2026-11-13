@@ -7,11 +7,11 @@
   },
   "capture": {
     "buildConfiguration": "Release",
-    "captureSourceSHA256": "d38285352101b93a9318118d15c0a3a798633f9cbb61e95db08d69c981a7313e",
+    "captureSourceSHA256": "2c0f5892ad9986cbecef04f3d360b0e74530c4f33de46a9f9f5d02d494e6f163",
     "evaluatorSHA256": "2455bf16309d5e1115c4033bcc1e6b973440bda56378df654dfe17f76957315f",
-    "fixtureSourceSHA256": "9f1c75848f2e73ece6b11ee727038b0fd0d6a7b8670c613c02c886ed3562ecb5",
-    "observerSourceSHA256": "361c0ce4df777de3ba00162a2efa7a254a7af831f1bf337d3a151527af74a582",
-    "packagedEvidenceToolSHA256": "5ea4b53d5d696714d1d0f00a1df22cb1a0b8f9769f2e70b133139cb05132f117",
+    "fixtureSourceSHA256": "a59a03af3c9dcae7ce82054dd25b6649e616774eb05af7c9d6fe091b00116635",
+    "observerSourceSHA256": "2db1fb1543ba09cc572ece316cf5664e700a7a752d4bee516159400092f4c6ea",
+    "packagedEvidenceToolSHA256": "b7b7a38f45856eb07d90b122d6edc994f4c32f65e4a0f3870f2e77cb6d56b6fc",
     "releaseCandidateArchiveToolSHA256": "b4638c3bfe698fc4c291e3f8f522e7e0d2025dd741efab8c74bc6217b815986d",
     "runnerSHA256": "85e674aeb3edad5447128cc492c850910254b5f22157ad3870f271f1044e9774"
   },

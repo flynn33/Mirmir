@@ -21,9 +21,60 @@ private enum P06RuntimeInputGeneratorMain {
             let options = try Options(
                 arguments: Array(CommandLine.arguments.dropFirst())
             )
+            let capture = try ASHP06LockedNaturalQualityEvidenceV4.captureImplementation()
+            let captureURL = options.repositoryRoot.appendingPathComponent(capture.repositoryRelativePath)
+            let historicalCapture: Data?
+            if try ASHP06CanonicalRuntimeArtifactsV4.lockedRepositoryInputMatches(capture, at: captureURL) {
+                historicalCapture = nil
+            } else {
+                historicalCapture = try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+                    capture, repositoryRoot: options.repositoryRoot,
+                    revision: ASHP06LockedNaturalQualityEvidenceV4.captureSourceRevision
+                )
+            }
+            let metric = try ASHP06LockedNaturalQualityEvidenceV4.metricImplementation()
+            let metricURL = options.repositoryRoot.appendingPathComponent(metric.repositoryRelativePath)
+            let historicalMetric: Data?
+            if try ASHP06CanonicalRuntimeArtifactsV4.lockedRepositoryInputMatches(metric, at: metricURL) {
+                historicalMetric = nil
+            } else {
+                historicalMetric = try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+                    metric, repositoryRoot: options.repositoryRoot,
+                    revision: ASHP06LockedNaturalQualityEvidenceV4.captureSourceRevision,
+                    expectedGitMode: "100755"
+                )
+            }
+            let runner = try ASHP06LockedNaturalQualityEvidenceV4.runnerImplementation()
+            let runnerURL = options.repositoryRoot.appendingPathComponent(runner.repositoryRelativePath)
+            let historicalRunner: Data?
+            if try ASHP06CanonicalRuntimeArtifactsV4.lockedRepositoryInputMatches(runner, at: runnerURL) {
+                historicalRunner = nil
+            } else {
+                historicalRunner = try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+                    runner, repositoryRoot: options.repositoryRoot,
+                    revision: ASHP06LockedNaturalQualityEvidenceV4.captureSourceRevision,
+                    expectedGitMode: "100755"
+                )
+            }
+            let corpusBuilder = try ASHP06LockedNaturalQualityEvidenceV4.corpusBuilder()
+            let corpusBuilderURL = options.repositoryRoot.appendingPathComponent(corpusBuilder.repositoryRelativePath)
+            let historicalCorpusBuilder: Data?
+            if try ASHP06CanonicalRuntimeArtifactsV4.lockedRepositoryInputMatches(corpusBuilder, at: corpusBuilderURL) {
+                historicalCorpusBuilder = nil
+            } else {
+                historicalCorpusBuilder = try ASHP06CanonicalRuntimeArtifactsV4.historicalLockedRepositoryInput(
+                    corpusBuilder, repositoryRoot: options.repositoryRoot,
+                    revision: ASHP06LockedNaturalQualityEvidenceV4.captureSourceRevision,
+                    expectedGitMode: "100644"
+                )
+            }
             try ASHP06CanonicalRuntimeArtifactsV4
                 .validateLockedRepositoryInputs(
-                    repositoryRoot: options.repositoryRoot
+                    repositoryRoot: options.repositoryRoot,
+                    historicalNaturalQualityCapture: historicalCapture,
+                    historicalNaturalQualityMetric: historicalMetric,
+                    historicalNaturalQualityRunner: historicalRunner,
+                    historicalNaturalQualityCorpusBuilder: historicalCorpusBuilder
                 )
             let metalLibrary = try Data(contentsOf: options.metalLibrary)
             let artifacts = try ASHP06CanonicalRuntimeArtifactsV4.make(

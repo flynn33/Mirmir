@@ -1,0 +1,25 @@
+{
+  "command": [
+    "xcodebuild",
+    "build-for-testing",
+    "-project",
+    "/Volumes/DockCase/GitHub/Mirmir/Mirmir.xcodeproj",
+    "-scheme",
+    "Mirmir",
+    "-configuration",
+    "Release",
+    "-derivedDataPath",
+    "/private/tmp/Mirmir-root-bounded-release-derived-20261025",
+    "MACOSX_DEPLOYMENT_TARGET=15.4",
+    "ARCHS=arm64 x86_64",
+    "ONLY_ACTIVE_ARCH=NO",
+    "PRODUCT_BUNDLE_IDENTIFIER=com.mirmir.rootboundedqa20261025",
+    "ENABLE_TESTABILITY=YES",
+    "-destination",
+    "platform=macOS,arch=arm64"
+  ],
+  "exitCode": 0,
+  "seconds": 87.249744792,
+  "warningLines": 0,
+  "errorLines": 0
+}

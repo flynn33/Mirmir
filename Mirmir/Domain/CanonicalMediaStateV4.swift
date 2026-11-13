@@ -221,6 +221,24 @@ struct CanonicalColorStateV4: Codable, Equatable, Hashable, Sendable {
     }
 }
 
+struct CanonicalFieldChromaSitingV4: Codable, Equatable, Hashable, Sendable {
+    static let schemaID = "ash.field-chroma-siting.v4.1"
+    let schemaID: String
+    let top: CanonicalChromaSitingV4
+    let bottom: CanonicalChromaSitingV4
+
+    init(top: CanonicalChromaSitingV4, bottom: CanonicalChromaSitingV4) {
+        self.schemaID = Self.schemaID
+        self.top = top
+        self.bottom = bottom
+    }
+
+    var isValid: Bool {
+        let known: Set<CanonicalChromaSitingV4> = [.left, .center, .topLeft, .top, .bottomLeft, .bottom]
+        return schemaID == Self.schemaID && known.contains(top) && known.contains(bottom) && top != bottom
+    }
+}
+
 struct CanonicalPixelStateV4: Codable, Equatable, Hashable, Sendable {
     let formatID: String
     let bitDepth: UInt8
@@ -228,6 +246,7 @@ struct CanonicalPixelStateV4: Codable, Equatable, Hashable, Sendable {
     let chromaSubsampling: CanonicalChromaSubsamplingV4
     let chromaSiting: CanonicalChromaSitingV4
     let alphaModel: CanonicalAlphaModelV4
+    var fieldChromaSiting: CanonicalFieldChromaSitingV4? = nil
 }
 
 struct CanonicalScanStateV4: Codable, Equatable, Hashable, Sendable {
@@ -286,6 +305,7 @@ struct CanonicalMediaObservationV4: Codable, Comparable, Equatable, Hashable,
 /// allowed across this boundary.
 struct CanonicalMediaStateV4: Codable, Equatable, Hashable, Sendable {
     static let currentSchemaID = "ash.canonical-media-state.v4.1"
+    static let fieldChromaSchemaID = "ash.canonical-media-state.v4.2"
     static let identityDomain = "ash-canonical-media-state-v4"
 
     let schemaID: String
@@ -298,7 +318,8 @@ struct CanonicalMediaStateV4: Codable, Equatable, Hashable, Sendable {
         tracks: [CanonicalMediaTrackV4],
         observations: [CanonicalMediaObservationV4]
     ) throws {
-        self.schemaID = Self.currentSchemaID
+        self.schemaID = tracks.contains(where: { $0.video?.pixel.fieldChromaSiting != nil })
+            ? Self.fieldChromaSchemaID : Self.currentSchemaID
         self.input = input
         self.tracks = tracks
         self.observations = observations
@@ -306,7 +327,8 @@ struct CanonicalMediaStateV4: Codable, Equatable, Hashable, Sendable {
     }
 
     func validate() throws {
-        guard schemaID == Self.currentSchemaID else {
+        let containsFieldPair = tracks.contains(where: { $0.video?.pixel.fieldChromaSiting != nil })
+        guard schemaID == (containsFieldPair ? Self.fieldChromaSchemaID : Self.currentSchemaID) else {
             throw CanonicalMediaStateV4Error.unsupportedSchema(schemaID)
         }
         guard input.byteCount >= 0,
@@ -396,6 +418,14 @@ struct CanonicalMediaStateV4: Codable, Equatable, Hashable, Sendable {
                 == video.color.dynamicHDRMetadata.count else {
             throw CanonicalMediaStateV4Error.invalidVideoSemantics(trackID)
         }
+        if let pair = video.pixel.fieldChromaSiting {
+            guard pair.isValid, video.pixel.chromaSiting == .unknown,
+                  video.pixel.chromaSubsampling == .yuv420,
+                  video.scan.fieldCount == 2, video.scan.cadence == .interlaced,
+                  video.scan.dominance == .topFieldFirst || video.scan.dominance == .bottomFieldFirst else {
+                throw CanonicalMediaStateV4Error.invalidVideoSemantics(trackID)
+            }
+        }
         switch video.scan.fieldCount {
         case 1:
             guard video.scan.dominance == .none,
@@ -419,6 +449,51 @@ struct CanonicalMediaStateV4: Codable, Equatable, Hashable, Sendable {
                 || (0x41...0x5a).contains(byte)
                 || (0x61...0x7a).contains(byte)
                 || [0x2d, 0x2e, 0x3a, 0x5f].contains(byte)
+        }
+    }
+}
+
+private struct CanonicalFieldCodingKeyV4: CodingKey {
+    let stringValue: String
+    let intValue: Int? = nil
+    init?(stringValue: String) { self.stringValue = stringValue }
+    init?(intValue: Int) { return nil }
+}
+
+extension CanonicalFieldChromaSitingV4 {
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CanonicalFieldCodingKeyV4.self)
+        guard Set(values.allKeys.map(\.stringValue)) == ["schemaID", "top", "bottom"] else {
+            throw CanonicalMediaStateV4Error.invalidVideoSemantics("field_chroma_keys")
+        }
+        schemaID = try values.decode(String.self, forKey: .init(stringValue: "schemaID")!)
+        top = try values.decode(CanonicalChromaSitingV4.self, forKey: .init(stringValue: "top")!)
+        bottom = try values.decode(CanonicalChromaSitingV4.self, forKey: .init(stringValue: "bottom")!)
+        guard isValid else {
+            throw CanonicalMediaStateV4Error.invalidVideoSemantics("field_chroma_pair")
+        }
+    }
+}
+
+extension CanonicalPixelStateV4 {
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CanonicalFieldCodingKeyV4.self)
+        func key(_ value: String) -> CanonicalFieldCodingKeyV4 {
+            CanonicalFieldCodingKeyV4(stringValue: value)!
+        }
+        formatID = try values.decode(String.self, forKey: key("formatID"))
+        bitDepth = try values.decode(UInt8.self, forKey: key("bitDepth"))
+        range = try values.decode(CanonicalPixelRangeV4.self, forKey: key("range"))
+        chromaSubsampling = try values.decode(CanonicalChromaSubsamplingV4.self, forKey: key("chromaSubsampling"))
+        chromaSiting = try values.decode(CanonicalChromaSitingV4.self, forKey: key("chromaSiting"))
+        alphaModel = try values.decode(CanonicalAlphaModelV4.self, forKey: key("alphaModel"))
+        if values.contains(key("fieldChromaSiting")) {
+            guard Set(values.allKeys.map(\.stringValue)) == ["formatID", "bitDepth", "range", "chromaSubsampling", "chromaSiting", "alphaModel", "fieldChromaSiting"] else {
+                throw CanonicalMediaStateV4Error.invalidVideoSemantics("field_chroma_pixel_keys")
+            }
+            fieldChromaSiting = try values.decode(CanonicalFieldChromaSitingV4.self, forKey: key("fieldChromaSiting"))
+        } else {
+            fieldChromaSiting = nil
         }
     }
 }

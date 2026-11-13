@@ -1,0 +1,32 @@
+{
+  "command": [
+    "xcodebuild",
+    "test-without-building",
+    "-project",
+    "/Volumes/DockCase/GitHub/Mirmir/Mirmir.xcodeproj",
+    "-scheme",
+    "Mirmir",
+    "-configuration",
+    "Release",
+    "-derivedDataPath",
+    "/private/tmp/Mirmir-root-bounded-release-derived-20261025",
+    "MACOSX_DEPLOYMENT_TARGET=15.4",
+    "ARCHS=arm64 x86_64",
+    "ONLY_ACTIVE_ARCH=NO",
+    "PRODUCT_BUNDLE_IDENTIFIER=com.mirmir.rootboundedqa20261025",
+    "ENABLE_TESTABILITY=YES",
+    "-destination",
+    "platform=macOS,arch=x86_64",
+    "-parallel-testing-enabled",
+    "NO",
+    "-only-testing:MirmirTests/ConventionalWholeAssetPreservationTests",
+    "-only-testing:MirmirTests/AVFoundationTrackMigrationExecutorV4Tests",
+    "-only-testing:MirmirTests/VideoProcessingSessionTests",
+    "-resultBundlePath",
+    "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/final-rosetta.xcresult"
+  ],
+  "exitCode": 0,
+  "seconds": 36.316551,
+  "warningLines": 0,
+  "errorLines": 0
+}

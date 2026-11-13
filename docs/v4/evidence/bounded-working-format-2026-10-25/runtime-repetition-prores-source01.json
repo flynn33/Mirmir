@@ -1,0 +1,12 @@
+{
+  "identities": {
+    "manifestSHA256": "db56804a443f767f383737661486d551859198a259e5a60dd0820079fcb6bf52",
+    "sourceRevision": "cdb0ed8c765fba7fa0f4dddfb9045d4def6105b9ad62fddc5b6d3eb604feb0d7",
+    "builderSourceSHA256": "d25f738a4dc57a8b60f9155857b12891ad644af5d47d3d77db5db7dfb238fdb8"
+  },
+  "allRuntimeFilesByteIdentical": true,
+  "files": 13,
+  "normalizedSourceUnchangedAfterTrustInstall": true,
+  "rawCurrentSourceManifestVerified": true,
+  "sourceCount": 411
+}

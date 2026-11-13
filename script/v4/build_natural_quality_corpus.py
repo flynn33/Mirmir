@@ -23,6 +23,7 @@ import urllib.request
 from typing import Any, Iterable
 
 import numpy as np
+import chroma_geometry_v4 as chroma_geometry
 
 
 SCHEMA_CONTRACT = "mirmir-ash-v4-quality-gate-contract-v1"
@@ -277,8 +278,7 @@ def build_corpus(
     output = output.resolve()
     contract = json.loads(contract_path.read_text())
     selection = json.loads(selection_path.read_text())
-    if contract.get("schemaVersion") != SCHEMA_CONTRACT:
-        raise ValueError("unsupported quality contract")
+    chroma_geometry.quality_contract_phase2(contract)
     if selection.get("schemaVersion") != SCHEMA_SELECTION:
         raise ValueError("unsupported natural source selection")
     if output.exists() and any(output.iterdir()):

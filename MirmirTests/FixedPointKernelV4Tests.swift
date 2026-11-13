@@ -208,8 +208,12 @@ final class FixedPointKernelV4Tests: XCTestCase {
         XCTAssertEqual(first, second)
         XCTAssertEqual(
             first.coefficientProcedureID,
-            ASHExecutionRequestV4.canonicalKernelContractID
+            "ash-p06-catmull-rom-q14-largest-remainder-v1"
         )
+        XCTAssertEqual(ASHExecutionRequestV4.canonicalKernelContractID,
+                       "ash-p06-catmull-rom-q14-subsampled-physical-siting-v2")
+        XCTAssertNotEqual(first.coefficientProcedureID,
+                          ASHExecutionRequestV4.canonicalKernelContractID)
 
         for kernels in [first.horizontalKernels, first.verticalKernels] {
             XCTAssertEqual(kernels.map(\.phase), kernels.map(\.phase).sorted())

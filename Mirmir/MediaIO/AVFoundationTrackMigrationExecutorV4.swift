@@ -152,16 +152,27 @@ enum AVFoundationTrackMigrationExecutorV4Error: Error, Equatable, Sendable {
 struct AVFoundationProcessedVideoReplacementV4: Sendable {
     let trackID: MediaTrackStableIDV4
     let sourceURL: URL
+    // Opt-in normalized encode of the complete source media table. Legacy
+    // replacements retain their authorized single-edit timeline contract.
+    let fullSourceMediaRange: MediaExactTimeRangeV4?
 
-    init(trackID: MediaTrackStableIDV4, sourceURL: URL) {
+    init(trackID: MediaTrackStableIDV4, sourceURL: URL,
+         fullSourceMediaRange: MediaExactTimeRangeV4? = nil) {
         self.trackID = trackID
         self.sourceURL = sourceURL
+        self.fullSourceMediaRange = fullSourceMediaRange
     }
 }
 
-final class AVFoundationTrackMigrationCancellationV4: @unchecked Sendable {
+final class AVFoundationTrackMigrationCancellationV4:
+    NativeMediaInputCancellationV4, @unchecked Sendable {
     private let lock = NSLock()
     private var isCancelled = false
+    private let upstream: (any NativeMediaInputCancellationV4)?
+
+    init(upstream: (any NativeMediaInputCancellationV4)? = nil) {
+        self.upstream = upstream
+    }
 
     func cancel() {
         lock.lock()
@@ -176,6 +187,7 @@ final class AVFoundationTrackMigrationCancellationV4: @unchecked Sendable {
         if cancelled {
             throw CancellationError()
         }
+        try upstream?.check()
         try Task.checkCancellation()
     }
 
@@ -183,7 +195,11 @@ final class AVFoundationTrackMigrationCancellationV4: @unchecked Sendable {
         lock.lock()
         let cancelled = isCancelled
         lock.unlock()
-        return cancelled
+        if cancelled { return true }
+        do { try upstream?.check() }
+        catch is CancellationError { return true }
+        catch { return false }
+        return false
     }
 }
 
@@ -223,8 +239,11 @@ struct AVFoundationVideoTrackProcessingHookV4: @unchecked Sendable {
 
     let trackID: MediaTrackStableIDV4
     let readerOutputSettings: [String: Any]
+    let readsRawSoftwareWorkingSamples: Bool
+    let prepareRawSoftwareSource: (@Sendable (AVFoundationVideoSampleV4) throws -> AVFoundationVideoSampleV4)?
     let writerOutputSettings: [String: Any]
     let declaredOutputFormats: [MediaTrackFormatDescriptorV4]
+    let outputHDRMetadata: HDRFormatMetadataV4?
     let outputPreferredTransform: CGAffineTransform?
     let outputNaturalSize: CGSize?
     let outputTimingContract: AVFoundationVideoOutputTimingContractV4
@@ -234,8 +253,11 @@ struct AVFoundationVideoTrackProcessingHookV4: @unchecked Sendable {
     init(
         trackID: MediaTrackStableIDV4,
         readerOutputSettings: [String: Any],
+        readsRawSoftwareWorkingSamples: Bool = false,
+        prepareRawSoftwareSource: (@Sendable (AVFoundationVideoSampleV4) throws -> AVFoundationVideoSampleV4)? = nil,
         writerOutputSettings: [String: Any],
         declaredOutputFormats: [MediaTrackFormatDescriptorV4],
+        outputHDRMetadata: HDRFormatMetadataV4? = nil,
         outputPreferredTransform: CGAffineTransform? = nil,
         outputNaturalSize: CGSize? = nil,
         process: @escaping Processor,
@@ -243,8 +265,11 @@ struct AVFoundationVideoTrackProcessingHookV4: @unchecked Sendable {
     ) {
         self.trackID = trackID
         self.readerOutputSettings = readerOutputSettings
+        self.readsRawSoftwareWorkingSamples = readsRawSoftwareWorkingSamples
+        self.prepareRawSoftwareSource = prepareRawSoftwareSource
         self.writerOutputSettings = writerOutputSettings
         self.declaredOutputFormats = declaredOutputFormats
+        self.outputHDRMetadata = outputHDRMetadata
         self.outputPreferredTransform = outputPreferredTransform
         self.outputNaturalSize = outputNaturalSize
         self.outputTimingContract = .preserveSourceSample
@@ -257,8 +282,11 @@ struct AVFoundationVideoTrackProcessingHookV4: @unchecked Sendable {
     init(
         trackID: MediaTrackStableIDV4,
         readerOutputSettings: [String: Any],
+        readsRawSoftwareWorkingSamples: Bool = false,
+        prepareRawSoftwareSource: (@Sendable (AVFoundationVideoSampleV4) throws -> AVFoundationVideoSampleV4)? = nil,
         writerOutputSettings: [String: Any],
         declaredOutputFormats: [MediaTrackFormatDescriptorV4],
+        outputHDRMetadata: HDRFormatMetadataV4? = nil,
         outputPreferredTransform: CGAffineTransform? = nil,
         outputNaturalSize: CGSize? = nil,
         outputTimingContract: AVFoundationVideoOutputTimingContractV4,
@@ -267,8 +295,11 @@ struct AVFoundationVideoTrackProcessingHookV4: @unchecked Sendable {
     ) {
         self.trackID = trackID
         self.readerOutputSettings = readerOutputSettings
+        self.readsRawSoftwareWorkingSamples = readsRawSoftwareWorkingSamples
+        self.prepareRawSoftwareSource = prepareRawSoftwareSource
         self.writerOutputSettings = writerOutputSettings
         self.declaredOutputFormats = declaredOutputFormats
+        self.outputHDRMetadata = outputHDRMetadata
         self.outputPreferredTransform = outputPreferredTransform
         self.outputNaturalSize = outputNaturalSize
         self.outputTimingContract = outputTimingContract
@@ -343,6 +374,8 @@ struct AVFoundationTrackMigrationExecutionRequestV4: @unchecked Sendable {
         AVFoundationNonVideoTrackTranscodeHookV4
     ]
     let processedVideoReplacement: AVFoundationProcessedVideoReplacementV4?
+    let softwareExecution: SoftwareSourceExecutionContext?
+    var executionGraph: MediaTrackGraphV4 { softwareExecution?.executionGraph ?? sourceGraph }
 
     init(
         sourceURL: URL,
@@ -358,7 +391,8 @@ struct AVFoundationTrackMigrationExecutionRequestV4: @unchecked Sendable {
             AVFoundationNonVideoTrackTranscodeHookV4
         ] = [],
         processedVideoReplacement: AVFoundationProcessedVideoReplacementV4?
-            = nil
+            = nil,
+        softwareExecution: SoftwareSourceExecutionContext? = nil
     ) {
         self.sourceURL = sourceURL
         self.destinationURL = destinationURL
@@ -371,6 +405,7 @@ struct AVFoundationTrackMigrationExecutionRequestV4: @unchecked Sendable {
         self.videoProcessingHooks = videoProcessingHooks
         self.nonVideoTranscodeHooks = nonVideoTranscodeHooks
         self.processedVideoReplacement = processedVideoReplacement
+        self.softwareExecution = softwareExecution
     }
 }
 
@@ -390,17 +425,44 @@ struct AVFoundationTrackMigrationExecutionResultV4: Equatable, Sendable {
     let blueprintSHA256: ASHSHA256V4
     let sourceAssetMetadataSHA256: ASHSHA256V4
     let outputAssetMetadataSHA256: ASHSHA256V4
+    var aacGaplessMetadataTranslation: AACGaplessMetadataTranslationV4? = nil
     let sourceChapterMetadataSHA256: ASHSHA256V4
     let outputChapterMetadataSHA256: ASHSHA256V4
     let trackResults: [AVFoundationTrackMigrationTrackResultV4]
     let outputGraph: MediaTrackGraphV4
     let verificationReport: MediaTrackSemanticVerificationReportV4
+    var executionGraphSHA256: ASHSHA256V4? = nil
+    var softwareExecutionPolicySHA256: ASHSHA256V4? = nil
+    var originalSourceFactsSHA256: ASHSHA256V4? = nil
+    var metadataIdentityScope: String = "original_native_source"
+    var derivedAACMetadataVerification: SoftwareDerivedAACMetadataVerification? = nil
 }
 
 struct AVFoundationTrackMigrationExecutorV4: Sendable {
     typealias ProgressHandler = @Sendable (
         AVFoundationTrackMigrationProgressV4
     ) -> Void
+
+    static func usesNativeAVIIdentityTimeline(
+        asset: AVURLAsset, graph: MediaTrackGraphV4
+    ) throws -> Bool {
+        let handle = try FileHandle(forReadingFrom: asset.url)
+        defer { try? handle.close() }
+        let header = try handle.read(upToCount: 12) ?? Data()
+        guard header.count == 12, header.prefix(4) == Data("RIFF".utf8),
+              header.suffix(4) == Data("AVI ".utf8) else { return false }
+        // AVI has no QuickTime movie edit table. Retain the native encoded
+        // reader only when its observed video mapping is exactly identity.
+        for track in graph.tracks where track.kind == .video {
+            guard track.timeRange.start == .zero, track.edits.count == 1,
+                  let edit = track.edits.first, !edit.isEmpty,
+                  edit.source == track.timeRange, edit.target == track.timeRange else {
+                throw AVFoundationTrackMigrationExecutorV4Error.unsupportedTrack(
+                    track.identity.stableID, reason: "avi_video_timeline_is_not_identity")
+            }
+        }
+        return true
+    }
 
     static func passThroughOutputFormatsMatchForQualification(
         source: [CMFormatDescription],
@@ -409,6 +471,33 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
     ) throws -> Bool {
         try PassThroughFormatContract(descriptions: source)
             .verifiesOutputFormats(output, observed: observed)
+    }
+
+    static func movAssetMetadataItems(_ items: [AVMetadataItem]) -> [AVMetadataItem] {
+        items.map { item in
+            guard item.identifier?.rawValue == "uiso/chpl",
+                  item.dataType == kCMMetadataBaseDataType_RawData as String else {
+                return item
+            }
+            // MOV drops ISO chapter-list userdata unless its container namespace
+            // is declared explicitly. Preserve the raw payload and every other field.
+            let converted = item.mutableCopy() as! AVMutableMetadataItem
+            converted.identifier = AVMetadataIdentifier(rawValue: "udta/chpl")
+            return converted
+        }
+    }
+
+    static func canonicalAssetMetadataSHA256(
+        _ items: [AVMetadataItem],
+        cancellation: AVFoundationTrackMigrationCancellationV4 = .init()
+    ) async throws -> ASHSHA256V4 {
+        let canonicalItems = try await Self().canonicalMetadataItems(
+            movAssetMetadataItems(items), cancellation: cancellation
+        )
+        return try ASHCanonicalJSONV4.hash(
+            AssetMetadataPayloadV4(canonicalItems: canonicalItems),
+            domain: "ash-avfoundation-asset-metadata-v4"
+        )
     }
 
     static func canonicalChapterMetadataTime(_ time: CMTime) throws -> CMTime {
@@ -457,9 +546,8 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
             try cancellation.check()
             let hookByTrackID = try validate(request)
 
-            let sourceAsset = AVURLAsset(
-                url: request.sourceURL,
-                options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+            let sourceAsset = try await NativeMediaInputAssetResolverV4.asset(
+                url: request.sourceURL, cancellation: cancellation
             )
             let observedSource = try await AVFoundationTrackGraphAdapterV4
                 .probe(asset: sourceAsset)
@@ -471,6 +559,12 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                         expected: expectedSourceHash,
                         actual: observedSourceHash
                     )
+            }
+            if let execution = request.softwareExecution {
+                guard let context = OriginalSoftwareMediaContext.associated(with: sourceAsset) else {
+                    throw ProbeFailure("software execution has no authenticated original context")
+                }
+                try await execution.verify(context: context, asset: sourceAsset)
             }
             try cancellation.check()
 
@@ -519,11 +613,37 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .assetMetadataReadFailed(.init(error))
             }
-            writer.metadata = sourceAuxiliaryMetadata.assetMetadata
+            let freeformEntries: [MOViTunesGaplessMetadataV4.Entry]
+            if sourceAuxiliaryMetadata.assetMetadata.contains(where: { $0.keySpace?.rawValue == MOViTunesGaplessMetadataV4.keySpaceID }) {
+                freeformEntries = try MOViTunesGaplessMetadataV4.originalFreeformEntries(in: request.sourceURL)
+            } else { freeformEntries = [] }
+            let freeformIDs = try Set(freeformEntries.map { entry in
+                let raw = try MOViTunesGaplessMetadataV4.metadataIdentifier(of: entry)
+                let key = String(raw.dropFirst("itlk/".count)) as NSString
+                guard let identifier = AVMetadataItem.identifier(forKey: key,
+                    keySpace: AVMetadataKeySpace(rawValue: MOViTunesGaplessMetadataV4.keySpaceID)) else {
+                    throw AACGaplessMetadataTranslationV4.Failure.metadataMismatch
+                }
+                return identifier.rawValue
+            })
+            let writerMetadata = sourceAuxiliaryMetadata.assetMetadata.filter {
+                !freeformIDs.contains($0.identifier?.rawValue ?? "")
+            }
+            let addsDerivedAACPacketTableHint = request.softwareExecution?
+                .policy.derivedAACPacketTableMetadata.map { hint in
+                    request.identifiedPlan.plan.tracks.contains {
+                        $0.source.identity.ordinal == hint.sourceOrdinal
+                            && $0.source.kind == .audio
+                            && $0.action == .passThrough
+                            && $0.expectedOutput != nil
+                    }
+                } ?? false
+            writer.metadata = request.outputFileType == .mov
+                ? Self.movAssetMetadataItems(writerMetadata) : writerMetadata
 
             var pipes = try await preparePipes(
                 sourceAsset: sourceAsset,
-                sourceGraph: request.sourceGraph,
+                sourceGraph: request.executionGraph,
                 plan: request.identifiedPlan.plan,
                 blueprint: request.blueprint,
                 hooks: hookByTrackID,
@@ -596,16 +716,54 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                     throw AVFoundationTrackMigrationExecutorV4Error
                         .writerFailed(.init(writer.error))
                 }
+                let expectedHDR = Dictionary(uniqueKeysWithValues:
+                    pipes.enumerated().compactMap { ordinal, pipe in
+                        pipe.videoHook?.outputHDRMetadata.map {
+                            (ordinal, $0)
+                        }
+                    }
+                )
+                try await AVFoundationHDRMetadataAdapterV4
+                    .finalizeEncodedHDRMetadata(
+                        at: destination.temporaryURL,
+                        fileType: request.outputFileType,
+                        expectedByTrackOrdinal: expectedHDR,
+                        cancellation: { try cancellation.check() }
+                    )
                 try rebuildEditMaps(
                     at: destination.temporaryURL,
                     fileType: request.outputFileType,
                     pipes: pipes
                 )
+                if addsDerivedAACPacketTableHint, let execution = request.softwareExecution {
+                    try await execution.applyDerivedSingleAACPacketTableHint(
+                        to: destination.temporaryURL,
+                        cancellationCheck: { try cancellation.check() }
+                    )
+                }
             } catch {
                 readers.forEach { $0.cancelReading() }
                 writer.cancelWriting()
                 throw error
             }
+
+            let aacGaplessMetadataTranslation = try await finalizeGaplessMetadata(
+                source: sourceAuxiliaryMetadata,
+                freeformEntries: freeformEntries,
+                outputURL: destination.temporaryURL,
+                plan: request.identifiedPlan,
+                pipes: pipes,
+                cancellation: cancellation
+            )
+            try restoreStructuralCreationDates(
+                sourceURL: request.sourceURL,
+                sourceGraph: request.sourceGraph,
+                outputURL: destination.temporaryURL,
+                pipes: pipes,
+                cancellation: cancellation
+            )
+            let expectedAssetMetadataSHA256 = aacGaplessMetadataTranslation?
+                .outputAssetMetadataSHA256 ?? sourceAuxiliaryMetadata.assetMetadataSHA256
 
             emit(
                 .verifying,
@@ -635,11 +793,20 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .assetMetadataReadFailed(.init(error))
             }
-            guard outputAuxiliaryMetadata.assetMetadataSHA256
-                    == sourceAuxiliaryMetadata.assetMetadataSHA256 else {
+            let preservedOutputMetadataSHA256: ASHSHA256V4
+            if addsDerivedAACPacketTableHint, let execution = request.softwareExecution {
+                let preservedItems = try await execution.originalMetadataItemsAfterDerivedAACAddition(
+                    outputAuxiliaryMetadata.assetMetadata
+                )
+                preservedOutputMetadataSHA256 = try await Self.canonicalAssetMetadataSHA256(
+                    preservedItems, cancellation: cancellation
+                )
+            } else { preservedOutputMetadataSHA256 = outputAuxiliaryMetadata.assetMetadataSHA256 }
+            guard preservedOutputMetadataSHA256
+                    == expectedAssetMetadataSHA256 else {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .assetMetadataMismatch(
-                        expected: sourceAuxiliaryMetadata.assetMetadataSHA256,
+                        expected: expectedAssetMetadataSHA256,
                         actual: outputAuxiliaryMetadata.assetMetadataSHA256
                     )
             }
@@ -692,6 +859,14 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                 totalTrackCount: pipes.count,
                 progress: progress
             )
+            // The publication callback can synchronously request cancellation.
+            try cancellation.check()
+            if request.softwareExecution != nil,
+               let context = OriginalSoftwareMediaContext.associated(with: sourceAsset) {
+                var sourceError = MIBError()
+                try check(mib_source_authenticate(context.originalProbe.source, &sourceError), sourceError)
+                try context.originalProbe.file.verifyUnchanged(url: request.sourceURL)
+            }
             do {
                 try destination.publish()
             } catch {
@@ -708,6 +883,7 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                     sourceAuxiliaryMetadata.assetMetadataSHA256,
                 outputAssetMetadataSHA256:
                     outputAuxiliaryMetadata.assetMetadataSHA256,
+                aacGaplessMetadataTranslation: aacGaplessMetadataTranslation,
                 sourceChapterMetadataSHA256:
                     sourceAuxiliaryMetadata.chapterMetadataSHA256,
                 outputChapterMetadataSHA256:
@@ -727,7 +903,24 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                     )
                 },
                 outputGraph: outputGraph,
-                verificationReport: report
+                verificationReport: report,
+                executionGraphSHA256: try request.softwareExecution?.executionGraph.canonicalSHA256,
+                softwareExecutionPolicySHA256: try request.softwareExecution?.policySHA256,
+                originalSourceFactsSHA256: try request.softwareExecution?.originalFactsSHA256,
+                metadataIdentityScope: request.softwareExecution == nil ? "original_native_source" : "working_delivery_only_original_metadata_in_separate_source_facts",
+                derivedAACMetadataVerification: try addsDerivedAACPacketTableHint
+                    ? request.softwareExecution.map { execution in
+                        let hint = execution.policy.derivedAACPacketTableMetadata!
+                        let track = execution.policy.tracks.first { $0.originalOrdinal == hint.sourceOrdinal }!
+                        return SoftwareDerivedAACMetadataVerification(
+                            trackID: track.originalTrackID, hint: hint,
+                            executionPolicySHA256: try execution.policySHA256,
+                            executionPolicy: execution.policy,
+                            sourceMetadataSHA256: sourceAuxiliaryMetadata.assetMetadataSHA256,
+                            preservedOutputMetadataSHA256: preservedOutputMetadataSHA256,
+                            completeOutputMetadataSHA256: outputAuxiliaryMetadata.assetMetadataSHA256
+                        )
+                    } : nil
             )
             emit(
                 .completed,
@@ -822,7 +1015,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         let trackID: MediaTrackStableIDV4
         let action: MediaTrackActionV4
         let reader: AVAssetReader
-        let readerOutput: AVAssetReaderTrackOutput
+        let readerOutput: AVAssetReaderOutput
         let writerInput: AVAssetWriterInput
         let declaredMetadataFingerprint: ASHSHA256V4
         let migratedMetadataFingerprint: ASHSHA256V4
@@ -836,6 +1029,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         let requiresEditMapRebuild: Bool
         let replacementPresentationOffset: ExactRationalV4?
         let processedReplacementMediaStart: ExactRationalV4?
+        let fullSourceMediaRange: MediaExactTimeRangeV4?
         let sampleStreamTerminalPresentationEnd: CMTime?
         let verifiesEncodedSampleStream: Bool
         let accumulatesSourceStreamDuringDrain: Bool
@@ -843,6 +1037,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         let accumulatesDynamicHDRStreamDuringDrain: Bool
         var isFinished = false
         var sampleCount: Int64 = 0
+        var appendedPCMFrameCount: UInt64 = 0
         var lastOutputPresentationTime: CMTime?
         var sampleStream = SampleStreamAccumulatorV4()
         var dynamicHDRStream = DynamicHDRMetadataStreamAccumulatorV4()
@@ -919,10 +1114,11 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         let reader: AVAssetReader
     }
 
-    struct ScaledEditMediaTableContext {
+    struct UneditedMediaTableContext {
         let asset: AVMutableMovie
         let reader: AVAssetReader
         let trackByID: [MediaTrackStableIDV4: AVMutableMovieTrack]
+        let mediaRangeByID: [MediaTrackStableIDV4: MediaExactTimeRangeV4]
     }
 
     struct PassThroughStreamIdentityV4 {
@@ -939,8 +1135,11 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 .sourceAndDestinationMustDiffer
         }
         try request.sourceGraph.validate()
+        try request.softwareExecution?.verifyIntegrity()
+        if let execution = request.softwareExecution,
+           execution.originalGraph != request.sourceGraph { throw ProbeFailure("original graph/execution binding mismatch") }
         try request.identifiedPlan.verify()
-        let sourceHash = try request.sourceGraph.canonicalSHA256
+        let sourceHash = try request.executionGraph.canonicalSHA256
         guard sourceHash == request.identifiedPlan.plan.sourceGraphSHA256 else {
             throw AVFoundationTrackMigrationExecutorV4Error
                 .sourcePlanIdentityMismatch
@@ -952,7 +1151,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         }
         let expectedBlueprint = try AVFoundationTrackMigrationPlannerV4
             .makeBlueprint(
-                source: request.sourceGraph,
+                source: request.executionGraph,
                 plan: request.identifiedPlan
             )
         guard expectedBlueprint == request.blueprint else {
@@ -1213,6 +1412,8 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 guard let hook = videoHooks[id],
                       nonVideoHooks[id] == nil,
                       !hook.readerOutputSettings.isEmpty,
+                      !hook.readsRawSoftwareWorkingSamples
+                        || (request.softwareExecution != nil && hook.prepareRawSoftwareSource != nil),
                       !hook.writerOutputSettings.isEmpty,
                       hook.outputTimingContract.outputCount > 0,
                       hook.declaredOutputFormats == expected.formatDescriptors,
@@ -1263,21 +1464,149 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         }
     }
 
+    func restoreStructuralCreationDates(
+        sourceURL: URL,
+        sourceGraph: MediaTrackGraphV4,
+        outputURL: URL,
+        pipes: [TrackPipe],
+        cancellation: AVFoundationTrackMigrationCancellationV4
+    ) throws {
+        try cancellation.check()
+        guard let snapshot = try MOVStructuralCreationDatesV4.capture(from: sourceURL) else {
+            return
+        }
+        guard snapshot.tracks.count == sourceGraph.tracks.count else {
+            throw AVFoundationTrackMigrationExecutorV4Error.sourceTrackInventoryMismatch
+        }
+        var sourceOrdinalByID: [MediaTrackStableIDV4: Int] = [:]
+        for (ordinal, track) in sourceGraph.tracks.enumerated() {
+            guard sourceOrdinalByID.updateValue(ordinal, forKey: track.identity.stableID) == nil else {
+                throw AVFoundationTrackMigrationExecutorV4Error.sourceTrackInventoryMismatch
+            }
+        }
+        var outputToSourceTrack: [Int: Int] = [:]
+        for (ordinal, pipe) in pipes.enumerated() {
+            guard let sourceOrdinal = sourceOrdinalByID[pipe.trackID] else {
+                throw AVFoundationTrackMigrationExecutorV4Error.sourceTrackInventoryMismatch
+            }
+            outputToSourceTrack[ordinal] = sourceOrdinal
+        }
+        try MOVStructuralCreationDatesV4.restore(
+            snapshot,
+            into: outputURL,
+            outputToSourceTrack: outputToSourceTrack,
+            cancellation: { try cancellation.check() }
+        )
+        try MOVStructuralCreationDatesV4.verify(
+            snapshot,
+            in: outputURL,
+            outputToSourceTrack: outputToSourceTrack
+        )
+    }
+
+    func finalizeGaplessMetadata(
+        source: AssetAuxiliaryMetadataIdentityV4,
+        freeformEntries: [MOViTunesGaplessMetadataV4.Entry],
+        outputURL: URL,
+        plan: MediaTrackGraphIdentifiedPlanV4,
+        pipes: [TrackPipe],
+        cancellation: AVFoundationTrackMigrationCancellationV4
+    ) async throws -> AACGaplessMetadataTranslationV4? {
+        let items = source.assetMetadata.filter {
+            $0.identifier?.rawValue == MOViTunesGaplessMetadataV4.identifier
+        }
+        guard !freeformEntries.isEmpty else { return nil }
+        try cancellation.check()
+        let entries = try freeformEntries.filter {
+            try MOViTunesGaplessMetadataV4.metadataIdentifier(of: $0) == MOViTunesGaplessMetadataV4.identifier
+        }
+        guard entries.count == items.count else {
+            throw AACGaplessMetadataTranslationV4.Failure.metadataMismatch
+        }
+        let changedAudio = plan.plan.tracks.filter {
+            $0.source.kind == .audio && $0.action == .transcode
+        }
+        guard !changedAudio.isEmpty, !items.isEmpty else {
+            _ = try MOViTunesGaplessMetadataV4.insertIfMissing(freeformEntries, into: outputURL,
+                cancellation: { try cancellation.check() })
+            return nil
+        }
+        guard entries.count == 1, changedAudio.count == 1,
+              plan.plan.tracks.filter({ $0.source.kind == .audio }).count == 1,
+              let planned = changedAudio.first, let expected = planned.expectedOutput,
+              let ordinal = pipes.firstIndex(where: { $0.trackID == planned.source.identity.stableID }) else {
+            throw AACGaplessMetadataTranslationV4.Failure.invalidTranslation
+        }
+        let asset = AVURLAsset(url: outputURL)
+        let tracks = try await asset.load(.tracks)
+        guard tracks.indices.contains(ordinal) else {
+            throw AACGaplessMetadataTranslationV4.Failure.invalidTranslation
+        }
+        let formats = try await tracks[ordinal].load(.formatDescriptions)
+        guard formats.count == 1, let format = formats.first,
+              let stream = CMAudioFormatDescriptionGetStreamBasicDescription(format),
+              stream.pointee.mFormatID == kAudioFormatMPEG4AAC,
+              stream.pointee.mSampleRate > 0,
+              stream.pointee.mSampleRate <= Double(UInt32.max),
+              stream.pointee.mSampleRate.rounded() == stream.pointee.mSampleRate,
+              stream.pointee.mFramesPerPacket > 0 else {
+            throw AACGaplessMetadataTranslationV4.Failure.invalidTranslation
+        }
+        let rate = UInt32(stream.pointee.mSampleRate)
+        let framesPerPacket = stream.pointee.mFramesPerPacket
+        let packetTable = try MOViTunesGaplessMetadataV4.audioPacketTable(in: outputURL,
+            trackOrdinal: ordinal)
+        let facts = try AACGaplessMetadataTranslationV4.derive(output: expected,
+            packetTable: packetTable, sampleRate: rate, framesPerPacket: framesPerPacket)
+        guard facts.appendedFrames == pipes[ordinal].appendedPCMFrameCount else {
+            throw AACGaplessMetadataTranslationV4.Failure.invalidTranslation
+        }
+        let originalValue = try MOViTunesGaplessMetadataV4.utf8Value(of: entries[0])
+        let outputValue = try AACGaplessMetadataTranslationV4.replacingPacketTable(
+            in: originalValue, priming: facts.firstMedia, remainder: facts.remainder,
+            valid: facts.valid)
+        let translatedEntry = try MOViTunesGaplessMetadataV4.entry(
+            replacingUTF8Value: outputValue, in: entries[0])
+        let expectedItems = try await AACGaplessMetadataTranslationV4.translatedMetadata(
+            source.assetMetadata, value: outputValue)
+        let expectedSHA = try await Self.canonicalAssetMetadataSHA256(expectedItems,
+            cancellation: cancellation)
+        let proof = AACGaplessMetadataTranslationV4(
+            schemaID: AACGaplessMetadataTranslationV4.currentSchemaID,
+            identifiedPlan: plan, trackID: planned.source.identity.stableID,
+            outputTrackOrdinal: ordinal,
+            sourceAssetMetadataSHA256: source.assetMetadataSHA256,
+            outputAssetMetadataSHA256: expectedSHA,
+            sourceEntrySHA256: ASHSHA256V4(rawData: MOViTunesGaplessMetadataV4.encodedBytes(of: entries[0])),
+            outputEntrySHA256: ASHSHA256V4(rawData: MOViTunesGaplessMetadataV4.encodedBytes(of: translatedEntry)),
+            sourceValue: originalValue, outputValue: outputValue,
+            encodedAudioPayloadSHA256: try ASHSHA256V4(MOViTunesGaplessMetadataV4.audioPayloadSHA256(
+                in: outputURL, trackOrdinal: ordinal, cancellation: { try cancellation.check() })),
+            sampleRate: rate, framesPerPacket: framesPerPacket,
+            appendedPCMFrameCount: facts.appendedFrames,
+            encoderPrimingFrameCount: facts.encoderPriming, firstMediaFrame: facts.firstMedia,
+            validFrameCount: facts.valid, remainderFrameCount: facts.remainder,
+            packetTable: packetTable
+        )
+        try proof.validate()
+        let translatedEntries = try freeformEntries.map {
+            try MOViTunesGaplessMetadataV4.metadataIdentifier(of: $0) == MOViTunesGaplessMetadataV4.identifier
+                ? translatedEntry : $0
+        }
+        _ = try MOViTunesGaplessMetadataV4.insertIfMissing(translatedEntries, into: outputURL,
+            cancellation: { try cancellation.check() })
+        try proof.validateOutputFile(at: outputURL, cancellation: { try cancellation.check() })
+        return outputValue == originalValue ? nil : proof
+    }
+
     func auxiliaryMetadataIdentity(
         for asset: AVAsset,
         cancellation: AVFoundationTrackMigrationCancellationV4
     ) async throws -> AssetAuxiliaryMetadataIdentityV4 {
         try cancellation.check()
         let assetMetadata = try await asset.load(.metadata)
-        let assetItems = try await canonicalMetadataItems(
-            assetMetadata,
-            cancellation: cancellation
-        )
-        let assetMetadataSHA256 = try ASHCanonicalJSONV4.hash(
-            AssetMetadataPayloadV4(
-                canonicalItems: assetItems
-            ),
-            domain: "ash-avfoundation-asset-metadata-v4"
+        let assetMetadataSHA256 = try await Self.canonicalAssetMetadataSHA256(
+            assetMetadata, cancellation: cancellation
         )
 
         let locales = try await asset.load(.availableChapterLocales)
@@ -1498,6 +1827,15 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     reason: "replacement_duration_is_invalid"
                 )
         }
+        if let full = declaration.fullSourceMediaRange {
+            guard full.start >= .zero, full.duration.isPositive,
+                  CMTimeCompare(duration, try cmTime(full.duration,
+                    trackID: declaration.trackID)) == 0 else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .invalidProcessedVideoReplacement(declaration.trackID,
+                        reason: "replacement_full_media_duration_mismatch")
+            }
+        }
         let reader: AVAssetReader
         do {
             reader = try AVAssetReader(asset: asset)
@@ -1513,12 +1851,12 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         )
     }
 
-    func makeScaledEditMediaTableContext(
+    func makeUneditedMediaTableContext(
         sourceAsset: AVAsset,
         sourceGraph: MediaTrackGraphV4,
-        scaledTrackIDs: Set<MediaTrackStableIDV4>
-    ) throws -> ScaledEditMediaTableContext? {
-        guard !scaledTrackIDs.isEmpty else { return nil }
+        mediaTableTrackIDs: Set<MediaTrackStableIDV4>
+    ) throws -> UneditedMediaTableContext? {
+        guard !mediaTableTrackIDs.isEmpty else { return nil }
         guard let urlAsset = sourceAsset as? AVURLAsset else {
             throw AVFoundationTrackMigrationExecutorV4Error
                 .sourceTrackInventoryMismatch
@@ -1535,13 +1873,17 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         var trackByID: [
             MediaTrackStableIDV4: AVMutableMovieTrack
         ] = [:]
+        var mediaRangeByID: [MediaTrackStableIDV4: MediaExactTimeRangeV4] = [:]
         for (node, track) in zip(sourceGraph.tracks, movieTracks) {
-            guard scaledTrackIDs.contains(node.identity.stableID) else {
+            guard mediaTableTrackIDs.contains(node.identity.stableID) else {
                 continue
             }
             let mediaRange = track.mediaPresentationTimeRange
             guard mediaRange.start.isNumeric,
                   mediaRange.duration.isNumeric,
+                  mediaRange.start.epoch == 0, mediaRange.duration.epoch == 0,
+                  !mediaRange.start.flags.contains(.hasBeenRounded),
+                  !mediaRange.duration.flags.contains(.hasBeenRounded),
                   mediaRange.duration.value > 0 else {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .unsupportedTrack(
@@ -1549,6 +1891,9 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                         reason: "scaled_edit_media_range_is_invalid"
                     )
             }
+            mediaRangeByID[node.identity.stableID] = try .init(
+                start: ExactRationalV4(mediaRange.start.value, Int64(mediaRange.start.timescale)),
+                duration: ExactRationalV4(mediaRange.duration.value, Int64(mediaRange.duration.timescale)))
             track.removeTimeRange(track.timeRange)
             guard track.insertMediaTimeRange(mediaRange, into: mediaRange) else {
                 throw AVFoundationTrackMigrationExecutorV4Error
@@ -1559,15 +1904,16 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             }
             trackByID[node.identity.stableID] = track
         }
-        guard trackByID.count == scaledTrackIDs.count else {
+        guard trackByID.count == mediaTableTrackIDs.count else {
             throw AVFoundationTrackMigrationExecutorV4Error
                 .sourceTrackInventoryMismatch
         }
         do {
-            return ScaledEditMediaTableContext(
+            return UneditedMediaTableContext(
                 asset: movie,
                 reader: try AVAssetReader(asset: movie),
-                trackByID: trackByID
+                trackByID: trackByID,
+                mediaRangeByID: mediaRangeByID
             )
         } catch {
             throw AVFoundationTrackMigrationExecutorV4Error
@@ -1681,8 +2027,24 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         let migrationByID = Dictionary(
             uniqueKeysWithValues: blueprint.tracks.map { ($0.trackID, $0) }
         )
-        let scaledTrackIDs: Set<MediaTrackStableIDV4> = Set(
+        let nativeAVI = try (sourceAsset as? AVURLAsset).flatMap { asset in
+            OriginalSoftwareMediaContext.associated(with: asset) == nil ? asset : nil
+        }.map {
+            try Self.usesNativeAVIIdentityTimeline(asset: $0, graph: sourceGraph)
+        } ?? false
+        let mediaTableTrackIDs: Set<MediaTrackStableIDV4> = Set(
             plan.tracks.compactMap { planned -> MediaTrackStableIDV4? in
+                // Preserve an encoded video's media table once, then restore
+                // its declared edit map. Reader output timestamps already
+                // apply edits and can duplicate or omit underlying packets.
+                if replacement?.declaration.trackID == planned.source.identity.stableID,
+                   replacement?.declaration.fullSourceMediaRange != nil {
+                    return planned.source.identity.stableID
+                }
+                if planned.action == .passThrough, planned.source.kind == .video,
+                   !nativeAVI {
+                    return planned.source.identity.stableID
+                }
                 guard planned.expectedOutput?.edits.contains(where: { edit in
                     guard let source = edit.source else { return false }
                     return source.duration != edit.target.duration
@@ -1690,10 +2052,10 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 return planned.source.identity.stableID
             }
         )
-        let mediaTableContext = try makeScaledEditMediaTableContext(
+        let mediaTableContext = try makeUneditedMediaTableContext(
             sourceAsset: sourceAsset,
             sourceGraph: sourceGraph,
-            scaledTrackIDs: scaledTrackIDs
+            mediaTableTrackIDs: mediaTableTrackIDs
         )
         var pipes: [TrackPipe] = []
         for planned in plan.tracks {
@@ -1734,7 +2096,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                         reason: "output_file_type_rejects_source_media_type"
                     )
             }
-            let readerOutput: AVAssetReaderTrackOutput
+            let readerOutput: AVAssetReaderOutput
             let writerInput: AVAssetWriterInput
             let videoHook = hooks.video[id]
             let nonVideoHook = hooks.nonVideo[id]
@@ -1745,7 +2107,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             let verifiesEncodedSampleStream: Bool
             let verifiesDynamicHDRStream: Bool
             let passThroughFormatContract: PassThroughFormatContract?
-            let readsMediaTable = scaledTrackIDs.contains(id)
+            let readsMediaTable = mediaTableTrackIDs.contains(id)
             let readTrack = mediaTableContext?.trackByID[id] ?? sourceTrack
             let sourceStreamIdentity: PassThroughStreamIdentityV4?
             switch planned.action {
@@ -1855,10 +2217,12 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                                     reason: "writer_rejected_output_settings"
                                 )
                         }
-                        readerOutput = AVAssetReaderTrackOutput(
-                            track: readTrack,
-                            outputSettings: videoHook.readerOutputSettings
-                        )
+                        readerOutput = videoHook.readsRawSoftwareWorkingSamples
+                            ? AVAssetReaderSampleReferenceOutput(track: readTrack)
+                            : AVAssetReaderTrackOutput(
+                                track: readTrack,
+                                outputSettings: videoHook.readerOutputSettings
+                            )
                         readerOutput.alwaysCopiesSampleData = true
                         writerInput = AVAssetWriterInput(
                             mediaType: .video,
@@ -1893,10 +2257,18 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                                     ? mediaTableContext!.asset
                                     : sourceAsset
                             )
-                            transcodeReader.timeRange = try cmTimeRange(
-                                planned.source.timeRange,
-                                trackID: id
-                            )
+                            if let context = OriginalSoftwareMediaContext.associated(with: sourceAsset),
+                               context.timings.indices.contains(Int(planned.source.identity.ordinal)),
+                               let first = context.timings[Int(planned.source.identity.ordinal)].selectedStart,
+                               let end = context.timings[Int(planned.source.identity.ordinal)].selectedEnd {
+                                let selectedStart = try context.sharedOrigin.normalize(first).adding(SoftwareVirtualCarrier.sharedWorkingOffset(context))
+                                transcodeReader.timeRange = CMTimeRange(start: try cm(selectedStart), duration: try cm(end.subtracting(first)))
+                            } else {
+                                transcodeReader.timeRange = try cmTimeRange(
+                                    planned.source.timeRange,
+                                    trackID: id
+                                )
+                            }
                             dedicatedReader = transcodeReader
                         } catch let error as
                             AVFoundationTrackMigrationExecutorV4Error {
@@ -1968,28 +2340,45 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             let replacementPresentationOffset: ExactRationalV4?
             let processedReplacementMediaStart: ExactRationalV4?
             if let replacementForTrack {
-                let timelineMapping: DeterministicV4PrimaryTimelineMappingV4
-                do {
-                    timelineMapping = try .init(plannedPrimary: planned)
-                } catch {
-                    throw AVFoundationTrackMigrationExecutorV4Error
-                        .invalidProcessedVideoReplacement(
-                            id,
-                            reason:
-                                "replacement_requires_authorized_media_mapping"
-                        )
+                let mediaRange: MediaExactTimeRangeV4
+                if let full = replacementForTrack.declaration.fullSourceMediaRange {
+                    guard mediaTableContext?.mediaRangeByID[id] == full,
+                          planned.action == .process,
+                          planned.source.timeRange == planned.expectedOutput?.timeRange,
+                          planned.source.edits == planned.expectedOutput?.edits else {
+                        throw AVFoundationTrackMigrationExecutorV4Error
+                            .invalidProcessedVideoReplacement(id,
+                                reason: "replacement_full_media_range_disagrees_with_source")
+                    }
+                    let end = try full.start.adding(full.duration)
+                    for edit in planned.source.edits {
+                        if let range = edit.source {
+                            guard range.start >= full.start,
+                                  try range.start.adding(range.duration) <= end else {
+                                throw AVFoundationTrackMigrationExecutorV4Error
+                                    .invalidProcessedVideoReplacement(id,
+                                        reason: "replacement_edit_exceeds_full_media_range")
+                            }
+                        }
+                    }
+                    mediaRange = full
+                } else {
+                    do {
+                        mediaRange = try DeterministicV4PrimaryTimelineMappingV4(
+                            plannedPrimary: planned).mediaRange
+                    } catch {
+                        throw AVFoundationTrackMigrationExecutorV4Error
+                            .invalidProcessedVideoReplacement(id,
+                                reason: "replacement_requires_authorized_media_mapping")
+                    }
                 }
                 sampleStreamTerminalPresentationEnd = try cmTime(
-                    timelineMapping.mediaEnd,
-                    trackID: id
-                )
-                replacementPresentationOffset = try await Self
-                    .replacementPresentationOffset(
-                        track: replacementForTrack.track,
-                        timelineMapping: timelineMapping,
-                        trackID: id
-                    )
-                processedReplacementMediaStart = timelineMapping.mediaRange.start
+                    mediaRange.start.adding(mediaRange.duration), trackID: id)
+                replacementPresentationOffset = try await Self.replacementPresentationOffset(
+                    track: replacementForTrack.track, mediaRange: mediaRange,
+                    requiresNormalizedFullMedia: replacementForTrack.declaration.fullSourceMediaRange != nil,
+                    trackID: id)
+                processedReplacementMediaStart = mediaRange.start
             } else {
                 sampleStreamTerminalPresentationEnd = nil
                 replacementPresentationOffset = nil
@@ -2022,13 +2411,14 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 edits: expectedEdits,
                 preservedPCMSampleClockTimescales:
                     preservedPCMSampleClockTimescales,
-                requiresEditMapRebuild: containsScaledEdit
+                requiresEditMapRebuild: readsMediaTable || containsScaledEdit
                     || requiresTranscodeEditRebuild
                     || requiresReplacementEditRebuild,
                 replacementPresentationOffset:
                     replacementPresentationOffset,
                 processedReplacementMediaStart:
                     processedReplacementMediaStart,
+                fullSourceMediaRange: replacementForTrack?.declaration.fullSourceMediaRange,
                 sampleStreamTerminalPresentationEnd:
                     sampleStreamTerminalPresentationEnd,
                 verifiesEncodedSampleStream: verifiesEncodedSampleStream,
@@ -2063,8 +2453,11 @@ private extension AVFoundationTrackMigrationExecutorV4 {
     ) async throws {
         guard let expected else { return }
         input.metadata = metadata
-        input.languageCode = try await track.load(.languageCode)
-        input.extendedLanguageTag = try await track.load(.extendedLanguageTag)
+        let languageCode = try await track.load(.languageCode)
+        let extendedLanguageTag = try await track.load(.extendedLanguageTag)
+        input.languageCode = languageCode
+            ?? (extendedLanguageTag == nil ? "und" : nil)
+        input.extendedLanguageTag = extendedLanguageTag
         if track.mediaType == .video
             || track.mediaType == .auxiliaryPicture
             || track.mediaType == .muxed {
@@ -2712,7 +3105,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 guard pipes[index].writerInput.isReadyForMoreMediaData else {
                     continue
                 }
-                guard let sourceSample = pipes[index].readerOutput
+                guard let deliveredSample = pipes[index].readerOutput
                     .copyNextSampleBuffer() else {
                     if let hook = pipes[index].videoHook {
                         do {
@@ -2771,6 +3164,30 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                         totalTrackCount: pipes.count,
                         progress: progress
                     )
+                    continue
+                }
+
+                if pipes[index].videoHook?.readsRawSoftwareWorkingSamples == true,
+                   CMSampleBufferGetNumSamples(deliveredSample) == 0 {
+                    try SoftwareVirtualCarrier.accountReferenceControl(deliveredSample, asset: pipes[index].reader.asset, reader: pipes[index].reader)
+                    advanced = true
+                    continue
+                }
+                let sourceSample = try pipes[index].videoHook?.prepareRawSoftwareSource?(
+                    .init(sampleBuffer: deliveredSample)).sampleBuffer ?? deliveredSample
+
+                if pipes[index].writerInput.mediaType == .video,
+                   pipes[index].videoHook == nil, pipes[index].nonVideoHook == nil,
+                   CMSampleBufferGetNumSamples(sourceSample) == 0 {
+                    // These are reader edit/drain controls, not stored video
+                    // samples. Appending them can extend the final stts entry.
+                    guard CMSampleBufferGetTotalSampleSize(sourceSample) == 0,
+                          (CMSampleBufferGetDataBuffer(sourceSample).map { CMBlockBufferGetDataLength($0) } ?? 0) == 0 else {
+                        throw AVFoundationTrackMigrationExecutorV4Error
+                            .sampleStreamUnrepresentable(trackID: pipes[index].trackID,
+                                status: kCMSampleBufferError_BufferHasNoSampleSizes)
+                    }
+                    advanced = true
                     continue
                 }
 
@@ -2872,17 +3289,19 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                         )
                 }
                 for outputSample in outputSamples {
-                    let writerSample: CMSampleBuffer
+                    let timedSample: CMSampleBuffer
                     if let offset =
                         pipes[index].replacementPresentationOffset {
-                        writerSample = try sampleByAddingPresentationOffset(
+                        timedSample = try sampleByAddingPresentationOffset(
                             outputSample,
                             offset: offset,
                             trackID: pipes[index].trackID
                         )
                     } else {
-                        writerSample = outputSample
+                        timedSample = outputSample
                     }
+                    let writerSample = try UniformPCMSampleBufferV4
+                        .compactingSizes(in: timedSample)
                     if pipes[index].verifiesEncodedSampleStream,
                        pipes[index].accumulatesSourceStreamDuringDrain {
                         do {
@@ -2911,6 +3330,18 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                                 trackID: pipes[index].trackID,
                                 failure: .init(writer.error)
                             )
+                    }
+                    if pipes[index].action == .transcode,
+                       let format = CMSampleBufferGetFormatDescription(writerSample),
+                       let stream = CMAudioFormatDescriptionGetStreamBasicDescription(format),
+                       stream.pointee.mFormatID == kAudioFormatLinearPCM {
+                        let frames = CMSampleBufferGetNumSamples(writerSample)
+                        let (total, overflow) = pipes[index].appendedPCMFrameCount
+                            .addingReportingOverflow(UInt64(max(0, frames)))
+                        guard !overflow else {
+                            throw AACGaplessMetadataTranslationV4.Failure.invalidTranslation
+                        }
+                        pipes[index].appendedPCMFrameCount = total
                     }
                     var migratedSampleCount = pipes[index].sampleCount
                     var lastPresentationTime =
@@ -2966,6 +3397,12 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                 .sourceTrackInventoryMismatch
         }
 
+        let fullMediaOutputIDs = Set(pipes.enumerated().compactMap { ordinal, pipe in
+            pipe.fullSourceMediaRange == nil ? nil : outputGraph.tracks[ordinal].identity.stableID
+        })
+        let fullMediaOutput = try makeUneditedMediaTableContext(
+            sourceAsset: outputAsset, sourceGraph: outputGraph,
+            mediaTableTrackIDs: fullMediaOutputIDs)
         var digests: [MediaTrackStableIDV4: ASHSHA256V4] = [:]
         var observedToLogical: [
             MediaTrackStableIDV4: MediaTrackStableIDV4
@@ -3017,9 +3454,26 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     plannedEdits: pipe.edits,
                     observedEdits: observedNode.edits
                 )
+            let verificationAsset: AVAsset
+            let verificationTrack: AVAssetTrack
+            if let full = pipe.fullSourceMediaRange {
+                let observedID = observedNode.identity.stableID
+                guard fullMediaOutput?.mediaRangeByID[observedID] == full,
+                      let track = fullMediaOutput?.trackByID[observedID],
+                      let asset = fullMediaOutput?.asset else {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .invalidProcessedVideoReplacement(pipe.trackID,
+                            reason: "output_full_media_range_disagrees_with_source: expected=\(full), observed=\(String(describing: fullMediaOutput?.mediaRangeByID[observedID]))")
+                }
+                verificationAsset = asset
+                verificationTrack = track
+            } else {
+                verificationAsset = outputAsset
+                verificationTrack = outputTrack
+            }
             let reader: AVAssetReader
             do {
-                reader = try AVAssetReader(asset: outputAsset)
+                reader = try AVAssetReader(asset: verificationAsset)
             } catch {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .sampleStreamReadFailed(
@@ -3028,7 +3482,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     )
             }
             let output = AVAssetReaderTrackOutput(
-                track: outputTrack,
+                track: verificationTrack,
                 outputSettings: nil
             )
             output.alwaysCopiesSampleData = false
@@ -3179,12 +3633,19 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                         logicalID, reason: "planned_metadata_mismatch"
                     )
             }
+            // MOV stores an ISO language code even when AVI has no language
+            // field. Accept only the explicit undetermined representation;
+            // an added language or changed extended tag remains a mismatch.
+            let representsUndeclaredLanguage = expected.language.languageCode == nil
+                && expected.language.extendedLanguageTag == nil
+                && actual.language.languageCode == "und"
+                && actual.language.extendedLanguageTag == nil
             return try MediaTrackNodeV4(
                 identity: expected.identity,
                 enabled: actual.enabled,
                 kind: actual.kind,
                 sourceMediaTypeID: actual.sourceMediaTypeID,
-                language: actual.language,
+                language: representsUndeclaredLanguage ? expected.language : actual.language,
                 roleIDs: actual.roleIDs,
                 timebase: actual.timebase,
                 timeRange: actual.timeRange,
@@ -3379,7 +3840,8 @@ private extension AVFoundationTrackMigrationExecutorV4 {
 
     static func replacementPresentationOffset(
         track: AVAssetTrack,
-        timelineMapping: DeterministicV4PrimaryTimelineMappingV4,
+        mediaRange: MediaExactTimeRangeV4,
+        requiresNormalizedFullMedia: Bool,
         trackID: MediaTrackStableIDV4
     ) async throws -> ExactRationalV4? {
         let segments: [AVAssetTrackSegment]
@@ -3429,6 +3891,16 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     reason: "replacement_timeline_is_not_exact"
                 )
         }
+        if requiresNormalizedFullMedia {
+            let declaredDuration = try ExactRationalV4(source.duration.value,
+                Int64(source.duration.timescale))
+            guard segments.count == 1, target.start == .zero,
+                  declaredDuration == mediaRange.duration else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .invalidProcessedVideoReplacement(trackID,
+                        reason: "replacement_full_media_timeline_is_not_normalized")
+            }
+        }
         let replacementMediaStart: ExactRationalV4
         do {
             replacementMediaStart = try ExactRationalV4(
@@ -3444,7 +3916,7 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         }
         let offset: ExactRationalV4
         do {
-            offset = try timelineMapping.mediaRange.start.subtracting(
+            offset = try mediaRange.start.subtracting(
                 replacementMediaStart
             )
         } catch {
@@ -4023,6 +4495,11 @@ struct SampleStreamAccumulatorV4 {
 
     private static let hashDomain = "ash-avfoundation-sample-stream-v4.2"
 
+    // One tag, three times (at most 29 bytes each), two FourCCs, two
+    // 64-byte digest strings and one 8-byte payload size. Reuse fixed storage
+    // and hash each complete record once without changing canonical bytes.
+    private var canonicalRecord = Data(count: 232)
+    private var canonicalRecordByteCount = 0
     private var hasher: SHA256
     private var processedCanonicalByteCount: UInt64 = 0
     private var pendingSample: PendingSample?
@@ -4058,7 +4535,8 @@ struct SampleStreamAccumulatorV4 {
         RetentionDiagnostic(
             processedCanonicalByteCount: processedCanonicalByteCount,
             retainedCanonicalByteCount:
-                pendingSample?.retainedCanonicalByteCount ?? 0,
+                (pendingSample?.retainedCanonicalByteCount ?? 0)
+                    + canonicalRecord.count,
             fixedStateByteCount: MemoryLayout<Self>.stride
         )
     }
@@ -4195,13 +4673,16 @@ struct SampleStreamAccumulatorV4 {
         appendTime(duration)
         appendInteger(pendingSample.mediaType)
         appendInteger(pendingSample.mediaSubtype)
-        appendCanonicalData(Data(
-            pendingSample.formatFingerprint.rawValue.utf8
-        ))
+        appendCanonicalString(pendingSample.formatFingerprint.rawValue)
         appendInteger(pendingSample.sampleSize)
-        appendCanonicalData(Data(
-            pendingSample.payloadSHA256.rawValue.utf8
-        ))
+        appendCanonicalString(pendingSample.payloadSHA256.rawValue)
+        canonicalRecord.withUnsafeBytes { bytes in
+            hasher.update(bufferPointer: UnsafeRawBufferPointer(
+                start: bytes.baseAddress,
+                count: canonicalRecordByteCount
+            ))
+        }
+        canonicalRecordByteCount = 0
         if following != nil {
             retainFinalizedTiming(pendingSample.timing)
         }
@@ -4371,7 +4852,7 @@ struct SampleStreamAccumulatorV4 {
     private mutating func appendInteger<T: FixedWidthInteger>(_ value: T) {
         var bigEndian = value.bigEndian
         withUnsafeBytes(of: &bigEndian) {
-            hasher.update(bufferPointer: $0)
+            appendCanonicalBytes($0)
         }
         recordProcessedByteCount(MemoryLayout<T>.size)
     }
@@ -4379,14 +4860,35 @@ struct SampleStreamAccumulatorV4 {
     private mutating func appendCanonicalByte(_ byte: UInt8) {
         var byte = byte
         withUnsafeBytes(of: &byte) {
-            hasher.update(bufferPointer: $0)
+            appendCanonicalBytes($0)
         }
         recordProcessedByteCount(1)
     }
 
     private mutating func appendCanonicalData(_ data: Data) {
-        hasher.update(data: data)
+        data.withUnsafeBytes { appendCanonicalBytes($0) }
         recordProcessedByteCount(data.count)
+    }
+
+    private mutating func appendCanonicalString(_ string: String) {
+        let contiguous = string.utf8.withContiguousStorageIfAvailable { bytes in
+            appendCanonicalBytes(UnsafeRawBufferPointer(bytes))
+            recordProcessedByteCount(bytes.count)
+            return true
+        }
+        if contiguous == nil { appendCanonicalData(Data(string.utf8)) }
+    }
+
+    private mutating func appendCanonicalBytes(_ bytes: UnsafeRawBufferPointer) {
+        precondition(canonicalRecordByteCount + bytes.count <= canonicalRecord.count)
+        canonicalRecord.withUnsafeMutableBytes { destination in
+            if let sourceAddress = bytes.baseAddress,
+               let destinationAddress = destination.baseAddress {
+                destinationAddress.advanced(by: canonicalRecordByteCount)
+                    .copyMemory(from: sourceAddress, byteCount: bytes.count)
+            }
+        }
+        canonicalRecordByteCount += bytes.count
     }
 
     private mutating func recordProcessedByteCount(_ count: Int) {

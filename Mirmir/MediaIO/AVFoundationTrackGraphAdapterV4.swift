@@ -1,5 +1,6 @@
 import AVFoundation
 import CoreMedia
+import CoreVideo
 import Foundation
 
 enum AVFoundationTrackGraphAdapterV4Error: Error, Equatable, Sendable {
@@ -138,6 +139,11 @@ enum AVFoundationTrackGraphAdapterV4 {
     }
 
     static func probe(asset: AVAsset) async throws -> MediaTrackGraphV4 {
+        if let original = OriginalSoftwareMediaContext.associated(with: asset),
+           let graph = original.typedProjection.graph {
+            try Task.checkCancellation()
+            return graph
+        }
         let assetTracks = try await asset.load(.tracks)
         var trackIDMap: [Int32: MediaTrackStableIDV4] = [:]
         for (offset, track) in assetTracks.enumerated() {
@@ -494,6 +500,7 @@ enum AVFoundationTrackGraphAdapterV4 {
         var audio: AVFoundationAudioFormatFingerprintV4?
         var normalizesAACContainerWrapper = false
         var hasCompleteAC3Configuration = false
+        var pcmDescription: AudioStreamBasicDescription?
         if CMFormatDescriptionGetMediaType(description) == kCMMediaType_Audio,
            let stream = CMAudioFormatDescriptionGetStreamBasicDescription(
                description
@@ -505,6 +512,11 @@ enum AVFoundationTrackGraphAdapterV4 {
                     sizeOut: &byteCount
                 )
             let codecConfigurationByteCount = byteCount
+            if normalizesAC3ContainerWrapper,
+               stream.mFormatID == kAudioFormatLinearPCM,
+               codecConfigurationByteCount == 0 {
+                pcmDescription = stream
+            }
             let codecConfiguration = codecConfigurationPointer.map {
                 AVFoundationBinaryFingerprintV4(
                     byteCount: Int64(codecConfigurationByteCount),
@@ -569,7 +581,11 @@ enum AVFoundationTrackGraphAdapterV4 {
             extensions = [:]
         }
         let fingerprintExtensions: NSDictionary
-        if normalizesAACContainerWrapper || hasCompleteAC3Configuration {
+        let normalizesPCMContainerWrapper = pcmDescription.map {
+            canonicalPCMWrapper(extensions, stream: $0)
+        } ?? false
+        if normalizesAACContainerWrapper || hasCompleteAC3Configuration
+            || normalizesPCMContainerWrapper {
             // Core Media exposes an ISO sample-entry wrapper for MP4 and a
             // QuickTime sample-description wrapper for MOV even when the
             // audio semantics are identical. A complete AC3 dac3 cookie or a
@@ -580,6 +596,19 @@ enum AVFoundationTrackGraphAdapterV4 {
             let normalized = NSMutableDictionary(dictionary: extensions)
             normalized.removeObject(forKey: "VerbatimISOSampleEntry")
             normalized.removeObject(forKey: "VerbatimSampleDescription")
+            fingerprintExtensions = normalized
+        } else if normalizesAC3ContainerWrapper,
+                  CMFormatDescriptionGetMediaType(description) == kCMMediaType_Video,
+                  CMFormatDescriptionGetMediaSubType(description) == kCMVideoCodecType_H264,
+                  let normalized = canonicalAVCVisualSampleEntryWrapper(
+                    extensions, width: videoWidth, height: videoHeight
+                  ) {
+            fingerprintExtensions = normalized
+        } else if normalizesAC3ContainerWrapper,
+                  CMFormatDescriptionGetMediaSubType(description) == kCMVideoCodecType_JPEG_OpenDML,
+                  let normalized = canonicalOpenDMLWrapper(
+                    extensions, width: videoWidth, height: videoHeight
+                  ) {
             fingerprintExtensions = normalized
         } else {
             fingerprintExtensions = extensions
@@ -617,6 +646,234 @@ enum AVFoundationTrackGraphAdapterV4 {
             ),
             canonicalExtensions.complete
         )
+    }
+
+    /// ISO and QuickTime expose different wrappers for an unchanged avc1
+    /// description. Bind its complete visual header and every opaque atom;
+    /// fold only the exact typed properties AVAssetWriter materializes in MOV.
+    private static func canonicalAVCVisualSampleEntryWrapper(
+        _ extensions: NSDictionary, width: Int32?, height: Int32?
+    ) -> NSDictionary? {
+        let iso = extensions["VerbatimISOSampleEntry"] as? Data
+        let movie = extensions["VerbatimSampleDescription"] as? Data
+        guard (extensions["VerbatimISOSampleEntry"] != nil)
+                != (extensions["VerbatimSampleDescription"] != nil),
+              (iso != nil) != (movie != nil), let raw = iso ?? movie,
+              extensions["VerifiedAVCVisualSampleEntryHeaderV4"] == nil,
+              extensions["VerifiedAVCOpaqueAtomOrderV4"] == nil,
+              let width, let height, width > 0, height > 0,
+              width <= UInt16.max, height <= UInt16.max,
+              raw.count >= 86, raw.count <= UInt32.max,
+              let atoms = extensions["SampleDescriptionExtensionAtoms"] as? NSDictionary,
+              let configuration = atoms["avcC"] as? Data,
+              configuration.count >= 7, configuration[0] == 1 else { return nil }
+        let bytes = [UInt8](raw)
+        func number(_ offset: Int, _ count: Int) -> UInt64 {
+            bytes[offset..<(offset + count)].reduce(0) { ($0 << 8) | UInt64($1) }
+        }
+        guard number(0, 4) == bytes.count,
+              bytes[4..<8].elementsEqual("avc1".utf8),
+              bytes[8..<14].allSatisfy({ $0 == 0 }),
+              number(14, 2) == 1, number(16, 2) == 0,
+              number(32, 2) == UInt64(width),
+              number(34, 2) == UInt64(height), bytes[50] <= 31 else { return nil }
+        var header = Data(bytes[4..<86])
+        if extensions["FormatName"] as? String == "'avc1'" {
+            var defaultName = [UInt8](repeating: 0, count: 32)
+            defaultName[0] = 6
+            defaultName.replaceSubrange(1..<7, with: "'avc1'".utf8)
+            let name = bytes[50..<82]
+            if name.allSatisfy({ $0 == 0 }) || name.elementsEqual(defaultName) {
+                // MOV materializes Core Media's default codec label when the
+                // ISO compressor name is empty; all other name bytes stay bound.
+                header.replaceSubrange(46..<78, with: repeatElement(UInt8(0), count: 32))
+            }
+        }
+        func matchesNumber(_ value: Any?, _ expected: UInt64) -> Bool {
+            guard let value = value as? NSNumber,
+                  CFGetTypeID(value) != CFBooleanGetTypeID() else { return false }
+            return value.isEqual(to: NSNumber(value: expected))
+        }
+        var offset = 86
+        var seen: Set<String> = []
+        var opaqueOrder: [String] = []
+        while offset < bytes.count {
+            // QuickTime appends one zero terminator after the atom list.
+            if movie != nil, bytes.count - offset == 4,
+               bytes[offset...].allSatisfy({ $0 == 0 }) { offset += 4; break }
+            guard bytes.count - offset >= 8 else { return nil }
+            let length = number(offset, 4)
+            guard length >= 8, length <= UInt64(bytes.count - offset),
+                  let type = String(bytes: bytes[(offset + 4)..<(offset + 8)], encoding: .ascii),
+                  seen.insert(type).inserted else { return nil }
+            let end = offset + Int(length)
+            let payload = Data(bytes[(offset + 8)..<end])
+            switch type {
+            case "pasp":
+                guard payload.count == 8,
+                      let aspect = extensions["CVPixelAspectRatio"] as? NSDictionary,
+                      matchesNumber(aspect["HorizontalSpacing"], number(offset + 8, 4)),
+                      matchesNumber(aspect["VerticalSpacing"], number(offset + 12, 4)) else { return nil }
+            case "colr":
+                let isNCLC = payload.count == 10
+                    && payload.prefix(4).elementsEqual("nclc".utf8)
+                let isNCLX = payload.count == 11
+                    && payload.prefix(4).elementsEqual("nclx".utf8)
+                guard isNCLC || isNCLX,
+                      let range = extensions["FullRangeVideo"] as? NSNumber,
+                      CFGetTypeID(range) == CFBooleanGetTypeID() else { return nil }
+                let primaries = extensions["CVImageBufferColorPrimaries"] as? String
+                let transfer = extensions["CVImageBufferTransferFunction"] as? String
+                let matrix = extensions["CVImageBufferYCbCrMatrix"] as? String
+                // CoreVideo's codepoint mapping rejects unknown numeric tags
+                // instead of conflating them with the unspecified code 2.
+                guard number(offset + 12, 2) == UInt64(CVColorPrimariesGetIntegerCodePointForString(primaries as CFString?)),
+                      number(offset + 14, 2) == UInt64(CVTransferFunctionGetIntegerCodePointForString(transfer as CFString?)),
+                      number(offset + 16, 2) == UInt64(CVYCbCrMatrixGetIntegerCodePointForString(matrix as CFString?)),
+                      !isNCLX || payload[10] == (range.boolValue ? 0x80 : 0) else { return nil }
+            case "fiel":
+                guard payload.elementsEqual([1, 0]),
+                      matchesNumber(extensions["CVFieldCount"], 1),
+                      extensions["CVFieldDetail"] == nil else { return nil }
+            case "chrm":
+                guard payload.elementsEqual([0, 0]),
+                      extensions["CVImageBufferChromaLocationTopField"] as? String == "Left",
+                      extensions["CVImageBufferChromaLocationBottomField"] as? String == "Left" else { return nil }
+            default:
+                guard let exposed = atoms[type] as? Data,
+                      exposed == payload else { return nil }
+                if type == "avcC" {
+                    guard payload == configuration else { return nil }
+                } else if type == "btrt" {
+                    guard payload.count == 12 else { return nil }
+                } else {
+                    opaqueOrder.append(type)
+                }
+            }
+            offset = end
+        }
+        guard offset == bytes.count, seen.contains("avcC") else { return nil }
+        let normalized = NSMutableDictionary(dictionary: extensions)
+        normalized.removeObject(forKey: "VerbatimISOSampleEntry")
+        normalized.removeObject(forKey: "VerbatimSampleDescription")
+        normalized["VerifiedAVCVisualSampleEntryHeaderV4"] = header
+        normalized["VerifiedAVCOpaqueAtomOrderV4"] = opaqueOrder
+        return normalized
+    }
+
+    /// AVI has no QuickTime image-description header. Bind the JPEG tables and
+    /// field count while accepting only the exact default header AVAssetWriter
+    /// adds to MOV. Unrecognized headers, atoms and extension values stay bound.
+    private static func canonicalOpenDMLWrapper(
+        _ extensions: NSDictionary, width: Int32?, height: Int32?
+    ) -> NSDictionary? {
+        guard let width, let height, width > 0, height > 0,
+              width <= UInt16.max, height <= UInt16.max,
+              extensions["VerbatimISOSampleEntry"] == nil,
+              let raw = extensions["VerbatimSampleDescription"] as? Data,
+              let atoms = extensions["SampleDescriptionExtensionAtoms"] as? NSDictionary,
+              atoms.count == 1, let tables = atoms["mjht"] as? Data,
+              !tables.isEmpty, tables.count <= 65_536,
+              extensions["CVFieldCount"] as? Int == 1,
+              extensions["Depth"] as? Int == 24,
+              extensions["Version"] as? Int == 0,
+              extensions["RevisionLevel"] as? Int == 0,
+              extensions["SpatialQuality"] as? Int == 512,
+              extensions["TemporalQuality"] as? Int == 512,
+              extensions["FormatName"] as? String == "'dmb1'" else { return nil }
+        var expected = Data()
+        func append(_ value: UInt64, bytes: Int) {
+            for shift in (0..<bytes).reversed() {
+                expected.append(UInt8(truncatingIfNeeded: value >> (shift * 8)))
+            }
+        }
+        append(UInt64(108 + tables.count), bytes: 4)
+        expected.append(contentsOf: "dmb1".utf8)
+        expected.append(contentsOf: repeatElement(0, count: 6))
+        append(1, bytes: 2) // data reference
+        append(0, bytes: 8) // version, revision and vendor
+        append(512, bytes: 4)
+        append(512, bytes: 4)
+        append(UInt64(width), bytes: 2)
+        append(UInt64(height), bytes: 2)
+        append(72 << 16, bytes: 4)
+        append(72 << 16, bytes: 4)
+        append(0, bytes: 4)
+        append(1, bytes: 2)
+        expected.append(6)
+        expected.append(contentsOf: "'dmb1'".utf8)
+        expected.append(contentsOf: repeatElement(0, count: 25))
+        append(24, bytes: 2)
+        append(0xffff, bytes: 2)
+        append(UInt64(tables.count + 8), bytes: 4)
+        expected.append(contentsOf: "mjht".utf8)
+        expected.append(tables)
+        append(10, bytes: 4)
+        expected.append(contentsOf: "fiel".utf8)
+        expected.append(contentsOf: [1, 0, 0, 0, 0, 0])
+        guard expected == raw else { return nil }
+        let normalized = NSMutableDictionary(dictionary: extensions)
+        for key in ["VerbatimSampleDescription", "Depth", "Version", "RevisionLevel",
+                    "SpatialQuality", "TemporalQuality", "FormatName"] {
+            normalized.removeObject(forKey: key)
+        }
+        return normalized
+    }
+
+    /// AVAssetWriter can replace a version-zero sowt/twos entry with a
+    /// version-two lpcm entry without changing any PCM samples. Normalize only
+    /// the understood header and optional mono/stereo chan atom. Unknown child
+    /// atoms remain part of the fingerprint, as do all ASBD/layout fields.
+    private static func canonicalPCMWrapper(
+        _ extensions: NSDictionary, stream: AudioStreamBasicDescription
+    ) -> Bool {
+        guard extensions["VerbatimISOSampleEntry"] == nil,
+              let raw = extensions["VerbatimSampleDescription"] as? Data else { return false }
+        let b = [UInt8](raw)
+        guard b.count >= 36 else { return false }
+        func number(_ offset: Int, _ count: Int) -> UInt64 {
+            b[offset..<(offset + count)].reduce(0) { ($0 << 8) | UInt64($1) }
+        }
+        guard number(0, 4) == b.count,
+              b[8..<14].allSatisfy({ $0 == 0 }), number(14, 2) == 1,
+              number(18, 2) == 0, number(20, 4) == 0,
+              stream.mFramesPerPacket == 1,
+              stream.mBytesPerPacket == stream.mBytesPerFrame,
+              [1, 2].contains(stream.mChannelsPerFrame),
+              [8, 16, 24, 32].contains(stream.mBitsPerChannel),
+              stream.mBytesPerFrame == stream.mChannelsPerFrame * (stream.mBitsPerChannel / 8)
+        else { return false }
+        let version = number(16, 2)
+        let codec = String(bytes: b[4..<8], encoding: .ascii)
+        if version == 0, codec == "sowt" || codec == "twos" {
+            guard b.count == 36 || b.count == 60,
+                  number(24, 2) == stream.mChannelsPerFrame,
+                  number(26, 2) == stream.mBitsPerChannel,
+                  number(28, 4) == 0,
+                  Double(number(32, 4)) / 65536 == stream.mSampleRate,
+                  stream.mFormatFlags == (codec == "sowt" ? 12 : 14)
+            else { return false }
+            if b.count == 60 {
+                let tag: UInt64 = stream.mChannelsPerFrame == 1 ? 0x00640001 : 0x00650002
+                guard number(36, 4) == 24,
+                      String(bytes: b[40..<44], encoding: .ascii) == "chan",
+                      number(44, 4) == 0, number(48, 4) == tag,
+                      number(52, 4) == 0, number(56, 4) == 0 else { return false }
+            }
+            return true
+        }
+        guard version == 2, codec == "lpcm", b.count == 72,
+              number(24, 2) == 3, number(26, 2) == 16,
+              number(28, 2) == 0xfffe, number(30, 2) == 0,
+              number(32, 4) == 0x00010000, number(36, 4) == 72,
+              Double(bitPattern: number(40, 8)) == stream.mSampleRate,
+              number(48, 4) == stream.mChannelsPerFrame,
+              number(52, 4) == 0x7f000000,
+              number(56, 4) == stream.mBitsPerChannel,
+              number(60, 4) == stream.mFormatFlags,
+              number(64, 4) == stream.mBytesPerPacket,
+              number(68, 4) == stream.mFramesPerPacket else { return false }
+        return true
     }
 
     static func migratedTrackMetadataItems(

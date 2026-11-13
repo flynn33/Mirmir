@@ -1,0 +1,14 @@
+{
+  "command": [
+    "codesign",
+    "--verify",
+    "--deep",
+    "--strict",
+    "--verbose=2",
+    "/private/tmp/Mirmir-root-bounded-default-release-derived-20261025/Build/Products/Release/Mirmir.app"
+  ],
+  "exitCode": 0,
+  "seconds": 0.03448879199999055,
+  "warningLines": 0,
+  "errorLines": 0
+}

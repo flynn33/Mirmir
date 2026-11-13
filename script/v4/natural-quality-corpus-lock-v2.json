@@ -1,0 +1,33 @@
+{
+  "artifactSetSHA256": "750cab4072c635f30a925dd7715c1729213f14601855a841fb6d3f32cf1db66e",
+  "builderSourceSHA256": "2ebe603d1a4ea7dc4e263c8135446cbffd21f3325fdac4c26c08e17bf811f768",
+  "caseCount": 168,
+  "clipCount": 28,
+  "cohorts": [
+    "natural_detail",
+    "text_graphics",
+    "animation",
+    "faces",
+    "low_light_noise",
+    "high_motion",
+    "scene_cuts"
+  ],
+  "corpusID": "ash-v4-seven-cohort-locked-natural-v1",
+  "decoder": {
+    "decodeProcedureID": "ffmpeg-accurate-input-seek-rgb24-center-crop-lanczos-v1",
+    "executableSHA256": "dad4b30b36a1a999bfa4b6ffbde138bd17ee496c69e12eef638227dff2c6415c",
+    "version": "ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers"
+  },
+  "manifestByteCount": 192809,
+  "manifestSHA256": "0cf370c2447c84c27f08d55daa955c6e8af6f73a53ca053e20ffdfa36480da41",
+  "qualityContractSHA256": "37e4c5aa7b41ab09f43c533b11aa989ed82036fc28ff22f41f273f2b6213b0b7",
+  "referenceHeight": 144,
+  "referenceWidth": 256,
+  "releaseEligible": true,
+  "schemaVersion": "mirmir-ash-v4-natural-quality-corpus-lock-v2",
+  "sourceAssetSetSHA256": "88556f6bd16c363ae1c76d98d2a6017b78b15da78936b76dfaea7e790488af00",
+  "sourceHeight": 72,
+  "sourceLicenseSetSHA256": "30ee1b9d1cbb391c2134cfac685d9f7b3da0aa256487ea3ec5466b15abfed345",
+  "sourceSelectionSHA256": "4c9e1c5a06ab7e679b3ce5954421baef7c509abab164ed91ce5a5031370dd611",
+  "sourceWidth": 128
+}

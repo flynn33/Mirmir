@@ -1,4 +1,6 @@
 import Foundation
+import XCTest
+@testable import Mirmir
 
 private enum WorkflowQueueSelfTestFailure: Error, CustomStringConvertible {
   case assertion(String)
@@ -148,7 +150,6 @@ private struct QueueSelfTestFixture {
   }
 }
 
-@main
 private struct WorkflowQueueDispatcherV4SelfTestMain {
   static func main() async throws {
     var completed: [String] = []
@@ -1026,4 +1027,10 @@ extension WorkflowQueueDispatcherV4SelfTestMain {
   fileprivate static func digest(_ value: Int) -> String {
     String(format: "%064llx", value)
   }
+}
+
+final class WorkflowQueueDispatcherV4SelfTests: XCTestCase {
+    func testStandaloneScenarios() async throws {
+        try await WorkflowQueueDispatcherV4SelfTestMain.main()
+    }
 }

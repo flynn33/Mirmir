@@ -26,9 +26,13 @@ struct ASHSHA256V4: Codable, Comparable, CustomStringConvertible, Hashable,
     }
 
     init(rawData: Data) {
-        self.rawValue = SHA256.hash(data: rawData).map {
-            String(format: "%02x", $0)
-        }.joined()
+        let alphabet = Array("0123456789abcdef".utf8)
+        var hexadecimal = [UInt8](repeating: 0, count: 64)
+        for (index, byte) in SHA256.hash(data: rawData).enumerated() {
+            hexadecimal[index * 2] = alphabet[Int(byte >> 4)]
+            hexadecimal[index * 2 + 1] = alphabet[Int(byte & 0x0f)]
+        }
+        self.rawValue = String(decoding: hexadecimal, as: UTF8.self)
     }
 
     init(domain: String, canonicalData: Data) throws {

@@ -1,0 +1,137 @@
+[
+  {
+    "duration": "0.0012s",
+    "durationInSeconds": 0.001194000244140625,
+    "name": "testCaptureParallelMotionBenchmarkWhenRequested()",
+    "nodeIdentifier": "ASHTemporalReconstructionV4Tests/testCaptureParallelMotionBenchmarkWhenRequested()",
+    "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/ASHTemporalReconstructionV4Tests/testCaptureParallelMotionBenchmarkWhenRequested",
+    "nodeType": "Test Case",
+    "result": "Skipped"
+  },
+  {
+    "duration": "0.00076s",
+    "durationInSeconds": 0.000764012336730957,
+    "name": "testCaptureParallelSpatialBenchmarkWhenRequested()",
+    "nodeIdentifier": "ASHTemporalReconstructionV4Tests/testCaptureParallelSpatialBenchmarkWhenRequested()",
+    "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/ASHTemporalReconstructionV4Tests/testCaptureParallelSpatialBenchmarkWhenRequested",
+    "nodeType": "Test Case",
+    "result": "Skipped"
+  },
+  {
+    "duration": "0.093s",
+    "durationInSeconds": 0.0932919979095459,
+    "name": "testClearDuringRealDownloadAndRetryDoNotApplyStaleResults()",
+    "nodeIdentifier": "AppleModelCancellationTests/testClearDuringRealDownloadAndRetryDoNotApplyStaleResults()",
+    "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/AppleModelCancellationTests/testClearDuringRealDownloadAndRetryDoNotApplyStaleResults",
+    "nodeType": "Test Case",
+    "result": "Skipped"
+  },
+  {
+    "duration": "0.002s",
+    "durationInSeconds": 0.001989006996154785,
+    "name": "testRealNetworkFailureAndRetry()",
+    "nodeIdentifier": "AppleModelCancellationTests/testRealNetworkFailureAndRetry()",
+    "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/AppleModelCancellationTests/testRealNetworkFailureAndRetry",
+    "nodeType": "Test Case",
+    "result": "Skipped"
+  },
+  {
+    "duration": "0.032s",
+    "durationInSeconds": 0.031636953353881836,
+    "name": "testCanonical8KEndToEndAllocationGateWhenRequested()",
+    "nodeIdentifier": "DeterministicMetalBackendTests/testCanonical8KEndToEndAllocationGateWhenRequested()",
+    "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/DeterministicMetalBackendTests/testCanonical8KEndToEndAllocationGateWhenRequested",
+    "nodeType": "Test Case",
+    "result": "Skipped"
+  },
+  {
+    "duration": "0.032s",
+    "durationInSeconds": 0.03167998790740967,
+    "name": "testCaptureV3BaselineWhenRequested()",
+    "nodeIdentifier": "DeterministicMetalBackendTests/testCaptureV3BaselineWhenRequested()",
+    "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/DeterministicMetalBackendTests/testCaptureV3BaselineWhenRequested",
+    "nodeType": "Test Case",
+    "result": "Skipped"
+  },
+  {
+    "duration": "0.0011s",
+    "durationInSeconds": 0.0011459589004516602,
+    "name": "testCaptureV3EndToEndBaselineWhenRequested()",
+    "nodeIdentifier": "VideoProcessingSessionTests/testCaptureV3EndToEndBaselineWhenRequested()",
+    "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/VideoProcessingSessionTests/testCaptureV3EndToEndBaselineWhenRequested",
+    "nodeType": "Test Case",
+    "result": "Skipped"
+  },
+  {
+    "duration": "0.0022s",
+    "durationInSeconds": 0.002156972885131836,
+    "name": "testExternalSourceCompletesProductionDurableWorkflowWhenRequested()",
+    "nodeIdentifier": "WorkflowApplicationQueueV4Tests/testExternalSourceCompletesProductionDurableWorkflowWhenRequested()",
+    "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/WorkflowApplicationQueueV4Tests/testExternalSourceCompletesProductionDurableWorkflowWhenRequested",
+    "nodeType": "Test Case",
+    "result": "Skipped"
+  },
+  {
+    "duration": "0.00088s",
+    "durationInSeconds": 0.0008759498596191406,
+    "name": "testSavedAssembledMovieHasCompleteCheckpointFrameCountWhenRequested()",
+    "nodeIdentifier": "WorkflowSegmentCheckpointStoreV4Tests/testSavedAssembledMovieHasCompleteCheckpointFrameCountWhenRequested()",
+    "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/WorkflowSegmentCheckpointStoreV4Tests/testSavedAssembledMovieHasCompleteCheckpointFrameCountWhenRequested",
+    "nodeType": "Test Case",
+    "result": "Skipped"
+  },
+  {
+    "duration": "0.00082s",
+    "durationInSeconds": 0.0008209943771362305,
+    "name": "testSavedAudioMovieMigratesAllTracksWhenRequested()",
+    "nodeIdentifier": "WorkflowSegmentCheckpointStoreV4Tests/testSavedAudioMovieMigratesAllTracksWhenRequested()",
+    "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/WorkflowSegmentCheckpointStoreV4Tests/testSavedAudioMovieMigratesAllTracksWhenRequested",
+    "nodeType": "Test Case",
+    "result": "Skipped"
+  },
+  {
+    "duration": "0.00083s",
+    "durationInSeconds": 0.000825047492980957,
+    "name": "testSavedAudioTrackMetadataMatchesRepairedWhenRequested()",
+    "nodeIdentifier": "WorkflowSegmentCheckpointStoreV4Tests/testSavedAudioTrackMetadataMatchesRepairedWhenRequested()",
+    "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/WorkflowSegmentCheckpointStoreV4Tests/testSavedAudioTrackMetadataMatchesRepairedWhenRequested",
+    "nodeType": "Test Case",
+    "result": "Skipped"
+  },
+  {
+    "duration": "0.00086s",
+    "durationInSeconds": 0.0008569955825805664,
+    "name": "testSavedChapterMovieMigratesAcrossMovieClocksWhenRequested()",
+    "nodeIdentifier": "WorkflowSegmentCheckpointStoreV4Tests/testSavedChapterMovieMigratesAcrossMovieClocksWhenRequested()",
+    "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/WorkflowSegmentCheckpointStoreV4Tests/testSavedChapterMovieMigratesAcrossMovieClocksWhenRequested",
+    "nodeType": "Test Case",
+    "result": "Skipped"
+  },
+  {
+    "duration": "0.00084s",
+    "durationInSeconds": 0.0008420944213867188,
+    "name": "testSavedCompleteCheckpointAssemblesWhenRequested()",
+    "nodeIdentifier": "WorkflowSegmentCheckpointStoreV4Tests/testSavedCompleteCheckpointAssemblesWhenRequested()",
+    "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/WorkflowSegmentCheckpointStoreV4Tests/testSavedCompleteCheckpointAssemblesWhenRequested",
+    "nodeType": "Test Case",
+    "result": "Skipped"
+  },
+  {
+    "duration": "0.00081s",
+    "durationInSeconds": 0.0008109807968139648,
+    "name": "testSavedCompleteCheckpointFinalizesAllTracksWhenRequested()",
+    "nodeIdentifier": "WorkflowSegmentCheckpointStoreV4Tests/testSavedCompleteCheckpointFinalizesAllTracksWhenRequested()",
+    "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/WorkflowSegmentCheckpointStoreV4Tests/testSavedCompleteCheckpointFinalizesAllTracksWhenRequested",
+    "nodeType": "Test Case",
+    "result": "Skipped"
+  },
+  {
+    "duration": "0.00072s",
+    "durationInSeconds": 0.000720977783203125,
+    "name": "testSavedOriginalAudioStreamsMatchRecoveredWhenRequested()",
+    "nodeIdentifier": "WorkflowSegmentCheckpointStoreV4Tests/testSavedOriginalAudioStreamsMatchRecoveredWhenRequested()",
+    "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/WorkflowSegmentCheckpointStoreV4Tests/testSavedOriginalAudioStreamsMatchRecoveredWhenRequested",
+    "nodeType": "Test Case",
+    "result": "Skipped"
+  }
+]

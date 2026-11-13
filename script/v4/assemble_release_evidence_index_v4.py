@@ -54,6 +54,8 @@ BINDING_BASENAME_REQUIREMENTS = {
     ("cpu_metal_parity", "/identities/captureSourceSHA256"): "MirmirApp.swift",
     ("cpu_metal_parity", "/identities/evaluatorSHA256"): "cpu_metal_parity_v4.py",
     ("cpu_metal_parity", "/identities/runnerSHA256"): "run_cpu_metal_parity_v4.sh",
+    ("cpu_metal_parity", "/identities/chromaGeometryValidatorSHA256"): "chroma_geometry_v4.py",
+    ("quality", "/identities/chromaGeometryValidatorSHA256"): "chroma_geometry_v4.py",
 }
 HEX_PATTERN = re.compile(r"^[0-9a-f]+$")
 MAX_JSON_BYTES = 64 * 1024 * 1024
@@ -308,6 +310,11 @@ def validate_contract(path: Path) -> tuple[Path, dict[str, Any]]:
     require_exact_keys(schemas, EXPECTED_ROLES, "evidenceSchemas")
     for role in EXPECTED_ROLES:
         require_string(schemas[role], f"evidenceSchemas.{role}")
+    envelope = (schemas["quality"], schemas["cpu_metal_parity"])
+    require(envelope in {
+        ("mirmir-ash-v4-quality-report-v1", "mirmir-ash-v4-cpu-metal-parity-report-v2"),
+        ("mirmir-ash-v4-quality-report-v2", "mirmir-ash-v4-cpu-metal-parity-report-v3")}, "release quality/parity envelope profile differs")
+    phase2 = envelope[0] == "mirmir-ash-v4-quality-report-v2"
     binding_contract = require_mapping(contract.get("identityBindings"), "identityBindings")
     require_exact_keys(binding_contract, {"common", *EXPECTED_ROLES}, "identityBindings")
     for name, value in binding_contract.items():
@@ -321,6 +328,9 @@ def validate_contract(path: Path) -> tuple[Path, dict[str, Any]]:
             validated and len(validated) == len(set(validated)),
             f"identityBindings.{name} is empty or contains duplicates",
         )
+    for role in ("quality", "cpu_metal_parity"):
+        require((("/identities/chromaGeometryValidatorSHA256" in binding_contract[role]) == phase2),
+                "release geometry identity binding profile differs")
     return contract_path, contract
 
 
@@ -700,6 +710,10 @@ def binding_for(
         f"{role} binding {pointer} has no sealed role artifact with SHA-256 {identity}",
     )
     expected_name = BINDING_BASENAME_REQUIREMENTS.get((role, pointer))
+    if role == "cpu_metal_parity" and pointer == "/contractSHA256" and report.get("schemaVersion") == "mirmir-ash-v4-cpu-metal-parity-report-v3":
+        expected_name = "cpu-metal-parity-contract-v3.json"
+    if role == "quality" and pointer == "/identities/contractSHA256" and report.get("schemaVersion") == "mirmir-ash-v4-quality-report-v2":
+        expected_name = "quality-gate-contract-v2.json"
     if expected_name is not None:
         matches = [path for path in matches if path.name == expected_name]
         require(

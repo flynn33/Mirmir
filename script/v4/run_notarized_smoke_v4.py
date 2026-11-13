@@ -216,7 +216,13 @@ def observer_result(stdout: bytes, phase: str) -> bytes:
         result = base64.b64decode(stdout[len(prefix) : -1], validate=True)
     except ValueError as error:
         raise NotarizedSmokeCaptureError(f"shipping app emitted invalid {phase} result base64") from error
-    require(result and evidence.canonical_bytes(evidence.load_json_bytes(result, f"{phase} observer result")) == result, f"shipping app emitted noncanonical {phase} result")
+    require(bool(result), f"shipping app emitted an empty {phase} result")
+    # Decode for structural validity, then require Foundation-canonical wire bytes.
+    evidence.load_json_bytes(result, f"{phase} observer result")
+    try:
+        evidence.require_foundation_canonical(result, f"shipping app {phase} result")
+    except evidence.NotarizedSmokeError as error:
+        raise NotarizedSmokeCaptureError(str(error)) from error
     return result
 
 

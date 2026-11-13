@@ -1,0 +1,66 @@
+{
+  "scope": "development-signed headless workflow smoke; not notarized or distribution qualification",
+  "validationOnly": true,
+  "appInvokedByThisValidation": false,
+  "notarizedProof": false,
+  "originalRunNotRewritten": true,
+  "originalRunArtifactsSHA256": {
+    "prepare-run.json": "f0536640b516f1ba53e596fd3c87cb49c837125c11b403c4bbfadd6b0e350daf",
+    "prepare-invocation.json": "3154ab0abe431dd0fd2d62d176184483d77eb9348b939e0203dc3c1b6d180fe6",
+    "prepare-request.json": "48d7e0d8ca460f5abcaae29c704aff14765b345186a6193ccbc55cefa2faa147",
+    "prepare-result-raw.json": "67c7629acf99968c1886ce9d9c2a7137e6b6911e8784cdc30d2f4c465e2b282b",
+    "prepare-stdout.txt": "8620ab06d60b4e31f9fde09a2e9fd9316f9f965768aa37c686a9c7045b2ded4e",
+    "prepare-stderr.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "originalResultValidationError": "observer result is not canonical",
+  "foundationCanonicalResultBytesExact": true,
+  "stdoutEqualsRetainedRaw": true,
+  "externalLiveFileEqualityVerified": false,
+  "externalLiveFileReadError": "[Errno 1] Operation not permitted: '/Users/jimdaley/Library/Containers/com.mirmir.app/Data/Library/Application Support/MirmirQualificationV4/notarized-smoke/499680ee-48b8-4f89-b13e-ebf2d6a0c8fe/prepare-result.json'",
+  "validationComplete": false,
+  "resultSHA256": "67c7629acf99968c1886ce9d9c2a7137e6b6911e8784cdc30d2f4c465e2b282b",
+  "actualLivePrepareResult": "/Users/jimdaley/Library/Containers/com.mirmir.app/Data/Library/Application Support/MirmirQualificationV4/notarized-smoke/499680ee-48b8-4f89-b13e-ebf2d6a0c8fe/prepare-result.json",
+  "recoverMustUsePhaseOneResultSHA256": "67c7629acf99968c1886ce9d9c2a7137e6b6911e8784cdc30d2f4c465e2b282b",
+  "historicalRequestFreshnessNotRecheckedForLaunch": true,
+  "requestIdentityValidated": true,
+  "appInventoryValidated": true,
+  "actualArchiveSHA256": "dd19f636bef97a0f63711e2063364b328c58c791d63d03a1bd6a32542d0d16aa",
+  "committedSourceVerification": {
+    "sourceCount": 411,
+    "sourceRevision": "e87a528c98d2c2cdd8eff76747746f2b39fda20b943940f0db64b2f79c0680ff",
+    "commitVerified": true
+  },
+  "executableSHA256": "5a6cfa4a65df5de82dd712e1b67df8985ace1e1814f9bde2bc65580900273a60",
+  "observedChecks": {
+    "deterministicCPUProcess": true,
+    "durableCheckpointPause": true,
+    "productionP06Load": true,
+    "realMediaProbe": true,
+    "sandboxIsolation": true,
+    "shippingExecutableIdentity": true,
+    "userQueueUntouched": true
+  },
+  "observedDeterministicProcess": {
+    "actualBackendID": "mirmirDeterministicCPU",
+    "encodedHeight": 72,
+    "encodedWidth": 96,
+    "outputCodec": "h264",
+    "processedFrameCount": 12,
+    "processingDurationSeconds": 0.5644710063934326
+  },
+  "foundationProcessingDurationNumberText": "0.56447100639343262",
+  "pythonRoundTripProcessingDurationNumberText": "0.5644710063934326",
+  "pythonCanonicalBytesEqual": false,
+  "existingReleaseHarnessFailure": {
+    "function": "observer_result",
+    "path": "/Volumes/DockCase/GitHub/Mirmir/script/v4/run_notarized_smoke_v4.py",
+    "fileSHA256": "ffad88657112d7a39bb259589a66d1cc267c87c3db7e041aa938b20e3880bbce",
+    "error": "shipping app emitted noncanonical prepare result",
+    "canonicalHelperPath": "/Volumes/DockCase/GitHub/Mirmir/script/v4/notarized_smoke_v4.py",
+    "canonicalHelperFileSHA256": "12cae408a52e5dc9b87f1d3afd50f90935c40cd69fa9b066fcf0d4dc2b4c7e30"
+  },
+  "privateFoundationHelper": {
+    "path": "/private/tmp/mirmir-default-app-headless-smoke-plan-20261026/foundation_canonical_json.swift",
+    "sha256": "4ea8fab983a642738d65f8a50845cbc228d940d0f8e9916e144d752d3a96bf6d"
+  }
+}

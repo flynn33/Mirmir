@@ -1369,7 +1369,8 @@ private extension RecoveryQualificationProducerV4 {
             ),
             destinationURL: assembled,
             outputFileType: .mov,
-            overwriteExistingFile: false
+            overwriteExistingFile: false,
+            structuralCreationDateSourceURL: sourceMovie
         ))
         // The interrupted path leaves the complete assembly in place and
         // reopens it exactly as a replacement process would.
@@ -2973,8 +2974,9 @@ final class WorkflowSourceTrackProgressCursorV4: @unchecked Sendable {
     private(set) var nonTimedSampleBufferCount: UInt64 = 0
     let readerCreationCount: UInt64 = 1
 
-    init(asset: AVAsset, track: AVAssetTrack) throws {
+    init(asset: AVAsset, track: AVAssetTrack, selectedRange: CMTimeRange? = nil) throws {
         reader = try AVAssetReader(asset: asset)
+        if let selectedRange { reader.timeRange = selectedRange }
         output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
         output.alwaysCopiesSampleData = false
         guard reader.canAdd(output) else {
@@ -3193,14 +3195,15 @@ actor WorkflowDeterministicApplicationEngineV4:
                 .primarySourceSampleCount(
                     sourceURL: request.inputURL,
                     primaryTrackOrdinal: Int(
-                        plan.primaryGraphTrack.identity.ordinal
+                        plan.executionPrimaryGraphTrack.identity.ordinal
                     ),
                     cancellation: cancellation
                 )
             try cancellation.check()
             let sourceProgressCursors = try await makeSourceProgressCursors(
                 sourceURL: request.inputURL,
-                plan: plan
+                plan: plan,
+                cancellation: cancellation
             )
             try cancellation.check()
             if let previous = preparedByJobID.removeValue(forKey: jobID) {
@@ -3366,10 +3369,13 @@ actor WorkflowDeterministicApplicationEngineV4:
                     sourceGraph: prepared.plan.sourceGraph,
                     identifiedPlan: prepared.plan.trackPlan,
                     blueprint: prepared.plan.migrationBlueprint,
+                    nonVideoTranscodeHooks:
+                        prepared.plan.nonVideoTranscodeHooks,
                     processedVideoReplacement: .init(
-                        trackID: prepared.plan.primaryGraphTrack.identity.stableID,
+                        trackID: prepared.plan.executionPrimaryGraphTrack.identity.stableID,
                         sourceURL: assembledVideoURL
-                    )
+                    ),
+                    softwareExecution: prepared.plan.softwareExecution
                 ),
                 cancellation: migrationCancellation,
                 progress: { state in
@@ -3403,6 +3409,10 @@ actor WorkflowDeterministicApplicationEngineV4:
         segmentResult: UpscaleResult?,
         processingDurationSeconds: TimeInterval
     ) async throws -> WorkflowApplicationCompletionV4 {
+        let jobID = checkpoint.body.compatibility.jobBinding.jobID
+        guard let prepared = preparedByJobID[jobID] else {
+            throw WorkflowApplicationControllerErrorV4.noActiveJob
+        }
         let source = try await videoProbe.probe(url: request.inputURL)
         let output = try await videoProbe.probe(url: request.outputURL)
         guard let encodedSize = output.geometry.encodedSize,
@@ -3423,6 +3433,19 @@ actor WorkflowDeterministicApplicationEngineV4:
                     track.nextOutputSampleIndex
                 ).partialValue
             }
+        let plannedAudio = prepared.plan.trackPlan.plan.tracks.filter {
+            $0.source.kind == .audio && $0.expectedOutput != nil
+        }
+        let audioResult: AudioOutputResult
+        if !request.preserveAudio {
+            audioResult = .omitted
+        } else if plannedAudio.isEmpty {
+            audioResult = .absent
+        } else if plannedAudio.contains(where: { $0.action == .transcode }) {
+            audioResult = .transcoded
+        } else {
+            audioResult = .preserved
+        }
         let result = UpscaleResult(
             outputURL: request.outputURL,
             actualBackendID: request.backendID,
@@ -3430,9 +3453,7 @@ actor WorkflowDeterministicApplicationEngineV4:
             encodedHeight: height,
             durationSeconds: CMTimeGetSeconds(output.duration),
             outputCodec: request.outputCodec,
-            audioResult: request.preserveAudio
-                ? (output.hasAudio ? .preserved : .absent)
-                : .omitted,
+            audioResult: audioResult,
             processedFrameCount: segmentResult?.processedFrameCount
                 ?? Int(clamping: videoFrames),
             processingDurationSeconds: max(
@@ -3465,9 +3486,9 @@ extension WorkflowDeterministicApplicationEngineV4 {
         afterReadingSample: (@Sendable () -> Void)? = nil
     ) async throws -> UInt64 {
         try cancellation.check()
-        let asset = AVURLAsset(
+        let asset = try await NativeMediaInputAssetResolverV4.asset(
             url: sourceURL,
-            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+            cancellation: cancellation
         )
         let tracks = try await asset.load(.tracks)
         try cancellation.check()
@@ -3499,6 +3520,13 @@ extension WorkflowDeterministicApplicationEngineV4 {
                 )
         }
         reader.add(output)
+        if let context = OriginalSoftwareMediaContext.associated(with: asset),
+           context.timings.indices.contains(primaryTrackOrdinal),
+           let first = context.timings[primaryTrackOrdinal].selectedStart,
+           let end = context.timings[primaryTrackOrdinal].selectedEnd {
+            let selectedStart = try context.sharedOrigin.normalize(first).adding(SoftwareVirtualCarrier.sharedWorkingOffset(context))
+            reader.timeRange = CMTimeRange(start: try cm(selectedStart), duration: try cm(end.subtracting(first)))
+        }
         guard reader.startReading() else {
             throw WorkflowApplicationControllerErrorV4
                 .invalidAssembledOutput(
@@ -3582,9 +3610,9 @@ private extension WorkflowDeterministicApplicationEngineV4 {
     ) throws -> PreparedTimeline {
         let plannedPrimary = plan.trackPlan.plan.tracks.filter {
             $0.source.identity.stableID
-                == plan.primaryGraphTrack.identity.stableID
+                == plan.executionPrimaryGraphTrack.identity.stableID
         }
-        guard let primaryVideo = plan.primaryCanonicalTrack.video,
+        guard let primaryVideo = plan.executionPrimaryCanonicalTrack.video,
               plannedPrimary.count == 1,
               let planned = plannedPrimary.first,
               planned.action == .process,
@@ -3624,7 +3652,7 @@ private extension WorkflowDeterministicApplicationEngineV4 {
             assembly: WorkflowApplicationAssemblyTimelineDescriptorV4(
                 planID: binding.planID,
                 mediaTimelineStart: try workflowTime(
-                    planned.source.timeRange.start,
+                    plan.executionPrimaryPresentationStart,
                     jobID: jobID
                 ),
                 outputTimelineStart: try WorkflowMediaTimeV4(
@@ -3665,11 +3693,11 @@ private extension WorkflowDeterministicApplicationEngineV4 {
             }
         )
         var result: [WorkflowTrackProgressV4] = []
-        for node in prepared.plan.sourceGraph.tracks {
+        for node in prepared.plan.executionGraph.tracks {
             let id = node.identity.stableID.rawValue
             let kind = checkpointKind(node.kind)
             if node.identity.stableID
-                == prepared.plan.primaryGraphTrack.identity.stableID {
+                == prepared.plan.executionPrimaryGraphTrack.identity.stableID {
                 let priorOutput = previous[id]?.nextOutputSampleIndex ?? 0
                 result.append(try WorkflowTrackProgressV4(
                     trackID: id,
@@ -3713,16 +3741,17 @@ private extension WorkflowDeterministicApplicationEngineV4 {
 
     func makeSourceProgressCursors(
         sourceURL: URL,
-        plan: DeterministicV4PreparedAssetPlan
+        plan: DeterministicV4PreparedAssetPlan,
+        cancellation: ProcessingCancellation
     ) async throws -> [
         MediaTrackStableIDV4: WorkflowSourceTrackProgressCursorV4
     ] {
-        let asset = AVURLAsset(
+        let asset = try await NativeMediaInputAssetResolverV4.asset(
             url: sourceURL,
-            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+            cancellation: cancellation
         )
         let assetTracks = try await asset.load(.tracks)
-        guard assetTracks.count == plan.sourceGraph.tracks.count else {
+        guard assetTracks.count == plan.executionGraph.tracks.count else {
             throw WorkflowApplicationControllerErrorV4
                 .invalidAssembledOutput("source track inventory changed")
         }
@@ -3730,9 +3759,9 @@ private extension WorkflowDeterministicApplicationEngineV4 {
             MediaTrackStableIDV4: WorkflowSourceTrackProgressCursorV4
         ] = [:]
         do {
-            for (node, track) in zip(plan.sourceGraph.tracks, assetTracks) {
+            for (node, track) in zip(plan.executionGraph.tracks, assetTracks) {
                 guard node.identity.stableID
-                        != plan.primaryGraphTrack.identity.stableID else {
+                        != plan.executionPrimaryGraphTrack.identity.stableID else {
                     continue
                 }
                 guard cursors[node.identity.stableID] == nil else {
@@ -3741,10 +3770,15 @@ private extension WorkflowDeterministicApplicationEngineV4 {
                             "source progress track identity was duplicated"
                         )
                 }
+                let selectedRange: CMTimeRange?
+                if let row = plan.softwareExecution?.policy.tracks.first(where: { $0.originalTrackID == node.identity.stableID }) {
+                    selectedRange = CMTimeRange(start: try cm(row.executionStart), duration: try cm(row.executionEnd.subtracting(row.executionStart)))
+                } else { selectedRange = nil }
                 cursors[node.identity.stableID] = try
                     WorkflowSourceTrackProgressCursorV4(
                         asset: asset,
-                        track: track
+                        track: track,
+                        selectedRange: selectedRange
                     )
             }
             return cursors
@@ -3843,6 +3877,7 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
     private let queue: WorkflowApplicationQueueV4
     private let engine: any WorkflowApplicationDeterministicExecutingV4
     private let cacheLocationAccess: WorkflowCacheLocationAccessV4?
+    private let derivedInputCacheRootURL: URL?
     private let maximumInputFramesPerBoundary: Int
     private let processingActivityFactory: MirmirProcessingActivityFactory
     private var active: ActiveExecution?
@@ -3873,6 +3908,7 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
         engine: any WorkflowApplicationDeterministicExecutingV4,
         maximumInputFramesPerBoundary: Int = 60,
         cacheLocationAccess: WorkflowCacheLocationAccessV4? = nil,
+        derivedInputCacheRootURL: URL? = nil,
         processingActivityFactory: @escaping MirmirProcessingActivityFactory =
             MirmirProcessingActivity.begin
     ) {
@@ -3881,6 +3917,7 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
         self.engine = engine
         self.maximumInputFramesPerBoundary = maximumInputFramesPerBoundary
         self.cacheLocationAccess = cacheLocationAccess
+        self.derivedInputCacheRootURL = derivedInputCacheRootURL
         self.processingActivityFactory = processingActivityFactory
     }
 
@@ -3920,11 +3957,18 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
                 backendCatalog: backendCatalog,
                 runtimeEnvironment: runtimeEnvironment
             ),
-            cacheLocationAccess: configuration.access
+            cacheLocationAccess: configuration.access,
+            derivedInputCacheRootURL: configuration.workflowRootURL
+                .appendingPathComponent("cache-v4/native-inputs-v1", isDirectory: true)
         )
     }
 
     func launch() async throws -> WorkflowApplicationLaunchSnapshotV4 {
+        if let derivedInputCacheRootURL {
+            try await NativeMediaInputAssetResolverV4.configureCacheRoot(
+                derivedInputCacheRootURL
+            )
+        }
         let publicationRecoveryDeferred = try await
             recoverInterruptedPublications()
         let snapshot = try await queue.launchSnapshot(
@@ -4007,8 +4051,13 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
             ])
         }
         let result = try await queue.clearApplicationCache()
+        let imports = derivedInputCacheRootURL == nil
+            ? 0 : try await NativeMediaInputAssetResolverV4.clearInactiveCache().entryCount
         await emitSnapshot(to: observer.snapshot)
-        return result
+        return WorkflowCacheClearResultV4(
+            deletedJobCount: result.deletedJobCount,
+            deletedArtifactCount: result.deletedArtifactCount + imports
+        )
     }
 
     func submit(
@@ -4425,7 +4474,8 @@ private extension WorkflowApplicationCoordinatorV4 {
                     checkpoint,
                     timeline: assemblyTimeline,
                     destinationURL: assembledVideoURL,
-                    overwriteExistingFile: false
+                    overwriteExistingFile: false,
+                    structuralCreationDateSourceURL: activated.request.inputURL
                 )
                 try throwIfActiveControlFailed()
                 let finalized = try await engine.finalizePreparedOutput(
@@ -5167,7 +5217,8 @@ private extension WorkflowApplicationCoordinatorV4 {
                     checkpoint,
                     timeline: assemblyTimeline,
                     destinationURL: assembledVideoURL,
-                    overwriteExistingFile: false
+                    overwriteExistingFile: false,
+                    structuralCreationDateSourceURL: activated.request.inputURL
                 )
                 guard let cancellation = active?.cancellation else {
                     throw WorkflowApplicationControllerErrorV4.noActiveJob

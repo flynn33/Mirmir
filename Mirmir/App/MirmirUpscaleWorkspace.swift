@@ -847,6 +847,7 @@ private struct MirmirSourceVideoPreview: View {
     var body: some View {
         MirmirSingleVideoPreview(
             url: info.url,
+            role: .source,
             preferredTime: info.duration.seconds / 2,
             title: "Source ready",
             detail: "Start the job to see processing progress.",
@@ -895,6 +896,7 @@ private struct MirmirProcessingViewer: View {
         VStack(spacing: theme.spacing.space3) {
             MirmirSingleVideoPreview(
                 url: info.url,
+                role: .source,
                 preferredTime: progress.processedTime?.seconds ?? 0,
                 title: "Processing preview",
                 detail: "Current source position being processed",
@@ -932,6 +934,7 @@ private struct MirmirCompletionViewer: View {
         VStack(spacing: theme.spacing.space3) {
             MirmirSingleVideoPreview(
                 url: result.outputURL,
+                role: .completedOutput,
                 preferredTime: result.durationSeconds / 2,
                 title: "Processing complete",
                 detail: "Open Compare to review the original and upscaled movies.",
@@ -976,6 +979,7 @@ private struct MirmirCompletionViewer: View {
 
 private struct MirmirSingleVideoPreview: View {
     let url: URL
+    let role: MirmirPlaybackAssetRole
     let preferredTime: Double
     let title: String
     let detail: String
@@ -1017,6 +1021,7 @@ private struct MirmirSingleVideoPreview: View {
         .task(id: previewIdentity) {
             frame = await MirmirFramePreviewLoader.frame(
                 at: url,
+                role: role,
                 preferredTime: preferredTime
             )
         }
@@ -1063,10 +1068,22 @@ private struct MirmirSinglePreviewIdentity: Hashable {
     let timeBucket: Int
 }
 
-private enum MirmirFramePreviewLoader {
-    static func frame(at url: URL, preferredTime: Double) async -> CGImage? {
-        await Task.detached(priority: .utility) {
-            let asset = AVURLAsset(url: url)
+enum MirmirFramePreviewLoader {
+    static func frame(
+        at url: URL,
+        role: MirmirPlaybackAssetRole,
+        preferredTime: Double
+    ) async -> CGImage? {
+        let task = Task.detached(priority: .utility) { () -> CGImage? in
+            let asset: AVURLAsset
+            switch role {
+            case .source:
+                guard let resolved = try? await NativeMediaInputAssetResolverV4
+                    .presentationAsset(url: url) else { return nil }
+                asset = resolved
+            case .completedOutput:
+                asset = AVURLAsset(url: url)
+            }
             let generator = AVAssetImageGenerator(asset: asset)
             generator.appliesPreferredTrackTransform = true
             generator.maximumSize = CGSize(width: 1600, height: 1000)
@@ -1076,12 +1093,36 @@ private enum MirmirFramePreviewLoader {
             let seconds = preferredTime.isFinite
                 ? max(0, preferredTime)
                 : 0
-            let time = CMTime(seconds: seconds, preferredTimescale: 600)
+            let time: CMTime
+            do {
+                time = try SoftwareVirtualCarrier.presentationFrameTime(
+                    in: asset, preferredSeconds: seconds
+                ) ?? CMTime(seconds: seconds, preferredTimescale: 600)
+            } catch {
+                return nil
+            }
             guard let result = try? await generator.image(at: time) else {
                 return nil
             }
-            return result.image
-        }.value
+            // Software presentation carriers already deliver display BGRA; keep
+            // the native signal-RGB converter for remux/native H.264/HEVC only.
+            if SoftwareVirtualCarrier.presentationPolicy(in: asset) != nil {
+                return result.image
+            }
+            do {
+                return try await NativeThumbnailSignalConverterV4.image(
+                    asset: asset, at: result.actualTime,
+                    size: CGSize(width: result.image.width, height: result.image.height)
+                ) ?? result.image
+            } catch {
+                return nil
+            }
+        }
+        return await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
     }
 }
 

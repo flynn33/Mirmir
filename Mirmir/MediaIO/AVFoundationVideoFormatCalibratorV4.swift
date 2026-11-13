@@ -67,6 +67,7 @@ actor AVFoundationVideoFormatCalibratorV4 {
         }
         let pixelBuffer = try allocate(from: pool)
         try fillCalibrationSignal(pixelBuffer, contract: contract)
+        contract.applyChromaSiting(to: pixelBuffer)
         guard endpoint.input.isReadyForMoreMediaData,
               endpoint.adaptor.append(pixelBuffer, withPresentationTime: .zero)
         else {
@@ -81,6 +82,7 @@ actor AVFoundationVideoFormatCalibratorV4 {
                 .writerFinishFailed(stableFailure(writer.error))
         }
 
+        try await contract.finalizeEncodedMetadata(at: url)
         let asset = AVURLAsset(
             url: url,
             options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
@@ -102,7 +104,8 @@ actor AVFoundationVideoFormatCalibratorV4 {
         try await verifyDecodedPixel(
             asset: asset,
             track: track,
-            contract: contract
+            contract: contract,
+            encodedFormatDescription: description
         )
         return try AVFoundationTrackGraphAdapterV4
             .canonicalFormatDescriptor(description)
@@ -200,7 +203,8 @@ actor AVFoundationVideoFormatCalibratorV4 {
     private func verifyDecodedPixel(
         asset: AVAsset,
         track: AVAssetTrack,
-        contract: VideoWriterFormatContractV4
+        contract: VideoWriterFormatContractV4,
+        encodedFormatDescription: CMFormatDescription
     ) async throws {
         let reader = try AVAssetReader(asset: asset)
         let output = AVAssetReaderTrackOutput(
@@ -222,7 +226,9 @@ actor AVFoundationVideoFormatCalibratorV4 {
             throw AVFoundationVideoFormatCalibratorV4Error
                 .decodedSampleMissing
         }
-        try contract.verifyDecodedPixelBuffer(pixelBuffer)
+        try contract.verifyDecodedPixelBuffer(
+            pixelBuffer, encodedFormatDescription: encodedFormatDescription
+        )
         while output.copyNextSampleBuffer() != nil {}
         guard reader.status == .completed else {
             throw AVFoundationVideoFormatCalibratorV4Error

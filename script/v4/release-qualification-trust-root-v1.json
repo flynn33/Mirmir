@@ -1,13 +1,13 @@
 {
   "contract": {
-    "byteCount": 92145,
+    "byteCount": 92252,
     "repositoryRelativePath": "script/v4/release-qualification-contract-v1.json",
-    "sha256": "778decade9927889ee2fae6df5f7e50eb1f2eb42f3c6dd23111e79f5a4339320"
+    "sha256": "94037a28e54b6b3586abae87a336397db1f7825415e003c30f2c401a5fe0a32d"
   },
   "evaluator": {
-    "byteCount": 369670,
+    "byteCount": 369967,
     "repositoryRelativePath": "script/v4/release_qualification_v4.py",
-    "sha256": "d2c2a355f2f54ef5a9f14115eca5eeceb07b85a68441d36b6deb51d2f361e68a"
+    "sha256": "c4c0ab16f9e770f2e5644242db7d98453b45a403d4448aba2f1727ee1840649d"
   },
   "hashAlgorithm": "sha256",
   "helpers": [
@@ -98,5 +98,5 @@
     }
   ],
   "schemaVersion": "mirmir-ash-v4-release-qualification-trust-root-v1",
-  "trustedToolSetSHA256": "7a0f6dd3547db3b153825a68b9d0e721b1f4427dbea99ca1e365fafadfa16dda"
+  "trustedToolSetSHA256": "5a3f3c16f4e6b81fdbd7a2121d1c0103cd29067672ca37628c37ce3fcd8a0600"
 }

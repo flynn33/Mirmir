@@ -1,0 +1,11 @@
+{
+  "everyApplicationAndTestPayloadHashUnchanged": true,
+  "applicationFiles": 54,
+  "testFiles": 29,
+  "passedTests": 16,
+  "failedTests": 0,
+  "allPass": true,
+  "architecture": "arm64",
+  "system": "ProductName:\t\tmacOS\nProductVersion:\t\t15.4\nBuildVersion:\t\t24E248\n",
+  "resultArchiveSHA256": "a29f06f9538e6f433735451324c370b8d5141e6f48648b9d554a3d26e43915d5"
+}

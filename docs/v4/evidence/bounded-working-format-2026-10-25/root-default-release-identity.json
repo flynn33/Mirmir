@@ -1,0 +1,12 @@
+{
+  "appPath": "/private/tmp/Mirmir-root-bounded-default-release-derived-20261025/Build/Products/Release/Mirmir.app",
+  "bundleID": "com.mirmir.app",
+  "version": "1.7.2",
+  "build": "20",
+  "architectures": [
+    "x86_64",
+    "arm64"
+  ],
+  "machOBuildVersion": "/private/tmp/Mirmir-root-bounded-default-release-derived-20261025/Build/Products/Release/Mirmir.app/Contents/MacOS/Mirmir (architecture x86_64):\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 15.4\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1\n/private/tmp/Mirmir-root-bounded-default-release-derived-20261025/Build/Products/Release/Mirmir.app/Contents/MacOS/Mirmir (architecture arm64):\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform MACOS\n    minos 15.4\n      sdk 27.0\n   ntools 1\n     tool LD\n  version 27037.1\n",
+  "executableSHA256": "db54ec8ebdde893085a403de2da0dfd2b5dd29e4a0c4bf21fe97a30e36cb0cf9"
+}

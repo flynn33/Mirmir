@@ -1,0 +1,683 @@
+{
+  "source": "actual sealed universal Release ARM execution log",
+  "classes": {
+    "ConventionalWholeAssetPreservationTests": [
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testAvailableSpatialAppleRoutesPreserveWholeAssetAt2x",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testConventionalCancellationAtMigrationPublicationPreservesDestination",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testConventionalCPUTemporalHEVCTailPreservesFullMediaDuration",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testConventionalCPUTemporalProResTailPreservesFullMediaDuration",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testConventionalCPUTemporalTailPreservesFullMediaDuration",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testDisabledFirstVideoRemainsUnmodifiedAndFirstEnabledVideoIsScaled",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testExplicitAudioOmissionRetainsEveryOtherRichMovieLane",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testNativeH264AVICompletesConventionalResolvedMovieExport",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testNativeMPEG4AVICompletesConventionalResolvedMovieExport",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testProgressiveJFIFMovieCompletesConventionalH264Export",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testProgressiveJFIFMovieCompletesConventionalHEVCExport",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testProgressiveJFIFMovieCompletesConventionalProRes422Export",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testRichMoviePreservesAlternateVideoAudioGroupsMetadataChaptersAndTimecode",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testSelectedMovingPrimaryDiscontinuousEditPreservesFullMedia",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testSelectedMovingPrimaryInternalEditPreservesFullMedia",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testSelectedMovingPrimaryInternalEditPreservesWholeAsset",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testSelectedMovingPrimaryLeadingEditPreservesFullMedia",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testSelectedMovingPrimaryRepeatedEditPreservesFullMedia",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testSelectedMovingPrimaryScaledEditPreservesFullMedia",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testSelectedMovingPrimaryTrailingEditPreservesFullMedia",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testSelectedMovingPrimaryTrimmedEditPreservesFullMedia",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testSharedMigrationCancellationAtPublicationPreservesDestination",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaAndEditMapsSurviveConventionalExport",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testStoredBFrameMediaTablesSurviveConventionalExport",
+        "status": "passed"
+      },
+      {
+        "id": "ConventionalWholeAssetPreservationTests/testSubtitleAndCaptionPacketsSurviveConventionalExport",
+        "status": "passed"
+      }
+    ],
+    "AVFoundationTrackMigrationExecutorV4Tests": [
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testAACCalibrationCacheIsolatedByDistinctSixChannelLayouts",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testAACCalibrationCancellationIsNotRelabeledAsCodecFailure",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testAACCalibrationPreservesRealFivePointOneAndSevenPointOneLayouts",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testAACMP4PassThroughToMOVPreservesSemanticIdentityAndSamples",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testAACMP4RawISOTrackNameSurvivesMOVMigration",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testAC3PassThroughOutputFormatProofRejectsChangedSemantics",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testAC3PassThroughOutputFormatProofRetainsInventoryAndObservedDescriptorChecks",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testAC3SampleStreamFormatBindsCodecConfigurationAudioDescriptionAndOtherExtensions",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testAC3SampleStreamFormatKeepsWrappersForMissingMalformedAndUnknownCookies",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testAC3SampleStreamFormatNormalizesContainerWrappersWithoutChangingGraphIdentity",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testAdmittedClockPolicyRejectsBoundaryTwoTicksAwayWithNewSiteID",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testAlternateAudioGroupReconstructsAfterConsentedMemberDrop",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testAlternateAudioGroupRejectsContradictoryEnabledMembers",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testAlternateAudioGroupRoundTripsDefaultSelectionAndStreams",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testAlternateAudioGroupRoundTripsEmptySelection",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testAudioHookCannotPublishAByteMutatedDecodedPCMStream",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testAuxiliaryPictureTrackRoundTripsEncodedStreamWithoutSilentDrop",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testAVIMissingLanguageRemainsUndeterminedInMovieContainer",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testCancellationDuringProcessingDiscardsTemporaryOutput",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testCancellationDuringScaledEditPrescanIsAtomic",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testCancellationEnteringOutputMetadataScanRemainsCancelled",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testCancellationEnteringSourceMetadataScanRemainsCancelled",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testCanonicalDynamicAbsentDecodedCadenceChecksSegmentLookahead",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testCanonicalDynamicAbsentDecodedCadenceDoesNotUseRoundedTrackEnd",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testCanonicalDynamicAbsentRouteUsesOnePassBackendAndExecutorOnce",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testChapterListContainerMappingLeavesUnknownMetadataUntouched",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testChapterListContainerMappingRetainsAllIdentityFields",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testChapterMetadataTimeCanonicalizesEquivalentZeroClocks",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testChapterMetadataTimeCanonicalizesExactRationalsAndRetainsChanges",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testChapterMetadataTimePreservesNonnumericRepresentations",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testChapterMetadataTimePreservesNumericFlagsAndEpoch",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testCompatibleMultipleAudioFormatDescriptionsArePassThroughEligible",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testCompatibleRealMultipleAudioDescriptionsRoundTripExactly",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testConventionalSessionPreservesAlternateAudioGroup",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testConventionalSessionPreservesSingletonAudioGroupAndDefaultSelection",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testDeterministicSessionAutomaticallyTranscodesIncompatibleAlternateAudio",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testDeterministicSessionProcessesPrimaryAndPreservesRichAsset",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testDiscontiguousAudioEditsSurviveAACTranscodeRoundTrip",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testDurableWorkflowOmitsIncompatibleAudioOnlyWhenRequested",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testDurableWorkflowPreservesCompatibleAlternateAudioAndReportsIt",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testDurableWorkflowTranscodesIncompatibleAlternateAudioAndReportsIt",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testDynamicHDRMultisetIsOrderIndependentAndBindsDuplicates",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testDynamicHDRMultisetRetainsFixedStateBeyondOneMillionRecords",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testDynamicHDRSegmentRoutePreservesNonzeroPrimaryStartEarlierAudioBoundaryGapAndTemporalReset",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testEditMapMovieTimescaleExactlyRepresentsPlannedMapping",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testEditMapMovieTimescaleKeepsMediaTimebaseIndependent",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testEditMapMovieTimescaleRejectsUnrepresentableLCM",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testEncodedSegmentTimingAcceptsUniqueLegalClockQuantization",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testEveryProcessedVideoRequiresAnExplicitTrackBoundHook",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testEveryTranscodedAudioTrackRequiresAnExplicitTrackBoundHook",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testExactTerminalBoundaryRemainsExactWithoutSnapping",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testExecutableMigrationPreservesEveryEncodedTrackAndVerifiesOutput",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testFerrisFrame148175ReconstructsExactLastFrameStart",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testFerrisObserved90kRemainderAcceptsOnlyAdmittedAdjacentTick",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testFullMediaReplacementRejectsExtraEmptyReplacementSegment",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testFullMediaReplacementRejectsScaledReplacementSegment",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testFullMediaReplacementRejectsShiftedDeclaredSourceRange",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testFullMediaReplacementRejectsWrongReplacementDuration",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testIncompatibleMultipleAudioFormatDescriptionsRequireTranscodeHook",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testISOTrackNameMigrationBindsMissingChangedLanguageAndUnknownMetadata",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testISOTrackNameMigrationPreservesExactUTF8ValueAndSourceFingerprint",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testISOTrackNameMigrationRetainsInvalidUTF8WithoutLossyConversion",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testLegacyPCMSampleEntrySurvivesNativeMovieRewrapping",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testMediaSegmentErrorCode11ExplainsWriterRejection",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testMediaSegmentErrorCode16IsInvalidSampleTiming",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testMigrationUsesBoundDeterministicTemporaryAndRejectsUnsafePaths",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testMissingFinalNTSCFrameRejectsAdmittedAssetEndWithNewSiteID",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testMovieTimescalePreservingPCMSamplesIncludesExactSampleClock",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testMovieTimescalePreservingPCMSamplesRejectsUnrepresentableLCM",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testMovieTimescaleWithoutPreservedPCMSamplesKeepsPlannedClock",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testMP4RawChapterListSurvivesMOVMigration",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testNominalDecodedCadenceAcceptsFerris90kClockQuantization",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testNominalDecodedCadenceAcceptsLong90kNTSCClockLattice",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testNontrivialEditListUsesDeterministicEncodedCompositionRoute",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testNonVideoHookRejectsMiddleSampleTimingMutationWithSameEnvelope",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testNTSC90kNonterminalLookaheadUsesSharedBoundaryPolicy",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testNTSC90kSegmentEmitsExactLastFrameStartBeforeBoundary",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testPassThroughHDRVideoUsesExactFrameBoundMetadataLossGate",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testPlannerDoesNotGuessNTSCFromAmbiguousOrContradictoryClock",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testPlannerRecognizesShortNTSCTrackAverageRateOnDistinctClock",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testPlannerUsesExactNTSCNominalInsteadOfMinimumClockTick",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testPreparedTemporalBackendAdapterOwnsBuffersTimingAndFinalization",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testPreservedPCMSampleClockFilterIgnoresAACAndVideo",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testPreservedPCMSampleClockUsesNativeClockForFractionalSampleRate",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testProcessedReplacementMediaOriginCanPrecedeTargetSessionStart",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testProcessedSampleTimingMutationFailsAtomically",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testProcessedVideoReplacementRebuildsExactLeadingEmptyEditTopology",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testProcessedVideoReplacementRestoresNonzeroMediaOriginWithoutDroppingFrames",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testProcessorFaultCancelsWriterAndLeavesExistingDestinationUntouched",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testProcessSegmentSite057ExportsExactAndAdmittedClockContext",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testSameSemanticsAudioPayloadsRemainBoundToLogicalOrdinals",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testSampleStreamAccumulatorBindsTerminalDurationMutation",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testSampleStreamAccumulatorBindsUniformAACTimingAndPayloadChanges",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testSampleStreamAccumulatorBindsUnjustifiedInteriorDurationMutation",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testSampleStreamAccumulatorCanonicalizesAuthorizedTerminalBoundarySynthesis",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testSampleStreamAccumulatorCanonicalizesExactTimesAndReaderDurationArtifacts",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testSampleStreamAccumulatorIncrementalDigestMatchesReferenceBytes",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testSampleStreamAccumulatorPreservesUniformAACDecodeEpoch",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testSampleStreamAccumulatorPreservesUniformAACPacketGrouping",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testSampleStreamAccumulatorRejectsRoundedUniformAACClock",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testSampleStreamAccumulatorRejectsUnprovenTerminalBoundarySynthesis",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testSampleStreamAccumulatorRetainsExplicitAACDecodeTimes",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testSampleStreamAccumulatorRetainsOnlyFixedHashState",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testSampleStreamTerminalAuthorizationRequiresObservedEditAgreement",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testScaledDiscontiguousEmptyEditsCoexistWithAudioTranscoding",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testScaledEditRoundTripsExactRationalMappingAndEncodedStream",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testSegmentWriterClockUsesExact90kBoundaryTimescale",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testShortNTSCMetadataRecognitionStillRejectsDecodedTimingGap",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testSubtitleAndClosedCaptionTracksRoundTripEncodedStreams",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testTemporalHookUniformlySubdividesEverySourceIntervalAndPreservesAllTracks",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testTrackBoundAudioHookTranscodesPCMToAACAndPreservesOtherTracks",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testTrackBoundVideoHookReencodesOneVideoWhileEveryOtherTrackCopies",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testUnrequestedHookCancellationIsReportedAsProcessorFailure",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testWorkflowSourceProgressCursorReadsTrackLinearlyAcrossBoundaries",
+        "status": "passed"
+      },
+      {
+        "id": "AVFoundationTrackMigrationExecutorV4Tests/testZeroSampleEditMarkerPreservesLeadingEditWithoutChangingRealCount",
+        "status": "passed"
+      }
+    ],
+    "VideoProcessingSessionTests": [
+      {
+        "id": "VideoProcessingSessionTests/testAVIComparisonAndThumbnailUseNativeResolvedSource",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testCancellationDuringPreparationFinishesPreparedBackend",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testCancellationRemovesPartialOutputAndCoordinatorAcceptsNextJob",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testCaptureV3EndToEndBaselineWhenRequested",
+        "status": "skipped"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testCommonInputCodecsCompleteBothProductionDeterministicRoutes",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testConventionalAppleBackendsProduceReadableOutputWhenAvailable",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testDeterministicCPUAndMetalProduceVerifiedProRes422WholeAssets",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testDeterministicCPUReferenceProcessesShortClipWithoutAppleFallback",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testDeterministicMetalProcessesShortClipWithoutBackendFallback",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testDurableCompletionLoadsOriginalAndOutputInComparisonPlayer",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testExistingDestinationIsNotTruncatedWithoutConfirmation",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testHEVCOutputIsReadableAndReportsItsCodec",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testMetalFXSpatialProducesReadableOutputWithExplicitBT709Bridge",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testMultipleAudioTracksArePreservedWithoutCollapsing",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testPortraitTransformAndDisplayDimensionsArePreserved",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testProgressiveJFIFMOVCompletesBothProductionDeterministicRoutes",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testProRes422OutputIsReadableAfterInitialWriterStabilization",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testProRes422WorkingAvailabilityKeepsAutomaticDocumentedScope",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testSessionSetupFailureFinishesPreparedBackendAndPreservesDestination",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testSilentInputReportsAudioAbsentWhenPreservationRequested",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testSingleAudioTrackIsPreservedOrExplicitlyTranscoded",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testUntaggedH264CompletesBothProductionDeterministicRoutes",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testUntaggedSDRCompletesEveryConventionalSDRRoute",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testVariableFrameRatePresentationTimesAreNotForcedToConstantCadence",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testVideoToolboxInterpolationMaintainsDurationAndProducesTwoXCadenceWhenAvailable",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testVideoToolboxSuperResolutionContractsRunOrReportExactUnavailability",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testVideoToolboxSuperResolutionProcessesSupportedGeometry",
+        "status": "passed"
+      },
+      {
+        "id": "VideoProcessingSessionTests/testVImageHighQualityProducesReadableAtomicOutput",
+        "status": "passed"
+      }
+    ]
+  }
+}

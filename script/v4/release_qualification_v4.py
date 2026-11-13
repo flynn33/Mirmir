@@ -170,6 +170,27 @@ TRUSTED_HELPER_CONTRACT: tuple[tuple[str, str, str], ...] = (
         "quality_gate_v4_for_release_qualification",
     ),
 )
+
+TRUST_ROOT_SCHEMA_PHASE2 = "mirmir-ash-v4-release-qualification-trust-root-v2"
+CHROMA_HELPER = ("chroma_geometry_replay", "chroma_geometry_v4.py", "chroma_geometry_v4")
+LEGACY_REPLAY_SOURCE_SHA256 = {'support_matrix_replay': '23c0d874e27b7eb37702d18612a969ede2cfda61ed0f968e7c078fd402511403', 'cpu_metal_parity_replay': 'ed0f88fd607268a817159554afbe39a60fca9d4ef8a7c74e44966dd0e2a10a3b', 'p05_baseline_replay': 'd79eff3f6bd7057460546b910cfa7654c9e846d4ff524e7b4ce78be78f6c929f', 'quality_raw_plane_replay': '2c5b0e5a40adc4f016d9346805f2db247ed1cd8a22e3abf26a2c87d3309ac4c8'}
+
+
+def phase2_release_profile(contract: Mapping[str, Any]) -> bool:
+    contract = require_mapping(contract, "release contract")
+    schemas = require_mapping(contract.get("evidenceSchemas"), "evidenceSchemas")
+    pair = (schemas.get("quality"), schemas.get("cpu_metal_parity"))
+    if pair == ("mirmir-ash-v4-quality-report-v1", "mirmir-ash-v4-cpu-metal-parity-report-v2"):
+        return False
+    if pair == ("mirmir-ash-v4-quality-report-v2", "mirmir-ash-v4-cpu-metal-parity-report-v3"):
+        return True
+    raise QualificationError("release quality/parity envelope profile is mixed or unsupported")
+
+
+def trusted_helper_contract(contract: Mapping[str, Any]):
+    return (CHROMA_HELPER, *TRUSTED_HELPER_CONTRACT) if phase2_release_profile(contract) else TRUSTED_HELPER_CONTRACT
+
+
 ROLE_VALIDATOR_NAMES: Mapping[str, str] = {
     "quality": "validate_quality",
     "same_scope_performance": "validate_performance",
@@ -607,7 +628,8 @@ def expected_role_dispatch(
             "role": role,
             "validator": ROLE_VALIDATOR_NAMES[role],
             "evidenceSchema": schemas[role],
-            "replayHelperRoles": list(ROLE_REPLAY_HELPERS[role]),
+            "replayHelperRoles": (["chroma_geometry_replay"] if phase2_release_profile(contract)
+                and role in {"quality", "cpu_metal_parity"} else []) + list(ROLE_REPLAY_HELPERS[role]),
         }
         for role in roles
     ]
@@ -668,7 +690,8 @@ def establish_external_trust(
         },
         "external trust root",
     )
-    if trust_root["schemaVersion"] != TRUST_ROOT_SCHEMA:
+    phase2 = phase2_release_profile(load_json(contract_path))
+    if trust_root["schemaVersion"] != (TRUST_ROOT_SCHEMA_PHASE2 if phase2 else TRUST_ROOT_SCHEMA):
         raise QualificationError("external trust-root schema differs")
     if trust_root["hashAlgorithm"] != "sha256":
         raise QualificationError("external trust-root hash algorithm differs")
@@ -687,13 +710,14 @@ def establish_external_trust(
     )
     contract = validate_contract(load_json(contract_path))
 
+    helper_contract = trusted_helper_contract(contract)
     helper_rows = require_list(trust_root["helpers"], "external trust root helpers")
-    if len(helper_rows) != len(TRUSTED_HELPER_CONTRACT):
+    if len(helper_rows) != len(helper_contract):
         raise QualificationError("external trust-root helper set is incomplete")
     normalized_helpers: list[dict[str, Any]] = []
     loaded: dict[str, types.ModuleType] = {}
     for index, (expected_role, filename, module_name) in enumerate(
-        TRUSTED_HELPER_CONTRACT
+        helper_contract
     ):
         label = f"external trust root helpers[{index}]"
         row = trusted_file_descriptor(
@@ -705,6 +729,18 @@ def establish_external_trust(
         )
         if row["role"] != expected_role or row["moduleName"] != module_name:
             raise QualificationError(f"{label} role/module differs")
+        if not phase2 and row["sha256"] != LEGACY_REPLAY_SOURCE_SHA256[expected_role]:
+            raise QualificationError("historical trust root contains a current or foreign helper module")
+        if phase2:
+            source_locks = {
+                "chroma_geometry_replay": contract["qualityLockedSources"]["chromaGeometryValidatorSHA256"],
+                "quality_raw_plane_replay": contract["qualityLockedSources"]["metricToolSHA256"],
+                "cpu_metal_parity_replay": contract["parityLockedSources"]["evaluatorSHA256"],
+            }
+            if expected_role in source_locks and row["sha256"] != source_locks[expected_role]:
+                raise QualificationError("fresh trust root helper differs from release source lock")
+            if expected_role == "chroma_geometry_replay" and row["sha256"] != contract["parityLockedSources"]["chromaGeometryValidatorSHA256"]:
+                raise QualificationError("quality/parity validator source locks differ")
         normalized_helpers.append(row)
 
     dispatch = require_list(
@@ -739,7 +775,7 @@ def establish_external_trust(
     # operator-supplied root identity has passed. p05 is installed first under
     # its canonical import name because the quality evaluator imports it.
     for (role, filename, module_name), row in zip(
-        TRUSTED_HELPER_CONTRACT, normalized_helpers
+        helper_contract, normalized_helpers
     ):
         loaded[role] = load_trusted_replay_module(
             SCRIPT_DIRECTORY / filename,
@@ -1287,7 +1323,8 @@ def validate_packaged_quality_evidence(
     )
     if (
         exact_manifest.get("schemaVersion")
-        != "mirmir-ash-v4-quality-candidate-capture-v1"
+        != ("mirmir-ash-v4-quality-candidate-capture-v2" if "chromaGeometryValidatorSHA256" in identities
+            else "mirmir-ash-v4-quality-candidate-capture-v1")
         or exact_manifest.get("evidenceRequestSHA256")
         != identities["evidenceRequestSHA256"]
         or exact_manifest.get("observerSourceSHA256")
@@ -1314,6 +1351,12 @@ def validate_packaged_quality_evidence(
     if len(exact_by_id) != len(exact_cases) or set(exact_by_id) != set(merged_by_id):
         raise QualificationError("quality exact and merged case sets differ")
     candidate_variants = set(QUALITY_VARIANTS) - {"baseline_p05"}
+    if "chromaGeometryValidatorSHA256" in identities:
+        if exact_manifest.get("fixedPointKernelID") != "ash-p06-catmull-rom-q14-subsampled-physical-siting-v2" or merged_capture.get("fixedPointKernelID") != exact_manifest.get("fixedPointKernelID"):
+            raise QualificationError("quality exact capture used a foreign kernel contract")
+        for case_id in exact_by_id:
+            if exact_by_id[case_id].get("chromaGeometry") is None or exact_by_id[case_id].get("chromaGeometry") != merged_by_id[case_id].get("chromaGeometry"):
+                raise QualificationError("quality exact/merged chroma geometry differs")
     for case_id in sorted(exact_by_id):
         exact_outputs = require_mapping(
             exact_by_id[case_id].get("outputs"), f"quality exact outputs {case_id}"
@@ -1356,6 +1399,7 @@ def validate_quality(
         label,
     )
     identities = require_mapping(report.get("identities"), "quality.identities")
+    phase2 = phase2_release_profile(contract)
     expected_identity_keys = {
         "contractSHA256",
         "metricToolSHA256",
@@ -1373,6 +1417,8 @@ def validate_quality(
         "packagedCaptureTreeSHA256",
         "packagedCandidateIdentity",
     }
+    if phase2:
+        expected_identity_keys.add("chromaGeometryValidatorSHA256")
     require_exact_keys(identities, expected_identity_keys, "quality.identities")
     for key in expected_identity_keys - {
         "runtimeSourceRevision",
@@ -1381,23 +1427,16 @@ def validate_quality(
         "packagedCandidateIdentity",
     }:
         require_hex(identities[key], 64, f"quality.identities.{key}")
-    locked_sources = require_release_locked_hashes(
-        contract,
-        "qualityLockedSources",
-        {
-            "baselineRunnerSHA256",
-            "metricToolSHA256",
-            "observerSourceSHA256",
-        },
-        label,
-    )
+    quality_source_keys = {"baselineRunnerSHA256", "metricToolSHA256", "observerSourceSHA256"}
+    if phase2: quality_source_keys.add("chromaGeometryValidatorSHA256")
+    locked_sources = require_release_locked_hashes(contract, "qualityLockedSources", quality_source_keys, label)
     if sha256(
         SCRIPT_DIRECTORY / "run_p05_quality_baseline_v4.sh"
     ) != locked_sources["baselineRunnerSHA256"]:
         raise QualificationError(
             "release-locked quality source is stale: baselineRunnerSHA256"
         )
-    for key in ("metricToolSHA256", "observerSourceSHA256"):
+    for key in ("metricToolSHA256", "observerSourceSHA256") + (("chromaGeometryValidatorSHA256",) if phase2 else ()):
         expected = locked_sources[key]
         if identities[key] != expected:
             raise QualificationError(
@@ -1536,6 +1575,14 @@ def validate_quality(
     ):
         raise QualificationError("quality corpus population differs from release lock")
     embedded = require_mapping(report.get("contract"), "quality.contract")
+    if phase2:
+        try:
+            if not quality_replay.chroma.quality_contract_phase2(embedded):
+                raise ValueError("fresh quality report requires quality contract2")
+        except ValueError as error:
+            raise QualificationError(str(error)) from error
+    elif embedded.get("schemaVersion") != "mirmir-ash-v4-quality-gate-contract-v1":
+        raise QualificationError("historical quality report requires quality contract1")
     embedded_baseline = require_mapping(
         embedded.get("frozenP05Baseline"),
         "quality.contract.frozenP05Baseline",
@@ -1559,6 +1606,8 @@ def validate_quality(
     quality_contract_path = checked_path(
         evidence_root, quality_contract_binding["path"], "quality contract binding"
     )
+    if phase2 and quality_contract_path.name != "quality-gate-contract-v2.json":
+        raise QualificationError("fresh quality contract binding basename differs")
     if embedded != load_json(quality_contract_path):
         raise QualificationError("quality embedded contract differs from its bound contract file")
     report_path = checked_path(
@@ -1585,7 +1634,7 @@ def validate_quality(
     ):
         locked_quality_file(basename, locked_baseline[identity_key])
     corpus_release_lock_path = locked_quality_file(
-        "natural-quality-corpus-lock-v1.json",
+        "natural-quality-corpus-lock-v2.json" if phase2 else "natural-quality-corpus-lock-v1.json",
         corpus_lock["releaseLockSHA256"],
     )
     corpus_release_lock = require_mapping(
@@ -1593,7 +1642,7 @@ def validate_quality(
     )
     if (
         corpus_release_lock.get("schemaVersion")
-        != "mirmir-ash-v4-natural-quality-corpus-lock-v1"
+        != ("mirmir-ash-v4-natural-quality-corpus-lock-v2" if phase2 else "mirmir-ash-v4-natural-quality-corpus-lock-v1")
         or corpus_release_lock.get("releaseEligible") is not True
         or corpus_release_lock.get("qualityContractSHA256")
         != corpus_lock["contractSHA256"]
@@ -1615,6 +1664,21 @@ def validate_quality(
     if not capture_path.is_file() or capture_path.resolve() not in sealed_paths:
         raise QualificationError("quality capture manifest is absent from the sealed suite")
     capture = require_mapping(load_json(capture_path), "quality capture manifest")
+    expected_capture_schema = "mirmir-ash-v4-quality-capture-v2" if phase2 else "mirmir-ash-v4-quality-capture-v1"
+    if capture.get("schemaVersion") != expected_capture_schema:
+        raise QualificationError("quality capture/report envelope differs")
+    if phase2:
+        validator_path = locked_quality_file("chroma_geometry_v4.py", locked_sources["chromaGeometryValidatorSHA256"])
+        bindings = [item for item in entry["identityBindings"] if item.get("jsonPointer") == "/identities/chromaGeometryValidatorSHA256"]
+        if len(bindings) != 1:
+            raise QualificationError("quality geometry validator binding is missing or repeated")
+        bound_validator, _ = validate_artifact(evidence_root, bindings[0], "quality geometry binding", allowed_extra_keys={"jsonPointer"})
+        if bound_validator != validator_path or bound_validator not in sealed_paths:
+            raise QualificationError("quality geometry validator binding is outside the sealed suite")
+        if sha256(Path(quality_replay.chroma.__file__)) != locked_sources["chromaGeometryValidatorSHA256"]:
+            raise QualificationError("loaded quality geometry validator differs from release lock")
+        if sha256(SCRIPT_DIRECTORY / "chroma_geometry_v4.py") != locked_sources["chromaGeometryValidatorSHA256"]:
+            raise QualificationError("release-locked quality geometry validator is stale")
     package = validate_packaged_quality_evidence(
         report,
         candidate,
@@ -2985,8 +3049,10 @@ def validate_parity(
         },
         "parity report",
     )
-    if contract["evidenceSchemas"][label] != PARITY_REPORT_SCHEMA:
-        raise QualificationError("release contract does not require parity-v2")
+    phase2 = phase2_release_profile(contract)
+    expected_parity_schema = "mirmir-ash-v4-cpu-metal-parity-report-v3" if phase2 else PARITY_REPORT_SCHEMA
+    if contract["evidenceSchemas"][label] != expected_parity_schema:
+        raise QualificationError("release contract parity envelope differs")
     if tuple(contract["parityCoverage"]) != PARITY_REQUIRED_COVERAGE:
         raise QualificationError("release contract parity coverage is weakened or reordered")
     lane_contract_sha = require_hex(
@@ -3004,6 +3070,7 @@ def validate_parity(
         "evaluatorSHA256",
         "runnerSHA256",
     }
+    if phase2: source_identity_keys.add("chromaGeometryValidatorSHA256")
     require_exact_keys(locked_sources, source_identity_keys, "parityLockedSources")
     for key in source_identity_keys:
         require_hex(locked_sources[key], 64, f"parityLockedSources.{key}")
@@ -3013,6 +3080,8 @@ def validate_parity(
         "evaluatorSHA256": SCRIPT_DIRECTORY / "cpu_metal_parity_v4.py",
         "runnerSHA256": SCRIPT_DIRECTORY / "run_cpu_metal_parity_v4.sh",
     }
+    if phase2:
+        local_sources["chromaGeometryValidatorSHA256"] = SCRIPT_DIRECTORY / "chroma_geometry_v4.py"
     for key, path in local_sources.items():
         if sha256(path) != locked_sources[key]:
             raise QualificationError(f"release-locked parity source is stale: {key}")
@@ -3089,7 +3158,7 @@ def validate_parity(
         return path
 
     lane_contract_path = bound_path(
-        "/contractSHA256", "cpu-metal-parity-contract-v2.json"
+        "/contractSHA256", "cpu-metal-parity-contract-v3.json" if phase2 else "cpu-metal-parity-contract-v2.json"
     )
     capture_source_path = bound_path(
         "/identities/captureSourceSHA256",
@@ -3101,6 +3170,10 @@ def validate_parity(
     runner_path = bound_path(
         "/identities/runnerSHA256", "run_cpu_metal_parity_v4.sh"
     )
+    if phase2:
+        bound_path("/identities/chromaGeometryValidatorSHA256", "chroma_geometry_v4.py")
+        if sha256(Path(parity_replay.chroma.__file__)) != locked_sources["chromaGeometryValidatorSHA256"]:
+            raise QualificationError("loaded parity geometry validator differs from release lock")
     if sha256(lane_contract_path) != lane_contract_sha:
         raise QualificationError("nested parity contract differs from release lock")
 
@@ -3363,7 +3436,10 @@ def validate_parity(
         ):
             raise QualificationError(f"parity exact capture[{index}] binding differs")
     try:
-        parity_replay.verify_root_manifest(parity_root, manifest_path)
+        if phase2:
+            parity_replay.verify_root_manifest(parity_root, manifest_path, phase2=True)
+        else:
+            parity_replay.verify_root_manifest(parity_root, manifest_path)
         replayed = parity_replay.evaluate(
             lane_contract_path,
             capture_a,
@@ -8091,8 +8167,14 @@ def validate_contract(value: Any) -> dict[str, Any]:
         raise QualificationError(
             "release evaluator lane-lock role set differs from validators"
         )
+    phase2 = phase2_release_profile(contract)
     for role in roles:
         lane_field, sources_field, source_keys = RELEASE_LANE_LOCKS[role]
+        if phase2 and role in {"quality", "cpu_metal_parity"}:
+            source_keys = source_keys | {"chromaGeometryValidatorSHA256"}
+        helper_pointer = "/identities/chromaGeometryValidatorSHA256"
+        if role in {"quality", "cpu_metal_parity"} and ((helper_pointer in identity_bindings[role]) != phase2):
+            raise QualificationError("release lane geometry binding profile differs")
         require_hex(
             contract.get(lane_field),
             64,
@@ -8104,6 +8186,16 @@ def validate_contract(value: Any) -> dict[str, Any]:
             set(source_keys),
             role,
         )
+    require_integer(
+        contract.get("p06ProductionSourceCount"),
+        "release contract.p06ProductionSourceCount",
+        1,
+    )
+    require_hex(
+        contract.get("p06ProductionSourceManifestSHA256"),
+        64,
+        "release contract.p06ProductionSourceManifestSHA256",
+    )
     coverage = [
         require_string(value, f"mediaPreservationCoverage[{index}]")
         for index, value in enumerate(

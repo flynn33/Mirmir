@@ -43,6 +43,9 @@ actor PreparedFrameUpscalerTrackProcessorV4 {
     private let nominalSourceFrameDuration: CMTime
     private let maximumOutputCount: Int
     private let finishBackendAtEnd: Bool
+    private let sourceAVCChromaDeclaration: AVCChromaLocationV4.Declaration?
+    private let sourceJFIFSampling: JFIFVideoSamplingV4?
+    private let proResConverter: ProRes422WorkingConverterV4?
     private var nextFrameIndex: Int
     private var finished = false
 
@@ -50,7 +53,10 @@ actor PreparedFrameUpscalerTrackProcessorV4 {
         backend: any PreparedFrameUpscaler,
         nominalSourceFrameDuration: ExactRationalV4,
         startingFrameIndex: Int = 0,
-        finishBackendAtEnd: Bool = true
+        finishBackendAtEnd: Bool = true,
+        sourceAVCChromaDeclaration: AVCChromaLocationV4.Declaration? = nil,
+        sourceJFIFSampling: JFIFVideoSamplingV4? = nil,
+        sourceProResWorkingFormat: ProRes422WorkingFormatV4? = nil
     ) throws {
         guard nominalSourceFrameDuration.numerator > 0,
               nominalSourceFrameDuration.denominator <= Int64(Int32.max) else {
@@ -90,6 +96,11 @@ actor PreparedFrameUpscalerTrackProcessorV4 {
         )
         self.maximumOutputCount = maximum
         self.finishBackendAtEnd = finishBackendAtEnd
+        self.sourceAVCChromaDeclaration = sourceAVCChromaDeclaration
+        self.sourceJFIFSampling = sourceJFIFSampling
+        self.proResConverter = try sourceProResWorkingFormat.map {
+            try ProRes422WorkingConverterV4(policy: $0, workingAttributes: backend.sourcePixelBufferAttributes.values)
+        }
         self.nextFrameIndex = startingFrameIndex
     }
 
@@ -103,10 +114,20 @@ actor PreparedFrameUpscalerTrackProcessorV4 {
         let sourceSample = input.sampleBuffer
         let sourceDynamicHDRMetadata = try AVFoundationHDRMetadataAdapterV4
             .probeDynamicMetadata(from: sourceSample)
-        guard let sourceBuffer = CMSampleBufferGetImageBuffer(sourceSample) else {
+        guard let decodedSource = CMSampleBufferGetImageBuffer(sourceSample) else {
             throw PreparedFrameUpscalerTrackHookV4Error
                 .sourceSampleHasNoImageBuffer(frameIndex: frameIndex)
         }
+        let sourceBuffer = try proResConverter?.convert(decodedSource) ?? decodedSource
+        try AVCChromaLocationV4.normalizeDecodedBuffer(
+            sourceBuffer, source: sourceAVCChromaDeclaration
+        )
+        try AVCChromaLocationV4.normalizeDecodedInterlacedFieldDeclaration(
+            sourceBuffer, source: sourceAVCChromaDeclaration
+        )
+        try JFIFVideoSamplingV4.normalizeDecodedBuffer(
+            sourceBuffer, source: sourceJFIFSampling
+        )
         let presentationTime = CMSampleBufferGetPresentationTimeStamp(
             sourceSample
         )
@@ -255,6 +276,10 @@ enum PreparedFrameUpscalerTrackHookV4 {
         preparedBackend: any PreparedFrameUpscaler,
         writerOutputSettings: [String: Any],
         declaredOutputFormats: [MediaTrackFormatDescriptorV4],
+        outputHDRMetadata: HDRFormatMetadataV4? = nil,
+        sourceAVCChromaDeclaration: AVCChromaLocationV4.Declaration? = nil,
+        sourceJFIFSampling: JFIFVideoSamplingV4? = nil,
+        sourceProResWorkingFormat: ProRes422WorkingFormatV4? = nil,
         nominalSourceFrameDuration: ExactRationalV4,
         outputPreferredTransform: CGAffineTransform? = nil,
         outputNaturalSize: CGSize? = nil,
@@ -268,14 +293,18 @@ enum PreparedFrameUpscalerTrackHookV4 {
             backend: preparedBackend,
             nominalSourceFrameDuration: nominalSourceFrameDuration,
             startingFrameIndex: startingFrameIndex,
-            finishBackendAtEnd: finishBackendAtEnd
+            finishBackendAtEnd: finishBackendAtEnd,
+            sourceAVCChromaDeclaration: sourceAVCChromaDeclaration,
+            sourceJFIFSampling: sourceJFIFSampling,
+            sourceProResWorkingFormat: sourceProResWorkingFormat
         )
         return AVFoundationVideoTrackProcessingHookV4(
             trackID: trackID,
-            readerOutputSettings:
-                preparedBackend.sourcePixelBufferAttributes.values,
+            readerOutputSettings: sourceProResWorkingFormat?.readerOutputSettings
+                ?? preparedBackend.sourcePixelBufferAttributes.values,
             writerOutputSettings: writerOutputSettings,
             declaredOutputFormats: declaredOutputFormats,
+            outputHDRMetadata: outputHDRMetadata,
             outputPreferredTransform: outputPreferredTransform,
             outputNaturalSize: outputNaturalSize,
             outputTimingContract: .uniformlySubdivideSourceInterval(

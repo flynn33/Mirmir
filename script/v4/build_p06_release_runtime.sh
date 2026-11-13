@@ -151,6 +151,12 @@ builder_sources=(
     "script/v4/build_p06_release_runtime.sh"
     "script/v4/p06-source-provenance-v1.json"
     "script/v4/p06_source_identity_v4.py"
+    # Current acceptance reader/validator/runner provenance inputs. These do not
+    # replace the immutable metric/runner/corpus-builder bytes bound to the historical capture.
+    "script/v4/quality_gate_v4.py"
+    "script/v4/chroma_geometry_v4.py"
+    "script/v4/run_quality_gate_v4.sh"
+    "script/v4/build_natural_quality_corpus.py"
 )
 
 for relative_path in "${builder_sources[@]}"; do

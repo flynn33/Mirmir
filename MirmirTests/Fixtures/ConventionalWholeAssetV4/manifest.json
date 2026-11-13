@@ -1,0 +1,8 @@
+{
+  "fixture": "disabled-first-bframes.mov",
+  "sha256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98",
+  "bytes": 78424,
+  "source": "Exact retained locally generated QA clock control /private/tmp/mirmir-terminal-control-evidence-20261025/baseline.mov; also retained as disabled-first-video.mov in the conventional matrix",
+  "originalGenerationCommand": null,
+  "note": "Original generation command was not retained. This receipt pins the actual fixture bytes rather than inventing a command. It contains two H264 videos, PCM audio and subtitle, with the first video disabled. Native edit variants are generated in the permanent test source."
+}

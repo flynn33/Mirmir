@@ -7,6 +7,177 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+### Customer error 11 investigation — November 9, 2026
+
+- Re-checked mapped code-11 surfaces on My Mac Release. Protected CENC control still
+  maps to `Mirmir.MirmirError.protectedAsset` (code 11). Writer `canAdd` still never
+  refuses across 60 H.264/HEVC/ProRes controls. No customer-causal reproduction and no
+  product repair. See [the investigation note](docs/ERROR11_INVESTIGATION_2026-11-09.md).
+
+### Universal container remux routing — November 9, 2026
+
+- Admit remux-admissible containers (native-decodable video/audio bitstreams in
+  Matroska/WebM/ASF/MPEG-TS) through a deterministic MOV remux when AVFoundation
+  cannot open the original. Vendor FFmpeg strict-scalar packages now include the
+  file protocol and mov/mp4 muxers for bitstream copy only (no encoders).
+- H.264+AAC Matroska fixtures remux and decode on My Mac Release. VP9/WebM and
+  WMV/ASF remain inadmissible for remux-only routing and still need the software
+  decode importer. Customer error 11 is unchanged and not claimed fixed.
+
+### Release-capture harness — November 9, 2026
+
+- Validate shipping-app notarized-smoke observer results with Foundation
+  `JSONSerialization` canonical bytes instead of a Python float round-trip.
+  Retained prepare-result evidence and harness unit tests pass; locked
+  evaluator/runner hashes were refreshed. This does not close product release
+  blockers such as customer error 11 or universal decoder routing.
+
+### Bounded export-preservation QA — October 26, 2026
+
+- Route conventional primary encodes through the existing whole-asset policy;
+  retain alternate video, legible tracks, metadata, groups and associations.
+- Preserve complete movie video media tables and selected-primary edit maps,
+  authenticate full-media replacements and retain legacy replacement guards.
+- Honor synchronous cancellation at atomic publication. Keep original AVI on a
+  proven identity reader and repair temporal H.264/HEVC terminal durations with
+  explicit frame clocks and disabled reordering only for temporal encoding.
+- Verify the exact default development app on host/macOS 15.4 through actual
+  two-process CPU pause/recover execution, without XCTest/DYLD injection. A clean
+  checkout also builds universal Release without package fetches or warnings.
+- Add 29 permanent regressions. Full non-UI Release: 844 passed, zero failures,
+  15 opt-in skips; zero warnings. Affected Rosetta/macOS 15.4 rosters each pass
+  167 with one expected opt-in skip. [Report and remaining defects](docs/BOUNDED_CONVENTIONAL_QA_2026-10-26.md).
+- Keep the all-feature goal active. Customer error 11, remaining universal
+  decoder gaps (VP9/WMV/software decode, broader JPEG), structural dates and
+  other listed acceptance gaps remain release blockers.
+
+### QA continuation — October 25, 2026
+
+- Integrate physical chroma coordinates, authenticated AVC/JFIF source sampling,
+  writer calibration and affected scaler/thumbnail contracts. Preserve historical
+  captures separately; new qualification envelopes bind the changed geometry.
+- Repair native ProRes 422 working delivery through v216 and explicit progressive
+  or same-field P010 conversion. Bind preparation, writer and temporal restore
+  to the proven delivery identity. Bounded ARM/Rosetta/macOS 15.4 and independent
+  complete 10-bit media checks pass. See [the bounded report](docs/BOUNDED_QA_2026-10-25.md).
+- Refresh current source/fixture locks without changing thresholds or coverage.
+  The all-feature QA goal and unresolved release blockers remain open.
+
+- Repair real Apple model retry while a prior download is still active. The
+  identical fresh-VM test changes from three failed assertions to Ready/100%
+  with zero failures;22 ordinary catalog tests pass. Quality initialization and
+  distribution acquisition remain separate open requirements.
+- Allow content probing to validate selected files instead of excluding MKV,
+  ASF and VOB through the registered movie-UTI filter. Host/minimum-OS terminal
+  queries verify the filter gap; this does not qualify unfinished decoders.
+
+- Repair constant-size PCM buffer representation without changing payload,
+  timing or attachments. A fresh 90-minute production workflow independently
+  verifies all 129,600 video frames and 259,200,000 audio frames; `stsz` is20bytes.
+- Repair minimum-OS HDR ambient format metadata while retaining exact encoded
+  samples. Runtime7 non-UI suites pass 720 Release, 725 Debug,720 Rosetta and 720
+  macOS 15.4 tests, zero failures and 13 opt-in skips each.
+- Correct source-audio QA inventory to read the exact track range, and add
+  regressions for the actual qualification contract's missing/stale source locks.
+- Investigate native iTunes freeform loss, AAC gapless translation and H.264
+  wrapper verification. The frozen runtime8 native baseline includes these
+  repairs: 745 Release, 750 Debug, 745 Rosetta and 745 macOS 15.4 tests pass,
+  with zero failures and 13 opt-in skips each. All 404 Python checks, repeated
+  runtime/source bindings and the local universal archive audit pass.
+- Find additional Center calibration, Left chroma alignment and H.264 TopLeft
+  interpretation defects through independent media oracles. Private repairs,
+  broad-format production integration and multiple-audio gapless semantics
+  remain unfinished. Release remains blocked; all changes are local.
+
+## [1.7.2] - 2026-10-24
+
+### Fixed
+
+- Remove executable Metal/device validation from the CPU runtime path while
+  retaining full artifact, schema and provenance authentication.
+- Forward durable non-video transcode hooks and report actual preserved,
+  transcoded, omitted or absent audio from the prepared plan.
+- Normalize supported FMP4/H264 AVI sample entries without changing compressed
+  picture payloads; reconstruct H264 B-frame presentation clocks, preserve exact
+  track ends/PCM, and reject unsupported or changing bitstream configurations.
+- Share verified AVI input resolution with planning, processing, thumbnails and
+  comparison playback; sniff content before applying an AVI MIME override.
+- Bind derived-input cache clearing, location and retention to active reader
+  leases; fix atomic private-root creation and concurrent namespace retirement.
+- Remove per-byte Foundation formatting from canonical SHA digests and batch
+  each sample-stream record into one bounded hash update, preserving v4.2
+  fingerprint bytes. The feature-length AVI test exposed this PCM finalization
+  bottleneck; affected/full suites pass. The October25 continuation above records
+  subsequent fresh feature-length verification and the separate PCM-table repair.
+- Extend independent format QA to check every displayed picture's exact clock
+  and original moving-pattern position, with reordered/missing/duplicate tests.
+- Admit supported progressive MPEG-4 Part 2 and JFIF Motion JPEG sampling facts
+  consistently in probing and canonical planning, with header rejection tests.
+- Preserve strict PCM stream verification across known `sowt`/`lpcm` wrapper
+  changes and OpenDML JPEG verification across a known AVI-to-MOV header rewrite.
+  Unknown fields, changed formats and changed payloads remain rejected.
+- Preserve AVI's unspecified language as the explicit MOV `und` representation.
+- Correct external-file QA to use exact track timelines and the production
+  nominal-clock fallback instead of optional or rounded AVI header properties.
+- Add bundled legacy MOV/AVI regressions and CPU selection to the opt-in
+  production workflow test; retain exact frame/timing/audio assertions.
+- Preserve raw MP4 chapter-list metadata during MOV finalization, with exact
+  payload and canonical identity checks.
+- Finish prepared backends after preparation cancellation and early output
+  setup failures; preserve an existing destination on rejection.
+- Repair canonical-media and workflow terminal self-tests without removing
+  their assertions; add supported-geometry VideoToolbox export coverage.
+- Disable adaptive frame reordering in deterministic H.264 output after a
+  controlled reproduction showed that delivery pacing changed decoded pixels
+  despite identical input frames and timestamps. Retain strict parity checks.
+- Resolve omitted video color tags from the decoded frame without overwriting
+  explicit declarations; retain resolved SDR tags in deterministic output.
+  Apply codec-defined video-range defaults and admit ProRes 422's declared
+  10-bit processing conversion instead of rejecting its decoder descriptor.
+- Keep the selected original movie and access alive for completed-job Compare,
+  including same-session pause/resume. Recovered jobs without a retained
+  original require the independent Compare picker.
+- Describe writer rejection code 11 and journal codec, raster, and writer state
+  at both rejection sites. The reported customer failure remains open; these
+  diagnostic improvements do not establish or repair its underlying cause.
+- Rebuild and bind the P06 runtime to current production sources. Refresh
+  reviewed qualification-tool bindings while retaining strict verification.
+  Replay historical hot-path evidence with its pinned historical evaluator.
+- Reset the opt-in baseline capture frame ordinal for each newly prepared
+  engine route; retain the production sequential-ordinal invariant.
+- Align Xcode and source version authorities to 1.7.2 (20).
+
+### Verification
+
+Current follow-up: both tested AVI cases complete CPU and Metal production
+workflows with exact display clocks, independent picture-order checks and
+unchanged decoded audio. Runtime6 full suites pass 714 Release, 719 Debug and
+714 Rosetta tests, with zero failures. The full format gate passes 16 of 28
+workflows. All 397 Python tests have passing results. The fresh 90-minute AVI
+run exposed a PCM finalization bottleneck; its exact-byte repair passes the
+affected/full suites and archive checks, with feature-length output verification
+in progress. Release remains blocked by the reported error-11
+incident and outstanding common-input failures. See the QA report for current
+results; the counts below describe the preceding checkpoint.
+
+Resumed native Release passes 679 tests, with zero failures and 13 opt-in skips.
+The full format gate records 12 passing exports and 16 failures across eight
+input cases on CPU and Metal. A fresh 90-minute workflow completes all 129,600
+frames and 2,160 segments, with independent complete decoding and exact audio
+comparison. Debug passes 684 tests and Rosetta passes 679; the new universal
+archive passes signing/sandbox/dSYM checks without compiler warnings or errors.
+The reported error-11 incident and eight input failures remain release blockers.
+
+The preceding checkpoint's native Release passed 674 tests; full Debug and x86-64 suites and final
+affected-area reruns pass. All 389 Python tests have passing results. Three
+multitrack production exports pass independent video/audio/chapter checks. Four additional
+saved-media replay checks pass with isolated AAC/AC3 and chaptered fixtures.
+A local universal archive passes signing, sandbox, and matching dSYM checks;
+UI checks are excluded by the owner. Functional QA and broader release
+qualification have separate evidence and limits, recorded
+in `docs/FINAL_QA_2026-10-24.md`. No push, archive submission, or release is part
+of this local QA change.
+
 ## [1.7.1] - 2026-10-16
 
 ### Fixed

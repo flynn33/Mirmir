@@ -74,14 +74,17 @@ class QualityGateV4Tests(unittest.TestCase):
             },
         )
 
-    def materializeValidEvidence(self, root: Path) -> tuple[Path, Path]:
-        contract = json.loads(self.contract.read_text())
+    def materializeValidEvidence(
+        self, root: Path, *, phase2: bool = False
+    ) -> tuple[Path, Path]:
+        selected = SCRIPT_DIRECTORY / "quality-gate-contract-v2.json" if phase2 else self.contract
+        contract = json.loads(selected.read_text())
         contract["bootstrap"]["replicateCount"] = 32
         contract["cohortConstraints"]["minimumClipsPerCohort"] = 1
         contract["cohortConstraints"]["minimumFramesPerClip"] = 2
         contract["corpusConstruction"]["syntheticDiagnosticClipCountPerCohort"] = 1
         contract["corpusConstruction"]["syntheticDiagnosticFramesPerClip"] = 2
-        contract_path = root / "quality-gate-contract-v1.json"
+        contract_path = root / ("quality-gate-contract-v2.json" if phase2 else "quality-gate-contract-v1.json")
         quality_gate.write_json(contract_path, contract)
 
         corpus_stage = root / "corpus-stage"
@@ -109,9 +112,24 @@ class QualityGateV4Tests(unittest.TestCase):
                 (root / relative).write_bytes(transformed)
                 outputs[variant] = relative
                 milliseconds[variant] = float(variant_index + 1)
-            capture_cases.append(
-                {"id": case["id"], "outputs": outputs, "milliseconds": milliseconds}
-            )
+            capture_case = {"id": case["id"], "outputs": outputs, "milliseconds": milliseconds}
+            if phase2:
+                dimensions = tuple(case[key] for key in (
+                    "sourceWidth", "sourceHeight", "targetWidth", "targetHeight"
+                ))
+                plan, kernel = quality_gate.chroma.expected_hashes(*dimensions, "center", "center")
+                capture_case["chromaGeometry"] = {
+                    "schemaVersion": "mirmir-ash-v4-quality-chroma-geometry-v1",
+                    "recipePolicyID": quality_gate.chroma.QUALITY_RECIPE_POLICY_ID,
+                    "coordinateProcedureID": quality_gate.chroma.COORDINATE_ID,
+                    "kernelContractID": quality_gate.chroma.KERNEL_ID,
+                    "sourceSiting": "center", "outputSiting": "center",
+                    "planSchemaVersion": 2,
+                    "sourceLumaWidth": dimensions[0], "sourceLumaHeight": dimensions[1],
+                    "targetLumaWidth": dimensions[2], "targetLumaHeight": dimensions[3],
+                    "scalePlanSHA256": plan, "kernelIRSHA256": kernel,
+                }
+            capture_cases.append(capture_case)
 
         identity = quality_gate.p05.frozen_identity(contract)
         capture = {
@@ -132,6 +150,12 @@ class QualityGateV4Tests(unittest.TestCase):
             "baselineWarmupCount": 1,
             "cases": capture_cases,
         }
+        if phase2:
+            capture.update(
+                schemaVersion=quality_gate.SCHEMA_CAPTURE_PHASE2,
+                fixedPointKernelID=quality_gate.chroma.KERNEL_ID,
+            )
+            capture.update({key: None for key in quality_gate.PACKAGED_CAPTURE_FIELDS})
         capture_path = root / "capture-manifest.json"
         quality_gate.write_json(capture_path, capture)
         report_path = root / "quality-gate-report.json"
@@ -152,7 +176,9 @@ class QualityGateV4Tests(unittest.TestCase):
         self.assertIn("fullMirrorIdentityPass", source)
         self.assertNotIn("ASHDeterministicUpscaleBackend", source)
         self.assertNotIn("developmentP05", source)
-        self.assertIn("mirmir-ash-v4-quality-candidate-capture-v1", source)
+        self.assertIn("mirmir-ash-v4-quality-candidate-capture-v2", source)
+        self.assertIn("quality-box-source-reference-center-v1", source)
+        self.assertIn("chromaGeometry: SpatialChromaGeometryV4(source: .center, target: .center)", source)
 
     def testPackagedArchiveVerificationFailureIsNormative(self) -> None:
         verifier = mock.Mock()

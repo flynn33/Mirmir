@@ -1,0 +1,1446 @@
+{
+  "observedAtUTC": "2026-10-26T10:02:35.002Z",
+  "method": "osascript JavaScript for Automation Objective-C bridge; public AVURLAsset and AVMutableMovie URL initializers, synchronous track properties, CoreMedia ranges; no decoding, writing, or header mutation",
+  "os": "Version 27.0.1 (Build 26A434)",
+  "rows": [
+    {
+      "file": "/Volumes/DockCase/GitHub/Mirmir/MirmirTests/Fixtures/legacy-mjpeg.avi",
+      "avURLAssetNil": false,
+      "avMutableMovieNil": true,
+      "avURLAssetTracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1667510320,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "72",
+              "timescale": 24,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 1,
+          "trackID": 1651978544,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "144000",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        }
+      ],
+      "inventoryMatches": false,
+      "bytes": 680206,
+      "sha256": "84bbeea8f1d66cf6137314ebf688dc938e8bd26110a1b0f64133d80122a7d143"
+    },
+    {
+      "file": "/Volumes/DockCase/GitHub/Mirmir/MirmirTests/Fixtures/native-avi-mpeg4.avi",
+      "avURLAssetNil": false,
+      "avMutableMovieNil": true,
+      "avURLAssetTracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1667510320,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "72",
+              "timescale": 24,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 1,
+          "trackID": 1651978544,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "144000",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        }
+      ],
+      "inventoryMatches": false,
+      "bytes": 511656,
+      "sha256": "5f9038641e87b0585081c17a0c2cbb306304fb3fa8ef1e72a884376b5a1f6aaa"
+    },
+    {
+      "file": "/Volumes/DockCase/GitHub/Mirmir/MirmirTests/Fixtures/native-avi-h264.avi",
+      "avURLAssetNil": false,
+      "avMutableMovieNil": true,
+      "avURLAssetTracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1667510320,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "72",
+              "timescale": 24,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 1,
+          "trackID": 1651978544,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "144000",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        }
+      ],
+      "inventoryMatches": false,
+      "bytes": 347708,
+      "sha256": "a1b37e4d16b63b3eca3c91109b58ebe5e2d3790923104c9f9bef91a9be462191"
+    },
+    {
+      "file": "/Volumes/DockCase/GitHub/Mirmir/MirmirTests/Fixtures/legacy-mjpeg.mov",
+      "avURLAssetNil": false,
+      "avMutableMovieNil": false,
+      "avURLAssetTracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 1,
+          "trackID": 2,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        }
+      ],
+      "avMutableMovieTracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaPresentationTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "36864",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaDecodeTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "36864",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 1,
+          "trackID": 2,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaPresentationTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "144000",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaDecodeTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "144000",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        }
+      ],
+      "inventoryMatches": true,
+      "bytes": 667249,
+      "sha256": "1d9731f4c98cfccd0d16a00da4620824c605bf763c22ac75b7a691dfaf4f928a"
+    },
+    {
+      "file": "/Volumes/DockCase/GitHub/Mirmir/MirmirTests/Fixtures/legacy-mpeg4.mov",
+      "avURLAssetNil": false,
+      "avMutableMovieNil": false,
+      "avURLAssetTracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 1,
+          "trackID": 2,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        }
+      ],
+      "avMutableMovieTracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaPresentationTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "36864",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaDecodeTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "36864",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 1,
+          "trackID": 2,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaPresentationTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "145024",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaDecodeTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "145024",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        }
+      ],
+      "inventoryMatches": true,
+      "bytes": 237609,
+      "sha256": "d54a2a2330a03397bfa3fbde4eff5db1be2e5faa3453e105acd64280d421b636"
+    },
+    {
+      "file": "/Volumes/DockCase/GitHub/Mirmir/MirmirTests/Fixtures/ConventionalWholeAssetV4/disabled-first-bframes.mov",
+      "avURLAssetNil": false,
+      "avMutableMovieNil": false,
+      "avURLAssetTracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 1,
+          "trackID": 2,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 2,
+          "trackID": 3,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 3,
+          "trackID": 4,
+          "mediaType": "text",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "2800",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        }
+      ],
+      "avMutableMovieTracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaPresentationTimeRange": {
+            "start": {
+              "value": "1024",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "36864",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaDecodeTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "36864",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 1,
+          "trackID": 2,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaPresentationTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "36864",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaDecodeTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "36864",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 2,
+          "trackID": 3,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaPresentationTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "145024",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaDecodeTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "145024",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 3,
+          "trackID": 4,
+          "mediaType": "text",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "2800",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaPresentationTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1000000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "2800000",
+              "timescale": 1000000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaDecodeTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "2800000",
+              "timescale": 1000000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        }
+      ],
+      "inventoryMatches": true,
+      "bytes": 78424,
+      "sha256": "76a6c4feb2926c28c6b8188749e90abca4d4b35fcfc2df34d1c3d66a148cdf98"
+    },
+    {
+      "file": "/Volumes/DockCase/GitHub/Mirmir/MirmirTests/Fixtures/raven-forge-site057-video-timing.mp4",
+      "avURLAssetNil": false,
+      "avMutableMovieNil": false,
+      "avURLAssetTracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "122880",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 1,
+          "trackID": 2,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "123396",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        }
+      ],
+      "avMutableMovieTracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "122880",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaPresentationTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "481024",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaDecodeTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "481024",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 1,
+          "trackID": 2,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "123396",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaPresentationTimeRange": {
+            "start": {
+              "value": "1024",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "123392",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaDecodeTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "124420",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        }
+      ],
+      "inventoryMatches": true,
+      "bytes": 8086252,
+      "sha256": "f95d15c05616e43469190f49bd1b5f137a2d6e4c723406320196aa5b0f7e9e8d"
+    },
+    {
+      "file": "/Volumes/DockCase/GitHub/Mirmir/MirmirTests/Fixtures/NativeAACMetadata/priming1024.mov",
+      "avURLAssetNil": false,
+      "avMutableMovieNil": false,
+      "avURLAssetTracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 1,
+          "trackID": 2,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        }
+      ],
+      "avMutableMovieTracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaPresentationTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "36864",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaDecodeTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "36864",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 1,
+          "trackID": 2,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaPresentationTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "145024",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaDecodeTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "145024",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        }
+      ],
+      "inventoryMatches": true,
+      "bytes": 97602,
+      "sha256": "e9e12390704a8c6ac310fda6ede67aec8515bbb968c7f440e4c6e2f30dd9d48f"
+    },
+    {
+      "file": "/Volumes/DockCase/GitHub/Mirmir/MirmirTests/Fixtures/NativeAACMetadata/priming1024.mp4",
+      "avURLAssetNil": false,
+      "avMutableMovieNil": false,
+      "avURLAssetTracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 1,
+          "trackID": 2,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        }
+      ],
+      "avMutableMovieTracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaPresentationTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "36864",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaDecodeTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "36864",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 1,
+          "trackID": 2,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaPresentationTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "145024",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaDecodeTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "145024",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        }
+      ],
+      "inventoryMatches": true,
+      "bytes": 97497,
+      "sha256": "59637795f218b1bed022310a1e51fda869895f882ba46309c8bef2552437c2e5"
+    },
+    {
+      "file": "/Volumes/DockCase/GitHub/Mirmir/MirmirTests/Fixtures/NativeAACMetadata/priming1024.m4v",
+      "avURLAssetNil": false,
+      "avMutableMovieNil": false,
+      "avURLAssetTracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 1,
+          "trackID": 2,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        }
+      ],
+      "avMutableMovieTracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaPresentationTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "36864",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaDecodeTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "36864",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 1,
+          "trackID": 2,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaPresentationTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "145024",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaDecodeTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "145024",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        }
+      ],
+      "inventoryMatches": true,
+      "bytes": 97479,
+      "sha256": "d1d92c12a6df7206949cf77600090d8cc868dd96ef8c3403f306a5b9c2452d92"
+    },
+    {
+      "file": "/Volumes/DockCase/GitHub/Mirmir/MirmirTests/Fixtures/ProRes422WorkingV4/progressive-72.mov",
+      "avURLAssetNil": false,
+      "avMutableMovieNil": false,
+      "avURLAssetTracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 1,
+          "trackID": 2,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        }
+      ],
+      "avMutableMovieTracks": [
+        {
+          "ordinal": 0,
+          "trackID": 1,
+          "mediaType": "vide",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaPresentationTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "36864",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaDecodeTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "36864",
+              "timescale": 12288,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        },
+        {
+          "ordinal": 1,
+          "trackID": 2,
+          "mediaType": "soun",
+          "timeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "3000",
+              "timescale": 1000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaPresentationTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "144000",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          },
+          "mediaDecodeTimeRange": {
+            "start": {
+              "value": "0",
+              "timescale": 1,
+              "flags": 1,
+              "epoch": "0"
+            },
+            "duration": {
+              "value": "144000",
+              "timescale": 48000,
+              "flags": 1,
+              "epoch": "0"
+            }
+          }
+        }
+      ],
+      "inventoryMatches": true,
+      "bytes": 412585,
+      "sha256": "4f9cbf5c7dd1cdf92cefe72d669272d084aca55d21c7fb162cd139ee53eb06e4"
+    }
+  ],
+  "probeScriptSHA256": "85fa94cb319f909a4007a0bd1a67134b5d8de5e78ba2402c0416aa903b789308",
+  "sdkEvidence": {
+    "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AVFoundation.framework/Versions/A/Headers/AVMovie.h",
+    "line": 32,
+    "observation": "AVMovie documented scope is QuickTime movie and related ISO base media file formats."
+  },
+  "summary": {
+    "files": 11,
+    "avMutableMovieNil": 3,
+    "matchingInventory": 8
+  }
+}

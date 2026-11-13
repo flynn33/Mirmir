@@ -1,0 +1,70 @@
+{
+  "allSelectedContextsPassedWithoutSkips": true,
+  "contexts": [
+    {
+      "command": [
+        "/Applications/Xcode.app/Contents/Developer/usr/bin/python3",
+        "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/final-qualification-tests/current-test-context-driver.py",
+        "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/final-qualification-tests/current-locks-result.json",
+        "test_release_qualification_v4.CheckedInReleaseLockTests"
+      ],
+      "context": "current-locks",
+      "exitStatus": 0,
+      "resultPath": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/final-qualification-tests/current-locks-result.json"
+    },
+    {
+      "command": [
+        "/Applications/Xcode.app/Contents/Developer/usr/bin/python3",
+        "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/final-qualification-tests/current-test-context-driver.py",
+        "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/final-qualification-tests/fresh-lanes-result.json",
+        "test_release_chroma_phase_v4"
+      ],
+      "context": "fresh-lanes",
+      "exitStatus": 0,
+      "resultPath": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/final-qualification-tests/fresh-lanes-result.json"
+    },
+    {
+      "command": [
+        "/Applications/Xcode.app/Contents/Developer/usr/bin/python3",
+        "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/final-qualification-tests/current-test-context-driver.py",
+        "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/final-qualification-tests/trust-boundaries-result.json",
+        "test_phase2_trust_closure_v4"
+      ],
+      "context": "trust-boundaries",
+      "exitStatus": 0,
+      "resultPath": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/final-qualification-tests/trust-boundaries-result.json"
+    },
+    {
+      "command": [
+        "/Applications/Xcode.app/Contents/Developer/usr/bin/python3",
+        "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/final-qualification-tests/current-test-context-driver.py",
+        "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/final-qualification-tests/current-readers-result.json",
+        "test_quality_contract_phase2_v4",
+        "test_natural_quality_corpus",
+        "test_chroma_geometry_v4",
+        "test_quality_gate_v4",
+        "test_select_simulated_candidate_v4",
+        "test_derive_m7_quality_contract_v4"
+      ],
+      "context": "current-readers",
+      "exitStatus": 0,
+      "resultPath": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/final-qualification-tests/current-readers-result.json"
+    },
+    {
+      "command": [
+        "/Applications/Xcode.app/Contents/Developer/usr/bin/python3",
+        "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/final-qualification-tests/current-test-context-driver.py",
+        "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/final-qualification-tests/packaged-runner-result.json",
+        "test_packaged_candidate_evidence_v4",
+        "test_release_runner_source_identity_v4"
+      ],
+      "context": "packaged-runner",
+      "exitStatus": 0,
+      "resultPath": "/Volumes/DockCase/GitHub/Mirmir/output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/final-qualification-tests/packaged-runner-result.json"
+    }
+  ],
+  "runnerSHA256": "d35c05242a4ba6858cc58178c427a685acb8fb252c406eb62cd069a06e34594e",
+  "schemaVersion": "mirmir-release-verifier-test-contexts-v2",
+  "scope": "verification-tool regression tests; application/release acceptance is separate",
+  "sourceDirectory": "/Volumes/DockCase/GitHub/Mirmir/script/v4"
+}

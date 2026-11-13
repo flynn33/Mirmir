@@ -61,7 +61,7 @@ struct ASHExecutionRequestV4: Codable, Equatable, Hashable, Sendable {
     static let canonicalMeasurementContractID =
         ASHMeasurementContractV4.canonicalContractID
     static let canonicalKernelContractID =
-        "ash-p06-catmull-rom-q14-largest-remainder-v1"
+        SpatialChromaGeometryV4.kernelContractID
 
     let schemaID: String
     let executor: ASHExecutorV4

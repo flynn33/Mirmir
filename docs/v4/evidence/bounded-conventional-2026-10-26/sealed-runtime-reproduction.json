@@ -1,0 +1,22 @@
+{
+  "first": "output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/sealed-runtime01",
+  "second": "output/resumed-qa-2026-10-25/conventional-preservation-bounded-01/sealed-runtime02",
+  "firstFiles": 13,
+  "secondFiles": 13,
+  "allFilesEqual": true,
+  "files": {
+    "artifacts/ash-p06.metallib": "ca1db9b7abe6c107010eb240d24b9244f69c6897c062d28fdbd4f42749ba36d9",
+    "artifacts/benchmark_corpus_identity.json": "580068e27ba031fd0c6bede58f22ea4dc46b0c7ee2ffb6a77b2ae5791fb7695b",
+    "artifacts/branch_aggregation.json": "a97e48db27cd66141d309ed293a070cd4ab8d7678dbeec445272fee3addca425",
+    "artifacts/codeword_tables.json": "bd407f910f7668b2ca47d062ec7251af3e30e82bcd375259b02499b2c51a9100",
+    "artifacts/core_certificate.json": "b3b0104d0fc5bc9f417993d4d34756bec5b608598490e693bed02d86a6acd7ae",
+    "artifacts/measurement_contract.json": "7ffc93930fe4f4c21d7ac6cb43cfd1b7e0116ab39205d5df620a67a763d4fb9e",
+    "artifacts/metal_compiler_contract.json": "1a9bd82d04a77442e576efd226505e1eafc21278ed47204c896782867a5ebfd7",
+    "artifacts/metric_contract.json": "c726023a74cbbbe57e87c0d448f55e9b82f7caae92e892c6ef00d64f752fdc4e",
+    "artifacts/operator_bank.json": "20878bced24d6ba08a896b2ad33ce3253e933662e38d78c9198603d592b5df0d",
+    "artifacts/phase_coefficient_procedure.json": "7d9a9931bea9bea273eb387603624696f3b362e40ffcd0853d03f1fb8bd600e5",
+    "artifacts/quality_corpus_identity.json": "861a0aff00201b04b5c7e84675beb82485feb9c6d3f23c0254c7078b54994327",
+    "artifacts/verification_contract.json": "ae58b42f84940efe3a1852a16f4e385ab608d62cab0b53ca97069d74d6a72bf1",
+    "runtime-manifest.json": "290c87c064a90055b1df147d9d6c9fc58029bff4890142654b60d60e33accb21"
+  }
+}

@@ -6,6 +6,56 @@ import XCTest
 @testable import Mirmir
 
 final class VideoWriterFormatContractV4Tests: XCTestCase {
+    func testExplicitCenterSitingCalibratesAndRejectsMissingOrWrongDeclaration() async throws {
+        for codec: VideoWriterCodecV4 in [.h264, .hevc] {
+            let center = try VideoWriterFormatContractV4(
+                codec: codec, storage: .nv12FullRange8Bit, color: .sdrBT709,
+                sourceGeometry: sourceGeometry(width: 64, height: 48),
+                outputWidth: 128, outputHeight: 96, frameOperation: .spatialResampling,
+                chromaSiting: .center
+            )
+            let left = try VideoWriterFormatContractV4(
+                codec: codec, storage: .nv12FullRange8Bit, color: .sdrBT709,
+                sourceGeometry: sourceGeometry(width: 64, height: 48),
+                outputWidth: 128, outputHeight: 96, frameOperation: .spatialResampling,
+                chromaSiting: .left
+            )
+            XCTAssertNotEqual(center, left)
+            try center.verifyReopenedFormat(
+                center.makeExpectedFormatDescription(),
+                preferredTransform: center.geometry.avPreferredTransform
+            )
+            XCTAssertThrowsError(try center.verifyReopenedFormat(
+                left.makeExpectedFormatDescription(),
+                preferredTransform: left.geometry.avPreferredTransform
+            ))
+            let calibrator = AVFoundationVideoFormatCalibratorV4()
+            let centerFormat = try await calibrator.formatDescriptor(for: center)
+            let leftFormat = try await calibrator.formatDescriptor(for: left)
+            XCTAssertNotEqual(centerFormat, leftFormat)
+            let buffer = try PixelBufferSignalCodecV4.makeBuffer(
+                storage: .nv12FullRange8Bit, width: 128, height: 96,
+                metalCompatible: false
+            )
+            XCTAssertThrowsError(try center.verifyDecodedPixelBuffer(buffer))
+            left.applyChromaSiting(to: buffer)
+            XCTAssertThrowsError(try center.verifyDecodedPixelBuffer(buffer))
+            center.applyChromaSiting(to: buffer)
+            try center.verifyDecodedPixelBuffer(buffer)
+            let propagated = try XCTUnwrap(
+                CVBufferCopyAttachments(buffer, .shouldPropagate) as? [String: Any]
+            )
+            XCTAssertEqual(
+                propagated[kCVImageBufferChromaLocationTopFieldKey as String] as? String,
+                kCVImageBufferChromaLocation_Center as String
+            )
+            XCTAssertEqual(
+                propagated[kCVImageBufferChromaLocationBottomFieldKey as String] as? String,
+                kCVImageBufferChromaLocation_Center as String
+            )
+        }
+    }
+
     func testRotatedNonSquareSARAndCleanApertureTransformExactly() throws {
         let source = try RationalPresentationGeometryV4(
             codedWidth: 720,
@@ -180,6 +230,7 @@ final class VideoWriterFormatContractV4Tests: XCTestCase {
         let nv12Compression = try XCTUnwrap(
             nv12Settings[AVVideoCompressionPropertiesKey] as? [String: Any]
         )
+        XCTAssertEqual(nv12Compression[AVVideoAllowFrameReorderingKey] as? Bool, false)
         XCTAssertEqual(
             nv12Compression[AVVideoProfileLevelKey] as? String,
             kVTProfileLevel_H264_High_AutoLevel as String
@@ -486,7 +537,7 @@ final class VideoWriterFormatContractV4Tests: XCTestCase {
                 compression[
                     kVTCompressionPropertyKey_HDRMetadataInsertionMode as String
                 ] as? String,
-                kVTHDRMetadataInsertionMode_Auto as String
+                kVTHDRMetadataInsertionMode_None as String
             )
             XCTAssertEqual(
                 compression[
@@ -969,7 +1020,23 @@ final class VideoWriterFormatContractV4Tests: XCTestCase {
         }
 
         for transfer in [HDRTransferFunctionV4.pq, .hlg] {
-            let metadata = try hdrMetadata(transfer: transfer)
+          for ambient: UInt32? in [nil, 1_000, 123_456] {
+            let base = try hdrMetadata(transfer: transfer)
+            let metadata = HDRFormatMetadataV4(
+                signal: base.signal,
+                staticMetadata: HDRStaticMetadataV4(
+                    masteringDisplayColorVolume: base.staticMetadata.masteringDisplayColorVolume,
+                    contentLightLevelInfo: base.staticMetadata.contentLightLevelInfo,
+                    ambientViewingEnvironment: try ambient.map {
+                        try AmbientViewingEnvironmentV4(
+                            ambientIlluminance: $0,
+                            ambientLight: HDRChromaticityV4(
+                                x: 15_635, y: 16_450, label: "ambient"
+                            )
+                        )
+                    }
+                )
+            )
             let contract = try VideoWriterFormatContractV4(
                 codec: .hevc,
                 storage: .p010VideoRange10Bit,
@@ -1008,6 +1075,30 @@ final class VideoWriterFormatContractV4Tests: XCTestCase {
             await writer.finishWriting()
             XCTAssertEqual(writer.status, .completed)
             XCTAssertNil(writer.error)
+            let originalBytes = try Data(contentsOf: url)
+            do {
+                try await contract.finalizeEncodedMetadata(
+                    at: url, cancellation: { throw CancellationError() }
+                )
+                XCTFail("Cancelled HDR finalization must fail.")
+            } catch is CancellationError {}
+            XCTAssertEqual(try Data(contentsOf: url), originalBytes)
+            for invalidOrdinal in [-1, 99] {
+                do {
+                    try await contract.finalizeEncodedMetadata(
+                        at: url, trackOrdinal: invalidOrdinal
+                    )
+                    XCTFail("An unknown HDR track must fail.")
+                } catch {}
+                XCTAssertEqual(try Data(contentsOf: url), originalBytes)
+            }
+            let encodedBefore = try await encodedHDRSampleIdentities(at: url)
+            try await contract.finalizeEncodedMetadata(at: url)
+            let encodedAfter = try await encodedHDRSampleIdentities(at: url)
+            XCTAssertEqual(encodedAfter, encodedBefore)
+            let finalizedBytes = try Data(contentsOf: url)
+            try await contract.finalizeEncodedMetadata(at: url)
+            XCTAssertEqual(try Data(contentsOf: url), finalizedBytes)
 
             let asset = AVURLAsset(url: url)
             let tracks = try await asset.loadTracks(withMediaType: .video)
@@ -1038,7 +1129,52 @@ final class VideoWriterFormatContractV4Tests: XCTestCase {
             while output.copyNextSampleBuffer() != nil {}
             XCTAssertEqual(reader.status, .completed)
             XCTAssertNil(reader.error)
+          }
         }
+    }
+
+    private struct EncodedHDRSampleIdentity: Equatable {
+        let bytes: Data
+        let presentation: CMTime
+        let decode: CMTime
+        let duration: CMTime
+    }
+
+    private func encodedHDRSampleIdentities(
+        at url: URL
+    ) async throws -> [EncodedHDRSampleIdentity] {
+        let asset = AVURLAsset(url: url)
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(tracks.first)
+        let reader = try AVAssetReader(asset: asset)
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
+        reader.timeRange = try await track.load(.timeRange)
+        XCTAssertTrue(reader.canAdd(output))
+        reader.add(output)
+        XCTAssertTrue(reader.startReading())
+        var result: [EncodedHDRSampleIdentity] = []
+        while let sample = output.copyNextSampleBuffer() {
+            if CMSampleBufferGetNumSamples(sample) == 0 { continue }
+            let block = try XCTUnwrap(CMSampleBufferGetDataBuffer(sample))
+            let size = CMBlockBufferGetDataLength(block)
+            var bytes = Data(count: size)
+            let status = bytes.withUnsafeMutableBytes { destination in
+                CMBlockBufferCopyDataBytes(
+                    block, atOffset: 0, dataLength: size,
+                    destination: destination.baseAddress!
+                )
+            }
+            XCTAssertEqual(status, noErr)
+            result.append(EncodedHDRSampleIdentity(
+                bytes: bytes,
+                presentation: CMSampleBufferGetPresentationTimeStamp(sample),
+                decode: CMSampleBufferGetDecodeTimeStamp(sample),
+                duration: CMSampleBufferGetDuration(sample)
+            ))
+        }
+        XCTAssertEqual(reader.status, .completed)
+        XCTAssertFalse(result.isEmpty)
+        return result
     }
 
     private func sourceGeometry(

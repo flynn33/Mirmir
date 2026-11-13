@@ -1,4 +1,6 @@
 import Foundation
+import XCTest
+@testable import Mirmir
 
 private enum SelfTestFailure: Error, CustomStringConvertible {
     case assertion(String)
@@ -57,7 +59,6 @@ private struct Fixture {
     }
 }
 
-@main
 private struct WorkflowDurableCoordinatorV4SelfTestMain {
     static func main() async throws {
         var completed: [String] = []
@@ -520,5 +521,11 @@ private struct WorkflowDurableCoordinatorV4SelfTestMain {
 
     private static func digest(_ value: Int) -> String {
         String(format: "%064llx", value)
+    }
+}
+
+final class WorkflowDurableCoordinatorV4SelfTests: XCTestCase {
+    func testStandaloneScenarios() async throws {
+        try await WorkflowDurableCoordinatorV4SelfTestMain.main()
     }
 }

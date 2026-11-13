@@ -1,0 +1,256 @@
+{
+  "outputs": [
+    {
+      "name": "bottom-first-72-workflow-mirmirDeterministicMetal-resumed_0_1A7C8868-D4CE-472C-99FA-8009CCCFF4BF.mov",
+      "source": "bottom-first",
+      "fileSHA256": "50f67a6795d114fb02010688121b18eaea04ec421a1189db277931f193f1056a",
+      "decoded10BitYUVSHA256": "4dceef78c8508a40a888de5c92ccb29305179efefa17197ecfb2fcc0f34f7ba8",
+      "decodedFrames": 144,
+      "packetCount": 144,
+      "PCMBytes": 288000,
+      "PCMSHA256": "2387e92b7509ad90031e0e15251cef5bd356bbf1e90b57e8d18f5f91fc40b451",
+      "checks": {
+        "oneVideoOneAudio": true,
+        "raster320x192": true,
+        "main10HEVCLeftLimited709Progressive": true,
+        "presentationClockExact": true,
+        "everyPacketDurationExact": true,
+        "streamDurationExactly3Seconds": true,
+        "completeIndependent10BitDecode": true,
+        "PCM144000FramesByteExact": true
+      }
+    },
+    {
+      "name": "bottom-first-72-workflow-mirmirDeterministicMetal-uninterrupted_0_99E6EF82-BDBA-4A86-B6B9-F0B3F5263651.mov",
+      "source": "bottom-first",
+      "fileSHA256": "213eaf86974d0af86b19127fbd2b41518462cf00d71aa6ea75547035ea502fb2",
+      "decoded10BitYUVSHA256": "4dceef78c8508a40a888de5c92ccb29305179efefa17197ecfb2fcc0f34f7ba8",
+      "decodedFrames": 144,
+      "packetCount": 144,
+      "PCMBytes": 288000,
+      "PCMSHA256": "2387e92b7509ad90031e0e15251cef5bd356bbf1e90b57e8d18f5f91fc40b451",
+      "checks": {
+        "oneVideoOneAudio": true,
+        "raster320x192": true,
+        "main10HEVCLeftLimited709Progressive": true,
+        "presentationClockExact": true,
+        "everyPacketDurationExact": true,
+        "streamDurationExactly3Seconds": true,
+        "completeIndependent10BitDecode": true,
+        "PCM144000FramesByteExact": true
+      }
+    },
+    {
+      "name": "bottom-first-72-workflow-mirmirDeterministicCPU-resumed_0_FB15E566-DCFA-49EF-8ED4-A178CFB28ED8.mov",
+      "source": "bottom-first",
+      "fileSHA256": "b03cd451c17a7719aeda02c9858ca641bf81d61e431151f7b27e2343cd11746d",
+      "decoded10BitYUVSHA256": "4dceef78c8508a40a888de5c92ccb29305179efefa17197ecfb2fcc0f34f7ba8",
+      "decodedFrames": 144,
+      "packetCount": 144,
+      "PCMBytes": 288000,
+      "PCMSHA256": "2387e92b7509ad90031e0e15251cef5bd356bbf1e90b57e8d18f5f91fc40b451",
+      "checks": {
+        "oneVideoOneAudio": true,
+        "raster320x192": true,
+        "main10HEVCLeftLimited709Progressive": true,
+        "presentationClockExact": true,
+        "everyPacketDurationExact": true,
+        "streamDurationExactly3Seconds": true,
+        "completeIndependent10BitDecode": true,
+        "PCM144000FramesByteExact": true
+      }
+    },
+    {
+      "name": "bottom-first-72-workflow-mirmirDeterministicCPU-uninterrupted_0_E56E4483-5BEE-4E79-A511-3D12CF209001.mov",
+      "source": "bottom-first",
+      "fileSHA256": "c5395a54ebb12a8cda931039eacf3691bfa6d1f8a95e41abb6a3dc8bfd1f6454",
+      "decoded10BitYUVSHA256": "4dceef78c8508a40a888de5c92ccb29305179efefa17197ecfb2fcc0f34f7ba8",
+      "decodedFrames": 144,
+      "packetCount": 144,
+      "PCMBytes": 288000,
+      "PCMSHA256": "2387e92b7509ad90031e0e15251cef5bd356bbf1e90b57e8d18f5f91fc40b451",
+      "checks": {
+        "oneVideoOneAudio": true,
+        "raster320x192": true,
+        "main10HEVCLeftLimited709Progressive": true,
+        "presentationClockExact": true,
+        "everyPacketDurationExact": true,
+        "streamDurationExactly3Seconds": true,
+        "completeIndependent10BitDecode": true,
+        "PCM144000FramesByteExact": true
+      }
+    },
+    {
+      "name": "top-first-72-workflow-mirmirDeterministicMetal-resumed_0_29A6152C-79CE-4602-B9CA-D976F3CE24E1.mov",
+      "source": "top-first",
+      "fileSHA256": "918fe3a66a5ddf090560bce03b1cfe100af6469f928fba460f32c9f7a2c18069",
+      "decoded10BitYUVSHA256": "0b71cff0dfc5441c321c16954a2792d753e96ce8ccff8f7f619348a2b41f1467",
+      "decodedFrames": 144,
+      "packetCount": 144,
+      "PCMBytes": 288000,
+      "PCMSHA256": "2387e92b7509ad90031e0e15251cef5bd356bbf1e90b57e8d18f5f91fc40b451",
+      "checks": {
+        "oneVideoOneAudio": true,
+        "raster320x192": true,
+        "main10HEVCLeftLimited709Progressive": true,
+        "presentationClockExact": true,
+        "everyPacketDurationExact": true,
+        "streamDurationExactly3Seconds": true,
+        "completeIndependent10BitDecode": true,
+        "PCM144000FramesByteExact": true
+      }
+    },
+    {
+      "name": "top-first-72-workflow-mirmirDeterministicMetal-uninterrupted_0_33669CD4-39F4-473E-A4DE-9E216FF8FF6E.mov",
+      "source": "top-first",
+      "fileSHA256": "13912075b3c48e21052c206574106c564535d638205e9a8f18f0f8c486ac35c0",
+      "decoded10BitYUVSHA256": "0b71cff0dfc5441c321c16954a2792d753e96ce8ccff8f7f619348a2b41f1467",
+      "decodedFrames": 144,
+      "packetCount": 144,
+      "PCMBytes": 288000,
+      "PCMSHA256": "2387e92b7509ad90031e0e15251cef5bd356bbf1e90b57e8d18f5f91fc40b451",
+      "checks": {
+        "oneVideoOneAudio": true,
+        "raster320x192": true,
+        "main10HEVCLeftLimited709Progressive": true,
+        "presentationClockExact": true,
+        "everyPacketDurationExact": true,
+        "streamDurationExactly3Seconds": true,
+        "completeIndependent10BitDecode": true,
+        "PCM144000FramesByteExact": true
+      }
+    },
+    {
+      "name": "top-first-72-workflow-mirmirDeterministicCPU-resumed_0_8B96EF71-643C-4AB8-B04A-51320E332445.mov",
+      "source": "top-first",
+      "fileSHA256": "3e95b26a3549fc971181d862016deb8cb129774d0f8820ca87d8b351eb5d0c7b",
+      "decoded10BitYUVSHA256": "0b71cff0dfc5441c321c16954a2792d753e96ce8ccff8f7f619348a2b41f1467",
+      "decodedFrames": 144,
+      "packetCount": 144,
+      "PCMBytes": 288000,
+      "PCMSHA256": "2387e92b7509ad90031e0e15251cef5bd356bbf1e90b57e8d18f5f91fc40b451",
+      "checks": {
+        "oneVideoOneAudio": true,
+        "raster320x192": true,
+        "main10HEVCLeftLimited709Progressive": true,
+        "presentationClockExact": true,
+        "everyPacketDurationExact": true,
+        "streamDurationExactly3Seconds": true,
+        "completeIndependent10BitDecode": true,
+        "PCM144000FramesByteExact": true
+      }
+    },
+    {
+      "name": "top-first-72-workflow-mirmirDeterministicCPU-uninterrupted_0_31048BE0-7A90-4AE2-8583-59A983F97EAA.mov",
+      "source": "top-first",
+      "fileSHA256": "18102c8e203a13c0d84476c05b5b62199b0956ab6939136be91a8f292999cba2",
+      "decoded10BitYUVSHA256": "0b71cff0dfc5441c321c16954a2792d753e96ce8ccff8f7f619348a2b41f1467",
+      "decodedFrames": 144,
+      "packetCount": 144,
+      "PCMBytes": 288000,
+      "PCMSHA256": "2387e92b7509ad90031e0e15251cef5bd356bbf1e90b57e8d18f5f91fc40b451",
+      "checks": {
+        "oneVideoOneAudio": true,
+        "raster320x192": true,
+        "main10HEVCLeftLimited709Progressive": true,
+        "presentationClockExact": true,
+        "everyPacketDurationExact": true,
+        "streamDurationExactly3Seconds": true,
+        "completeIndependent10BitDecode": true,
+        "PCM144000FramesByteExact": true
+      }
+    },
+    {
+      "name": "progressive-72-workflow-mirmirDeterministicMetal-resumed_0_A01735FF-45C0-4E39-BEDC-A10FF92DAA46.mov",
+      "source": "progressive",
+      "fileSHA256": "a9e03c31a994a3d3bc5cb9a37b0f7dc132fd61787c774274698a6656504dc846",
+      "decoded10BitYUVSHA256": "fe9ad24a4fcdbcc476675e86f67ce0a2509f33f57c49a9e1e504234bb6c17aae",
+      "decodedFrames": 72,
+      "packetCount": 72,
+      "PCMBytes": 288000,
+      "PCMSHA256": "2387e92b7509ad90031e0e15251cef5bd356bbf1e90b57e8d18f5f91fc40b451",
+      "checks": {
+        "oneVideoOneAudio": true,
+        "raster320x192": true,
+        "main10HEVCLeftLimited709Progressive": true,
+        "presentationClockExact": true,
+        "everyPacketDurationExact": true,
+        "streamDurationExactly3Seconds": true,
+        "completeIndependent10BitDecode": true,
+        "PCM144000FramesByteExact": true
+      }
+    },
+    {
+      "name": "progressive-72-workflow-mirmirDeterministicMetal-uninterrupted_0_3E9602FB-3DDA-4598-8CC8-6DC42C55D8BA.mov",
+      "source": "progressive",
+      "fileSHA256": "93c58a452f8a6e8bd668fa9f20a5697165bfde68123cf88b4d5d0aee0b79dab4",
+      "decoded10BitYUVSHA256": "fe9ad24a4fcdbcc476675e86f67ce0a2509f33f57c49a9e1e504234bb6c17aae",
+      "decodedFrames": 72,
+      "packetCount": 72,
+      "PCMBytes": 288000,
+      "PCMSHA256": "2387e92b7509ad90031e0e15251cef5bd356bbf1e90b57e8d18f5f91fc40b451",
+      "checks": {
+        "oneVideoOneAudio": true,
+        "raster320x192": true,
+        "main10HEVCLeftLimited709Progressive": true,
+        "presentationClockExact": true,
+        "everyPacketDurationExact": true,
+        "streamDurationExactly3Seconds": true,
+        "completeIndependent10BitDecode": true,
+        "PCM144000FramesByteExact": true
+      }
+    },
+    {
+      "name": "progressive-72-workflow-mirmirDeterministicCPU-resumed_0_C971B71C-28AC-4967-A4A1-9E06C0EA7B89.mov",
+      "source": "progressive",
+      "fileSHA256": "c4f07f8ac41f64745d09293780b63372ed8bb6a3278acccf43ef7ff4c4d5a3b1",
+      "decoded10BitYUVSHA256": "fe9ad24a4fcdbcc476675e86f67ce0a2509f33f57c49a9e1e504234bb6c17aae",
+      "decodedFrames": 72,
+      "packetCount": 72,
+      "PCMBytes": 288000,
+      "PCMSHA256": "2387e92b7509ad90031e0e15251cef5bd356bbf1e90b57e8d18f5f91fc40b451",
+      "checks": {
+        "oneVideoOneAudio": true,
+        "raster320x192": true,
+        "main10HEVCLeftLimited709Progressive": true,
+        "presentationClockExact": true,
+        "everyPacketDurationExact": true,
+        "streamDurationExactly3Seconds": true,
+        "completeIndependent10BitDecode": true,
+        "PCM144000FramesByteExact": true
+      }
+    },
+    {
+      "name": "progressive-72-workflow-mirmirDeterministicCPU-uninterrupted_0_61E17E6E-C061-4D71-AB29-5DC6AE451479.mov",
+      "source": "progressive",
+      "fileSHA256": "f0f5c2824c45916d16ac1576d9f76cbaac5ec4406af8a2e01e79751d455a884b",
+      "decoded10BitYUVSHA256": "fe9ad24a4fcdbcc476675e86f67ce0a2509f33f57c49a9e1e504234bb6c17aae",
+      "decodedFrames": 72,
+      "packetCount": 72,
+      "PCMBytes": 288000,
+      "PCMSHA256": "2387e92b7509ad90031e0e15251cef5bd356bbf1e90b57e8d18f5f91fc40b451",
+      "checks": {
+        "oneVideoOneAudio": true,
+        "raster320x192": true,
+        "main10HEVCLeftLimited709Progressive": true,
+        "presentationClockExact": true,
+        "everyPacketDurationExact": true,
+        "streamDurationExactly3Seconds": true,
+        "completeIndependent10BitDecode": true,
+        "PCM144000FramesByteExact": true
+      }
+    }
+  ],
+  "allChecksPass": true,
+  "CPUAndMetalAndFreshOwnerResumeDecoded10BitExact": {
+    "progressive": true,
+    "top-first": true,
+    "bottom-first": true
+  },
+  "checkerSHA256": "77d6cc26b4fccc4d13924a0b2b1d6a261601b952593b43048ec64615e2a3ad69",
+  "referencePCM": {
+    "progressive": "2387e92b7509ad90031e0e15251cef5bd356bbf1e90b57e8d18f5f91fc40b451",
+    "top-first": "2387e92b7509ad90031e0e15251cef5bd356bbf1e90b57e8d18f5f91fc40b451",
+    "bottom-first": "2387e92b7509ad90031e0e15251cef5bd356bbf1e90b57e8d18f5f91fc40b451"
+  }
+}

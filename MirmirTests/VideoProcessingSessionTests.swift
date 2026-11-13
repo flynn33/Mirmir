@@ -203,6 +203,272 @@ final class VideoProcessingSessionTests: XCTestCase {
         XCTAssertFalse(try directoryContainsPartialFile(fixtures.rootURL))
     }
 
+    func testUntaggedSDRCompletesEveryConventionalSDRRoute() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let input = fixtures.url(for: "untagged-conventional.mov")
+        try await VideoProbeFixtureFactory.makeVideo(
+            at: input, transform: .identity, includeColorProperties: false
+        )
+        let source = try await VideoProbe().probe(url: input)
+        let methods: [UpscaleBackendID] = [
+            .automatic, .mpsLanczos, .mpsBilinear, .coreImageLanczos,
+            .coreImageBicubic, .vImageHighQuality, .vImageStandard,
+            .videoToolboxPixelTransfer
+        ]
+        for method in methods {
+            let output = fixtures.url(for: "untagged-\(method.rawValue).mov")
+            let result = try await UpscaleCoordinator().process(
+                UpscaleRequest(
+                    inputURL: input, outputURL: output, backendID: method,
+                    targetWidth: 128, targetHeight: 96, outputCodec: .h264,
+                    preserveAudio: false, overwriteExistingFile: false
+                ), progress: { _ in }
+            )
+            if method != .automatic { XCTAssertEqual(result.actualBackendID, method) }
+            XCTAssertEqual(result.processedFrameCount, 3)
+            let reopened = try await VideoProbe().probe(url: output)
+            XCTAssertTrue(reopened.isReadable)
+            XCTAssertEqual(reopened.color.colorPrimaries, source.color.colorPrimaries)
+            XCTAssertEqual(reopened.color.transferFunction, source.color.transferFunction)
+            XCTAssertEqual(reopened.color.yCbCrMatrix, source.color.yCbCrMatrix)
+        }
+    }
+
+    @MainActor
+    func testDurableCompletionLoadsOriginalAndOutputInComparisonPlayer() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let input = fixtures.url(for: "comparison-original.mov")
+        try await VideoProbeFixtureFactory.makeVideo(at: input, transform: .identity)
+        let output = fixtures.url(for: "comparison-output.mov")
+        let queue = try WorkflowApplicationQueueV4(
+            trustedRootURL: fixtures.rootURL.appendingPathComponent("queue"),
+            workerID: WorkflowWorkerIDV4("comparison-regression"),
+            resolver: ComparisonFixtureBookmarkResolver()
+        )
+        let workflow = WorkflowApplicationCoordinatorV4(
+            queue: queue,
+            engine: WorkflowDeterministicApplicationEngineV4(
+                videoProbe: VideoProbe(), backendCatalog: .live(),
+                runtimeEnvironment: .current()
+            ),
+            maximumInputFramesPerBoundary: 60
+        )
+        let model = MirmirViewModel(workflowController: workflow)
+        await model.initializeWorkflow()
+        model.selectBackend(.mirmirDeterministicMetal)
+        model.selectVideo(input)
+        await model.waitForCurrentProbe()
+        await model.waitForBackendAvailability()
+        model.setOutputURL(output)
+        XCTAssertTrue(model.canStart)
+        model.startUpscale()
+        await model.waitForProcessing()
+        guard case .completed(_, let result) = model.state else {
+            return XCTFail("Expected durable completion: \(model.state)")
+        }
+        let original = try XCTUnwrap(model.completedComparisonSourceURL)
+        XCTAssertEqual(original, input)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: original.path))
+        let player = MirmirSynchronizedPlaybackController()
+        defer { player.tearDown() }
+        player.load(sourceURL: original, completedOutputURL: result.outputURL)
+        for _ in 0..<200 {
+            if player.timeline.isReady { break }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        XCTAssertTrue(player.timeline.isReady, "\(player.timeline.loadState)")
+        XCTAssertGreaterThan(player.timeline.duration, 0)
+        XCTAssertNotNil(player.sourcePlayer.currentItem)
+        XCTAssertNotNil(player.outputPlayer.currentItem)
+    }
+
+    @MainActor
+    func testAVIComparisonAndThumbnailUseNativeResolvedSource()
+        async throws {
+        for fixture in ["native-avi-h264", "native-avi-mpeg4"] {
+            let sourceURL = try XCTUnwrap(Bundle(for: Self.self).url(
+                forResource: fixture,
+                withExtension: "avi"
+            )).standardizedFileURL
+            let outputURL = try await NativeMediaInputAssetResolverV4.asset(
+                url: sourceURL
+            ).url.standardizedFileURL
+            let controller = MirmirSynchronizedPlaybackController()
+            defer { controller.tearDown() }
+            controller.load(sourceURL: sourceURL, completedOutputURL: outputURL)
+            for _ in 0..<200 {
+                if controller.timeline.isReady { break }
+                try await Task.sleep(for: .milliseconds(50))
+            }
+            XCTAssertTrue(controller.timeline.isReady, "\(fixture): \(controller.timeline.loadState)")
+            let sourceAsset = try XCTUnwrap(
+                controller.sourcePlayer.currentItem?.asset as? AVURLAsset
+            )
+            let outputAsset = try XCTUnwrap(
+                controller.outputPlayer.currentItem?.asset as? AVURLAsset
+            )
+            XCTAssertNotEqual(sourceAsset.url.standardizedFileURL, sourceURL)
+            XCTAssertEqual(outputAsset.url.standardizedFileURL, outputURL)
+            let sourceFrame = await MirmirFramePreviewLoader.frame(
+                at: sourceURL,
+                role: .source,
+                preferredTime: 1
+            )
+            let outputFrame = await MirmirFramePreviewLoader.frame(
+                at: outputURL,
+                role: .completedOutput,
+                preferredTime: 1
+            )
+            XCTAssertNotNil(sourceFrame, fixture)
+            XCTAssertNotNil(outputFrame, fixture)
+        }
+    }
+
+    func testCommonInputCodecsCompleteBothProductionDeterministicRoutes() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        for codec in [AVVideoCodecType.h264, .hevc, .proRes422] {
+            let inputURL = fixtures.url(for: "input-\(codec.rawValue).mov")
+            try await VideoProbeFixtureFactory.makeVideo(
+                at: inputURL,
+                transform: .identity,
+                codec: codec
+            )
+            for backendID in [UpscaleBackendID.mirmirDeterministicCPU, .mirmirDeterministicMetal] {
+                do {
+                    let outputURL = fixtures.url(for: "\(codec.rawValue)-\(backendID.rawValue).mov")
+                    let result = try await UpscaleCoordinator().process(
+                        UpscaleRequest(
+                            inputURL: inputURL,
+                            outputURL: outputURL,
+                            backendID: backendID,
+                            targetWidth: 128,
+                            targetHeight: 96,
+                            outputCodec: .hevc,
+                            preserveAudio: false,
+                            overwriteExistingFile: false
+                        ),
+                        progress: { _ in }
+                    )
+                    XCTAssertEqual(result.actualBackendID, backendID)
+                    XCTAssertEqual(result.processedFrameCount, 3)
+                    let reopened = try await VideoProbe().probe(url: outputURL)
+                    XCTAssertTrue(reopened.isReadable)
+                    XCTAssertEqual(reopened.geometry.encodedSize, CGSize(width: 128, height: 96))
+                } catch {
+                    XCTFail("\(codec.rawValue), \(backendID.rawValue): \(error)")
+                }
+            }
+        }
+    }
+
+    func testProgressiveJFIFMOVCompletesBothProductionDeterministicRoutes() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let input = try XCTUnwrap(Bundle(for: Self.self).url(
+            forResource: "legacy-mjpeg", withExtension: "mov"))
+        let originalBytes = try Data(contentsOf: input)
+        for backend in [UpscaleBackendID.mirmirDeterministicCPU, .mirmirDeterministicMetal] {
+            let output = fixtures.url(for: "jfif-\(backend.rawValue).mov")
+            let result = try await UpscaleCoordinator().process(
+                UpscaleRequest(inputURL: input, outputURL: output, backendID: backend,
+                    targetWidth: 320, targetHeight: 192, outputCodec: .h264,
+                    preserveAudio: true, overwriteExistingFile: false), progress: { _ in })
+            XCTAssertEqual(result.actualBackendID, backend)
+            XCTAssertEqual(result.processedFrameCount, 72)
+            XCTAssertEqual(result.audioResult, .preserved)
+            let reopened = try await VideoProbe().probe(url: output)
+            XCTAssertTrue(reopened.isReadable)
+            XCTAssertEqual(reopened.geometry.encodedSize, CGSize(width: 320, height: 192))
+            XCTAssertEqual(reopened.color.chromaSiting, .center)
+            let tracks = try await AVURLAsset(url: output).loadTracks(withMediaType: .video)
+            let descriptions = try await XCTUnwrap(tracks.first).load(.formatDescriptions)
+            XCTAssertEqual(try AVCChromaLocationV4.declaration(from: descriptions)?.location, .center)
+            let artifact = XCTAttachment(contentsOfFile: output)
+            artifact.name = "jfif-session-\(backend.rawValue).mov"
+            artifact.lifetime = .keepAlways
+            add(artifact)
+        }
+        XCTAssertEqual(try Data(contentsOf: input), originalBytes)
+        XCTAssertFalse(try directoryContainsPartialFile(fixtures.rootURL))
+    }
+
+    func testProRes422WorkingAvailabilityKeepsAutomaticDocumentedScope() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let input = fixtures.url(for: "automatic-prores-input.mov")
+        try await VideoProbeFixtureFactory.makeVideo(at: input, transform: .identity, codec: .proRes422)
+        let source = try await VideoProbe().probe(url: input)
+        let catalog = UpscaleBackendCatalog.live()
+        let snapshot = await catalog.snapshot(for: source,
+            targetSize: CGSize(width: 128, height: 96), environment: .current())
+        XCTAssertEqual(snapshot.entry(for: .mirmirDeterministicCPU)?.availability, .available)
+        XCTAssertEqual(snapshot.entry(for: .mirmirDeterministicMetal)?.availability, .available)
+        let firstApple = AutomaticBackendSelector.orderedBackendIDs.first {
+            snapshot.entry(for: $0)?.availability == .available
+        }
+        let actual = snapshot.resolution(for: .automatic)
+        XCTAssertEqual(actual.actualBackendID, firstApple)
+        XCTAssertEqual(actual.availability, firstApple == nil
+            ? .unavailable(reason: .noCompatibleAutomaticBackend) : .available)
+    }
+
+    func testUntaggedH264CompletesBothProductionDeterministicRoutes() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let inputURL = fixtures.url(for: "untagged.mov")
+        try await VideoProbeFixtureFactory.makeVideo(
+            at: inputURL,
+            transform: .identity,
+            includeColorProperties: false
+        )
+        let asset = AVURLAsset(url: inputURL)
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(tracks.first)
+        let formats = try await track.load(.formatDescriptions)
+        let format = try XCTUnwrap(formats.first)
+        XCTAssertNil(CMFormatDescriptionGetExtension(
+            format,
+            extensionKey: kCMFormatDescriptionExtension_TransferFunction
+        ), "The regression must use a genuinely untagged source.")
+        let sourceInfo = try await VideoProbe().probe(url: inputURL)
+        XCTAssertEqual(sourceInfo.color.isFullRange, false)
+        XCTAssertEqual(sourceInfo.color.dynamicRange, .sdr)
+        XCTAssertEqual(sourceInfo.color.colorPrimaries, kCVImageBufferColorPrimaries_SMPTE_C as String)
+        XCTAssertEqual(sourceInfo.color.yCbCrMatrix, kCVImageBufferYCbCrMatrix_ITU_R_601_4 as String)
+
+        for backendID in [
+            UpscaleBackendID.mirmirDeterministicCPU,
+            .mirmirDeterministicMetal
+        ] {
+            let outputURL = fixtures.url(for: "\(backendID.rawValue).mov")
+            let result = try await UpscaleCoordinator().process(
+                UpscaleRequest(
+                    inputURL: inputURL,
+                    outputURL: outputURL,
+                    backendID: backendID,
+                    targetWidth: 128,
+                    targetHeight: 96,
+                    outputCodec: .h264,
+                    preserveAudio: false,
+                    overwriteExistingFile: false
+                ),
+                progress: { _ in }
+            )
+            XCTAssertEqual(result.actualBackendID, backendID)
+            XCTAssertEqual(result.processedFrameCount, 3)
+            let outputInfo = try await VideoProbe().probe(url: outputURL)
+            XCTAssertEqual(outputInfo.geometry.encodedSize, CGSize(width: 128, height: 96))
+            XCTAssertTrue(outputInfo.isReadable)
+            XCTAssertEqual(outputInfo.color.colorPrimaries, sourceInfo.color.colorPrimaries)
+            XCTAssertEqual(outputInfo.color.transferFunction, sourceInfo.color.transferFunction)
+            XCTAssertEqual(outputInfo.color.yCbCrMatrix, sourceInfo.color.yCbCrMatrix)
+        }
+        XCTAssertFalse(try directoryContainsPartialFile(fixtures.rootURL))
+    }
+
     func testDeterministicCPUReferenceProcessesShortClipWithoutAppleFallback() async throws {
         let fixtures = try TemporaryFixtureDirectory()
         defer { fixtures.remove() }
@@ -333,22 +599,32 @@ final class VideoProcessingSessionTests: XCTestCase {
     func testVideoToolboxSuperResolutionContractsRunOrReportExactUnavailability() async throws {
         let fixtures = try TemporaryFixtureDirectory()
         defer { fixtures.remove() }
+        // Quality VT documents a single supported scale (4×). Use a source that
+        // admits both quality 4× and low-latency 2× rather than the default
+        // 64×48→128×96 pair, which can never exercise quality processing.
         let inputURL = fixtures.url(for: "vt-super-resolution-input.mov")
-        try await VideoProbeFixtureFactory.makeVideo(at: inputURL, transform: .identity)
-        let source = try await VideoProbe().probe(url: inputURL)
-        let target = CGSize(width: 128, height: 96)
-        let catalog = UpscaleBackendCatalog.live()
-        let snapshot = await catalog.snapshot(
-            for: source,
-            targetSize: target,
-            environment: .current()
+        try await VideoProbeFixtureFactory.makeVideo(
+            at: inputURL, transform: .identity, width: 256, height: 144
         )
+        let source = try await VideoProbe().probe(url: inputURL)
+        let catalog = UpscaleBackendCatalog.live()
 
-        for backendID in [
-            UpscaleBackendID.videoToolboxSuperResolutionQuality,
-            .videoToolboxSuperResolutionLowLatency
+        for (backendID, scale) in [
+            (UpscaleBackendID.videoToolboxSuperResolutionQuality, 4),
+            (.videoToolboxSuperResolutionLowLatency, 2)
         ] {
-            let availability = try XCTUnwrap(snapshot.entry(for: backendID)?.availability)
+            let targetWidth = 256 * scale
+            let targetHeight = 144 * scale
+            let availability = await catalog.availability(
+                for: backendID,
+                source: source,
+                targetSize: CGSize(width: targetWidth, height: targetHeight),
+                environment: .current()
+            )
+            let capability = XCTAttachment(string: "\(backendID.rawValue): \(availability.statusText)")
+            capability.name = "VideoToolbox runtime capability"
+            capability.lifetime = .keepAlways
+            add(capability)
             switch availability {
             case .available:
                 let outputURL = fixtures.url(for: "\(backendID.rawValue).mov")
@@ -357,8 +633,8 @@ final class VideoProcessingSessionTests: XCTestCase {
                         inputURL: inputURL,
                         outputURL: outputURL,
                         backendID: backendID,
-                        targetWidth: 128,
-                        targetHeight: 96,
+                        targetWidth: targetWidth,
+                        targetHeight: targetHeight,
                         outputCodec: .h264,
                         preserveAudio: false,
                         overwriteExistingFile: false
@@ -367,9 +643,58 @@ final class VideoProcessingSessionTests: XCTestCase {
                 )
                 XCTAssertEqual(result.actualBackendID, backendID)
                 XCTAssertEqual(result.processedFrameCount, 3)
+                XCTAssertGreaterThan(result.processedFrameCount, 0)
             case .modelDownloadRequired:
                 XCTAssertEqual(backendID, .videoToolboxSuperResolutionQuality)
                 XCTAssertTrue(availability.statusText.contains("Model download required"))
+            case .unavailable(let reason):
+                XCTAssertFalse(reason.userFacingDescription.isEmpty)
+            }
+        }
+    }
+
+    func testVideoToolboxSuperResolutionProcessesSupportedGeometry() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let input = fixtures.url(for: "vt-supported-geometry.mov")
+        try await VideoProbeFixtureFactory.makeVideo(
+            at: input, transform: .identity, width: 256, height: 144
+        )
+        let source = try await VideoProbe().probe(url: input)
+        for (backend, scale) in [
+            (UpscaleBackendID.videoToolboxSuperResolutionQuality, 4),
+            (.videoToolboxSuperResolutionLowLatency, 2)
+        ] {
+            let width = 256 * scale
+            let height = 144 * scale
+            let availability = await UpscaleBackendCatalog.live().availability(
+                for: backend, source: source,
+                targetSize: CGSize(width: width, height: height), environment: .current()
+            )
+            let capability = XCTAttachment(string: "\(backend.rawValue) at \(width)x\(height): \(availability.statusText)")
+            capability.name = "VideoToolbox supported geometry"
+            capability.lifetime = .keepAlways
+            add(capability)
+            switch availability {
+            case .available:
+                let output = fixtures.url(for: "\(backend.rawValue)-supported.mov")
+                let result = try await UpscaleCoordinator().process(UpscaleRequest(
+                    inputURL: input, outputURL: output, backendID: backend,
+                    targetWidth: width, targetHeight: height, outputCodec: .h264,
+                    preserveAudio: false, overwriteExistingFile: false
+                ), progress: { _ in })
+                XCTAssertEqual(result.actualBackendID, backend)
+                XCTAssertEqual(result.processedFrameCount, 3)
+                let observed = try await VideoProbe().probe(url: output)
+                XCTAssertEqual(observed.geometry.encodedSize, CGSize(width: width, height: height))
+                XCTAssertEqual(CMTimeCompare(observed.duration, source.duration), 0)
+                let decodedTimes = try await decodedPresentationTimes(at: output)
+                XCTAssertEqual(decodedTimes.count, 3)
+                for (ordinal, timestamp) in decodedTimes.enumerated() {
+                    XCTAssertEqual(CMTimeCompare(timestamp, CMTime(value: Int64(ordinal), timescale: 30)), 0)
+                }
+            case .modelDownloadRequired:
+                XCTAssertEqual(backend, .videoToolboxSuperResolutionQuality)
             case .unavailable(let reason):
                 XCTAssertFalse(reason.userFacingDescription.isEmpty)
             }
@@ -397,6 +722,11 @@ final class VideoProcessingSessionTests: XCTestCase {
             targetSize: CGSize(width: 128, height: 96),
             environment: .current()
         )
+
+        let capability = XCTAttachment(string: availability.statusText)
+        capability.name = "VideoToolbox interpolation runtime capability"
+        capability.lifetime = .keepAlways
+        add(capability)
 
         switch availability {
         case .available:
@@ -714,6 +1044,69 @@ final class VideoProcessingSessionTests: XCTestCase {
         XCTAssertEqual(result.outputCodec, .hevc)
         let output = try await VideoProbe().probe(url: outputURL)
         XCTAssertEqual(output.codecFourCC, kCMVideoCodecType_HEVC)
+    }
+
+    func testCancellationDuringPreparationFinishesPreparedBackend() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let input = fixtures.url(for: "prepare-cancel.mov")
+        try await VideoProbeFixtureFactory.makeVideo(at: input, transform: .identity)
+        let entered = ProcessingPhaseLatch()
+        let release = ProcessingPhaseLatch()
+        let prepared = LifecycleTestPreparedUpscaler()
+        let backend = LifecycleTestBackend(
+            descriptor: try XCTUnwrap(BackendDescriptor.descriptor(for: .vImageStandard)),
+            prepared: prepared, entered: entered, release: release
+        )
+        let coordinator = UpscaleCoordinator(backendCatalog: UpscaleBackendCatalog(backends: [backend]))
+        let output = fixtures.url(for: "prepare-cancel-output.mov")
+        let task = Task {
+            try await coordinator.process(UpscaleRequest(
+                inputURL: input, outputURL: output, backendID: .vImageStandard,
+                targetWidth: 128, targetHeight: 96, outputCodec: .h264,
+                preserveAudio: false, overwriteExistingFile: false
+            ), progress: { _ in })
+        }
+        await entered.wait()
+        await coordinator.cancel()
+        await release.signal()
+        do {
+            _ = try await task.value
+            XCTFail("Cancellation must stop before processing.")
+        } catch is CancellationError {
+            // The coordinator has not transferred ownership to the media session.
+        }
+        let count = await prepared.finishCount
+        XCTAssertEqual(count, 1)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: output.path))
+    }
+
+    func testSessionSetupFailureFinishesPreparedBackendAndPreservesDestination() async throws {
+        let fixtures = try TemporaryFixtureDirectory()
+        defer { fixtures.remove() }
+        let input = fixtures.url(for: "setup-source.mov")
+        let output = fixtures.url(for: "existing-output.mov")
+        try await VideoProbeFixtureFactory.makeVideo(at: input, transform: .identity)
+        let sentinel = Data("existing destination".utf8)
+        try sentinel.write(to: output)
+        let source = try await VideoProbe().probe(url: input)
+        let prepared = LifecycleTestPreparedUpscaler()
+        do {
+            _ = try await VideoProcessingSession().process(
+                request: UpscaleRequest(
+                    inputURL: input, outputURL: output, backendID: .vImageStandard,
+                    targetWidth: 128, targetHeight: 96, outputCodec: .h264,
+                    preserveAudio: false, overwriteExistingFile: false
+                ), source: source, preparedBackend: prepared,
+                cancellation: ProcessingCancellation(), progress: { _ in }
+            )
+            XCTFail("The existing destination must be rejected.")
+        } catch let error as MirmirError {
+            XCTAssertEqual(error, .outputAlreadyExists)
+        }
+        let count = await prepared.finishCount
+        XCTAssertEqual(count, 1)
+        XCTAssertEqual(try Data(contentsOf: output), sentinel)
     }
 
     func testCancellationRemovesPartialOutputAndCoordinatorAcceptsNextJob() async throws {
@@ -1041,4 +1434,44 @@ private actor ProcessingPhaseLatch {
             continuations.append(continuation)
         }
     }
+}
+
+// These fixture files already live in the test host's private container.
+private struct ComparisonFixtureBookmarkResolver: WorkflowSecurityScopedBookmarkResolvingV4 {
+    func makeBookmark(for url: URL, role: WorkflowScopedResourceRoleV4) throws -> Data {
+        Data(url.path.utf8)
+    }
+
+    func resolveBookmark(_ data: Data, role: WorkflowScopedResourceRoleV4) throws -> WorkflowResolvedScopedResourceV4 {
+        let path = try XCTUnwrap(String(data: data, encoding: .utf8))
+        return WorkflowResolvedScopedResourceV4(
+            url: URL(fileURLWithPath: path), isStale: false,
+            startAccessing: { true }, stopAccessing: {}
+        )
+    }
+}
+
+private struct LifecycleTestBackend: UpscaleBackend {
+    let descriptor: BackendDescriptor
+    let prepared: LifecycleTestPreparedUpscaler
+    let entered: ProcessingPhaseLatch
+    let release: ProcessingPhaseLatch
+    func availability(for source: VideoInfo, targetSize: CGSize, environment: RuntimeEnvironment) async -> BackendAvailability { .available }
+    func prepare(request: BackendPreparationRequest, environment: RuntimeEnvironment) async throws -> any PreparedFrameUpscaler {
+        await entered.signal()
+        await release.wait()
+        return prepared
+    }
+}
+
+private actor LifecycleTestPreparedUpscaler: PreparedFrameUpscaler {
+    nonisolated let actualBackendID = UpscaleBackendID.vImageStandard
+    nonisolated let sourcePixelBufferAttributes = PixelBufferAttributes()
+    nonisolated let destinationPixelBufferAttributes = PixelBufferAttributes()
+    private(set) var finishCount = 0
+    func process(source: FramePixelBuffer, destination: FramePixelBuffer, timing: FrameTiming) async throws {
+        XCTFail("The early-failure test must not process a frame.")
+        throw CancellationError()
+    }
+    func finish() async throws { finishCount += 1 }
 }

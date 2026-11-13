@@ -25,7 +25,11 @@ struct VTHighQualitySuperResolutionBackend: ModelDownloadableBackend {
                 return .unavailable(reason: .unsupportedPixelFormatOrBitDepth(details: "this quality model does not report 64RGBAHalf as a supported native frame format"))
             }
             switch configuration.configurationModelStatus {
-            case .ready: return .available
+            case .ready:
+                if let reason = VTQualitySessionAdmissionV4.startSessionFailure(configuration) {
+                    return .unavailable(reason: reason)
+                }
+                return .available
             case .downloadRequired: return .modelDownloadRequired(progress: nil)
             case .downloading:
                 return .modelDownloadRequired(progress: Double(configuration.configurationModelPercentageAvailable))
@@ -64,7 +68,16 @@ struct VTHighQualitySuperResolutionBackend: ModelDownloadableBackend {
         let configuration: VTSuperResolutionScalerConfiguration
         do { configuration = try makeConfiguration(source: request.source, targetSize: request.targetSize) }
         catch let error as BackendUnavailableReasonBox { throw BackendPreparationError.unavailable(descriptor.id, error.value) }
+        try Task.checkCancellation()
+        while configuration.configurationModelStatus == .downloading {
+            progress(Double(configuration.configurationModelPercentageAvailable))
+            try await Task.sleep(for: .milliseconds(150))
+        }
+        try Task.checkCancellation()
         if configuration.configurationModelStatus == .ready { progress(1); return }
+        guard configuration.configurationModelStatus == .downloadRequired else {
+            throw BackendPreparationError.unavailable(descriptor.id, .modelUnavailable(details: "unknown model state \(configuration.configurationModelStatus.rawValue)"))
+        }
         let polling = Task {
             while !Task.isCancelled {
                 progress(Double(configuration.configurationModelPercentageAvailable))
@@ -72,8 +85,17 @@ struct VTHighQualitySuperResolutionBackend: ModelDownloadableBackend {
             }
         }
         defer { polling.cancel() }
-        do { try await configuration.downloadConfigurationModel() }
-        catch { throw BackendPreparationError.unavailable(descriptor.id, .modelUnavailable(details: error.localizedDescription)) }
+        do {
+            try await withTaskCancellationHandler {
+                try await configuration.downloadConfigurationModel()
+            } onCancel: {
+                polling.cancel()
+            }
+        } catch {
+            try Task.checkCancellation()
+            throw BackendPreparationError.unavailable(descriptor.id, .modelUnavailable(details: error.localizedDescription))
+        }
+        try Task.checkCancellation()
         guard configuration.configurationModelStatus == .ready else {
             throw BackendPreparationError.unavailable(descriptor.id, .modelUnavailable(details: "the system download completed without reporting Ready"))
         }
@@ -117,6 +139,28 @@ private struct BackendUnavailableReasonBox: Error {
     init(_ value: BackendUnavailableReason) { self.value = value }
 }
 
+/// Admits quality VideoToolbox only when a ready model can actually start a
+/// `VTFrameProcessor` session. Historical Ready+`-19730` hosts otherwise look
+/// available and then process zero frames.
+@available(macOS 26.0, *)
+enum VTQualitySessionAdmissionV4 {
+    static func startSessionFailure(
+        _ configuration: VTSuperResolutionScalerConfiguration
+    ) -> BackendUnavailableReason? {
+        let processor = VTFrameProcessor()
+        do {
+            try processor.startSession(configuration: configuration)
+            processor.endSession()
+            return nil
+        } catch {
+            let ns = error as NSError
+            return .appleAPIUnsupported(
+                details: "VTFrameProcessor.startSession failed (\(ns.domain) \(ns.code)): \(ns.localizedDescription)"
+            )
+        }
+    }
+}
+
 @available(macOS 26.0, *)
 actor PreparedVTHighQualitySuperResolutionScaler: PreparedFrameUpscaler {
     nonisolated let sourcePixelBufferAttributes: PixelBufferAttributes
@@ -150,7 +194,12 @@ actor PreparedVTHighQualitySuperResolutionScaler: PreparedFrameUpscaler {
         )
         bridge = try VTQualityColorBridge()
         do { try processor.startSession(configuration: nativeConfiguration) }
-        catch { throw nv12.processingError("quality VTFrameProcessor session start failed: \(error.localizedDescription)") }
+        catch {
+            let ns = error as NSError
+            throw nv12.processingError(
+                "quality VTFrameProcessor session start failed (\(ns.domain) \(ns.code)): \(ns.localizedDescription)"
+            )
+        }
     }
 
     deinit { if !finished { processor.endSession() } }

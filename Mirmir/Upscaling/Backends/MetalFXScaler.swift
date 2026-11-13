@@ -211,13 +211,23 @@ actor PreparedMetalFXScaler: PreparedFrameUpscaler {
     func finish() async throws { finished = true }
 }
 
-private enum MetalFXBT709Bridge {
+enum MetalFXBT709Bridge {
     private static let kr = 0.2126
     private static let kb = 0.0722
     private static let kg = 1 - kr - kb
 
     static func decode(_ source: CVPixelBuffer, configuration: NV12ScalerConfiguration) throws -> [UInt16] {
         try validateAttachments(source, configuration: configuration)
+        let siting: ASHChromaSitingV2
+        do {
+            siting = try ASHNV12FrameCodec.chromaSiting(for: source)
+            if let bottom = CVBufferCopyAttachment(source, kCVImageBufferChromaLocationBottomFieldKey, nil),
+               (bottom as? String) != (CVBufferCopyAttachment(source, kCVImageBufferChromaLocationTopFieldKey, nil) as? String) {
+                throw UpscalerEngineError.strategyFailed("MetalFX requires one common progressive chroma location")
+            }
+        } catch {
+            throw configuration.processingError("decoded frame chroma location is not resolved: \(error.localizedDescription)")
+        }
         let status = CVPixelBufferLockBaseAddress(source, .readOnly)
         guard status == kCVReturnSuccess else { throw configuration.processingError("NV12 source lock failed (\(status))") }
         defer { CVPixelBufferUnlockBaseAddress(source, .readOnly) }
@@ -235,7 +245,7 @@ private enum MetalFXBT709Bridge {
                     base: cBase, stride: cStride,
                     width: configuration.sourceWidth / 2,
                     height: configuration.sourceHeight / 2,
-                    column: column, row: row
+                    column: column, row: row, siting: siting
                 )
                 let encodedR = clamp(y + 2 * (1 - kr) * chroma.cr)
                 let encodedB = clamp(y + 2 * (1 - kb) * chroma.cb)
@@ -290,6 +300,10 @@ private enum MetalFXBT709Bridge {
     }
 
     private static func validateAttachments(_ buffer: CVPixelBuffer, configuration: NV12ScalerConfiguration) throws {
+        if let fields = CVBufferCopyAttachment(buffer, kCVImageBufferFieldCountKey, nil) as? NSNumber,
+           fields.intValue != 1 {
+            throw configuration.processingError("the MetalFX color bridge requires a progressive frame")
+        }
         let expected: [(CFString, CFString)] = [
             (kCVImageBufferColorPrimariesKey, kCVImageBufferColorPrimaries_ITU_R_709_2),
             (kCVImageBufferTransferFunctionKey, kCVImageBufferTransferFunction_ITU_R_709_2),
@@ -303,6 +317,7 @@ private enum MetalFXBT709Bridge {
     }
 
     private static func installAttachments(_ buffer: CVPixelBuffer) {
+        CVBufferRemoveAttachment(buffer, kCVImageBufferChromaLocationBottomFieldKey)
         let values: [(CFString, CFString)] = [
             (kCVImageBufferColorPrimariesKey, kCVImageBufferColorPrimaries_ITU_R_709_2),
             (kCVImageBufferTransferFunctionKey, kCVImageBufferTransferFunction_ITU_R_709_2),
@@ -312,9 +327,9 @@ private enum MetalFXBT709Bridge {
         for (key, value) in values { CVBufferSetAttachment(buffer, key, value, .shouldPropagate) }
     }
 
-    private static func interpolatedChroma(base: UnsafePointer<UInt8>, stride: Int, width: Int, height: Int, column: Int, row: Int) -> (cb: Double, cr: Double) {
-        let sampleX = Double(column) / 2
-        let sampleY = (Double(row) - 0.5) / 2
+    private static func interpolatedChroma(base: UnsafePointer<UInt8>, stride: Int, width: Int, height: Int, column: Int, row: Int, siting: ASHChromaSitingV2) -> (cb: Double, cr: Double) {
+        let sampleX = (Double(column) - Double(siting.horizontalLumaOffsetNumerator) / 2) / 2
+        let sampleY = (Double(row) - Double(siting.verticalLumaOffsetNumerator) / 2) / 2
         let x0 = min(width - 1, max(0, Int(floor(sampleX))))
         let x1 = min(width - 1, x0 + 1)
         let y0 = min(height - 1, max(0, Int(floor(sampleY))))

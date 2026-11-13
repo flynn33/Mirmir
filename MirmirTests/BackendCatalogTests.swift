@@ -1,3 +1,4 @@
+import AVFoundation
 import CoreMedia
 import CoreVideo
 import Foundation
@@ -6,6 +7,75 @@ import XCTest
 @testable import Mirmir
 
 final class BackendCatalogTests: XCTestCase {
+    @MainActor
+    func testModelDownloadProgressSuccessAndDuplicateStart() async throws {
+        let backend = CatalogDownloadBackend()
+        let model = await makeDownloadModel(backend)
+        model.downloadSelectedModel()
+        model.downloadSelectedModel()
+        try await waitForDownloadCondition { await backend.callCount == 1 }
+        await backend.report(-2)
+        try await waitForDownloadCondition { model.modelDownloadProgress == 0 }
+        await backend.report(2)
+        try await waitForDownloadCondition { model.modelDownloadProgress == 1 }
+        await backend.complete(failing: false)
+        try await waitForDownloadCondition { !model.isDownloadingModel }
+        await model.waitForBackendAvailability()
+        XCTAssertEqual(model.modelDownloadMessage, "Apple model is ready.")
+        XCTAssertEqual(model.modelDownloadProgress, 1)
+        XCTAssertEqual(model.backendSnapshot?.entry(for: .videoToolboxSuperResolutionQuality)?.availability, .available)
+        let calls = await backend.callCount
+        XCTAssertEqual(calls, 1)
+    }
+
+    @MainActor
+    func testModelDownloadFailureAllowsRetryAndClearIgnoresLateCallbacks() async throws {
+        let backend = CatalogDownloadBackend()
+        let model = await makeDownloadModel(backend)
+        model.downloadSelectedModel()
+        try await waitForDownloadCondition { await backend.callCount == 1 }
+        await backend.complete(failing: true)
+        try await waitForDownloadCondition { !model.isDownloadingModel }
+        XCTAssertEqual(model.modelDownloadMessage, "Injected model download failure")
+        await model.waitForBackendAvailability()
+        XCTAssertEqual(model.backendSnapshot?.entry(for: .videoToolboxSuperResolutionQuality)?.availability, .modelDownloadRequired(progress: nil))
+        model.downloadSelectedModel()
+        try await waitForDownloadCondition { await backend.callCount == 2 }
+        model.clear()
+        await backend.report(0.8)
+        await backend.complete(failing: false)
+        // Drain the callback tasks from an API that finishes after cancellation.
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertFalse(model.isDownloadingModel)
+        XCTAssertNil(model.modelDownloadProgress)
+        XCTAssertNil(model.modelDownloadMessage)
+        XCTAssertNil(model.currentVideoInfo)
+    }
+
+    @MainActor
+    private func makeDownloadModel(_ backend: CatalogDownloadBackend) async -> MirmirViewModel {
+        let source = makeVideoInfo(url: URL(fileURLWithPath: "/tmp/model-download-fixture.mov"))
+        let model = MirmirViewModel(
+            videoProbe: ImmediateCatalogVideoProbe(info: source),
+            backendCatalog: UpscaleBackendCatalog(backends: [backend]),
+            runtimeEnvironment: testEnvironment
+        )
+        model.selectBackend(.videoToolboxSuperResolutionQuality)
+        model.selectVideo(source.url)
+        await model.waitForCurrentProbe()
+        await model.waitForBackendAvailability()
+        return model
+    }
+
+    @MainActor
+    private func waitForDownloadCondition(_ condition: @MainActor () async -> Bool) async throws {
+        for _ in 0..<500 {
+            if await condition() { return }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        throw CatalogDownloadTestError.timeout
+    }
+
     func testDeterministicReleaseDescriptorsContainNoPreviewIdentity() {
         for id in [
             UpscaleBackendID.mirmirDeterministicCPU,
@@ -167,6 +237,21 @@ final class BackendCatalogTests: XCTestCase {
     func testSmoothMotionRejectsSourceBeyondReportedTwoXGeometryLimit()
         async throws {
         guard #available(macOS 27.0, *) else { return }
+        if !VTLowLatencyFrameInterpolationConfiguration.isSupported {
+            let source = makeVideoInfo(
+                url: URL(fileURLWithPath: "/tmp/catalog-smooth-motion-unsupported.mov"),
+                encodedSize: CGSize(width: 64, height: 64)
+            )
+            let availability = await SystemBackendCapabilityProbe().availability(
+                for: .videoToolboxInterpolationWithSpatialScale,
+                source: source,
+                targetSize: CGSize(width: 128, height: 128)
+            )
+            XCTAssertEqual(availability, .unavailable(reason: .appleAPIUnsupported(
+                details: "VTLowLatencyFrameInterpolationConfiguration.isSupported is false"
+            )))
+            return
+        }
         let maximumDimension = try XCTUnwrap(
             VTLowLatencyFrameInterpolationConfiguration
                 .maximumDimension(forSpatialScaleFactor: 2)
@@ -611,6 +696,65 @@ final class BackendCatalogTests: XCTestCase {
     }
 
     @MainActor
+    func testCompletedWorkflowKeepsOriginalSourceAfterSnapshotCleanup() async throws {
+        let original = makeVideoInfo(url: URL(fileURLWithPath: "/tmp/original.mov"))
+        let snapshot = makeVideoInfo(url: URL(fileURLWithPath: "/tmp/deleted-private-snapshot/original.mov"))
+        let output = URL(fileURLWithPath: "/tmp/completed.mov")
+        let instant = WorkflowWallClockInstantV4(nanosecondsSinceUnixEpoch: 45)
+        let completion = WorkflowApplicationRunOutcomeV4.completed(
+            WorkflowApplicationCompletionV4(source: snapshot, result: UpscaleResult(
+                outputURL: output, actualBackendID: .mirmirDeterministicCPU,
+                encodedWidth: 640, encodedHeight: 360, durationSeconds: 1,
+                outputCodec: .hevc, audioResult: .absent,
+                processedFrameCount: 24, processingDurationSeconds: 1
+            ))
+        )
+        let controller = CatalogQueueStateControllerV4(
+            queue: .init(generatedAt: instant, items: []),
+            recovery: .init(generatedAt: instant, items: [])
+        )
+        let jobID = try WorkflowJobID("paused-original-selection")
+        await controller.setOutcomes([
+            .paused(jobID: jobID, source: snapshot), completion
+        ])
+        let values = Dictionary(uniqueKeysWithValues: BackendDescriptor.concrete.map {
+            ($0.id, BackendAvailability.available)
+        })
+        let model = MirmirViewModel(
+            videoProbe: ImmediateCatalogVideoProbe(info: original),
+            backendCatalog: UpscaleBackendCatalog(backends: makeStubBackends(values: values)),
+            runtimeEnvironment: testEnvironment, workflowController: controller
+        )
+        await model.initializeWorkflow()
+        model.selectBackend(.mirmirDeterministicCPU)
+        model.selectVideo(original.url)
+        await model.waitForCurrentProbe()
+        await model.waitForBackendAvailability()
+        model.setOutputURL(output)
+        XCTAssertTrue(model.canStart)
+        model.startUpscale()
+        await model.waitForProcessing()
+        XCTAssertEqual(model.currentVideoInfo?.url, original.url)
+        model.clear()
+        model.resumeWorkflowJob(jobID)
+        await model.waitForProcessing()
+        guard case .completed(let source, _) = model.state else {
+            return XCTFail("Expected completed workflow")
+        }
+        XCTAssertEqual(source.url, original.url)
+        XCTAssertEqual(model.currentVideoInfo?.url, original.url)
+        XCTAssertEqual(model.completedComparisonSourceURL, original.url)
+
+        // A recovered job with no retained original must not offer a deleted
+        // processing snapshot as a usable comparison file.
+        model.clear()
+        await controller.setOutcomes([completion])
+        model.resumeWorkflowJob(try WorkflowJobID("recovered-other-job"))
+        await model.waitForProcessing()
+        XCTAssertNil(model.completedComparisonSourceURL)
+    }
+
+    @MainActor
     func testProRes4444AllowsOddIntegralAlphaGeometryInProductDraft()
         async throws {
         let sourceURL = URL(
@@ -781,6 +925,11 @@ private actor CatalogQueueStateControllerV4:
     private let recovery: WorkflowLaunchRecoverySnapshotV4
     private var observer = WorkflowApplicationObserverV4.none
     private var submittedRequests: [UpscaleRequest] = []
+    private var outcomes: [WorkflowApplicationRunOutcomeV4] = []
+
+    func setOutcomes(_ outcomes: [WorkflowApplicationRunOutcomeV4]) {
+        self.outcomes = outcomes
+    }
 
     init(
         queue: WorkflowApplicationQueueSnapshotV4,
@@ -816,6 +965,7 @@ private actor CatalogQueueStateControllerV4:
         ) -> Void
     ) async throws -> WorkflowApplicationRunOutcomeV4 {
         submittedRequests.append(request)
+        if !outcomes.isEmpty { return outcomes.removeFirst() }
         throw CatalogQueueStateControllerErrorV4.unsupported
     }
 
@@ -838,6 +988,7 @@ private actor CatalogQueueStateControllerV4:
             WorkflowApplicationQueueSnapshotV4
         ) -> Void
     ) async throws -> WorkflowApplicationRunOutcomeV4 {
+        if !outcomes.isEmpty { return outcomes.removeFirst() }
         throw CatalogQueueStateControllerErrorV4.unsupported
     }
 
@@ -960,7 +1111,437 @@ private func makeVideoInfo(
             alphaModel: alphaModel,
             hasMasteringDisplayMetadata: false,
             hasContentLightLevelMetadata: false,
-            dynamicRange: dynamicRange
+            dynamicRange: dynamicRange,
+            chromaSiting: alphaModel == .none ? .left : .notApplicable
         )
     )
+}
+
+private enum CatalogDownloadTestError: Error { case timeout }
+
+private actor CatalogDownloadBackend: ModelDownloadableBackend {
+    nonisolated let descriptor = BackendDescriptor.descriptor(for: .videoToolboxSuperResolutionQuality)!
+    private(set) var callCount = 0
+    private var ready = false
+    private var continuation: CheckedContinuation<Void, Error>?
+    private var progress: (@Sendable (Double) -> Void)?
+
+    func availability(for source: VideoInfo, targetSize: CGSize, environment: RuntimeEnvironment) async -> BackendAvailability {
+        ready ? .available : .modelDownloadRequired(progress: nil)
+    }
+
+    func prepare(request: BackendPreparationRequest, environment: RuntimeEnvironment) async throws -> any PreparedFrameUpscaler {
+        throw MirmirError.invalidRequest("The download-state fixture must not prepare frames.")
+    }
+
+    func downloadModel(request: BackendPreparationRequest, environment: RuntimeEnvironment, progress: @escaping @Sendable (Double) -> Void) async throws {
+        callCount += 1
+        self.progress = progress
+        try await withCheckedThrowingContinuation { continuation = $0 }
+    }
+
+    func report(_ value: Double) { progress?(value) }
+
+    func complete(failing: Bool) {
+        let pending = continuation
+        continuation = nil
+        if failing {
+            pending?.resume(throwing: NSError(domain: "model-download-test", code: 1, userInfo: [NSLocalizedDescriptionKey: "Injected model download failure"]))
+        } else {
+            ready = true
+            pending?.resume()
+        }
+    }
+}
+
+@MainActor final class AppleModelCancellationTests: XCTestCase {
+    private func report(_ stage: String, _ fields: [String: Any] = [:]) throws {
+        var row = fields
+        row["stage"] = stage
+        row["atUTC"] = ISO8601DateFormatter().string(from: Date())
+        let data = try JSONSerialization.data(withJSONObject: row, options: [.sortedKeys])
+        var line = Data("MODEL_CANCEL_QA ".utf8)
+        line.append(data)
+        line.append(10)
+        XCTAssertLessThan(line.count, 4096)
+        FileHandle.standardOutput.write(line)
+    }
+
+    func testClearDuringRealDownloadAndRetryDoNotApplyStaleResults() async throws {
+        guard ProcessInfo.processInfo.environment["MIRMIR_RUN_FRESH_APPLE_MODEL_DOWNLOAD_GATE"] == "1" else {
+            throw XCTSkip("Set MIRMIR_RUN_FRESH_APPLE_MODEL_DOWNLOAD_GATE=1 on a fresh macOS 26+ model environment.")
+        }
+        guard #available(macOS 26.0, *) else { throw Failure.wrongOS }
+        XCTAssertNil(ProcessInfo.processInfo.environment["TART_METAL_APPLE_FAMILY_MAX"])
+        let configuration = try XCTUnwrap(VTSuperResolutionScalerConfiguration(
+            frameWidth: 320, frameHeight: 192, scaleFactor: 4, inputType: .video,
+            usePrecomputedFlow: false, qualityPrioritization: .normal,
+            revision: VTSuperResolutionScalerConfiguration.defaultRevision))
+        try report("initial-native-state", ["OS": ProcessInfo.processInfo.operatingSystemVersionString,
+            "status": configuration.configurationModelStatus.rawValue,
+            "percentage": configuration.configurationModelPercentageAvailable])
+        guard configuration.configurationModelStatus == .downloadRequired else { throw Failure.notFresh }
+        let source = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "model-cancel-source-" + UUID().uuidString + ".mov")
+        try await makeVideo(at: source)
+        let descriptor = try XCTUnwrap(BackendDescriptor.descriptor(for: .videoToolboxSuperResolutionQuality))
+        let backend = try XCTUnwrap(VTHighQualitySuperResolutionBackend(descriptor: descriptor))
+        let model = MirmirViewModel(backendCatalog: UpscaleBackendCatalog(backends: [backend]),
+                                   runtimeEnvironment: .current())
+        await selectSource(model, url: source)
+        guard let availability = model.backendSnapshot?.entry(for: .videoToolboxSuperResolutionQuality)?.availability,
+              case .modelDownloadRequired = availability else {
+            throw Failure.notFresh
+        }
+        model.downloadSelectedModel()
+        model.downloadSelectedModel()
+        XCTAssertTrue(model.isDownloadingModel)
+        try await until {
+            let value = model.modelDownloadProgress ?? 0
+            return value >= 0.1 && value < 1
+        }
+        let cancelPercentage = model.modelDownloadProgress!
+        try report("before-clear", ["progress": cancelPercentage,
+            "nativeStatus": configuration.configurationModelStatus.rawValue,
+            "nativePercentage": configuration.configurationModelPercentageAvailable,
+            "downloading": model.isDownloadingModel])
+        model.clear()
+        assertCleared(model)
+        for _ in 0..<5 {
+            try await Task.sleep(for: .milliseconds(100))
+            assertCleared(model)
+        }
+        try report("clear-remained-stable", ["observedMilliseconds": 500,
+            "nativeStatus": configuration.configurationModelStatus.rawValue,
+            "nativePercentage": configuration.configurationModelPercentageAvailable,
+            "sourceCleared": model.currentVideoInfo == nil,
+            "progressCleared": model.modelDownloadProgress == nil,
+            "messageCleared": model.modelDownloadMessage == nil,
+            "downloading": model.isDownloadingModel])
+        await selectSource(model, url: source)
+        let retryStatus = configuration.configurationModelStatus.rawValue
+        let retryPercentage = configuration.configurationModelPercentageAvailable
+        let retryWasReady = configuration.configurationModelStatus == .ready
+        model.downloadSelectedModel()
+        XCTAssertTrue(model.isDownloadingModel)
+        try report("retry-started", ["nativeStatus": retryStatus,
+            "nativePercentage": retryPercentage,
+            "downloading": model.isDownloadingModel])
+        try await until { !model.isDownloadingModel }
+        await model.waitForBackendAvailability()
+        XCTAssertEqual(model.currentVideoInfo?.url, source)
+        XCTAssertEqual(model.modelDownloadProgress, 1)
+        XCTAssertEqual(model.modelDownloadMessage, "Apple model is ready.")
+        XCTAssertEqual(model.backendSnapshot?.entry(for: .videoToolboxSuperResolutionQuality)?.availability, .available)
+        XCTAssertEqual(configuration.configurationModelStatus, .ready)
+        let finalMessage = model.modelDownloadMessage
+        try await Task.sleep(for: .milliseconds(600))
+        XCTAssertEqual(model.modelDownloadMessage, finalMessage)
+        XCTAssertEqual(model.modelDownloadProgress, 1)
+        XCTAssertFalse(model.isDownloadingModel)
+        try report("retry-ready-stable", ["nativeStatus": configuration.configurationModelStatus.rawValue,
+            "nativePercentage": configuration.configurationModelPercentageAvailable,
+            "progress": model.modelDownloadProgress!, "clearAtProgress": cancelPercentage,
+            "retryStartedWhileNativeReady": retryWasReady,
+            "currentSourceExact": model.currentVideoInfo?.url == source,
+            "message": model.modelDownloadMessage!, "additionalObservationMilliseconds": 600])
+    }
+
+    func testRealNetworkFailureAndRetry() async throws {
+        guard ProcessInfo.processInfo.environment["MIRMIR_RUN_OFFLINE_APPLE_MODEL_DOWNLOAD_GATE"] == "1" else {
+            throw XCTSkip("Set MIRMIR_RUN_OFFLINE_APPLE_MODEL_DOWNLOAD_GATE=1 with the disposable-VM network driver.")
+        }
+        guard #available(macOS 26.0, *) else { throw Failure.wrongOS }
+        let configuration = try XCTUnwrap(VTSuperResolutionScalerConfiguration(
+            frameWidth: 320, frameHeight: 192, scaleFactor: 4, inputType: .video,
+            usePrecomputedFlow: false, qualityPrioritization: .normal,
+            revision: VTSuperResolutionScalerConfiguration.defaultRevision))
+        guard configuration.configurationModelStatus == .downloadRequired else { throw Failure.notFresh }
+        try report("offline-initial", ["status": configuration.configurationModelStatus.rawValue,
+            "percentage": configuration.configurationModelPercentageAvailable])
+        let source = FileManager.default.temporaryDirectory.appendingPathComponent("model-offline-source-" + UUID().uuidString + ".mov")
+        try await makeVideo(at: source)
+        let descriptor = try XCTUnwrap(BackendDescriptor.descriptor(for: .videoToolboxSuperResolutionQuality))
+        let backend = try XCTUnwrap(VTHighQualitySuperResolutionBackend(descriptor: descriptor))
+        let model = MirmirViewModel(backendCatalog: UpscaleBackendCatalog(backends: [backend]), runtimeEnvironment: .current())
+        await selectSource(model, url: source)
+        model.downloadSelectedModel()
+        XCTAssertTrue(model.isDownloadingModel)
+        try await until(maximumAttempts: 9000) { !model.isDownloadingModel }
+        XCTAssertEqual(configuration.configurationModelStatus, .downloadRequired)
+        XCTAssertNotNil(model.modelDownloadMessage)
+        XCTAssertNotEqual(model.modelDownloadMessage, "Apple model is ready.")
+        XCTAssertEqual(model.currentVideoInfo?.url, source)
+        try report("offline-failed", ["status": configuration.configurationModelStatus.rawValue,
+            "percentage": configuration.configurationModelPercentageAvailable,
+            "message": model.modelDownloadMessage ?? "", "downloading": model.isDownloadingModel])
+        // The external driver restores this QA VM's original route at the receipt above.
+        try await Task.sleep(for: .seconds(5))
+        try report("network-retry-requested")
+        model.downloadSelectedModel()
+        try await until(maximumAttempts: 9000) { !model.isDownloadingModel }
+        await model.waitForBackendAvailability()
+        XCTAssertEqual(model.modelDownloadProgress, 1)
+        XCTAssertEqual(model.modelDownloadMessage, "Apple model is ready.")
+        XCTAssertEqual(model.currentVideoInfo?.url, source)
+        XCTAssertEqual(model.backendSnapshot?.entry(for: .videoToolboxSuperResolutionQuality)?.availability, .available)
+        XCTAssertEqual(configuration.configurationModelStatus, .ready)
+        try report("network-retry-ready", ["status": configuration.configurationModelStatus.rawValue,
+            "progress": model.modelDownloadProgress ?? -1, "message": model.modelDownloadMessage ?? ""])
+    }
+
+    private func selectSource(_ model: MirmirViewModel, url: URL) async {
+        model.selectBackend(.videoToolboxSuperResolutionQuality)
+        model.selectVideo(url)
+        await model.waitForCurrentProbe()
+        model.setTargetWidth(1280)
+        model.setTargetHeight(768)
+        await model.waitForBackendAvailability()
+    }
+
+    private func assertCleared(_ model: MirmirViewModel) {
+        XCTAssertFalse(model.isDownloadingModel)
+        XCTAssertNil(model.modelDownloadProgress)
+        XCTAssertNil(model.modelDownloadMessage)
+        XCTAssertNil(model.currentVideoInfo)
+    }
+
+    private func until(maximumAttempts: Int = 1800, _ condition: () -> Bool) async throws {
+        for _ in 0..<maximumAttempts {
+            if condition() { return }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        throw Failure.timeout
+    }
+
+    private func makeVideo(at url: URL) async throws {
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+        let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
+            AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: 320, AVVideoHeightKey: 192,
+            AVVideoColorPropertiesKey: [AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+                AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2]])
+        let attributes: [String: Any] = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            kCVPixelBufferWidthKey as String: 320, kCVPixelBufferHeightKey as String: 192,
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:]]
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input, sourcePixelBufferAttributes: attributes)
+        guard writer.canAdd(input) else { throw Failure.writer }
+        writer.add(input)
+        guard writer.startWriting() else { throw Failure.writer }
+        writer.startSession(atSourceTime: .zero)
+        for index in 0..<3 {
+            while !input.isReadyForMoreMediaData {
+                guard writer.status != .failed else { throw writer.error ?? Failure.writer }
+                try await Task.sleep(for: .milliseconds(1))
+            }
+            var created: CVPixelBuffer?
+            guard CVPixelBufferCreate(kCFAllocatorDefault, 320, 192,
+                kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange, attributes as CFDictionary, &created) == kCVReturnSuccess,
+                let buffer = created else { throw Failure.buffer }
+            CVPixelBufferLockBaseAddress(buffer, [])
+            for plane in 0..<2 {
+                let height = CVPixelBufferGetHeightOfPlane(buffer, plane)
+                let stride = CVPixelBufferGetBytesPerRowOfPlane(buffer, plane)
+                let base = CVPixelBufferGetBaseAddressOfPlane(buffer, plane)!
+                memset(base, plane == 0 ? Int32(40 + index * 40) : 128, height * stride)
+            }
+            CVPixelBufferUnlockBaseAddress(buffer, [])
+            CVBufferSetAttachment(buffer, kCVImageBufferColorPrimariesKey, kCVImageBufferColorPrimaries_ITU_R_709_2, .shouldPropagate)
+            CVBufferSetAttachment(buffer, kCVImageBufferTransferFunctionKey, kCVImageBufferTransferFunction_ITU_R_709_2, .shouldPropagate)
+            CVBufferSetAttachment(buffer, kCVImageBufferYCbCrMatrixKey, kCVImageBufferYCbCrMatrix_ITU_R_709_2, .shouldPropagate)
+            guard adaptor.append(buffer, withPresentationTime: CMTime(value: Int64(index), timescale: 30)) else { throw Failure.writer }
+        }
+        input.markAsFinished()
+        writer.endSession(atSourceTime: CMTime(value: 3, timescale: 30))
+        await withCheckedContinuation { continuation in writer.finishWriting { continuation.resume() } }
+        guard writer.status == .completed else { throw writer.error ?? Failure.writer }
+    }
+
+    private enum Failure: Error { case wrongOS, notFresh, timeout, writer, buffer }
+}
+
+
+final class MetalFXBridgeChromaTests: XCTestCase {
+    private static let sites: [(CFString, Int, Int)] = [
+        (kCVImageBufferChromaLocation_Left, 0, 1),
+        (kCVImageBufferChromaLocation_Center, 1, 1),
+        (kCVImageBufferChromaLocation_TopLeft, 0, 0),
+        (kCVImageBufferChromaLocation_Top, 1, 0),
+        (kCVImageBufferChromaLocation_BottomLeft, 0, 2),
+        (kCVImageBufferChromaLocation_Bottom, 1, 2),
+    ]
+
+    // Enumerate representable binary16 values numerically; do not share the
+    // production bit conversion or rely on Float16 in the Intel slice.
+    private static let positiveHalfValues: [Double] = (0...0x3c00).map { bits in
+        let exponent = bits / 1024, mantissa = bits % 1024
+        return exponent == 0 ? Double(mantissa) * pow(2, -24)
+            : Double(1024 + mantissa) * pow(2, Double(exponent - 25))
+    }
+
+    private func nearestHalf(_ value: Double) -> UInt16 {
+        let value = Double(Float(value))
+        let table = Self.positiveHalfValues
+        var low = 0, high = table.count - 1
+        while low < high {
+            let middle = (low + high) / 2
+            if table[middle] < value { low = middle + 1 } else { high = middle }
+        }
+        guard low > 0 else { return 0 }
+        let below = value - table[low - 1], above = table[low] - value
+        if below < above { return UInt16(low - 1) }
+        if above < below { return UInt16(low) }
+        return UInt16(low.isMultiple(of: 2) ? low : low - 1)
+    }
+
+    private func buffer(_ width: Int, _ height: Int) throws -> CVPixelBuffer {
+        var result: CVPixelBuffer?
+        XCTAssertEqual(CVPixelBufferCreate(kCFAllocatorDefault, width, height,
+            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            [kCVPixelBufferIOSurfacePropertiesKey: [:]] as CFDictionary, &result), kCVReturnSuccess)
+        return try XCTUnwrap(result)
+    }
+
+    private func storage(_ image: CVPixelBuffer) -> [Data] {
+        CVPixelBufferLockBaseAddress(image, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(image, .readOnly) }
+        return (0..<2).map { plane in
+            Data(bytes: CVPixelBufferGetBaseAddressOfPlane(image, plane)!,
+                count: CVPixelBufferGetBytesPerRowOfPlane(image, plane) * CVPixelBufferGetHeightOfPlane(image, plane))
+        }
+    }
+
+    private func install709(_ image: CVPixelBuffer) {
+        for (key, value) in [(kCVImageBufferColorPrimariesKey, kCVImageBufferColorPrimaries_ITU_R_709_2),
+            (kCVImageBufferTransferFunctionKey, kCVImageBufferTransferFunction_ITU_R_709_2),
+            (kCVImageBufferYCbCrMatrixKey, kCVImageBufferYCbCrMatrix_ITU_R_709_2)] {
+            CVBufferSetAttachment(image, key, value, .shouldPropagate)
+        }
+    }
+
+    private func expected(_ image: CVPixelBuffer, width: Int, height: Int, nx: Int, ny: Int) -> [UInt16] {
+        CVPixelBufferLockBaseAddress(image, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(image, .readOnly) }
+        let y = CVPixelBufferGetBaseAddressOfPlane(image, 0)!.assumingMemoryBound(to: UInt8.self)
+        let uv = CVPixelBufferGetBaseAddressOfPlane(image, 1)!.assumingMemoryBound(to: UInt8.self)
+        let ys = CVPixelBufferGetBytesPerRowOfPlane(image, 0), uvs = CVPixelBufferGetBytesPerRowOfPlane(image, 1)
+        func chroma(_ column: Int, _ row: Int, _ component: Int) -> Double {
+            let qx = 2 * column - nx, qy = 2 * row - ny
+            let x0 = Int(floor(Double(qx) / 4)), y0 = Int(floor(Double(qy) / 4))
+            let wx = qx - 4 * x0, wy = qy - 4 * y0
+            func sample(_ x: Int, _ y: Int) -> Int {
+                Int(uv[min(height / 2 - 1, max(0, y)) * uvs + min(width / 2 - 1, max(0, x)) * 2 + component])
+            }
+            let sum = sample(x0, y0) * (4 - wx) * (4 - wy)
+                + sample(x0 + 1, y0) * wx * (4 - wy)
+                + sample(x0, y0 + 1) * (4 - wx) * wy
+                + sample(x0 + 1, y0 + 1) * wx * wy
+            return (Double(sum) / 16 - 128) / 224
+        }
+        func encodedToLinear(_ input: Double) -> Double {
+            let v = min(1, max(0, input))
+            return v < 0.081 ? v / 4.5 : pow((v + 0.099) / 1.099, 1 / 0.45)
+        }
+        let kr = 2126.0 / 10000, kb = 722.0 / 10000, kg = 1 - kr - kb
+        var result: [UInt16] = []
+        for row in 0..<height {
+            for column in 0..<width {
+                let luma = (Double(y[row * ys + column]) - 16) / 219
+                let cb = chroma(column, row, 0), cr = chroma(column, row, 1)
+                let red = luma + 2 * (1 - kr) * cr
+                let blue = luma + 2 * (1 - kb) * cb
+                let green = (luma - kr * red - kb * blue) / kg
+                result += [red, green, blue].map { nearestHalf(encodedToLinear($0)) }
+                result.append(0x3c00)
+            }
+        }
+        return result
+    }
+
+    func testDecoderUsesAllSixPhysicalLocationsWithIndependentMatrixAndHalfOracle() throws {
+        for (width, height) in [(2, 2), (8, 6), (32, 24)] {
+            let image = try buffer(width, height)
+            CVPixelBufferLockBaseAddress(image, [])
+            for plane in 0..<2 {
+                let bytes = CVPixelBufferGetBaseAddressOfPlane(image, plane)!.assumingMemoryBound(to: UInt8.self)
+                let stride = CVPixelBufferGetBytesPerRowOfPlane(image, plane)
+                memset(bytes, 0xA7, stride * CVPixelBufferGetHeightOfPlane(image, plane))
+                for row in 0..<CVPixelBufferGetHeightOfPlane(image, plane) {
+                    for column in 0..<CVPixelBufferGetWidthOfPlane(image, plane) {
+                        if plane == 0 { bytes[row * stride + column] = UInt8(64 + (row * 7 + column * 11) % 128) }
+                        else {
+                            bytes[row * stride + 2 * column] = UInt8(96 + (column * 7 + row * 5) % 64)
+                            bytes[row * stride + 2 * column + 1] = UInt8(96 + (column * 3 + row * 11) % 64)
+                        }
+                    }
+                }
+            }
+            CVPixelBufferUnlockBaseAddress(image, [])
+            install709(image)
+            let configuration = NV12ScalerConfiguration(backendID: .metalFXSpatial,
+                pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                sourceWidth: width, sourceHeight: height, targetWidth: width * 2, targetHeight: height * 2)
+            for (site, nx, ny) in Self.sites {
+                for key in [kCVImageBufferChromaLocationTopFieldKey, kCVImageBufferChromaLocationBottomFieldKey] {
+                    CVBufferSetAttachment(image, key, site, .shouldPropagate)
+                }
+                let before = storage(image)
+                let attachments = CVBufferCopyAttachments(image, .shouldPropagate) as NSDictionary?
+                let actual = try MetalFXBT709Bridge.decode(image, configuration: configuration)
+                XCTAssertEqual(actual, expected(image, width: width, height: height, nx: nx, ny: ny), "\(width)x\(height), \(site)")
+                XCTAssertEqual(storage(image), before)
+                XCTAssertEqual(CVBufferCopyAttachments(image, .shouldPropagate) as NSDictionary?, attachments)
+            }
+        }
+    }
+
+    func testDecoderRejectsUnresolvedAndConflictingPhaseWithoutMutation() throws {
+        let image = try buffer(8, 6)
+        install709(image)
+        let configuration = NV12ScalerConfiguration(backendID: .metalFXSpatial,
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            sourceWidth: 8, sourceHeight: 6, targetWidth: 16, targetHeight: 12)
+        let cases: [(CFString?, CFString?)] = [(nil, nil), (kCVImageBufferChromaLocation_DV420, nil),
+            (nil, kCVImageBufferChromaLocation_Left), (kCVImageBufferChromaLocation_Left, kCVImageBufferChromaLocation_Center)]
+        for (top, bottom) in cases {
+            CVBufferRemoveAttachment(image, kCVImageBufferChromaLocationTopFieldKey)
+            CVBufferRemoveAttachment(image, kCVImageBufferChromaLocationBottomFieldKey)
+            if let top { CVBufferSetAttachment(image, kCVImageBufferChromaLocationTopFieldKey, top, .shouldPropagate) }
+            if let bottom { CVBufferSetAttachment(image, kCVImageBufferChromaLocationBottomFieldKey, bottom, .shouldPropagate) }
+            let before = storage(image), attachments = CVBufferCopyAttachments(image, .shouldPropagate) as NSDictionary?
+            XCTAssertThrowsError(try MetalFXBT709Bridge.decode(image, configuration: configuration))
+            XCTAssertEqual(storage(image), before)
+            XCTAssertEqual(CVBufferCopyAttachments(image, .shouldPropagate) as NSDictionary?, attachments)
+        }
+    }
+
+    func testDecoderRejectsExplicitInterlacedFrameBeforeReading() throws {
+        let image = try buffer(8, 6)
+        install709(image)
+        for key in [kCVImageBufferChromaLocationTopFieldKey, kCVImageBufferChromaLocationBottomFieldKey] {
+            CVBufferSetAttachment(image, key, kCVImageBufferChromaLocation_Left, .shouldPropagate)
+        }
+        CVBufferSetAttachment(image, kCVImageBufferFieldCountKey, 2 as CFNumber, .shouldPropagate)
+        XCTAssertEqual((CVBufferCopyAttachment(image, kCVImageBufferFieldCountKey, nil) as? NSNumber)?.intValue, 2)
+        let before = storage(image)
+        let configuration = NV12ScalerConfiguration(backendID: .metalFXSpatial,
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            sourceWidth: 8, sourceHeight: 6, targetWidth: 16, targetHeight: 12)
+        XCTAssertThrowsError(try MetalFXBT709Bridge.decode(image, configuration: configuration))
+        XCTAssertEqual(storage(image), before)
+    }
+
+    func testEncoderClearsStaleBottomPhaseWhenItEmitsProgressiveLeft() throws {
+        let image = try buffer(16, 12)
+        let configuration = NV12ScalerConfiguration(backendID: .metalFXSpatial,
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            sourceWidth: 8, sourceHeight: 6, targetWidth: 16, targetHeight: 12)
+        CVBufferSetAttachment(image, kCVImageBufferChromaLocationBottomFieldKey,
+            kCVImageBufferChromaLocation_Center, .shouldPropagate)
+        var linear = [UInt16](repeating: 0, count: 16 * 12 * 4)
+        for index in stride(from: 3, to: linear.count, by: 4) { linear[index] = 0x3c00 }
+        try MetalFXBT709Bridge.encode(linear, into: image, configuration: configuration)
+        XCTAssertEqual(CVBufferCopyAttachment(image, kCVImageBufferChromaLocationTopFieldKey, nil) as? String, kCVImageBufferChromaLocation_Left as String)
+        XCTAssertNil(CVBufferCopyAttachment(image, kCVImageBufferChromaLocationBottomFieldKey, nil))
+    }
 }
